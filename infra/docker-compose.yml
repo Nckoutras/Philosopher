@@ -1,0 +1,90 @@
+version: "3.9"
+
+services:
+
+  # ── PostgreSQL + pgvector ─────────────────────────────────────────────────
+  db:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER:     philosopher
+      POSTGRES_PASSWORD: philosopher
+      POSTGRES_DB:       philosopher
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U philosopher"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ── Redis ─────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # ── FastAPI backend ───────────────────────────────────────────────────────
+  api:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file: ./apps/api/.env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://philosopher:philosopher@db:5432/philosopher
+      REDIS_URL:    redis://redis:6379/0
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:    { condition: service_healthy }
+      redis: { condition: service_healthy }
+    volumes:
+      - ./apps/api:/app
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+  # ── ARQ worker ────────────────────────────────────────────────────────────
+  worker:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file: ./apps/api/.env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://philosopher:philosopher@db:5432/philosopher
+      REDIS_URL:    redis://redis:6379/0
+    depends_on:
+      db:    { condition: service_healthy }
+      redis: { condition: service_healthy }
+    volumes:
+      - ./apps/api:/app
+    command: arq workers.arq_worker.WorkerSettings
+
+  # ── Next.js frontend ──────────────────────────────────────────────────────
+  web:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000/api/v1
+      API_URL:             http://api:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+    volumes:
+      - ./apps/web:/app
+      - /app/node_modules
+      - /app/.next
+
+volumes:
+  postgres_data:

@@ -1,0 +1,82 @@
+version: "3.9"
+
+# Production compose.
+# Usage: docker compose -f infra/docker-compose.prod.yml up -d
+#
+# Assumes:
+# - DB and Redis are managed external services (Neon, Supabase, Upstash)
+# - Set all env vars via your platform (Railway, Render, Fly.io)
+# - Or use a .env.prod file: docker compose --env-file .env.prod up
+#
+# To build images: docker compose -f infra/docker-compose.prod.yml build
+
+services:
+
+  api:
+    image: philosopher-api:${VERSION:-latest}
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+      target: production
+    restart: always
+    env_file: ./apps/api/.env.prod
+    environment:
+      ENV: production
+      DEBUG: "false"
+    ports:
+      - "8000:8000"
+    command: >
+      sh -c "alembic upgrade head &&
+             python db/seed.py &&
+             uvicorn main:app --host 0.0.0.0 --port 8000 --workers 2"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  worker:
+    image: philosopher-api:${VERSION:-latest}
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    restart: always
+    env_file: ./apps/api/.env.prod
+    environment:
+      ENV: production
+      DEBUG: "false"
+    command: arq workers.arq_worker.WorkerSettings
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  web:
+    image: philosopher-web:${VERSION:-latest}
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile
+      target: runner
+    restart: always
+    environment:
+      NODE_ENV: production
+    env_file: ./apps/web/.env.prod
+    ports:
+      - "3000:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 256M

@@ -1,0 +1,111 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Design tokens ─────────────────────────────────────────────────────────── */
+:root {
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-serif: 'Lora', ui-serif, Georgia, serif;
+
+  /* Light mode */
+  --bg-primary:     #faf9f6;
+  --bg-secondary:   #f2f0eb;
+  --bg-surface:     #ffffff;
+  --text-primary:   #1a1916;
+  --text-secondary: #5a574f;
+  --text-muted:     #9c9890;
+  --border:         rgba(0,0,0,0.08);
+  --border-strong:  rgba(0,0,0,0.15);
+  --accent:         #8b6f47;
+  --accent-hover:   #7a6040;
+  --gold:           #c9a96e;
+  --toast-bg:       #ffffff;
+  --toast-fg:       #1a1916;
+}
+
+.dark {
+  --bg-primary:     #0f0e0d;
+  --bg-secondary:   #1a1916;
+  --bg-surface:     #211f1c;
+  --text-primary:   #e8e4dc;
+  --text-secondary: #9c9880;
+  --text-muted:     #5a574f;
+  --border:         rgba(255,255,255,0.07);
+  --border-strong:  rgba(255,255,255,0.14);
+  --accent:         #c9a96e;
+  --accent-hover:   #d4b87e;
+  --gold:           #c9a96e;
+  --toast-bg:       #211f1c;
+  --toast-fg:       #e8e4dc;
+}
+
+/* ── Base ───────────────────────────────────────────────────────────────────── */
+* { box-sizing: border-box; }
+
+html {
+  color-scheme: dark;
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.65;
+  min-height: 100dvh;
+}
+
+/* ── Typography ─────────────────────────────────────────────────────────────── */
+.prose-philosopher {
+  font-family: var(--font-serif);
+  font-size: 16px;
+  line-height: 1.8;
+  color: var(--text-primary);
+  letter-spacing: 0.01em;
+}
+
+.prose-philosopher p + p { margin-top: 1em; }
+
+/* Streaming cursor */
+.streaming-cursor::after {
+  content: '▋';
+  color: var(--gold);
+  animation: blink 0.8s step-end infinite;
+  margin-left: 1px;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+/* ── Scrollbar ──────────────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 2px; }
+
+/* ── Selection ──────────────────────────────────────────────────────────────── */
+::selection {
+  background: rgba(201,169,110,0.25);
+  color: var(--text-primary);
+}
+
+/* ── Focus ring ─────────────────────────────────────────────────────────────── */
+:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* ── Utilities ──────────────────────────────────────────────────────────────── */
+.glass {
+  background: rgba(255,255,255,0.03);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+}
+
+.surface {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+}
