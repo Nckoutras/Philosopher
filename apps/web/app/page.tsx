@@ -28,14 +28,14 @@ export default function LandingPage() {
 
         <div className="flex items-center justify-center gap-3">
           <Link
-            href="/register"
+            href="/auth/register"
             className="px-6 py-3 rounded-xl text-sm font-medium transition-opacity hover:opacity-80"
             style={{ background: 'var(--gold)', color: '#0f0e0d' }}
           >
             Begin for free
           </Link>
           <Link
-            href="/login"
+            href="/auth/login"
             className="px-6 py-3 rounded-xl text-sm transition-opacity hover:opacity-70"
             style={{
               background: 'var(--bg-surface)',
