@@ -29,8 +29,7 @@
     "react-hot-toast": "^2.4.1",
     "lucide-react": "^0.446.0",
     "next-themes": "^0.3.0"
-  }
-},
+  },
   "devDependencies": {
     "@netlify/plugin-nextjs": "^5.0.0"
   }
