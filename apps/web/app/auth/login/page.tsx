@@ -65,7 +65,7 @@ export default function LoginPage() {
           </form>
           <p className="mt-6 text-center text-sm" style={{ color: 'var(--text-muted)' }}>
             No account?{' '}
-            <Link href="/register" className="underline" style={{ color: 'var(--gold)' }}>
+            <Link href="/auth/register" className="underline" style={{ color: 'var(--gold)' }}>
               Begin here
             </Link>
           </p>
