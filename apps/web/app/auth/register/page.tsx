@@ -8,10 +8,9 @@ import { api } from '@/lib/api'
 import { useStore } from '@/lib/store'
 import toast from 'react-hot-toast'
 
-export default function RegisterPage() {
+export default function LoginPage() {
   const router = useRouter()
   const { setAuth } = useStore()
-  const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
@@ -20,11 +19,11 @@ export default function RegisterPage() {
     e.preventDefault()
     setLoading(true)
     try {
-      const data = await api.register(email, password, name || undefined)
+      const data = await api.login(email, password)
       setAuth(data.user, data.access_token)
       router.replace('/app/dashboard')
     } catch (err: any) {
-      toast.error(err.message ?? 'Registration failed')
+      toast.error(err.message ?? 'Login failed')
     } finally {
       setLoading(false)
     }
@@ -41,17 +40,11 @@ export default function RegisterPage() {
         <div className="text-center mb-10">
           <span className="text-3xl">⚗️</span>
           <h1 className="text-2xl font-medium mt-3" style={{ fontFamily: 'var(--font-serif)', color: 'var(--text-primary)' }}>
-            Begin the practice.
+            Welcome back.
           </h1>
         </div>
         <div className="rounded-2xl p-7" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)' }}>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-xs mb-1.5 font-medium" style={{ color: 'var(--text-secondary)' }}>Name (optional)</label>
-              <input type="text" value={name} onChange={e => setName(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl text-sm outline-none"
-                style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }} />
-            </div>
             <div>
               <label className="block text-xs mb-1.5 font-medium" style={{ color: 'var(--text-secondary)' }}>Email</label>
               <input type="email" value={email} onChange={e => setEmail(e.target.value)} required
@@ -67,12 +60,14 @@ export default function RegisterPage() {
             <button type="submit" disabled={loading}
               className="w-full py-2.5 rounded-xl text-sm font-medium transition-opacity disabled:opacity-60"
               style={{ background: 'var(--gold)', color: '#0f0e0d', marginTop: '8px' }}>
-              {loading ? 'Please wait...' : 'Create account'}
+              {loading ? 'Please wait...' : 'Sign in'}
             </button>
           </form>
           <p className="mt-6 text-center text-sm" style={{ color: 'var(--text-muted)' }}>
-            Already a member?{' '}
-            <Link href="/login" className="underline" style={{ color: 'var(--gold)' }}>Sign in</Link>
+            No account?{' '}
+            <Link href="/register" className="underline" style={{ color: 'var(--gold)' }}>
+              Begin here
+            </Link>
           </p>
         </div>
       </motion.div>
