@@ -1,4 +1,4 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'https://philosopher-production.up.railway.app/api/v1'
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'https://philosopher-api-z9l9.onrender.com/api/v1'
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export interface User {
