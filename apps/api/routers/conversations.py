@@ -1,7 +1,8 @@
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 from db.session import get_db
 from models import User, Conversation, Message
 from schemas import ConversationCreate, ConversationOut, MessageCreate, MessageOut, PersonaOut
@@ -10,6 +11,12 @@ from services.conversation_service import conversation_service
 from personas import get_persona
 
 router = APIRouter(prefix="/conversations", tags=["conversations"])
+
+DAILY_LIMITS: dict[str, float] = {
+    "free": 10,
+    "pro": 100,
+    "premium": float("inf"),
+}
 
 
 @router.post("", response_model=ConversationOut, status_code=201)
@@ -128,6 +135,31 @@ async def send_message(
     )
     if not result.scalar_one_or_none():
         raise HTTPException(status_code=404, detail="Conversation not found")
+
+    # Rate limit check
+    if not user.is_admin:
+        limit = DAILY_LIMITS.get(plan, float("inf"))
+        if limit != float("inf"):
+            today_utc = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+            count_result = await db.execute(
+                select(func.count())
+                .select_from(Message)
+                .where(
+                    Message.user_id == user.id,
+                    Message.role == "user",
+                    Message.created_at >= today_utc,
+                )
+            )
+            count = count_result.scalar_one()
+            if count >= limit:
+                raise HTTPException(
+                    status_code=429,
+                    detail={
+                        "message": "Daily message limit reached. Upgrade to Pro for more conversations.",
+                        "limit": int(limit),
+                        "plan": plan,
+                    },
+                )
 
     return StreamingResponse(
         conversation_service.stream_response(

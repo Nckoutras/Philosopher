@@ -85,9 +85,29 @@ export function useStream() {
           }
         }
       }
-    } catch (err) {
+    } catch (err: any) {
       resetStreaming()
-      toast.error('Something went wrong. Please try again.')
+      if (err?.status === 429) {
+        const plan: string = err?.detail?.plan ?? 'free'
+        const upgradeTarget = plan === 'pro' ? 'Premium' : 'Pro'
+        toast.error(
+          (t) => (
+            <span>
+              Daily limit reached.{' '}
+              <a
+                href="/app/billing"
+                onClick={() => toast.dismiss(t.id)}
+                style={{ textDecoration: 'underline', fontWeight: 600 }}
+              >
+                Upgrade to {upgradeTarget} →
+              </a>
+            </span>
+          ),
+          { duration: 6000 },
+        )
+      } else {
+        toast.error('Something went wrong. Please try again.')
+      }
       console.error(err)
     }
   }, [activeConversationId, appendMessage, setStreaming, appendStreamingContent, resetStreaming, setSafetyActive])

@@ -177,7 +177,16 @@ class ApiClient {
       },
       body: JSON.stringify({ content }),
     })
-    if (!res.ok) throw new Error('Stream failed')
+    if (!res.ok) {
+      if (res.status === 429) {
+        const body = await res.json().catch(() => ({}))
+        const err = new Error('RATE_LIMIT') as Error & { status: number; detail: typeof body.detail }
+        err.status = 429
+        err.detail = body.detail
+        throw err
+      }
+      throw new Error('Stream failed')
+    }
     return res
   }
 
