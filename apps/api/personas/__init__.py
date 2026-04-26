@@ -1,16 +1,17 @@
 from ._base import PersonaConfig
 from .marcus_aurelius import MARCUS_AURELIUS
 from .simone_de_beauvoir import SIMONE_DE_BEAUVOIR
+from .carl_jung import CARL_JUNG
 
 # Registry: slug → config
 PERSONA_REGISTRY: dict[str, PersonaConfig] = {
     MARCUS_AURELIUS.slug: MARCUS_AURELIUS,
     SIMONE_DE_BEAUVOIR.slug: SIMONE_DE_BEAUVOIR,
+    CARL_JUNG.slug: CARL_JUNG,
     # ADD NEW PERSONAS HERE — no other file needs to change
     # EPICTETUS.slug: EPICTETUS,
-    # NIETZSCHE.slug: NIETZSCHE,
-    # CONFUCIUS.slug: CONFUCIUS,
-    # IBN_RUSHD.slug: IBN_RUSHD,
+    # SOCRATES.slug: SOCRATES,
+    # SIGMUND_FREUD.slug: SIGMUND_FREUD,
 }
 
 
