@@ -112,6 +112,7 @@ class ConversationService:
             memories = await memory_service.recall(db, user_id, user_text, top_k=6)
         except Exception as e:
             logger.warning(f"Memory recall failed: {e}")
+            await db.rollback()
 
         # ── 3. RETRIEVE PASSAGES ─────────────────────────────────────────────
         passages = []
@@ -119,6 +120,7 @@ class ConversationService:
             passages = await retrieval_service.retrieve(db, user_text, persona)
         except Exception as e:
             logger.warning(f"Retrieval failed: {e}")
+            await db.rollback()
 
         # ── 4. BUILD SYSTEM PROMPT ───────────────────────────────────────────
         system_prompt = prompt_builder.build_system(
