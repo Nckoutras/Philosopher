@@ -25,12 +25,12 @@ class RetrievalService:
             text("""
                 SELECT sc.id, sc.source_title, sc.source_type, sc.content,
                        sc.page_ref, sc.persona_id,
-                       1 - (sc.embedding <=> :query_vec::vector) AS score
+                       1 - (sc.embedding <=> CAST(:query_vec AS vector)) AS score
                 FROM source_chunks sc
                 JOIN personas p ON p.id = sc.persona_id
                 WHERE p.slug = :persona_slug
                   AND sc.embedding IS NOT NULL
-                ORDER BY sc.embedding <=> :query_vec::vector
+                ORDER BY sc.embedding <=> CAST(:query_vec AS vector)
                 LIMIT :fetch_k
             """),
             {
