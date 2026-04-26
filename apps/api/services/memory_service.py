@@ -97,12 +97,12 @@ class MemoryService:
         result = await db.execute(
             text("""
                 SELECT id, entry_type, content, confidence, created_at,
-                       1 - (embedding <=> :query_vec::vector) AS score
+                       1 - (embedding <=> CAST(:query_vec AS vector)) AS score
                 FROM memory_entries
                 WHERE user_id = :user_id
                   AND is_active = TRUE
                   AND embedding IS NOT NULL
-                ORDER BY embedding <=> :query_vec::vector
+                ORDER BY embedding <=> CAST(:query_vec AS vector)
                 LIMIT :top_k
             """),
             {
