@@ -9,8 +9,8 @@
 
 ---
 
-**Last updated:** 2026-04-28 (manual initial creation)
-**Last `make state` run:** never yet (this is the seed file)
+**Last updated:** 2026-04-29
+**Last `make state` run:** 2026-04-29
 **Current phase:** Pre-Phase 1 (Section 5.7 framework defined, migration not started)
 **Repo:** https://github.com/Nckoutras/Philosopher (public)
 **Branch:** main
@@ -44,7 +44,7 @@
 ## 2. Production status
 
 - Live URL: https://thinkalike.vercel.app
-- Last production deploy: 2026-04-27 (commit `12a6e1d`)
+- Last production deploy: 2026-04-29 (commit `03242de`)
 - Has paying users: **No**
 - Has free trial users: **No**
 - Stripe wired: **No** (P0 blocker — see PROJECT_STATE Section 8)
@@ -159,12 +159,22 @@ Routers (`apps/api/routers/`):
 - `auth.py` — register/login via custom JWT ✅
 - `personas.py` — list/get with tier filtering ✅
 - `conversations.py` — chat endpoint with Anthropic streaming ✅
-- `memory.py` + `insights.py` — long-term recall (UNTESTED end-to-end) ⚠️
+- `memory.py` — long-term recall (UNTESTED end-to-end) ⚠️
 - `billing.py` — Stripe scaffolding only, NOT wired ❌
 - `rituals.py` — endpoint exists, "Begin" button broken in UI ❌
 - `admin.py` — review safety events ✅
 
-Services & systems:
+Services (`apps/api/services/`):
+- `analytics_service.py` — usage/event analytics
+- `conversation_service.py` — conversation orchestration
+- `embedding_client.py` — OpenAI embedding wrapper
+- `llm_client.py` — Anthropic Claude client
+- `memory_service.py` — long-term memory retrieval
+- `prompt_builder.py` — system prompt assembly
+- `retrieval_service.py` — pgvector similarity search
+- `safety_service.py` — 3-tier safety classification
+
+Systems:
 - pgvector similarity search ✅
 - Memory feature: implemented, untested end-to-end ⚠️
 - Safety system: 3-tier (high/medium/low) per README, code path unverified ⚠️
@@ -176,26 +186,26 @@ Services & systems:
 
 ## 7. Section 5.7 brain (`philosopher_brain/`)
 
-Design source of truth for Section 5.7 framework. Contains:
+⚠️ **Directory does not exist in repo.** All expected files are missing.
 
-| File | Purpose |
+Expected files and status:
+
+| File | Status |
 |---|---|
-| `personas/socrates.yaml` | Design source for Socrates Section 5.7 fields |
-| `personas/nietzsche.yaml` | Design source — **note: not in registered personas yet** |
-| `personas/freud.yaml` | Design source for Freud |
-| `personas/jung.yaml` | Design source for Jung |
-| `personas/epictetus.yaml` | Design source for Epictetus |
-| `personas/de_beauvoir.yaml` | Design source for De Beauvoir |
-| `prompts/master_system_prompt.md` | Extended template design |
-| `maps/modern_phenomenology.json` | 30+ modern term mappings |
-| `maps/universal_forbidden_lexicon.json` | 10 categories with phrases + regex |
-| `maps/persona_specific_forbidden.json` | Aggregator |
-| `evals/eval_suite_spec.md` | 4-test specification |
-| `evals/ten_modern_problems.json` | Test inputs for distinctiveness |
+| `personas/socrates.yaml` | ❌ MISSING |
+| `personas/nietzsche.yaml` | ❌ MISSING |
+| `personas/freud.yaml` | ❌ MISSING |
+| `personas/jung.yaml` | ❌ MISSING |
+| `personas/epictetus.yaml` | ❌ MISSING |
+| `personas/de_beauvoir.yaml` | ❌ MISSING |
+| `prompts/master_system_prompt.md` | ❌ MISSING |
+| `maps/modern_phenomenology.json` | ❌ MISSING |
+| `maps/universal_forbidden_lexicon.json` | ❌ MISSING |
+| `maps/persona_specific_forbidden.json` | ❌ MISSING |
+| `evals/eval_suite_spec.md` | ❌ MISSING |
+| `evals/ten_modern_problems.json` | ❌ MISSING |
 
-**Note on Nietzsche persona in brain:** The brain contains a Nietzsche YAML config that does NOT correspond to any registered persona in `apps/api/personas/__init__.py`. This is intentional design space — Nietzsche may be added as a 7th persona in a later phase, OR the YAML may be pruned. Decision deferred.
-
-**Note on Marcus Aurelius:** The brain does NOT contain a Marcus Aurelius YAML. Marcus is in the Python codebase but his Section 5.7 extension will need to be written when Phase 3 (extract & structure) reaches him — likely the first persona to migrate, since he is well-validated by founder testing.
+The `philosopher_brain/` directory and all design-source YAML/JSON/MD files have not yet been committed to the repo. These files need to be created or imported before Phase 1 work can begin in a Claude Code session that reads them directly.
 
 ---
 
