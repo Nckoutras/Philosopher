@@ -1,0 +1,100 @@
+You are running in non-interactive mode to update docs/PROJECT_STATE.md
+for the PHILOSOPHER project.
+
+Your task: Read the current state of the repository and rewrite
+docs/PROJECT_STATE.md, preserving the manual sections.
+
+═══════════════════════════════════════════════════════════════
+STEP 1 — READ THE EXISTING PROJECT_STATE.md
+═══════════════════════════════════════════════════════════════
+
+Read the existing docs/PROJECT_STATE.md. Identify:
+- The "MANUAL — preserved across regenerations" sections (currently
+  Sections 9, 10, 11, 12). Their content MUST NOT be touched.
+- All other sections will be regenerated from current repo state.
+
+If docs/PROJECT_STATE.md does not exist, abort with an error message
+asking the founder to commit the initial seed file first.
+
+═══════════════════════════════════════════════════════════════
+STEP 2 — GATHER CURRENT REPO STATE
+═══════════════════════════════════════════════════════════════
+
+Read the following and use the data to fill in the auto-update sections:
+
+1. apps/api/personas/__init__.py
+   → Extract: registered persona slugs (from PERSONA_REGISTRY dict)
+   → Extract: persona import names (e.g., MARCUS_AURELIUS, CARL_JUNG)
+
+2. apps/api/personas/_base.py
+   → Extract: full PersonaConfig dataclass field list
+   → Format as Python code block in PROJECT_STATE.md Section 4
+
+3. For each persona file (apps/api/personas/<slug>.py):
+   → Extract: tier (free/pro/premium)
+   → Check: does this file contain Section 5.7 fields?
+     (character_anchors, register_range, anti_flexing, response_length_words,
+      persona_specific_forbidden, modern_phenomenology_shading,
+      behavioral_parameters, safety_overrides)
+   → If ANY of these fields is present in the PersonaConfig instantiation,
+     mark Section 5.7-compliant: ✅
+   → Otherwise: ❌ pending
+
+4. apps/api/routers/ (list files, one line summary per router)
+5. apps/api/services/ (if exists, list files)
+6. apps/api/prompts/ (list files)
+7. Run: git log -1 --format="%h %ai %s"
+   → Extract: latest commit hash, date, message
+   → Use date for "Last production deploy"
+
+═══════════════════════════════════════════════════════════════
+STEP 3 — CHECK SECTION 5.7 BRAIN FOLDER
+═══════════════════════════════════════════════════════════════
+
+Read philosopher_brain/ directory listing.
+Verify the expected files exist:
+- personas/socrates.yaml, nietzsche.yaml, freud.yaml, jung.yaml,
+  epictetus.yaml, de_beauvoir.yaml
+- prompts/master_system_prompt.md
+- maps/modern_phenomenology.json, universal_forbidden_lexicon.json,
+  persona_specific_forbidden.json
+- evals/eval_suite_spec.md, ten_modern_problems.json
+
+Note any missing files in PROJECT_STATE.md Section 7.
+
+═══════════════════════════════════════════════════════════════
+STEP 4 — REGENERATE PROJECT_STATE.md
+═══════════════════════════════════════════════════════════════
+
+Rewrite docs/PROJECT_STATE.md with the following structure:
+
+1. Header (date = today, last `make state` run = today, current phase
+   inherited from previous PROJECT_STATE.md unless founder updated it manually)
+2. Section 1: Stack (locked) — copy from previous unchanged
+3. Section 2: Production status — update "last production deploy"
+   from git log; preserve "Has paying users" / "Stripe wired"
+   from previous (these are manual flags)
+4. Section 3: Personas registered — regenerate table from repo
+5. Section 4: PersonaConfig schema — regenerate from _base.py
+6. Section 5: System prompt template — list current prompts/ files
+7. Section 6: What's been built — regenerate from routers/services/
+8. Section 7: Section 5.7 brain — verify files exist
+9. Section 8: What's pending — preserve from previous unless
+   evidence of completed phase exists in repo
+10. Section 9: MANUAL — Recent decisions — PRESERVE EXACTLY
+11. Section 10: MANUAL — Current blockers — PRESERVE EXACTLY
+12. Section 11: MANUAL — How to refresh — PRESERVE EXACTLY
+13. Section 12: MANUAL — Live URLs — PRESERVE EXACTLY
+
+═══════════════════════════════════════════════════════════════
+STEP 5 — WRITE FILE & REPORT
+═══════════════════════════════════════════════════════════════
+
+Write the regenerated content to docs/PROJECT_STATE.md.
+
+Then output ONE line summary to stdout:
+"Updated PROJECT_STATE.md — N personas registered, last commit: <hash>, K Section 5.7-compliant"
+
+Do NOT make any other changes to the repo.
+Do NOT git add or git commit — that's the founder's responsibility.
+Do NOT create new files except for docs/PROJECT_STATE.md itself.
