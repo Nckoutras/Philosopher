@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
+from sqlalchemy.orm import selectinload
 from db.session import get_db
 from models import User, Conversation, Message
 from schemas import ConversationCreate, ConversationOut, MessageCreate, MessageOut, PersonaOut
@@ -69,6 +70,7 @@ async def list_conversations(
 ):
     result = await db.execute(
         select(Conversation)
+        .options(selectinload(Conversation.persona))
         .where(Conversation.user_id == user.id)
         .order_by(Conversation.last_message_at.desc().nullslast())
         .limit(50)
@@ -76,8 +78,7 @@ async def list_conversations(
     convs = result.scalars().all()
     out = []
     for conv in convs:
-        await db.refresh(conv, ["persona"])
-        persona_config = get_persona(conv.persona.slug)
+        pc = get_persona(conv.persona.slug)
         out.append(ConversationOut(
             id=conv.id,
             persona=PersonaOut(
@@ -87,8 +88,8 @@ async def list_conversations(
                 era=conv.persona.era,
                 tradition=conv.persona.tradition,
                 tier=conv.persona.tier,
-                tagline=persona_config.tagline if persona_config else None,
-                avatar_emoji=persona_config.avatar_emoji if persona_config else None,
+                tagline=pc.tagline if pc else None,
+                avatar_emoji=pc.avatar_emoji if pc else None,
             ),
             title=conv.title,
             message_count=conv.message_count,
