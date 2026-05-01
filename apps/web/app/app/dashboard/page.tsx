@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import { api } from '@/lib/api'
 import { useStore } from '@/lib/store'
@@ -11,6 +11,7 @@ import { UpgradeBanner } from '@/components/billing/UpgradeBanner'
 
 export default function DashboardPage() {
   const router = useRouter()
+  const queryClient = useQueryClient()
   const { user } = useStore()
   const plan = useStore((s) => s.subscription?.plan ?? 'free')
 
@@ -27,6 +28,7 @@ export default function DashboardPage() {
   const handleSelectPersona = async (persona: typeof personas[number]) => {
     try {
       const conv = await api.createConversation(persona.slug)
+      await queryClient.invalidateQueries({ queryKey: ['conversations'] })
       router.push(`/app/persona/${conv.id}`)
     } catch (e) {
       console.error(e)
