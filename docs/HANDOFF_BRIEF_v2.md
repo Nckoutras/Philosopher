@@ -56,7 +56,7 @@ All three are partially addressed in current `system_fragment` prose (especially
 
 ### 15.4 The brain — design source of truth
 
-The Section 5.7 framework is fully designed in `philosopher_brain/` (in repo, also in claude.ai project files). It contains:
+The Section 5.7 framework is fully designed in `apps/api/philosopher_brain/` (in repo, also in claude.ai project files). It contains:
 
 - 6 persona configs in YAML (design source — translates to extensions of `_base.py` PersonaConfig)
 - `prompts/master_system_prompt.md` (extension to `system_base.jinja2`)

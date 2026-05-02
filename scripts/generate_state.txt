@@ -51,7 +51,7 @@ Read the following and use the data to fill in the auto-update sections:
 STEP 3 — CHECK SECTION 5.7 BRAIN FOLDER
 ═══════════════════════════════════════════════════════════════
 
-Read philosopher_brain/ directory listing.
+Read apps/api/philosopher_brain/ directory listing.
 Verify the expected files exist:
 - personas/socrates.yaml, nietzsche.yaml, freud.yaml, jung.yaml,
   epictetus.yaml, de_beauvoir.yaml
