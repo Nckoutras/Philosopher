@@ -1,19 +1,19 @@
-You are running in non-interactive mode to update docs/PROJECT_STATE.md
+You are running in non-interactive mode to update docs/PROJECT_STATE_v4.md
 for the PHILOSOPHER project.
 
 Your task: Read the current state of the repository and rewrite
-docs/PROJECT_STATE.md, preserving the manual sections.
+docs/PROJECT_STATE_v4.md, preserving the manual sections.
 
 ═══════════════════════════════════════════════════════════════
-STEP 1 — READ THE EXISTING PROJECT_STATE.md
+STEP 1 — READ THE EXISTING PROJECT_STATE_v4.md
 ═══════════════════════════════════════════════════════════════
 
-Read the existing docs/PROJECT_STATE.md. Identify:
+Read the existing docs/PROJECT_STATE_v4.md. Identify:
 - The "MANUAL — preserved across regenerations" sections (currently
   Sections 9, 10, 11, 12). Their content MUST NOT be touched.
 - All other sections will be regenerated from current repo state.
 
-If docs/PROJECT_STATE.md does not exist, abort with an error message
+If docs/PROJECT_STATE_v4.md does not exist, abort with an error message
 asking the founder to commit the initial seed file first.
 
 ═══════════════════════════════════════════════════════════════
@@ -28,7 +28,7 @@ Read the following and use the data to fill in the auto-update sections:
 
 2. apps/api/personas/_base.py
    → Extract: full PersonaConfig dataclass field list
-   → Format as Python code block in PROJECT_STATE.md Section 4
+   → Format as Python code block in PROJECT_STATE_v4.md Section 4
 
 3. For each persona file (apps/api/personas/<slug>.py):
    → Extract: tier (free/pro/premium)
@@ -60,16 +60,16 @@ Verify the expected files exist:
   persona_specific_forbidden.json
 - evals/eval_suite_spec.md, ten_modern_problems.json
 
-Note any missing files in PROJECT_STATE.md Section 7.
+Note any missing files in PROJECT_STATE_v4.md Section 7.
 
 ═══════════════════════════════════════════════════════════════
-STEP 4 — REGENERATE PROJECT_STATE.md
+STEP 4 — REGENERATE PROJECT_STATE_v4.md
 ═══════════════════════════════════════════════════════════════
 
-Rewrite docs/PROJECT_STATE.md with the following structure:
+Rewrite docs/PROJECT_STATE_v4.md with the following structure:
 
 1. Header (date = today, last `make state` run = today, current phase
-   inherited from previous PROJECT_STATE.md unless founder updated it manually)
+   inherited from previous PROJECT_STATE_v4.md unless founder updated it manually)
 2. Section 1: Stack (locked) — copy from previous unchanged
 3. Section 2: Production status — update "last production deploy"
    from git log; preserve "Has paying users" / "Stripe wired"
@@ -90,11 +90,11 @@ Rewrite docs/PROJECT_STATE.md with the following structure:
 STEP 5 — WRITE FILE & REPORT
 ═══════════════════════════════════════════════════════════════
 
-Write the regenerated content to docs/PROJECT_STATE.md.
+Write the regenerated content to docs/PROJECT_STATE_v4.md.
 
 Then output ONE line summary to stdout:
-"Updated PROJECT_STATE.md — N personas registered, last commit: <hash>, K Section 5.7-compliant"
+"Updated PROJECT_STATE_v4.md — N personas registered, last commit: <hash>, K Section 5.7-compliant"
 
 Do NOT make any other changes to the repo.
 Do NOT git add or git commit — that's the founder's responsibility.
-Do NOT create new files except for docs/PROJECT_STATE.md itself.
+Do NOT create new files except for docs/PROJECT_STATE_v4.md itself.
