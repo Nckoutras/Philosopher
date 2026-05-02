@@ -1,6 +1,16 @@
 from dataclasses import dataclass, field
 from typing import Optional
 
+from ._models import (
+    CharacterAnchor,
+    RegisterRange,
+    AntiFlexingRules,
+    ResponseLengthSpec,
+    ForbiddenLexicon,
+    BehavioralParameters,
+    RegisterOverride,
+)
+
 
 @dataclass
 class PersonaConfig:
@@ -39,6 +49,16 @@ class PersonaConfig:
 
     # System prompt fragment
     system_fragment: str = ""
+
+    # Section 5.7 — Phase 1 schema extension (all optional, all None by default)
+    character_anchors: Optional[list[CharacterAnchor]] = None
+    register_range: Optional[RegisterRange] = None
+    anti_flexing: Optional[AntiFlexingRules] = None
+    response_length_words: Optional[ResponseLengthSpec] = None
+    forbidden_lexicon_persona_specific: Optional[ForbiddenLexicon] = None
+    behavioral_parameters: Optional[BehavioralParameters] = None
+    behavioral_parameters_by_register: Optional[dict[str, RegisterOverride]] = None
+    safety: Optional[dict] = None
 
     def to_dict(self) -> dict:
         import dataclasses
