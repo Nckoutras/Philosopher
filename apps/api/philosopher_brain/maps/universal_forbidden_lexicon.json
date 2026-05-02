@@ -142,7 +142,7 @@
       "phrases": [],
       "patterns": [
         {
-          "regex": "[\\u{1F300}-\\u{1F9FF}]|[\\u{2600}-\\u{26FF}]|[\\u{2700}-\\u{27BF}]",
+          "regex": "[\\U0001F300-\\U0001F9FF]|[\\u2600-\\u26FF]|[\\u2700-\\u27BF]",
           "reason": "Emoji detected. Forbidden universally."
         },
         {
