@@ -12,6 +12,10 @@ from services.retrieval_service import retrieval_service
 from services.llm_client import llm_client
 from services.prompt_builder import prompt_builder
 from services.analytics_service import analytics_service
+from services.postprocessing_service import (
+    regenerate_or_trim,
+    POSTPROCESSING_ENABLED,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -150,22 +154,64 @@ class ConversationService:
         await db.flush()
 
         # ── 7. STREAM FROM LLM ───────────────────────────────────────────────
+        # Phase 2: behavior depends on POSTPROCESSING_ENABLED flag.
+        #   true  → buffer entire reply, run postprocessing, then yield
+        #   false → stream chunks immediately (pre-Phase-2 behavior)
         full_response = ""
         yield f"data: {json.dumps({'type': 'start'})}\n\n"
 
-        async for chunk in llm_client.stream(system=system_prompt, messages=lm_messages):
-            full_response += chunk
-            yield f"data: {json.dumps({'type': 'chunk', 'data': chunk})}\n\n"
+        if POSTPROCESSING_ENABLED:
+            # Buffer mode — do not yield chunks during stream
+            async for chunk in llm_client.stream(system=system_prompt, messages=lm_messages):
+                full_response += chunk
+        else:
+            # Legacy streaming mode — yield chunks as they arrive
+            async for chunk in llm_client.stream(system=system_prompt, messages=lm_messages):
+                full_response += chunk
+                yield f"data: {json.dumps({'type': 'chunk', 'data': chunk})}\n\n"
 
         # ── 8. POST-GENERATION SAFETY ────────────────────────────────────────
+        # SAFETY OVERRIDE BYPASS — non-negotiable invariant (Decision D).
+        # When safety suppresses the persona, the safety response is sent
+        # AS-IS. Postprocessing MUST NOT touch safety override content.
+        # Reasons: safety copy must be deterministic; brevity / forbidden
+        # rules must never alter safety wording; safety > style, always.
         safety_out = await safety_service.check_output(full_response)
         if safety_out.should_suppress_persona:
             await self._log_safety_event(db, user_id, conversation_id, None, safety_out, "post_generation")
-            # Signal client to replace content
             yield f"data: {json.dumps({'type': 'safety_override', 'level': safety_out.level})}\n\n"
+            # In legacy mode, persona chunks already streamed — frontend
+            # replaces content via safety_override event.
+            # In buffer mode, no chunks have been sent yet — we send safety
+            # response as the first chunks the user sees.
             for chunk in self._chunk_text(safety_out.safe_response):
                 yield f"data: {json.dumps({'type': 'chunk', 'data': chunk})}\n\n"
             full_response = safety_out.safe_response
+            # NOTE: postprocessing intentionally NOT called in this branch.
+            # Safety override is final and immutable.
+        elif POSTPROCESSING_ENABLED:
+            # ── 8b. POSTPROCESSING (Phase 2, persona reply only) ──────────────
+            try:
+                conv_position = "first_message" if len(history) <= 1 else "mid_session"
+                full_response, _check_history = await regenerate_or_trim(
+                    reply=full_response,
+                    persona=persona,
+                    system_prompt=system_prompt,
+                    user_text=user_text,
+                    conversation_position=conv_position,
+                )
+            except Exception as e:
+                logger.warning(
+                    f"Postprocessing failed for persona={persona.slug}: {e}. "
+                    f"Sending original reply (failed-open)."
+                )
+                # Fall through with unmodified full_response
+
+            # Yield buffered (and possibly postprocessed) content as chunks
+            for chunk in self._chunk_text(full_response):
+                yield f"data: {json.dumps({'type': 'chunk', 'data': chunk})}\n\n"
+        # ELSE: flag is false AND no safety override — chunks already
+        # streamed during the LLM loop above. Nothing more to yield here.
 
         latency_ms = int((time.monotonic() - start) * 1000)
 
