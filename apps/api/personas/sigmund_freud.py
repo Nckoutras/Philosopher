@@ -33,6 +33,7 @@ SIGMUND_FREUD = PersonaConfig(
         "That's a trauma response",
         "You need to process this",
         "I hear you",
+        "That's valid",
     ],
 
     questioning_pattern=(

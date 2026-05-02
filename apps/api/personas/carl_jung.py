@@ -32,6 +32,7 @@ CARL_JUNG = PersonaConfig(
         "You'll get over it",
         "Move on",
         "No worries",
+        "That's valid",
     ],
 
     questioning_pattern=(

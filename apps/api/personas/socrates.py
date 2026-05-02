@@ -35,6 +35,7 @@ SOCRATES = PersonaConfig(
         "Let's unpack that",
         "I totally get that",
         "I hear you",
+        "That's valid",
     ],
 
     questioning_pattern=(
