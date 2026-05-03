@@ -16,6 +16,10 @@ from services.postprocessing_service import (
 )
 from personas import PERSONA_REGISTRY, get_persona
 
+# Personas migrated to Phase 3 structured data. Append slugs as each persona
+# is migrated. See HANDOFF_BRIEF_v3 §16.2 Phase 3 implementation status.
+PHASE_3_MIGRATED_PERSONAS = {"socrates"}
+
 
 # ──────────────────────────────────────────────────────────────────
 # Loading
@@ -93,12 +97,27 @@ def test_universal_forbidden_all_hits_have_category():
 # check_brevity — None fields → SKIP (Phase 3 not yet populated)
 # ──────────────────────────────────────────────────────────────────
 
-def test_check_brevity_returns_skip_for_all_personas():
-    """All personas have response_length_words=None → always SKIP until Phase 3."""
+def test_check_brevity_returns_skip_for_unmigrated_personas():
+    """Personas without response_length_words populated → SKIP.
+
+    Migrated personas (Phase 3) are excluded — see PHASE_3_MIGRATED_PERSONAS.
+    """
     for slug, persona in PERSONA_REGISTRY.items():
+        if slug in PHASE_3_MIGRATED_PERSONAS:
+            continue
         r = check_brevity("Some reply.", persona)
         assert r.action == CheckAction.SKIP, f"{slug}: expected SKIP, got {r.action}"
-        assert r.passed is True, f"{slug}: expected passed=True when spec is None"
+
+
+def test_check_brevity_is_active_for_migrated_personas():
+    """Personas with response_length_words populated → check is active (not SKIP)."""
+    from personas import get_persona
+    for slug in PHASE_3_MIGRATED_PERSONAS:
+        persona = get_persona(slug)
+        assert persona is not None, f"{slug}: persona not in registry"
+        r = check_brevity("Some reply.", persona)
+        assert r.action != CheckAction.SKIP, \
+            f"{slug}: brevity check should not SKIP after migration, got {r.action}"
 
 
 def test_check_brevity_skip_has_correct_check_name():
@@ -161,12 +180,24 @@ def test_check_brevity_first_message_uses_ceiling():
 # check_persona_forbidden — None fields → SKIP (Phase 3 not yet populated)
 # ──────────────────────────────────────────────────────────────────
 
-def test_check_persona_forbidden_returns_skip_for_all_personas():
-    """All personas have forbidden_lexicon_persona_specific=None → SKIP until Phase 3."""
+def test_check_persona_forbidden_returns_skip_for_unmigrated_personas():
+    """Personas without forbidden_lexicon_persona_specific populated → SKIP."""
     for slug, persona in PERSONA_REGISTRY.items():
+        if slug in PHASE_3_MIGRATED_PERSONAS:
+            continue
         r = check_persona_forbidden("Some reply.", persona)
         assert r.action == CheckAction.SKIP, f"{slug}: expected SKIP, got {r.action}"
-        assert r.passed is True, f"{slug}: expected passed=True when lex is None"
+
+
+def test_check_persona_forbidden_is_active_for_migrated_personas():
+    """Personas with forbidden_lexicon_persona_specific populated → check is active."""
+    from personas import get_persona
+    for slug in PHASE_3_MIGRATED_PERSONAS:
+        persona = get_persona(slug)
+        assert persona is not None, f"{slug}: persona not in registry"
+        r = check_persona_forbidden("Some reply.", persona)
+        assert r.action != CheckAction.SKIP, \
+            f"{slug}: persona forbidden check should not SKIP after migration, got {r.action}"
 
 
 def test_check_persona_forbidden_skip_has_correct_check_name():
