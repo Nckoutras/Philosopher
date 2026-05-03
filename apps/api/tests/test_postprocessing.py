@@ -18,7 +18,7 @@ from personas import PERSONA_REGISTRY, get_persona
 
 # Personas migrated to Phase 3 structured data. Append slugs as each persona
 # is migrated. See HANDOFF_BRIEF_v3 §16.2 Phase 3 implementation status.
-PHASE_3_MIGRATED_PERSONAS = {"socrates", "epictetus"}
+PHASE_3_MIGRATED_PERSONAS = {"socrates", "epictetus", "sigmund_freud"}
 
 
 # ──────────────────────────────────────────────────────────────────
