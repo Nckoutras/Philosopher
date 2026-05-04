@@ -1,6 +1,9 @@
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from pathlib import Path
+from typing import Optional
+
 from personas._base import PersonaConfig
+from personas._models import PhenomenologyBridge
 from models import MemoryEntry, SourceChunk
 from datetime import date
 
@@ -15,12 +18,12 @@ jinja_env = Environment(
 
 
 class PromptBuilder:
-
     def build_system(
         self,
         persona: PersonaConfig,
         memories: list[MemoryEntry] = None,
         passages: list[SourceChunk] = None,
+        phenomenology_bridge: Optional[PhenomenologyBridge] = None,
         user_name: str | None = None,
     ) -> str:
         template = jinja_env.get_template("system_base.jinja2")
@@ -28,6 +31,7 @@ class PromptBuilder:
             persona=persona,
             memories=memories or [],
             passages=passages or [],
+            phenomenology_bridge=phenomenology_bridge,
             user_name=user_name,
             current_date=date.today().strftime("%B %d, %Y"),
         )
