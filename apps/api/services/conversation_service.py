@@ -1,9 +1,12 @@
 import json
 import time
 import logging
+import os
 from typing import AsyncGenerator
+
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
+
 from models import Conversation, Message, Persona, SafetyEvent, User
 from personas import get_persona, is_persona_accessible
 from services.safety_service import safety_service
@@ -16,16 +19,22 @@ from services.postprocessing_service import (
     regenerate_or_trim,
     POSTPROCESSING_ENABLED,
 )
+from services.phenomenology_bridge_service import phenomenology_bridge_service
 
 logger = logging.getLogger(__name__)
 
 SSE_SAFETY_TOKEN = "\n\n[PHILOSOPHER_SAFETY_OVERRIDE]\n\n"
 
+# Phase 4 — Modern Phenomenology Bridge feature flag.
+# Default off. Enabled in production via Render env var after smoke test.
+PHENOMENOLOGY_BRIDGE_ENABLED = (
+    os.getenv("PHENOMENOLOGY_BRIDGE_ENABLED", "false").lower() == "true"
+)
+
 
 class ConversationService:
 
     # ── Create conversation ───────────────────────────────────────────────────
-
     async def create(
         self,
         db: AsyncSession,
@@ -63,12 +72,10 @@ class ConversationService:
                 content=persona_config.opening_invocation,
             )
             db.add(opening)
-
         await db.flush()
         return conv
 
     # ── Stream response ───────────────────────────────────────────────────────
-
     async def stream_response(
         self,
         db: AsyncSession,
@@ -87,7 +94,6 @@ class ConversationService:
         conv = result.scalar_one_or_none()
         if not conv:
             raise ValueError("Conversation not found")
-
         persona_result = await db.execute(select(Persona).where(Persona.id == conv.persona_id))
         persona_db = persona_result.scalar_one()
         persona = get_persona(persona_db.slug)
@@ -96,7 +102,6 @@ class ConversationService:
         safety_in = await safety_service.check_input(user_text, user_id)
         if safety_in.should_log:
             await self._log_safety_event(db, user_id, conversation_id, None, safety_in, "pre_generation")
-
         if safety_in.should_suppress_persona:
             # Save user message first
             user_msg = await self._save_message(db, conv, user_id, "user", user_text, safety_level=safety_in.level)
@@ -126,11 +131,31 @@ class ConversationService:
             logger.warning(f"Retrieval failed: {e}")
             await db.rollback()
 
+        # ── 3.5. PHENOMENOLOGY BRIDGE LOOKUP (Phase 4) ───────────────────────
+        # If a modern term in the user's message maps to a phenomenological
+        # essence, the persona will see the timeless translation in its
+        # system prompt and engage with that — without naming the modern
+        # term back. Feature-flagged; fail-open on any error.
+        phenomenology_bridge = None
+        if PHENOMENOLOGY_BRIDGE_ENABLED:
+            try:
+                phenomenology_bridge = phenomenology_bridge_service.lookup(
+                    user_message=user_text,
+                    persona_slug=persona.slug,
+                )
+            except Exception as e:
+                logger.warning(
+                    f"Phenomenology bridge lookup failed for "
+                    f"persona={persona.slug}: {e}. Proceeding without bridge."
+                )
+                # phenomenology_bridge stays None
+
         # ── 4. BUILD SYSTEM PROMPT ───────────────────────────────────────────
         system_prompt = prompt_builder.build_system(
             persona=persona,
             memories=memories,
             passages=passages,
+            phenomenology_bridge=phenomenology_bridge,
             user_name=user_name,
         )
 
@@ -206,7 +231,6 @@ class ConversationService:
                     f"Sending original reply (failed-open)."
                 )
                 # Fall through with unmodified full_response
-
             # Yield buffered (and possibly postprocessed) content as chunks
             for chunk in self._chunk_text(full_response):
                 yield f"data: {json.dumps({'type': 'chunk', 'data': chunk})}\n\n"
@@ -248,7 +272,6 @@ class ConversationService:
         yield f"data: {json.dumps({'type': 'done', 'message_id': assistant_msg.id})}\n\n"
 
     # ── Helpers ───────────────────────────────────────────────────────────────
-
     async def _save_message(
         self, db, conv, user_id, role, content,
         retrieval_ids=None, safety_level="none",
