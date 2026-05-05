@@ -89,7 +89,7 @@
       ]
     },
     "doomscrolling": {
-      "phenomenological_essence": "compulsive consumption of distress; flight from inner stillness; using the world's noise to avoid one's own",
+      "phenomenological_essence": "The self seeks knowledge or control through endless exposure to distress. The act promises orientation but leaves the mind more captive to threat.",
       "themes": [
         "avoidance",
         "compulsion",
@@ -218,7 +218,7 @@
       ]
     },
     "imposter_syndrome": {
-      "phenomenological_essence": "the conviction that one's competence is performance; the fear that recognition is misplaced; the gap between external evidence and internal self-trust",
+      "phenomenological_essence": "The self inhabits achievement as if it were mistaken identity. Recognition from others does not settle the doubt, because the fear is not failure alone but exposure.",
       "themes": [
         "self-trust deficit",
         "performance vs being",
@@ -846,6 +846,231 @@
         "life is passing me by",
         "getting older and haven't done what i wanted"
       ]
+    },
+    "adult_adhd_realization": {
+      "phenomenological_essence": "The self revisits a lifetime of difficulty through a new interpretive lens. What once appeared as laziness, inconsistency, or moral failure may become intelligible as a different pattern of attention.",
+      "themes": ["identity", "attention", "self_reinterpretation", "relief"],
+      "triggers": ["adult adhd realization", "realized i might have adhd", "realising i might have adhd", "undiagnosed adhd adult", "adhd explains my life", "late diagnosed adhd", "late-diagnosed adhd"]
+    },
+    "ambiguous_grief": {
+      "phenomenological_essence": "The self mourns someone or something not fully gone, making grief difficult to recognize and difficult to complete. The absence has no clean ritual.",
+      "themes": ["grief", "ambiguity", "loss", "attachment"],
+      "triggers": ["ambiguous grief", "ambiguous loss", "grieving someone still alive", "mourning someone still alive", "grieving a relationship that never happened", "grieving what could have been", "loss without closure"]
+    },
+    "anxious_waiting_for_response": {
+      "phenomenological_essence": "A small uncertainty awakens a disproportionate fear of abandonment. The self knows the reaction may exceed the event, yet the body treats delay or distance as danger.",
+      "themes": ["attachment", "abandonment_fear", "anxiety", "self_regulation"],
+      "triggers": ["my attachment is triggered", "attachment triggered", "anxious attachment triggered", "he triggered my attachment", "she triggered my attachment", "waiting for reply spiraling"]
+    },
+    "boomerang_generation": {
+      "phenomenological_essence": "The adult self returns to dependence after expecting forward motion. The home that shelters can also reopen old roles one thought had been outgrown.",
+      "themes": ["adulthood", "dependence", "family", "identity"],
+      "triggers": ["boomerang generation", "boomerang child", "adult living with parents again", "back in my childhood home as an adult"]
+    },
+    "boundary_guilt": {
+      "phenomenological_essence": "The self tries to protect its own limit but feels guilt for having a limit at all. The boundary is experienced not as clarity, but as possible betrayal.",
+      "themes": ["boundaries", "guilt", "self_protection", "relationships"],
+      "triggers": ["guilt after setting boundaries", "boundary guilt", "feel guilty for setting boundaries", "guilty saying no", "feel bad saying no", "setting boundaries makes me guilty", "i feel selfish for having boundaries"]
+    },
+    "breadcrumbing": {
+      "phenomenological_essence": "The self remains tethered by small signs of attention that never become commitment. Hope is repeatedly awakened just enough to prevent closure.",
+      "themes": ["ambiguous_attachment", "hope", "withholding", "uncertainty"],
+      "triggers": ["breadcrumbing", "bread crumbing", "breadcrumbed me", "he breadcrumbs me", "she breadcrumbs me", "keeps breadcrumbing me", "am i being breadcrumbed"]
+    },
+    "career_identity_crisis": {
+      "phenomenological_essence": "The role that once organized the self no longer feels sufficient. The question is not merely what work to do, but who one becomes by continuing or leaving.",
+      "themes": ["career", "identity", "transition", "meaning"],
+      "triggers": ["career identity crisis", "work identity crisis", "who am i without my job", "lost my career identity", "job became my identity", "identity tied to work", "career no longer fits me"]
+    },
+    "chronic_performance_anxiety_at_work": {
+      "phenomenological_essence": "The self becomes both actor and audience, performing under an imagined gaze. Competence is no longer simply exercised; it must be proven in real time.",
+      "themes": ["workplace", "evaluation", "competence", "self_consciousness"],
+      "triggers": ["presentation anxiety at work", "work performance anxiety", "performance anxiety at work", "anxious before presentation", "anxious presenting at work", "meeting performance anxiety", "fear of presenting at work"]
+    },
+    "climate_anxiety": {
+      "phenomenological_essence": "The self feels the future as ecological threat before it has arrived. Ordinary planning becomes shadowed by a sense that the world itself is unstable.",
+      "themes": ["future", "ecology", "dread", "responsibility"],
+      "triggers": ["climate anxiety", "eco anxiety", "eco-anxiety", "climate dread", "climate grief", "anxious about climate change", "future climate anxiety"]
+    },
+    "closure_seeking": {
+      "phenomenological_essence": "The self seeks a final word that would make pain intelligible. Yet closure is often desired from the very person whose ambiguity caused the wound.",
+      "themes": ["closure", "loss", "meaning", "attachment"],
+      "triggers": ["need closure from them", "seeking closure", "want closure after breakup", "want closure after ghosting", "can't move on without closure", "cant move on without closure", "closure conversation"]
+    },
+    "comparison_spiral": {
+      "phenomenological_essence": "The self measures its own life against curated fragments of other lives. The result is not clarity, but a narrowing of gratitude and a swelling sense of inadequacy.",
+      "themes": ["comparison", "envy", "self_worth", "digital_life"],
+      "triggers": ["comparison spiral", "comparing myself online", "online comparison spiral", "social media comparison", "spiraling from comparison", "compare myself to everyone online", "feel behind everyone online"]
+    },
+    "dating_roster_ambivalence": {
+      "phenomenological_essence": "The self encounters intimacy as parallel options rather than singular commitment. Choice promises freedom, yet can make every bond feel provisional.",
+      "themes": ["dating", "choice", "ambivalence", "commitment"],
+      "triggers": ["dating roster", "roster dating", "keeping a dating roster", "on someone's roster", "on someones roster", "rotational dating", "dating multiple people feels empty"]
+    },
+    "decision_fatigue": {
+      "phenomenological_essence": "The self becomes exhausted not by action alone, but by repeated choosing. Freedom begins to feel less like possibility and more like burden.",
+      "themes": ["choice", "fatigue", "agency", "overload"],
+      "triggers": ["decision fatigue", "decision-fatigue", "too many decisions", "tired of making decisions", "cant make decisions anymore", "can't make decisions anymore", "exhausted from deciding"]
+    },
+    "digital_overstimulation": {
+      "phenomenological_essence": "The self is pulled by too many signals to remain inwardly gathered. Attention becomes scattered before intention can take form.",
+      "themes": ["attention", "overload", "digital_life", "fragmentation"],
+      "triggers": ["digitally overstimulated", "digital overstimulation", "phone overstimulation", "screen overstimulation", "overstimulated by my phone", "too much screen input", "too many notifications overwhelm me"]
+    },
+    "emotional_labor_overload": {
+      "phenomenological_essence": "The self becomes responsible for managing the feelings, needs, and reactions of others. Care becomes invisible labor when it is expected but not recognized.",
+      "themes": ["emotional_labor", "responsibility", "exhaustion", "recognition"],
+      "triggers": ["emotional labor overload", "emotional labour overload", "too much emotional labor", "too much emotional labour", "managing everyone's emotions", "managing everyones emotions", "tired of being everyone's therapist"]
+    },
+    "emotional_unavailability": {
+      "phenomenological_essence": "The self reaches toward someone whose presence does not become mutual openness. Desire is met with partial access: enough closeness to hope, not enough to rest.",
+      "themes": ["attachment", "withholding", "intimacy", "frustration"],
+      "triggers": ["emotionally unavailable", "emotional unavailability", "dating someone emotionally unavailable", "he is emotionally unavailable", "she is emotionally unavailable", "emotionally unavailable partner", "attracted to emotionally unavailable people"]
+    },
+    "fomo": {
+      "phenomenological_essence": "The self suffers the imagined life happening elsewhere. What is present becomes diminished by the suspicion that a better belonging is being missed.",
+      "themes": ["comparison", "belonging", "absence", "desire"],
+      "triggers": ["fomo", "fear of missing out", "getting fomo", "i have fomo", "major fomo", "fomo about", "fomo from seeing"]
+    },
+    "fopo": {
+      "phenomenological_essence": "The self becomes governed by the anticipated opinions of others. Action is filtered through an invisible jury before it is even attempted.",
+      "themes": ["social_judgment", "approval", "self_surveillance", "fear"],
+      "triggers": ["fopo", "fear of people's opinions", "fear of peoples opinions", "afraid what people think", "obsessed with what people think", "people's opinions control me", "peoples opinions control me"]
+    },
+    "friendship_breakup": {
+      "phenomenological_essence": "The self loses a bond that may have had no formal contract but carried real intimacy. The grief is often unseen because the culture gives friendship fewer rituals of mourning.",
+      "themes": ["friendship", "loss", "belonging", "grief"],
+      "triggers": ["friendship breakup", "friend breakup", "best friend breakup", "lost my best friend", "falling out with a friend", "friendship ended painfully", "grieving a friendship"]
+    },
+    "gentle_parenting_tension": {
+      "phenomenological_essence": "The self tries to raise a child without repeating inherited harshness, yet discovers that patience also has limits. The struggle is between the parent one had, the parent one wants to be, and the person one still is.",
+      "themes": ["parenting", "intergenerational_patterns", "patience", "guilt"],
+      "triggers": ["gentle parenting is hard", "gentle-parenting is hard", "gentle parenting guilt", "gentle parenting burnout", "struggling with gentle parenting", "trying to gentle parent", "gentle parenting feels impossible"]
+    },
+    "golden_handcuffs": {
+      "phenomenological_essence": "The self remains in a life made comfortable by the very thing that confines it. Security becomes a soft prison when departure threatens the rewards of staying.",
+      "themes": ["career", "security", "freedom", "ambivalence"],
+      "triggers": ["golden handcuffs", "golden-handcuffs", "trapped by salary", "trapped by my salary", "job pays too well to leave", "can't leave because of salary", "cant leave because of salary"]
+    },
+    "grindset_exhaustion": {
+      "phenomenological_essence": "The self becomes bound to a moral economy where rest feels like failure. Achievement ceases to be chosen freely and becomes the proof demanded by an inner tribunal.",
+      "themes": ["ambition", "exhaustion", "self_worth", "productivity"],
+      "triggers": ["grindset", "grind culture", "hustle culture", "hustle-culture", "toxic productivity", "rise and grind burnout"]
+    },
+    "layoff_survivor_guilt": {
+      "phenomenological_essence": "The self remains after others have been removed, and continued employment becomes morally complicated. Relief and guilt coexist in the same breath.",
+      "themes": ["workplace", "guilt", "survival", "uncertainty"],
+      "triggers": ["layoff survivor guilt", "layoff-survivor guilt", "survivor guilt after layoffs", "kept my job after layoffs", "guilty after layoffs", "everyone got laid off but me", "survived layoffs guilt"]
+    },
+    "life_admin_overwhelm": {
+      "phenomenological_essence": "The ordinary maintenance of life becomes a field of endless small obligations. The self is not defeated by one great task, but by the swarm of unfinished necessities.",
+      "themes": ["overwhelm", "daily_life", "responsibility", "fatigue"],
+      "triggers": ["life admin overwhelm", "life admin is overwhelming", "overwhelmed by life admin", "too much life admin", "adulting overwhelm", "overwhelmed by adulting"]
+    },
+    "loneliness_in_crowds": {
+      "phenomenological_essence": "The self is surrounded by people yet remains unseen. The pain is sharpened by proximity, because the appearance of belonging exposes its absence.",
+      "themes": ["loneliness", "belonging", "alienation", "visibility"],
+      "triggers": ["lonely in a crowd", "lonely around people", "feel alone around friends", "alone even with people", "surrounded but lonely", "invisible around people", "lonely at parties"]
+    },
+    "long_term_illness_identity_shift": {
+      "phenomenological_essence": "The body becomes an uncertain horizon through which daily life must be renegotiated. The self grieves not only pain or limitation, but the former ease of assuming tomorrow would obey intention.",
+      "themes": ["illness", "body", "identity", "grief"],
+      "triggers": ["chronic illness changed me", "long term illness changed me", "long-term illness changed me", "life with chronic illness", "identity after chronic illness", "grieving my healthy self", "my body betrayed me"]
+    },
+    "love_bombing": {
+      "phenomenological_essence": "The self is met with sudden intensity that feels like recognition, but the speed of the attachment may exceed the depth of knowing. The experience carries both hunger for being chosen and unease at being overwhelmed.",
+      "themes": ["interpersonal_intensity", "attachment", "idealization", "trust"],
+      "triggers": ["love bombing", "love-bombing", "love bombed me", "being love bombed", "he love bombed me", "she love bombed me", "is this love bombing"]
+    },
+    "main_character_pressure": {
+      "phenomenological_essence": "The self feels pressured to make life narratively impressive, aesthetically coherent, and constantly meaningful. Existence becomes something to stage rather than simply inhabit.",
+      "themes": ["self_narration", "performance", "identity", "comparison"],
+      "triggers": ["main character syndrome", "main-character syndrome", "main character pressure", "romanticize my life pressure", "pressure to romanticize my life", "life should feel cinematic", "trying to be the main character"]
+    },
+    "masking_burnout": {
+      "phenomenological_essence": "The self has performed normality so long that performance becomes depletion. What was once adaptation now demands the cost of disappearance.",
+      "themes": ["masking", "exhaustion", "identity", "belonging"],
+      "triggers": ["masking burnout", "burnout from masking", "tired of masking", "can't mask anymore", "cant mask anymore", "exhausted from masking", "masking all day"]
+    },
+    "neurodivergent_identity_formation": {
+      "phenomenological_essence": "The self begins to understand difference not merely as defect, but as a pattern of being-in-the-world. There is relief in naming, and grief for the years spent misnamed.",
+      "themes": ["identity", "difference", "belonging", "self_understanding"],
+      "triggers": ["neurodivergent identity", "neurodivergent adult", "realized i'm neurodivergent", "realised i'm neurodivergent", "realized im neurodivergent", "late discovered neurodivergent", "neurodivergent masking"]
+    },
+    "no_contact_with_parents": {
+      "phenomenological_essence": "The self chooses distance from those who were once the first world. The act may protect life, yet it carries grief for the family that could not be safely inhabited.",
+      "themes": ["family", "estrangement", "boundaries", "grief"],
+      "triggers": ["no contact with parents", "no-contact with parents", "went no contact with my parents", "going no contact with my parents", "cut off my parents", "estranged from my parents", "parent estrangement"]
+    },
+    "orbiting_after_rejection": {
+      "phenomenological_essence": "The other remains at the edge of one's life after refusing closeness. The self is denied intimacy but not surveillance, leaving the wound unable to close.",
+      "themes": ["ambiguous_presence", "rejection", "attention", "closure"],
+      "triggers": ["orbiting me after ghosting", "orbiting after rejection", "he still watches my stories", "she still watches my stories", "they ghosted but still watch", "ghosted me but watches", "orbiting after breakup"]
+    },
+    "parasocial_attachment": {
+      "phenomenological_essence": "The self forms emotional proximity with someone who cannot truly reciprocate. The bond may comfort, but it also reveals a longing for recognition without the risks of mutual relation.",
+      "themes": ["parasociality", "longing", "projection", "digital_life"],
+      "triggers": ["parasocial relationship", "parasocial attachment", "parasocial crush", "parasocial feelings", "parasocial bond", "parasocial obsession", "too attached to a celebrity"]
+    },
+    "people_pleasing": {
+      "phenomenological_essence": "The self secures belonging by anticipating and serving the needs of others. Peace is purchased through self-erasure.",
+      "themes": ["approval", "boundaries", "self_erasure", "belonging"],
+      "triggers": ["people pleasing", "people-pleasing", "people pleaser", "recovering people pleaser", "can't stop pleasing people", "cant stop pleasing people", "say yes to please everyone"]
+    },
+    "perfectionism_paralysis": {
+      "phenomenological_essence": "The self delays action in the name of excellence, yet the delay protects against the shame of imperfection. Possibility remains intact only because it has not yet been tested.",
+      "themes": ["perfectionism", "avoidance", "shame", "agency"],
+      "triggers": ["perfectionism paralysis", "perfectionist paralysis", "paralyzed by perfectionism", "can't start because it won't be perfect", "cant start because it wont be perfect", "afraid it won't be perfect", "afraid it wont be perfect"]
+    },
+    "quiet_quitting": {
+      "phenomenological_essence": "The self withdraws excess devotion from work while still fulfilling the visible obligation. Beneath the restraint may lie protest, exhaustion, or a recovery of boundaries.",
+      "themes": ["workplace", "boundaries", "disengagement", "burnout"],
+      "triggers": ["quiet quitting", "quiet-quitting", "quiet quit my job", "quiet quitting at work", "quiet quitter", "i am quiet quitting", "thinking of quiet quitting"]
+    },
+    "rejection_sensitivity": {
+      "phenomenological_essence": "The self experiences small signs of distance as possible exile. Ambiguous cues become charged with the old fear of not being wanted.",
+      "themes": ["rejection", "belonging", "sensitivity", "attachment"],
+      "triggers": ["rejection sensitivity", "rejection-sensitive", "sensitive to rejection", "overreact to rejection", "small rejection destroys me", "perceived rejection spiraling", "feel rejected over small things"]
+    },
+    "revenge_bedtime_procrastination": {
+      "phenomenological_essence": "The self delays sleep to reclaim a sense of ownership over time. The night becomes a small rebellion against days that feel consumed by obligation.",
+      "themes": ["time", "control", "exhaustion", "avoidance"],
+      "triggers": ["revenge bedtime procrastination", "revenge-bedtime procrastination", "bedtime revenge procrastination", "staying up to reclaim time", "delay sleep to have time", "procrastinate going to bed", "can't stop staying up late"]
+    },
+    "self_abandonment": {
+      "phenomenological_essence": "The self repeatedly leaves its own truth in order to preserve attachment, approval, or peace. The loss is quiet because it happens under the appearance of kindness.",
+      "themes": ["self_betrayal", "attachment", "approval", "identity"],
+      "triggers": ["self abandonment", "self-abandonment", "abandon myself in relationships", "keep abandoning myself", "betray myself to keep peace", "lose myself to please others", "abandoning my needs"]
+    },
+    "situationship": {
+      "phenomenological_essence": "The bond has the emotional weight of a relationship without the mutual naming that would make its duties clear. The self lives in an undefined space where intimacy and disposability coexist.",
+      "themes": ["ambiguity", "intimacy", "commitment", "recognition"],
+      "triggers": ["situationship", "situationships", "stuck in a situationship", "my situationship", "situationship ended", "situationship breakup", "situationship anxiety"]
+    },
+    "slow_fading": {
+      "phenomenological_essence": "Presence diminishes gradually enough that the self questions whether loss is real or imagined. The wound comes not from a clean ending, but from the quiet erosion of attention.",
+      "themes": ["withdrawal", "uncertainty", "loss", "attachment"],
+      "triggers": ["slow fading", "slow-fading", "slow faded me", "he is slow fading", "she is slow fading", "being slow faded"]
+    },
+    "soft_life_ambivalence": {
+      "phenomenological_essence": "The self longs for ease but fears that ease may be judged as weakness, laziness, or retreat. Rest becomes desirable and morally suspect at the same time.",
+      "themes": ["rest", "ambition", "ease", "self_judgment"],
+      "triggers": ["want a soft life", "soft life guilt", "feel guilty wanting ease", "tired of hustle want peace", "want ease not ambition"]
+    },
+    "stonewalling": {
+      "phenomenological_essence": "The other withdraws from dialogue while remaining physically or socially present. The self is left speaking into a closed gate, unsure whether silence is protection, punishment, or refusal.",
+      "themes": ["communication_breakdown", "withdrawal", "conflict", "abandonment"],
+      "triggers": ["stonewalling", "stonewalled me", "being stonewalled", "he stonewalls me", "she stonewalls me", "partner stonewalling", "stone walling me"]
+    },
+    "sunday_scaries": {
+      "phenomenological_essence": "The future arrives early as dread. The self loses the present day to the imagined demands of the next one.",
+      "themes": ["anticipatory_dread", "work", "time", "anxiety"],
+      "triggers": ["sunday scaries", "sunday-scaries", "sunday night dread", "dreading monday", "monday dread", "work dread on sunday", "sunday anxiety about work"]
+    },
+    "talking_stage": {
+      "phenomenological_essence": "The self inhabits a threshold where possibility is active but unconfirmed. Every message becomes evidence in a private trial about whether the bond is becoming real.",
+      "themes": ["courtship", "uncertainty", "anticipation", "attachment"],
+      "triggers": ["talking stage", "the talking stage", "still in the talking stage", "talking-stage"]
     }
   },
   "_implementation_notes": {
