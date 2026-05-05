@@ -156,7 +156,6 @@ class ConversationService:
             memories=memories,
             passages=passages,
             phenomenology_bridge=phenomenology_bridge,
-            user_name=user_name,
         )
 
         # ── 5. BUILD MESSAGE HISTORY ─────────────────────────────────────────
