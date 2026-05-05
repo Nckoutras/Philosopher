@@ -270,6 +270,9 @@ The `philosopher_brain/` directory and all design-source YAML/JSON/MD files have
 - [ ] Decide pricing for launch: $12/mo (per README) OR $15/€15 (per Section 5.7 spec target band of €15-29).
 - [ ] Greek source text editions: which translations are legally clear for ingestion in RAG corpus? Founder must provide.
 
+**P1 post-launch backlog:**
+- [ ] Adversarial classifier coverage test for novel crisis phrases that don't match RISK_HIGH/RISK_MEDIUM keyword lists. P1 post-launch. (Added 2026-05-05, safety PR fix/safety-crisis-pathway)
+
 **Blockers:**
 - None at the technical level. All blockers are decision-pending.
 

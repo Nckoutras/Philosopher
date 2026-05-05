@@ -47,9 +47,17 @@ def test_system_prompt_contains_hard_rules(builder, marcus):
     assert "fabricate" in prompt.lower()
 
 
-def test_system_prompt_contains_safety_instruction(builder, marcus):
+def test_system_prompt_contains_therapist_disclaimer(builder, marcus):
+    """Preamble must disclaim clinical role; crisis handling is the safety layer's job."""
     prompt = builder.build_system(persona=marcus)
-    assert "crisis" in prompt.lower() or "therapist" in prompt.lower()
+    assert "therapist" in prompt.lower()
+
+
+def test_system_prompt_no_crisis_exit_instruction(builder, marcus):
+    """Crisis handling must not be delegated to the LLM — safety layer intercepts first."""
+    prompt = builder.build_system(persona=marcus)
+    assert "exit persona immediately" not in prompt.lower()
+    assert "provide crisis resources" not in prompt.lower()
 
 
 def test_system_prompt_with_memories(builder, marcus):
@@ -92,3 +100,53 @@ def test_ritual_prompt_without_user_name(builder):
     template = "Begin with {{ user_name or 'silence' }}."
     result = builder.build_ritual_opener(template)
     assert "silence" in result
+
+
+# ── build_safety_response ─────────────────────────────────────────────────────
+
+def test_safety_response_renders_without_error(builder):
+    response = builder.build_safety_response(level="high")
+    assert len(response) > 20
+
+
+def test_safety_response_single_copy_for_all_suppression_levels(builder):
+    """v1 uses one copy regardless of level — no persona-differentiated copy."""
+    assert builder.build_safety_response(level="medium") == builder.build_safety_response(level="high")
+    assert builder.build_safety_response(level="critical") == builder.build_safety_response(level="high")
+
+
+def test_safety_response_no_country_specific_numbers(builder):
+    response = builder.build_safety_response()
+    assert "988" not in response
+    assert "741741" not in response
+    assert "findahelpline" not in response.lower()
+
+
+def test_safety_response_no_first_person_voice(builder):
+    """No 'I' — response must not carry persona or app self-reference."""
+    response = builder.build_safety_response()
+    assert " I " not in response
+    assert not response.startswith("I ")
+    assert "I'm" not in response
+    assert "I am" not in response
+
+
+def test_safety_response_no_persona_name(builder):
+    """No philosopher signature in the safety response."""
+    response = builder.build_safety_response()
+    for name in ["Marcus", "Socrates", "Nietzsche", "Freud", "Jung", "Beauvoir", "Epictetus"]:
+        assert name not in response, f"Persona name '{name}' leaked into safety response"
+
+
+def test_safety_response_neutral_crisis_language(builder):
+    """Must reference crisis support without naming any country's services."""
+    response = builder.build_safety_response()
+    assert "crisis" in response.lower()
+    assert "mental health" in response.lower()
+
+
+def test_safety_response_no_user_name_injection(builder):
+    """build_safety_response accepts no user_name parameter — name cannot leak."""
+    import inspect
+    sig = inspect.signature(builder.build_safety_response)
+    assert "user_name" not in sig.parameters

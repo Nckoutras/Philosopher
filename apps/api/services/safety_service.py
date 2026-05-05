@@ -6,28 +6,6 @@ from config import config
 
 logger = logging.getLogger(__name__)
 
-# ── Safe response text ────────────────────────────────────────────────────────
-
-SAFE_RESPONSE_HIGH = """What you're carrying sounds serious — more serious than reflection alone can hold.
-
-Before we continue: if you're in immediate distress, please reach out now.
-
-**988 Suicide & Crisis Lifeline** — call or text **988** (US)
-**Crisis Text Line** — text HOME to **741741** (US/UK/CA)
-**International** — findahelpline.com
-
-I'm here to think alongside you, and I will be. But right now, you may need more than a philosophical conversation. Please reach out to someone who can actually be present with you.
-
-When you're ready to return, I'll be here."""
-
-SAFE_RESPONSE_MEDIUM = """I want to be honest with you: what you're describing sounds like it's heavier than a single conversation can carry.
-
-I'm a reflective companion, not a therapist. I can think with you, but I can't provide the kind of sustained support this might call for.
-
-If things feel overwhelming, please consider speaking with someone — a counsellor, a trusted person in your life, or a crisis line if needed (text 741741 or call 988 in the US).
-
-With that said — I'm listening. What's at the centre of this for you?"""
-
 # ── Risk phrase lists ─────────────────────────────────────────────────────────
 
 RISK_HIGH = [
@@ -63,11 +41,10 @@ class SafetyResult:
     category: Optional[str] = None  # self_harm | crisis | output_harm | other
     trigger: Optional[str] = None
     raw_flags: list[str] = field(default_factory=list)
-    safe_response: Optional[str] = None
 
     @property
     def should_suppress_persona(self) -> bool:
-        return self.level in ("high", "critical")
+        return self.level in ("medium", "high", "critical")
 
     @property
     def should_log(self) -> bool:
@@ -92,7 +69,6 @@ class SafetyService:
                     level="high",
                     category="self_harm",
                     trigger=phrase,
-                    safe_response=SAFE_RESPONSE_HIGH,
                 )
 
         # Medium risk — redirect with support signpost
@@ -103,7 +79,6 @@ class SafetyService:
                     level="medium",
                     category="potential_distress",
                     trigger=phrase,
-                    safe_response=SAFE_RESPONSE_MEDIUM,
                 )
 
         # Low risk signals — log, continue with persona intact
@@ -125,7 +100,6 @@ class SafetyService:
                 level="high",
                 category="output_harm",
                 raw_flags=flags,
-                safe_response=SAFE_RESPONSE_HIGH,
             )
 
         return SafetyResult(level="none")

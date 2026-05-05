@@ -105,7 +105,7 @@ class ConversationService:
         if safety_in.should_suppress_persona:
             # Save user message first
             user_msg = await self._save_message(db, conv, user_id, "user", user_text, safety_level=safety_in.level)
-            safe_text = safety_in.safe_response
+            safe_text = prompt_builder.build_safety_response(level=safety_in.level)
             await self._save_message(db, conv, user_id, "assistant", safe_text, safety_level=safety_in.level, persona_override=True)
             await db.commit()
             analytics_service.track("safety_event_pre", user_id, {"risk_level": safety_in.level, "category": safety_in.category})
@@ -209,9 +209,10 @@ class ConversationService:
             # replaces content via safety_override event.
             # In buffer mode, no chunks have been sent yet — we send safety
             # response as the first chunks the user sees.
-            for chunk in self._chunk_text(safety_out.safe_response):
+            safe_text = prompt_builder.build_safety_response(level=safety_out.level)
+            for chunk in self._chunk_text(safe_text):
                 yield f"data: {json.dumps({'type': 'chunk', 'data': chunk})}\n\n"
-            full_response = safety_out.safe_response
+            full_response = safe_text
             # NOTE: postprocessing intentionally NOT called in this branch.
             # Safety override is final and immutable.
         elif POSTPROCESSING_ENABLED:

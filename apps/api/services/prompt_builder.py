@@ -36,6 +36,11 @@ class PromptBuilder:
             current_date=date.today().strftime("%B %d, %Y"),
         )
 
+    def build_safety_response(self, level: str = "high") -> str:
+        """Render the generic app-voice safety response. No persona, no user context."""
+        template = jinja_env.get_template("safety_response.jinja2")
+        return template.render(level=level).strip()
+
     def build_ritual_opener(self, ritual_template: str, user_name: str | None = None) -> str:
         """Render a ritual prompt template."""
         template = jinja_env.from_string(ritual_template)

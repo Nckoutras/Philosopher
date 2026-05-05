@@ -1,14 +1,16 @@
 """
-Tests for the safety service.
+Tests for the safety service — input/output classification and result properties.
 
 These are the most important tests in the codebase.
 A regression here has direct harm implications.
 
 Run: cd apps/api && pytest tests/test_safety.py -v
+
+Spec divergence (this PR): medium-risk inputs now fully suppress persona
+generation (was: redirect + continue). See PR description for rationale.
 """
 import pytest
-import asyncio
-from services.safety_service import SafetyService, SAFE_RESPONSE_HIGH, SAFE_RESPONSE_MEDIUM
+from services.safety_service import SafetyService, SafetyResult
 
 
 @pytest.fixture
@@ -16,7 +18,7 @@ def safety():
     return SafetyService()
 
 
-# ── High risk inputs — must ALWAYS suppress persona ──────────────────────────
+# ── High-risk inputs — must ALWAYS suppress persona ───────────────────────────
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("text", [
@@ -35,29 +37,21 @@ async def test_high_risk_input_suppresses_persona(safety, text):
     assert result.level == "high", f"Expected high for: '{text}', got: {result.level}"
     assert result.should_suppress_persona is True
     assert result.category == "self_harm"
-    assert result.safe_response is not None
-    assert "988" in result.safe_response  # crisis line must be present
-    assert result.safe_response == SAFE_RESPONSE_HIGH
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("text", [
-    "Kill myself with laughter watching this",   # figurative — should NOT trigger high
+    "Kill myself with laughter watching this",   # figurative — expected false positive
     "I'm killing it at work today",               # idiomatic
 ])
-async def test_figurative_kill_not_high_risk(safety, text):
-    # These are edge cases — we test the current behavior.
-    # The keyword scanner will catch "kill myself" in the first one.
-    # This is an EXPECTED false positive — safety errs on the side of caution.
+async def test_figurative_kill_conservative_false_positive(safety, text):
+    # Conservative false-positives are preferable to missed true positives.
+    # We document current behavior rather than assert it won't trigger.
     result = await safety.check_input(text)
-    # We document this behavior rather than assert it won't trigger,
-    # because conservative false positives are preferable to missed true positives.
-    assert result.level in ("none", "low", "medium", "high")  # any is valid
-    # Key assertion: we never return an undefined level
-    assert result.level in SafetyService.__dict__.get("VALID_LEVELS", ["none", "low", "medium", "high", "critical"])
+    assert result.level in SafetyService.VALID_LEVELS
 
 
-# ── Medium risk inputs — redirect but don't fully suppress ────────────────────
+# ── Medium-risk inputs — NOW suppress persona (spec change from v0) ───────────
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("text", [
@@ -68,16 +62,32 @@ async def test_figurative_kill_not_high_risk(safety, text):
     "everyone would be better without me",
     "I'm so done with everything",
 ])
-async def test_medium_risk_input(safety, text):
+async def test_medium_risk_input_suppresses_persona(safety, text):
+    """Medium risk now suppresses persona — was 'redirect + continue' before this PR."""
     result = await safety.check_input(text)
-    assert result.level in ("medium", "high"), f"Expected medium or high for: '{text}', got: {result.level}"
-    assert result.safe_response is not None
-    # Medium response should be gentler but still include support signpost
-    if result.level == "medium":
-        assert result.safe_response == SAFE_RESPONSE_MEDIUM
+    assert result.level in ("medium", "high"), (
+        f"Expected medium or high for: '{text}', got: {result.level}"
+    )
+    assert result.should_suppress_persona is True, (
+        f"Medium must suppress persona. Got False for: '{text}'"
+    )
 
 
-# ── Clean inputs — should not trigger safety ─────────────────────────────────
+# ── Low-risk inputs — persona must continue ───────────────────────────────────
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("text", [
+    "I've been so tired lately",
+    "feeling like a failure at work",
+    "I feel completely alone at this company",
+])
+async def test_low_risk_input_does_not_suppress(safety, text):
+    result = await safety.check_input(text)
+    assert result.level == "low"
+    assert result.should_suppress_persona is False
+
+
+# ── Clean inputs — no flag ────────────────────────────────────────────────────
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("text", [
@@ -92,7 +102,9 @@ async def test_medium_risk_input(safety, text):
 ])
 async def test_clean_inputs_not_flagged(safety, text):
     result = await safety.check_input(text)
-    assert result.level in ("none", "low"), f"Unexpected flag for: '{text}', got: {result.level}"
+    assert result.level in ("none", "low"), (
+        f"Unexpected flag for: '{text}', got: {result.level}"
+    )
     assert result.should_suppress_persona is False
 
 
@@ -107,7 +119,7 @@ async def test_clean_inputs_not_flagged(safety, text):
 ])
 async def test_harmful_output_flagged(safety, response_text):
     result = await safety.check_output(response_text)
-    assert result.level == "high", f"Expected high for output: '{response_text[:40]}...'"
+    assert result.level == "high", f"Expected high for output: '{response_text[:40]}'"
     assert result.should_suppress_persona is True
     assert result.category == "output_harm"
 
@@ -121,38 +133,31 @@ async def test_harmful_output_flagged(safety, response_text):
 ])
 async def test_clean_outputs_not_flagged(safety, response_text):
     result = await safety.check_output(response_text)
-    assert result.level == "none", f"False positive on output: '{response_text[:40]}...'"
+    assert result.level == "none", f"False positive on output: '{response_text[:40]}'"
 
 
-# ── Safety result properties ──────────────────────────────────────────────────
+# ── SafetyResult.should_suppress_persona ─────────────────────────────────────
 
-def test_safety_result_suppress_logic():
-    from services.safety_service import SafetyResult
+def test_suppress_none_and_low_is_false():
+    """none and low must not suppress — persona should run."""
     assert SafetyResult(level="none").should_suppress_persona is False
     assert SafetyResult(level="low").should_suppress_persona is False
-    assert SafetyResult(level="medium").should_suppress_persona is False
+
+
+def test_suppress_medium_is_now_true():
+    """Key behavioral change: medium now suppresses instead of redirecting."""
+    assert SafetyResult(level="medium").should_suppress_persona is True
+
+
+def test_suppress_high_and_critical_is_true():
     assert SafetyResult(level="high").should_suppress_persona is True
     assert SafetyResult(level="critical").should_suppress_persona is True
 
 
-def test_safety_result_log_logic():
-    from services.safety_service import SafetyResult
+# ── SafetyResult.should_log ───────────────────────────────────────────────────
+
+def test_should_log_logic():
     assert SafetyResult(level="none").should_log is False
     assert SafetyResult(level="low").should_log is True
     assert SafetyResult(level="medium").should_log is True
     assert SafetyResult(level="high").should_log is True
-
-
-# ── Safe response content checks ─────────────────────────────────────────────
-
-def test_high_safe_response_contains_crisis_resources():
-    assert "988" in SAFE_RESPONSE_HIGH
-    assert "741741" in SAFE_RESPONSE_HIGH
-    assert "findahelpline" in SAFE_RESPONSE_HIGH
-
-
-def test_medium_safe_response_not_identical_to_high():
-    """Medium response should be gentler — not the same as crisis response."""
-    assert SAFE_RESPONSE_MEDIUM != SAFE_RESPONSE_HIGH
-    # Medium should still reference support options
-    assert any(word in SAFE_RESPONSE_MEDIUM.lower() for word in ["support", "counsellor", "988", "crisis"])
