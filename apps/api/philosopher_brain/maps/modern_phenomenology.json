@@ -1,7 +1,7 @@
 {
   "_meta": {
     "version": "1.0.0",
-    "last_reviewed": "2026-04-27",
+    "last_reviewed": "2026-05-05",
     "purpose": "Maps modern terms and situations to timeless phenomenological essences. Used by the orchestration layer to translate user input into terms the persona can engage with internally, without ever surfacing the modern term in the reply.",
     "reference_spec_section": "5.6.7",
     "usage_notes": [
@@ -31,7 +31,12 @@
       },
       "triggers": [
         "ghosted",
-        "ghosting"
+        "ghosting",
+        "got ghosted",
+        "he ghosted",
+        "she ghosted",
+        "they ghosted",
+        "being ghosted"
       ]
     },
     "ghosting_after_great_dates": {
@@ -77,7 +82,10 @@
         "horrible boss",
         "bully of a boss",
         "abusive manager",
-        "my boss makes my life miserable"
+        "my boss makes my life miserable",
+        "my boss is a bully",
+        "my manager is toxic",
+        "manipulative manager"
       ]
     },
     "doomscrolling": {
@@ -99,7 +107,11 @@
       "triggers": [
         "doomscrolling",
         "doom scrolling",
-        "doom-scrolling"
+        "doom-scrolling",
+        "doomscrolled",
+        "doom-scrolled",
+        "can't stop doomscrolling",
+        "keep doomscrolling"
       ]
     },
     "performance_review": {
@@ -122,7 +134,9 @@
         "annual review at work",
         "got reviewed at work",
         "performance evaluation",
-        "my performance review is coming up"
+        "my performance review is coming up",
+        "year-end review at work",
+        "my annual evaluation is coming up"
       ]
     },
     "dating_apps": {
@@ -146,7 +160,10 @@
         "tinder",
         "bumble",
         "swipe right",
-        "online dating"
+        "online dating",
+        "tired of dating apps",
+        "on dating apps",
+        "hinge"
       ]
     },
     "burnout": {
@@ -170,7 +187,9 @@
         "burnt out",
         "burnout",
         "completely depleted at work",
-        "can't keep up at work"
+        "can't keep up at work",
+        "burning out at work",
+        "burning out from"
       ]
     },
     "social_anxiety": {
@@ -192,7 +211,10 @@
         "social anxiety",
         "socially anxious",
         "anxious in social",
-        "nervous around people"
+        "nervous around people",
+        "anxiety in social situations",
+        "scared of social situations",
+        "nervous meeting new people"
       ]
     },
     "imposter_syndrome": {
@@ -216,7 +238,11 @@
         "feel like a fraud",
         "feel like a fake",
         "don't deserve this job",
-        "don't deserve this role"
+        "don't deserve this role",
+        "feeling like a fraud",
+        "feeling like an imposter",
+        "waiting to be found out",
+        "waiting to be exposed as a fraud"
       ]
     },
     "loneliness_in_a_relationship": {
@@ -239,7 +265,10 @@
         "lonely with my wife",
         "lonely in my marriage",
         "feel alone next to him",
-        "feel alone next to her"
+        "feel alone next to her",
+        "feel alone in my relationship",
+        "feel disconnected from my partner",
+        "we don't connect anymore"
       ]
     },
     "parents_getting_older": {
@@ -264,7 +293,9 @@
         "my dad is getting old",
         "my mother is aging",
         "my father is aging",
-        "my parents are aging"
+        "my parents are aging",
+        "watching my parents age",
+        "my parents can't manage on their own anymore"
       ]
     },
     "caregiving_burden": {
@@ -290,7 +321,10 @@
         "taking care of my aging mom",
         "taking care of my aging dad",
         "taking care of my elderly mother",
-        "taking care of my elderly father"
+        "taking care of my elderly father",
+        "exhausted from caregiving",
+        "full-time caregiver",
+        "caregiver stress"
       ]
     },
     "breakup_initiated_by_them": {
@@ -317,7 +351,10 @@
         "he dumped me",
         "he ended the relationship",
         "she ended the relationship",
-        "got dumped by my partner"
+        "got dumped by my partner",
+        "they ended the relationship",
+        "my partner broke up with me",
+        "got dumped"
       ]
     },
     "breakup_initiated_by_user": {
@@ -341,7 +378,11 @@
         "i broke up with them",
         "i ended the relationship",
         "i ended things with my partner",
-        "i had to end the relationship"
+        "i had to end the relationship",
+        "i was the one who ended it",
+        "i dumped him",
+        "i dumped her",
+        "i dumped them"
       ]
     },
     "fear_of_failure": {
@@ -365,7 +406,8 @@
         "scared to fail",
         "afraid i'll fail",
         "what if i fail",
-        "terrified of failing"
+        "terrified of failing",
+        "can't bring myself to try because i might fail"
       ]
     },
     "fear_of_success": {
@@ -387,7 +429,9 @@
         "afraid of succeeding",
         "scared of succeeding",
         "afraid to succeed",
-        "what if i actually succeed"
+        "what if i actually succeed",
+        "terrified of succeeding",
+        "uncomfortable with my own success"
       ]
     },
     "loneliness_living_alone": {
@@ -407,7 +451,11 @@
       "triggers": [
         "lonely living alone",
         "no one to come home to",
-        "the silence in my apartment"
+        "the silence in my apartment",
+        "coming home to an empty apartment",
+        "coming home to an empty house",
+        "live alone and feel lonely",
+        "the emptiness when i get home"
       ]
     },
     "indecision": {
@@ -429,7 +477,9 @@
         "cannot decide",
         "can't make up my mind",
         "paralyzed by choice",
-        "stuck between two choices"
+        "stuck between two choices",
+        "torn between options",
+        "can't make a decision"
       ]
     },
     "midlife_crisis": {
@@ -449,7 +499,12 @@
       "triggers": [
         "midlife crisis",
         "mid-life crisis",
-        "halfway through my life"
+        "halfway through my life",
+        "hitting midlife",
+        "midlife and not where i thought i'd be",
+        "in my 40s and questioning everything",
+        "halfway through life and lost",
+        "midway through life and questioning"
       ]
     },
     "estranged_sibling": {
@@ -472,7 +527,10 @@
         "no contact with my brother for years",
         "no contact with my sister for years",
         "haven't spoken to my brother in years",
-        "haven't spoken to my sister in years"
+        "haven't spoken to my sister in years",
+        "cut off from my brother",
+        "cut off from my sister",
+        "my sibling and i don't talk anymore"
       ]
     },
     "anxiety_about_the_future": {
@@ -493,7 +551,10 @@
         "worried about the future",
         "scared of the future",
         "anxious about what's going to happen",
-        "the future feels uncertain"
+        "the future feels uncertain",
+        "terrified of the future",
+        "the future feels overwhelming",
+        "dreading the future"
       ]
     },
     "guilt_about_succeeding_when_others_struggle": {
@@ -517,7 +578,9 @@
         "survivor's guilt",
         "survivors guilt",
         "guilty when others are struggling",
-        "guilty that i have succeeded"
+        "guilty that i have succeeded",
+        "feel guilty for having more than others",
+        "guilty that i'm okay when others aren't"
       ]
     },
     "feeling_invisible_at_work": {
@@ -539,7 +602,9 @@
         "my work goes unnoticed",
         "overlooked at work",
         "no one at work sees what i do",
-        "someone takes credit for my work"
+        "someone takes credit for my work",
+        "undervalued at work",
+        "my contributions are ignored at work"
       ]
     },
     "compulsive_dating": {
@@ -560,7 +625,9 @@
         "can't stop dating",
         "always going on dates",
         "always swiping on dating apps",
-        "always on dating apps"
+        "always on dating apps",
+        "serial dater",
+        "addicted to dating apps"
       ]
     },
     "post_breakup_obsession": {
@@ -581,7 +648,10 @@
         "obsessed with my ex",
         "obsessing over the breakup",
         "can't get over my ex",
-        "ruminating about the breakup"
+        "ruminating about the breakup",
+        "checking my ex's social media",
+        "can't stop looking at my ex online",
+        "keep thinking about the breakup"
       ]
     },
     "inherited_political_disagreement_with_family": {
@@ -603,7 +673,9 @@
         "different politics from my parents",
         "different politics from my family",
         "fight about politics with my parents",
-        "fight about politics with my family"
+        "fight about politics with my family",
+        "family dinners turn into political fights",
+        "can't talk to my family about politics anymore"
       ]
     },
     "longing_for_a_lost_friendship": {
@@ -622,7 +694,9 @@
         "lost a friendship",
         "miss my old friend",
         "friendship faded",
-        "we drifted apart as friends"
+        "we drifted apart as friends",
+        "growing apart from a friend",
+        "my best friend and i drifted apart"
       ]
     },
     "ambivalence_about_having_children": {
@@ -648,7 +722,9 @@
         "not sure about having kids",
         "not sure about having children",
         "decision to have kids",
-        "decision to have children"
+        "decision to have children",
+        "on the fence about having kids",
+        "on the fence about having children"
       ]
     },
     "regret_for_a_career_path_not_taken": {
@@ -670,7 +746,9 @@
         "stuck in this career",
         "i chose the wrong job",
         "i should have been a",
-        "what if i had become a"
+        "what if i had become a",
+        "gave up my dream career",
+        "took the safe career path instead of what i wanted"
       ]
     },
     "dread_of_a_difficult_conversation": {
@@ -695,7 +773,9 @@
         "have to tell him something difficult",
         "have to tell her something difficult",
         "have to tell my partner something difficult",
-        "have to have the difficult conversation"
+        "have to have the difficult conversation",
+        "avoiding a conversation i need to have",
+        "keep putting off talking to someone"
       ]
     },
     "feeling_disconnected_from_oneself": {
@@ -716,7 +796,10 @@
         "not myself lately",
         "disconnected from myself",
         "watching my life from outside",
-        "just going through the motions in life"
+        "just going through the motions in life",
+        "feel like i'm on autopilot",
+        "lost touch with who i am",
+        "not sure who i am anymore"
       ]
     },
     "envy_of_a_friend": {
@@ -735,7 +818,9 @@
         "jealous of my friend",
         "envious of my friend",
         "envy my friend",
-        "jealous of my friend's success"
+        "jealous of my friend's success",
+        "resentful of a friend's success",
+        "jealous of my friend's life"
       ]
     },
     "feeling_like_one_is_running_out_of_time": {
@@ -756,7 +841,10 @@
         "doors are closing",
         "running out of time in life",
         "time is running out for my life",
-        "no time left to become who i wanted"
+        "no time left to become who i wanted",
+        "time is passing me by",
+        "life is passing me by",
+        "getting older and haven't done what i wanted"
       ]
     }
   },
