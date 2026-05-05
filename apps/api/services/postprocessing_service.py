@@ -324,6 +324,20 @@ async def regenerate_or_trim(
                     "hit_categories": hit_categories,
                 },
             )
+            # Layer 3 observability: detect mid-sentence pass-through
+            # (LLM stopped on token budget below word cap but mid-sentence)
+            _brevity_r = next((r for r in results if r.check_name == "brevity"), None)
+            if _brevity_r and _brevity_r.word_count is not None:
+                if not re.search(r"[.!?][\"\')\]\*]*\s*$", current.strip()):
+                    logger.warning(
+                        "brevity_passed_but_mid_sentence",
+                        extra={
+                            "attempt": attempt,
+                            "word_count": _brevity_r.word_count,
+                            "max_words": _brevity_r.target_band[1] if _brevity_r.target_band else None,
+                            "reply_tail": current[-100:],
+                        },
+                    )
             return current, history
 
         # Hit detected. If we've used all attempts, deterministic strip
@@ -449,7 +463,7 @@ def _compute_max_tokens(
         return 1024 if attempt == 0 else 700
 
     # Add headroom; tighten on retries
-    headroom = 1.4 if attempt == 0 else 1.2 if attempt == 1 else 1.0
+    headroom = 1.4 if attempt == 0 else 1.2 if attempt == 1 else 1.15
     return int(target_words * 1.4 * headroom)
 
 
@@ -473,4 +487,31 @@ def _deterministic_strip(reply: str, results: list[CheckResult]) -> str:
                 stripped = re.sub(pat, "", stripped, flags=re.IGNORECASE)
     # Collapse double spaces created by stripping
     stripped = re.sub(r"\s{2,}", " ", stripped).strip()
+    # Brevity trim — handles regen3-still-over-length case
+    brevity_failed = next(
+        (r for r in results
+         if r.check_name == "brevity"
+         and not r.passed
+         and r.target_band is not None),
+        None,
+    )
+    if brevity_failed:
+        max_words = brevity_failed.target_band[1]
+        words = stripped.split()
+        if len(words) > max_words:
+            prefix = " ".join(words[:max_words])
+            terminator_pattern = r"[.!?][\"\')\]\*]*(?=\s|$)"
+            matches = list(re.finditer(terminator_pattern, prefix))
+            if matches:
+                stripped = prefix[:matches[-1].end()].rstrip()
+            else:
+                logger.warning(
+                    "hard_cut_no_sentence_boundary",
+                    extra={
+                        "original_word_count": len(words),
+                        "max_words": max_words,
+                        "reply_preview": stripped[:200],
+                    },
+                )
+                stripped = prefix.rstrip()
     return stripped

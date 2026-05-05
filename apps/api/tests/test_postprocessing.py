@@ -7,6 +7,7 @@ from services.postprocessing_service import (
     check_universal_forbidden,
     check_brevity,
     check_persona_forbidden,
+    regenerate_or_trim,
     CheckAction,
     CheckHit,
     CheckResult,
@@ -286,20 +287,106 @@ def test_deterministic_strip_collapses_whitespace():
     assert "  " not in stripped
 
 
-def test_deterministic_strip_ignores_brevity_results():
-    """Brevity check results are not used by deterministic strip."""
+def test_deterministic_strip_brevity_trims_at_last_sentence():
+    """Brevity hit: reply trimmed to last full sentence ending within max_words."""
+    def _sentence(word, n):
+        return " ".join([word] * (n - 1)) + f" {word}."
+
+    s1 = _sentence("alpha", 20)    # 20 words, ends "alpha."
+    s2 = _sentence("beta", 20)     # 20 words, ends "beta."
+    s3 = _sentence("gamma", 20)    # 20 words, ends "gamma."
+    s4 = _sentence("delta", 25)    # 25 words — extends past word 80, "delta." at word 85
+    s5 = _sentence("epsilon", 15)  # 15 words
+    reply = f"{s1} {s2} {s3} {s4} {s5}"  # 100 words total
+
     results = [
         CheckResult(
             check_name="brevity",
             passed=False,
-            hits=[],
-            word_count=200,
-            target_band=(10, 50),
+            action=CheckAction.REGENERATE,
+            word_count=100,
+            target_band=(40, 80),
         )
     ]
-    original = "A normal reply with no forbidden phrases."
-    stripped = _deterministic_strip(original, results)
-    assert stripped == original
+    stripped = _deterministic_strip(reply, results)
+
+    # words[:80] = s1+s2+s3 (60 words) + first 20 of s4 (no period).
+    # Last terminator in prefix is "." ending s3.
+    assert stripped == f"{s1} {s2} {s3}"
+    assert stripped.endswith(".")
+    assert "delta" not in stripped
+    assert "epsilon" not in stripped
+
+
+def test_deterministic_strip_brevity_no_terminator_falls_back_to_word_trim(caplog):
+    """No sentence terminator in prefix — falls back to hard word-boundary cut and logs."""
+    import logging
+
+    # 100-word reply: first 80 words are terminator-free, period only after word 80
+    no_term = " ".join(["running"] * 80)
+    tail = " " + " ".join(["ending"] * 19) + " done."  # 20 words
+    reply = no_term + tail  # 100 words
+
+    results = [
+        CheckResult(
+            check_name="brevity",
+            passed=False,
+            action=CheckAction.REGENERATE,
+            word_count=100,
+            target_band=(40, 80),
+        )
+    ]
+    with caplog.at_level(logging.WARNING):
+        stripped = _deterministic_strip(reply, results)
+
+    assert stripped == no_term
+    assert any(r.msg == "hard_cut_no_sentence_boundary" for r in caplog.records)
+
+
+def test_deterministic_strip_brevity_handles_markdown_emphasis():
+    """Trim point correctly includes a closing asterisk after the sentence terminator."""
+    # 72-word reply: preamble (67 words) + "*That is so.*" (3 words) + "more text" (2 words)
+    # max_words=70 captures the closing asterisk but not "more text"
+    preamble = " ".join(["intro"] * 67)   # 67 words, no terminators
+    closing = "*That is so.*"              # 3 words: "*That", "is", "so.*"
+    extra = "more text"                    # 2 words
+    reply = f"{preamble} {closing} {extra}"  # 72 words total
+
+    results = [
+        CheckResult(
+            check_name="brevity",
+            passed=False,
+            action=CheckAction.REGENERATE,
+            word_count=72,
+            target_band=(40, 70),
+        )
+    ]
+    stripped = _deterministic_strip(reply, results)
+
+    # words[:70] = preamble(67) + "*That"(1) + "is"(1) + "so.*"(1) = 70 words.
+    # Pattern [.!?][\"\')\]\*]* matches ".*" in "so.*", end includes the asterisk.
+    assert stripped.endswith("*")
+    assert "more" not in stripped
+    assert "text" not in stripped
+
+
+def test_deterministic_strip_brevity_within_band_returns_unchanged():
+    """Defensive: brevity result present but word count already <= max_words — no trim."""
+    reply = " ".join(["word"] * 50)  # 50 words
+
+    results = [
+        CheckResult(
+            check_name="brevity",
+            passed=False,
+            action=CheckAction.REGENERATE,
+            word_count=50,
+            target_band=(40, 90),
+        )
+    ]
+    stripped = _deterministic_strip(reply, results)
+
+    # len(words)=50 <= max_words=90 → no trim branch entered
+    assert stripped == reply
 
 
 # ──────────────────────────────────────────────────────────────────
@@ -346,3 +433,50 @@ def test_safety_override_bypasses_postprocessing_invariant():
                     "be postprocessed. See Decision D."
                 )
             break
+
+
+# ──────────────────────────────────────────────────────────────────
+# Layer 3 observability — brevity_passed_but_mid_sentence
+# ──────────────────────────────────────────────────────────────────
+
+async def test_brevity_passed_but_mid_sentence_logs_warning(caplog):
+    """Layer 3: warning fires when brevity passes but reply ends without a sentence terminator."""
+    from unittest.mock import patch
+    import logging
+
+    persona = get_persona("marcus_aurelius")
+    reply = "A mid-sentence reply fragment without any terminal punctuation"
+
+    passing_brevity = CheckResult(
+        check_name="brevity",
+        passed=True,
+        action=CheckAction.PASS,
+        word_count=10,
+        target_band=(10, 90),
+    )
+    passing_universal = CheckResult(
+        check_name="universal_forbidden",
+        passed=True,
+        action=CheckAction.PASS,
+    )
+    passing_persona = CheckResult(
+        check_name="persona_forbidden",
+        passed=True,
+        action=CheckAction.SKIP,
+    )
+
+    with caplog.at_level(logging.WARNING), \
+         patch("services.postprocessing_service.check_universal_forbidden",
+               return_value=passing_universal), \
+         patch("services.postprocessing_service.check_brevity",
+               return_value=passing_brevity), \
+         patch("services.postprocessing_service.check_persona_forbidden",
+               return_value=passing_persona):
+        await regenerate_or_trim(
+            reply=reply,
+            persona=persona,
+            system_prompt="system",
+            user_text="user",
+        )
+
+    assert any(r.msg == "brevity_passed_but_mid_sentence" for r in caplog.records)
