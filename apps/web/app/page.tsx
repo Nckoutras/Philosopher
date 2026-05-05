@@ -58,7 +58,6 @@ export default function LandingPage() {
             { name: 'Marcus Aurelius', emoji: '🏛️', tier: 'free' },
             { name: 'Simone de Beauvoir', emoji: '📖', tier: 'pro' },
             { name: 'Epictetus', emoji: '⛓️', tier: 'pro' },
-            { name: 'Nietzsche', emoji: '⚡', tier: 'pro' },
           ].map(({ name, emoji, tier }) => (
             <div
               key={name}
