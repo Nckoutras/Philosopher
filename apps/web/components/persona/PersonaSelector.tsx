@@ -10,19 +10,21 @@ interface PersonaCardProps {
   persona: Persona
   onSelect: (persona: Persona) => void
   isActive?: boolean
+  isLoading?: boolean
 }
 
-export function PersonaCard({ persona, onSelect, isActive }: PersonaCardProps) {
+export function PersonaCard({ persona, onSelect, isActive, isLoading }: PersonaCardProps) {
   return (
     <button
-      onClick={() => persona.is_accessible && onSelect(persona)}
+      onClick={() => !isLoading && persona.is_accessible && onSelect(persona)}
+      disabled={isLoading}
       className={clsx(
         'relative w-full text-left rounded-2xl p-5 transition-all duration-200',
         'border focus-visible:ring-2',
         isActive
           ? 'border-[var(--gold)] bg-[rgba(201,169,110,0.06)]'
           : 'border-[var(--border)] bg-[var(--bg-surface)] hover:border-[var(--border-strong)]',
-        !persona.is_accessible && 'opacity-60 cursor-not-allowed',
+        (!persona.is_accessible || isLoading) && 'opacity-60 cursor-not-allowed',
       )}
     >
       {/* Tier badge */}
@@ -36,7 +38,9 @@ export function PersonaCard({ persona, onSelect, isActive }: PersonaCardProps) {
       )}
 
       <div className="flex items-start gap-3">
-        <span className="text-2xl mt-0.5">{persona.avatar_emoji ?? '🏛️'}</span>
+        <span className={clsx('text-2xl mt-0.5', isLoading && 'animate-pulse')}>
+          {persona.avatar_emoji ?? '🏛️'}
+        </span>
         <div className="min-w-0 flex-1">
           <h3 className="font-medium text-sm text-[var(--text-primary)]">{persona.name}</h3>
           <p className="text-xs text-[var(--text-muted)] mt-0.5">{persona.era} · {persona.tradition}</p>
@@ -64,11 +68,12 @@ export function PersonaCard({ persona, onSelect, isActive }: PersonaCardProps) {
 interface PersonaSelectorProps {
   personas: Persona[]
   activeSlug?: string
+  creatingSlug?: string | null
   onSelect: (persona: Persona) => void
   onUpgrade: () => void
 }
 
-export function PersonaSelector({ personas, activeSlug, onSelect, onUpgrade }: PersonaSelectorProps) {
+export function PersonaSelector({ personas, activeSlug, creatingSlug, onSelect, onUpgrade }: PersonaSelectorProps) {
   const free = personas.filter((p) => p.tier === 'free')
   const paid = personas.filter((p) => p.tier !== 'free')
 
@@ -78,7 +83,13 @@ export function PersonaSelector({ personas, activeSlug, onSelect, onUpgrade }: P
         <h2 className="text-xs uppercase tracking-widest text-[var(--text-muted)] mb-3 px-1">Free</h2>
         <div className="space-y-2">
           {free.map((p) => (
-            <PersonaCard key={p.slug} persona={p} onSelect={onSelect} isActive={p.slug === activeSlug} />
+            <PersonaCard
+              key={p.slug}
+              persona={p}
+              onSelect={onSelect}
+              isActive={p.slug === activeSlug}
+              isLoading={p.slug === creatingSlug}
+            />
           ))}
         </div>
       </section>
@@ -96,6 +107,7 @@ export function PersonaSelector({ personas, activeSlug, onSelect, onUpgrade }: P
                   onSelect(p)
                 }}
                 isActive={p.slug === activeSlug}
+                isLoading={p.slug === creatingSlug}
               />
             ))}
           </div>

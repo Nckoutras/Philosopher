@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
@@ -14,6 +14,7 @@ export default function DashboardPage() {
   const queryClient = useQueryClient()
   const { user } = useStore()
   const plan = useStore((s) => s.subscription?.plan ?? 'free')
+  const [creatingSlug, setCreatingSlug] = useState<string | null>(null)
 
   const { data: personas = [], isLoading } = useQuery({
     queryKey: ['personas'],
@@ -26,12 +27,16 @@ export default function DashboardPage() {
   })
 
   const handleSelectPersona = async (persona: typeof personas[number]) => {
+    if (creatingSlug) return
+    setCreatingSlug(persona.slug)
     try {
       const conv = await api.createConversation(persona.slug)
       await queryClient.invalidateQueries({ queryKey: ['conversations'] })
       router.push(`/app/persona/${conv.id}`)
     } catch (e) {
       console.error(e)
+    } finally {
+      setCreatingSlug(null)
     }
   }
 
@@ -75,6 +80,7 @@ export default function DashboardPage() {
           >
             <PersonaSelector
               personas={personas}
+              creatingSlug={creatingSlug}
               onSelect={handleSelectPersona}
               onUpgrade={() => router.push('/upgrade')}
             />
