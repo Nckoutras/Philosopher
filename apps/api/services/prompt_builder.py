@@ -24,7 +24,6 @@ class PromptBuilder:
         memories: list[MemoryEntry] = None,
         passages: list[SourceChunk] = None,
         phenomenology_bridge: Optional[PhenomenologyBridge] = None,
-        user_name: str | None = None,
     ) -> str:
         template = jinja_env.get_template("system_base.jinja2")
         return template.render(
@@ -32,7 +31,6 @@ class PromptBuilder:
             memories=memories or [],
             passages=passages or [],
             phenomenology_bridge=phenomenology_bridge,
-            user_name=user_name,
             current_date=date.today().strftime("%B %d, %Y"),
         )
 
