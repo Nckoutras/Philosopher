@@ -1,12 +1,23 @@
 import type { Metadata } from 'next'
-import { Inter, Lora } from 'next/font/google'
+import { Cormorant_Garamond, Lora } from 'next/font/google'
 import { ThemeProvider } from 'next-themes'
 import { Toaster } from 'react-hot-toast'
 import QueryProvider from '@/components/ui/QueryProvider'
 import './globals.css'
 
-const inter = Inter({ subsets: ['latin'], variable: '--font-sans', display: 'swap' })
-const lora = Lora({ subsets: ['latin'], variable: '--font-serif', display: 'swap' })
+const cormorant = Cormorant_Garamond({
+  subsets: ['latin'],
+  weight: ['300', '400', '500'],
+  variable: '--font-cormorant',
+  display: 'swap',
+})
+
+const lora = Lora({
+  subsets: ['latin'],
+  weight: ['400', '500'],
+  variable: '--font-lora',
+  display: 'swap',
+})
 
 export const metadata: Metadata = {
   title: 'Philosopher — Your Reflective Companion',
@@ -22,19 +33,20 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${inter.variable} ${lora.variable} font-sans antialiased`}>
-        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
+      <body className={`${cormorant.variable} ${lora.variable} font-lora antialiased`}>
+        <ThemeProvider attribute="class" forcedTheme="light" enableSystem={false}>
           <QueryProvider>
             {children}
             <Toaster
               position="bottom-right"
               toastOptions={{
                 style: {
-                  background: 'var(--toast-bg, #1a1a1a)',
-                  color: 'var(--toast-fg, #e5e5e5)',
-                  border: '1px solid rgba(255,255,255,0.08)',
-                  borderRadius: '10px',
-                  fontSize: '14px',
+                  background: '#1F1B14',
+                  color: '#FAF4E6',
+                  border: '0.5px solid #1F1B14',
+                  borderRadius: '4px',
+                  fontSize: '12px',
+                  fontFamily: 'var(--font-lora), Georgia, serif',
                 },
               }}
             />

@@ -2,75 +2,67 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ── Design tokens ─────────────────────────────────────────────────────────── */
+/* ── Design tokens per DESIGN_SYSTEM_v4 §1.2 ─────────────────────────────── */
 :root {
-  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
-  --font-serif: 'Lora', ui-serif, Georgia, serif;
+  --font-cormorant: 'Cormorant Garamond', Georgia, serif;
+  --font-lora: 'Lora', Georgia, serif;
 
-  /* Light mode */
-  --bg-primary:     #faf9f6;
-  --bg-secondary:   #f2f0eb;
-  --bg-surface:     #ffffff;
-  --text-primary:   #1a1916;
-  --text-secondary: #5a574f;
-  --text-muted:     #9c9890;
-  --border:         rgba(0,0,0,0.08);
-  --border-strong:  rgba(0,0,0,0.15);
-  --accent:         #8b6f47;
-  --accent-hover:   #7a6040;
-  --gold:           #c9a96e;
-  --toast-bg:       #ffffff;
-  --toast-fg:       #1a1916;
+  --vellum:       #FAF4E6;
+  --paper:        #FFFFFF;
+  --linen:        #E8DCC4;
+  --linen-deep:   #DDD0B5;
+  --edge:         #D4C8B0;
+  --ink:          #1F1B14;
+  --charcoal:     #5A5246;
+  --sepia:        #8A7E6A;
+  --bronze:       #A8884A;
+  --bronze-dark:  #8A7340;
+  --rust:         #A05A3C;
+
+  --bg-primary:     var(--vellum);
+  --bg-secondary:   var(--linen);
+  --bg-surface:     var(--paper);
+  --text-primary:   var(--ink);
+  --text-secondary: var(--charcoal);
+  --text-muted:     var(--sepia);
+  --border:         rgba(31, 27, 20, 0.1);
+  --border-strong:  var(--ink);
+  --accent:         var(--bronze);
+  --accent-hover:   var(--bronze-dark);
+  --gold:           var(--bronze);
+  --toast-bg:       var(--ink);
+  --toast-fg:       var(--vellum);
 }
 
-.dark {
-  --bg-primary:     #0f0e0d;
-  --bg-secondary:   #1a1916;
-  --bg-surface:     #211f1c;
-  --text-primary:   #e8e4dc;
-  --text-secondary: #9c9880;
-  --text-muted:     #5a574f;
-  --border:         rgba(255,255,255,0.07);
-  --border-strong:  rgba(255,255,255,0.14);
-  --accent:         #c9a96e;
-  --accent-hover:   #d4b87e;
-  --gold:           #c9a96e;
-  --toast-bg:       #211f1c;
-  --toast-fg:       #e8e4dc;
-}
-
-/* ── Base ───────────────────────────────────────────────────────────────────── */
 * { box-sizing: border-box; }
 
 html {
-  color-scheme: dark;
+  color-scheme: light;
   scroll-behavior: smooth;
 }
 
 body {
-  background: var(--bg-primary);
-  color: var(--text-primary);
-  font-family: var(--font-sans);
-  font-size: 16px;
+  background: var(--vellum);
+  color: var(--ink);
+  font-family: var(--font-lora);
+  font-size: 15px;
   line-height: 1.65;
   min-height: 100dvh;
 }
 
-/* ── Typography ─────────────────────────────────────────────────────────────── */
 .prose-philosopher {
-  font-family: var(--font-serif);
-  font-size: 16px;
-  line-height: 1.8;
-  color: var(--text-primary);
+  font-family: var(--font-lora);
+  font-size: 15px;
+  line-height: 1.75;
+  color: var(--ink);
   letter-spacing: 0.01em;
 }
 
 .prose-philosopher p + p { margin-top: 1em; }
 
-/* Streaming cursor */
 .streaming-cursor::after {
   content: '▋';
-  color: var(--gold);
+  color: var(--bronze);
   animation: blink 0.8s step-end infinite;
   margin-left: 1px;
 }
@@ -80,32 +72,25 @@ body {
   50% { opacity: 0; }
 }
 
-/* ── Scrollbar ──────────────────────────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 2px; }
-
-/* ── Selection ──────────────────────────────────────────────────────────────── */
-::selection {
-  background: rgba(201,169,110,0.25);
-  color: var(--text-primary);
+::-webkit-scrollbar-thumb {
+  background: var(--edge);
+  border-radius: 2px;
 }
 
-/* ── Focus ring ─────────────────────────────────────────────────────────────── */
+::selection {
+  background: var(--linen-deep);
+  color: var(--ink);
+}
+
 :focus-visible {
-  outline: 2px solid var(--gold);
+  outline: 2px solid var(--bronze);
   outline-offset: 2px;
   border-radius: 4px;
 }
 
-/* ── Utilities ──────────────────────────────────────────────────────────────── */
-.glass {
-  background: rgba(255,255,255,0.03);
-  backdrop-filter: blur(12px);
-  border: 1px solid var(--border);
-}
-
 .surface {
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
+  background: var(--paper);
+  border: 0.5px solid var(--edge);
 }
