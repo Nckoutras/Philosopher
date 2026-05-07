@@ -19,9 +19,29 @@ def test_all_registered_personas_have_required_fields():
         assert persona.worldview, f"{slug}: missing worldview"
         assert persona.tone, f"{slug}: missing tone"
         assert persona.system_fragment, f"{slug}: missing system_fragment"
-        assert persona.opening_invocation, f"{slug}: missing opening_invocation"
         assert isinstance(persona.challenge_level, int), f"{slug}: challenge_level must be int"
         assert 1 <= persona.challenge_level <= 5, f"{slug}: challenge_level must be 1-5"
+
+
+def test_opening_invocation_contract():
+    """
+    Personas have an opening_invocation by default. Socrates is the documented
+    exception: the user writes first, and Socratic dialogue follows their lead.
+    Any future persona omitting opening_invocation must be added to PERSONAS_WITHOUT_OPENING
+    below — making the omission an explicit, reviewed decision rather than an oversight.
+    """
+    PERSONAS_WITHOUT_OPENING = {"socrates"}
+
+    for slug, persona in PERSONA_REGISTRY.items():
+        if slug in PERSONAS_WITHOUT_OPENING:
+            assert persona.opening_invocation == "", (
+                f"{slug}: expected empty opening_invocation (in PERSONAS_WITHOUT_OPENING set)"
+            )
+        else:
+            assert persona.opening_invocation, (
+                f"{slug}: missing opening_invocation. If this omission is intentional, "
+                f"add '{slug}' to PERSONAS_WITHOUT_OPENING in this test."
+            )
 
 
 def test_at_least_one_free_persona():

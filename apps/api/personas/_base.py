@@ -50,6 +50,9 @@ class PersonaConfig:
     # System prompt fragment
     system_fragment: str = ""
 
+    # Voice calibration: paired WRONG/RIGHT examples injected into system prompt
+    voice_calibration_examples: list[dict] = field(default_factory=list)
+
     # Section 5.7 — Phase 1 schema extension (all optional, all None by default)
     character_anchors: Optional[list[CharacterAnchor]] = None
     register_range: Optional[RegisterRange] = None
