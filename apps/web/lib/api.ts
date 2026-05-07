@@ -140,6 +140,14 @@ class ApiClient {
     return this.request<User>('/auth/me')
   }
 
+  async requestOtp(email: string): Promise<void> {
+    await this.request<void>('/auth/otp/request', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    })
+  }
+
   // ── Personas ──────────────────────────────────────────────────────────────
 
   async getPersonas(): Promise<Persona[]> {
