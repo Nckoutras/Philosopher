@@ -1,15 +1,51 @@
-import { BronzeDivider } from '@/components/ui/BronzeDivider'
+'use client'
 
-export default function HomePage() {
+import { useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { api } from '@/lib/api'
+import { useStore } from '@/lib/store'
+import { BronzeDivider } from '@/components/ui/BronzeDivider'
+import { Spinner } from '@/components/ui/Spinner'
+
+export default function SplashPage() {
+  const router = useRouter()
+
+  useEffect(() => {
+    async function check() {
+      const start = Date.now()
+      let path: string
+
+      const { token } = useStore.getState()
+      if (!token) {
+        path = '/auth'
+      } else {
+        try {
+          const user = await api.me()
+          useStore.getState().setAuth(user, token)
+          path = '/home'
+        } catch {
+          useStore.getState().clearAuth()
+          path = '/auth'
+        }
+      }
+
+      const elapsed = Date.now() - start
+      if (elapsed < 500) await new Promise<void>((r) => setTimeout(r, 500 - elapsed))
+      router.replace(path)
+    }
+
+    check()
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center bg-vellum px-6">
-      <h1 className="font-cormorant font-light text-5xl text-ink text-center mb-4">
-        Great Minds
-      </h1>
-      <BronzeDivider width={80} className="my-2" />
-      <p className="font-lora text-sm text-charcoal text-center max-w-md mt-4 leading-relaxed">
-        Under construction. Spec-compliant rebuild in progress.
-      </p>
+    <main className="h-screen [height:100svh] flex flex-col items-center justify-center bg-vellum">
+      <div className="flex flex-col items-center gap-6">
+        <h1 className="font-cormorant font-light text-[38px] text-ink text-center leading-tight">
+          Great Minds
+        </h1>
+        <BronzeDivider />
+        <Spinner />
+      </div>
     </main>
   )
 }
