@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from sqlalchemy import (
     String, Text, Boolean, Integer, Float, DateTime,
-    ForeignKey, JSON, ARRAY, CheckConstraint, func
+    ForeignKey, JSON, ARRAY, CheckConstraint, func, Index, text
 )
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -203,3 +203,30 @@ class SafetyEvent(Base):
     action_taken: Mapped[str] = mapped_column(String(100), nullable=False)   # suppressed | redirected | logged
     raw_flags: Mapped[dict | None] = mapped_column(JSONB)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+# ── OTP Codes ─────────────────────────────────────────────────────────────────
+
+class OtpCode(Base):
+    __tablename__ = "otp_codes"
+
+    id: Mapped[str] = mapped_column(
+        UUID(as_uuid=False),
+        primary_key=True,
+        server_default=text("gen_random_uuid()"),
+    )
+    email: Mapped[str] = mapped_column(String(255), nullable=False)
+    code_hash: Mapped[str] = mapped_column(String(128), nullable=False)
+    salt: Mapped[str] = mapped_column(String(32), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    attempts: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
+    used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=text("now()"),
+    )
+
+    __table_args__ = (
+        Index("ix_otp_codes_email_created", "email", text("created_at DESC")),
+    )

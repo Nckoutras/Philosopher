@@ -186,3 +186,14 @@ class SafetyEventOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# ── OTP ───────────────────────────────────────────────────────────────────────
+
+class OtpRequest(BaseModel):
+    email: EmailStr
+
+
+class OtpVerifyRequest(BaseModel):
+    email: EmailStr
+    code: str = Field(..., min_length=6, max_length=6, pattern=r"^[0-9]{6}$")
