@@ -148,6 +148,15 @@ class ApiClient {
     })
   }
 
+  async verifyOtp(email: string, code: string): Promise<AuthResponse> {
+    const data = await this.request<AuthResponse>('/auth/otp/verify', {
+      method: 'POST',
+      body: JSON.stringify({ email, code }),
+    })
+    this.setToken(data.access_token)
+    return data
+  }
+
   // ── Personas ──────────────────────────────────────────────────────────────
 
   async getPersonas(): Promise<Persona[]> {
