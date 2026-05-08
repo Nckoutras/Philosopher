@@ -6,6 +6,8 @@ import toast from 'react-hot-toast'
 import { api } from '@/lib/api'
 import { useStore } from '@/lib/store'
 
+export const dynamic = 'force-dynamic'
+
 export default function VerifyPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
