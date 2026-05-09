@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense } from 'react'
+import { Suspense, useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 
 export const dynamic = 'force-dynamic'
@@ -13,7 +13,9 @@ function TroubleForm() {
   const supportEmail =
     process.env.NEXT_PUBLIC_SUPPORT_EMAIL ?? 'nckoutras@gmail.com'
 
-  function handleContactSupport() {
+  const [mailtoUrl, setMailtoUrl] = useState('')
+
+  useEffect(() => {
     const subject = `Account access — ${email || 'unknown'}`
     const body = [
       `Email used: ${email || '(not provided)'}`,
@@ -25,11 +27,12 @@ function TroubleForm() {
       ``,
     ].join('\n')
 
-    window.location.href =
+    setMailtoUrl(
       `mailto:${supportEmail}` +
       `?subject=${encodeURIComponent(subject)}` +
       `&body=${encodeURIComponent(body)}`
-  }
+    )
+  }, [email, supportEmail])
 
   function handleBack() {
     if (email) {
@@ -79,22 +82,21 @@ function TroubleForm() {
             </p>
           </header>
 
-          <div className="bg-white border-[0.5px] border-edge rounded-md px-5 py-4 space-y-1">
-            <p className="font-lora text-[14px] font-medium text-ink">
-              Contact support
+          <div className="bg-linen border-[0.5px] border-edge rounded-md px-5 py-4 space-y-1">
+            <p className="font-lora text-[14px] font-medium text-charcoal">
+              Try a different sign-in method
             </p>
             <p className="font-lora text-[13px] text-charcoal leading-[1.6]">
-              We'll help you regain access through identity verification.
+              Apple and Google sign-in coming soon.
             </p>
           </div>
 
-          <button
-            type="button"
-            onClick={handleContactSupport}
-            className="w-full h-[50px] rounded-sm font-cormorant text-[17px] font-medium bg-ink text-vellum transition-colors"
+          <a
+            href={mailtoUrl}
+            className="flex items-center justify-center w-full h-[50px] rounded-sm font-cormorant text-[17px] font-medium bg-ink text-vellum no-underline transition-colors"
           >
             Contact support
-          </button>
+          </a>
         </div>
       </div>
     </main>
