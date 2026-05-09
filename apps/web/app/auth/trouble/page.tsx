@@ -70,7 +70,7 @@ function TroubleForm() {
       </div>
 
       <div className="flex-1 flex flex-col justify-center px-7 py-8">
-        <div className="w-full max-w-[380px] mx-auto space-y-7">
+        <div className="w-full max-w-[380px] mx-auto space-y-7 text-center">
           <header className="space-y-3">
             <h1 className="font-cormorant text-[26px] font-normal text-ink leading-tight">
               Trouble accessing your email?
