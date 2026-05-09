@@ -99,6 +99,15 @@ function VerifyForm() {
               {isLoading ? 'Verifying…' : 'Continue'}
             </button>
           </form>
+
+          <p className="text-center">
+            <a
+              href={`/auth/trouble${email ? `?email=${encodeURIComponent(email)}` : ''}`}
+              className="font-lora text-[12px] text-charcoal underline underline-offset-2 decoration-[0.5px]"
+            >
+              Trouble accessing email?
+            </a>
+          </p>
         </div>
       </div>
 
