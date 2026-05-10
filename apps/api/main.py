@@ -15,6 +15,7 @@ from routers.memory import memory_router, insights_router
 from routers.billing import router as billing_router
 from routers.admin import router as admin_router
 from routers.rituals import router as rituals_router
+from routers.disclaimer import router as disclaimer_router
 
 logging.basicConfig(level=logging.INFO if not config.DEBUG else logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -76,6 +77,7 @@ app.include_router(insights_router,      prefix=PREFIX)
 app.include_router(billing_router,       prefix=PREFIX)
 app.include_router(rituals_router,       prefix=PREFIX)
 app.include_router(admin_router,         prefix=PREFIX)
+app.include_router(disclaimer_router,    prefix=PREFIX)
 
 
 @app.get("/health")

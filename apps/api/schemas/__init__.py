@@ -30,6 +30,7 @@ class UserOut(BaseModel):
     is_admin: bool
     onboarded_at: Optional[datetime]
     created_at: datetime
+    needs_disclaimer: bool = False
 
     class Config:
         from_attributes = True
@@ -197,3 +198,22 @@ class OtpRequest(BaseModel):
 class OtpVerifyRequest(BaseModel):
     email: EmailStr
     code: str = Field(..., min_length=6, max_length=6, pattern=r"^[0-9]{6}$")
+
+
+# ── Disclaimer ────────────────────────────────────────────────────────────────
+
+class DisclaimerAcceptRequest(BaseModel):
+    confirmed_age_18: bool
+    confirmed_non_therapy: bool
+    locale: Optional[str] = "en"
+
+
+class DisclaimerAcceptOut(BaseModel):
+    accepted_at: datetime
+    version_string: str
+
+
+class DisclaimerCurrentOut(BaseModel):
+    version_string: str
+    age_copy: str
+    positioning_copy: str

@@ -2,9 +2,9 @@ import uuid
 from datetime import datetime
 from sqlalchemy import (
     String, Text, Boolean, Integer, Float, DateTime,
-    ForeignKey, JSON, ARRAY, CheckConstraint, func, Index, text
+    ForeignKey, JSON, ARRAY, CheckConstraint, UniqueConstraint, func, Index, text
 )
-from sqlalchemy.dialects.postgresql import UUID, JSONB
+from sqlalchemy.dialects.postgresql import UUID, JSONB, INET
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from pgvector.sqlalchemy import Vector
 from db.session import Base
@@ -229,4 +229,39 @@ class OtpCode(Base):
 
     __table_args__ = (
         Index("ix_otp_codes_email_created", "email", text("created_at DESC")),
+    )
+
+
+# ── Disclaimer ────────────────────────────────────────────────────────────────
+
+class DisclaimerVersion(Base):
+    __tablename__ = "disclaimer_versions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    version_string: Mapped[str] = mapped_column(String(20), unique=True, nullable=False)
+    age_copy: Mapped[str] = mapped_column(Text, nullable=False)
+    positioning_copy: Mapped[str] = mapped_column(Text, nullable=False)
+    effective_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+    acceptances: Mapped[list["DisclaimerAcceptance"]] = relationship("DisclaimerAcceptance", back_populates="version")
+
+
+class DisclaimerAcceptance(Base):
+    __tablename__ = "disclaimer_acceptances"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, server_default=text("gen_random_uuid()"))
+    user_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    version_id: Mapped[int] = mapped_column(Integer, ForeignKey("disclaimer_versions.id"), nullable=False)
+    accepted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    locale: Mapped[str] = mapped_column(String(10), nullable=False, default="en")
+    confirmed_age_18: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    confirmed_non_therapy: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    ip_address: Mapped[str | None] = mapped_column(INET, nullable=True)
+    user_agent: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    version: Mapped["DisclaimerVersion"] = relationship("DisclaimerVersion", back_populates="acceptances")
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "version_id", name="uq_disclaimer_acceptances_user_version"),
+        Index("ix_disclaimer_acceptances_user", "user_id"),
     )
