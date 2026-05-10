@@ -16,6 +16,7 @@ from services.otp_service import (
     OtpLocked,
 )
 from services.rate_limit_service import check_and_increment
+from services.disclaimer_service import user_needs_acceptance
 import stripe
 from config import config
 
@@ -56,7 +57,9 @@ async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
     analytics_service.track("user_registered", user.id, {"plan": "free"})
 
     token = create_token(user.id, user.email)
-    return TokenResponse(access_token=token, user=UserOut.model_validate(user))
+    needs_disclaimer = await user_needs_acceptance(user.id, db)
+    user_out = UserOut.model_validate(user).model_copy(update={"needs_disclaimer": needs_disclaimer})
+    return TokenResponse(access_token=token, user=user_out)
 
 
 @router.post("/login", response_model=TokenResponse)
@@ -66,12 +69,15 @@ async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
     if not user or not verify_password(body.password, user.hashed_password or ""):
         raise HTTPException(status_code=401, detail="Invalid credentials")
     token = create_token(user.id, user.email)
-    return TokenResponse(access_token=token, user=UserOut.model_validate(user))
+    needs_disclaimer = await user_needs_acceptance(user.id, db)
+    user_out = UserOut.model_validate(user).model_copy(update={"needs_disclaimer": needs_disclaimer})
+    return TokenResponse(access_token=token, user=user_out)
 
 
 @router.get("/me", response_model=UserOut)
-async def me(user: User = Depends(get_current_user)):
-    return UserOut.model_validate(user)
+async def me(user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    needs_disclaimer = await user_needs_acceptance(user.id, db)
+    return UserOut.model_validate(user).model_copy(update={"needs_disclaimer": needs_disclaimer})
 
 
 @router.post("/otp/request", status_code=202)
@@ -139,4 +145,6 @@ async def otp_verify(body: OtpVerifyRequest, db: AsyncSession = Depends(get_db))
         analytics_service.track("user_signed_in", user.id, {"method": "otp"})
 
     token = create_token(user.id, user.email)
-    return TokenResponse(access_token=token, user=UserOut.model_validate(user))
+    needs_disclaimer = await user_needs_acceptance(user.id, db)
+    user_out = UserOut.model_validate(user).model_copy(update={"needs_disclaimer": needs_disclaimer})
+    return TokenResponse(access_token=token, user=user_out)
