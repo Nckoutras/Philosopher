@@ -9,6 +9,7 @@ export interface User {
   is_admin: boolean
   onboarded_at: string | null
   created_at: string
+  needs_disclaimer?: boolean
 }
 
 export interface AuthResponse {
@@ -70,6 +71,23 @@ export interface Subscription {
   status: string
   current_period_end: string | null
   cancel_at_period_end: boolean
+}
+
+export interface DisclaimerCurrent {
+  version_string: string
+  age_copy: string
+  positioning_copy: string
+}
+
+export interface DisclaimerAcceptRequest {
+  confirmed_age_18: boolean
+  confirmed_non_therapy: boolean
+  locale?: string
+}
+
+export interface DisclaimerAcceptResponse {
+  accepted_at: string
+  version_string: string
 }
 
 // ── Client ────────────────────────────────────────────────────────────────────
@@ -155,6 +173,19 @@ class ApiClient {
     })
     this.setToken(data.access_token)
     return data
+  }
+
+  // ── Disclaimer ────────────────────────────────────────────────────────────
+
+  async getDisclaimerCurrent(): Promise<DisclaimerCurrent> {
+    return this.request<DisclaimerCurrent>('/disclaimer/current')
+  }
+
+  async acceptDisclaimer(body: DisclaimerAcceptRequest): Promise<DisclaimerAcceptResponse> {
+    return this.request<DisclaimerAcceptResponse>('/disclaimer/accept', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    })
   }
 
   // ── Personas ──────────────────────────────────────────────────────────────

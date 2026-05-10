@@ -32,7 +32,11 @@ function VerifyForm() {
     try {
       const data = await api.verifyOtp(email, code)
       useStore.getState().setAuth(data.user, data.access_token)
-      router.push('/app/dashboard')
+      if (data.user.needs_disclaimer) {
+        router.push('/auth/disclaimer')
+      } else {
+        router.push('/app/dashboard')
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Something went wrong'
       const lower = message.toLowerCase()
