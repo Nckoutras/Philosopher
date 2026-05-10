@@ -38,8 +38,8 @@ export default function AuthPage() {
     }
   }
 
-  const termsUrl = process.env.NEXT_PUBLIC_TERMS_URL ?? '#'
-  const privacyUrl = process.env.NEXT_PUBLIC_PRIVACY_URL ?? '#'
+  const termsUrl = process.env.NEXT_PUBLIC_TERMS_URL ?? '/legal/terms'
+  const privacyUrl = process.env.NEXT_PUBLIC_PRIVACY_URL ?? '/legal/privacy'
 
   return (
     <main className="min-h-screen [min-height:100svh] flex flex-col bg-vellum">
