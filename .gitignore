@@ -1,3 +1,6 @@
 __pycache__/
 *.pyc
 .pytest_cache/
+
+# Local diagnostic / dev scripts — not for commit
+apps/api/scripts/
