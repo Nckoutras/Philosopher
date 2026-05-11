@@ -30,7 +30,7 @@ export function Spinner({ size = 32, className = '' }: SpinnerProps) {
         cy={center}
         r={radius}
         fill="none"
-        stroke="#D4C8B0"
+        stroke="var(--edge)"
         strokeWidth="0.8"
       />
       <circle
@@ -38,7 +38,7 @@ export function Spinner({ size = 32, className = '' }: SpinnerProps) {
         cy={center}
         r={radius}
         fill="none"
-        stroke="#1F1B14"
+        stroke="var(--ink)"
         strokeWidth="1.2"
         strokeLinecap="round"
         strokeDasharray={`${arcLength} ${circumference}`}

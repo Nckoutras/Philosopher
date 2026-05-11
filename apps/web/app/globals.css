@@ -7,17 +7,21 @@
   --font-cormorant: 'Cormorant Garamond', Georgia, serif;
   --font-lora: 'Lora', Georgia, serif;
 
-  --vellum:       #FAF4E6;
-  --paper:        #FFFFFF;
+  --vellum:       #EFE3CC;
+  --paper:        #FAF4E6;
+  --white:        #FFFFFF;
   --linen:        #E8DCC4;
   --linen-deep:   #DDD0B5;
   --edge:         #D4C8B0;
   --ink:          #1F1B14;
   --charcoal:     #5A5246;
   --sepia:        #8A7E6A;
-  --bronze:       #A8884A;
+  --bronze:       #B89968;
   --bronze-dark:  #8A7340;
-  --rust:         #A05A3C;
+  --safety:       #7A4030;
+
+  --shadow-card:       0 2px 8px rgba(31, 27, 20, 0.06);
+  --shadow-card-hover: 0 4px 16px rgba(31, 27, 20, 0.10);
 
   --bg-primary:     var(--vellum);
   --bg-secondary:   var(--linen);
@@ -29,7 +33,6 @@
   --border-strong:  var(--ink);
   --accent:         var(--bronze);
   --accent-hover:   var(--bronze-dark);
-  --gold:           var(--bronze);
   --toast-bg:       var(--ink);
   --toast-fg:       var(--vellum);
 }
