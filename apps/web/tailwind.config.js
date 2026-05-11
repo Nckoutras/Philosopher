@@ -13,8 +13,9 @@ module.exports = {
     extend: {
       // Spec colors per DESIGN_SYSTEM_v4 §1.2 (11 tokens).
       colors: {
-        vellum: '#FAF4E6',
-        paper: '#FFFFFF',
+        vellum: '#EFE3CC',
+        paper: '#FAF4E6',
+        white: '#FFFFFF',
         linen: {
           DEFAULT: '#E8DCC4',
           deep: '#DDD0B5',
@@ -24,11 +25,14 @@ module.exports = {
         charcoal: '#5A5246',
         sepia: '#8A7E6A',
         bronze: {
-          DEFAULT: '#A8884A',
+          DEFAULT: '#B89968',
           dark: '#8A7340',
         },
-        rust: '#A05A3C',
-        gold: '#A8884A',
+        safety: '#7A4030',
+      },
+      boxShadow: {
+        card: '0 2px 8px rgba(31, 27, 20, 0.06)',
+        'card-hover': '0 4px 16px rgba(31, 27, 20, 0.10)',
       },
       borderWidth: {
         0.5: '0.5px',

@@ -98,7 +98,7 @@ export default function DisclaimerPage() {
                   <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
                     <path
                       d="M2 6L5 9L10 3"
-                      stroke="#FAF4E6"
+                      stroke="var(--vellum)"
                       strokeWidth="1.5"
                       strokeLinecap="round"
                       strokeLinejoin="round"
@@ -129,7 +129,7 @@ export default function DisclaimerPage() {
                   <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
                     <path
                       d="M2 6L5 9L10 3"
-                      stroke="#FAF4E6"
+                      stroke="var(--vellum)"
                       strokeWidth="1.5"
                       strokeLinecap="round"
                       strokeLinejoin="round"
