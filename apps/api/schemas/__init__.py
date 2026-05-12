@@ -1,6 +1,6 @@
 from datetime import datetime
-from typing import Optional, Any
-from pydantic import BaseModel, EmailStr, Field
+from typing import Optional, Any, Literal
+from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 
 
 # ── Auth ──────────────────────────────────────────────────────────────────────
@@ -217,3 +217,55 @@ class DisclaimerCurrentOut(BaseModel):
     version_string: str
     age_copy: str
     positioning_copy: str
+
+
+# ── Preferences ───────────────────────────────────────────────────────────────
+
+THEME_VALUES = ("separation", "anxiety", "fear", "grief", "acceptance", "work", "relationships", "purpose")
+NEED_MOST_VALUES = ("comfort", "challenge", "interpretation", "practical_steadiness")
+
+
+class PreferenceUpsertRequest(BaseModel):
+    themes: list[Literal["separation", "anxiety", "fear", "grief", "acceptance", "work", "relationships", "purpose"]] = Field(default_factory=list, max_length=8)
+    other_text: str | None = Field(default=None, max_length=500)
+    need_most: Literal["comfort", "challenge", "interpretation", "practical_steadiness"]
+
+    @field_validator("themes")
+    @classmethod
+    def dedupe_themes(cls, v: list[str]) -> list[str]:
+        # Silently deduplicate; preserve first-seen order
+        seen = set()
+        result = []
+        for theme in v:
+            if theme not in seen:
+                seen.add(theme)
+                result.append(theme)
+        return result
+
+    @field_validator("other_text")
+    @classmethod
+    def normalize_other_text(cls, v: str | None) -> str | None:
+        # Treat whitespace-only as None
+        if v is None:
+            return None
+        stripped = v.strip()
+        return stripped if stripped else None
+
+    @model_validator(mode="after")
+    def at_least_one_signal(self) -> "PreferenceUpsertRequest":
+        # Mirrors the DB CHECK constraint ck_user_preferences_some_input.
+        # Validate at the app layer so the user gets a clean 422, not an opaque 500.
+        if not self.themes and not self.other_text:
+            raise ValueError("Provide at least one theme or fill the other field.")
+        return self
+
+
+class PreferenceOut(BaseModel):
+    themes: list[str]
+    other_text: str | None
+    need_most: str
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
