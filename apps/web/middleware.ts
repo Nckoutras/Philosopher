@@ -32,7 +32,7 @@ export function middleware(request: NextRequest) {
   // Redirect authenticated users away from auth routes
   if (AUTH_ONLY_ROUTES.includes(pathname) && isAuthenticated) {
     const url = request.nextUrl.clone()
-    url.pathname = '/app/dashboard'
+    url.pathname = '/app/welcome'
     return NextResponse.redirect(url)
   }
 
