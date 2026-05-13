@@ -7,16 +7,6 @@ import { useStore } from '@/lib/store'
 import { api, type Match, type Persona } from '@/lib/api'
 import { BronzeDivider } from '@/components/ui/BronzeDivider'
 
-// NOTE: duplicated from /app/welcome/page.tsx — will be extracted to a
-// shared module in a future cleanup PR (P2 backlog).
-const PORTRAIT_PATHS: Record<string, string> = {
-  socrates: '/personas/socrates.jpg',
-  marcus_aurelius: '/personas/marcus_aurelius.jpg',
-  simone_de_beauvoir: '/personas/simone_de_beauvoir.webp',
-  epictetus: '/personas/epictetus.webp',
-  sigmund_freud: '/personas/sigmund_freud.webp',
-}
-
 interface EnrichedMatch extends Match {
   name: string
   portraitPath: string
@@ -57,7 +47,7 @@ export default function MatchesPage() {
             return {
               ...m,
               name: persona.name,
-              portraitPath: PORTRAIT_PATHS[m.slug] ?? '',
+              portraitPath: persona.portrait_url ?? '',
             }
           })
           .filter((m): m is EnrichedMatch => m !== null)
