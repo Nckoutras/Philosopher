@@ -28,6 +28,8 @@ export interface Persona {
   tagline: string | null
   avatar_emoji: string | null
   opening_invocation: string | null
+  bio: string
+  portrait_url: string
   is_accessible: boolean
 }
 

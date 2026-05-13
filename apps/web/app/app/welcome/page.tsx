@@ -7,15 +7,6 @@ import { api, type Persona } from '@/lib/api'
 import { useStore } from '@/lib/store'
 import { BronzeDivider } from '@/components/ui/BronzeDivider'
 
-// Slug → portrait file. Carl Jung intentionally excluded until portrait exists.
-const PORTRAIT_PATHS: Record<string, string> = {
-  socrates: '/personas/socrates.jpg',
-  marcus_aurelius: '/personas/marcus_aurelius.jpg',
-  simone_de_beauvoir: '/personas/simone_de_beauvoir.webp',
-  epictetus: '/personas/epictetus.webp',
-  sigmund_freud: '/personas/sigmund_freud.webp',
-}
-
 // Deterministic daily index — same for all users, rotates at UTC midnight.
 function mindOfTheDayIndex(rotationSize: number): number {
   const dayMs = 86_400_000
@@ -39,7 +30,7 @@ export default function WelcomePage() {
     async function load() {
       try {
         const all = await api.getPersonas()
-        const rotation = all.filter((p) => p.slug in PORTRAIT_PATHS)
+        const rotation = all.filter((p) => p.portrait_url)
         if (rotation.length === 0) {
           if (!cancelled) setLoadError(true)
           return
@@ -62,7 +53,7 @@ export default function WelcomePage() {
       <section className="relative flex-1 min-h-[70vh] [min-height:70svh] overflow-hidden bg-linen">
         {mind && (
           <Image
-            src={PORTRAIT_PATHS[mind.slug]}
+            src={mind.portrait_url}
             alt={mind.name}
             fill
             priority

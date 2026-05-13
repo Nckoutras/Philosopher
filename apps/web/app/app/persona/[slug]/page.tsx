@@ -7,29 +7,6 @@ import { useStore } from '@/lib/store'
 import { api, type Persona } from '@/lib/api'
 import { BronzeDivider } from '@/components/ui/BronzeDivider'
 
-// Duplicated from welcome and matches pages — P2 cleanup item
-const PORTRAIT_PATHS: Record<string, string> = {
-  socrates: '/personas/socrates.jpg',
-  marcus_aurelius: '/personas/marcus_aurelius.jpg',
-  simone_de_beauvoir: '/personas/simone_de_beauvoir.webp',
-  epictetus: '/personas/epictetus.webp',
-  sigmund_freud: '/personas/sigmund_freud.webp',
-}
-
-// Static bios — will move to backend persona table in a future PR
-const BIOS: Record<string, string> = {
-  marcus_aurelius:
-    "Roman emperor, last of the Five Good Emperors. He wrote 'Meditations' as private notes to himself — not philosophy for publication, but reminders to a man trying to govern an empire while staying human. Stoic, disciplined, oriented toward what's in your control. He treats grief like weather: real, passing, not personal. If you came looking for someone who won't flinch at hard things, he won't.",
-  socrates:
-    "Athenian gadfly, executed at 70 for asking too many questions. Wrote nothing — everything we know comes through Plato and Xenophon. His method: ask, listen, ask again, until your own answer reveals itself or collapses. He does not give you wisdom. He helps you find what you already half-knew. Expect to be questioned more than comforted.",
-  simone_de_beauvoir:
-    "French existentialist, philosopher, novelist, intellectual partner to Sartre but a thinker in her own right. Wrote 'The Second Sex' and 'The Ethics of Ambiguity'. She believes you are made by your choices — that freedom is a burden, not a gift. She talks about love, work, aging, motherhood, and refusal. If you came tangled in relationships and identity, she'll meet you there.",
-  epictetus:
-    "Born a slave in Rome, became one of antiquity's most quoted teachers. Lame, exiled, but free in the way that mattered. His teaching is brutally simple: separate what you control from what you don't, and stop wasting yourself on the second. He does not coddle. He has no patience for self-pity but enormous patience for the work of becoming.",
-  sigmund_freud:
-    "Viennese physician who invented psychoanalysis. Mapped the unconscious — the parts of yourself you refuse to see, the wishes you keep hidden, the patterns you repeat. He does not believe you understand your own motives. He listens for what you do not say. Controversial, often wrong, but the language he gave us to discuss the mind is still ours. Bring your dreams.",
-}
-
 const TIER_LABELS: Record<Persona['tier'], string> = {
   free: 'FREE',
   pro: 'PRO',
@@ -114,8 +91,8 @@ export default function PersonaDetailPage() {
   }
 
   const isLocked = !persona.is_accessible
-  const portraitPath = PORTRAIT_PATHS[persona.slug] ?? ''
-  const bio = BIOS[persona.slug] ?? ''
+  const portraitPath = persona.portrait_url
+  const bio = persona.bio
   const tierLabel = TIER_LABELS[persona.tier]
   const tierColorClass = persona.tier === 'free' ? 'text-vellum' : 'text-bronze'
 

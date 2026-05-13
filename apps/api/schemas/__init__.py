@@ -60,6 +60,8 @@ class PersonaOut(BaseModel):
     tagline: Optional[str] = None
     avatar_emoji: Optional[str] = None
     opening_invocation: Optional[str] = None
+    bio: str = ""
+    portrait_url: str = ""
     is_accessible: bool = True
 
     class Config:

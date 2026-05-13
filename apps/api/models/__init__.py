@@ -66,6 +66,8 @@ class Persona(Base):
     tier: Mapped[str] = mapped_column(String(50), default="free")
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     config: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    bio: Mapped[str] = mapped_column(Text, nullable=False, default="", server_default="")
+    portrait_url: Mapped[str] = mapped_column(Text, nullable=False, default="", server_default="")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     conversations: Mapped[list["Conversation"]] = relationship("Conversation", back_populates="persona")
