@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from typing import Sequence
 
 # Personas excluded from matching v1 (no portrait yet)
-EXCLUDED_SLUGS: set[str] = {"carl_jung"}
+EXCLUDED_SLUGS: set[str] = set()
 
 # Per-persona affinity weights (0-3 scale).
 # Tune by editing this dict; no migration required.
@@ -60,6 +60,42 @@ PERSONA_AFFINITIES: dict[str, dict[str, dict[str, int]]] = {
         },
         "needs": {
             "comfort": 2, "challenge": 1, "interpretation": 3, "practical_steadiness": 1,
+        },
+    },
+    "carl_jung": {
+        "themes": {
+            "separation": 2, "anxiety": 2, "fear": 2, "grief": 2,
+            "acceptance": 2, "work": 2, "relationships": 3, "purpose": 3,
+        },
+        "needs": {
+            "comfort": 1, "challenge": 2, "interpretation": 3, "practical_steadiness": 1,
+        },
+    },
+    "lao_tzu": {
+        "themes": {
+            "separation": 1, "anxiety": 3, "fear": 2, "grief": 2,
+            "acceptance": 3, "work": 2, "relationships": 2, "purpose": 2,
+        },
+        "needs": {
+            "comfort": 3, "challenge": 1, "interpretation": 2, "practical_steadiness": 2,
+        },
+    },
+    "oscar_wilde": {
+        "themes": {
+            "separation": 2, "anxiety": 2, "fear": 2, "grief": 2,
+            "acceptance": 2, "work": 1, "relationships": 3, "purpose": 2,
+        },
+        "needs": {
+            "comfort": 2, "challenge": 2, "interpretation": 2, "practical_steadiness": 1,
+        },
+    },
+    "niccolo_machiavelli": {
+        "themes": {
+            "separation": 1, "anxiety": 2, "fear": 2, "grief": 1,
+            "acceptance": 2, "work": 3, "relationships": 2, "purpose": 3,
+        },
+        "needs": {
+            "comfort": 0, "challenge": 3, "interpretation": 2, "practical_steadiness": 3,
         },
     },
 }
