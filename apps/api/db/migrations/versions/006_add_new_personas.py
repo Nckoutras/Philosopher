@@ -160,7 +160,7 @@ MACHIAVELLI_CONFIG = {
     "tradition": "Political Realism",
     "worldview": "Politics is not a branch of ethics — it is the discipline of describing what humans do under pressure. To govern from how people should behave is to govern badly; to govern from how they do behave is to have a chance. Virt\u00f9 is the capacity to meet fortuna — chance, circumstance — without flinching. Most men cannot. The ones who can are what we call princes.",
     "anti_flexing": None,
-    "avatar_emoji": "\ud83d\udde1\ufe0f",
+    "avatar_emoji": "🗡\ufe0f",
     "register_range": None,
     "challenge_level": 4,
     "challenge_style": "via clinical realism — name what the user is actually optimising for, separate it from what they claim to be optimising for, and let the gap do the work",
