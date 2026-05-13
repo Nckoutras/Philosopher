@@ -188,6 +188,15 @@ class ApiClient {
     })
   }
 
+  // ── Preferences ────────────────────────────────────────────────────────────
+
+  async upsertPreferences(payload: PreferenceUpsertRequest): Promise<PreferenceOut> {
+    return this.request<PreferenceOut>('/preferences', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    })
+  }
+
   // ── Personas ──────────────────────────────────────────────────────────────
 
   async getPersonas(): Promise<Persona[]> {
@@ -282,3 +291,21 @@ export const api = new ApiClient()
 if (typeof window !== 'undefined') {
   api.loadToken()
 }
+
+// ── Preferences ───────────────────────────────────────────────────────────────
+
+export interface PreferenceUpsertRequest {
+  themes: string[]
+  other_text: string | null
+  need_most: 'comfort' | 'challenge' | 'interpretation' | 'practical_steadiness'
+}
+
+export interface PreferenceOut {
+  user_id: string
+  themes: string[]
+  other_text: string | null
+  need_most: string
+  created_at: string
+  updated_at: string
+}
+
