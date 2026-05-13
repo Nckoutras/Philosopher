@@ -269,3 +269,16 @@ class PreferenceOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# ── Matches ───────────────────────────────────────────────────────────────────
+
+class MatchOut(BaseModel):
+    """Single persona match in the GET /preferences/matches response."""
+
+    slug: str
+    score: int
+    reason: str
+
+    class Config:
+        from_attributes = True
