@@ -59,7 +59,7 @@ export default function WelcomePage() {
   return (
     <main className="min-h-screen [min-height:100svh] flex flex-col bg-vellum">
       {/* Top: full-bleed portrait area (~65% height) */}
-      <section className="relative flex-1 min-h-[60vh] [min-height:60svh] overflow-hidden bg-linen">
+      <section className="relative flex-1 min-h-[70vh] [min-height:70svh] overflow-hidden bg-linen">
         {mind && (
           <Image
             src={PORTRAIT_PATHS[mind.slug]}
@@ -67,7 +67,7 @@ export default function WelcomePage() {
             fill
             priority
             sizes="100vw"
-            className="object-cover object-[center_30%]"
+            className="object-cover object-top scale-[1.30] origin-top"
           />
         )}
 
@@ -78,12 +78,12 @@ export default function WelcomePage() {
         />
 
         {/* Hero overlay text */}
-        <div className="relative z-10 flex flex-col items-center justify-end h-full px-7 pb-10 text-center">
+        <div className="relative z-10 flex flex-col items-center justify-start h-full px-7 pt-10 text-center">
           <h1 className="font-cormorant text-[38px] font-light text-vellum leading-none drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)]">
             Great Minds
           </h1>
           <p className="mt-3 font-cormorant text-[17px] font-normal text-vellum/95 leading-snug drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)]">
-            Reflect with the world's
+            Reflect with the
             <br />
             greatest thinkers.
           </p>
@@ -94,7 +94,7 @@ export default function WelcomePage() {
       </section>
 
       {/* Bottom: Vellum tray */}
-      <section className="bg-vellum px-7 pt-6 pb-10">
+      <section className="bg-vellum px-7 pt-4 pb-8">
         <div className="w-full max-w-[380px] mx-auto">
           {loadError ? (
             <p className="font-lora text-[13px] text-charcoal text-center">
@@ -115,18 +115,18 @@ export default function WelcomePage() {
           )}
 
           {/* CTAs */}
-          <div className="mt-7 space-y-3">
+          <div className="mt-5 space-y-2">
             <button
               type="button"
               onClick={() => router.push('/app/onboarding/themes')}
-              className="w-full h-[50px] rounded-sm font-cormorant text-[17px] font-medium bg-ink text-vellum transition-colors"
+              className="w-full h-[46px] rounded-sm font-cormorant text-[17px] font-medium bg-ink text-vellum transition-colors"
             >
               Begin
             </button>
             <button
               type="button"
               onClick={() => router.push('/app/explore')}
-              className="w-full h-[50px] rounded-sm font-cormorant text-[17px] font-medium border-[0.5px] border-edge bg-white text-ink transition-colors"
+              className="w-full h-[46px] rounded-sm font-cormorant text-[17px] font-medium border-[0.5px] border-edge bg-white text-ink transition-colors"
             >
               Explore Minds
             </button>
