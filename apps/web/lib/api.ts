@@ -197,6 +197,12 @@ class ApiClient {
     })
   }
 
+  async getMatches(): Promise<Match[]> {
+    return this.request<Match[]>('/preferences/matches', {
+      method: 'GET',
+    })
+  }
+
   // ── Personas ──────────────────────────────────────────────────────────────
 
   async getPersonas(): Promise<Persona[]> {
@@ -307,5 +313,11 @@ export interface PreferenceOut {
   need_most: string
   created_at: string
   updated_at: string
+}
+
+export interface Match {
+  slug: string
+  score: number
+  reason: string
 }
 
