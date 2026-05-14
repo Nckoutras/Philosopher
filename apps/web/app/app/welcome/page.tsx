@@ -61,22 +61,22 @@ export default function WelcomePage() {
           />
         )}
 
-        {/* Dark gradient overlay — bottom-weighted for portrait readability */}
+        {/* Dark gradient overlay — top-anchored so hero text is always readable */}
         <div
           aria-hidden="true"
-          className="absolute inset-0 bg-gradient-to-b from-black/0 via-black/30 to-black/70 pointer-events-none"
+          className="absolute inset-x-0 top-0 h-[40%] bg-gradient-to-b from-black/65 via-black/35 to-transparent pointer-events-none"
         />
 
         {/* Hero text — V2: white serif + drop shadow */}
-        <div className="absolute inset-x-0 top-[15%] z-10 px-6 flex flex-col items-center text-center">
+        <div className="absolute inset-x-0 top-0 z-10 px-4 pt-12 flex flex-col items-center text-center">
           <h1
-            className="font-cormorant font-normal text-white text-5xl leading-tight max-w-[90%]"
+            className="font-cormorant font-normal text-white text-[44px] leading-[1.05]"
             style={{ textShadow: '0 2px 8px rgba(0,0,0,0.6), 0 1px 3px rgba(0,0,0,0.8)' }}
           >
             Great Minds
           </h1>
           <p
-            className="font-cormorant font-normal text-white/95 text-xl mt-3 max-w-[85%]"
+            className="font-cormorant font-normal text-white/95 text-[19px] mt-2 leading-snug"
             style={{ textShadow: '0 1px 4px rgba(0,0,0,0.5)' }}
           >
             Reflect with the greatest thinkers

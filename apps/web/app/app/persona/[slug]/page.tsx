@@ -99,7 +99,7 @@ export default function PersonaDetailPage() {
   return (
     <main className="min-h-screen [min-height:100svh] flex flex-col bg-vellum">
       {/* Portrait section */}
-      <section className="relative w-full h-[40vh] [height:40svh] overflow-hidden bg-linen flex-shrink-0">
+      <section className="relative w-full h-[55vh] [height:55svh] overflow-hidden bg-linen flex-shrink-0">
         {portraitPath && (
           <Image
             src={portraitPath}
