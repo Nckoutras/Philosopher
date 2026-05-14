@@ -121,17 +121,17 @@ export default function MatchesPage() {
                 onClick={() => router.push(`/app/persona/${m.slug}`)}
                 className="w-full text-left p-4 rounded-md border-[0.5px] bg-linen border-edge transition-colors flex items-center gap-4"
               >
-                {m.portraitPath ? (
-                  <Image
-                    src={m.portraitPath}
-                    alt={m.name}
-                    width={56}
-                    height={56}
-                    className="rounded-full object-cover flex-shrink-0"
-                  />
-                ) : (
-                  <div className="w-14 h-14 rounded-full bg-linen-deep flex-shrink-0" />
-                )}
+                <div className="w-14 h-14 rounded-full overflow-hidden bg-linen-deep flex-shrink-0">
+                  {m.portraitPath && (
+                    <Image
+                      src={m.portraitPath}
+                      alt={m.name}
+                      width={56}
+                      height={56}
+                      className="w-full h-full object-cover"
+                    />
+                  )}
+                </div>
                 <div className="flex-1 min-w-0">
                   <div className="font-cormorant text-[17px] font-medium text-ink leading-tight mb-1">
                     {m.name}
