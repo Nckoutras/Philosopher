@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { Cormorant_Garamond, Lora } from 'next/font/google'
 import { ThemeProvider } from 'next-themes'
 import { Toaster } from 'react-hot-toast'
@@ -18,6 +18,12 @@ const lora = Lora({
   variable: '--font-lora',
   display: 'swap',
 })
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
+}
 
 export const metadata: Metadata = {
   title: 'Philosopher — Your Reflective Companion',

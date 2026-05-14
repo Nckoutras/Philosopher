@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useEffect, useState, type FormEvent } from 'react'
+import { Suspense, useEffect, useState, useRef, type FormEvent } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import toast from 'react-hot-toast'
 import { api } from '@/lib/api'
@@ -13,15 +13,40 @@ function VerifyForm() {
   const searchParams = useSearchParams()
   const email = searchParams.get('email') ?? ''
 
-  const [code, setCode] = useState('')
+  const [code, setCode] = useState(['', '', '', '', '', ''])
   const [isLoading, setIsLoading] = useState(false)
+  const refs = useRef<(HTMLInputElement | null)[]>([])
 
   useEffect(() => {
     if (!email) router.replace('/auth')
   }, [email, router])
 
-  const isValid = /^[0-9]{6}$/.test(code)
+  const fullCode = code.join('')
+  const isValid = /^[0-9]{6}$/.test(fullCode)
   const canSubmit = isValid && !isLoading
+
+  const handleChange = (i: number, value: string) => {
+    const digit = value.replace(/[^0-9]/g, '').slice(-1)
+    const next = [...code]
+    next[i] = digit
+    setCode(next)
+    if (digit && i < 5) refs.current[i + 1]?.focus()
+  }
+
+  const handleKeyDown = (i: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Backspace' && !code[i] && i > 0) {
+      refs.current[i - 1]?.focus()
+    }
+  }
+
+  const handlePaste = (e: React.ClipboardEvent) => {
+    e.preventDefault()
+    const pasted = e.clipboardData.getData('text').replace(/[^0-9]/g, '').slice(0, 6)
+    const next = ['', '', '', '', '', '']
+    for (let i = 0; i < pasted.length; i++) next[i] = pasted[i]
+    setCode(next)
+    refs.current[Math.min(pasted.length, 5)]?.focus()
+  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -30,7 +55,7 @@ function VerifyForm() {
     setIsLoading(true)
 
     try {
-      const data = await api.verifyOtp(email, code)
+      const data = await api.verifyOtp(email, fullCode)
       useStore.getState().setAuth(data.user, data.access_token)
       if (data.user.needs_disclaimer) {
         router.push('/auth/disclaimer')
@@ -72,29 +97,25 @@ function VerifyForm() {
           </header>
 
           <form onSubmit={handleSubmit} className="space-y-3">
-            <label htmlFor="code" className="sr-only">
-              6-digit verification code
-            </label>
-            <input
-              id="code"
-              type="text"
-              inputMode="numeric"
-              pattern="[0-9]*"
-              autoComplete="one-time-code"
-              autoCapitalize="none"
-              autoCorrect="off"
-              spellCheck={false}
-              maxLength={6}
-              autoFocus
-              required
-              value={code}
-              onChange={(e) =>
-                setCode(e.target.value.replace(/\D/g, '').slice(0, 6))
-              }
-              placeholder="6-digit code"
-              disabled={isLoading}
-              className="w-full h-[50px] px-[14px] bg-white border-[0.5px] border-edge rounded-sm font-lora text-[14px] text-ink placeholder:text-sepia focus:border focus:border-ink focus:outline-none disabled:opacity-60 text-center tracking-[0.4em]"
-            />
+            <div className="flex gap-2 justify-center" onPaste={handlePaste}>
+              {code.map((digit, i) => (
+                <input
+                  key={i}
+                  ref={(el) => { refs.current[i] = el }}
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  autoComplete={i === 0 ? 'one-time-code' : 'off'}
+                  maxLength={1}
+                  autoFocus={i === 0}
+                  value={digit}
+                  onChange={(e) => handleChange(i, e.target.value)}
+                  onKeyDown={(e) => handleKeyDown(i, e)}
+                  disabled={isLoading}
+                  className="w-12 h-14 text-center font-cormorant text-[28px] font-normal text-ink bg-white border-[0.5px] border-edge rounded-sm focus:border focus:border-ink focus:outline-none disabled:opacity-60 caret-transparent"
+                />
+              ))}
+            </div>
             <button
               type="submit"
               disabled={!canSubmit}

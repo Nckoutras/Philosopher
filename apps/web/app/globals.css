@@ -42,6 +42,8 @@
 html {
   color-scheme: light;
   scroll-behavior: smooth;
+  overscroll-behavior-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 body {
@@ -96,4 +98,14 @@ body {
 .surface {
   background: var(--paper);
   border: 0.5px solid var(--edge);
+}
+
+.pb-safe {
+  padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
+}
+
+button:active,
+[role="button"]:active {
+  transform: scale(0.97);
+  transition: transform 0.05s ease-out;
 }

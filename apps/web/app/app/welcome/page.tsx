@@ -5,7 +5,6 @@ import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { api, type Persona } from '@/lib/api'
 import { useStore } from '@/lib/store'
-import { BronzeDivider } from '@/components/ui/BronzeDivider'
 
 // Deterministic daily index — same for all users, rotates at UTC midnight.
 function mindOfTheDayIndex(rotationSize: number): number {
@@ -49,7 +48,7 @@ export default function WelcomePage() {
 
   return (
     <main className="min-h-screen [min-height:100svh] flex flex-col bg-vellum">
-      {/* Top: full-bleed portrait area (~65% height) */}
+      {/* Top: full-bleed portrait area (~70% height) */}
       <section className="relative flex-1 min-h-[70vh] [min-height:70svh] overflow-hidden bg-linen">
         {mind && (
           <Image
@@ -62,35 +61,45 @@ export default function WelcomePage() {
           />
         )}
 
-        {/* Subtle gradient from bottom to ensure tray readability if portrait bleeds */}
+        {/* Dark gradient overlay — bottom-weighted for portrait readability */}
         <div
           aria-hidden="true"
-          className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-vellum/80 to-transparent"
+          className="absolute inset-0 bg-gradient-to-b from-black/0 via-black/30 to-black/70 pointer-events-none"
         />
 
-        {/* Hero overlay text */}
-        <div className="relative z-10 flex flex-col items-center justify-start h-full px-7 pt-10 text-center">
-          <h1 className="font-cormorant text-[38px] font-light text-vellum leading-none drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)]">
+        {/* Hero text — V2: white serif + drop shadow */}
+        <div className="absolute inset-x-0 top-[15%] z-10 px-6 flex flex-col items-center text-center">
+          <h1
+            className="font-cormorant font-normal text-white text-5xl leading-tight max-w-[90%]"
+            style={{ textShadow: '0 2px 8px rgba(0,0,0,0.6), 0 1px 3px rgba(0,0,0,0.8)' }}
+          >
             Great Minds
           </h1>
-          <p className="mt-3 font-cormorant text-[17px] font-normal text-vellum/95 leading-snug drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)]">
-            Reflect with the
-            <br />
-            greatest thinkers.
+          <p
+            className="font-cormorant font-normal text-white/95 text-xl mt-3 max-w-[85%]"
+            style={{ textShadow: '0 1px 4px rgba(0,0,0,0.5)' }}
+          >
+            Reflect with the greatest thinkers
           </p>
-          <div className="mt-4">
-            <BronzeDivider width={90} />
-          </div>
         </div>
       </section>
 
       {/* Bottom: Vellum tray */}
-      <section className="bg-vellum px-7 pt-4 pb-8">
+      <section className="bg-vellum px-7 pt-4 pb-safe">
         <div className="w-full max-w-[380px] mx-auto">
           {loadError ? (
-            <p className="font-lora text-[13px] text-charcoal text-center">
-              Could not load today's mind. Refresh to try again.
-            </p>
+            <div className="text-center space-y-3">
+              <p className="font-lora text-[13px] text-charcoal">
+                Could not load today&apos;s mind.
+              </p>
+              <button
+                type="button"
+                onClick={() => { setLoadError(false); window.location.reload() }}
+                className="font-lora text-[13px] text-sepia underline underline-offset-2"
+              >
+                Try again
+              </button>
+            </div>
           ) : (
             <>
               <p className="font-lora text-[11px] uppercase tracking-[0.18em] text-sepia text-center">
