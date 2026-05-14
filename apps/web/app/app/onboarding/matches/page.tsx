@@ -128,7 +128,7 @@ export default function MatchesPage() {
                       alt={m.name}
                       width={56}
                       height={56}
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-cover object-top"
                     />
                   )}
                 </div>

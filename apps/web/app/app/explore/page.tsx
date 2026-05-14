@@ -90,7 +90,7 @@ export default function ExplorePage() {
                     alt={p.name}
                     width={56}
                     height={56}
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-cover object-top"
                   />
                 )}
               </div>
@@ -109,7 +109,7 @@ export default function ExplorePage() {
                   p.tier === 'free' ? 'text-sepia' : 'text-bronze'
                 }`}
               >
-                {TIER_LABELS[p.tier]}
+                {p.tier !== 'free' && '🔒 '}{TIER_LABELS[p.tier]}
               </span>
             </button>
           ))}

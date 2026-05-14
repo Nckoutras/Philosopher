@@ -6,6 +6,7 @@ from models import Persona
 from schemas import PersonaOut
 from auth import get_current_user_plan
 from personas import PERSONA_REGISTRY, is_persona_accessible
+from constants import TIER_ORDER
 
 router = APIRouter(prefix="/personas", tags=["personas"])
 
@@ -35,7 +36,7 @@ async def list_personas(
             opening_invocation=config.opening_invocation if config else None,
             bio=p.bio,
             portrait_url=p.portrait_url,
-            is_accessible=is_persona_accessible(config, plan) if config else False,
+            is_accessible=TIER_ORDER.get(p.tier, 99) <= TIER_ORDER.get(plan, 0),
         ))
     return out
 
@@ -60,5 +61,5 @@ async def get_persona_detail(
         opening_invocation=config.opening_invocation if config else None,
         bio=p.bio,
         portrait_url=p.portrait_url,
-        is_accessible=is_persona_accessible(config, plan) if config else False,
+        is_accessible=TIER_ORDER.get(p.tier, 99) <= TIER_ORDER.get(plan, 0),
     )

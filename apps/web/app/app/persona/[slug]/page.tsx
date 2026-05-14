@@ -99,7 +99,7 @@ export default function PersonaDetailPage() {
   return (
     <main className="min-h-screen [min-height:100svh] flex flex-col bg-vellum">
       {/* Portrait section */}
-      <section className="relative w-full h-[55vh] [height:55svh] overflow-hidden bg-linen flex-shrink-0">
+      <section className="relative w-full h-[62vh] [height:62svh] overflow-hidden bg-linen flex-shrink-0">
         {portraitPath && (
           <Image
             src={portraitPath}
@@ -113,25 +113,25 @@ export default function PersonaDetailPage() {
 
         {/* Tier badge */}
         <div
-          className={`absolute top-6 left-7 font-lora text-[10px] tracking-[0.20em] font-medium ${tierColorClass}`}
-          style={{ textShadow: '0 1px 2px rgba(0,0,0,0.4)' }}
+          className={`absolute left-7 font-lora text-[12px] tracking-[0.22em] font-semibold ${tierColorClass}`}
+          style={{ top: 'max(1.5rem, env(safe-area-inset-top))', textShadow: '0 1px 2px rgba(0,0,0,0.4)' }}
         >
-          {tierLabel}
+          {persona.tier !== 'free' && '🔒 '}{tierLabel}
         </div>
 
         {/* Close button */}
         <button
           onClick={() => router.back()}
           aria-label="Close"
-          className="absolute top-5 right-6 w-8 h-8 flex items-center justify-center text-vellum text-[20px]"
-          style={{ textShadow: '0 1px 2px rgba(0,0,0,0.4)' }}
+          className="absolute right-6 w-8 h-8 flex items-center justify-center text-vellum text-[20px]"
+          style={{ top: 'max(1.25rem, env(safe-area-inset-top))', textShadow: '0 1px 2px rgba(0,0,0,0.4)' }}
         >
           ✕
         </button>
       </section>
 
       {/* Content section */}
-      <section className="flex-1 px-7 py-6">
+      <section className="flex-1 px-7 py-4">
         <div className="w-full max-w-[380px] mx-auto space-y-5">
 
           {/* Name + tagline */}
@@ -153,9 +153,7 @@ export default function PersonaDetailPage() {
           {/* Bio — blurred if locked */}
           {bio && (
             <p
-              className={`font-lora text-[13px] text-charcoal leading-[1.7] ${
-                isLocked ? 'blur-[3px] select-none pointer-events-none' : ''
-              }`}
+              className="font-lora text-[13px] text-charcoal leading-[1.7]"
             >
               {bio}
             </p>
@@ -164,9 +162,7 @@ export default function PersonaDetailPage() {
           {/* Opening invocation preview — blurred if locked */}
           {persona.opening_invocation && (
             <div
-              className={`bg-linen rounded-md p-4 border-l-2 border-bronze ${
-                isLocked ? 'blur-[3px] select-none pointer-events-none' : ''
-              }`}
+              className="bg-linen rounded-md p-4 border-l-2 border-bronze"
             >
               <p className="font-lora text-[10px] uppercase tracking-[0.20em] text-sepia mb-2">
                 They begin with
