@@ -97,7 +97,7 @@ export default function MatchesPage() {
 
   return (
     <main className="min-h-screen [min-height:100svh] flex flex-col bg-vellum">
-      <div className="flex-1 flex flex-col justify-center px-7 py-8">
+      <div className="flex-1 flex flex-col justify-center px-7 pt-8 pb-safe">
         <div className="w-full max-w-[380px] mx-auto space-y-7">
 
           <div className="flex justify-center">

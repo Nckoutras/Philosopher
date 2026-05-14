@@ -33,6 +33,8 @@ async def list_personas(
             tagline=config.tagline if config else None,
             avatar_emoji=config.avatar_emoji if config else None,
             opening_invocation=config.opening_invocation if config else None,
+            bio=p.bio,
+            portrait_url=p.portrait_url,
             is_accessible=is_persona_accessible(config, plan) if config else False,
         ))
     return out
@@ -56,5 +58,7 @@ async def get_persona_detail(
         tagline=config.tagline if config else None,
         avatar_emoji=config.avatar_emoji if config else None,
         opening_invocation=config.opening_invocation if config else None,
+        bio=p.bio,
+        portrait_url=p.portrait_url,
         is_accessible=is_persona_accessible(config, plan) if config else False,
     )

@@ -178,7 +178,7 @@ export default function PersonaDetailPage() {
           )}
 
           {/* CTA section */}
-          <div className="pt-3 space-y-3">
+          <div className="pt-3 pb-safe space-y-3">
             {isLocked ? (
               <>
                 <button
