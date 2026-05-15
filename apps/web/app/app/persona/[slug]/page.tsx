@@ -159,20 +159,6 @@ export default function PersonaDetailPage() {
             </p>
           )}
 
-          {/* Opening invocation preview — blurred if locked */}
-          {persona.opening_invocation && (
-            <div
-              className="bg-linen rounded-md p-4 border-l-2 border-bronze"
-            >
-              <p className="font-lora text-[10px] uppercase tracking-[0.20em] text-sepia mb-2">
-                They begin with
-              </p>
-              <p className="font-cormorant text-[16px] italic text-ink leading-[1.55]">
-                &ldquo;{persona.opening_invocation}&rdquo;
-              </p>
-            </div>
-          )}
-
           {/* CTA section */}
           <div className="pt-3 pb-safe space-y-3">
             {isLocked ? (
