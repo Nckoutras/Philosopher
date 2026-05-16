@@ -89,14 +89,19 @@ def _make_db(
     existing_conv=_MISSING,
     subscription=None,
     daily_usage=None,
+    rate_limit_usage=_MISSING,
 ):
     """Build mock AsyncSession for the endpoint's execute sequence.
 
     - persona: always included (first execute)
     - existing_conv: if not _MISSING, adds a conversation lookup next
     - subscription: get_user_tier query (always after persona + optional conv)
-    - daily_usage: DailyUsage lookup on success path
+    - rate_limit_usage: DailyUsage for the rate-limit check (defaults to daily_usage)
+    - daily_usage: DailyUsage lookup on success path (for incrementing)
     """
+    if rate_limit_usage is _MISSING:
+        rate_limit_usage = daily_usage
+
     db = AsyncMock()
     db.add = MagicMock()       # session.add() is synchronous
     db.flush = AsyncMock()
@@ -111,7 +116,8 @@ def _make_db(
     if existing_conv is not _MISSING:
         side_effects.append(_r(existing_conv))
     side_effects.append(_r(subscription))
-    side_effects.append(_r(daily_usage))
+    side_effects.append(_r(rate_limit_usage))  # rate limit check
+    side_effects.append(_r(daily_usage))        # increment on success
 
     db.execute = AsyncMock(side_effect=side_effects)
 
@@ -349,7 +355,7 @@ def test_daily_usage_existing_row_incremented(client):
     persona = _make_persona("free")
     existing_usage = DailyUsage(
         user_id=USER_ID, persona_id=PERSONA_ID,
-        usage_date=__import__("datetime").date.today(), message_count=5,
+        usage_date=__import__("datetime").date.today(), message_count=3,
     )
     db = _make_db(persona=persona, subscription=None, daily_usage=existing_usage)
     client._db[0] = db
@@ -359,7 +365,7 @@ def test_daily_usage_existing_row_incremented(client):
         resp = client.post(ENDPOINT, json={"persona_id": PERSONA_ID, "content": "Hello"})
 
     assert resp.status_code == 200
-    assert existing_usage.message_count == 6
+    assert existing_usage.message_count == 4
 
     # No new DailyUsage row added (we incremented, not created)
     added = [c.args[0] for c in db.add.call_args_list]
@@ -564,3 +570,139 @@ def test_empty_content_returns_422(client):
         json={"persona_id": PERSONA_ID, "content": ""},
     )
     assert resp.status_code == 422
+
+
+# ── Rate limiting ─────────────────────────────────────────────────────────────
+
+def _make_usage(count):
+    return DailyUsage(
+        user_id=USER_ID,
+        persona_id=PERSONA_ID,
+        usage_date=__import__("datetime").date.today(),
+        message_count=count,
+    )
+
+
+def test_rate_limit_1st_message_allowed(client):
+    """Free user with 0 prior messages today: 200."""
+    persona = _make_persona("free")
+    db = _make_db(persona=persona, subscription=None, rate_limit_usage=None, daily_usage=None)
+    client._db[0] = db
+
+    with patch("routers.messages.llm_service_module.call_llm", new_callable=AsyncMock) as mock_llm:
+        mock_llm.return_value = _make_llm_response()
+        resp = client.post(ENDPOINT, json={"persona_id": PERSONA_ID, "content": "Hello"})
+
+    assert resp.status_code == 200
+
+
+def test_rate_limit_5th_message_allowed(client):
+    """Free user with 4 prior messages today: 5th message succeeds."""
+    persona = _make_persona("free")
+    usage = _make_usage(4)
+    db = _make_db(persona=persona, subscription=None, rate_limit_usage=usage, daily_usage=usage)
+    client._db[0] = db
+
+    with patch("routers.messages.llm_service_module.call_llm", new_callable=AsyncMock) as mock_llm:
+        mock_llm.return_value = _make_llm_response()
+        resp = client.post(ENDPOINT, json={"persona_id": PERSONA_ID, "content": "Hello"})
+
+    assert resp.status_code == 200
+    assert resp.headers["X-RateLimit-Remaining"] == "0"
+
+
+def test_rate_limit_6th_message_blocked(client):
+    """Free user with 5 prior messages today: 6th returns 429."""
+    persona = _make_persona("free")
+    db = _make_db(persona=persona, subscription=None, rate_limit_usage=_make_usage(5))
+    client._db[0] = db
+
+    with patch("routers.messages.llm_service_module.call_llm", new_callable=AsyncMock) as mock_llm:
+        resp = client.post(ENDPOINT, json={"persona_id": PERSONA_ID, "content": "Hello"})
+
+    assert resp.status_code == 429
+    detail = resp.json()
+    assert detail["error_code"] == "rate_limited"
+    assert "tomorrow" in detail["persona_voice"].lower() or "limit" in detail["persona_voice"].lower()
+    mock_llm.assert_not_called()
+
+
+def test_rate_limit_blocked_user_message_not_saved(client):
+    """When rate limited, no user Message row is inserted."""
+    persona = _make_persona("free")
+    db = _make_db(persona=persona, subscription=None, rate_limit_usage=_make_usage(5))
+    client._db[0] = db
+
+    with patch("routers.messages.llm_service_module.call_llm", new_callable=AsyncMock):
+        resp = client.post(ENDPOINT, json={"persona_id": PERSONA_ID, "content": "Hello"})
+
+    assert resp.status_code == 429
+    added = [c.args[0] for c in db.add.call_args_list]
+    assert not any(isinstance(o, Message) for o in added)
+    db.commit.assert_not_called()
+
+
+def test_rate_limit_blocked_daily_usage_not_incremented(client):
+    """When rate limited, daily_usage stays at 5 (increment code never runs)."""
+    persona = _make_persona("free")
+    usage = _make_usage(5)
+    db = _make_db(persona=persona, subscription=None, rate_limit_usage=usage)
+    client._db[0] = db
+
+    with patch("routers.messages.llm_service_module.call_llm", new_callable=AsyncMock):
+        resp = client.post(ENDPOINT, json={"persona_id": PERSONA_ID, "content": "Hello"})
+
+    assert resp.status_code == 429
+    assert usage.message_count == 5  # unchanged
+
+
+def test_rate_limit_pro_user_unlimited(client):
+    """Pro user with 100 prior messages today: still succeeds."""
+    persona = _make_persona("free")
+    sub = _make_subscription(active=True)
+    db = _make_db(persona=persona, subscription=sub, rate_limit_usage=_make_usage(100), daily_usage=None)
+    client._db[0] = db
+
+    with patch("routers.messages.llm_service_module.call_llm", new_callable=AsyncMock) as mock_llm:
+        mock_llm.return_value = _make_llm_response()
+        resp = client.post(ENDPOINT, json={"persona_id": PERSONA_ID, "content": "Hello"})
+
+    assert resp.status_code == 200
+    assert resp.headers["X-RateLimit-Limit"] == "-1"
+    assert resp.headers["X-RateLimit-Remaining"] == "-1"
+
+
+def test_rate_limit_headers_present_on_success(client):
+    """200 response includes X-RateLimit-* headers."""
+    persona = _make_persona("free")
+    db = _make_db(persona=persona, subscription=None, daily_usage=None)
+    client._db[0] = db
+
+    with patch("routers.messages.llm_service_module.call_llm", new_callable=AsyncMock) as mock_llm:
+        mock_llm.return_value = _make_llm_response()
+        resp = client.post(ENDPOINT, json={"persona_id": PERSONA_ID, "content": "Hello"})
+
+    assert resp.status_code == 200
+    assert "X-RateLimit-Limit" in resp.headers
+    assert "X-RateLimit-Remaining" in resp.headers
+    assert "X-RateLimit-Reset" in resp.headers
+    assert resp.headers["X-RateLimit-Limit"] == "5"
+    # 0 prior messages → remaining=5 before call → 4 after
+    assert resp.headers["X-RateLimit-Remaining"] == "4"
+
+
+def test_rate_limit_headers_present_on_429(client):
+    """429 response includes X-RateLimit-* headers."""
+    persona = _make_persona("free")
+    db = _make_db(persona=persona, subscription=None, rate_limit_usage=_make_usage(5))
+    client._db[0] = db
+
+    with patch("routers.messages.llm_service_module.call_llm", new_callable=AsyncMock):
+        resp = client.post(ENDPOINT, json={"persona_id": PERSONA_ID, "content": "Hello"})
+
+    assert resp.status_code == 429
+    assert "X-RateLimit-Limit" in resp.headers
+    assert "X-RateLimit-Remaining" in resp.headers
+    assert "X-RateLimit-Reset" in resp.headers
+    assert resp.headers["X-RateLimit-Limit"] == "5"
+    assert resp.headers["X-RateLimit-Remaining"] == "0"

@@ -1,7 +1,10 @@
 _FALLBACKS = {
     "llm_unavailable": "I'm having trouble responding. Please try again in a moment.",
     "persona_locked": "This philosopher requires a Pro subscription.",
-    "rate_limited": "You've reached your daily message limit.",
+    "rate_limited": (
+        "You've reached your daily message limit with this philosopher. "
+        "Try again tomorrow or upgrade to Pro for unlimited conversations."
+    ),
 }
 
 
