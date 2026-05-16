@@ -1,7 +1,7 @@
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from sqlalchemy import (
-    String, Text, Boolean, Integer, Float, DateTime,
+    String, Text, Boolean, Integer, Float, DateTime, Date,
     ForeignKey, JSON, ARRAY, CheckConstraint, UniqueConstraint, func, Index, text
 )
 from sqlalchemy.dialects.postgresql import UUID, JSONB, INET
@@ -86,11 +86,16 @@ class Conversation(Base):
     ritual_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False))
     message_count: Mapped[int] = mapped_column(Integer, default=0)
     last_message_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     user: Mapped["User"] = relationship("User", back_populates="conversations")
     persona: Mapped["Persona"] = relationship("Persona", back_populates="conversations")
     messages: Mapped[list["Message"]] = relationship("Message", back_populates="conversation", order_by="Message.created_at")
+
+    __table_args__ = (
+        Index('ix_conversations_user_active', 'user_id', postgresql_where=text('deleted_at IS NULL')),
+    )
 
 
 class Message(Base):
@@ -102,6 +107,7 @@ class Message(Base):
     role: Mapped[str] = mapped_column(String(20), nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
     tokens_used: Mapped[int | None] = mapped_column(Integer)
+    model_used: Mapped[str | None] = mapped_column(String(64), nullable=True)
     retrieval_ids: Mapped[list | None] = mapped_column(JSONB)
     safety_level: Mapped[str] = mapped_column(String(20), default="none")
     persona_override: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -279,4 +285,21 @@ class DisclaimerAcceptance(Base):
     __table_args__ = (
         UniqueConstraint("user_id", "version_id", name="uq_disclaimer_acceptances_user_version"),
         Index("ix_disclaimer_acceptances_user", "user_id"),
+    )
+
+
+# ── Daily Usage ───────────────────────────────────────────────────────────────
+
+class DailyUsage(Base):
+    __tablename__ = "daily_usage"
+
+    user_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, primary_key=True)
+    persona_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("personas.id", ondelete="CASCADE"), nullable=False, primary_key=True)
+    usage_date: Mapped[date] = mapped_column(Date(), nullable=False, primary_key=True)
+    message_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    __table_args__ = (
+        Index("ix_daily_usage_lookup", "user_id", "usage_date"),
     )
