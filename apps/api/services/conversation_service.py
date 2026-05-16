@@ -351,6 +351,17 @@ class ConversationService:
                 "generate_conversation_title", str(conv.id)
             )
 
+        if arq_queue is not None and not safety_out.should_suppress_persona:
+            await arq_queue.enqueue_job(
+                "extract_memory_task",
+                str(user_id),
+                str(conv.id),
+                str(conv.persona_id),
+                user_text,
+                full_response,
+                (conv.message_count or 0) // 2,
+            )
+
         # ── 11. ANALYTICS ────────────────────────────────────────────────────
         analytics_service.track("message_sent", user_id, {
             "persona_slug": persona.slug,
