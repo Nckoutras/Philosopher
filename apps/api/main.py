@@ -10,6 +10,7 @@ import models  # noqa: F401
 
 from routers.auth import router as auth_router
 from routers.conversations import router as conversations_router
+from routers.messages import router as messages_router
 from routers.personas import router as personas_router
 from routers.memory import memory_router, insights_router
 from routers.billing import router as billing_router
@@ -73,6 +74,7 @@ PREFIX = "/api/v1"
 app.include_router(auth_router,          prefix=PREFIX)
 app.include_router(personas_router,      prefix=PREFIX)
 app.include_router(conversations_router, prefix=PREFIX)
+app.include_router(messages_router,      prefix=PREFIX)
 app.include_router(memory_router,        prefix=PREFIX)
 app.include_router(insights_router,      prefix=PREFIX)
 app.include_router(billing_router,       prefix=PREFIX)
