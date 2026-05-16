@@ -816,3 +816,338 @@ async def test_auto_title_enqueued_with_correct_conv_id():
     assert args[0][0] == "generate_conversation_title"
     assert args[0][1] == CONV_ID
     assert isinstance(args[0][1], str)
+
+
+# ── Section F: LLM error handling and retry ──────────────────────────────────
+
+import anthropic as _anthropic
+
+
+class _FakeRateLimitError(_anthropic.RateLimitError):
+    def __init__(self):
+        pass  # status_code=429 inherited as class attribute
+
+
+class _FakeAPIStatusError(_anthropic.APIStatusError):
+    def __init__(self, code: int):
+        self.status_code = code
+
+
+class _FakeConnectionError(_anthropic.APIConnectionError):
+    def __init__(self):
+        pass
+
+
+class _FakeTimeoutError(_anthropic.APITimeoutError):
+    def __init__(self):
+        pass
+
+
+class _FakeAuthError(_anthropic.AuthenticationError):
+    def __init__(self):
+        pass  # status_code=401 inherited as class attribute
+
+
+def _make_db_for_retry():
+    """DB mock for retry tests: 4 execute calls covering both error and success paths.
+
+    Error path consumes: conv, persona, history (3 of 4).
+    Success path (ritual_id=MagicMock, so DailyUsage is skipped) consumes all 4.
+    """
+    db = AsyncMock()
+
+    conv = _mock_conv()  # ritual_id is auto-MagicMock (not None) → DailyUsage skipped
+
+    conv_result = MagicMock()
+    conv_result.scalar_one_or_none.return_value = conv
+    persona_result = MagicMock()
+    persona_result.scalar_one.return_value = _mock_persona_db()
+    history_result = MagicMock()
+    history_result.scalars.return_value.all.return_value = []
+    update_result = MagicMock()
+
+    db.execute = AsyncMock(side_effect=[
+        conv_result,
+        persona_result,
+        history_result,
+        update_result,  # update(Conversation) — only consumed on success
+    ])
+    db.add = MagicMock()
+    db.flush = AsyncMock()
+    db.commit = AsyncMock()
+    db.rollback = AsyncMock()
+    return db
+
+
+def _make_stream_factory(behaviors: list):
+    """Return an async generator function that uses the next behavior per call.
+
+    Each item in behaviors is either the string 'ok' (yield one chunk) or an
+    exception instance to raise.
+    """
+    counter = {"n": 0}
+
+    async def stream_func(*args, **kwargs):
+        n = counter["n"]
+        counter["n"] += 1
+        b = behaviors[n] if n < len(behaviors) else "ok"
+        if b == "ok":
+            yield "Hello"
+        else:
+            raise b
+            yield  # pragma: no cover — marks this as an async generator
+
+    return stream_func
+
+
+async def _run_retry(behaviors: list, *, persona_config=None, db=None):
+    """Run stream_response with controllable LLM stream behaviors.
+
+    Returns (chunks, mock_sleep, service, db).
+    """
+    service = ConversationService()
+    saved = _saved_msg()
+
+    mock_llm = MagicMock()
+    mock_llm.stream = _make_stream_factory(behaviors)
+
+    if db is None:
+        db = _make_db_for_retry()
+
+    if persona_config is None:
+        persona_config = MagicMock()
+        persona_config.slug = "marcus_aurelius"
+        persona_config.config = {}
+
+    mock_sleep = AsyncMock()
+
+    with (
+        patch("services.conversation_service.safety_service") as mock_safety,
+        patch("services.conversation_service.memory_service") as mock_memory,
+        patch("services.conversation_service.retrieval_service") as mock_retrieval,
+        patch("services.conversation_service.llm_client", mock_llm),
+        patch("services.conversation_service.prompt_builder") as mock_prompt,
+        patch("services.conversation_service.analytics_service"),
+        patch("services.conversation_service.POSTPROCESSING_ENABLED", False),
+        patch("services.conversation_service.PHENOMENOLOGY_BRIDGE_ENABLED", False),
+        patch("services.conversation_service.get_persona", return_value=persona_config),
+        patch("asyncio.sleep", mock_sleep),
+    ):
+        safety_result = MagicMock()
+        safety_result.should_log = False
+        safety_result.should_suppress_persona = False
+        safety_result.level = "none"
+        mock_safety.check_input = AsyncMock(return_value=safety_result)
+        mock_safety.check_output = AsyncMock(return_value=safety_result)
+        mock_memory.recall = AsyncMock(return_value=[])
+        mock_retrieval.retrieve = AsyncMock(return_value=[])
+        mock_prompt.build_system.return_value = "system"
+        mock_prompt.build_safety_response.return_value = "safe"
+
+        service._save_message = AsyncMock(return_value=saved)
+        service._log_safety_event = AsyncMock()
+
+        chunks = await _drain(service.stream_response(
+            db=db,
+            conversation_id=CONV_ID,
+            user_id=USER_ID,
+            user_text="What is virtue?",
+            user_plan="free",
+        ))
+
+    return chunks, mock_sleep, service, db
+
+
+def _event_types(chunks):
+    import json as _json
+    types = []
+    for raw in chunks:
+        if raw.startswith("data: "):
+            try:
+                types.append(_json.loads(raw[6:])["type"])
+            except Exception:
+                pass
+    return types
+
+
+def _parse_error_event(chunks):
+    import json as _json
+    for raw in chunks:
+        if raw.startswith("data: "):
+            try:
+                ev = _json.loads(raw[6:])
+                if ev.get("type") == "error":
+                    return ev
+            except Exception:
+                pass
+    return None
+
+
+# ── F1: Success on first attempt ─────────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_llm_success_first_attempt_normal_flow():
+    """LLM succeeds on first attempt → start, chunk, done emitted; sleep not called."""
+    chunks, mock_sleep, _, _ = await _run_retry(["ok"])
+
+    types = _event_types(chunks)
+    assert "start" in types
+    assert "chunk" in types
+    assert "done" in types
+    assert "error" not in types
+    mock_sleep.assert_not_called()
+
+
+# ── F2: Retry succeeds on second attempt ─────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_llm_retry_succeeds_second_attempt():
+    """503 on attempt 1, success on attempt 2 → chunks + done; sleep once with delay 1."""
+    chunks, mock_sleep, _, _ = await _run_retry([_FakeAPIStatusError(503), "ok"])
+
+    types = _event_types(chunks)
+    assert "chunk" in types
+    assert "done" in types
+    assert "error" not in types
+    mock_sleep.assert_called_once_with(1)
+
+
+# ── F3: All retries fail ──────────────────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_llm_all_three_retries_fail_503():
+    """503 on all 3 attempts → error event, no done, no chunk; sleep delays sum to 7s."""
+    chunks, mock_sleep, _, _ = await _run_retry([
+        _FakeAPIStatusError(503),
+        _FakeAPIStatusError(503),
+        _FakeAPIStatusError(503),
+    ])
+
+    types = _event_types(chunks)
+    assert "error" in types
+    assert "done" not in types
+    assert "chunk" not in types
+
+    assert mock_sleep.call_count == 3
+    sleep_delays = [c.args[0] for c in mock_sleep.call_args_list]
+    assert sleep_delays == [1, 2, 4]
+
+
+# ── F4: Non-retriable 4xx — no retry ─────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_llm_non_retriable_401_no_retry_no_sleep():
+    """401 AuthenticationError → error event immediately; no sleep, no retry."""
+    chunks, mock_sleep, _, _ = await _run_retry([_FakeAuthError()])
+
+    types = _event_types(chunks)
+    assert "error" in types
+    assert "done" not in types
+    assert "chunk" not in types
+    mock_sleep.assert_not_called()
+
+
+# ── F5: Connection error retries, succeeds on third attempt ──────────────────
+
+@pytest.mark.asyncio
+async def test_llm_connection_error_retries_succeed_third():
+    """Connection error on attempts 1 & 2, success on 3 → normal flow; sleep twice."""
+    chunks, mock_sleep, _, _ = await _run_retry([
+        _FakeConnectionError(),
+        _FakeConnectionError(),
+        "ok",
+    ])
+
+    types = _event_types(chunks)
+    assert "chunk" in types
+    assert "done" in types
+    assert "error" not in types
+    assert mock_sleep.call_count == 2
+    assert [c.args[0] for c in mock_sleep.call_args_list] == [1, 2]
+
+
+# ── F6: Persona-voiced error message ─────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_error_event_uses_persona_specific_voice():
+    """Error event persona_voice uses persona's custom error_messages when present."""
+    persona_config = MagicMock()
+    persona_config.slug = "marcus_aurelius"
+    persona_config.config = {
+        "error_messages": {"llm_unavailable": "The divine logos is silent."}
+    }
+
+    chunks, _, _, _ = await _run_retry(
+        [_FakeAPIStatusError(503), _FakeAPIStatusError(503), _FakeAPIStatusError(503)],
+        persona_config=persona_config,
+    )
+
+    ev = _parse_error_event(chunks)
+    assert ev is not None
+    assert ev["persona_voice"] == "The divine logos is silent."
+
+
+# ── F7: Fallback voice when no custom error_messages ─────────────────────────
+
+@pytest.mark.asyncio
+async def test_error_event_falls_back_to_generic_voice():
+    """Error event persona_voice uses the generic fallback when persona has no error_messages."""
+    persona_config = MagicMock()
+    persona_config.slug = "marcus_aurelius"
+    persona_config.config = {}  # no error_messages key
+
+    chunks, _, _, _ = await _run_retry(
+        [_FakeAPIStatusError(503), _FakeAPIStatusError(503), _FakeAPIStatusError(503)],
+        persona_config=persona_config,
+    )
+
+    ev = _parse_error_event(chunks)
+    assert ev is not None
+    assert ev["persona_voice"] == "I'm having trouble responding. Please try again in a moment."
+
+
+# ── F8: User message persists on failure ─────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_user_message_persists_on_llm_failure():
+    """db.commit() is called even when all LLM retries fail (user message must be saved)."""
+    _, _, service, db = await _run_retry([
+        _FakeAPIStatusError(503),
+        _FakeAPIStatusError(503),
+        _FakeAPIStatusError(503),
+    ])
+
+    db.commit.assert_called_once()
+
+
+# ── F9: Assistant message not saved on failure ────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_assistant_message_not_saved_on_llm_failure():
+    """_save_message called only once (for user message) when all LLM retries fail."""
+    _, _, service, _ = await _run_retry([
+        _FakeAPIStatusError(503),
+        _FakeAPIStatusError(503),
+        _FakeAPIStatusError(503),
+    ])
+
+    assert service._save_message.call_count == 1
+    saved_role = service._save_message.call_args_list[0].args[3]
+    assert saved_role == "user"
+
+
+# ── F10: daily_usage not incremented on failure ───────────────────────────────
+
+@pytest.mark.asyncio
+async def test_daily_usage_not_incremented_on_llm_failure():
+    """No DailyUsage row added or incremented when all LLM retries fail."""
+    from models import DailyUsage
+    _, _, _, db = await _run_retry([
+        _FakeAPIStatusError(503),
+        _FakeAPIStatusError(503),
+        _FakeAPIStatusError(503),
+    ])
+
+    added = [c.args[0] for c in db.add.call_args_list]
+    daily_usages = [o for o in added if isinstance(o, DailyUsage)]
+    assert len(daily_usages) == 0
