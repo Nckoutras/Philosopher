@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest"
   },
   "dependencies": {
     "next": "14.2.15",
@@ -31,6 +32,7 @@
     "next-themes": "^0.3.0"
   },
   "devDependencies": {
-    "@netlify/plugin-nextjs": "^5.0.0"
+    "@netlify/plugin-nextjs": "^5.0.0",
+    "vitest": "^2.0.0"
   }
 }

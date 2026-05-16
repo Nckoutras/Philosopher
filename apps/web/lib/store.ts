@@ -35,6 +35,10 @@ interface AppStore {
   // Safety overlay
   safetyActive: boolean
   setSafetyActive: (v: boolean) => void
+
+  // SSE error event state (transient — not persisted)
+  streamError: { error_code: string; persona_voice: string } | null
+  setStreamError: (err: { error_code: string; persona_voice: string } | null) => void
 }
 
 export const useStore = create<AppStore>()(
@@ -79,6 +83,9 @@ export const useStore = create<AppStore>()(
       resetStreaming: () => set({ isStreaming: false, streamingContent: '' }),
       safetyActive: false,
       setSafetyActive: (v) => set({ safetyActive: v }),
+
+      streamError: null,
+      setStreamError: (err) => set({ streamError: err }),
     }),
     {
       name: 'philosopher-store',
