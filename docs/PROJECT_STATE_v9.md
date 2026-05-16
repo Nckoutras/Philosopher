@@ -1,0 +1,487 @@
+# PHILOSOPHER — Project State v9
+
+> **What this file is:** Live snapshot of the project's current implementation status. Manually maintained.
+>
+> **v9 = v8 baseline (2026-05-13/14) + 2026-05-16 session delta (Block C backend shipped; C-RECON reconciliation series completed; PATH B deleted; single canonical send-message endpoint confirmed).**
+>
+> **Generated:** 2026-05-16 (post-reconciliation)
+>
+> **Last updated:** 2026-05-16 (v9 consolidation — Block C backend 8/8 complete; C-RECON-2 through C-RECON-8 merged; all features now live in PATH A SSE streaming endpoint; PATH B fully deleted)
+
+> **v9 conflict resolution rule:** Where v9 conflicts with v8, v9 wins. Production reality always wins over docs.
+
+---
+
+**Repo:** https://github.com/Nckoutras/Philosopher (public)
+**Branch:** main
+**Live deployment (canonical):** https://thinkalike.netlify.app
+**Custom domain (DNS in progress):** https://thegreatminds.app
+**Backend:** https://philosopher-api-z9l9.onrender.com
+
+---
+
+## 1. Stack (locked)
+
+| Layer | Tech |
+|---|---|
+| Frontend | Next.js 14 (App Router) · TypeScript · Tailwind |
+| Backend | FastAPI · Python 3.12 · SQLAlchemy 2.0 async · asyncpg |
+| Database | PostgreSQL 17 (Supabase, eu-west-1, paid) |
+| Queue/Cache | Redis (Upstash) + ARQ + APScheduler |
+| LLM | Anthropic Claude — **now wired and live for chat (Block C backend complete)** |
+| Embeddings | OpenAI text-embedding-3-small (schema + client wired; corpus NOT yet ingested) |
+| Auth | Passwordless OTP via Resend; JWT issuance with cookie + localStorage |
+| Billing | Stripe (scaffolded, NOT wired) |
+| Email | Resend (free tier, test sender — custom domain in progress) |
+| Analytics | PostHog (configured, unused) |
+
+### Hosting
+
+- **Frontend (canonical):** Netlify (project: thinkalike, URL: thinkalike.netlify.app). Auto-deploys from main.
+- ~~Frontend (legacy): Vercel~~ — **DISCONNECTED 2026-05-10**
+- **Backend:** Render (free tier — `WEB_CONCURRENCY=1`, 15-min idle cold-start, mitigated by external ping bot; upgrade decision pending ~$7/mo)
+- **Database:** Supabase project `plecolxlzshkfvybszgs` (eu-west-1, paid). DATABASE_URL points to `aws-0-eu-west-1.pooler.supabase.com:5432`. Direct asyncpg connection — NOT Supabase Data API (so the May 30 2026 Data API default change does NOT affect this project).
+- **Cache (Redis):** Upstash `philosopher-prod` (eu-west-1, free tier). REDIS_URL set; ARQ + APScheduler operational. OTP rate limiter verified working 2026-05-10. Message rate limiter added in C-RECON-4.
+- **Email (Resend):** RESEND_API_KEY + FROM_EMAIL set. Currently `Great Minds <onboarding@resend.dev>` (test sender). 🟡 Custom domain `thegreatminds.app` DNS setup IN PROGRESS.
+
+---
+
+## 2. Production status
+
+- Live URL: **https://thinkalike.netlify.app** (canonical)
+- Last production deploy: **2026-05-16 (C-RECON-8 — PATH B deletion, PR #60)**
+- **Has paying users:** No
+- **Has free trial users:** No
+
+### Block A — Authentication: FULLY CLOSED 2026-05-10 (5/5)
+
+Unchanged from v8. See v8 §2 Block A table for detail.
+
+### Block B — Onboarding spine: SHIPPED 2026-05-13 (6/6 functional, polish PR pending)
+
+Unchanged from v8. Visual closure still pending consolidated polish PR. See v8 §2 Block B table for detail.
+
+### Block C — Chat backend: COMPLETE 2026-05-16 (8/8 backend items)
+
+All backend infrastructure for chat is live. **Frontend UI (C5) is the only remaining Block C item.** The backend is ready for the frontend to consume.
+
+| Item | PR | Status |
+|---|---|---|
+| C1 — Schema additions (deleted_at, model_used, daily_usage) | #50 | ✅ live |
+| C2 — LLM service (PATH B, non-streaming) | #51 | ✅ shipped; **DELETED in C-RECON-8** (features ported to PATH A) |
+| C4 — Message endpoint (PATH B, non-streaming) | #52 | ✅ shipped; **DELETED in C-RECON-8** (features ported to PATH A) |
+| C8 — Rate limiting (PATH B) | #53 | ✅ shipped; **ported to PATH A in C-RECON-4** |
+| C-RECON-3 — Tier-aware model selection in PATH A | #55 | ✅ live |
+| C-RECON-4 — Per-persona rate limit + daily_usage increment in PATH A | #56 | ✅ live |
+| C-RECON-5 — Auto-title generation in PATH A | #57 | ✅ live |
+| C-RECON-6 — LLM retry logic + persona-voiced errors in PATH A | #58 | ✅ live |
+| C-RECON-7 — Memory extraction wiring in PATH A | #59 | ✅ live |
+| C-RECON-8 — PATH B deletion | #60 | ✅ live |
+
+**Remaining Block C item:** C3 (RAG corpus ingestion) + C5 (Chat UI frontend). Both are unstarted. C5 is the next P0 work surface.
+
+### Other systems
+
+- **Stripe wired:** No (calendar gate of 2026-05-11 passed; verify status before Block H work)
+- **User validation done:** No (UAT planned with ≥2/5 spontaneous "I'd pay" criterion)
+- **`PHENOMENOLOGY_BRIDGE_ENABLED` flag:** Verified active 2026-05-04/05; current state in Render env to confirm before launch
+- **API plan upgrade:** Free tier still. Decision pending.
+- **Database:** Paid tier. RLS disabled on all public tables. Mitigation: frontend exclusively goes through FastAPI; anon key NOT in frontend bundle.
+
+---
+
+## 3. Personas registered
+
+**9 personas in production. All have full Section 5.7 character config + bio + portrait.** Unchanged from v8.
+
+Free tier: Marcus Aurelius, Socrates, Lao Tzu
+Pro tier: Simone de Beauvoir, Epictetus, Sigmund Freud, Carl Jung, Oscar Wilde, Niccolò Machiavelli
+
+See v8 §3 for full table and affinity weight signatures.
+
+---
+
+## 4. Database schema
+
+### Migrations applied (chronological)
+
+| Rev | Description | Applied | PR |
+|---|---|---|---|
+| 001 | initial | Pre-Block-A | — |
+| 002 | otp_codes table | 2026-05-09 | #18 |
+| 003 | disclaimer_versions + disclaimer_acceptances + v1.0 seed | 2026-05-10 | #24 |
+| 004 | user_preferences (wide table) | 2026-05-13 | #33 |
+| 005 | personas.bio + personas.portrait_url | 2026-05-13 | #42 |
+| 006 | 3 new personas + Jung bio/portrait update | 2026-05-13 | #43 + #44 hotfix |
+| **007** | **Block C schema: conversations.deleted_at, messages.model_used, daily_usage table** | **2026-05-16** | **#50** |
+
+**alembic_version = `007_block_c_schema`** (as of 2026-05-16 session end)
+
+### New tables added in migration 007
+
+```
+daily_usage             (NEW 2026-05-16, migration 007)
+                        per (user_id, persona_id, usage_date) counter
+                        message_count: int, default 0
+                        Used by: rate_limit_service.check_rate_limit()
+                        Populated by: conversation_service.stream_response()
+                        via SQL UPDATE after each successful message
+```
+
+### New columns added in migration 007
+
+```
+conversations.deleted_at   TIMESTAMP WITH TIME ZONE, nullable
+                            Soft-delete support; not yet surfaced in UI
+
+messages.model_used        VARCHAR, nullable
+                            Populated on every assistant message by stream_response()
+                            Records "claude-haiku-4-5-20251001" or "claude-sonnet-4-6"
+```
+
+### Live database state (2026-05-16 session end)
+
+```
+alembic_version:        007_block_c_schema ✓
+users count:            2 (founder, freetester)
+personas count:         9 (all active, all with bio + portrait + error_messages)
+conversations:          50 (from prior engine sessions + today's testing)
+messages:               139 (from prior engine sessions + today's testing)
+daily_usage rows:       populated during today's test runs
+safety_events:          populated (safety pipeline active since Phase 4)
+memory_entries:         wiring active (extract_memory_task queued after each response)
+                        not yet accumulating with real users; 0 organic entries
+```
+
+### Table population status
+
+| Table | Status | Notes |
+|---|---|---|
+| `daily_usage` | ✅ Actively populated | Incremented per successful non-ritual non-admin message in stream_response() |
+| `messages.model_used` | ✅ Actively populated | Set on every assistant message |
+| `safety_events` | ✅ Actively populated | Safety pipeline has been live since Phase 4 |
+| `memory_entries` | 🟡 Wired but not yet accumulating | extract_memory_task ARQ job is queued; no organic user sessions yet |
+| `conversations.deleted_at` | ❌ Not yet used | Soft-delete endpoint not exposed; field exists for future use |
+| `messages.message_id` in safety_events | 🟡 Always NULL | Minor schema gap; safety events log correctly but message FK not set |
+
+### RLS state
+
+**RLS DISABLED on all public tables.** Mitigation: frontend goes exclusively through the FastAPI gateway; no Supabase anon key is present in the frontend bundle.
+
+⚠️ **Forward-looking warning:** If a future change ever introduces Supabase anon key on the frontend, RLS becomes a critical vulnerability immediately. Always add explicit RLS policies BEFORE any such change merges.
+
+---
+
+## 5. Backend endpoints
+
+```
+POST /api/v1/auth/register             (legacy — passwordless flow preferred)
+POST /api/v1/auth/login                (legacy — passwordless flow preferred)
+GET  /api/v1/auth/me                   (auth)
+POST /api/v1/auth/otp/request          (public, rate-limited via Redis)
+POST /api/v1/auth/otp/verify           (public)
+
+GET  /api/v1/disclaimer/current        (public)
+POST /api/v1/disclaimer/accept         (auth)
+
+GET  /api/v1/personas                  (public — returns all 9 active personas)
+
+GET  /api/v1/preferences               (auth — returns user's saved preferences or 404)
+POST /api/v1/preferences               (auth — save/update themes + need_most)
+GET  /api/v1/preferences/matches       (auth — returns top-3 matched personas)
+
+POST /api/v1/conversations             (auth — create conversation)
+GET  /api/v1/conversations             (auth — list conversations, max 50)
+GET  /api/v1/conversations/{id}/messages   (auth — fetch message history)
+POST /api/v1/conversations/{id}/messages   ← CANONICAL SEND-MESSAGE (SSE streaming)
+DELETE /api/v1/conversations/{id}          (auth — soft delete)
+
+GET  /health                           (public)
+```
+
+**There is exactly ONE send-message endpoint.** `POST /api/v1/conversations/{id}/messages` is the canonical SSE streaming path. The parallel `POST /api/v1/messages` endpoint (PATH B) was deleted in C-RECON-8 (PR #60).
+
+---
+
+## 6. Send-message architecture (PATH A — canonical)
+
+### Endpoint
+```
+POST /api/v1/conversations/{conversation_id}/messages
+Content-Type: application/json
+Authorization: Bearer <jwt>
+
+Response: text/event-stream (SSE)
+```
+
+### Full feature set (as of C-RECON-8)
+
+The PATH A streaming endpoint now has all features from the original C4/C8 build:
+
+1. **Ownership verification** — confirms conversation belongs to requesting user
+2. **Admin bypass** — `user.is_admin` check in router skips rate limit
+3. **Ritual exemption** — `conv.ritual_id is not None` skips rate limit
+4. **Rate limiting** — `rate_limit_service.check_rate_limit(db, user_id, persona_id)` checks `daily_usage` table; free users limited to 5 messages/persona/UTC day; pro users bypass; 429 returns `LLMErrorResponse` with persona-voiced message
+5. **SSE rate limit headers** — `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset` on all responses
+6. **Safety input check** — `safety_service.check_input()` before LLM call; suppresses persona if flagged
+7. **RAG retrieval** — `retrieval_service.retrieve()` fetches relevant source chunks (if corpus exists)
+8. **Memory recall** — `memory_service.retrieve()` fetches relevant memory entries
+9. **Phenomenology bridge** — `phenomenology_bridge_service` enriches context if `PHENOMENOLOGY_BRIDGE_ENABLED=true`
+10. **Tier-aware model selection** — Haiku for free users, Sonnet for pro/premium
+11. **Tier-aware memory window** — 5 messages for free, 20 for pro/premium
+12. **LLM streaming** — native SSE via `llm_client.stream()`
+13. **LLM retry logic** — 3 attempts with exponential backoff (0s, 2s, 4s); handles RateLimitError, APIStatusError 5xx, APIConnectionError, APITimeoutError; persona-voiced error event on final failure
+14. **Safety output check** — `safety_service.check_output()` after streaming
+15. **Postprocessing** — `regenerate_or_trim()` if enabled
+16. **daily_usage increment** — SQL UPDATE after successful response; increments message_count for free users
+17. **Auto-title generation** — ARQ task `generate_conversation_title` dispatched when `message_count == 0` (first message in conversation); checks SQL-level count to avoid race
+18. **Memory extraction** — ARQ task `extract_memory_task` dispatched after each response; wired but not yet accumulating (no organic users)
+19. **Analytics tracking** — PostHog events for message_sent, safety events
+
+### Persona-voiced error messages
+
+When the LLM is unavailable, `get_error_voice(persona, "llm_unavailable")` is called. This function reads `persona.config["error_messages"]["llm_unavailable"]` from the ORM `Persona` model (DB row).
+
+**Known issue:** The function works correctly when called with the ORM `Persona` object (which has a `.config` dict attribute). In the streaming path, this is what is passed. The 9 persona-voiced messages ARE stored in the DB and are accessible.
+
+**However:** A separate issue exists for `PersonaConfig` objects (the in-memory Python dataclass from `personas/_base.py`) — these do NOT have a `config` attribute, so if `get_error_voice` were called with a `PersonaConfig` instead of an ORM `Persona`, it would fall back to the generic message. This does not currently affect the streaming path (which passes the ORM object), but is a latent confusion risk. See tech debt item #3.
+
+---
+
+## 7. Persona error messages
+
+### Catalog (stored in `personas.config['error_messages']['llm_unavailable']`)
+
+All 9 personas have `llm_unavailable` error messages set in the DB `personas.config` JSONB:
+
+| Persona | Message |
+|---|---|
+| Socrates | "My thought pauses. Will you try again shortly?" |
+| Marcus Aurelius | "A pause beyond our control. Try again presently." |
+| Lao Tzu | "Even flowing water sometimes stills. Try again shortly." |
+| Carl Jung | "The unconscious requires patience. Return in a moment." |
+| Epictetus | "Some things are not in our power. Try again." |
+| Niccolò Machiavelli | "The state of things forbids it. Try again." |
+| Oscar Wilde | "A momentary silence — how unfashionable. Return shortly." |
+| Sigmund Freud | "The session is briefly interrupted. Try again shortly." |
+| Simone de Beauvoir | "A brief silence in our dialogue. Return shortly." |
+
+These messages are stored in DB and ARE accessible via `persona.config["error_messages"]["llm_unavailable"]` on the ORM `Persona` object. They are read by `get_error_voice()` in `services/persona_voice.py`.
+
+The error event is currently yielded only as an SSE event to the frontend (`type: "error"`, `error_code: "llm_unavailable"`, `persona_voice: "<message>"`). Frontend must implement rendering. See C5 requirements in backlog.
+
+---
+
+## 8. LLM provider validation
+
+**Validation date:** 2026-05-15 (Workbench A/B test using Section 5.7 framework prompts)
+
+| Model | Test | Result |
+|---|---|---|
+| claude-sonnet-4-6 (Sonnet 4.6) | 24/24 character voice fidelity | ✅ Meets quality bar |
+| claude-haiku-4-5-20251001 (Haiku 4.5) | 23/24 character voice fidelity | ✅ Meets quality bar |
+
+Both models pass the production quality bar. The 1/24 gap confirms that Haiku is acceptable for free tier without meaningful degradation of persona experience. This result locked Decision #1 (see §9).
+
+---
+
+## 9. Locked decisions (as of 2026-05-16)
+
+These decisions are final for v1 launch. Do not reopen without explicit founder decision.
+
+| # | Decision | Detail | Rationale |
+|---|---|---|---|
+| 1 | **LLM Tier Routing** | Free → Haiku 4.5 (`claude-haiku-4-5-20251001`); Pro/Premium → Sonnet 4.6 (`claude-sonnet-4-6`) | Workbench A/B test 2026-05-15: 23/24 vs 24/24 character fidelity. Cost difference justifies tier split. |
+| 2 | **RAG Architecture** | pgvector in Supabase, `vector(1536)` for OpenAI `text-embedding-3-small` | Simpler ops, already paying for Supabase; avoid separate vector DB service. |
+| 3 | **Streaming Protocol** | SSE via Anthropic SDK native support | No bidirectional needs; SSE simpler than WebSocket; native SDK support. |
+| 4 | **Memory Window** | Free users: 5 messages; Pro/Premium: 20 messages | Cost control for free tier; richer context for paid users. |
+| 5 | **Free Tier Limits** | 5 messages per persona per UTC day (cross-persona model rejected) | Per-persona scope encourages exploration across the 3 free personas. Cross-persona pooling would disincentivize trying other philosophers. |
+| 6 | **Safety Architecture** | 3-layer planned (regex input + regex output + LLM classifier on triggers). Currently **2 layers** in production. LLM classifier deferred. | Full 3-layer estimated cost: ~$0.012/Pro user/month. Deferred pending usage data. |
+| 7 | **Jung & Beauvoir Copyright** | Ship with `system_fragment` only, NO RAG corpus. | Jung copyrighted until 2031; Beauvoir until 2056. RAG from primary texts legally risky. Pro users get access with documented quality limitation. Pricing implication deferred. |
+| 8 | **Pricing Draft** | $14.99/month · $129/year (~$10.75/month effective) | Mentor pricing analysis: ChatGPT Plus $20, Claude Pro $20, Replika $19.99 — $14.99 sits below ceiling. At 1.5% conversion, 100 free users at $0.18 avg cost → net positive only at $14.99+. Pending validation via landing page waitlist test before Stripe wiring. |
+| 9 | **Ritual Rate Limit Policy** | Ritual conversations (`ritual_id IS NOT NULL`) are **exempt** from per-persona daily rate limit. | Rituals are bounded, essential for free→pro conversion; capping them would break the core engagement hook. |
+| 10 | **Admin Bypass Placement** | `is_admin` check stays in the router (`routers/conversations.py`), NOT inside `rate_limit_service.check_rate_limit()`. The `check_rate_limit()` function remains pure (takes `user_id` + `persona_id` only). Router decides whether to call it. | Keeps service layer pure and testable; policy belongs in the transport layer. |
+
+---
+
+## 10. Reconciliation history
+
+On 2026-05-16 a routine audit (`C-RECON-1`) discovered that Block C had shipped two parallel send-message paths:
+
+- **PATH A** (`POST /api/v1/conversations/{id}/messages`): the existing SSE streaming endpoint from prior engine work, with safety pipeline, RAG retrieval, memory recall, phenomenology bridge, postprocessing, and analytics.
+- **PATH B** (`POST /api/v1/messages`): the new C4/C8 non-streaming endpoint, with tier routing, per-persona rate limit, auto-title, and persona-voiced errors.
+
+Neither path had all features. The two paths used different LLM service layers (`llm_client.py` vs `llm_service.py`), different auth helpers, and different rate-limiting strategies.
+
+The reconciliation decision (C-RECON-2 investigation) was to adopt PATH A as the canonical path and port PATH B's four features into it, then delete PATH B entirely. This preserved the richer existing infrastructure while adding the new capabilities.
+
+### Reconciliation PRs (all merged 2026-05-16)
+
+| PR | Description | Key change |
+|---|---|---|
+| CLAUDE.md (#54) | Investigation protocol added | Mandatory pre-work investigation protocol for all future work |
+| C-RECON-3 (#55) | Tier-aware model + memory window | Haiku/Sonnet selection, MEMORY_WINDOW_FREE/PRO limits ported into PATH A |
+| C-RECON-4 (#56) | Rate limit + daily_usage increment | Per-persona 5/day limit wired into router; daily_usage SQL update in stream_response |
+| C-RECON-5 (#57) | Auto-title generation | generate_conversation_title ARQ task dispatched on first message |
+| C-RECON-6 (#58) | LLM retry + persona-voiced errors | 3-attempt backoff; get_error_voice() called on final failure |
+| C-RECON-7 (#59) | Memory extraction wiring | extract_memory_task ARQ task dispatched after each response |
+| C-RECON-8 (#60) | PATH B deletion | routers/messages.py, services/llm_service.py, 4 test files deleted; schemas cleaned; main.py updated; MODEL_FREE/MODEL_PRO constants relocated to conversation_service.py |
+
+### What the investigation protocol caught
+
+The Pre-Work Investigation Protocol (CLAUDE.md, added during reconciliation) caught 4 real bugs during the port that would otherwise have shipped silently:
+
+1. **PATH A SQL-level UPDATE for message_count** (C-RECON-5): PATH A uses a SQL UPDATE to increment `message_count`, not an ORM refresh. The auto-title trigger condition `message_count == 0` must be checked BEFORE the UPDATE fires, not after. Getting this wrong would have caused auto-title to never trigger on the first message.
+2. **extract_memory_task signature** (C-RECON-7): The ARQ task requires 7 arguments, not 2. A guess-based implementation would have produced silent ARQ task failures.
+3. **PersonaConfig has no `config` attribute** (C-RECON-6): The in-memory `PersonaConfig` dataclass (from `personas/_base.py`) does NOT have a `.config` dict. Calling `get_error_voice(persona_config, ...)` would silently fall back to generic messages, not the 9 persona-voiced ones stored in DB. The port correctly uses the ORM `Persona` object instead.
+4. **ANTHROPIC_MODEL in config.py points to stale model** (C-RECON-2): `config.ANTHROPIC_MODEL` was hardcoded to `claude-sonnet-4-20250514` (old Sonnet 4). The reconciliation confirmed that `conversation_service.py` does NOT read this constant — it uses `MODEL_FREE`/`MODEL_PRO` directly. The config constant is now an orphan but was identified before it could mislead future work.
+
+---
+
+## 11. Session metrics (2026-05-16)
+
+| Metric | Value |
+|---|---|
+| Test count progression | 146 (start of C1) → 275 (peak with PATH B tests) → **229 (final after C-RECON-8)** |
+| Tests removed (PATH B) | 46 (37 from test_messages.py + 9 from test_llm_service.py) |
+| Schema version | 007_block_c_schema (no migrations after C1) |
+| PRs merged today | 10 (C1, C2, C4, C8, CLAUDE.md, C-RECON-3 through C-RECON-8) |
+| Total PRs in repo | ~60 |
+| Architectural decisions locked | 10 |
+| Tech debt items captured | 8 (see IMPLEMENTATION_BACKLOG_v9.md) |
+| Database state | 50 conversations, 139 messages, 9/9 personas with error messages, memory wiring active |
+
+---
+
+## 12. Known bugs (active — carried from v8 + new from today)
+
+### Carried from v8 (Block B polish PR pending)
+
+See v8 §6 for BUG-001 through BUG-009. All still open; none regressed by today's backend work.
+
+### New from 2026-05-16 session
+
+| ID | Description | Severity | Notes |
+|---|---|---|---|
+| BUG-010 | Persona-voiced error messages reachable via SSE `type:error` event but frontend renders nothing — UI not yet built | 🟡 Backend complete; UI pending | Resolves when C5 ships |
+| BUG-011 | `safety_events.message_id` always NULL | 🟢 Polish | Safety events log correctly; FK not wired. Minor cleanup. |
+
+---
+
+## 13. Test credentials
+
+Unchanged from v8. See v8 §7.
+
+---
+
+## 14. Environment variables
+
+### Backend (Render)
+
+```
+DATABASE_URL                  (Supabase pooler)
+REDIS_URL                     (Upstash)
+RESEND_API_KEY                (set)
+FROM_EMAIL                    "Great Minds <onboarding@resend.dev>"
+                              (test sender — switch to thegreatminds.app post-DNS)
+JWT_SECRET                    (set)
+ANTHROPIC_API_KEY             (set — now actively used for chat)
+PHENOMENOLOGY_BRIDGE_ENABLED  (was true 2026-05-04/05; current state unverified)
+
+ANTHROPIC_MODEL = "claude-sonnet-4-20250514"   ⚠️ ORPHANED CONSTANT
+                              This config.py default is NOT read by
+                              conversation_service.py, which uses
+                              MODEL_FREE/MODEL_PRO constants directly.
+                              Update or remove before it misleads anyone.
+```
+
+### Frontend (Netlify)
+
+Unchanged from v8. See v8 §8.
+
+---
+
+## 15. Key file paths (production codebase)
+
+### Backend (apps/api/)
+
+- `main.py` — FastAPI app + router mounting (messages_router REMOVED in C-RECON-8)
+- `models/__init__.py` — all SQLAlchemy ORM models (includes DailyUsage, SafetyEvent)
+- `schemas/__init__.py` — all Pydantic schemas (PATH B schemas removed; LLMErrorResponse kept)
+- `routers/conversations.py` — ALL conversation endpoints including the canonical SSE send-message
+- `services/conversation_service.py` — ConversationService class; stream_response() method; MODEL_FREE, MODEL_PRO, MEMORY_WINDOW_FREE, MEMORY_WINDOW_PRO constants now defined here
+- `services/rate_limit_service.py` — OTP rate limit (Redis-backed) + message rate limit (DB-backed); both coexist in one file
+- `services/persona_voice.py` — get_error_voice() reads from ORM Persona.config dict
+- `services/tier_service.py` — get_user_tier() reads Subscription table
+- `services/llm_client.py` — streaming Anthropic client (PATH A's LLM layer; preserved)
+- `workers/arq_worker.py` — ARQ tasks: generate_conversation_title, extract_memory_task
+- `db/migrations/versions/` — alembic migrations (001-007)
+
+**Deleted in C-RECON-8:**
+- ~~`routers/messages.py`~~ — PATH B endpoint (deleted PR #60)
+- ~~`services/llm_service.py`~~ — PATH B LLM service (deleted PR #60)
+- ~~`tests/routers/test_messages.py`~~ — 37 PATH B tests (deleted PR #60)
+- ~~`tests/services/test_llm_service.py`~~ — 9 PATH B tests (deleted PR #60)
+
+### Frontend (apps/web/)
+
+Unchanged from v8. See v8 §11.
+
+---
+
+## 16. Note: KIEN is a SEPARATE project
+
+Unchanged from v8. See v8 §12.
+
+---
+
+## 17. Open / Closed items
+
+### Open items (P0 launch blockers)
+
+- [ ] **C5 — Chat UI frontend** — THE next P0 after this doc is committed. API ready.
+- [ ] **Consolidated polish PR** (blocks Block B visual closure) — 9 mobile walkthrough findings
+- [ ] **C3 — RAG corpus ingestion** — copyright allowlist defined (see backlog); pgvector schema ready
+- [ ] **Lawyer review of legal templates** — P0 launch blocker
+- [ ] **Resend domain verification** for `thegreatminds.app`
+- [ ] **DNS configuration** for `thegreatminds.app`
+- [ ] **Stripe wiring** (calendar gate 2026-05-11 passed; verify status; paused pending landing page $14.99 validation)
+- [ ] **Landing page waitlist test** — $14.99 price validation; ~2 hours founder build, 10 days data collection
+- [ ] **GDPR/DPA infrastructure** — LLM provider DPA review, processors table, data subject request fulfillment
+- [ ] **Founder runbooks** — refund, account recovery, GDPR fulfillment, cancellation override, safety escalation
+- [ ] **`PHENOMENOLOGY_BRIDGE_ENABLED` flag state confirmation** in Render env
+
+### Open items (P1)
+
+- [ ] **HNSW vector indexes** on `source_chunks.embedding` and `memory_entries.embedding` (same PR as C3 corpus ingestion)
+- [ ] **Wire generate_insight_task** when memory_entries starts accumulating (currently task exists but not triggered)
+- [ ] **A6+A7 disclaimer endpoint integration tests** (shipped without tests for speed)
+- [ ] **Render API plan upgrade** (~$7/mo to eliminate cold-start)
+
+### Open items (P2 — tech debt)
+
+- [ ] **Split rate_limit_service.py** into `auth_rate_limit` (Redis/OTP) + `message_rate_limit` (DB/daily) — two unrelated concerns in one file
+- [ ] **PersonaConfig / Persona ORM mismatch** — `PersonaConfig` in-memory dataclass has no `.config` dict; 9 persona error messages in DB not yet reliably surfaced via `PersonaConfig` path. Resolve to prevent future confusion.
+- [ ] **Update or remove `ANTHROPIC_MODEL` constant** in `config.py` — currently `"claude-sonnet-4-20250514"` (stale Sonnet 4); not read by conversation_service.py; orphaned
+- [ ] **C-RECON-6 backoff discrepancy** — PATH A sleeps 0s/2s/4s (2^attempt, attempt starts at 0); PATH B used 1s/2s/4s. Minor difference; document as intentional or harmonize
+- [ ] **safety_events.message_id always NULL** — FK not wired; minor cleanup
+- [ ] **ChatGPT audit of new persona configs** → surgical JSONB UPDATE edits (founder-owned)
+- [ ] **Portrait style harmonization** — Aurelius + Socrates re-generate
+- [ ] **Extract Lao Tzu / Wilde / Machiavelli to YAML** in `apps/api/philosopher_brain/`
+- [ ] **Document Render alembic auto-run mechanism** — currently undocumented
+
+### Closed items (2026-05-16)
+
+- [x] **CLOSED 2026-05-16** — **Block C backend 8/8 complete.** Single canonical SSE streaming endpoint with all features. PATH B fully deleted.
+- [x] **CLOSED 2026-05-16** — **10 architectural decisions locked** (LLM routing, RAG, streaming, memory window, rate limits, safety, copyright, pricing draft, ritual exemption, admin bypass placement)
+- [x] **CLOSED 2026-05-16** — **C-RECON-2 through C-RECON-8** — 7 reconciliation PRs merged; all PATH A features complete
+- [x] **CLOSED 2026-05-16** — **CLAUDE.md investigation protocol** added to repo (PR #54)
+- [x] **CLOSED 2026-05-16** — **Migration 007** (Block C schema) applied
+
+### Closed items (carried from v8 — through 2026-05-13)
+
+See v8 §9 "Closed items" section for full list.
+
+---
+
+**End of PROJECT_STATE v9.** Authoritative as of 2026-05-16 session close. Supersedes `PROJECT_STATE_v8.md` (preserved as historical reference).
