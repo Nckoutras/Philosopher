@@ -14,9 +14,20 @@ interface AppStore {
   setSubscription: (sub: Subscription) => void
   get plan(): string
 
-  // Active conversation
+  // Active conversation + persona display data
   activeConversationId: string | null
-  setActiveConversation: (id: string | null) => void
+  activePersonaSlug: string | null
+  activePersonaName: string | null
+  activePersonaPortraitUrl: string | null
+  activePersonaOpeningInvocation: string | null
+  setActiveConversation: (
+    conversationId: string,
+    personaSlug: string,
+    personaName: string,
+    portraitUrl: string,
+    openingInvocation: string | null,
+  ) => void
+  clearActiveConversation: () => void
 
   // Messages for active conversation
   messages: Message[]
@@ -58,9 +69,33 @@ export const useStore = create<AppStore>()(
         return sub && ['active', 'trialing'].includes(sub.status) ? sub.plan : 'free'
       },
 
-      // Active conversation
+      // Active conversation + persona display data
       activeConversationId: null,
-      setActiveConversation: (id) => set({ activeConversationId: id, messages: [], streamingContent: '' }),
+      activePersonaSlug: null,
+      activePersonaName: null,
+      activePersonaPortraitUrl: null,
+      activePersonaOpeningInvocation: null,
+      setActiveConversation: (conversationId, personaSlug, personaName, portraitUrl, openingInvocation) =>
+        set({
+          activeConversationId: conversationId,
+          activePersonaSlug: personaSlug,
+          activePersonaName: personaName,
+          activePersonaPortraitUrl: portraitUrl,
+          activePersonaOpeningInvocation: openingInvocation,
+          messages: [],
+          streamingContent: '',
+        }),
+      clearActiveConversation: () =>
+        set({
+          activeConversationId: null,
+          activePersonaSlug: null,
+          activePersonaName: null,
+          activePersonaPortraitUrl: null,
+          activePersonaOpeningInvocation: null,
+          isStreaming: false,
+          streamingContent: '',
+          streamError: null,
+        }),
 
       // Messages
       messages: [],
