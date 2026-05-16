@@ -1,4 +1,59 @@
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'https://philosopher-api-z9l9.onrender.com/api/v1'
+
+// ── SSE event types ───────────────────────────────────────────────────────────
+
+export type SSEEventStart = { type: 'start' }
+export type SSEEventChunk = { type: 'chunk'; data: string }
+// message_id is absent in pre-generation safety path (Pattern B)
+export type SSEEventDone = { type: 'done'; message_id?: string }
+export type SSEEventSafety = { type: 'safety'; level: string }
+export type SSEEventSafetyOverride = { type: 'safety_override'; level: string }
+export type SSEEventError = { type: 'error'; error_code: 'llm_unavailable'; persona_voice: string }
+
+export type SSEEvent =
+  | SSEEventStart
+  | SSEEventChunk
+  | SSEEventDone
+  | SSEEventSafety
+  | SSEEventSafetyOverride
+  | SSEEventError
+
+// ── 429 response body (LLMErrorResponse from backend) ────────────────────────
+
+export interface LLMErrorResponse {
+  error_code: string
+  persona_voice: string
+}
+
+// ── RateLimitError ────────────────────────────────────────────────────────────
+
+export class RateLimitError extends Error {
+  resetAt: Date
+  limit: number
+  remaining: number
+  errorCode: string
+  personaVoice?: string
+  upgradeTarget: 'pro' | 'premium'
+
+  constructor(opts: {
+    resetAt: Date
+    limit: number
+    remaining: number
+    errorCode: string
+    personaVoice?: string
+    upgradeTarget: 'pro' | 'premium'
+  }) {
+    super('RATE_LIMIT')
+    this.name = 'RateLimitError'
+    this.resetAt = opts.resetAt
+    this.limit = opts.limit
+    this.remaining = opts.remaining
+    this.errorCode = opts.errorCode
+    this.personaVoice = opts.personaVoice
+    this.upgradeTarget = opts.upgradeTarget
+  }
+}
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export interface User {
@@ -232,8 +287,9 @@ class ApiClient {
     return this.request(`/conversations/${id}`, { method: 'DELETE' })
   }
 
-  // SSE stream — returns the raw Response for manual reading
-  async streamMessage(conversationId: string, content: string): Promise<Response> {
+  // SSE stream — returns the raw Response for manual reading.
+  // userPlan is used to determine upgradeTarget on 429 ('free' → 'pro', 'pro' → 'premium').
+  async streamMessage(conversationId: string, content: string, userPlan: string = 'free'): Promise<Response> {
     const res = await fetch(`${API_BASE}/conversations/${conversationId}/messages`, {
       method: 'POST',
       headers: {
@@ -244,11 +300,18 @@ class ApiClient {
     })
     if (!res.ok) {
       if (res.status === 429) {
-        const body = await res.json().catch(() => ({}))
-        const err = new Error('RATE_LIMIT') as Error & { status: number; detail: typeof body.detail }
-        err.status = 429
-        err.detail = body.detail
-        throw err
+        const body = await res.json().catch(() => ({} as LLMErrorResponse))
+        const limit = parseInt(res.headers.get('X-RateLimit-Limit') ?? '0', 10)
+        const remaining = parseInt(res.headers.get('X-RateLimit-Remaining') ?? '0', 10)
+        const resetHeader = res.headers.get('X-RateLimit-Reset') ?? new Date().toISOString()
+        throw new RateLimitError({
+          resetAt: new Date(resetHeader),
+          limit,
+          remaining,
+          errorCode: body.error_code ?? 'rate_limited',
+          personaVoice: body.persona_voice,
+          upgradeTarget: userPlan === 'pro' ? 'premium' : 'pro',
+        })
       }
       throw new Error('Stream failed')
     }

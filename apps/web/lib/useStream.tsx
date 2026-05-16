@@ -1,5 +1,5 @@
 import { useCallback } from 'react'
-import { api, Message } from '@/lib/api'
+import { api, Message, RateLimitError, SSEEvent } from '@/lib/api'
 import { useStore } from '@/lib/store'
 import toast from 'react-hot-toast'
 
@@ -10,12 +10,15 @@ export function useStream() {
     setStreaming,
     appendStreamingContent,
     resetStreaming,
-    streamingContent,
     setSafetyActive,
+    setStreamError,
   } = useStore()
 
   const send = useCallback(async (content: string) => {
     if (!activeConversationId) return
+
+    // Clear any previous stream error state before starting
+    setStreamError(null)
 
     // Optimistic user message
     const userMsg: Message = {
@@ -30,11 +33,14 @@ export function useStream() {
     setStreaming(true)
 
     try {
-      const res = await api.streamMessage(activeConversationId, content)
+      const currentPlan = useStore.getState().plan
+      const res = await api.streamMessage(activeConversationId, content, currentPlan)
       const reader = res.body!.getReader()
       const decoder = new TextDecoder()
       let buffer = ''
       let fullContent = ''
+      // RF-01: capture error event data instead of discarding persona_voice
+      let pendingStreamError: { error_code: string; persona_voice: string } | null = null
 
       while (true) {
         const { done, value } = await reader.read()
@@ -49,17 +55,17 @@ export function useStream() {
           const raw = line.slice(6).trim()
           if (!raw) continue
 
-          let event: { type: string; data?: string; level?: string; message_id?: string }
+          let event: SSEEvent
           try {
-            event = JSON.parse(raw)
+            event = JSON.parse(raw) as SSEEvent
           } catch {
             continue
           }
 
           switch (event.type) {
             case 'chunk':
-              fullContent += event.data ?? ''
-              appendStreamingContent(event.data ?? '')
+              fullContent += event.data
+              appendStreamingContent(event.data)
               break
             case 'safety':
             case 'safety_override':
@@ -67,7 +73,7 @@ export function useStream() {
               fullContent = ''
               useStore.getState().setStreamingContent('')
               break
-            case 'done':
+            case 'done': {
               const assistantMsg: Message = {
                 id: event.message_id ?? crypto.randomUUID(),
                 role: 'assistant',
@@ -80,18 +86,29 @@ export function useStream() {
               resetStreaming()
               setSafetyActive(false)
               break
+            }
             case 'error':
-              throw new Error('Stream error from server')
+              // RF-01: capture persona_voice from error event; stream ends after this
+              pendingStreamError = { error_code: event.error_code, persona_voice: event.persona_voice }
+              break
           }
         }
+
+        if (pendingStreamError) break
       }
-    } catch (err: any) {
+
+      // RF-01: surface the error event to store for UI consumers
+      if (pendingStreamError) {
+        setStreamError(pendingStreamError)
+        resetStreaming()
+      }
+    } catch (err: unknown) {
       resetStreaming()
-      if (err?.status === 429) {
-        const plan: string = err?.detail?.plan ?? 'free'
-        const upgradeTarget = plan === 'pro' ? 'Premium' : 'Pro'
+      if (err instanceof RateLimitError) {
+        // RF-02: upgradeTarget is now correctly computed from userPlan in streamMessage
+        const upgradeLabel = err.upgradeTarget === 'premium' ? 'Premium' : 'Pro'
         toast.error(
-          (t) => (
+          (t: { id: string }) => (
             <span>
               Daily limit reached.{' '}
               <a
@@ -99,7 +116,7 @@ export function useStream() {
                 onClick={() => toast.dismiss(t.id)}
                 style={{ textDecoration: 'underline', fontWeight: 600 }}
               >
-                Upgrade to {upgradeTarget} →
+                Upgrade to {upgradeLabel} →
               </a>
             </span>
           ),
@@ -110,7 +127,7 @@ export function useStream() {
       }
       console.error(err)
     }
-  }, [activeConversationId, appendMessage, setStreaming, appendStreamingContent, resetStreaming, setSafetyActive])
+  }, [activeConversationId, appendMessage, setStreaming, appendStreamingContent, resetStreaming, setSafetyActive, setStreamError])
 
   return { send }
 }
