@@ -1,9 +1,12 @@
+import asyncio
 import json
 import time
 import logging
 import os
 from datetime import date
 from typing import AsyncGenerator
+
+import anthropic
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
@@ -16,6 +19,7 @@ from services.retrieval_service import retrieval_service
 from services.llm_client import llm_client
 from services.prompt_builder import prompt_builder
 from services.analytics_service import analytics_service
+from services.persona_voice import get_error_voice
 from services.postprocessing_service import (
     regenerate_or_trim,
     POSTPROCESSING_ENABLED,
@@ -204,22 +208,52 @@ class ConversationService:
         await db.flush()
 
         # ── 7. STREAM FROM LLM ───────────────────────────────────────────────
-        # Phase 2: behavior depends on POSTPROCESSING_ENABLED flag.
-        #   true  → buffer entire reply, run postprocessing, then yield
-        #   false → stream chunks immediately (pre-Phase-2 behavior)
+        # Both modes buffer internally so the LLM call can be retried on
+        # transient failure. Legacy mode no longer streams in real-time
+        # during the LLM call; chunks are yielded after the call succeeds.
         model = MODEL_PRO if user_plan in ("pro", "premium") else MODEL_FREE
         full_response = ""
         yield f"data: {json.dumps({'type': 'start'})}\n\n"
 
-        if POSTPROCESSING_ENABLED:
-            # Buffer mode — do not yield chunks during stream
-            async for chunk in llm_client.stream(system=system_prompt, messages=lm_messages, model=model):
-                full_response += chunk
-        else:
-            # Legacy streaming mode — yield chunks as they arrive
-            async for chunk in llm_client.stream(system=system_prompt, messages=lm_messages, model=model):
-                full_response += chunk
-                yield f"data: {json.dumps({'type': 'chunk', 'data': chunk})}\n\n"
+        _llm_success = False
+        _last_llm_error: Exception | None = None
+        for attempt in range(3):
+            try:
+                _buf: list[str] = []
+                async for chunk in llm_client.stream(
+                    system=system_prompt, messages=lm_messages, model=model
+                ):
+                    _buf.append(chunk)
+                full_response = "".join(_buf)
+                _llm_success = True
+                break
+            except anthropic.RateLimitError as exc:
+                _last_llm_error = exc
+                await asyncio.sleep(2**attempt)
+            except anthropic.APIStatusError as exc:
+                if exc.status_code >= 500:
+                    _last_llm_error = exc
+                    await asyncio.sleep(2**attempt)
+                else:
+                    _last_llm_error = exc
+                    break
+            except (anthropic.APIConnectionError, anthropic.APITimeoutError) as exc:
+                _last_llm_error = exc
+                await asyncio.sleep(2**attempt)
+
+        if not _llm_success:
+            persona_voice_text = get_error_voice(persona, "llm_unavailable")
+            error_event = {
+                "type": "error",
+                "error_code": "llm_unavailable",
+                "persona_voice": persona_voice_text,
+            }
+            logger.error(
+                f"LLM stream failed for persona={persona.slug}: {_last_llm_error}"
+            )
+            yield f"data: {json.dumps(error_event)}\n\n"
+            await db.commit()
+            return
 
         # ── 8. POST-GENERATION SAFETY ────────────────────────────────────────
         # SAFETY OVERRIDE BYPASS — non-negotiable invariant (Decision D).
@@ -231,10 +265,6 @@ class ConversationService:
         if safety_out.should_suppress_persona:
             await self._log_safety_event(db, user_id, conversation_id, None, safety_out, "post_generation")
             yield f"data: {json.dumps({'type': 'safety_override', 'level': safety_out.level})}\n\n"
-            # In legacy mode, persona chunks already streamed — frontend
-            # replaces content via safety_override event.
-            # In buffer mode, no chunks have been sent yet — we send safety
-            # response as the first chunks the user sees.
             safe_text = prompt_builder.build_safety_response(level=safety_out.level)
             for chunk in self._chunk_text(safe_text):
                 yield f"data: {json.dumps({'type': 'chunk', 'data': chunk})}\n\n"
@@ -261,8 +291,10 @@ class ConversationService:
             # Yield buffered (and possibly postprocessed) content as chunks
             for chunk in self._chunk_text(full_response):
                 yield f"data: {json.dumps({'type': 'chunk', 'data': chunk})}\n\n"
-        # ELSE: flag is false AND no safety override — chunks already
-        # streamed during the LLM loop above. Nothing more to yield here.
+        else:
+            # Legacy mode: LLM response buffered during retry window; yield now.
+            for chunk in self._chunk_text(full_response):
+                yield f"data: {json.dumps({'type': 'chunk', 'data': chunk})}\n\n"
 
         latency_ms = int((time.monotonic() - start) * 1000)
 
