@@ -1,0 +1,103 @@
+# Pre-Work Investigation Protocol
+
+This document defines the mandatory investigation discipline that both the 
+planning Claude (in claude.ai conversations) and the Claude Code agent must 
+follow before any new code is written for this project.
+
+This exists because on 2026-05-16 we discovered that ~3 hours of work 
+building a new message endpoint had duplicated existing infrastructure 
+(streaming send-message, llm_client, safety pipeline, memory extraction, 
+RAG retrieval) from prior engine work. This protocol prevents that pattern 
+from recurring.
+
+## Rule 1: Feature Domain Enumeration
+
+Before writing any brief or any code that adds, modifies, or extends a 
+feature, the agent MUST enumerate what already exists in the same feature 
+domain. "Look at existing patterns" is NOT sufficient — explicit 
+enumeration is required.
+
+### For HTTP endpoint work
+- Fetch the live openapi.json from production OR read every router file
+- List ALL endpoints in the same logical domain (e.g., "messages", 
+  "conversations", "personas")
+- For each existing endpoint, note: what it does, what schema it uses, 
+  who calls it, whether it overlaps with the proposed new work
+
+### For service / business logic work
+- Grep the codebase for files with similar names 
+  (e.g., `*_service.py`, `*_client.py`, `*_handler.py`)
+- Read every file whose name suggests overlap
+- Note overlaps in function names, responsibilities, dependencies
+
+### For database work
+- Query information_schema for relevant tables and columns
+- Read the latest alembic migration to confirm current state
+- Compare proposed schema against existing schema BEFORE designing new
+
+### For frontend / UI work
+- Grep for existing components with similar names or purposes  
+- Check routing structure for related pages
+- List existing screens that touch the same user flow
+
+## Rule 2: Report Findings Before Designing
+
+When investigation surfaces existing functionality:
+
+**If overlap is total** (feature already exists): STOP. Surface to founder. 
+Do NOT design a replacement without explicit decision.
+
+**If overlap is partial** (some pieces exist, others missing): surface 
+with concrete code references. Do NOT design until founder decides 
+(extend existing, build parallel, replace, etc.).
+
+**If no overlap**: confirm absence by listing what was checked, then proceed.
+
+## Rule 3: Source of Truth Verification
+
+Before trusting any second-hand description of existing code ("thin 
+streaming wrapper", "scaffold", "stub", "minimal implementation"), the 
+agent MUST read the actual code and verify the characterization. 
+One-line summaries from prior sessions are NOT sufficient evidence of 
+what exists or doesn't exist.
+
+## Rule 4: Cross-System Dependency Check
+
+Every new endpoint, service, or schema change must check for:
+- Existing ARQ tasks that might depend on the surface area
+- Existing webhook handlers (Stripe, etc.) that might depend on it  
+- Existing admin endpoints that might call into it
+- Existing tests that exercise it
+- Existing frontend code that calls the existing surface
+
+## Rule 5: Reconciliation Default
+
+When parallel implementations of the same feature are discovered, the 
+default is NOT "delete the duplicate". The default is:
+1. Investigation-only PR producing a comparison report
+2. Founder approves a reconciliation strategy based on the report
+3. Reconciliation PRs follow, ordered by risk (close security or 
+   billing holes first)
+4. Each step independently reviewed and merged
+
+## Enforcement
+
+Every brief written by the planning Claude MUST include "Investigation 
+step" as Step 2 of the brief structure, with explicit requirements per 
+Rules 1-4 above. The brief must require the executing agent to:
+1. Read the relevant files first
+2. Report findings before implementing  
+3. Stop and escalate if overlaps are found
+
+Both Claude assistants (planning and execution) consult this protocol 
+at the start of every new work item.
+
+## Failure Log
+
+Lessons that updated this protocol:
+
+- **2026-05-16**: C4 message endpoint built in parallel with existing 
+  SSE streaming send-message endpoint. Discovered via openapi.json 
+  inspection. Cost: ~3 hours of duplicate work + a rate limit security 
+  hole. Lesson: enumerate existing endpoints in same domain BEFORE 
+  designing new ones.
