@@ -2,6 +2,13 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { User, Conversation, Message, Subscription } from './api'
 
+export interface PaywallDetails {
+  upgradeTarget: 'pro' | 'premium'
+  resetAt: Date
+  limit: number
+  personaVoice?: string
+}
+
 interface AppStore {
   // Auth
   user: User | null
@@ -50,6 +57,12 @@ interface AppStore {
   // SSE error event state (transient — not persisted)
   streamError: { error_code: string; persona_voice: string } | null
   setStreamError: (err: { error_code: string; persona_voice: string } | null) => void
+
+  // Paywall state (transient — not persisted)
+  showPaywall: boolean
+  paywallDetails: PaywallDetails | null
+  setShowPaywall: (show: boolean, details?: PaywallDetails | null) => void
+  clearPaywall: () => void
 }
 
 export const useStore = create<AppStore>()(
@@ -121,6 +134,12 @@ export const useStore = create<AppStore>()(
 
       streamError: null,
       setStreamError: (err) => set({ streamError: err }),
+
+      showPaywall: false,
+      paywallDetails: null,
+      setShowPaywall: (show, details) =>
+        set({ showPaywall: show, paywallDetails: details ?? null }),
+      clearPaywall: () => set({ showPaywall: false, paywallDetails: null }),
     }),
     {
       name: 'philosopher-store',

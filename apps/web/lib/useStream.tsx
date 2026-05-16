@@ -12,12 +12,14 @@ export function useStream() {
     resetStreaming,
     setSafetyActive,
     setStreamError,
+    setShowPaywall,
   } = useStore()
 
   const send = useCallback(async (content: string) => {
     if (!activeConversationId) return
 
-    // Clear any previous stream error state before starting
+    // Clear prior safety and error states before starting
+    setSafetyActive(false)
     setStreamError(null)
 
     // Optimistic user message
@@ -74,17 +76,22 @@ export function useStream() {
               useStore.getState().setStreamingContent('')
               break
             case 'done': {
-              const assistantMsg: Message = {
-                id: event.message_id ?? crypto.randomUUID(),
-                role: 'assistant',
-                content: fullContent,
-                safety_level: useStore.getState().safetyActive ? 'high' : 'none',
-                persona_override: useStore.getState().safetyActive,
-                created_at: new Date().toISOString(),
+              // Skip appending an empty assistant message when safety fired;
+              // SafetyBubble represents that response in the UI.
+              if (!useStore.getState().safetyActive) {
+                const assistantMsg: Message = {
+                  id: event.message_id ?? crypto.randomUUID(),
+                  role: 'assistant',
+                  content: fullContent,
+                  safety_level: 'none',
+                  persona_override: false,
+                  created_at: new Date().toISOString(),
+                }
+                appendMessage(assistantMsg)
               }
-              appendMessage(assistantMsg)
               resetStreaming()
-              setSafetyActive(false)
+              // safetyActive intentionally NOT cleared here — it stays true
+              // until the user sends their next message (cleared at top of send).
               break
             }
             case 'error':
@@ -105,29 +112,19 @@ export function useStream() {
     } catch (err: unknown) {
       resetStreaming()
       if (err instanceof RateLimitError) {
-        // RF-02: upgradeTarget is now correctly computed from userPlan in streamMessage
-        const upgradeLabel = err.upgradeTarget === 'premium' ? 'Premium' : 'Pro'
-        toast.error(
-          (t: { id: string }) => (
-            <span>
-              Daily limit reached.{' '}
-              <a
-                href="/app/billing"
-                onClick={() => toast.dismiss(t.id)}
-                style={{ textDecoration: 'underline', fontWeight: 600 }}
-              >
-                Upgrade to {upgradeLabel} →
-              </a>
-            </span>
-          ),
-          { duration: 6000 },
-        )
+        // RF-02: show paywall modal instead of toast
+        setShowPaywall(true, {
+          upgradeTarget: err.upgradeTarget,
+          resetAt: err.resetAt,
+          limit: err.limit,
+          personaVoice: err.personaVoice,
+        })
       } else {
         toast.error('Something went wrong. Please try again.')
       }
       console.error(err)
     }
-  }, [activeConversationId, appendMessage, setStreaming, appendStreamingContent, resetStreaming, setSafetyActive, setStreamError])
+  }, [activeConversationId, appendMessage, setStreaming, appendStreamingContent, resetStreaming, setSafetyActive, setStreamError, setShowPaywall])
 
   return { send }
 }
