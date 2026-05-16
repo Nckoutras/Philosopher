@@ -109,6 +109,7 @@ class ConversationService:
         user_plan: str = "free",
         user_name: str | None = None,
         is_admin: bool = False,
+        arq_queue=None,
     ) -> AsyncGenerator[str, None]:
         start = time.monotonic()
 
@@ -275,6 +276,7 @@ class ConversationService:
         )
 
         # ── 10. UPDATE CONVERSATION METADATA ────────────────────────────────
+        new_message_count = (conv.message_count or 0) + 2
         await db.execute(
             update(Conversation)
             .where(Conversation.id == conversation_id)
@@ -307,6 +309,15 @@ class ConversationService:
                 ))
 
         await db.commit()
+
+        if (
+            arq_queue is not None
+            and new_message_count == 3
+            and conv.title is None
+        ):
+            await arq_queue.enqueue_job(
+                "generate_conversation_title", str(conv.id)
+            )
 
         # ── 11. ANALYTICS ────────────────────────────────────────────────────
         analytics_service.track("message_sent", user_id, {

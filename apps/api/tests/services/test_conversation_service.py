@@ -638,3 +638,181 @@ async def test_daily_usage_not_incremented_for_admin():
 
     daily_usages = [o for o in added if isinstance(o, DailyUsage)]
     assert len(daily_usages) == 0
+
+
+# ── Section E: Auto-title enqueue ─────────────────────────────────────────────
+
+
+def _make_db_for_auto_title(message_count=0, title=None):
+    """DB mock with controllable message_count and title for auto-title tests.
+
+    Execute call order (with _save_message mocked):
+      1. select(Conversation)  → conv_result
+      2. select(Persona)       → persona_result
+      3. select(Message) hist  → history_result
+      4. update(Conversation)  → update_result
+      5. select(DailyUsage)    → usage_result
+    """
+    db = AsyncMock()
+
+    conv = MagicMock()
+    conv.id = CONV_ID
+    conv.persona_id = PERSONA_ID
+    conv.ritual_id = None
+    conv.message_count = message_count
+    conv.title = title
+
+    conv_result = MagicMock()
+    conv_result.scalar_one_or_none.return_value = conv
+
+    persona_result = MagicMock()
+    persona_result.scalar_one.return_value = _mock_persona_db()
+
+    history_result = MagicMock()
+    history_result.scalars.return_value.all.return_value = []
+
+    update_result = MagicMock()
+
+    usage_result = MagicMock()
+    usage_result.scalar_one_or_none.return_value = None
+
+    db.execute = AsyncMock(side_effect=[
+        conv_result,
+        persona_result,
+        history_result,
+        update_result,
+        usage_result,
+    ])
+    db.add = MagicMock()
+    db.flush = AsyncMock()
+    db.commit = AsyncMock()
+    db.rollback = AsyncMock()
+    return db, conv
+
+
+async def _run_stream_for_auto_title(db, arq_queue=None):
+    """Run stream_response with arq_queue and all I/O mocked."""
+    service = ConversationService()
+    saved = _saved_msg()
+
+    mock_llm = MagicMock()
+
+    async def fake_stream(*args, **kwargs):
+        yield "Hello"
+
+    mock_llm.stream = fake_stream
+
+    with (
+        patch("services.conversation_service.safety_service") as mock_safety,
+        patch("services.conversation_service.memory_service") as mock_memory,
+        patch("services.conversation_service.retrieval_service") as mock_retrieval,
+        patch("services.conversation_service.llm_client", mock_llm),
+        patch("services.conversation_service.prompt_builder") as mock_prompt,
+        patch("services.conversation_service.analytics_service"),
+        patch("services.conversation_service.POSTPROCESSING_ENABLED", False),
+        patch("services.conversation_service.PHENOMENOLOGY_BRIDGE_ENABLED", False),
+        patch("services.conversation_service.get_persona") as mock_get_persona,
+    ):
+        safety_result = MagicMock()
+        safety_result.should_log = False
+        safety_result.should_suppress_persona = False
+        safety_result.level = "none"
+        mock_safety.check_input = AsyncMock(return_value=safety_result)
+        mock_safety.check_output = AsyncMock(return_value=safety_result)
+        mock_memory.recall = AsyncMock(return_value=[])
+        mock_retrieval.retrieve = AsyncMock(return_value=[])
+        mock_prompt.build_system.return_value = "system"
+        persona_config = MagicMock()
+        persona_config.slug = "marcus_aurelius"
+        mock_get_persona.return_value = persona_config
+
+        service._save_message = AsyncMock(return_value=saved)
+        service._log_safety_event = AsyncMock()
+
+        await _drain(service.stream_response(
+            db=db,
+            conversation_id=CONV_ID,
+            user_id=USER_ID,
+            user_text="What is virtue?",
+            user_plan="free",
+            arq_queue=arq_queue,
+        ))
+
+
+@pytest.mark.asyncio
+async def test_auto_title_enqueued_at_3rd_message():
+    """message_count starts at 1 → new_message_count == 3 → enqueue_job called."""
+    db, conv = _make_db_for_auto_title(message_count=1, title=None)
+    mock_queue = AsyncMock()
+
+    await _run_stream_for_auto_title(db, arq_queue=mock_queue)
+
+    mock_queue.enqueue_job.assert_called_once_with(
+        "generate_conversation_title", CONV_ID
+    )
+
+
+@pytest.mark.asyncio
+async def test_auto_title_not_enqueued_at_2nd_message():
+    """message_count starts at 0 → new_message_count == 2 → no enqueue."""
+    db, conv = _make_db_for_auto_title(message_count=0, title=None)
+    mock_queue = AsyncMock()
+
+    await _run_stream_for_auto_title(db, arq_queue=mock_queue)
+
+    mock_queue.enqueue_job.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_auto_title_not_enqueued_at_4th_message():
+    """message_count starts at 2 → new_message_count == 4 → no enqueue."""
+    db, conv = _make_db_for_auto_title(message_count=2, title=None)
+    mock_queue = AsyncMock()
+
+    await _run_stream_for_auto_title(db, arq_queue=mock_queue)
+
+    mock_queue.enqueue_job.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_auto_title_not_enqueued_at_6th_message():
+    """message_count starts at 4 → new_message_count == 6 → no enqueue."""
+    db, conv = _make_db_for_auto_title(message_count=4, title=None)
+    mock_queue = AsyncMock()
+
+    await _run_stream_for_auto_title(db, arq_queue=mock_queue)
+
+    mock_queue.enqueue_job.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_auto_title_not_enqueued_when_title_exists():
+    """message_count == 3 but title is already set → no enqueue."""
+    db, conv = _make_db_for_auto_title(message_count=1, title="Existing Title")
+    mock_queue = AsyncMock()
+
+    await _run_stream_for_auto_title(db, arq_queue=mock_queue)
+
+    mock_queue.enqueue_job.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_auto_title_skipped_when_no_queue():
+    """arq_queue=None → enqueue silently skipped, no AttributeError."""
+    db, conv = _make_db_for_auto_title(message_count=1, title=None)
+
+    await _run_stream_for_auto_title(db, arq_queue=None)
+
+
+@pytest.mark.asyncio
+async def test_auto_title_enqueued_with_correct_conv_id():
+    """enqueue_job receives the conversation UUID as a string (not UUID object)."""
+    db, conv = _make_db_for_auto_title(message_count=1, title=None)
+    mock_queue = AsyncMock()
+
+    await _run_stream_for_auto_title(db, arq_queue=mock_queue)
+
+    args = mock_queue.enqueue_job.call_args
+    assert args[0][0] == "generate_conversation_title"
+    assert args[0][1] == CONV_ID
+    assert isinstance(args[0][1], str)

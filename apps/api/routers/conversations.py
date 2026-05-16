@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -121,6 +121,7 @@ async def get_messages(
 @router.post("/{conversation_id}/messages")
 async def send_message(
     conversation_id: str,
+    request: Request,
     body: MessageCreate,
     db: AsyncSession = Depends(get_db),
     auth: tuple = Depends(get_current_user_plan),
@@ -172,6 +173,8 @@ async def send_message(
         )
         response_headers["X-RateLimit-Reset"] = rate_limit_result.reset_at.isoformat()
 
+    arq_queue = getattr(request.app.state, "arq_queue", None)
+
     return StreamingResponse(
         conversation_service.stream_response(
             db=db,
@@ -181,6 +184,7 @@ async def send_message(
             user_plan=plan,
             user_name=user.full_name,
             is_admin=user.is_admin,
+            arq_queue=arq_queue,
         ),
         media_type="text/event-stream",
         headers=response_headers,
