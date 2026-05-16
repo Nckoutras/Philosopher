@@ -20,6 +20,7 @@ from services.postprocessing_service import (
     POSTPROCESSING_ENABLED,
 )
 from services.phenomenology_bridge_service import phenomenology_bridge_service
+from services.llm_service import MODEL_FREE, MODEL_PRO, MEMORY_WINDOW_FREE, MEMORY_WINDOW_PRO
 
 logger = logging.getLogger(__name__)
 
@@ -185,7 +186,7 @@ class ConversationService:
             select(Message)
             .where(Message.conversation_id == conversation_id)
             .order_by(Message.created_at.asc())
-            .limit(20)
+            .limit(MEMORY_WINDOW_PRO if user_plan in ("pro", "premium") else MEMORY_WINDOW_FREE)
         )
         history = history_result.scalars().all()
         lm_messages = [
@@ -203,16 +204,17 @@ class ConversationService:
         # Phase 2: behavior depends on POSTPROCESSING_ENABLED flag.
         #   true  → buffer entire reply, run postprocessing, then yield
         #   false → stream chunks immediately (pre-Phase-2 behavior)
+        model = MODEL_PRO if user_plan in ("pro", "premium") else MODEL_FREE
         full_response = ""
         yield f"data: {json.dumps({'type': 'start'})}\n\n"
 
         if POSTPROCESSING_ENABLED:
             # Buffer mode — do not yield chunks during stream
-            async for chunk in llm_client.stream(system=system_prompt, messages=lm_messages):
+            async for chunk in llm_client.stream(system=system_prompt, messages=lm_messages, model=model):
                 full_response += chunk
         else:
             # Legacy streaming mode — yield chunks as they arrive
-            async for chunk in llm_client.stream(system=system_prompt, messages=lm_messages):
+            async for chunk in llm_client.stream(system=system_prompt, messages=lm_messages, model=model):
                 full_response += chunk
                 yield f"data: {json.dumps({'type': 'chunk', 'data': chunk})}\n\n"
 
