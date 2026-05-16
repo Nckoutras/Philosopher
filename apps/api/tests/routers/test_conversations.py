@@ -1,0 +1,348 @@
+"""Tests for POST /api/v1/conversations/{id}/messages — PATH A rate limiting.
+
+Verifies per-persona rate limit, ritual exemption, admin bypass, and
+X-RateLimit-* header behavior on both 429 and 200 responses.
+
+Run: cd apps/api && pytest tests/routers/test_conversations.py -v
+"""
+import sys
+import os
+
+os.environ.setdefault("OPENAI_API_KEY", "sk-test-dummy")
+os.environ.setdefault("ANTHROPIC_API_KEY", "test-dummy")
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+
+import pytest
+from datetime import datetime, timezone
+from unittest.mock import AsyncMock, MagicMock, patch
+
+from fastapi.testclient import TestClient
+
+from models import Conversation, DailyUsage
+
+USER_ID = "aaaaaaaa-0000-0000-0000-000000000001"
+PERSONA_ID = "bbbbbbbb-0000-0000-0000-000000000001"
+SOCRATES_PERSONA_ID = "dddddddd-0000-0000-0000-000000000001"
+CONV_ID = "cccccccc-0000-0000-0000-000000000001"
+RITUAL_CONV_ID = "ffffffff-0000-0000-0000-000000000001"
+RITUAL_ID = "eeeeeeee-0000-0000-0000-000000000001"
+
+ENDPOINT = "/api/v1/conversations/{conv_id}/messages"
+
+
+# ── Helpers ───────────────────────────────────────────────────────────────────
+
+def _make_user(is_admin=False):
+    u = MagicMock()
+    u.id = USER_ID
+    u.is_admin = is_admin
+    u.full_name = "Test User"
+    return u
+
+
+def _make_persona(persona_id=PERSONA_ID):
+    p = MagicMock()
+    p.id = persona_id
+    p.config = {}
+    return p
+
+
+def _make_conv(ritual_id=None, persona_id=PERSONA_ID, user_id=USER_ID, conv_id=CONV_ID):
+    c = MagicMock(spec=Conversation)
+    c.id = conv_id
+    c.user_id = user_id
+    c.persona_id = persona_id
+    c.ritual_id = ritual_id
+    return c
+
+
+def _make_subscription(active=True):
+    if not active:
+        return None
+    s = MagicMock()
+    s.status = "active"
+    s.current_period_end = datetime(2027, 1, 1, tzinfo=timezone.utc)
+    return s
+
+
+def _make_usage(count, persona_id=PERSONA_ID):
+    return DailyUsage(
+        user_id=USER_ID,
+        persona_id=persona_id,
+        usage_date=__import__("datetime").date.today(),
+        message_count=count,
+    )
+
+
+def _make_db(conv, persona=None, subscription=None, usage=None):
+    """Build mock AsyncSession for send_message.
+
+    Execute call order:
+      1. select(Conversation) — ownership check → scalar_one_or_none
+      2. select(Persona)      — error voice     → scalar_one
+      3. select(Subscription) — get_user_tier   → scalar_one_or_none
+      4. select(DailyUsage)   — check_rate_limit → scalar_one_or_none
+    For admin/ritual: only calls 1-2 are consumed.
+    """
+    if persona is None:
+        persona = _make_persona()
+
+    db = AsyncMock()
+    db.add = MagicMock()
+    db.flush = AsyncMock()
+    db.commit = AsyncMock()
+
+    def _or_none(val):
+        r = MagicMock()
+        r.scalar_one_or_none.return_value = val
+        return r
+
+    def _one(val):
+        r = MagicMock()
+        r.scalar_one.return_value = val
+        return r
+
+    db.execute = AsyncMock(side_effect=[
+        _or_none(conv),          # select(Conversation)
+        _one(persona),           # select(Persona)
+        _or_none(subscription),  # select(Subscription) via get_user_tier
+        _or_none(usage),         # select(DailyUsage) via check_rate_limit
+    ])
+    return db
+
+
+async def _fake_stream(*args, **kwargs):
+    yield 'data: {"type": "done"}\n\n'
+
+
+# ── Fixtures ──────────────────────────────────────────────────────────────────
+
+@pytest.fixture
+def client():
+    from main import app
+    from auth import get_current_user_plan
+    from db.session import get_db
+
+    db_holder = [None]
+    auth_holder = [(_make_user(), "free")]
+
+    async def override_get_db():
+        yield db_holder[0]
+
+    async def override_plan():
+        return auth_holder[0]
+
+    app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_current_user_plan] = override_plan
+
+    tc = TestClient(app, raise_server_exceptions=True)
+    tc._db = db_holder
+    tc.test_auth = auth_holder  # avoid _auth which conflicts with HTTPX internals
+
+    yield tc
+
+    app.dependency_overrides.clear()
+
+
+# ── Rate limit — free user ────────────────────────────────────────────────────
+
+def test_free_user_5th_message_allowed_with_remaining_0(client):
+    """Free user with 4 prior messages: 5th allowed, X-RateLimit-Remaining is 0."""
+    conv = _make_conv(ritual_id=None)
+    db = _make_db(conv=conv, subscription=None, usage=_make_usage(4))
+    client._db[0] = db
+
+    with patch("routers.conversations.conversation_service.stream_response", _fake_stream):
+        resp = client.post(ENDPOINT.format(conv_id=CONV_ID), json={"content": "Hello"})
+
+    assert resp.status_code == 200
+    assert resp.headers["X-RateLimit-Remaining"] == "0"
+    assert resp.headers["X-RateLimit-Limit"] == "5"
+    assert "X-RateLimit-Reset" in resp.headers
+
+
+def test_free_user_6th_message_blocked_returns_429(client):
+    """Free user with 5 prior messages: 6th returns 429 with LLMErrorResponse body."""
+    conv = _make_conv(ritual_id=None)
+    db = _make_db(conv=conv, subscription=None, usage=_make_usage(5))
+    client._db[0] = db
+
+    with patch("routers.conversations.conversation_service.stream_response", _fake_stream) as mock_stream:
+        resp = client.post(ENDPOINT.format(conv_id=CONV_ID), json={"content": "Hello"})
+
+    assert resp.status_code == 429
+    body = resp.json()
+    assert body["error_code"] == "rate_limited"
+    assert len(body["persona_voice"]) > 0
+
+
+def test_429_response_has_rate_limit_headers(client):
+    """429 response includes X-RateLimit-Limit, Remaining (0), and Reset headers."""
+    conv = _make_conv(ritual_id=None)
+    db = _make_db(conv=conv, subscription=None, usage=_make_usage(5))
+    client._db[0] = db
+
+    resp = client.post(ENDPOINT.format(conv_id=CONV_ID), json={"content": "Hello"})
+
+    assert resp.status_code == 429
+    assert resp.headers["X-RateLimit-Limit"] == "5"
+    assert resp.headers["X-RateLimit-Remaining"] == "0"
+    assert "X-RateLimit-Reset" in resp.headers
+
+
+def test_200_response_has_rate_limit_headers(client):
+    """200 response includes X-RateLimit-* headers for free users."""
+    conv = _make_conv(ritual_id=None)
+    db = _make_db(conv=conv, subscription=None, usage=None)
+    client._db[0] = db
+
+    with patch("routers.conversations.conversation_service.stream_response", _fake_stream):
+        resp = client.post(ENDPOINT.format(conv_id=CONV_ID), json={"content": "Hello"})
+
+    assert resp.status_code == 200
+    assert "X-RateLimit-Limit" in resp.headers
+    assert "X-RateLimit-Remaining" in resp.headers
+    assert "X-RateLimit-Reset" in resp.headers
+    assert resp.headers["X-RateLimit-Limit"] == "5"
+    # 0 prior messages → remaining=5 before call → 4 after
+    assert resp.headers["X-RateLimit-Remaining"] == "4"
+
+
+def test_stream_response_not_called_on_429(client):
+    """When rate limited, response is JSON (not streaming) — stream_response never called."""
+    conv = _make_conv(ritual_id=None)
+    db = _make_db(conv=conv, subscription=None, usage=_make_usage(5))
+    client._db[0] = db
+
+    resp = client.post(ENDPOINT.format(conv_id=CONV_ID), json={"content": "Hello"})
+
+    assert resp.status_code == 429
+    assert resp.headers["content-type"].startswith("application/json")
+
+
+# ── Rate limit — pro user ─────────────────────────────────────────────────────
+
+def test_pro_user_not_rate_limited(client):
+    """Pro user with any number of messages succeeds; rate limit is not enforced."""
+    conv = _make_conv(ritual_id=None)
+    sub = _make_subscription(active=True)
+    # usage=_make_usage(100) to prove pro is unlimited even at high count
+    db = _make_db(conv=conv, subscription=sub, usage=_make_usage(100))
+    client.test_auth[0] = (_make_user(), "pro")
+    client._db[0] = db
+
+    with patch("routers.conversations.conversation_service.stream_response", _fake_stream):
+        resp = client.post(ENDPOINT.format(conv_id=CONV_ID), json={"content": "Hello"})
+
+    assert resp.status_code == 200
+
+
+# ── Admin bypass ──────────────────────────────────────────────────────────────
+
+def test_admin_user_bypasses_rate_limit(client):
+    """Admin user is never rate-limited, regardless of usage count."""
+    conv = _make_conv(ritual_id=None)
+    # DB only needs conv + persona; no subscription/usage queries made
+    db = _make_db(conv=conv, subscription=None, usage=_make_usage(100))
+    client.test_auth[0] = (_make_user(is_admin=True), "free")
+    client._db[0] = db
+
+    with patch("routers.conversations.conversation_service.stream_response", _fake_stream):
+        resp = client.post(ENDPOINT.format(conv_id=CONV_ID), json={"content": "Hello"})
+
+    assert resp.status_code == 200
+
+
+def test_admin_response_has_no_rate_limit_headers(client):
+    """Admin bypass means no X-RateLimit-* headers on the successful response."""
+    conv = _make_conv(ritual_id=None)
+    db = _make_db(conv=conv)
+    client.test_auth[0] = (_make_user(is_admin=True), "free")
+    client._db[0] = db
+
+    with patch("routers.conversations.conversation_service.stream_response", _fake_stream):
+        resp = client.post(ENDPOINT.format(conv_id=CONV_ID), json={"content": "Hello"})
+
+    assert resp.status_code == 200
+    assert "X-RateLimit-Limit" not in resp.headers
+    assert "X-RateLimit-Remaining" not in resp.headers
+
+
+# ── Ritual exemption ──────────────────────────────────────────────────────────
+
+def test_ritual_conversation_bypasses_rate_limit(client):
+    """Ritual conversation (ritual_id != None) is exempt from rate limiting."""
+    conv = _make_conv(ritual_id=RITUAL_ID)
+    # DB only needs conv + persona; no subscription/usage queries made
+    db = _make_db(conv=conv, subscription=None, usage=_make_usage(10))
+    client._db[0] = db
+
+    with patch("routers.conversations.conversation_service.stream_response", _fake_stream):
+        resp = client.post(ENDPOINT.format(conv_id=CONV_ID), json={"content": "Hello"})
+
+    assert resp.status_code == 200
+
+
+def test_ritual_response_has_no_rate_limit_headers(client):
+    """Ritual bypass means no X-RateLimit-* headers on the successful response."""
+    conv = _make_conv(ritual_id=RITUAL_ID)
+    db = _make_db(conv=conv)
+    client._db[0] = db
+
+    with patch("routers.conversations.conversation_service.stream_response", _fake_stream):
+        resp = client.post(ENDPOINT.format(conv_id=CONV_ID), json={"content": "Hello"})
+
+    assert resp.status_code == 200
+    assert "X-RateLimit-Limit" not in resp.headers
+    assert "X-RateLimit-Remaining" not in resp.headers
+
+
+def test_blocked_on_regular_but_allowed_on_ritual(client):
+    """Free user maxed out on a regular conv can still message in a ritual conv."""
+    ritual_conv = _make_conv(ritual_id=RITUAL_ID, conv_id=RITUAL_CONV_ID)
+    # Ritual conv: only 2 DB queries (conv + persona), no rate limit queries
+    db = _make_db(conv=ritual_conv)
+    client._db[0] = db
+
+    with patch("routers.conversations.conversation_service.stream_response", _fake_stream):
+        resp = client.post(ENDPOINT.format(conv_id=RITUAL_CONV_ID), json={"content": "Hello"})
+
+    assert resp.status_code == 200
+
+
+# ── Per-persona isolation ──────────────────────────────────────────────────────
+
+def test_per_persona_marcus_blocked_socrates_allowed(client):
+    """Marcus (5/5) blocks; Socrates (0/5) on the same user still succeeds."""
+    # Marcus: blocked
+    marcus_conv = _make_conv(ritual_id=None, persona_id=PERSONA_ID)
+    db_marcus = _make_db(conv=marcus_conv, subscription=None, usage=_make_usage(5, PERSONA_ID))
+    client._db[0] = db_marcus
+
+    resp_marcus = client.post(ENDPOINT.format(conv_id=CONV_ID), json={"content": "Hello"})
+    assert resp_marcus.status_code == 429
+
+    # Socrates: allowed
+    socrates_conv = _make_conv(ritual_id=None, persona_id=SOCRATES_PERSONA_ID, conv_id=RITUAL_CONV_ID)
+    db_socrates = _make_db(
+        conv=socrates_conv, subscription=None,
+        usage=_make_usage(0, SOCRATES_PERSONA_ID),
+    )
+    client._db[0] = db_socrates
+
+    with patch("routers.conversations.conversation_service.stream_response", _fake_stream):
+        resp_socrates = client.post(
+            ENDPOINT.format(conv_id=RITUAL_CONV_ID), json={"content": "Hello"}
+        )
+    assert resp_socrates.status_code == 200
+
+
+# ── Ownership ─────────────────────────────────────────────────────────────────
+
+def test_conversation_not_found_returns_404(client):
+    """Conversation not owned by user → 404."""
+    db = _make_db(conv=None)
+    client._db[0] = db
+
+    resp = client.post(ENDPOINT.format(conv_id=CONV_ID), json={"content": "Hello"})
+    assert resp.status_code == 404

@@ -487,3 +487,154 @@ async def test_stream_response_emits_start_chunk_done_for_pro_user():
     assert "start" in event_types
     assert "chunk" in event_types
     assert "done" in event_types
+
+
+# ── Section D: daily_usage increment ─────────────────────────────────────────
+
+from models import DailyUsage
+
+
+def _make_db_for_usage(existing_usage=None, ritual_id=None):
+    """DB mock with explicit ritual_id and controllable DailyUsage lookup result.
+
+    Execute call order with _save_message mocked:
+      1. select(Conversation)  → conv_result
+      2. select(Persona)       → persona_result
+      3. select(Message) hist  → history_result
+      4. update(Conversation)  → update_result
+      5. select(DailyUsage)    → usage_result  (only if ritual_id is None)
+    """
+    db = AsyncMock()
+
+    conv = MagicMock()
+    conv.id = CONV_ID
+    conv.persona_id = PERSONA_ID
+    conv.ritual_id = ritual_id
+
+    conv_result = MagicMock()
+    conv_result.scalar_one_or_none.return_value = conv
+
+    persona_result = MagicMock()
+    persona_result.scalar_one.return_value = _mock_persona_db()
+
+    history_result = MagicMock()
+    history_result.scalars.return_value.all.return_value = []
+
+    update_result = MagicMock()
+
+    usage_result = MagicMock()
+    usage_result.scalar_one_or_none.return_value = existing_usage
+
+    db.execute = AsyncMock(side_effect=[
+        conv_result,
+        persona_result,
+        history_result,
+        update_result,   # update(Conversation) — return value not used
+        usage_result,    # select(DailyUsage)   — only reached when increment runs
+    ])
+    db.add = MagicMock()
+    db.flush = AsyncMock()
+    db.commit = AsyncMock()
+    db.rollback = AsyncMock()
+    return db, conv
+
+
+async def _run_stream_for_usage(db, conv, is_admin: bool = False):
+    """Run stream_response with all I/O mocked; return list of added objects."""
+    service = ConversationService()
+    saved = _saved_msg()
+
+    mock_llm = MagicMock()
+
+    async def fake_stream(*args, **kwargs):
+        yield "Hello"
+
+    mock_llm.stream = fake_stream
+
+    with (
+        patch("services.conversation_service.safety_service") as mock_safety,
+        patch("services.conversation_service.memory_service") as mock_memory,
+        patch("services.conversation_service.retrieval_service") as mock_retrieval,
+        patch("services.conversation_service.llm_client", mock_llm),
+        patch("services.conversation_service.prompt_builder") as mock_prompt,
+        patch("services.conversation_service.analytics_service"),
+        patch("services.conversation_service.POSTPROCESSING_ENABLED", False),
+        patch("services.conversation_service.PHENOMENOLOGY_BRIDGE_ENABLED", False),
+        patch("services.conversation_service.get_persona") as mock_get_persona,
+    ):
+        safety_result = MagicMock()
+        safety_result.should_log = False
+        safety_result.should_suppress_persona = False
+        safety_result.level = "none"
+        mock_safety.check_input = AsyncMock(return_value=safety_result)
+        mock_safety.check_output = AsyncMock(return_value=safety_result)
+        mock_memory.recall = AsyncMock(return_value=[])
+        mock_retrieval.retrieve = AsyncMock(return_value=[])
+        mock_prompt.build_system.return_value = "system"
+        persona_config = MagicMock()
+        persona_config.slug = "marcus_aurelius"
+        mock_get_persona.return_value = persona_config
+
+        service._save_message = AsyncMock(return_value=saved)
+        service._log_safety_event = AsyncMock()
+
+        await _drain(service.stream_response(
+            db=db,
+            conversation_id=CONV_ID,
+            user_id=USER_ID,
+            user_text="What is virtue?",
+            user_plan="free",
+            is_admin=is_admin,
+        ))
+
+    return [c.args[0] for c in db.add.call_args_list]
+
+
+@pytest.mark.asyncio
+async def test_daily_usage_new_row_created_for_regular_conv():
+    """Regular conv (ritual_id=None), non-admin success → new DailyUsage row with count=1."""
+    db, conv = _make_db_for_usage(existing_usage=None, ritual_id=None)
+    added = await _run_stream_for_usage(db, conv, is_admin=False)
+
+    daily_usages = [o for o in added if isinstance(o, DailyUsage)]
+    assert len(daily_usages) == 1
+    assert daily_usages[0].user_id == USER_ID
+    assert daily_usages[0].persona_id == PERSONA_ID
+    assert daily_usages[0].message_count == 1
+
+
+@pytest.mark.asyncio
+async def test_daily_usage_existing_row_incremented():
+    """Regular conv, existing DailyUsage row → message_count incremented, no new row."""
+    existing = DailyUsage(
+        user_id=USER_ID,
+        persona_id=PERSONA_ID,
+        usage_date=__import__("datetime").date.today(),
+        message_count=3,
+    )
+    db, conv = _make_db_for_usage(existing_usage=existing, ritual_id=None)
+    added = await _run_stream_for_usage(db, conv, is_admin=False)
+
+    assert existing.message_count == 4
+    daily_usages = [o for o in added if isinstance(o, DailyUsage)]
+    assert len(daily_usages) == 0
+
+
+@pytest.mark.asyncio
+async def test_daily_usage_not_incremented_for_ritual_conv():
+    """Ritual conv (ritual_id != None) → daily_usage SELECT never runs, no row added."""
+    db, conv = _make_db_for_usage(existing_usage=None, ritual_id="ritual-uuid-1")
+    added = await _run_stream_for_usage(db, conv, is_admin=False)
+
+    daily_usages = [o for o in added if isinstance(o, DailyUsage)]
+    assert len(daily_usages) == 0
+
+
+@pytest.mark.asyncio
+async def test_daily_usage_not_incremented_for_admin():
+    """Admin (is_admin=True) → daily_usage SELECT never runs, no row added."""
+    db, conv = _make_db_for_usage(existing_usage=None, ritual_id=None)
+    added = await _run_stream_for_usage(db, conv, is_admin=True)
+
+    daily_usages = [o for o in added if isinstance(o, DailyUsage)]
+    assert len(daily_usages) == 0
