@@ -5,9 +5,10 @@ import { useStore } from '@/lib/store'
 
 interface Props {
   send: (content: string) => void
+  placeholder?: string
 }
 
-export default function ChatInput({ send }: Props) {
+export default function ChatInput({ send, placeholder = 'Write your thought…' }: Props) {
   const [value, setValue] = useState('')
   const isStreaming = useStore((s) => s.isStreaming)
   const activeConversationId = useStore((s) => s.activeConversationId)
@@ -34,7 +35,7 @@ export default function ChatInput({ send }: Props) {
         onChange={(e) => setValue(e.target.value)}
         onKeyDown={handleKeyDown}
         disabled={disabled}
-        placeholder="Write your thought…"
+        placeholder={placeholder}
         rows={1}
         className="flex-1 resize-none bg-white rounded-sm px-3 py-2 font-lora text-[14px] text-ink placeholder:text-sepia focus:outline-none disabled:opacity-50"
         style={{ maxHeight: '120px' }}

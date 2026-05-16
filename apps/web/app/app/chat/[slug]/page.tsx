@@ -10,6 +10,9 @@ import OpeningInvocation from '@/components/chat/OpeningInvocation'
 import MessageList from '@/components/chat/MessageList'
 import StreamingBubble from '@/components/chat/StreamingBubble'
 import ErrorMessage from '@/components/chat/ErrorMessage'
+import SafetyBubble from '@/components/chat/SafetyBubble'
+import SafetyReEntryCard from '@/components/chat/SafetyReEntryCard'
+import PaywallModal from '@/components/chat/PaywallModal'
 import ChatInput from '@/components/chat/ChatInput'
 
 export default function ChatPage() {
@@ -26,6 +29,10 @@ export default function ChatPage() {
   const openingInvocation = useStore((s) => s.activePersonaOpeningInvocation)
   const setActiveConversation = useStore((s) => s.setActiveConversation)
   const clearActiveConversation = useStore((s) => s.clearActiveConversation)
+  const safetyActive = useStore((s) => s.safetyActive)
+  const showPaywall = useStore((s) => s.showPaywall)
+  const paywallDetails = useStore((s) => s.paywallDetails)
+  const clearPaywall = useStore((s) => s.clearPaywall)
 
   const [createError, setCreateError] = useState<string | null>(null)
   const { send } = useStream()
@@ -120,11 +127,28 @@ export default function ChatPage() {
       <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3">
         {openingInvocation && <OpeningInvocation text={openingInvocation} />}
         <MessageList messages={messages} />
-        <StreamingBubble />
-        <ErrorMessage send={send} />
+        {safetyActive ? (
+          <>
+            <SafetyBubble />
+            <SafetyReEntryCard />
+          </>
+        ) : (
+          <>
+            <StreamingBubble />
+            <ErrorMessage send={send} />
+          </>
+        )}
         <div id="chat-scroll-sentinel" />
       </div>
-      <ChatInput send={send} />
+      <ChatInput
+        send={send}
+        placeholder={safetyActive ? 'Write when you\'re ready…' : undefined}
+      />
+      <PaywallModal
+        open={showPaywall}
+        details={paywallDetails}
+        onClose={clearPaywall}
+      />
     </main>
   )
 }
