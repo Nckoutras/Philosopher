@@ -1,23 +1,21 @@
-from datetime import datetime, timezone
+from uuid import UUID
+
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 from db.session import get_db
-from models import User, Conversation, Message
-from schemas import ConversationCreate, ConversationOut, MessageCreate, MessageOut, PersonaOut
+from models import User, Conversation, Message, Persona
+from schemas import ConversationCreate, ConversationOut, MessageCreate, MessageOut, PersonaOut, LLMErrorResponse
 from auth import get_current_user, get_current_user_plan
 from services.conversation_service import conversation_service
+from services.tier_service import get_user_tier
+from services.persona_voice import get_error_voice
+import services.rate_limit_service as rate_limit_service
 from personas import get_persona
 
 router = APIRouter(prefix="/conversations", tags=["conversations"])
-
-DAILY_LIMITS: dict[str, float] = {
-    "free": 10,
-    "pro": 100,
-    "premium": float("inf"),
-}
 
 
 @router.post("", response_model=ConversationOut, status_code=201)
@@ -130,37 +128,49 @@ async def send_message(
     """SSE streaming endpoint. Returns text/event-stream."""
     user, plan = auth
 
-    # Verify ownership
+    # Verify ownership and load conversation
     result = await db.execute(
         select(Conversation).where(Conversation.id == conversation_id, Conversation.user_id == user.id)
     )
-    if not result.scalar_one_or_none():
+    conv = result.scalar_one_or_none()
+    if not conv:
         raise HTTPException(status_code=404, detail="Conversation not found")
 
-    # Rate limit check
-    if not user.is_admin:
-        limit = DAILY_LIMITS.get(plan, float("inf"))
-        if limit != float("inf"):
-            today_utc = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
-            count_result = await db.execute(
-                select(func.count())
-                .select_from(Message)
-                .where(
-                    Message.user_id == user.id,
-                    Message.role == "user",
-                    Message.created_at >= today_utc,
-                )
+    # Load persona (needed for error voice on rate limit)
+    persona_result = await db.execute(select(Persona).where(Persona.id == conv.persona_id))
+    persona = persona_result.scalar_one()
+
+    # Rate limit check — skip for admins and ritual conversations
+    rate_limit_result = None
+    if not user.is_admin and conv.ritual_id is None:
+        user_tier = await get_user_tier(db, user.id)
+        rate_limit_result = await rate_limit_service.check_rate_limit(
+            db, UUID(user.id), UUID(conv.persona_id), user_tier=user_tier
+        )
+        if not rate_limit_result.allowed:
+            return JSONResponse(
+                status_code=429,
+                content=LLMErrorResponse(
+                    error_code="rate_limited",
+                    persona_voice=get_error_voice(persona, "rate_limited"),
+                ).model_dump(),
+                headers={
+                    "X-RateLimit-Limit": str(rate_limit_result.limit),
+                    "X-RateLimit-Remaining": "0",
+                    "X-RateLimit-Reset": rate_limit_result.reset_at.isoformat(),
+                },
             )
-            count = count_result.scalar_one()
-            if count >= limit:
-                raise HTTPException(
-                    status_code=429,
-                    detail={
-                        "message": "Daily message limit reached. Upgrade to Pro for more conversations.",
-                        "limit": int(limit),
-                        "plan": plan,
-                    },
-                )
+
+    response_headers = {
+        "Cache-Control": "no-cache",
+        "X-Accel-Buffering": "no",
+    }
+    if rate_limit_result is not None:
+        response_headers["X-RateLimit-Limit"] = str(rate_limit_result.limit)
+        response_headers["X-RateLimit-Remaining"] = str(
+            max(0, rate_limit_result.remaining - 1)
+        )
+        response_headers["X-RateLimit-Reset"] = rate_limit_result.reset_at.isoformat()
 
     return StreamingResponse(
         conversation_service.stream_response(
@@ -170,12 +180,10 @@ async def send_message(
             user_text=body.content,
             user_plan=plan,
             user_name=user.full_name,
+            is_admin=user.is_admin,
         ),
         media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "X-Accel-Buffering": "no",
-        },
+        headers=response_headers,
     )
 
 

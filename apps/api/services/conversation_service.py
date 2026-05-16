@@ -2,12 +2,13 @@ import json
 import time
 import logging
 import os
+from datetime import date
 from typing import AsyncGenerator
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
 
-from models import Conversation, Message, Persona, SafetyEvent, User
+from models import Conversation, DailyUsage, Message, Persona, SafetyEvent, User
 from personas import get_persona, is_persona_accessible
 from services.safety_service import safety_service
 from services.memory_service import memory_service
@@ -107,6 +108,7 @@ class ConversationService:
         user_text: str,
         user_plan: str = "free",
         user_name: str | None = None,
+        is_admin: bool = False,
     ) -> AsyncGenerator[str, None]:
         start = time.monotonic()
 
@@ -281,6 +283,29 @@ class ConversationService:
                 last_message_at=user_msg.created_at,
             )
         )
+
+        # ── 10b. INCREMENT DAILY USAGE ───────────────────────────────────────
+        # Skip for admins, ritual conversations, and safety-suppressed responses.
+        if not is_admin and conv.ritual_id is None and not safety_out.should_suppress_persona:
+            today = date.today()
+            usage_result = await db.execute(
+                select(DailyUsage).where(
+                    DailyUsage.user_id == user_id,
+                    DailyUsage.persona_id == conv.persona_id,
+                    DailyUsage.usage_date == today,
+                )
+            )
+            usage = usage_result.scalar_one_or_none()
+            if usage:
+                usage.message_count += 1
+            else:
+                db.add(DailyUsage(
+                    user_id=user_id,
+                    persona_id=conv.persona_id,
+                    usage_date=today,
+                    message_count=1,
+                ))
+
         await db.commit()
 
         # ── 11. ANALYTICS ────────────────────────────────────────────────────
