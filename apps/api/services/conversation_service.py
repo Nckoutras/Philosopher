@@ -25,7 +25,11 @@ from services.postprocessing_service import (
     POSTPROCESSING_ENABLED,
 )
 from services.phenomenology_bridge_service import phenomenology_bridge_service
-from services.llm_service import MODEL_FREE, MODEL_PRO, MEMORY_WINDOW_FREE, MEMORY_WINDOW_PRO
+
+MODEL_FREE = "claude-haiku-4-5-20251001"
+MODEL_PRO = "claude-sonnet-4-6"
+MEMORY_WINDOW_FREE = 5
+MEMORY_WINDOW_PRO = 20
 
 logger = logging.getLogger(__name__)
 

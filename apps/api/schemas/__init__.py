@@ -286,43 +286,6 @@ class MatchOut(BaseModel):
         from_attributes = True
 
 
-# ── Messages V2 (C4 non-streaming) ───────────────────────────────────────────
-
-class MessageCreateRequest(BaseModel):
-    persona_id: str
-    conversation_id: Optional[str] = None
-    content: str = Field(min_length=1, max_length=4000)
-
-
-class MessageResponse(BaseModel):
-    id: str
-    conversation_id: str
-    role: Literal["assistant"]
-    content: str
-    model_used: str
-    tokens_used: int
-    latency_ms: int
-    created_at: datetime
-
-    class Config:
-        from_attributes = True
-
-
-class ConversationSummary(BaseModel):
-    id: str
-    persona_id: str
-    title: Optional[str]
-    created_at: datetime
-
-    class Config:
-        from_attributes = True
-
-
-class MessageEnvelope(BaseModel):
-    conversation: ConversationSummary
-    message: MessageResponse
-
-
 class LLMErrorResponse(BaseModel):
     error_code: str
     persona_voice: str

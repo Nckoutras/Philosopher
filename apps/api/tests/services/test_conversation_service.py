@@ -9,7 +9,7 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock, patch, call
 
 from services.conversation_service import ConversationService
-from services.llm_service import MODEL_FREE, MODEL_PRO, MEMORY_WINDOW_FREE, MEMORY_WINDOW_PRO
+from services.conversation_service import MODEL_FREE, MODEL_PRO, MEMORY_WINDOW_FREE, MEMORY_WINDOW_PRO
 
 
 # ── Shared fixtures ───────────────────────────────────────────────────────────
