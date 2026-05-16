@@ -3,7 +3,8 @@ import uuid as _uuid
 from datetime import date, datetime, timezone
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
@@ -21,6 +22,7 @@ from services.exceptions import LLMRequestInvalid, LLMServiceUnavailable, Person
 from services.persona_voice import get_error_voice
 from services.tier_service import get_user_tier
 import services.llm_service as llm_service_module
+import services.rate_limit_service as rate_limit_service
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +32,7 @@ router = APIRouter(prefix="/messages", tags=["messages"])
 @router.post("", response_model=MessageEnvelope)
 async def send_message(
     request: Request,
+    response: Response,
     body: MessageCreateRequest,
     db: AsyncSession = Depends(get_db),
     user=Depends(get_current_user),
@@ -77,6 +80,24 @@ async def send_message(
                 error_code="persona_locked",
                 persona_voice=get_error_voice(persona, "persona_locked"),
             ).model_dump(),
+        )
+
+    # Enforce daily message limit for free tier
+    rate_limit_result = await rate_limit_service.check_rate_limit(
+        db, UUID(user.id), UUID(body.persona_id), user_tier=user_tier
+    )
+    if not rate_limit_result.allowed:
+        return JSONResponse(
+            status_code=429,
+            content=LLMErrorResponse(
+                error_code="rate_limited",
+                persona_voice=get_error_voice(persona, "rate_limited"),
+            ).model_dump(),
+            headers={
+                "X-RateLimit-Limit": str(rate_limit_result.limit),
+                "X-RateLimit-Remaining": "0",
+                "X-RateLimit-Reset": rate_limit_result.reset_at.isoformat(),
+            },
         )
 
     # Insert user message
@@ -162,6 +183,16 @@ async def send_message(
     await db.commit()
     await db.refresh(assistant_msg)
     await db.refresh(conv)
+
+    # Attach rate limit headers to the success response
+    remaining_after = (
+        rate_limit_result.remaining - 1
+        if rate_limit_result.remaining != -1
+        else -1
+    )
+    response.headers["X-RateLimit-Limit"] = str(rate_limit_result.limit)
+    response.headers["X-RateLimit-Remaining"] = str(remaining_after)
+    response.headers["X-RateLimit-Reset"] = rate_limit_result.reset_at.isoformat()
 
     # Enqueue title generation after the 3rd total message (e.g. opening + first exchange)
     if conv.message_count == 3 and conv.title is None:
