@@ -747,53 +747,57 @@ async def test_auto_title_enqueued_at_3rd_message():
 
     await _run_stream_for_auto_title(db, arq_queue=mock_queue)
 
-    mock_queue.enqueue_job.assert_called_once_with(
+    mock_queue.enqueue_job.assert_any_call(
         "generate_conversation_title", CONV_ID
     )
 
 
+def _title_calls(mock_queue):
+    return [c for c in mock_queue.enqueue_job.call_args_list if c.args[0] == "generate_conversation_title"]
+
+
 @pytest.mark.asyncio
 async def test_auto_title_not_enqueued_at_2nd_message():
-    """message_count starts at 0 → new_message_count == 2 → no enqueue."""
+    """message_count starts at 0 → new_message_count == 2 → generate_conversation_title not enqueued."""
     db, conv = _make_db_for_auto_title(message_count=0, title=None)
     mock_queue = AsyncMock()
 
     await _run_stream_for_auto_title(db, arq_queue=mock_queue)
 
-    mock_queue.enqueue_job.assert_not_called()
+    assert len(_title_calls(mock_queue)) == 0
 
 
 @pytest.mark.asyncio
 async def test_auto_title_not_enqueued_at_4th_message():
-    """message_count starts at 2 → new_message_count == 4 → no enqueue."""
+    """message_count starts at 2 → new_message_count == 4 → generate_conversation_title not enqueued."""
     db, conv = _make_db_for_auto_title(message_count=2, title=None)
     mock_queue = AsyncMock()
 
     await _run_stream_for_auto_title(db, arq_queue=mock_queue)
 
-    mock_queue.enqueue_job.assert_not_called()
+    assert len(_title_calls(mock_queue)) == 0
 
 
 @pytest.mark.asyncio
 async def test_auto_title_not_enqueued_at_6th_message():
-    """message_count starts at 4 → new_message_count == 6 → no enqueue."""
+    """message_count starts at 4 → new_message_count == 6 → generate_conversation_title not enqueued."""
     db, conv = _make_db_for_auto_title(message_count=4, title=None)
     mock_queue = AsyncMock()
 
     await _run_stream_for_auto_title(db, arq_queue=mock_queue)
 
-    mock_queue.enqueue_job.assert_not_called()
+    assert len(_title_calls(mock_queue)) == 0
 
 
 @pytest.mark.asyncio
 async def test_auto_title_not_enqueued_when_title_exists():
-    """message_count == 3 but title is already set → no enqueue."""
+    """message_count == 3 but title is already set → generate_conversation_title not enqueued."""
     db, conv = _make_db_for_auto_title(message_count=1, title="Existing Title")
     mock_queue = AsyncMock()
 
     await _run_stream_for_auto_title(db, arq_queue=mock_queue)
 
-    mock_queue.enqueue_job.assert_not_called()
+    assert len(_title_calls(mock_queue)) == 0
 
 
 @pytest.mark.asyncio
@@ -812,10 +816,9 @@ async def test_auto_title_enqueued_with_correct_conv_id():
 
     await _run_stream_for_auto_title(db, arq_queue=mock_queue)
 
-    args = mock_queue.enqueue_job.call_args
-    assert args[0][0] == "generate_conversation_title"
-    assert args[0][1] == CONV_ID
-    assert isinstance(args[0][1], str)
+    title_call = next(c for c in mock_queue.enqueue_job.call_args_list if c.args[0] == "generate_conversation_title")
+    assert title_call.args[1] == CONV_ID
+    assert isinstance(title_call.args[1], str)
 
 
 # ── Section F: LLM error handling and retry ──────────────────────────────────
@@ -900,7 +903,7 @@ def _make_stream_factory(behaviors: list):
     return stream_func
 
 
-async def _run_retry(behaviors: list, *, persona_config=None, db=None):
+async def _run_retry(behaviors: list, *, persona_config=None, db=None, arq_queue=None):
     """Run stream_response with controllable LLM stream behaviors.
 
     Returns (chunks, mock_sleep, service, db).
@@ -953,6 +956,7 @@ async def _run_retry(behaviors: list, *, persona_config=None, db=None):
             user_id=USER_ID,
             user_text="What is virtue?",
             user_plan="free",
+            arq_queue=arq_queue,
         ))
 
     return chunks, mock_sleep, service, db
@@ -1151,3 +1155,255 @@ async def test_daily_usage_not_incremented_on_llm_failure():
     added = [c.args[0] for c in db.add.call_args_list]
     daily_usages = [o for o in added if isinstance(o, DailyUsage)]
     assert len(daily_usages) == 0
+
+
+# ── Section G: Memory extraction enqueue ─────────────────────────────────────
+
+
+def _make_db_for_memory(message_count=0, ritual_id=None, safety_out_suppressed=False, is_admin=False):
+    """DB mock for memory extraction tests.
+
+    Execute call order (with _save_message mocked):
+      1. select(Conversation)  → conv_result
+      2. select(Persona)       → persona_result
+      3. select(Message) hist  → history_result
+      4. update(Conversation)  → update_result
+      5. select(DailyUsage)    → usage_result  (only when ritual_id is None, not admin, not suppressed)
+    """
+    db = AsyncMock()
+
+    conv = MagicMock()
+    conv.id = CONV_ID
+    conv.persona_id = PERSONA_ID
+    conv.ritual_id = ritual_id
+    conv.message_count = message_count
+    conv.title = "Existing Title"  # prevent auto-title interference
+
+    conv_result = MagicMock()
+    conv_result.scalar_one_or_none.return_value = conv
+
+    persona_result = MagicMock()
+    persona_result.scalar_one.return_value = _mock_persona_db()
+
+    history_result = MagicMock()
+    history_result.scalars.return_value.all.return_value = []
+
+    update_result = MagicMock()
+
+    usage_result = MagicMock()
+    usage_result.scalar_one_or_none.return_value = None
+
+    side_effects = [conv_result, persona_result, history_result, update_result]
+    if not is_admin and ritual_id is None and not safety_out_suppressed:
+        side_effects.append(usage_result)
+
+    db.execute = AsyncMock(side_effect=side_effects)
+    db.add = MagicMock()
+    db.flush = AsyncMock()
+    db.commit = AsyncMock()
+    db.rollback = AsyncMock()
+    return db, conv
+
+
+async def _run_stream_for_memory(db, arq_queue=None, safety_out_suppressed=False, is_admin=False):
+    """Run stream_response for memory extraction testing."""
+    service = ConversationService()
+    saved = _saved_msg()
+
+    mock_llm = MagicMock()
+
+    async def fake_stream(*args, **kwargs):
+        yield "Hello"
+
+    mock_llm.stream = fake_stream
+
+    with (
+        patch("services.conversation_service.safety_service") as mock_safety,
+        patch("services.conversation_service.memory_service") as mock_memory,
+        patch("services.conversation_service.retrieval_service") as mock_retrieval,
+        patch("services.conversation_service.llm_client", mock_llm),
+        patch("services.conversation_service.prompt_builder") as mock_prompt,
+        patch("services.conversation_service.analytics_service"),
+        patch("services.conversation_service.POSTPROCESSING_ENABLED", False),
+        patch("services.conversation_service.PHENOMENOLOGY_BRIDGE_ENABLED", False),
+        patch("services.conversation_service.get_persona") as mock_get_persona,
+    ):
+        safety_in = MagicMock()
+        safety_in.should_log = False
+        safety_in.should_suppress_persona = False
+        safety_in.level = "none"
+        mock_safety.check_input = AsyncMock(return_value=safety_in)
+
+        safety_out = MagicMock()
+        safety_out.should_suppress_persona = safety_out_suppressed
+        safety_out.level = "none"
+        mock_safety.check_output = AsyncMock(return_value=safety_out)
+
+        mock_memory.recall = AsyncMock(return_value=[])
+        mock_retrieval.retrieve = AsyncMock(return_value=[])
+        mock_prompt.build_system.return_value = "system"
+        mock_prompt.build_safety_response.return_value = "safe text"
+
+        persona_config = MagicMock()
+        persona_config.slug = "marcus_aurelius"
+        mock_get_persona.return_value = persona_config
+
+        service._save_message = AsyncMock(return_value=saved)
+        service._log_safety_event = AsyncMock()
+
+        await _drain(service.stream_response(
+            db=db,
+            conversation_id=CONV_ID,
+            user_id=USER_ID,
+            user_text="What is virtue?",
+            user_plan="free",
+            is_admin=is_admin,
+            arq_queue=arq_queue,
+        ))
+
+
+@pytest.mark.asyncio
+async def test_memory_extraction_enqueued_on_success():
+    """Successful exchange → extract_memory_task enqueued with all correct args."""
+    db, _ = _make_db_for_memory(message_count=0)
+    mock_queue = AsyncMock()
+
+    await _run_stream_for_memory(db, arq_queue=mock_queue)
+
+    mock_queue.enqueue_job.assert_any_call(
+        "extract_memory_task",
+        USER_ID,
+        CONV_ID,
+        PERSONA_ID,
+        "What is virtue?",
+        "Hello",
+        0,
+    )
+
+
+@pytest.mark.asyncio
+async def test_memory_extraction_not_enqueued_when_post_safety_suppressed():
+    """Post-gen safety suppression → extract_memory_task NOT enqueued."""
+    db, _ = _make_db_for_memory(message_count=0, safety_out_suppressed=True)
+    mock_queue = AsyncMock()
+
+    await _run_stream_for_memory(db, arq_queue=mock_queue, safety_out_suppressed=True)
+
+    memory_calls = [
+        c for c in mock_queue.enqueue_job.call_args_list
+        if c.args[0] == "extract_memory_task"
+    ]
+    assert len(memory_calls) == 0
+
+
+@pytest.mark.asyncio
+async def test_memory_extraction_not_enqueued_when_pre_safety_suppressed():
+    """Pre-gen safety suppression → early return before hook → extract_memory_task NOT enqueued."""
+    db = AsyncMock()
+    conv = MagicMock()
+    conv.id = CONV_ID
+    conv.persona_id = PERSONA_ID
+
+    conv_result = MagicMock()
+    conv_result.scalar_one_or_none.return_value = conv
+    persona_result = MagicMock()
+    persona_result.scalar_one.return_value = _mock_persona_db()
+
+    db.execute = AsyncMock(side_effect=[conv_result, persona_result])
+    db.add = MagicMock()
+    db.flush = AsyncMock()
+    db.commit = AsyncMock()
+    db.rollback = AsyncMock()
+
+    service = ConversationService()
+    mock_queue = AsyncMock()
+
+    with (
+        patch("services.conversation_service.safety_service") as mock_safety,
+        patch("services.conversation_service.memory_service"),
+        patch("services.conversation_service.retrieval_service"),
+        patch("services.conversation_service.llm_client"),
+        patch("services.conversation_service.prompt_builder") as mock_prompt,
+        patch("services.conversation_service.analytics_service"),
+        patch("services.conversation_service.POSTPROCESSING_ENABLED", False),
+        patch("services.conversation_service.PHENOMENOLOGY_BRIDGE_ENABLED", False),
+        patch("services.conversation_service.get_persona") as mock_get_persona,
+    ):
+        safety_in = MagicMock()
+        safety_in.should_log = False
+        safety_in.should_suppress_persona = True
+        safety_in.level = "high"
+        mock_safety.check_input = AsyncMock(return_value=safety_in)
+        mock_prompt.build_safety_response.return_value = "safe"
+
+        persona_config = MagicMock()
+        persona_config.slug = "marcus_aurelius"
+        mock_get_persona.return_value = persona_config
+
+        service._save_message = AsyncMock(return_value=_saved_msg())
+        service._log_safety_event = AsyncMock()
+
+        await _drain(service.stream_response(
+            db=db,
+            conversation_id=CONV_ID,
+            user_id=USER_ID,
+            user_text="harmful content",
+            user_plan="free",
+            arq_queue=mock_queue,
+        ))
+
+    mock_queue.enqueue_job.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_memory_extraction_not_enqueued_on_llm_failure():
+    """All LLM retries fail → early return before hook → extract_memory_task NOT enqueued."""
+    mock_queue = AsyncMock()
+    await _run_retry(
+        [_FakeAPIStatusError(503), _FakeAPIStatusError(503), _FakeAPIStatusError(503)],
+        arq_queue=mock_queue,
+    )
+
+    memory_calls = [
+        c for c in mock_queue.enqueue_job.call_args_list
+        if c.args[0] == "extract_memory_task"
+    ]
+    assert len(memory_calls) == 0
+
+
+@pytest.mark.asyncio
+async def test_memory_extraction_enqueued_for_ritual_conv():
+    """Ritual conversation → extract_memory_task IS enqueued (ritual memories are valuable)."""
+    db, _ = _make_db_for_memory(message_count=0, ritual_id="ritual-uuid-1")
+    mock_queue = AsyncMock()
+
+    await _run_stream_for_memory(db, arq_queue=mock_queue)
+
+    memory_calls = [
+        c for c in mock_queue.enqueue_job.call_args_list
+        if c.args[0] == "extract_memory_task"
+    ]
+    assert len(memory_calls) == 1
+
+
+@pytest.mark.asyncio
+async def test_memory_extraction_enqueued_for_admin():
+    """Admin user → extract_memory_task IS enqueued (admin testing should exercise full flow)."""
+    db, _ = _make_db_for_memory(message_count=0, is_admin=True)
+    mock_queue = AsyncMock()
+
+    await _run_stream_for_memory(db, arq_queue=mock_queue, is_admin=True)
+
+    memory_calls = [
+        c for c in mock_queue.enqueue_job.call_args_list
+        if c.args[0] == "extract_memory_task"
+    ]
+    assert len(memory_calls) == 1
+
+
+@pytest.mark.asyncio
+async def test_memory_extraction_no_error_when_queue_is_none():
+    """arq_queue=None → enqueue silently skipped, no AttributeError."""
+    db, _ = _make_db_for_memory(message_count=0)
+
+    await _run_stream_for_memory(db, arq_queue=None)
