@@ -97,6 +97,54 @@ async def generate_insight_task(ctx, user_id: str, conversation_id: str):
             logger.error(f"Insight task failed: {e}", exc_info=True)
 
 
+async def generate_conversation_title(ctx, conversation_id: str):
+    """Generates a short title for a conversation from its first 3 messages."""
+    from db.session import AsyncSessionLocal
+    from models import Conversation, Message
+    from sqlalchemy import select
+    import anthropic as _anthropic
+
+    async with AsyncSessionLocal() as db:
+        try:
+            msgs_result = await db.execute(
+                select(Message)
+                .where(Message.conversation_id == conversation_id)
+                .order_by(Message.created_at.asc())
+                .limit(3)
+            )
+            messages = msgs_result.scalars().all()
+            if not messages:
+                return
+
+            context = "\n".join(f"{m.role.upper()}: {m.content}" for m in messages)
+            client = _anthropic.AsyncAnthropic(api_key=config.ANTHROPIC_API_KEY)
+            response = await client.messages.create(
+                model="claude-haiku-4-5-20251001",
+                max_tokens=20,
+                system=(
+                    "Summarize this conversation in 3-5 words for use as a title. "
+                    "Output the title only, no quotes, no preamble. "
+                    "Keep it neutral and respectful."
+                ),
+                messages=[{"role": "user", "content": context}],
+            )
+            title = response.content[0].text.strip()[:80]
+
+            result = await db.execute(
+                select(Conversation).where(Conversation.id == conversation_id)
+            )
+            conv = result.scalar_one_or_none()
+            if conv:
+                conv.title = title
+                await db.commit()
+            logger.info("Title generated for conversation %s: %s", conversation_id, title)
+        except Exception as e:
+            logger.error(
+                "generate_conversation_title failed for %s: %s", conversation_id, e,
+                exc_info=True,
+            )
+
+
 async def send_ritual_reminder_task(ctx, user_id: str, ritual_id: str):
     """Sends ritual reminder email via Resend."""
     from db.session import AsyncSessionLocal
@@ -135,6 +183,7 @@ class WorkerSettings:
     functions = [
         extract_memory_task,
         generate_insight_task,
+        generate_conversation_title,
         send_ritual_reminder_task,
     ]
     redis_settings = RedisSettings.from_dsn(config.REDIS_URL)
