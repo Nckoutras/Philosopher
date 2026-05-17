@@ -190,6 +190,7 @@ class SourceChunk(Base):
     source_type: Mapped[str] = mapped_column(String(100), nullable=False)  # primary_text | biography | commentary | letter
     content: Mapped[str] = mapped_column(Text, nullable=False)
     embedding: Mapped[list | None] = mapped_column(Vector(1536))
+    chunk_index: Mapped[int | None] = mapped_column(Integer, nullable=True)
     page_ref: Mapped[str | None] = mapped_column(String(100))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
