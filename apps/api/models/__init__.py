@@ -289,6 +289,36 @@ class DisclaimerAcceptance(Base):
     )
 
 
+# ── Saved Lines ───────────────────────────────────────────────────────────────
+
+class SavedLine(Base):
+    __tablename__ = "saved_lines"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=gen_uuid)
+    user_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    message_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("messages.id", ondelete="CASCADE"), nullable=False)
+    persona_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("personas.id"), nullable=False)
+    source_type: Mapped[str] = mapped_column(String(32), nullable=False, default="manual_save")
+    saved_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        CheckConstraint("source_type IN ('manual_save', 'kept_insight')", name="ck_saved_lines_source_type"),
+        Index(
+            "ix_saved_lines_user_saved_at",
+            "user_id",
+            text("saved_at DESC"),
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+        Index(
+            "uq_saved_lines_user_message_active",
+            "user_id", "message_id",
+            unique=True,
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+    )
+
+
 # ── Daily Usage ───────────────────────────────────────────────────────────────
 
 class DailyUsage(Base):
