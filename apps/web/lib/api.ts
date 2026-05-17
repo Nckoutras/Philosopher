@@ -54,6 +54,26 @@ export class RateLimitError extends Error {
   }
 }
 
+// ── Saved-line error classes ──────────────────────────────────────────────────
+
+export class SaveLimitError extends Error {
+  limit: number
+  currentCount: number
+  constructor(opts: { limit: number; currentCount: number }) {
+    super('SAVE_LIMIT')
+    this.name = 'SaveLimitError'
+    this.limit = opts.limit
+    this.currentCount = opts.currentCount
+  }
+}
+
+export class DuplicateSaveError extends Error {
+  constructor() {
+    super('DUPLICATE_SAVE')
+    this.name = 'DuplicateSaveError'
+  }
+}
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export interface User {
@@ -145,6 +165,33 @@ export interface DisclaimerAcceptRequest {
 export interface DisclaimerAcceptResponse {
   accepted_at: string
   version_string: string
+}
+
+export interface SavedLineOut {
+  id: string
+  user_id: string
+  message_id: string
+  persona_id: string
+  source_type: string
+  saved_at: string
+}
+
+export interface SavedLineRead {
+  id: string
+  message_id: string
+  persona_id: string
+  persona_slug: string
+  persona_display_name: string
+  message_content: string
+  conversation_id: string
+  saved_at: string
+  source_type: string
+}
+
+export interface SavedLineListResponse {
+  items: SavedLineRead[]
+  total_count: number
+  free_tier_limit: number | null
 }
 
 // ── Client ────────────────────────────────────────────────────────────────────
@@ -353,6 +400,37 @@ class ApiClient {
 
   async getPortalUrl(): Promise<{ portal_url: string }> {
     return this.request('/billing/portal', { method: 'POST' })
+  }
+
+  // ── Saved lines ───────────────────────────────────────────────────────────
+
+  async createSavedLine(messageId: string): Promise<SavedLineOut> {
+    const res = await fetch(`${API_BASE}/saved-lines`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(this.token ? { Authorization: `Bearer ${this.token}` } : {}),
+      },
+      body: JSON.stringify({ message_id: messageId }),
+    })
+    if (res.status === 409) throw new DuplicateSaveError()
+    if (res.status === 402) {
+      const body = await res.json().catch(() => ({ limit: 3, current_count: 3 }))
+      throw new SaveLimitError({ limit: body.limit, currentCount: body.current_count })
+    }
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ detail: res.statusText }))
+      throw new Error(error.detail ?? 'Request failed')
+    }
+    return res.json()
+  }
+
+  async listSavedLines(): Promise<SavedLineListResponse> {
+    return this.request<SavedLineListResponse>('/saved-lines')
+  }
+
+  async deleteSavedLine(savedLineId: string): Promise<void> {
+    return this.request(`/saved-lines/${savedLineId}`, { method: 'DELETE' })
   }
 }
 
