@@ -33,6 +33,7 @@ from sqlalchemy import text
 from db.session import AsyncSessionLocal
 from scripts.chunking import chunk_text
 from scripts.corpus_sources import CORPUS_SOURCES
+from scripts.curated_chunks import CURATED_CHUNKS
 
 logger = logging.getLogger(__name__)
 
@@ -153,6 +154,67 @@ async def _ingest_source(
     return inserted, updated, 0
 
 
+# ── Curated chunk ingestion ───────────────────────────────────────────────────
+
+async def _ingest_curated(
+    db,
+    persona_id: str,
+    curated_list: list[dict],
+    dry_run: bool,
+) -> tuple[int, int, int]:
+    """Embed and upsert hand-curated chunks. Returns (inserted, updated, dry_run_skipped)."""
+    from services.embedding_client import embedding_client
+
+    if not curated_list:
+        return 0, 0, 0
+
+    logger.info("  %d curated chunks to process", len(curated_list))
+
+    if dry_run:
+        logger.info("  [dry-run] would embed and upsert %d curated chunks", len(curated_list))
+        return 0, 0, len(curated_list)
+
+    contents = [c["content"] for c in curated_list]
+    embeddings = await embedding_client.embed_batch(contents)
+
+    inserted = updated = 0
+    for idx, (chunk_data, embedding) in enumerate(zip(curated_list, embeddings)):
+        row = await db.execute(
+            text("""
+                INSERT INTO source_chunks
+                    (id, persona_id, source_title, source_type, content,
+                     embedding, chunk_index, page_ref, created_at)
+                VALUES
+                    (gen_random_uuid(), :persona_id, :source_title, :source_type, :content,
+                     CAST(:embedding AS vector), :chunk_index, :page_ref, now())
+                ON CONFLICT (persona_id, source_title, chunk_index)
+                WHERE chunk_index IS NOT NULL
+                DO UPDATE SET
+                    content   = EXCLUDED.content,
+                    embedding = EXCLUDED.embedding,
+                    page_ref  = EXCLUDED.page_ref
+                RETURNING (xmax = 0) AS was_inserted
+            """),
+            {
+                "persona_id": persona_id,
+                "source_title": chunk_data["source_title"],
+                "source_type": chunk_data["source_type"],
+                "content": chunk_data["content"],
+                "embedding": str(embedding),
+                "chunk_index": idx,
+                "page_ref": chunk_data.get("page_ref"),
+            },
+        )
+        was_inserted = row.scalar()
+        if was_inserted:
+            inserted += 1
+        else:
+            updated += 1
+
+    await db.flush()
+    return inserted, updated, 0
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 async def main(dry_run: bool = False, persona_filter: str | None = None) -> None:
@@ -164,14 +226,22 @@ async def main(dry_run: bool = False, persona_filter: str | None = None) -> None
         if persona_filter is None or slug == persona_filter
     }
 
-    if not sources_to_run:
+    curated_to_run = {
+        slug: chunks
+        for slug, chunks in CURATED_CHUNKS.items()
+        if persona_filter is None or slug == persona_filter
+    }
+
+    if not sources_to_run and not curated_to_run:
         logger.error("No sources found for persona filter: %s", persona_filter)
         sys.exit(1)
 
     mode_label = "[DRY RUN] " if dry_run else ""
-    logger.info("%sIngesting corpus for %d persona(s)...", mode_label, len(sources_to_run))
+    persona_count = len(set(sources_to_run) | set(curated_to_run))
+    logger.info("%sIngesting corpus for %d persona(s)...", mode_label, persona_count)
 
     total_inserted = total_updated = total_skipped = total_errors = 0
+    total_curated_inserted = total_curated_updated = 0
 
     async with AsyncSessionLocal() as db:
         for slug, sources in sources_to_run.items():
@@ -204,13 +274,44 @@ async def main(dry_run: bool = False, persona_filter: str | None = None) -> None
                     logger.error("  ✗ %s: %s", source.get("title", "?"), exc)
                     total_errors += 1
 
+        for slug, curated_list in curated_to_run.items():
+            if not curated_list:
+                continue
+
+            result = await db.execute(
+                text("SELECT id FROM personas WHERE slug = :slug"),
+                {"slug": slug},
+            )
+            persona_row = result.fetchone()
+            if not persona_row:
+                logger.error("\n%s: persona not found in DB for curated chunks (run seed.py first)", slug)
+                total_errors += 1
+                continue
+
+            persona_id = persona_row.id
+            logger.info("\n%s curated (%d chunk(s)):", slug, len(curated_list))
+
+            try:
+                ins, upd, skipped = await _ingest_curated(db, persona_id, curated_list, dry_run)
+                total_curated_inserted += ins
+                total_curated_updated += upd
+                total_skipped += skipped
+                if not dry_run:
+                    logger.info("  ✓ curated: %d new, %d updated", ins, upd)
+            except Exception as exc:
+                logger.error("  ✗ curated %s: %s", slug, exc)
+                total_errors += 1
+
         if not dry_run:
             await db.commit()
 
     logger.info(
-        "\nDone — inserted: %d, updated: %d, skipped (dry-run): %d, errors: %d",
+        "\nDone — auto-chunked: %d new, %d updated; curated: %d new, %d updated; "
+        "skipped (dry-run): %d, errors: %d",
         total_inserted,
         total_updated,
+        total_curated_inserted,
+        total_curated_updated,
         total_skipped,
         total_errors,
     )

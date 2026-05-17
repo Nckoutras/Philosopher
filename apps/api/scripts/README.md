@@ -45,6 +45,55 @@ updated in place, not duplicated.
 
 ---
 
+## curated_chunks.py
+
+A pure data module of hand-selected passages with precise citation references.
+Loaded alongside auto-chunked URL sources by `ingest_corpus.py`.
+
+**When to use curated vs auto-chunked:**
+
+| | Curated | Auto-chunked |
+|---|---|---|
+| Selection | Hand-picked, high signal | All text, variable quality |
+| Citations | Exact book/section refs | None |
+| Coverage | Key passages only | Full corpus |
+| Use case | Quality retrieval | Broad coverage |
+
+For production RAG quality, curated and auto-chunked chunks complement each
+other — curated chunks surface canonical passages for common queries while
+auto-chunked chunks handle obscure references.
+
+**Disambiguation:** Curated chunks use `source_title = "<Title> (curated)"`
+(e.g., `"Meditations (curated)"`). Auto-chunked chunks use the plain title
+(e.g., `"Meditations"`). Both carry integer `chunk_index` values so both
+participate in the DB-level upsert dedup index. No conflicts are possible.
+
+**Adding curated chunks for a new persona:**
+
+1. Add an entry to `CURATED_CHUNKS` in `curated_chunks.py`:
+
+```python
+CURATED_CHUNKS = {
+    "marcus_aurelius": [...],   # existing
+    "socrates": [
+        {
+            "source_title": "Apology (curated)",
+            "source_type": "primary_text",
+            "page_ref": "17a",
+            "content": "...",
+        },
+    ],
+}
+```
+
+2. All content must be public domain.
+3. Re-run `ingest_corpus.py` (or `--persona socrates`) to ingest.
+
+Currently populated: Marcus Aurelius — 19 passages from Meditations (Long 1862,
+recovered from pre-C3a `ingest_sources.py` per CLAUDE.md Rule 5 reconciliation).
+
+---
+
 ## corpus_sources.py
 
 Static allowlist of Project Gutenberg sources per persona. Each entry has:

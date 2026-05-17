@@ -223,3 +223,164 @@ async def test_main_single_source_error_does_not_halt_loop():
 
     # Both sources were attempted despite first failure
     assert call_count == 2
+
+
+# ── Curated chunks ────────────────────────────────────────────────────────────
+
+_MOCK_CURATED = [
+    {
+        "source_title": "Meditations (curated)",
+        "source_type": "primary_text",
+        "page_ref": "Book II.4",
+        "content": "Consider how much more pain is brought on us by the anger.",
+    },
+    {
+        "source_title": "Meditations (curated)",
+        "source_type": "primary_text",
+        "page_ref": "Book V.8",
+        "content": "In the morning when thou risest unwillingly.",
+    },
+]
+
+
+def test_curated_chunks_module_loads():
+    """All 19 Marcus Aurelius curated chunks load from curated_chunks.py."""
+    from scripts.curated_chunks import CURATED_CHUNKS
+
+    assert "marcus_aurelius" in CURATED_CHUNKS
+    chunks = CURATED_CHUNKS["marcus_aurelius"]
+    assert len(chunks) == 19
+    # All must be primary_text and use the curated source_title
+    for chunk in chunks:
+        assert chunk["source_title"] == "Meditations (curated)"
+        assert chunk["source_type"] == "primary_text"
+        assert chunk["page_ref"] is not None
+        assert chunk["content"]
+    # No Stanford Encyclopedia or Beauvoir content
+    for chunk in chunks:
+        assert "Stanford" not in chunk["source_title"]
+        assert "Beauvoir" not in chunk["source_title"]
+
+
+@pytest.mark.asyncio
+async def test_ingest_curated_dry_run_skips_embed_and_db():
+    """dry_run=True returns (0, 0, N) without calling embed or DB."""
+    from scripts.ingest_corpus import _ingest_curated
+
+    db = AsyncMock()
+
+    with patch(
+        "services.embedding_client.embedding_client.embed_batch",
+        new=AsyncMock(),
+    ) as mock_embed:
+        ins, upd, skipped = await _ingest_curated(db, "persona-uuid", _MOCK_CURATED, dry_run=True)
+
+    assert ins == 0
+    assert upd == 0
+    assert skipped == len(_MOCK_CURATED)
+    mock_embed.assert_not_called()
+    db.execute.assert_not_called()
+    db.flush.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_ingest_curated_live_embeds_and_upserts():
+    """Live run embeds all chunks in one batch and calls DB once per chunk."""
+    from scripts.ingest_corpus import _ingest_curated
+
+    mock_embedding = [0.1] * 1536
+    mock_result = MagicMock()
+    mock_result.scalar = MagicMock(return_value=True)  # was_inserted = True
+
+    db = AsyncMock()
+    db.execute = AsyncMock(return_value=mock_result)
+
+    with patch(
+        "services.embedding_client.embedding_client.embed_batch",
+        new=AsyncMock(return_value=[mock_embedding, mock_embedding]),
+    ):
+        ins, upd, skipped = await _ingest_curated(db, "persona-uuid", _MOCK_CURATED, dry_run=False)
+
+    assert ins == 2
+    assert upd == 0
+    assert skipped == 0
+    assert db.execute.call_count == 2
+    db.flush.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_main_persona_filter_excludes_curated_other_persona():
+    """--persona socrates does NOT process marcus_aurelius curated chunks."""
+    from scripts.ingest_corpus import main
+
+    db = AsyncMock()
+    db.__aenter__ = AsyncMock(return_value=db)
+    db.__aexit__ = AsyncMock(return_value=False)
+
+    persona_result = MagicMock()
+    persona_result.fetchone.return_value = MagicMock(id="persona-uuid-socrates")
+    db.execute = AsyncMock(return_value=persona_result)
+
+    mock_ingest_curated = AsyncMock(return_value=(0, 0, 0))
+
+    with (
+        patch("scripts.ingest_corpus.AsyncSessionLocal", return_value=db),
+        patch("scripts.ingest_corpus.CORPUS_SOURCES", {"socrates": []}),
+        patch(
+            "scripts.ingest_corpus.CURATED_CHUNKS",
+            {"marcus_aurelius": _MOCK_CURATED},
+        ),
+        patch("scripts.ingest_corpus._ingest_curated", mock_ingest_curated),
+    ):
+        await main(dry_run=False, persona_filter="socrates")
+
+    # _ingest_curated must NOT have been called for marcus_aurelius
+    mock_ingest_curated.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_main_curated_respects_dry_run():
+    """--dry-run propagates to _ingest_curated (no DB writes)."""
+    from scripts.ingest_corpus import main
+
+    db = AsyncMock()
+    db.__aenter__ = AsyncMock(return_value=db)
+    db.__aexit__ = AsyncMock(return_value=False)
+
+    persona_result = MagicMock()
+    persona_result.fetchone.return_value = MagicMock(id="persona-uuid")
+    db.execute = AsyncMock(return_value=persona_result)
+
+    mock_ingest_curated = AsyncMock(return_value=(0, 0, len(_MOCK_CURATED)))
+
+    with (
+        patch("scripts.ingest_corpus.AsyncSessionLocal", return_value=db),
+        patch("scripts.ingest_corpus.CORPUS_SOURCES", {}),
+        patch(
+            "scripts.ingest_corpus.CURATED_CHUNKS",
+            {"marcus_aurelius": _MOCK_CURATED},
+        ),
+        patch("scripts.ingest_corpus._ingest_curated", mock_ingest_curated),
+    ):
+        await main(dry_run=True, persona_filter=None)
+
+    # Confirm _ingest_curated was called with dry_run=True
+    mock_ingest_curated.assert_called_once()
+    call_args = mock_ingest_curated.call_args
+    assert call_args.args[3] is True  # dry_run positional arg
+    # DB commit must NOT be called in dry-run
+    db.commit.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_curated_source_title_distinct_from_auto_chunked():
+    """Curated source_title 'Meditations (curated)' never equals auto-chunked 'Meditations'."""
+    from scripts.curated_chunks import CURATED_CHUNKS
+    from scripts.corpus_sources import CORPUS_SOURCES
+
+    curated_titles = {c["source_title"] for c in CURATED_CHUNKS.get("marcus_aurelius", [])}
+    auto_titles = {s["title"] for s in CORPUS_SOURCES.get("marcus_aurelius", [])}
+
+    assert curated_titles.isdisjoint(auto_titles), (
+        f"Collision between curated and auto-chunked titles: {curated_titles & auto_titles}"
+    )
