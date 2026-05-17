@@ -289,3 +289,53 @@ class MatchOut(BaseModel):
 class LLMErrorResponse(BaseModel):
     error_code: str
     persona_voice: str
+
+
+# ── Saved Lines ───────────────────────────────────────────────────────────────
+
+class SavedLineCreate(BaseModel):
+    message_id: str
+
+
+class SavedLineOut(BaseModel):
+    id: str
+    user_id: str
+    message_id: str
+    persona_id: str
+    source_type: str
+    saved_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class SavedLineRead(BaseModel):
+    id: str
+    message_id: str
+    persona_id: str
+    persona_slug: str
+    persona_display_name: str
+    message_content: str
+    conversation_id: str
+    saved_at: datetime
+    source_type: str
+
+    class Config:
+        from_attributes = True
+
+
+class SavedLineListResponse(BaseModel):
+    items: list[SavedLineRead]
+    total_count: int
+    free_tier_limit: Optional[int]
+
+
+class SavedLineLimitError(BaseModel):
+    detail: str
+    code: str
+    limit: int
+    current_count: int
+
+
+class SavedLineBadRoleError(BaseModel):
+    detail: str
