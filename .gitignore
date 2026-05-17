@@ -3,4 +3,6 @@ __pycache__/
 .pytest_cache/
 
 # Local diagnostic / dev scripts — not for commit
-apps/api/scripts/
+apps/api/scripts/voice_test_socrates.py
+apps/api/scripts/test_preferences_endpoint.py
+apps/api/scripts/test_matches_endpoint.py
