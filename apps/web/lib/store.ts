@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { User, Conversation, Message, Subscription } from './api'
+import type { User, Conversation, Message, Subscription, SavedLineRead } from './api'
+import { api } from './api'
 
 export interface PaywallDetails {
   upgradeTarget: 'pro' | 'premium'
@@ -71,6 +72,18 @@ interface AppStore {
   setConversations: (list: Conversation[]) => void
   setConversationsLoading: (v: boolean) => void
   setConversationsError: (err: Error | null) => void
+
+  // Saved lines
+  savedLines: SavedLineRead[]
+  savedMessageIds: Set<string>
+  freeSaveCount: number
+  freeTierLimit: number | null
+  savedLinesLoading: boolean
+  savedLinesError: Error | null
+  loadSavedLines: () => Promise<void>
+  optimisticSave: (messageId: string) => void
+  revertSave: (messageId: string) => void
+  removeAfterDelete: (savedLineId: string, messageId: string) => void
 }
 
 export const useStore = create<AppStore>()(
@@ -155,6 +168,53 @@ export const useStore = create<AppStore>()(
       setConversations: (list) => set({ conversations: list }),
       setConversationsLoading: (v) => set({ conversationsLoading: v }),
       setConversationsError: (err) => set({ conversationsError: err }),
+
+      // Saved lines
+      savedLines: [],
+      savedMessageIds: new Set<string>(),
+      freeSaveCount: 0,
+      freeTierLimit: null,
+      savedLinesLoading: false,
+      savedLinesError: null,
+      loadSavedLines: async () => {
+        set({ savedLinesLoading: true, savedLinesError: null })
+        try {
+          const res = await api.listSavedLines()
+          set({
+            savedLines: res.items,
+            savedMessageIds: new Set(res.items.map((l) => l.message_id)),
+            freeSaveCount: res.total_count,
+            freeTierLimit: res.free_tier_limit,
+            savedLinesLoading: false,
+          })
+        } catch (err) {
+          set({
+            savedLinesError: err instanceof Error ? err : new Error('Load failed'),
+            savedLinesLoading: false,
+          })
+        }
+      },
+      optimisticSave: (messageId) =>
+        set((s) => ({
+          savedMessageIds: new Set([...s.savedMessageIds, messageId]),
+          freeSaveCount: s.freeSaveCount + 1,
+        })),
+      revertSave: (messageId) =>
+        set((s) => {
+          const next = new Set(s.savedMessageIds)
+          next.delete(messageId)
+          return { savedMessageIds: next, freeSaveCount: Math.max(0, s.freeSaveCount - 1) }
+        }),
+      removeAfterDelete: (savedLineId, messageId) =>
+        set((s) => {
+          const next = new Set(s.savedMessageIds)
+          next.delete(messageId)
+          return {
+            savedLines: s.savedLines.filter((l) => l.id !== savedLineId),
+            savedMessageIds: next,
+            freeSaveCount: Math.max(0, s.freeSaveCount - 1),
+          }
+        }),
     }),
     {
       name: 'philosopher-store',

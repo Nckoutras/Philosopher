@@ -4,7 +4,9 @@ import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useStore } from '@/lib/store'
 import { useStream } from '@/lib/useStream'
-import { api } from '@/lib/api'
+import { api, SaveLimitError, DuplicateSaveError } from '@/lib/api'
+import toast from 'react-hot-toast'
+import { renderSavedToast } from '@/components/chat/savedToast'
 import ChatHeader from '@/components/chat/ChatHeader'
 import OpeningInvocation from '@/components/chat/OpeningInvocation'
 import MessageList from '@/components/chat/MessageList'
@@ -33,6 +35,7 @@ export default function ChatPage() {
   const showPaywall = useStore((s) => s.showPaywall)
   const paywallDetails = useStore((s) => s.paywallDetails)
   const clearPaywall = useStore((s) => s.clearPaywall)
+  const loadSavedLines = useStore((s) => s.loadSavedLines)
 
   const [createError, setCreateError] = useState<string | null>(null)
   const { send } = useStream()
@@ -77,6 +80,7 @@ export default function ChatPage() {
           personaFull?.portrait_url ?? '',
           conv.persona.opening_invocation,
         )
+        await loadSavedLines()
       } catch (err) {
         if (cancelled) return
         setCreateError(err instanceof Error ? err.message : 'Could not start conversation')
@@ -88,7 +92,7 @@ export default function ChatPage() {
     return () => {
       cancelled = true
     }
-  }, [params.slug, token, router, setActiveConversation])
+  }, [params.slug, token, router, setActiveConversation, loadSavedLines])
 
   // Clear conversation state on unmount
   useEffect(() => {
@@ -96,6 +100,36 @@ export default function ChatPage() {
       clearActiveConversation()
     }
   }, [clearActiveConversation])
+
+  async function handleSaveLine(messageId: string) {
+    const state = useStore.getState()
+    const isAtLimit =
+      state.plan === 'free' &&
+      state.freeTierLimit !== null &&
+      state.freeSaveCount >= state.freeTierLimit
+    if (isAtLimit) return
+
+    state.optimisticSave(messageId)
+    renderSavedToast()
+
+    try {
+      await api.createSavedLine(messageId)
+    } catch (err) {
+      if (err instanceof SaveLimitError) {
+        useStore.getState().revertSave(messageId)
+        useStore.getState().setShowPaywall(true, { upgradeTarget: 'pro', resetAt: new Date(), limit: 3 })
+      } else if (err instanceof DuplicateSaveError) {
+        // 409: silent no-op — optimistic state is correct
+      } else {
+        useStore.getState().revertSave(messageId)
+        toast.error('Could not save. Try again.')
+      }
+    }
+  }
+
+  function handleUpgradeConfirm() {
+    useStore.getState().setShowPaywall(true, { upgradeTarget: 'pro', resetAt: new Date(), limit: 3 })
+  }
 
   const isReady = activeConversationId !== null && activePersonaSlug === params.slug
 
@@ -126,7 +160,11 @@ export default function ChatPage() {
       <ChatHeader personaName={personaName} portraitUrl={portraitUrl} />
       <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3">
         {openingInvocation && <OpeningInvocation text={openingInvocation} />}
-        <MessageList messages={messages} />
+        <MessageList
+          messages={messages}
+          onSaveLine={handleSaveLine}
+          onUpgradeConfirm={handleUpgradeConfirm}
+        />
         {safetyActive ? (
           <>
             <SafetyBubble />

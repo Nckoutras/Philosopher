@@ -17,7 +17,7 @@ const TABS = [
     icon: BookOpen,
     href: '/app/reflections',
     activePattern: /^\/app\/reflections/,
-    exists: false,
+    exists: true,
   },
   {
     label: 'Library',

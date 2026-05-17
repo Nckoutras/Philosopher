@@ -1,0 +1,159 @@
+'use client'
+
+import { useEffect, useState, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
+import { differenceInCalendarDays } from 'date-fns'
+import { useStore } from '@/lib/store'
+import { api } from '@/lib/api'
+import type { SavedLineRead } from '@/lib/api'
+import SavedLineCard from '@/components/reflections/SavedLineCard'
+import DateGrouper from '@/components/reflections/DateGrouper'
+import FilterPills, { type FilterOption } from '@/components/reflections/FilterPills'
+import EmptyReflections from '@/components/reflections/EmptyReflections'
+
+function groupLabel(savedAt: string): 'This week' | 'Earlier' | 'Last month' {
+  const days = differenceInCalendarDays(new Date(), new Date(savedAt))
+  if (days <= 6) return 'This week'
+  if (days <= 29) return 'Earlier'
+  return 'Last month'
+}
+
+function groupItems(items: SavedLineRead[]): Array<{ label: string; items: SavedLineRead[] }> {
+  const groups: Record<string, SavedLineRead[]> = {}
+  const order: string[] = []
+  for (const item of items) {
+    const label = groupLabel(item.saved_at)
+    if (!groups[label]) {
+      groups[label] = []
+      order.push(label)
+    }
+    groups[label].push(item)
+  }
+  return order.map((label) => ({ label, items: groups[label] }))
+}
+
+export default function ReflectionsPage() {
+  const router = useRouter()
+  const token = useStore((s) => s.token)
+  const savedLines = useStore((s) => s.savedLines)
+  const loading = useStore((s) => s.savedLinesLoading)
+  const error = useStore((s) => s.savedLinesError)
+  const loadSavedLines = useStore((s) => s.loadSavedLines)
+
+  const [activeFilter, setActiveFilter] = useState<FilterOption>('all')
+  const [selectedPersonaSlug, setSelectedPersonaSlug] = useState<string | null>(null)
+  const [portraitBySlug, setPortraitBySlug] = useState<Record<string, string>>({})
+
+  const load = useCallback(async () => {
+    const [, personas] = await Promise.all([loadSavedLines(), api.getPersonas()])
+    const map = personas.reduce<Record<string, string>>((acc, p) => {
+      acc[p.slug] = p.portrait_url
+      return acc
+    }, {})
+    setPortraitBySlug(map)
+  }, [loadSavedLines])
+
+  useEffect(() => {
+    if (token === null) {
+      router.replace('/auth')
+      return
+    }
+    load()
+  }, [token, router, load])
+
+  const uniquePersonas = Array.from(
+    new Map(
+      savedLines.map((l) => [
+        l.persona_slug,
+        { slug: l.persona_slug, display_name: l.persona_display_name },
+      ]),
+    ).values(),
+  )
+
+  const filtered =
+    activeFilter === 'by-mind' && selectedPersonaSlug
+      ? savedLines.filter((l) => l.persona_slug === selectedPersonaSlug)
+      : savedLines
+
+  const grouped = groupItems(filtered)
+
+  function handleFilterChange(filter: FilterOption, personaSlug?: string) {
+    setActiveFilter(filter)
+    if (filter === 'by-mind' && personaSlug) {
+      setSelectedPersonaSlug(personaSlug)
+    } else if (filter !== 'by-mind') {
+      setSelectedPersonaSlug(null)
+    }
+  }
+
+  if (loading) {
+    return (
+      <main className="min-h-screen [min-height:100svh] flex items-center justify-center bg-vellum">
+        <p className="font-lora text-[13px] text-sepia italic">Loading…</p>
+      </main>
+    )
+  }
+
+  return (
+    <main className="min-h-screen [min-height:100svh] flex flex-col bg-vellum">
+      <header className="px-[24px] pt-[22px] pb-[16px]">
+        <p className="font-lora text-[11px] uppercase tracking-[0.18em] text-sepia mb-1">
+          Reflections
+        </p>
+        <h1 className="font-cormorant text-[26px] font-normal text-ink leading-tight">
+          Your saved lines.
+        </h1>
+      </header>
+
+      {error ? (
+        <div className="px-[16px]">
+          <p className="font-lora text-[13px] text-sepia mb-3">Could not load reflections.</p>
+          <button
+            type="button"
+            onClick={() => load()}
+            className="font-lora text-[13px] text-sepia underline"
+          >
+            Try again
+          </button>
+        </div>
+      ) : (
+        <>
+          {savedLines.length > 0 && (
+            <FilterPills
+              active={activeFilter}
+              personas={uniquePersonas}
+              selectedPersonaSlug={selectedPersonaSlug}
+              onChange={handleFilterChange}
+            />
+          )}
+          {savedLines.length === 0 ? (
+            <EmptyReflections
+              onStartConversation={() => router.push('/app/explore')}
+            />
+          ) : (
+            <div className="flex-1 overflow-y-auto px-[16px] pb-[80px]">
+              {grouped.map(({ label, items }) => (
+                <div key={label}>
+                  <DateGrouper label={label} />
+                  {items.map((item) => (
+                    <div key={item.id} className="mb-[8px]">
+                      <SavedLineCard
+                        item={item}
+                        portraitUrl={portraitBySlug[item.persona_slug] ?? ''}
+                        onClick={() =>
+                          router.push(
+                            `/conversations/${item.conversation_id}?messageId=${item.message_id}`,
+                          )
+                        }
+                      />
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+    </main>
+  )
+}

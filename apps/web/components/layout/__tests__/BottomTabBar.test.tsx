@@ -61,10 +61,11 @@ describe('BottomTabBar', () => {
     expect(mockPush).not.toHaveBeenCalled()
   })
 
-  it('shows Coming soon toast when Reflections tab tapped', () => {
+  it('navigates to /app/reflections when Reflections tab tapped', () => {
     render(<BottomTabBar />)
     fireEvent.click(screen.getByLabelText('Reflections'))
-    expect(toast).toHaveBeenCalledWith('Coming soon', expect.any(Object))
+    expect(mockPush).toHaveBeenCalledWith('/app/reflections')
+    expect(toast).not.toHaveBeenCalled()
   })
 
   it('shows Coming soon toast when Account tab tapped', () => {

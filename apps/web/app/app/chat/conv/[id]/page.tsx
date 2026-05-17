@@ -4,7 +4,9 @@ import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useStore } from '@/lib/store'
 import { useStream } from '@/lib/useStream'
-import { api } from '@/lib/api'
+import { api, SaveLimitError, DuplicateSaveError } from '@/lib/api'
+import toast from 'react-hot-toast'
+import { renderSavedToast } from '@/components/chat/savedToast'
 import ChatHeader from '@/components/chat/ChatHeader'
 import MessageList from '@/components/chat/MessageList'
 import StreamingBubble from '@/components/chat/StreamingBubble'
@@ -33,6 +35,7 @@ export default function ExistingConversationPage() {
   const clearPaywall = useStore((s) => s.clearPaywall)
   const setSafetyActive = useStore((s) => s.setSafetyActive)
   const setStreamError = useStore((s) => s.setStreamError)
+  const loadSavedLines = useStore((s) => s.loadSavedLines)
 
   const [loadError, setLoadError] = useState<string | null>(null)
   const { send } = useStream()
@@ -86,6 +89,7 @@ export default function ExistingConversationPage() {
           null, // existing conversation: no opening invocation
         )
         setMessages(msgs)
+        await loadSavedLines()
       } catch (err) {
         if (cancelled) return
         setLoadError(err instanceof Error ? err.message : 'Could not load conversation')
@@ -97,7 +101,7 @@ export default function ExistingConversationPage() {
     return () => {
       cancelled = true
     }
-  }, [params.id, token, router, activeConversationId, setActiveConversation, setMessages, setSafetyActive, setStreamError])
+  }, [params.id, token, router, activeConversationId, setActiveConversation, setMessages, setSafetyActive, setStreamError, loadSavedLines])
 
   // Clear conversation state on unmount
   useEffect(() => {
@@ -105,6 +109,36 @@ export default function ExistingConversationPage() {
       clearActiveConversation()
     }
   }, [clearActiveConversation])
+
+  async function handleSaveLine(messageId: string) {
+    const state = useStore.getState()
+    const isAtLimit =
+      state.plan === 'free' &&
+      state.freeTierLimit !== null &&
+      state.freeSaveCount >= state.freeTierLimit
+    if (isAtLimit) return
+
+    state.optimisticSave(messageId)
+    renderSavedToast()
+
+    try {
+      await api.createSavedLine(messageId)
+    } catch (err) {
+      if (err instanceof SaveLimitError) {
+        useStore.getState().revertSave(messageId)
+        useStore.getState().setShowPaywall(true, { upgradeTarget: 'pro', resetAt: new Date(), limit: 3 })
+      } else if (err instanceof DuplicateSaveError) {
+        // 409: silent no-op — optimistic state is correct
+      } else {
+        useStore.getState().revertSave(messageId)
+        toast.error('Could not save. Try again.')
+      }
+    }
+  }
+
+  function handleUpgradeConfirm() {
+    useStore.getState().setShowPaywall(true, { upgradeTarget: 'pro', resetAt: new Date(), limit: 3 })
+  }
 
   const isReady = activeConversationId === params.id
 
@@ -134,7 +168,11 @@ export default function ExistingConversationPage() {
     <main className="min-h-screen [min-height:100svh] flex flex-col bg-paper">
       <ChatHeader personaName={personaName} portraitUrl={portraitUrl} />
       <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3">
-        <MessageList messages={messages} />
+        <MessageList
+          messages={messages}
+          onSaveLine={handleSaveLine}
+          onUpgradeConfirm={handleUpgradeConfirm}
+        />
         {safetyActive ? (
           <>
             <SafetyBubble />
