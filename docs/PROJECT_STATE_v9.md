@@ -2,11 +2,11 @@
 
 > **What this file is:** Live snapshot of the project's current implementation status. Manually maintained.
 >
-> **v9 = v8 baseline (2026-05-13/14) + 2026-05-16 session delta (Block C backend shipped; C-RECON reconciliation series completed; PATH B deleted; single canonical send-message endpoint confirmed).**
+> **v9 = v8 baseline (2026-05-13/14) + 2026-05-16 session delta (Block C backend shipped; C-RECON reconciliation series completed; PATH B deleted; single canonical send-message endpoint confirmed) + 2026-05-16/17 session delta (Block C frontend complete; C5a/b/c/d merged; C3a RAG infrastructure merged; migration 008 deployed and verified live).**
 >
 > **Generated:** 2026-05-16 (post-reconciliation)
 >
-> **Last updated:** 2026-05-16 (v9 consolidation — Block C backend 8/8 complete; C-RECON-2 through C-RECON-8 merged; all features now live in PATH A SSE streaming endpoint; PATH B fully deleted)
+> **Last updated:** 2026-05-17 (Block C frontend 4/4 complete; C3a RAG infrastructure live; migration 008 `008_hnsw_vector_indexes` applied; 292 total backend tests; CLAUDE.md Rule 5 violation log inaugurated; C3b corpus ingestion complete — 2476 chunks across 7 personas; `retrieval_service` now live)
 
 > **v9 conflict resolution rule:** Where v9 conflicts with v8, v9 wins. Production reality always wins over docs.
 
@@ -29,7 +29,7 @@
 | Database | PostgreSQL 17 (Supabase, eu-west-1, paid) |
 | Queue/Cache | Redis (Upstash) + ARQ + APScheduler |
 | LLM | Anthropic Claude — **now wired and live for chat (Block C backend complete)** |
-| Embeddings | OpenAI text-embedding-3-small (schema + client wired; corpus NOT yet ingested) |
+| Embeddings | OpenAI text-embedding-3-small (schema + client wired; corpus ingested 2026-05-17 — 2476 chunks via C3b) |
 | Auth | Passwordless OTP via Resend; JWT issuance with cookie + localStorage |
 | Billing | Stripe (scaffolded, NOT wired) |
 | Email | Resend (free tier, test sender — custom domain in progress) |
@@ -49,7 +49,7 @@
 ## 2. Production status
 
 - Live URL: **https://thinkalike.netlify.app** (canonical)
-- Last production deploy: **2026-05-16 (C-RECON-8 — PATH B deletion, PR #60)**
+- Last production deploy: **2026-05-17** — C3a RAG infrastructure (migration 008 + scripts) merged + verified via Supabase MCP. C3b ingestion run executed via Render shell same day; `source_chunks` populated with 2476 entries across 7 personas.
 - **Has paying users:** No
 - **Has free trial users:** No
 
@@ -63,7 +63,7 @@ Unchanged from v8. Visual closure still pending consolidated polish PR. See v8 �
 
 ### Block C — Chat backend: COMPLETE 2026-05-16 (8/8 backend items)
 
-All backend infrastructure for chat is live. **Frontend UI (C5) is the only remaining Block C item.** The backend is ready for the frontend to consume.
+All backend infrastructure for chat is live. **Block C frontend is also complete (C5a/b/c/d merged 2026-05-16/17). RAG infrastructure (C3a) is live (migration 008). C3b corpus ingestion operational run is pending (founder action).**
 
 | Item | PR | Status |
 |---|---|---|
@@ -78,7 +78,7 @@ All backend infrastructure for chat is live. **Frontend UI (C5) is the only rema
 | C-RECON-7 — Memory extraction wiring in PATH A | #59 | ✅ live |
 | C-RECON-8 — PATH B deletion | #60 | ✅ live |
 
-**Remaining Block C item:** C3 (RAG corpus ingestion) + C5 (Chat UI frontend). Both are unstarted. C5 is the next P0 work surface.
+**All Block C items complete.** C3b COMPLETE (2026-05-17) — 2476 chunks ingested across 7 personas. C5 and C3a also complete.
 
 ### Other systems
 
@@ -114,8 +114,9 @@ See v8 §3 for full table and affinity weight signatures.
 | 005 | personas.bio + personas.portrait_url | 2026-05-13 | #42 |
 | 006 | 3 new personas + Jung bio/portrait update | 2026-05-13 | #43 + #44 hotfix |
 | **007** | **Block C schema: conversations.deleted_at, messages.model_used, daily_usage table** | **2026-05-16** | **#50** |
+| **008** | **HNSW vector indexes + source_chunks.chunk_index column** | **2026-05-17** | **C3a** |
 
-**alembic_version = `007_block_c_schema`** (as of 2026-05-16 session end)
+**alembic_version = `008_hnsw_vector_indexes`** (as of 2026-05-17 session end)
 
 ### New tables added in migration 007
 
@@ -139,18 +140,55 @@ messages.model_used        VARCHAR, nullable
                             Records "claude-haiku-4-5-20251001" or "claude-sonnet-4-6"
 ```
 
-### Live database state (2026-05-16 session end)
+### New columns added in migration 008
 
 ```
-alembic_version:        007_block_c_schema ✓
+source_chunks.chunk_index  INTEGER, nullable
+                            Disambiguation index for auto-chunked documents
+                            NULL for legacy/curated chunks (e.g. curated_chunks.py entries)
+                            Used in UNIQUE PARTIAL index for idempotent ingestion
+```
+
+### New indexes added in migration 008
+
+```
+ix_source_chunks_embedding_hnsw_cosine      HNSW on source_chunks.embedding
+                                             (m=16, ef_construction=64, vector_cosine_ops)
+                                             Verified live via Supabase MCP 2026-05-17
+
+ix_memory_entries_embedding_hnsw_cosine     HNSW on memory_entries.embedding
+                                             (m=16, ef_construction=64, vector_cosine_ops)
+                                             Verified live via Supabase MCP 2026-05-17
+
+uq_source_chunks_persona_title_chunk        UNIQUE PARTIAL on (persona_id, source_title, chunk_index)
+                                             WHERE chunk_index IS NOT NULL
+                                             Prevents duplicate auto-ingested chunks on re-run
+```
+
+pgvector version verified: **0.8.0** (HNSW supported from 0.5.0+; confirmed before merge).
+
+### Live database state (2026-05-17 session end)
+
+```
+alembic_version:        008_hnsw_vector_indexes ✓ (verified via Supabase MCP)
 users count:            2 (founder, freetester)
 personas count:         9 (all active, all with bio + portrait + error_messages)
-conversations:          50 (from prior engine sessions + today's testing)
-messages:               139 (from prior engine sessions + today's testing)
-daily_usage rows:       populated during today's test runs
+conversations:          50+ (from prior engine sessions + testing)
+messages:               139+ (from prior engine sessions + testing)
+daily_usage rows:       populated during test runs
 safety_events:          populated (safety pipeline active since Phase 4)
 memory_entries:         wiring active (extract_memory_task queued after each response)
                         not yet accumulating with real users; 0 organic entries
+source_chunks:          2476 chunks ingested across 7 personas (C3b complete 2026-05-17):
+                        socrates: 1021 chunks (Apology + Crito + Phaedo + Republic)
+                        sigmund_freud: 477 chunks (Dreams + Psychopathology)
+                        oscar_wilde: 352 chunks (Dorian Gray + Earnest + De Profundis)
+                        marcus_aurelius: 231 chunks (212 Long 1862 + 19 curated)
+                        epictetus: 216 chunks (Discourses + Enchiridion)
+                        niccolo_machiavelli: 146 chunks (The Prince)
+                        lao_tzu: 33 chunks (Tao Te Ching)
+                        carl_jung: 0 chunks (excluded per Decision #7)
+                        simone_de_beauvoir: 0 chunks (excluded per Decision #7)
 ```
 
 ### Table population status
@@ -338,18 +376,56 @@ The Pre-Work Investigation Protocol (CLAUDE.md, added during reconciliation) cau
 
 ---
 
-## 11. Session metrics (2026-05-16)
+## 11. Session metrics
+
+### 2026-05-16 session
 
 | Metric | Value |
 |---|---|
 | Test count progression | 146 (start of C1) → 275 (peak with PATH B tests) → **229 (final after C-RECON-8)** |
 | Tests removed (PATH B) | 46 (37 from test_messages.py + 9 from test_llm_service.py) |
-| Schema version | 007_block_c_schema (no migrations after C1) |
-| PRs merged today | 10 (C1, C2, C4, C8, CLAUDE.md, C-RECON-3 through C-RECON-8) |
+| Schema version | 007_block_c_schema |
+| PRs merged | 10 (C1, C2, C4, C8, CLAUDE.md, C-RECON-3 through C-RECON-8) |
 | Total PRs in repo | ~60 |
 | Architectural decisions locked | 10 |
 | Tech debt items captured | 8 (see IMPLEMENTATION_BACKLOG_v9.md) |
 | Database state | 50 conversations, 139 messages, 9/9 personas with error messages, memory wiring active |
+
+### 2026-05-16/17 session (C5d + C3a)
+
+| Metric | Value |
+|---|---|
+| Backend test count | 229 → **292** (63 new C3a tests) |
+| Frontend test count | **43 total** (13 new in C5d; prior C5a/b/c tests included) |
+| Schema version | **008_hnsw_vector_indexes** (migration 008 deployed and verified via Supabase MCP) |
+| C5d PR | #65 — 1128 lines, 13 files |
+| C3a PRs | d1a7942 (HNSW + ingestion script) + f78d0f3 (curated chunks recovery) |
+| CLAUDE.md Rule 5 violation | `apps/api/db/ingest_sources.py` (408 lines) silently deleted; reconciled via Path C recovery commit f78d0f3 |
+| Source chunks loaded | 2476 chunks across 7 personas (C3b complete 2026-05-17); see §2 / §4 for per-persona breakdown |
+
+### 2026-05-17 session metrics
+
+**PRs merged (3)**:
+- C5d — Conversation list (F6) + existing conversation route + tab bar. 13 files, +1128 lines, 13 new frontend tests.
+- C3a — RAG infrastructure (HNSW indexes + ingestion script + curated chunks recovery). 14 files, +1615 / -409 lines, 63 new backend tests. Includes CLAUDE.md Rule 5 reconciliation commit `f78d0f3`.
+- docs sync #1 — v9 docs updated to reflect C5a–d and C3a (commit `53b4f5c` on branch `docs/sync-after-c5d-c3a`).
+
+**Production operational events (1)**:
+- C3b — Corpus ingestion executed via Render shell. 2476 chunks ingested across 7 personas. Zero errors. Idempotency verified. ~$0.025 OpenAI cost. `retrieval_service` now live.
+
+**Test count evolution**:
+- Backend: 229 → 292 (+63 from C3a + recovery)
+- Frontend: 30 → 43 (+13 from C5d)
+- Total repo: 259 → 335
+
+**Cumulative since v9 baseline (2026-05-16)**:
+- 13 PRs merged (10 backend recon on 2026-05-16 + 3 today)
+- Block C frontend: 0% → 100% complete
+- RAG infrastructure: schema-only → fully populated production corpus
+- 1 CLAUDE.md Rule 5 violation caught, surfaced, reconciled (Path C)
+
+**Cross-AI doc audit pattern adopted (2026-05-17)**:
+ChatGPT audit of v9 docs after first docs sync surfaced 8 stale references that Claude (chat) missed during approval. Pattern: after any significant doc change, run cross-AI audit before treating docs as authoritative. ChatGPT's audit + Claude's verification = belt-and-braces.
 
 ---
 
@@ -363,8 +439,34 @@ See v8 §6 for BUG-001 through BUG-009. All still open; none regressed by today'
 
 | ID | Description | Severity | Notes |
 |---|---|---|---|
-| BUG-010 | Persona-voiced error messages reachable via SSE `type:error` event but frontend renders nothing — UI not yet built | 🟡 Backend complete; UI pending | Resolves when C5 ships |
+| BUG-010 | Persona-voiced error messages — ~~UI not yet built~~ CLOSED | 🟢 CLOSED 2026-05-17 | Implemented in C5b (`ErrorMessage.tsx`). `useStream.tsx` propagates `persona_voice`. Pending real-device smoke test. |
 | BUG-011 | `safety_events.message_id` always NULL | 🟢 Polish | Safety events log correctly; FK not wired. Minor cleanup. |
+
+### BUG-010 — CLOSED (2026-05-17)
+
+Previously: "Persona-voiced error messages reachable via SSE `type:error` event but frontend renders nothing — UI not yet built. Resolves when C5 ships."
+
+Resolution: Persona-voiced SSE error rendering implemented in C5b (`components/chat/ErrorMessage.tsx`). `useStream.tsx` now propagates `persona_voice` field on error events (was RF-01 in C5a investigation — fixed). Verification pending: confirm during real-device production smoke test that `type:error` with `llm_unavailable` correctly displays persona-voiced copy and is not persisted to message history.
+
+---
+
+### C5 verification status (2026-05-17)
+
+Implementation complete (C5a–d merged), Netlify deployed, frontend tests passing (43). Real-device production smoke test: **NOT YET PERFORMED**.
+
+Required smoke checks before treating as fully validated:
+- [ ] Create new conversation from persona detail (B5/B6)
+- [ ] Send first message and receive complete SSE stream
+- [ ] Receive `done` event with model_used + token counts
+- [ ] Reopen existing conversation from F6 list
+- [ ] Verify 429 paywall modal triggers at 5th message
+- [ ] Verify safety response rendering (C7 spec)
+- [ ] Verify persona-voiced LLM error rendering (BUG-010 verification)
+- [ ] Verify no duplicate conversation created per message
+- [ ] Verify auto-title appears (~5s after first message — async)
+- [ ] Real iOS Safari walkthrough (not desktop Chrome)
+
+Regression risk: medium until verified on real device. Block B's mobile-only findings (BUG-001–009) caution against trusting desktop verification alone.
 
 ---
 
@@ -415,7 +517,8 @@ Unchanged from v8. See v8 §8.
 - `services/tier_service.py` — get_user_tier() reads Subscription table
 - `services/llm_client.py` — streaming Anthropic client (PATH A's LLM layer; preserved)
 - `workers/arq_worker.py` — ARQ tasks: generate_conversation_title, extract_memory_task
-- `db/migrations/versions/` — alembic migrations (001-007)
+- `db/migrations/versions/` — alembic migrations 001–008
+- `db/migrations/versions/008_hnsw_vector_indexes.py` — drops IVFFlat, adds `chunk_index INTEGER`, adds partial unique index, creates HNSW indexes on `source_chunks.embedding` and `memory_entries.embedding`
 
 **Deleted in C-RECON-8:**
 - ~~`routers/messages.py`~~ — PATH B endpoint (deleted PR #60)
@@ -435,13 +538,34 @@ Unchanged from v8. See v8 §12.
 
 ---
 
+## 16b. CLAUDE.md violations log
+
+This section records instances where the Pre-Work Investigation Protocol (CLAUDE.md) was violated during implementation sessions. Maintained to make patterns visible to future sessions.
+
+### 2026-05-17 — Silent deletion of `apps/api/db/ingest_sources.py` (408 lines) during C3a
+
+**Violation**: During C3a implementation, Claude Code silently deleted a pre-existing 408-line ingestion script instead of surfacing it for founder reconciliation. This violated CLAUDE.md Rule 5: "default is NOT 'delete the duplicate' — surface and wait for founder reconciliation decision."
+
+**Discovery**: Founder requested verification of CLAUDE.md compliance via `git show 25db918:apps/api/db/ingest_sources.py`. The deleted file contained 19 hand-curated Marcus Aurelius chunks (Long 1862 PD, with Book.Chapter page refs), 2 Stanford Encyclopedia commentary chunks (copyright violation), 4 Beauvoir summaries (excluded per Decision #7), and an `ingest()` runner (superseded by new pipeline).
+
+**Reconciliation**: Path C selected — accept PR with explicit violation acknowledgment AND recovery commit. The 19 Marcus Aurelius chunks were restored as `apps/api/scripts/curated_chunks.py` with Strategy A disambiguation (`source_title = "Meditations (curated)"` vs auto-chunked `"Meditations"`). PR description (commit `f78d0f3`) explicitly documents the violation.
+
+**Lessons**:
+1. Investigation Step 2 of every brief MUST include a grep for existing similar code (`grep -r "ingest\|chunk\|embed\|corpus" apps/api/`).
+2. Findings must be reported in PR description BEFORE implementation.
+3. If parallel implementations exist, STOP and surface — never silently delete.
+4. Founder briefs may contain factual errors (e.g., the original brief said "20 chunks" but the file actually had 19). Claude Code should verify against source files, not trust briefs blindly. Claude Code correctly caught this mistake during C3a recovery work — good discipline that should be repeated.
+
+---
+
 ## 17. Open / Closed items
 
 ### Open items (P0 launch blockers)
 
-- [ ] **C5 — Chat UI frontend** — THE next P0 after this doc is committed. API ready.
+- [x] **C5 — Chat UI frontend** — COMPLETE (C5a/b/c/d merged 2026-05-16/17)
+- [x] **C3a — RAG infrastructure** — COMPLETE (migration 008, HNSW indexes, ingestion scripts, 2026-05-17)
+- [x] **C3b — Corpus ingestion operational run** — COMPLETE (2026-05-17). 2476 chunks ingested across 7 personas. `retrieval_service` now live.
 - [ ] **Consolidated polish PR** (blocks Block B visual closure) — 9 mobile walkthrough findings
-- [ ] **C3 — RAG corpus ingestion** — copyright allowlist defined (see backlog); pgvector schema ready
 - [ ] **Lawyer review of legal templates** — P0 launch blocker
 - [ ] **Resend domain verification** for `thegreatminds.app`
 - [ ] **DNS configuration** for `thegreatminds.app`
@@ -453,7 +577,7 @@ Unchanged from v8. See v8 §12.
 
 ### Open items (P1)
 
-- [ ] **HNSW vector indexes** on `source_chunks.embedding` and `memory_entries.embedding` (same PR as C3 corpus ingestion)
+- [x] **HNSW vector indexes** on `source_chunks.embedding` and `memory_entries.embedding` — DONE in C3a (migration 008, 2026-05-17)
 - [ ] **Wire generate_insight_task** when memory_entries starts accumulating (currently task exists but not triggered)
 - [ ] **A6+A7 disclaimer endpoint integration tests** (shipped without tests for speed)
 - [ ] **Render API plan upgrade** (~$7/mo to eliminate cold-start)
@@ -470,8 +594,12 @@ Unchanged from v8. See v8 §12.
 - [ ] **Extract Lao Tzu / Wilde / Machiavelli to YAML** in `apps/api/philosopher_brain/`
 - [ ] **Document Render alembic auto-run mechanism** — currently undocumented
 
-### Closed items (2026-05-16)
+### Closed items (2026-05-16/17)
 
+- [x] **CLOSED 2026-05-17** — **Block C frontend 4/4 complete** (C5a/b/c/d all merged). Chat UI live.
+- [x] **CLOSED 2026-05-17** — **C3a RAG infrastructure** — migration 008 deployed and verified live via Supabase MCP. HNSW indexes on source_chunks + memory_entries. Ingestion pipeline committed to `apps/api/scripts/`.
+- [x] **CLOSED 2026-05-17** — **C3b corpus ingestion operational run** — 2476 chunks ingested across 7 personas via `scripts.ingest_corpus`. `retrieval_service` now live.
+- [x] **CLOSED 2026-05-17** — **CLAUDE.md Rule 5 violation reconciled** — ingest_sources.py deletion; 19 Marcus Aurelius curated chunks recovered in commit f78d0f3.
 - [x] **CLOSED 2026-05-16** — **Block C backend 8/8 complete.** Single canonical SSE streaming endpoint with all features. PATH B fully deleted.
 - [x] **CLOSED 2026-05-16** — **10 architectural decisions locked** (LLM routing, RAG, streaming, memory window, rate limits, safety, copyright, pricing draft, ritual exemption, admin bypass placement)
 - [x] **CLOSED 2026-05-16** — **C-RECON-2 through C-RECON-8** — 7 reconciliation PRs merged; all PATH A features complete
@@ -484,4 +612,4 @@ See v8 §9 "Closed items" section for full list.
 
 ---
 
-**End of PROJECT_STATE v9.** Authoritative as of 2026-05-16 session close. Supersedes `PROJECT_STATE_v8.md` (preserved as historical reference).
+**End of PROJECT_STATE v9.** Authoritative as of 2026-05-17. Supersedes `PROJECT_STATE_v8.md` (preserved as historical reference).
