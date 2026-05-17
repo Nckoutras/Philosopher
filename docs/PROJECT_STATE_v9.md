@@ -6,7 +6,7 @@
 >
 > **Generated:** 2026-05-16 (post-reconciliation)
 >
-> **Last updated:** 2026-05-17 (Block C frontend 4/4 complete; C3a RAG infrastructure live; migration 008 `008_hnsw_vector_indexes` applied; 292 total backend tests; CLAUDE.md Rule 5 violation log inaugurated)
+> **Last updated:** 2026-05-17 (Block C frontend 4/4 complete; C3a RAG infrastructure live; migration 008 `008_hnsw_vector_indexes` applied; 292 total backend tests; CLAUDE.md Rule 5 violation log inaugurated; C3b corpus ingestion complete — 2476 chunks across 7 personas; `retrieval_service` now live)
 
 > **v9 conflict resolution rule:** Where v9 conflicts with v8, v9 wins. Production reality always wins over docs.
 
@@ -29,7 +29,7 @@
 | Database | PostgreSQL 17 (Supabase, eu-west-1, paid) |
 | Queue/Cache | Redis (Upstash) + ARQ + APScheduler |
 | LLM | Anthropic Claude — **now wired and live for chat (Block C backend complete)** |
-| Embeddings | OpenAI text-embedding-3-small (schema + client wired; corpus NOT yet ingested) |
+| Embeddings | OpenAI text-embedding-3-small (schema + client wired; corpus ingested 2026-05-17 — 2476 chunks via C3b) |
 | Auth | Passwordless OTP via Resend; JWT issuance with cookie + localStorage |
 | Billing | Stripe (scaffolded, NOT wired) |
 | Email | Resend (free tier, test sender — custom domain in progress) |
@@ -49,7 +49,7 @@
 ## 2. Production status
 
 - Live URL: **https://thinkalike.netlify.app** (canonical)
-- Last production deploy: **2026-05-16 (C-RECON-8 — PATH B deletion, PR #60)**
+- Last production deploy: **2026-05-17** — C3a RAG infrastructure (migration 008 + scripts) merged + verified via Supabase MCP. C3b ingestion run executed via Render shell same day; `source_chunks` populated with 2476 entries across 7 personas.
 - **Has paying users:** No
 - **Has free trial users:** No
 
@@ -78,7 +78,7 @@ All backend infrastructure for chat is live. **Block C frontend is also complete
 | C-RECON-7 — Memory extraction wiring in PATH A | #59 | ✅ live |
 | C-RECON-8 — PATH B deletion | #60 | ✅ live |
 
-**Remaining Block C items:** C3b (corpus ingestion operational run — READY, pending founder execution via Render shell). C5 and C3a are complete.
+**All Block C items complete.** C3b COMPLETE (2026-05-17) — 2476 chunks ingested across 7 personas. C5 and C3a also complete.
 
 ### Other systems
 
@@ -179,8 +179,16 @@ daily_usage rows:       populated during test runs
 safety_events:          populated (safety pipeline active since Phase 4)
 memory_entries:         wiring active (extract_memory_task queued after each response)
                         not yet accumulating with real users; 0 organic entries
-source_chunks:          19 curated Marcus Aurelius chunks (from curated_chunks.py)
-                        0 auto-ingested corpus chunks (C3b operational run pending)
+source_chunks:          2476 chunks ingested across 7 personas (C3b complete 2026-05-17):
+                        socrates: 1021 chunks (Apology + Crito + Phaedo + Republic)
+                        sigmund_freud: 477 chunks (Dreams + Psychopathology)
+                        oscar_wilde: 352 chunks (Dorian Gray + Earnest + De Profundis)
+                        marcus_aurelius: 231 chunks (212 Long 1862 + 19 curated)
+                        epictetus: 216 chunks (Discourses + Enchiridion)
+                        niccolo_machiavelli: 146 chunks (The Prince)
+                        lao_tzu: 33 chunks (Tao Te Ching)
+                        carl_jung: 0 chunks (excluded per Decision #7)
+                        simone_de_beauvoir: 0 chunks (excluded per Decision #7)
 ```
 
 ### Table population status
@@ -393,7 +401,31 @@ The Pre-Work Investigation Protocol (CLAUDE.md, added during reconciliation) cau
 | C5d PR | #65 — 1128 lines, 13 files |
 | C3a PRs | d1a7942 (HNSW + ingestion script) + f78d0f3 (curated chunks recovery) |
 | CLAUDE.md Rule 5 violation | `apps/api/db/ingest_sources.py` (408 lines) silently deleted; reconciled via Path C recovery commit f78d0f3 |
-| Source chunks loaded | 19 curated Marcus Aurelius chunks; 0 auto-ingested (C3b pending) |
+| Source chunks loaded | 2476 chunks across 7 personas (C3b complete 2026-05-17); see §2 / §4 for per-persona breakdown |
+
+### 2026-05-17 session metrics
+
+**PRs merged (3)**:
+- C5d — Conversation list (F6) + existing conversation route + tab bar. 13 files, +1128 lines, 13 new frontend tests.
+- C3a — RAG infrastructure (HNSW indexes + ingestion script + curated chunks recovery). 14 files, +1615 / -409 lines, 63 new backend tests. Includes CLAUDE.md Rule 5 reconciliation commit `f78d0f3`.
+- docs sync #1 — v9 docs updated to reflect C5a–d and C3a (commit `53b4f5c` on branch `docs/sync-after-c5d-c3a`).
+
+**Production operational events (1)**:
+- C3b — Corpus ingestion executed via Render shell. 2476 chunks ingested across 7 personas. Zero errors. Idempotency verified. ~$0.025 OpenAI cost. `retrieval_service` now live.
+
+**Test count evolution**:
+- Backend: 229 → 292 (+63 from C3a + recovery)
+- Frontend: 30 → 43 (+13 from C5d)
+- Total repo: 259 → 335
+
+**Cumulative since v9 baseline (2026-05-16)**:
+- 13 PRs merged (10 backend recon on 2026-05-16 + 3 today)
+- Block C frontend: 0% → 100% complete
+- RAG infrastructure: schema-only → fully populated production corpus
+- 1 CLAUDE.md Rule 5 violation caught, surfaced, reconciled (Path C)
+
+**Cross-AI doc audit pattern adopted (2026-05-17)**:
+ChatGPT audit of v9 docs after first docs sync surfaced 8 stale references that Claude (chat) missed during approval. Pattern: after any significant doc change, run cross-AI audit before treating docs as authoritative. ChatGPT's audit + Claude's verification = belt-and-braces.
 
 ---
 
@@ -407,8 +439,34 @@ See v8 §6 for BUG-001 through BUG-009. All still open; none regressed by today'
 
 | ID | Description | Severity | Notes |
 |---|---|---|---|
-| BUG-010 | Persona-voiced error messages reachable via SSE `type:error` event but frontend renders nothing — UI not yet built | 🟡 Backend complete; UI pending | Resolves when C5 ships |
+| BUG-010 | Persona-voiced error messages — ~~UI not yet built~~ CLOSED | 🟢 CLOSED 2026-05-17 | Implemented in C5b (`ErrorMessage.tsx`). `useStream.tsx` propagates `persona_voice`. Pending real-device smoke test. |
 | BUG-011 | `safety_events.message_id` always NULL | 🟢 Polish | Safety events log correctly; FK not wired. Minor cleanup. |
+
+### BUG-010 — CLOSED (2026-05-17)
+
+Previously: "Persona-voiced error messages reachable via SSE `type:error` event but frontend renders nothing — UI not yet built. Resolves when C5 ships."
+
+Resolution: Persona-voiced SSE error rendering implemented in C5b (`components/chat/ErrorMessage.tsx`). `useStream.tsx` now propagates `persona_voice` field on error events (was RF-01 in C5a investigation — fixed). Verification pending: confirm during real-device production smoke test that `type:error` with `llm_unavailable` correctly displays persona-voiced copy and is not persisted to message history.
+
+---
+
+### C5 verification status (2026-05-17)
+
+Implementation complete (C5a–d merged), Netlify deployed, frontend tests passing (43). Real-device production smoke test: **NOT YET PERFORMED**.
+
+Required smoke checks before treating as fully validated:
+- [ ] Create new conversation from persona detail (B5/B6)
+- [ ] Send first message and receive complete SSE stream
+- [ ] Receive `done` event with model_used + token counts
+- [ ] Reopen existing conversation from F6 list
+- [ ] Verify 429 paywall modal triggers at 5th message
+- [ ] Verify safety response rendering (C7 spec)
+- [ ] Verify persona-voiced LLM error rendering (BUG-010 verification)
+- [ ] Verify no duplicate conversation created per message
+- [ ] Verify auto-title appears (~5s after first message — async)
+- [ ] Real iOS Safari walkthrough (not desktop Chrome)
+
+Regression risk: medium until verified on real device. Block B's mobile-only findings (BUG-001–009) caution against trusting desktop verification alone.
 
 ---
 
@@ -459,7 +517,8 @@ Unchanged from v8. See v8 §8.
 - `services/tier_service.py` — get_user_tier() reads Subscription table
 - `services/llm_client.py` — streaming Anthropic client (PATH A's LLM layer; preserved)
 - `workers/arq_worker.py` — ARQ tasks: generate_conversation_title, extract_memory_task
-- `db/migrations/versions/` — alembic migrations (001-007)
+- `db/migrations/versions/` — alembic migrations 001–008
+- `db/migrations/versions/008_hnsw_vector_indexes.py` — drops IVFFlat, adds `chunk_index INTEGER`, adds partial unique index, creates HNSW indexes on `source_chunks.embedding` and `memory_entries.embedding`
 
 **Deleted in C-RECON-8:**
 - ~~`routers/messages.py`~~ — PATH B endpoint (deleted PR #60)
@@ -505,7 +564,7 @@ This section records instances where the Pre-Work Investigation Protocol (CLAUDE
 
 - [x] **C5 — Chat UI frontend** — COMPLETE (C5a/b/c/d merged 2026-05-16/17)
 - [x] **C3a — RAG infrastructure** — COMPLETE (migration 008, HNSW indexes, ingestion scripts, 2026-05-17)
-- [ ] **C3b — Corpus ingestion operational run** — READY; founder runs `python -m apps.api.scripts.ingest_corpus` via Render shell; see HANDOFF_BRIEF runbook
+- [x] **C3b — Corpus ingestion operational run** — COMPLETE (2026-05-17). 2476 chunks ingested across 7 personas. `retrieval_service` now live.
 - [ ] **Consolidated polish PR** (blocks Block B visual closure) — 9 mobile walkthrough findings
 - [ ] **Lawyer review of legal templates** — P0 launch blocker
 - [ ] **Resend domain verification** for `thegreatminds.app`
@@ -539,6 +598,7 @@ This section records instances where the Pre-Work Investigation Protocol (CLAUDE
 
 - [x] **CLOSED 2026-05-17** — **Block C frontend 4/4 complete** (C5a/b/c/d all merged). Chat UI live.
 - [x] **CLOSED 2026-05-17** — **C3a RAG infrastructure** — migration 008 deployed and verified live via Supabase MCP. HNSW indexes on source_chunks + memory_entries. Ingestion pipeline committed to `apps/api/scripts/`.
+- [x] **CLOSED 2026-05-17** — **C3b corpus ingestion operational run** — 2476 chunks ingested across 7 personas via `scripts.ingest_corpus`. `retrieval_service` now live.
 - [x] **CLOSED 2026-05-17** — **CLAUDE.md Rule 5 violation reconciled** — ingest_sources.py deletion; 19 Marcus Aurelius curated chunks recovered in commit f78d0f3.
 - [x] **CLOSED 2026-05-16** — **Block C backend 8/8 complete.** Single canonical SSE streaming endpoint with all features. PATH B fully deleted.
 - [x] **CLOSED 2026-05-16** — **10 architectural decisions locked** (LLM routing, RAG, streaming, memory window, rate limits, safety, copyright, pricing draft, ritual exemption, admin bypass placement)

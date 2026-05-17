@@ -8,7 +8,7 @@
 
 **Block trigger for v9 baseline regen:** Block C backend complete (8/8 items shipped or reconciled). Single canonical send-message endpoint confirmed. PATH B fully deleted. Per §8.17 (addendum vs baseline regen rule): Block C backend closure is a sufficient regen trigger.
 
-**Status:** Block A ✅ FULLY CLOSED (5/5). Block B ✅ SPINE SHIPPED (6/6 functional, polish PR pending). Block C backend ✅ COMPLETE (all features live in PATH A SSE streaming endpoint; PATH B deleted). Block C frontend ✅ COMPLETE (C5a/b/c/d all merged 2026-05-16/17). C3a RAG infrastructure ✅ COMPLETE (migration 008 live). **Next: C3b corpus ingestion operational run (founder action via Render shell).**
+**Status:** Block A ✅ FULLY CLOSED (5/5). Block B ✅ SPINE SHIPPED (6/6 functional, polish PR pending). Block C backend ✅ COMPLETE (all features live in PATH A SSE streaming endpoint; PATH B deleted). Block C frontend ✅ COMPLETE (C5a/b/c/d all merged 2026-05-16/17). C3a RAG infrastructure ✅ COMPLETE (migration 008 live). **C3b corpus ingestion: COMPLETE (2026-05-17). 2476 chunks ingested across 7 personas. `retrieval_service` now live.**
 
 > **v9 conflict resolution rule:** Where v9 conflicts with v8 or earlier, v9 wins. Production reality always wins over docs.
 
@@ -266,9 +266,9 @@ Current production: regex input check + regex output check. The third layer (LLM
 
 `workers/arq_worker.py` defines `generate_insight_task`. It is NOT enqueued anywhere in the current streaming path. `extract_memory_task` IS wired (dispatched after each response), but insight generation from accumulated memory entries is a separate downstream step that is still disconnected. Will matter once real users accumulate memory entries.
 
-### 4.5 RAG corpus — schema ready, corpus not ingested
+### 4.5 RAG corpus — live (C3b complete 2026-05-17)
 
-The pgvector infrastructure (table `source_chunks`, `vector(1536)` column, `retrieval_service.py`) is live. `retrieval_service.retrieve()` is called in the streaming path. However, no corpus has been ingested yet, so it returns empty results on every call (fail-open — the stream continues with no retrieval context). The copyright-cleared source list is defined in IMPLEMENTATION_BACKLOG_v9.md C3 spec.
+The pgvector infrastructure (table `source_chunks`, `vector(1536)` column, `retrieval_service.py`) is live. `retrieval_service.retrieve()` is now functional. C3b corpus ingestion was executed 2026-05-17 via Render shell: 2476 chunks ingested across 7 personas. `retrieval_service.retrieve()` transitions from fail-open to live retrieval. The copyright-cleared source list is defined in IMPLEMENTATION_BACKLOG_v9.md C3 spec.
 
 ### 4.6 ANTHROPIC_MODEL constant is orphaned
 
@@ -286,11 +286,8 @@ Alembic runs `upgrade head` on Render container startup. The exact mechanism (Pr
 
 1. ~~**C5 — Chat UI frontend**~~ **DONE** (C5a/b/c/d merged 2026-05-16/17)
 
-2. **C3b — Corpus ingestion operational run** (P0, immediate — founder action)
-   - Verify `OPENAI_API_KEY` set in Render env (Render dashboard → service `srv-d7ijct6gvqtc739a0pdg` → Environment)
-   - Run via Render shell: `python -m apps.api.scripts.ingest_corpus`
-   - Verify via Supabase SQL: `SELECT persona_id, source_title, COUNT(*) FROM source_chunks GROUP BY 1, 2 ORDER BY 1, 2`
-   - Cost: <$0.02. Duration: 2-5 minutes. See §14b for full runbook.
+2. ~~**C3b — Corpus ingestion operational run**~~ **COMPLETE (2026-05-17)**
+   - 2476 chunks ingested across 7 personas. `retrieval_service` is live. See §14b for historical runbook.
 
 3. **Block B consolidated polish PR** (P0 — blocked on DNS/Resend confirmation)
    - 9 mobile walkthrough findings (see v8 §6 BUG-001 through BUG-009)
@@ -306,9 +303,9 @@ Alembic runs `upgrade head` on Render container startup. The exact mechanism (Pr
 
 ---
 
-## 6. C5 — Chat UI spec requirements
+## 6. C5 — Implemented Chat UI behavior / verification checklist
 
-These requirements were established during the 2026-05-16 session. They are the source of truth for the C5 frontend brief.
+These requirements were implemented across C5a/b/c/d (merged 2026-05-16/17). Use this section for smoke testing and regression checks, NOT as a new build brief. The list reflects production behavior; deviation indicates a regression.
 
 ### API integration
 
@@ -418,7 +415,7 @@ NEXT_PUBLIC_SUPPORT_EMAIL       nckoutras@gmail.com (placeholder)
 - `services/tier_service.py` — `get_user_tier(db, user_id)`. Returns `"free"` or `"pro"`. Reads `subscriptions` table.
 - `services/llm_client.py` — `llm_client.stream()`. Native Anthropic streaming client. PATH A's LLM layer.
 - `services/safety_service.py` — 2-layer safety (regex input + output). Phase 4 infrastructure.
-- `services/retrieval_service.py` — pgvector retrieval. Called on every message. Returns empty if corpus not ingested.
+- `services/retrieval_service.py` — pgvector retrieval. Called on every message. Now returns live results (C3b complete 2026-05-17; was fail-open before corpus ingestion).
 - `services/memory_service.py` — memory recall. Feeds into context; also writes via ARQ.
 - `services/prompt_builder.py` — system prompt assembly.
 - `workers/arq_worker.py` — ARQ task definitions: `generate_conversation_title`, `extract_memory_task`. Note: `generate_insight_task` defined but NOT triggered.
@@ -449,11 +446,21 @@ NEXT_PUBLIC_SUPPORT_EMAIL       nckoutras@gmail.com (placeholder)
 
 ### Frontend (apps/web/)
 
-Unchanged from v8. See v8 §11 (specifically `lib/api.ts`, `lib/store.ts`, `app/app/` routes). C5 will add:
+Block C frontend complete (C5a/b/c/d all merged 2026-05-16/17).
 
-- `app/app/conversation/[id]/page.tsx` — chat screen (to be created)
-- `lib/api.ts` — add `sendMessage(convId, content)` streaming method
-- New components: message bubble, SSE parser hook, retry affordance
+Key files (added/updated in C5a–d):
+- `app/app/chat/[slug]/page.tsx` — new conversation creation route
+- `app/app/chat/conv/[id]/page.tsx` — existing conversation route
+- `app/app/(tabs)/library/page.tsx` — F6 conversation list
+- `app/app/(tabs)/layout.tsx` — bottom tab bar wrapper
+- `components/chat/` — full chat surface (ChatHeader, MessageBubble, MessageList, OpeningInvocation, StreamingBubble, ErrorMessage, ChatInput, PaywallModal, SafetyBubble, SafetyReEntryCard)
+- `components/library/` — ConversationCard, ConversationList, EmptyConversationHistory
+- `components/layout/BottomTabBar.tsx`
+- `lib/api.ts` — SSE types, RateLimitError, conversation CRUD
+- `lib/useStream.tsx` — SSE parser + store updates
+- `lib/store.ts` — Zustand state with conversations cache
+
+43 frontend tests (vitest).
 
 ---
 
@@ -510,7 +517,7 @@ Updated from v8 §16.
 **Block A — Authentication** ✅ FULLY CLOSED 5/5
 **Block B — Onboarding spine** ✅ SHIPPED 6/6 (polish PR pending visual closure)
 **Block C — Chat backend** ✅ COMPLETE (PATH A has all features)
-**Block C remaining** ⏳ C5 (UI) + C3 (RAG corpus) — both unstarted
+**Block C** ✅ FULLY COMPLETE — C5 (C5a/b/c/d merged 2026-05-16/17), C3a (migration 008 live 2026-05-17), C3b (2476 chunks ingested 2026-05-17). All Block C items closed.
 **Phase 5 — Register architecture + UI chips** ⏳ P3 post-feedback
 **Phase 6 — Eval suite + CI** ⏳ P1 post-revenue
 
@@ -551,7 +558,7 @@ Updated from v8 §20.
 
 ✅ Chat UI (C5)           COMPLETE — C5a/b/c/d merged 2026-05-16/17
 ✅ RAG infrastructure     COMPLETE — migration 008 live; HNSW indexes verified; 19 curated MA chunks loaded
-⏳ RAG corpus (C3b)      Operational run READY — founder executes via Render shell; see §14b runbook
+✅ RAG corpus (C3b)      COMPLETE (2026-05-17) — 2476 chunks ingested across 7 personas; `retrieval_service` live
 ❌ Stripe                 Not wired — paused pending $14.99 landing page validation
 🟡 DNS / thegreatminds.app IN PROGRESS
 ```
@@ -610,22 +617,24 @@ Render dashboard → service `srv-d7ijct6gvqtc739a0pdg` → Environment tab. Con
 
 Render dashboard → service → Shell tab. Working directory: `/opt/render/project/src`.
 
+> **IMPORTANT**: The Render container has a flat structure — the repository's `apps/api/` contents are mounted at `/app/`. Therefore the correct module path inside the container is `scripts.ingest_corpus`, NOT `apps.api.scripts.ingest_corpus`. The shorter path also works locally if you `cd apps/api && python -m scripts.ingest_corpus`.
+
 ### Step 3 — Validate URLs without DB writes (recommended first run)
 
 ```bash
-python -m apps.api.scripts.ingest_corpus --dry-run
+python -m scripts.ingest_corpus --dry-run
 ```
 
 ### Step 4 — (Optional) Incremental test on one persona
 
 ```bash
-python -m apps.api.scripts.ingest_corpus --persona marcus_aurelius
+python -m scripts.ingest_corpus --persona marcus_aurelius
 ```
 
 ### Step 5 — Full ingestion
 
 ```bash
-python -m apps.api.scripts.ingest_corpus
+python -m scripts.ingest_corpus
 ```
 
 Expected duration: 2-5 minutes. Expected cost: <$0.02 (OpenAI `text-embedding-3-small`).
@@ -644,6 +653,13 @@ ORDER BY 1, 2;
 - Other 6 personas (Socrates, Lao Tzu, Machiavelli, Wilde, Epictetus, Freud): M auto-chunked chunks each
 - Jung and Beauvoir: zero chunks (excluded per Decision #7)
 - `retrieval_service.py` becomes functional automatically (currently fail-open; returns empty results)
+
+### C3b safety notes
+
+- Always run `--dry-run` first to validate URLs without API cost or DB writes
+- Re-running is safe for auto-chunked sources: partial unique index `uq_source_chunks_persona_title_chunk` enforces idempotency on `(persona_id, source_title, chunk_index)`
+- If ingestion partially fails (e.g., one source 404s mid-run), verify `SELECT source_title, COUNT(*) FROM source_chunks GROUP BY source_title` before retrying — the retry will fill gaps without duplicating
+- Curated chunks are re-embedded on every full run (TD-C3b-02 — minor cost waste; deferred optimization)
 
 ---
 
@@ -692,7 +708,7 @@ v9 baseline regen triggered by Block C backend closure. Next baseline regen shou
 
 1. Confirm Plan A still active (default: yes)
 2. Verify DNS + Resend domain setup status
-3. **C3b corpus ingestion run** — founder executes via Render shell (see §14b runbook); not a coding task
+3. ~~**C3b corpus ingestion run**~~ — **COMPLETE (2026-05-17)**. 2476 chunks ingested across 7 personas.
 4. **Block B consolidated polish PR** — 9 mobile walkthrough findings; blocked on DNS/Resend
 5. **Landing page waitlist test** — founder builds, ~2 hours, 10 days data
 

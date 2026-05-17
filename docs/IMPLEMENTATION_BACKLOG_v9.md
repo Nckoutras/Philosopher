@@ -11,7 +11,7 @@
 > - Historical Block C detail removed (complete); replaced with remaining C3 + C5 items.
 > - Status, priority, and launch-readiness calls reflect 2026-05-17 state.
 >
-> **Last updated:** 2026-05-17. **Block C frontend 4/4 complete (C5a/b/c/d merged). C3a RAG infrastructure live (migration 008). C3b corpus ingestion READY (operational run pending).**
+> **Last updated:** 2026-05-17. **Block C frontend 4/4 complete (C5a/b/c/d merged). C3a RAG infrastructure live (migration 008). C3b corpus ingestion COMPLETE (2476 chunks ingested 2026-05-17). `retrieval_service` now live.**
 >
 > **Companion documents:**
 > - `PROJECT_STATE_v9.md` — current project state (replaces v8)
@@ -81,7 +81,7 @@
 - ✅ Pre-Work Investigation Protocol (CLAUDE.md) in repo
 - ✅ **Block C frontend — 4/4 complete** (C5a/b/c/d all merged, 2026-05-16/17)
 - ✅ **C3a — RAG infrastructure** (migration 008 applied, HNSW indexes live, 2026-05-17)
-- ⏳ **C3b — Corpus ingestion operational run** (READY; operational, not coding; see HANDOFF_BRIEF runbook)
+- ✅ **C3b — Corpus ingestion operational run** — COMPLETE (2026-05-17). 2476 chunks ingested across 7 personas.
 - ⏳ **Consolidated polish PR** (blocks Block B visual closure)
 - ⏳ Stripe wiring (calendar gate passed; paused pending $14.99 landing page validation)
 - ⏳ DNS + Resend domain verification for `thegreatminds.app`
@@ -100,7 +100,7 @@
 Priority order under Plan A (confirmed active 2026-05-10):
 
 1. ~~**C5 — Chat UI frontend**~~ **DONE** (C5a/b/c/d merged 2026-05-16/17)
-2. **C3b — Corpus ingestion operational run** (P0, immediate) — run `python -m apps.api.scripts.ingest_corpus` via Render shell; <$0.02 OpenAI cost. See HANDOFF_BRIEF runbook.
+2. ~~**C3b — Corpus ingestion operational run**~~ **COMPLETE (2026-05-17).** 2476 chunks ingested across 7 personas.
 3. **Block B consolidated polish PR** (P0 — blocked on DNS/Resend confirmation)
 4. **Landing page waitlist test** (founder-owned, ~2 hours build, 10-day data window) — validates $14.99 price before Stripe wiring
 5. **Stripe wiring + Block H** (P0, paused pending landing page signal)
@@ -155,13 +155,13 @@ On subsequent messages in the same conversation: only call step 2.
 
 ### B. Block C remaining — C3 (RAG corpus ingestion)
 
-Status: 🟡 in progress — C3a complete (RAG infrastructure live, migration 008 deployed, 2026-05-17); C3b READY (operational run pending, founder action)
+Status: 🟢 done — C3a complete (RAG infrastructure live, migration 008 deployed, 2026-05-17); C3b COMPLETE (2476 chunks ingested 2026-05-17)
 
 **C3a — done (2026-05-17):** Migration 008 deployed HNSW indexes on `source_chunks.embedding` + `memory_entries.embedding`. Ingestion pipeline scripts live (`chunking.py`, `corpus_sources.py`, `curated_chunks.py`, `ingest_corpus.py`). pgvector version verified: 0.8.0 (HNSW supported from 0.5.0+). 19 Marcus Aurelius curated chunks in `curated_chunks.py`.
 
-**C3b — operational run (next immediate step):** Run `python -m apps.api.scripts.ingest_corpus` via Render shell. Requires `OPENAI_API_KEY` set in Render env. Cost: <$0.02. See HANDOFF_BRIEF runbook section. `retrieval_service.py` remains fail-open until corpus is populated.
+**C3b — COMPLETE (2026-05-17):** 2476 chunks ingested via `python -m scripts.ingest_corpus` (correct Render container module path). `OPENAI_API_KEY` was set in Render env. Cost: ~$0.025. See HANDOFF_BRIEF §14b for historical runbook.
 
-The pgvector infrastructure is live (`source_chunks` table, `vector(1536)`, `retrieval_service.py`). No auto-ingested corpus has been loaded yet. `retrieval_service.retrieve()` returns empty results on every call (fail-open).
+The pgvector infrastructure is live (`source_chunks` table, `vector(1536)`, `retrieval_service.py`). `retrieval_service.retrieve()` now returns live retrieval results.
 
 **Copyright allowlist (approved sources):**
 
@@ -355,7 +355,7 @@ PATH B (now deleted) had a different pattern (1s, 2s, 4s). The current PATH A be
 
 `generate_insight_task` is defined in `arq_worker.py` but is never enqueued. `extract_memory_task` IS wired (dispatched from `stream_response` after each message). Insights are a downstream step that synthesizes accumulated memory entries.
 
-This gap only matters once real users accumulate memory entries. Wire the trigger when `memory_entries` starts growing organically (after C5 ships and users begin conversing). The trigger logic should fire periodically (e.g., every N memory entries for a user), not after every message.
+generate_insight_task — orphan task. Has no real surface until organic memory entries accumulate (requires real users having multi-turn conversations over time). C5 frontend has shipped (2026-05-17) but production traffic is zero until launch. Defer surfacing/wiring until a tester user has accumulated ≥10 memory entries with sufficient recurring themes for an insight to be meaningful.
 
 ## TD-06 — safety_events.message_id always NULL
 
@@ -483,7 +483,7 @@ Status: 🟢 done (C5a/b/c/d merged 2026-05-16/17). See §2.1A for spec referenc
 ### C3 — RAG corpus ingestion
 
 - **C3a** — 🟢 done (2026-05-17). HNSW indexes live, ingestion pipeline deployed. See §2.1B.
-- **C3b** — READY (operational run). Run `python -m apps.api.scripts.ingest_corpus` via Render shell. Copyright allowlist defined. See HANDOFF_BRIEF runbook.
+- **C3b** — COMPLETE (2026-05-17). 2476 chunks ingested via `python -m scripts.ingest_corpus`. Copyright allowlist in §2.1B. `retrieval_service` now live.
 
 ## 9.2 Block D — Discovery (D1, D2, D3)
 
@@ -546,7 +546,7 @@ See `HANDOFF_BRIEF_v9.md` §13.3 for full rationale.
 
 - [x] **C5 — Chat UI frontend** — COMPLETE (C5a/b/c/d merged 2026-05-16/17)
 - [x] **C3a — RAG infrastructure** — COMPLETE (migration 008, HNSW indexes, ingestion scripts, 2026-05-17)
-- [ ] **C3b — Corpus ingestion operational run** — READY; founder runs `python -m apps.api.scripts.ingest_corpus` via Render shell; <$0.02 OpenAI cost
+- [x] **C3b — Corpus ingestion operational run** — COMPLETE (2026-05-17). 2476 chunks ingested across 7 personas.
 - [ ] **Consolidated polish PR** — visually closes Block B
 - [ ] **Landing page waitlist test** — $14.99 validation (founder builds, ~2h, 10-day data window)
 - [ ] **Lawyer review** of Terms / Privacy / disclaimer
