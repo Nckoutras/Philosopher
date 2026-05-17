@@ -63,6 +63,14 @@ interface AppStore {
   paywallDetails: PaywallDetails | null
   setShowPaywall: (show: boolean, details?: PaywallDetails | null) => void
   clearPaywall: () => void
+
+  // Conversations list cache
+  conversations: Conversation[]
+  conversationsLoading: boolean
+  conversationsError: Error | null
+  setConversations: (list: Conversation[]) => void
+  setConversationsLoading: (v: boolean) => void
+  setConversationsError: (err: Error | null) => void
 }
 
 export const useStore = create<AppStore>()(
@@ -140,6 +148,13 @@ export const useStore = create<AppStore>()(
       setShowPaywall: (show, details) =>
         set({ showPaywall: show, paywallDetails: details ?? null }),
       clearPaywall: () => set({ showPaywall: false, paywallDetails: null }),
+
+      conversations: [],
+      conversationsLoading: false,
+      conversationsError: null,
+      setConversations: (list) => set({ conversations: list }),
+      setConversationsLoading: (v) => set({ conversationsLoading: v }),
+      setConversationsError: (err) => set({ conversationsError: err }),
     }),
     {
       name: 'philosopher-store',

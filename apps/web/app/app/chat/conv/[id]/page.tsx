@@ -1,0 +1,162 @@
+'use client'
+
+import { useEffect, useState } from 'react'
+import { useParams, useRouter } from 'next/navigation'
+import { useStore } from '@/lib/store'
+import { useStream } from '@/lib/useStream'
+import { api } from '@/lib/api'
+import ChatHeader from '@/components/chat/ChatHeader'
+import MessageList from '@/components/chat/MessageList'
+import StreamingBubble from '@/components/chat/StreamingBubble'
+import ErrorMessage from '@/components/chat/ErrorMessage'
+import SafetyBubble from '@/components/chat/SafetyBubble'
+import SafetyReEntryCard from '@/components/chat/SafetyReEntryCard'
+import PaywallModal from '@/components/chat/PaywallModal'
+import ChatInput from '@/components/chat/ChatInput'
+
+export default function ExistingConversationPage() {
+  const params = useParams<{ id: string }>()
+  const router = useRouter()
+
+  const token = useStore((s) => s.token)
+  const messages = useStore((s) => s.messages)
+  const streamingContent = useStore((s) => s.streamingContent)
+  const activeConversationId = useStore((s) => s.activeConversationId)
+  const personaName = useStore((s) => s.activePersonaName) ?? ''
+  const portraitUrl = useStore((s) => s.activePersonaPortraitUrl) ?? ''
+  const safetyActive = useStore((s) => s.safetyActive)
+  const showPaywall = useStore((s) => s.showPaywall)
+  const paywallDetails = useStore((s) => s.paywallDetails)
+  const setActiveConversation = useStore((s) => s.setActiveConversation)
+  const setMessages = useStore((s) => s.setMessages)
+  const clearActiveConversation = useStore((s) => s.clearActiveConversation)
+  const clearPaywall = useStore((s) => s.clearPaywall)
+  const setSafetyActive = useStore((s) => s.setSafetyActive)
+  const setStreamError = useStore((s) => s.setStreamError)
+
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const { send } = useStream()
+
+  // Auto-scroll to last message whenever messages or streaming content changes
+  useEffect(() => {
+    const sentinel = document.getElementById('chat-scroll-sentinel')
+    sentinel?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages, streamingContent])
+
+  // Load existing conversation on mount
+  useEffect(() => {
+    if (token === null) {
+      router.replace('/auth')
+      return
+    }
+
+    // Already loaded this conversation
+    if (activeConversationId === params.id) return
+
+    let cancelled = false
+    setLoadError(null)
+    // Clear stale safety/error state
+    setSafetyActive(false)
+    setStreamError(null)
+
+    async function init() {
+      try {
+        // Fetch all data in parallel: conversation list (for metadata), full personas (for portrait_url), messages
+        const [convs, personas, msgs] = await Promise.all([
+          api.getConversations(),
+          api.getPersonas(),
+          api.getMessages(params.id),
+        ])
+        if (cancelled) return
+
+        const conv = convs.find((c) => c.id === params.id)
+        if (!conv) {
+          setLoadError('Conversation not found')
+          return
+        }
+
+        const personaFull = personas.find((p) => p.slug === conv.persona.slug)
+
+        // setActiveConversation clears messages — call it first, then setMessages
+        setActiveConversation(
+          conv.id,
+          conv.persona.slug,
+          conv.persona.name,
+          personaFull?.portrait_url ?? '',
+          null, // existing conversation: no opening invocation
+        )
+        setMessages(msgs)
+      } catch (err) {
+        if (cancelled) return
+        setLoadError(err instanceof Error ? err.message : 'Could not load conversation')
+      }
+    }
+
+    init()
+
+    return () => {
+      cancelled = true
+    }
+  }, [params.id, token, router, activeConversationId, setActiveConversation, setMessages, setSafetyActive, setStreamError])
+
+  // Clear conversation state on unmount
+  useEffect(() => {
+    return () => {
+      clearActiveConversation()
+    }
+  }, [clearActiveConversation])
+
+  const isReady = activeConversationId === params.id
+
+  if (loadError) {
+    return (
+      <main className="min-h-screen [min-height:100svh] flex flex-col items-center justify-center bg-vellum px-7 text-center">
+        <p className="font-lora text-[13px] text-safety mb-3">{loadError}</p>
+        <button
+          onClick={() => router.push('/app/library')}
+          className="font-lora text-[13px] text-sepia underline"
+        >
+          Back to conversations
+        </button>
+      </main>
+    )
+  }
+
+  if (!isReady) {
+    return (
+      <main className="min-h-screen [min-height:100svh] flex items-center justify-center bg-vellum">
+        <p className="font-lora text-[13px] text-sepia italic">Loading…</p>
+      </main>
+    )
+  }
+
+  return (
+    <main className="min-h-screen [min-height:100svh] flex flex-col bg-paper">
+      <ChatHeader personaName={personaName} portraitUrl={portraitUrl} />
+      <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3">
+        <MessageList messages={messages} />
+        {safetyActive ? (
+          <>
+            <SafetyBubble />
+            <SafetyReEntryCard />
+          </>
+        ) : (
+          <>
+            <StreamingBubble />
+            <ErrorMessage send={send} />
+          </>
+        )}
+        <div id="chat-scroll-sentinel" />
+      </div>
+      <ChatInput
+        send={send}
+        placeholder={safetyActive ? 'Write when you\'re ready…' : undefined}
+      />
+      <PaywallModal
+        open={showPaywall}
+        details={paywallDetails}
+        onClose={clearPaywall}
+      />
+    </main>
+  )
+}
