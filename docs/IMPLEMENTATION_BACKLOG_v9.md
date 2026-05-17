@@ -1,7 +1,7 @@
 # GREAT MINDS — Implementation Backlog v9
 
 > **Purpose:** Source of truth for implementation work for Great Minds / Philosopher v1 launch.
-> **v9 = v8 baseline (2026-05-13/14) + 2026-05-16 session delta (Block C backend complete; C-RECON reconciliation series complete; PATH B deleted; 10 architectural decisions locked; 8 tech debt items captured).**
+> **v9 = v8 baseline (2026-05-13/14) + 2026-05-16 session delta (Block C backend complete; C-RECON reconciliation series complete; PATH B deleted; 10 architectural decisions locked; 8 tech debt items captured) + 2026-05-16/17 session delta (Block C frontend complete; C5a/b/c/d all merged; C3a RAG infrastructure merged; migration 008 deployed).**
 >
 > **Generated:** 2026-05-16 (post-reconciliation)
 >
@@ -9,9 +9,9 @@
 > - This v9 file supersedes v8 and all prior backlog files.
 > - Where v9 conflicts with v8, v9 wins.
 > - Historical Block C detail removed (complete); replaced with remaining C3 + C5 items.
-> - Status, priority, and launch-readiness calls reflect 2026-05-16 state.
+> - Status, priority, and launch-readiness calls reflect 2026-05-17 state.
 >
-> **Last updated:** 2026-05-16. **Block C backend 8/8 complete.** C5 (Chat UI) is the next P0 work surface.
+> **Last updated:** 2026-05-17. **Block C frontend 4/4 complete (C5a/b/c/d merged). C3a RAG infrastructure live (migration 008). C3b corpus ingestion READY (operational run pending).**
 >
 > **Companion documents:**
 > - `PROJECT_STATE_v9.md` — current project state (replaces v8)
@@ -53,6 +53,20 @@
 - gh CLI installation on founder's Windows machine
 - Document Render alembic auto-run mechanism
 
+### What changed from v9 baseline (2026-05-16/17 session)
+
+**Block C frontend — 4/4 complete (C5a, C5b, C5c, C5d all merged):**
+- C5b (#63): Chat screen v1 with polished error rendering
+- C5c (#64): 429 paywall modal + safety mode UI per C7 spec
+- C5d (#65): Conversation list (F6) + existing conv route + tab bar — 1128 lines, 13 files, 13 new frontend tests (43 total frontend tests)
+
+**C3a — RAG infrastructure (merged to main, 2026-05-17):**
+- Migration 008 (`008_hnsw_vector_indexes`): HNSW indexes on `source_chunks.embedding` + `memory_entries.embedding`; `chunk_index INTEGER nullable` added to `source_chunks`
+- New scripts: `chunking.py`, `corpus_sources.py`, `curated_chunks.py`, `ingest_corpus.py` (one-shot CLI with `--dry-run` and `--persona` flags; not an ARQ task)
+- UNIQUE PARTIAL index `uq_source_chunks_persona_title_chunk` on `(persona_id, source_title, chunk_index) WHERE chunk_index IS NOT NULL`
+- 14 files, 1615 insertions, 409 deletions, 63 new backend tests (292 total backend tests)
+- CLAUDE.md Rule 5 violation discovered and reconciled: `apps/api/db/ingest_sources.py` (408 lines) silently deleted during C3a; 19 Marcus Aurelius curated chunks recovered as `apps/api/scripts/curated_chunks.py` in commit `f78d0f3`. See PROJECT_STATE_v9.md §"CLAUDE.md violations log".
+
 ### Current source-of-truth status
 
 - ✅ Phase 4 stabilization sequence: 8/8 ship items closed
@@ -62,11 +76,12 @@
 - ✅ **Block B — Onboarding: 6/6 functional spine shipped** (visual closure pending polish PR)
 - ✅ **Block C backend — 8/8 complete** (PATH A canonical, PATH B deleted)
 - ✅ 9 personas live with full Section 5.7 character config + bio + portrait + error messages
-- ✅ Alembic plumbing; migrations 001-007 applied
+- ✅ Alembic plumbing; migrations 001-008 applied
 - ✅ Legal pages templates live — ⚠️ lawyer review pending
 - ✅ Pre-Work Investigation Protocol (CLAUDE.md) in repo
-- ⏳ **C5 — Chat UI frontend** (next P0)
-- ⏳ **C3 — RAG corpus ingestion** (follows C5)
+- ✅ **Block C frontend — 4/4 complete** (C5a/b/c/d all merged, 2026-05-16/17)
+- ✅ **C3a — RAG infrastructure** (migration 008 applied, HNSW indexes live, 2026-05-17)
+- ⏳ **C3b — Corpus ingestion operational run** (READY; operational, not coding; see HANDOFF_BRIEF runbook)
 - ⏳ **Consolidated polish PR** (blocks Block B visual closure)
 - ⏳ Stripe wiring (calendar gate passed; paused pending $14.99 landing page validation)
 - ⏳ DNS + Resend domain verification for `thegreatminds.app`
@@ -80,25 +95,25 @@
 
 # 1. Current Launch Interpretation
 
-**Block C backend is complete.** The API is ready for chat. The only thing preventing users from using the product is the absence of the chat UI (C5).
+**Block C backend is complete and Block C frontend is complete.** The Chat UI (C5a/b/c/d) is live and the RAG infrastructure (C3a, migration 008) is deployed. The next immediate steps are C3b (corpus ingestion operational run) and the consolidated polish PR.
 
 Priority order under Plan A (confirmed active 2026-05-10):
 
-1. **C5 — Chat UI frontend** (P0, immediate) — the chat screen, SSE streaming, message list, input box, error rendering, rate-limit paywall. See §C5 below.
-2. **Block B consolidated polish PR** (P0 — may run parallel with C5)
-3. **C3 — RAG corpus ingestion** (P0, follows C5) — copyright-cleared sources only; HNSW indexes in same PR
+1. ~~**C5 — Chat UI frontend**~~ **DONE** (C5a/b/c/d merged 2026-05-16/17)
+2. **C3b — Corpus ingestion operational run** (P0, immediate) — run `python -m apps.api.scripts.ingest_corpus` via Render shell; <$0.02 OpenAI cost. See HANDOFF_BRIEF runbook.
+3. **Block B consolidated polish PR** (P0 — blocked on DNS/Resend confirmation)
 4. **Landing page waitlist test** (founder-owned, ~2 hours build, 10-day data window) — validates $14.99 price before Stripe wiring
 5. **Stripe wiring + Block H** (P0, paused pending landing page signal)
-6. **Remaining 28 UI line-items** (Blocks D, F, H, I, J — after Block C + polish PR)
+6. **Remaining 28 UI line-items** (Blocks D, F, H, I, J — after polish PR)
 7. **Lawyer review of legal templates** (P0 launch blocker — parallel with UI work)
 8. **DNS + Resend domain verification** (IN PROGRESS — manual/config)
 9. **GDPR / DPA infrastructure** (when Block C UI ships publicly)
 10. **Founder runbooks** (refund, account recovery, GDPR, cancellation, safety escalation)
-11. **Production smoke test** (after C5 + polish PR)
+11. **Production smoke test** (after polish PR merged + verified on mobile)
 12. **UAT** with mixed testers (≥2/5 spontaneous "I'd pay")
 13. **Public launch (web/PWA)**
 
-Avoid reopening Phase 4, Block A, Block B spine, or Block C backend unless production smoke test reveals a regression.
+Avoid reopening Phase 4, Block A, Block B spine, Block C backend, or Block C frontend unless production smoke test reveals a regression.
 
 ---
 
@@ -108,7 +123,7 @@ Avoid reopening Phase 4, Block A, Block B spine, or Block C backend unless produ
 
 ### A. Block C remaining — C5 (Chat UI)
 
-Status: 🔴 not started
+Status: 🟢 done — C5a/b/c/d all merged to main (2026-05-16/17). Block C frontend complete. 43 total frontend tests.
 
 **API endpoint:** `POST /api/v1/conversations/{id}/messages` — SSE streaming. This is the ONLY canonical send-message endpoint.
 
@@ -140,9 +155,13 @@ On subsequent messages in the same conversation: only call step 2.
 
 ### B. Block C remaining — C3 (RAG corpus ingestion)
 
-Status: 🔴 not started
+Status: 🟡 in progress — C3a complete (RAG infrastructure live, migration 008 deployed, 2026-05-17); C3b READY (operational run pending, founder action)
 
-The pgvector infrastructure is live (`source_chunks` table, `vector(1536)`, `retrieval_service.py`). No corpus has been ingested. `retrieval_service.retrieve()` returns empty results on every call (fail-open).
+**C3a — done (2026-05-17):** Migration 008 deployed HNSW indexes on `source_chunks.embedding` + `memory_entries.embedding`. Ingestion pipeline scripts live (`chunking.py`, `corpus_sources.py`, `curated_chunks.py`, `ingest_corpus.py`). pgvector version verified: 0.8.0 (HNSW supported from 0.5.0+). 19 Marcus Aurelius curated chunks in `curated_chunks.py`.
+
+**C3b — operational run (next immediate step):** Run `python -m apps.api.scripts.ingest_corpus` via Render shell. Requires `OPENAI_API_KEY` set in Render env. Cost: <$0.02. See HANDOFF_BRIEF runbook section. `retrieval_service.py` remains fail-open until corpus is populated.
+
+The pgvector infrastructure is live (`source_chunks` table, `vector(1536)`, `retrieval_service.py`). No auto-ingested corpus has been loaded yet. `retrieval_service.retrieve()` returns empty results on every call (fail-open).
 
 **Copyright allowlist (approved sources):**
 
@@ -365,7 +384,7 @@ Alembic runs `upgrade head` on Render container startup. It has worked through 7
 
 # 4. Database schemas
 
-See `PROJECT_STATE_v9.md` §4 for current state. Migration 007 is the latest. No further migrations are expected until C3 (which may add chunking metadata) or until a new feature requires schema changes.
+See `PROJECT_STATE_v9.md` §4 for current state. Migration 008 (`008_hnsw_vector_indexes`) is the latest, applied 2026-05-17. No further migrations are expected until a new feature requires schema changes.
 
 ---
 
@@ -457,18 +476,14 @@ An optional additional eval test for Lao Tzu or a third persona would give cover
 
 ## 9.1 Block C — remaining items
 
-### C5 — Chat UI frontend (next P0)
+### C5 — Chat UI frontend
 
-See §2.1A for full spec. Key requirements:
-- SSE streaming required from day 1 (no non-streaming fallback)
-- New conversation: 2 API calls (POST /conversations, then POST /conversations/{id}/messages)
-- Error message rendering: italic + Bronze #B89968 60% opacity + retry affordance
-- Rate limit 429: paywall UI with upgrade CTA
-- Opening invocation: displayed from persona.opening_invocation, NOT persisted to DB
+Status: 🟢 done (C5a/b/c/d merged 2026-05-16/17). See §2.1A for spec reference.
 
 ### C3 — RAG corpus ingestion
 
-See §2.1B for full spec. Copyright allowlist defined. pgvector schema live. HNSW indexes required in same PR.
+- **C3a** — 🟢 done (2026-05-17). HNSW indexes live, ingestion pipeline deployed. See §2.1B.
+- **C3b** — READY (operational run). Run `python -m apps.api.scripts.ingest_corpus` via Render shell. Copyright allowlist defined. See HANDOFF_BRIEF runbook.
 
 ## 9.2 Block D — Discovery (D1, D2, D3)
 
@@ -529,9 +544,10 @@ See `HANDOFF_BRIEF_v9.md` §13.3 for full rationale.
 
 ## 11.1 P0 (launch blockers)
 
-- [ ] **C5 — Chat UI frontend** — IMMEDIATE next task
+- [x] **C5 — Chat UI frontend** — COMPLETE (C5a/b/c/d merged 2026-05-16/17)
+- [x] **C3a — RAG infrastructure** — COMPLETE (migration 008, HNSW indexes, ingestion scripts, 2026-05-17)
+- [ ] **C3b — Corpus ingestion operational run** — READY; founder runs `python -m apps.api.scripts.ingest_corpus` via Render shell; <$0.02 OpenAI cost
 - [ ] **Consolidated polish PR** — visually closes Block B
-- [ ] **C3 — RAG corpus ingestion** — copyright allowlist defined; follows C5
 - [ ] **Landing page waitlist test** — $14.99 validation (founder builds, ~2h, 10-day data window)
 - [ ] **Lawyer review** of Terms / Privacy / disclaimer
 - [ ] **DNS + Resend domain verification** for `thegreatminds.app`
@@ -547,7 +563,7 @@ See `HANDOFF_BRIEF_v9.md` §13.3 for full rationale.
 ## 11.2 P1
 
 - [ ] **Wire generate_insight_task** (TD-05) — when memory_entries starts accumulating
-- [ ] **HNSW vector indexes** on `source_chunks.embedding` + `memory_entries.embedding` (in C3 PR)
+- [x] **HNSW vector indexes** on `source_chunks.embedding` + `memory_entries.embedding` — DONE in C3a (migration 008, 2026-05-17)
 - [ ] **Render API plan upgrade** (~$7/mo to eliminate cold-start; do before UAT)
 - [ ] **A6+A7 disclaimer endpoint integration tests** (shipped without tests for speed)
 - [ ] **A6+A7 lazy-load monitoring** — watch Render logs for `MissingGreenlet`
@@ -582,7 +598,7 @@ See `HANDOFF_BRIEF_v9.md` §13.3 for full rationale.
 - [ ] **TD-06** — `safety_events.message_id` always NULL — wire message FK
 - [ ] **TD-07** — `gh CLI install on founder's Windows**: `winget install --id GitHub.cli`
 - [ ] **Render `philosopher-db` decommissioning verification** — carry-forward from v6/v7
-- [ ] **`apps/api/scripts/` decision** — gitignore, commit, or delete
+- [x] **`apps/api/scripts/` decision** — RESOLVED: committed as C3a ingestion pipeline home (`chunking.py`, `corpus_sources.py`, `curated_chunks.py`, `ingest_corpus.py`, `README.md`)
 - [ ] **Stale branch cleanup** — periodic batch
 - [ ] **Legal pages `target="_blank"` rel hardening** — explicit `noopener noreferrer`
 - [ ] **openapi.json cleanup** — add to `.gitignore` in a separate cleanup PR
@@ -626,4 +642,4 @@ Founder also runs **KIEN** — AI companion SaaS — as a separate codebase. Not
 
 ---
 
-**End of IMPLEMENTATION_BACKLOG v9.** Authoritative as of 2026-05-16 session close. Supersedes `IMPLEMENTATION_BACKLOG_v8.md` (preserved as historical reference).
+**End of IMPLEMENTATION_BACKLOG v9.** Authoritative as of 2026-05-17. Supersedes `IMPLEMENTATION_BACKLOG_v8.md` (preserved as historical reference).

@@ -2,13 +2,13 @@
 
 **For:** The next Claude (chat) and Claude Code session
 **From:** Nikos Koutras (founder) + Claude Code
-**Date updated:** 2026-05-16
+**Date updated:** 2026-05-17
 **Prior version:** `docs/HANDOFF_BRIEF_v8.md` (2026-05-13/14)
-**Generated:** 2026-05-16 (post-reconciliation)
+**Generated:** 2026-05-16 (post-reconciliation); updated 2026-05-17 (C5d + C3a session)
 
 **Block trigger for v9 baseline regen:** Block C backend complete (8/8 items shipped or reconciled). Single canonical send-message endpoint confirmed. PATH B fully deleted. Per §8.17 (addendum vs baseline regen rule): Block C backend closure is a sufficient regen trigger.
 
-**Status:** Block A ✅ FULLY CLOSED (5/5). Block B ✅ SPINE SHIPPED (6/6 functional, polish PR pending). Block C backend ✅ COMPLETE (all features live in PATH A SSE streaming endpoint; PATH B deleted). **Block C remaining: C5 (Chat UI frontend) is the next P0 work surface.** C3 (RAG corpus ingestion) follows C5.
+**Status:** Block A ✅ FULLY CLOSED (5/5). Block B ✅ SPINE SHIPPED (6/6 functional, polish PR pending). Block C backend ✅ COMPLETE (all features live in PATH A SSE streaming endpoint; PATH B deleted). Block C frontend ✅ COMPLETE (C5a/b/c/d all merged 2026-05-16/17). C3a RAG infrastructure ✅ COMPLETE (migration 008 live). **Next: C3b corpus ingestion operational run (founder action via Render shell).**
 
 > **v9 conflict resolution rule:** Where v9 conflicts with v8 or earlier, v9 wins. Production reality always wins over docs.
 
@@ -42,6 +42,20 @@ C-RECON-1 audit discovered that C2/C4/C8 had built a parallel PATH B alongside t
 | C-RECON-8 (#60) | PATH B deleted (routers/messages.py, services/llm_service.py, 4 test files, 4 schema classes) |
 
 **Net effect:** 10 architectural decisions locked; 229 tests passing (down from 275 peak — 46 PATH B tests removed); single canonical send-message endpoint confirmed.
+
+### 2026-05-16/17 session — Block C frontend (C5d) + C3a RAG infrastructure
+
+**C5d (#65) — Conversation list (F6) + existing conv route + tab bar:**
+- 1128 lines, 13 files, 13 new frontend tests
+- Completes Block C frontend: C5a/b/c/d all merged. 43 total frontend tests.
+
+**C3a — HNSW vector indexes + ingestion pipeline + curated chunks recovery:**
+- Migration 008 (`008_hnsw_vector_indexes`): HNSW indexes on `source_chunks.embedding` + `memory_entries.embedding`; `chunk_index INTEGER nullable` added to `source_chunks`
+- New scripts committed to `apps/api/scripts/`: `chunking.py` (pure tiktoken, 512 tokens/50 overlap), `corpus_sources.py` (13 Gutenberg URLs across 7 personas), `curated_chunks.py` (19 Marcus Aurelius curated chunks), `ingest_corpus.py` (CLI with `--dry-run` + `--persona` flags)
+- 63 new backend tests; 292 total backend tests
+- CLAUDE.md Rule 5 violation: `apps/api/db/ingest_sources.py` (408 lines) silently deleted during C3a; reconciled via Path C — recovery commit `f78d0f3` restored 19 Marcus Aurelius curated chunks as `curated_chunks.py` with Strategy A disambiguation
+- Migration verified live on Render via Supabase MCP queries (alembic_version = `008_hnsw_vector_indexes` confirmed)
+- pgvector version verified: 0.8.0 (HNSW supported from 0.5.0+)
 
 ---
 
@@ -165,15 +179,18 @@ PATH B (`POST /api/v1/messages`, `services/llm_service.py`, `schemas.MessageCrea
 ### Current state
 
 ```
-229 tests passing (as of C-RECON-8, 2026-05-16)
+292 backend tests passing (as of C3a, 2026-05-17)
+43 frontend tests passing (as of C5d, 2026-05-17)
 0 failures
 ```
 
 Test count history:
-- Pre-Block-C: 146 tests
+- Pre-Block-C: 146 backend tests
 - After C1 (19 new schema tests): 165
 - After C2/C4/C8 (PATH B tests added): ~275 peak
-- After C-RECON-8 (46 PATH B tests deleted): 229
+- After C-RECON-8 (46 PATH B tests deleted): 229 backend
+- After C5a/b/c/d: 43 frontend tests total
+- After C3a (63 new backend tests): **292 backend tests**
 
 ### Test file layout (apps/api/tests/)
 
@@ -190,6 +207,11 @@ services/
 db/
   conftest.py                         — DB fixtures
   test_block_c_schema.py              — migration 007 schema verification
+scripts/                              (NEW — C3a)
+  conftest.py                         — script-level fixtures (mock DB session, mock OpenAI)
+  test_chunking.py                    — tiktoken chunking logic
+  test_corpus_sources.py              — Gutenberg URL list + persona mapping
+  test_ingest_corpus.py               — ingestion pipeline end-to-end (mocked)
 ```
 
 ### Test scaffolding patterns
@@ -262,18 +284,17 @@ Alembic runs `upgrade head` on Render container startup. The exact mechanism (Pr
 
 **Priority order for next session:**
 
-1. **C5 — Chat UI frontend** (P0 — the only thing blocking users from using the product)
-   - Backend API is fully ready. See §6 for C5 spec requirements.
-   - Start with the conversation creation + send-message flow
-   - SSE streaming parse required from day one — don't build non-streaming UI first
+1. ~~**C5 — Chat UI frontend**~~ **DONE** (C5a/b/c/d merged 2026-05-16/17)
 
-2. **Block B consolidated polish PR** (P0 — may run parallel with C5)
+2. **C3b — Corpus ingestion operational run** (P0, immediate — founder action)
+   - Verify `OPENAI_API_KEY` set in Render env (Render dashboard → service `srv-d7ijct6gvqtc739a0pdg` → Environment)
+   - Run via Render shell: `python -m apps.api.scripts.ingest_corpus`
+   - Verify via Supabase SQL: `SELECT persona_id, source_title, COUNT(*) FROM source_chunks GROUP BY 1, 2 ORDER BY 1, 2`
+   - Cost: <$0.02. Duration: 2-5 minutes. See §14b for full runbook.
+
+3. **Block B consolidated polish PR** (P0 — blocked on DNS/Resend confirmation)
    - 9 mobile walkthrough findings (see v8 §6 BUG-001 through BUG-009)
    - DNS + Resend domain verification must be confirmed before starting
-
-3. **C3 — RAG corpus ingestion** (P0 but can follow C5 by a PR or two)
-   - Copyright allowlist is defined. See IMPLEMENTATION_BACKLOG_v9.md §C3.
-   - Include HNSW vector indexes in same PR as ingestion
 
 4. **Landing page waitlist test** (founder-owned, ~2 hours build)
    - Validates $14.99 price point before Stripe wiring
@@ -281,7 +302,7 @@ Alembic runs `upgrade head` on Render container startup. The exact mechanism (Pr
 
 5. **Pre-launch items** (lawyer review, DNS, GDPR/DPA, runbooks)
 
-**Do not start Block D / Block F / Block H / Block I** until C5 + polish PR are merged and verified on mobile.
+**Do not start Block D / Block F / Block H / Block I** until polish PR is merged and verified on mobile.
 
 ---
 
@@ -404,7 +425,21 @@ NEXT_PUBLIC_SUPPORT_EMAIL       nckoutras@gmail.com (placeholder)
 - `auth.py` — `get_current_user` + `get_current_user_plan` dependencies.
 - `config.py` — Settings class. Note `ANTHROPIC_MODEL` orphan.
 - `personas/_base.py` — `PersonaConfig` dataclass. NOT the same as ORM `Persona`. Has no `.config` attribute.
-- `db/migrations/versions/` — alembic migrations 001–007.
+- `db/migrations/versions/` — alembic migrations 001–008.
+- `db/migrations/versions/008_hnsw_vector_indexes.py` — HNSW indexes on source_chunks.embedding + memory_entries.embedding; chunk_index column on source_chunks.
+
+**Scripts (NEW — C3a, apps/api/scripts/):**
+- `scripts/README.md` — usage guide for ingestion pipeline
+- `scripts/chunking.py` — pure tiktoken-based text chunker (512 tokens, 50-token overlap)
+- `scripts/corpus_sources.py` — 13 Project Gutenberg URLs across 7 personas (Jung + Beauvoir excluded per Decision #7)
+- `scripts/curated_chunks.py` — 19 hand-curated Marcus Aurelius chunks (Long 1862 PD, Book.Chapter refs; `source_title = "Meditations (curated)"`)
+- `scripts/ingest_corpus.py` — one-shot CLI ingestion runner (`--dry-run`, `--persona` flags). Not an ARQ task.
+
+**Script tests (NEW — C3a, apps/api/tests/scripts/):**
+- `tests/scripts/conftest.py`
+- `tests/scripts/test_chunking.py`
+- `tests/scripts/test_corpus_sources.py`
+- `tests/scripts/test_ingest_corpus.py`
 
 **Deleted in C-RECON-8 (do not reference):**
 - ~~`routers/messages.py`~~ (PR #60)
@@ -514,8 +549,9 @@ Updated from v8 §20.
                           Haiku 4.5 for free, Sonnet 4.6 for pro
                           Streaming + retry live
 
-❌ Chat UI (C5)           Not started — next P0
-❌ RAG corpus (C3)        Not started — follows C5
+✅ Chat UI (C5)           COMPLETE — C5a/b/c/d merged 2026-05-16/17
+✅ RAG infrastructure     COMPLETE — migration 008 live; HNSW indexes verified; 19 curated MA chunks loaded
+⏳ RAG corpus (C3b)      Operational run READY — founder executes via Render shell; see §14b runbook
 ❌ Stripe                 Not wired — paused pending $14.99 landing page validation
 🟡 DNS / thegreatminds.app IN PROGRESS
 ```
@@ -562,6 +598,82 @@ In service tests for `stream_response()`, pass `arq_queue=AsyncMock()` directly 
 
 ---
 
+## 14b. How to run C3b ingestion (operational runbook)
+
+This is the next founder action. Not a coding task.
+
+### Step 1 — Verify OPENAI_API_KEY in Render env
+
+Render dashboard → service `srv-d7ijct6gvqtc739a0pdg` → Environment tab. Confirm `OPENAI_API_KEY` is set. If not, add it (model: `text-embedding-3-small` requires OpenAI key, not Anthropic).
+
+### Step 2 — Open Render shell
+
+Render dashboard → service → Shell tab. Working directory: `/opt/render/project/src`.
+
+### Step 3 — Validate URLs without DB writes (recommended first run)
+
+```bash
+python -m apps.api.scripts.ingest_corpus --dry-run
+```
+
+### Step 4 — (Optional) Incremental test on one persona
+
+```bash
+python -m apps.api.scripts.ingest_corpus --persona marcus_aurelius
+```
+
+### Step 5 — Full ingestion
+
+```bash
+python -m apps.api.scripts.ingest_corpus
+```
+
+Expected duration: 2-5 minutes. Expected cost: <$0.02 (OpenAI `text-embedding-3-small`).
+
+### Step 6 — Verify via Supabase SQL editor (or MCP)
+
+```sql
+SELECT persona_id, source_title, COUNT(*)
+FROM source_chunks
+GROUP BY persona_id, source_title
+ORDER BY 1, 2;
+```
+
+**Expected outcome:**
+- Marcus Aurelius: 19 curated chunks (`source_title = "Meditations (curated)"`) + N auto-chunked Long 1862 chunks (`source_title = "Meditations"`)
+- Other 6 personas (Socrates, Lao Tzu, Machiavelli, Wilde, Epictetus, Freud): M auto-chunked chunks each
+- Jung and Beauvoir: zero chunks (excluded per Decision #7)
+- `retrieval_service.py` becomes functional automatically (currently fail-open; returns empty results)
+
+---
+
+## 14c. Lessons from 2026-05-17 session
+
+### CLAUDE.md Rule 5 violation case study
+
+The C3a implementation silently deleted `apps/api/db/ingest_sources.py` (408 lines) — a pre-existing ingestion script with 19 hand-curated Marcus Aurelius chunks. This violated Rule 5: surface parallel implementations for founder decision; never delete silently.
+
+**Pattern to enforce in every brief:** Investigation Step 2 MUST include `grep -r "ingest\|chunk\|embed\|corpus" apps/api/` before any new ingestion or corpus work. Report findings in PR description before implementation.
+
+### Investigation discipline catches real bugs
+
+pgvector version 0.8.0 was verified via Supabase MCP BEFORE the C3a PR merged. Had the version been < 0.5.0, the HNSW migration would have crashed on deploy. Post-merge verification pattern: use Supabase MCP queries to confirm `alembic_version`, schema columns, and indexes immediately after Render redeploy.
+
+### Trust source files, not briefs
+
+The original C3a brief said "20 chunks" in `ingest_sources.py`. The actual file had 19 chunks. Claude Code correctly caught this by reading the file rather than trusting the brief. Pattern to repeat: verify counts and content against source files, not session summaries or founder descriptions.
+
+### Post-merge verification pattern
+
+After each migration deploy on Render, immediately verify via Supabase MCP:
+1. `SELECT version FROM alembic_version` — confirms migration applied
+2. `SELECT column_name FROM information_schema.columns WHERE table_name = '<table>'` — confirms schema columns
+3. `SELECT indexname FROM pg_indexes WHERE tablename = '<table>'` — confirms indexes
+
+This was done for migration 008 and caught the live state correctly. Make it standard for all future migrations.
+
+---
+
 ## 14. Closing note for next instance
 
 ### Tone calibration
@@ -580,10 +692,10 @@ v9 baseline regen triggered by Block C backend closure. Next baseline regen shou
 
 1. Confirm Plan A still active (default: yes)
 2. Verify DNS + Resend domain setup status
-3. **Write C5 frontend brief** — consult §6 of this document for spec requirements
-4. After C5 merges + verified on mobile: **C3 RAG corpus ingestion brief**
+3. **C3b corpus ingestion run** — founder executes via Render shell (see §14b runbook); not a coding task
+4. **Block B consolidated polish PR** — 9 mobile walkthrough findings; blocked on DNS/Resend
 5. **Landing page waitlist test** — founder builds, ~2 hours, 10 days data
 
 ---
 
-**End of HANDOFF_BRIEF v9.** Authoritative as of 2026-05-16 session close. Supersedes `HANDOFF_BRIEF_v8.md` (preserved as historical reference). Where v9 conflicts with v8, v9 wins.
+**End of HANDOFF_BRIEF v9.** Authoritative as of 2026-05-17. Supersedes `HANDOFF_BRIEF_v8.md` (preserved as historical reference). Where v9 conflicts with v8, v9 wins.
