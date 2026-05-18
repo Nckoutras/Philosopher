@@ -22,6 +22,7 @@ export default function ChatPage() {
   const router = useRouter()
 
   const token = useStore((s) => s.token)
+  const _hasHydrated = useStore((s) => s._hasHydrated)
   const messages = useStore((s) => s.messages)
   const streamingContent = useStore((s) => s.streamingContent)
   const activeConversationId = useStore((s) => s.activeConversationId)
@@ -48,6 +49,11 @@ export default function ChatPage() {
 
   // Initialise conversation on mount (or when slug/token changes)
   useEffect(() => {
+    // Wait for Zustand persist to rehydrate from localStorage before deciding
+    // whether to redirect. Without this, direct URL navigation runs this effect
+    // before the persisted token is read, sees token===null, and redirects to
+    // /auth even when the user is logged in. See store.ts onRehydrateStorage.
+    if (!_hasHydrated) return
     if (token === null) {
       router.replace('/auth')
       return
@@ -92,7 +98,7 @@ export default function ChatPage() {
     return () => {
       cancelled = true
     }
-  }, [params.slug, token, router, setActiveConversation, loadSavedLines])
+  }, [params.slug, _hasHydrated, token, router, setActiveConversation, loadSavedLines])
 
   // Clear conversation state on unmount
   useEffect(() => {
@@ -114,6 +120,7 @@ export default function ChatPage() {
 
     try {
       await api.createSavedLine(messageId)
+      useStore.getState().loadSavedLines()
     } catch (err) {
       if (err instanceof SaveLimitError) {
         useStore.getState().revertSave(messageId)
