@@ -25,12 +25,13 @@ def test_all_registered_personas_have_required_fields():
 
 def test_opening_invocation_contract():
     """
-    Personas have an opening_invocation by default. Socrates is the documented
-    exception: the user writes first, and Socratic dialogue follows their lead.
-    Any future persona omitting opening_invocation must be added to PERSONAS_WITHOUT_OPENING
-    below — making the omission an explicit, reviewed decision rather than an oversight.
+    All Python registry personas must have a non-empty opening_invocation.
+    PERSONAS_WITHOUT_OPENING exists as a future escape hatch for any persona
+    where silent-first is a deliberate design. It is currently empty — no
+    exception is active. Adding a slug here requires explicit founder approval
+    and a commit explaining the rationale.
     """
-    PERSONAS_WITHOUT_OPENING = {"socrates"}
+    PERSONAS_WITHOUT_OPENING: set[str] = set()
 
     for slug, persona in PERSONA_REGISTRY.items():
         if slug in PERSONAS_WITHOUT_OPENING:
@@ -100,3 +101,24 @@ def test_system_fragment_has_behaviour_section():
 def test_no_duplicate_slugs():
     slugs = [p.slug for p in PERSONA_REGISTRY.values()]
     assert len(slugs) == len(set(slugs)), "Duplicate persona slugs found"
+
+
+def test_lao_tzu_registry():
+    persona = get_persona("lao_tzu")
+    assert persona is not None
+    assert persona.tier == "free"
+    assert persona.opening_invocation
+
+
+def test_niccolo_machiavelli_registry():
+    persona = get_persona("niccolo_machiavelli")
+    assert persona is not None
+    assert persona.tier == "pro"
+    assert persona.opening_invocation
+
+
+def test_oscar_wilde_registry():
+    persona = get_persona("oscar_wilde")
+    assert persona is not None
+    assert persona.tier == "pro"
+    assert persona.opening_invocation

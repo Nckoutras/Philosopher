@@ -70,7 +70,7 @@ SOCRATES = PersonaConfig(
     ],
     retrieval_top_k=3,
 
-    opening_invocation="",
+    opening_invocation="Tell me — what is it you believe you already know about this?",
 
     voice_calibration_examples=[
         {

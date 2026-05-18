@@ -5,6 +5,9 @@ from .carl_jung import CARL_JUNG
 from .socrates import SOCRATES
 from .epictetus import EPICTETUS
 from .sigmund_freud import SIGMUND_FREUD
+from .lao_tzu import LAO_TZU
+from .niccolo_machiavelli import NICCOLO_MACHIAVELLI
+from .oscar_wilde import OSCAR_WILDE
 
 # Registry: slug → config
 PERSONA_REGISTRY: dict[str, PersonaConfig] = {
@@ -14,6 +17,9 @@ PERSONA_REGISTRY: dict[str, PersonaConfig] = {
     SOCRATES.slug: SOCRATES,
     EPICTETUS.slug: EPICTETUS,
     SIGMUND_FREUD.slug: SIGMUND_FREUD,
+    LAO_TZU.slug: LAO_TZU,
+    NICCOLO_MACHIAVELLI.slug: NICCOLO_MACHIAVELLI,
+    OSCAR_WILDE.slug: OSCAR_WILDE,
 }
 
 
