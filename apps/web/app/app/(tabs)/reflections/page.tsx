@@ -35,7 +35,6 @@ function groupItems(items: SavedLineRead[]): Array<{ label: string; items: Saved
 export default function ReflectionsPage() {
   const router = useRouter()
   const token = useStore((s) => s.token)
-  const _hasHydrated = useStore((s) => s._hasHydrated)
   const savedLines = useStore((s) => s.savedLines)
   const loading = useStore((s) => s.savedLinesLoading)
   const error = useStore((s) => s.savedLinesError)
@@ -55,17 +54,12 @@ export default function ReflectionsPage() {
   }, [loadSavedLines])
 
   useEffect(() => {
-    // Wait for Zustand persist to rehydrate from localStorage before deciding
-    // whether to redirect. Without this, direct URL navigation runs this effect
-    // before the persisted token is read, sees token===null, and redirects to
-    // /auth even when the user is logged in. See store.ts onRehydrateStorage.
-    if (!_hasHydrated) return
     if (token === null) {
       router.replace('/auth')
       return
     }
     load()
-  }, [_hasHydrated, token, router, load])
+  }, [token, router, load])
 
   const uniquePersonas = Array.from(
     new Map(
