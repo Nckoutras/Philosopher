@@ -319,6 +319,18 @@ class SavedLine(Base):
     )
 
 
+# ── Daily Questions ───────────────────────────────────────────────────────────
+
+class DailyQuestion(Base):
+    __tablename__ = "daily_questions"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, server_default=text("gen_random_uuid()"))
+    question_text: Mapped[str] = mapped_column(Text, nullable=False)
+    display_order: Mapped[int] = mapped_column(Integer, nullable=False, unique=True)
+    active: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("true"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
 # ── Daily Usage ───────────────────────────────────────────────────────────────
 
 class DailyUsage(Base):

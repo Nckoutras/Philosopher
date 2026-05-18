@@ -194,6 +194,31 @@ export interface SavedLineListResponse {
   free_tier_limit: number | null
 }
 
+export interface DailyQuestion {
+  id: string
+  question_text: string
+}
+
+export interface LastConversation {
+  conversation_id: string
+  persona_id: string
+  persona_slug: string
+  persona_name: string
+  persona_tagline: string | null
+  persona_portrait_url: string
+  last_message_snippet: string | null
+  updated_at: string
+}
+
+export interface RecentSavedLine {
+  saved_line_id: string
+  content: string
+  persona_id: string
+  persona_slug: string
+  persona_name: string
+  saved_at: string
+}
+
 // ── Client ────────────────────────────────────────────────────────────────────
 
 class ApiClient {
@@ -436,6 +461,20 @@ class ApiClient {
     })
     if (res.status === 404) return
     if (!res.ok) throw new Error('Delete failed')
+  }
+
+  // ── Home / Today ─────────────────────────────────────────────────────────────
+
+  async getTodayQuestion(): Promise<DailyQuestion> {
+    return this.request<DailyQuestion>('/today/question')
+  }
+
+  async getLastConversation(): Promise<LastConversation | null> {
+    return this.request<LastConversation | null>('/me/last-conversation')
+  }
+
+  async getRecentSavedLine(): Promise<RecentSavedLine | null> {
+    return this.request<RecentSavedLine | null>('/me/recent-saved-line')
   }
 }
 

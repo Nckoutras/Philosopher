@@ -14,9 +14,9 @@ export default function SavedLineCard({ item, portraitUrl, onClick }: Props) {
     <button
       type="button"
       onClick={onClick}
-      className="w-full text-left bg-paper border border-[0.5px] border-edge rounded-md px-[18px] py-[16px]"
+      className="w-full text-left bg-paper border border-[0.5px] border-edge rounded-md shadow-card px-[18px] py-[16px]"
     >
-      <p className="font-cormorant text-[17px] font-normal italic text-ink leading-[1.45] line-clamp-4">
+      <p className="font-cormorant text-[17px] font-normal italic text-ink leading-[1.45]">
         {item.message_content}
       </p>
       <div className="mt-[8px] flex items-center gap-[6px]">

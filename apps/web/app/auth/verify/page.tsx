@@ -60,7 +60,7 @@ function VerifyForm() {
       if (data.user.needs_disclaimer) {
         router.push('/auth/disclaimer')
       } else {
-        router.push('/app/welcome')
+        router.push('/app/today')
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Something went wrong'
