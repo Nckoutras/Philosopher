@@ -32,11 +32,12 @@ export default function QuickActionsRow({ messageId: _messageId, saved, onSave, 
   }
 
   function handleSaveTap() {
-    if (saved) return
-    const isAtLimit = plan === 'free' && freeTierLimit !== null && freeSaveCount >= freeTierLimit
-    if (isAtLimit) {
-      setShowUpgrade(true)
-      return
+    if (!saved) {
+      const isAtLimit = plan === 'free' && freeTierLimit !== null && freeSaveCount >= freeTierLimit
+      if (isAtLimit) {
+        setShowUpgrade(true)
+        return
+      }
     }
     onSave()
   }

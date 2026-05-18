@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { Send } from 'lucide-react'
 import { useStore } from '@/lib/store'
 
 interface Props {
@@ -37,7 +38,7 @@ export default function ChatInput({ send, placeholder = 'Write your thought…' 
         disabled={disabled}
         placeholder={placeholder}
         rows={1}
-        className="flex-1 resize-none bg-white rounded-sm px-3 py-2 font-lora text-[14px] text-ink placeholder:text-sepia focus:outline-none disabled:opacity-50"
+        className="flex-1 resize-none bg-white rounded-sm px-3 py-2 font-lora text-base text-ink placeholder:text-sepia focus:outline-none disabled:opacity-50"
         style={{ maxHeight: '120px' }}
       />
       <button
@@ -46,7 +47,7 @@ export default function ChatInput({ send, placeholder = 'Write your thought…' 
         aria-label="Send"
         className="h-9 w-9 flex items-center justify-center bg-ink text-vellum rounded-sm font-cormorant text-[16px] disabled:opacity-40 transition-opacity flex-shrink-0"
       >
-        {isStreaming ? '…' : '→'}
+        {isStreaming ? '…' : <Send size={16} strokeWidth={1.5} />}
       </button>
     </div>
   )

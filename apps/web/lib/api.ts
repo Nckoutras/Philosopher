@@ -430,7 +430,12 @@ class ApiClient {
   }
 
   async deleteSavedLine(savedLineId: string): Promise<void> {
-    return this.request(`/saved-lines/${savedLineId}`, { method: 'DELETE' })
+    const res = await fetch(`${API_BASE}/saved-lines/${savedLineId}`, {
+      method: 'DELETE',
+      headers: this.token ? { Authorization: `Bearer ${this.token}` } : {},
+    })
+    if (res.status === 404) return
+    if (!res.ok) throw new Error('Delete failed')
   }
 }
 
