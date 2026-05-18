@@ -21,6 +21,7 @@ export default function ExistingConversationPage() {
   const router = useRouter()
 
   const token = useStore((s) => s.token)
+  const _hasHydrated = useStore((s) => s._hasHydrated)
   const messages = useStore((s) => s.messages)
   const streamingContent = useStore((s) => s.streamingContent)
   const activeConversationId = useStore((s) => s.activeConversationId)
@@ -48,6 +49,11 @@ export default function ExistingConversationPage() {
 
   // Load existing conversation on mount
   useEffect(() => {
+    // Wait for Zustand persist to rehydrate from localStorage before deciding
+    // whether to redirect. Without this, direct URL navigation runs this effect
+    // before the persisted token is read, sees token===null, and redirects to
+    // /auth even when the user is logged in. See store.ts onRehydrateStorage.
+    if (!_hasHydrated) return
     if (token === null) {
       router.replace('/auth')
       return
@@ -101,7 +107,7 @@ export default function ExistingConversationPage() {
     return () => {
       cancelled = true
     }
-  }, [params.id, token, router, activeConversationId, setActiveConversation, setMessages, setSafetyActive, setStreamError, loadSavedLines])
+  }, [params.id, _hasHydrated, token, router, activeConversationId, setActiveConversation, setMessages, setSafetyActive, setStreamError, loadSavedLines])
 
   // Clear conversation state on unmount
   useEffect(() => {
@@ -142,6 +148,7 @@ export default function ExistingConversationPage() {
 
     try {
       await api.createSavedLine(messageId)
+      useStore.getState().loadSavedLines()
     } catch (err) {
       if (err instanceof SaveLimitError) {
         useStore.getState().revertSave(messageId)
