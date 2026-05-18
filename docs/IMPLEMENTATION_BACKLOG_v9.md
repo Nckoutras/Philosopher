@@ -1,7 +1,7 @@
 # GREAT MINDS — Implementation Backlog v9
 
 > **Purpose:** Source of truth for implementation work for Great Minds / Philosopher v1 launch.
-> **v9 = v8 baseline (2026-05-13/14) + 2026-05-16 session delta (Block C backend complete; C-RECON reconciliation series complete; PATH B deleted; 10 architectural decisions locked; 8 tech debt items captured) + 2026-05-16/17 session delta (Block C frontend complete; C5a/b/c/d all merged; C3a RAG infrastructure merged; migration 008 deployed).**
+> **v9 = v8 baseline (2026-05-13/14) + 2026-05-16 session delta (Block C backend complete; C-RECON reconciliation series complete; PATH B deleted; 10 architectural decisions locked; 8 tech debt items captured) + 2026-05-16/17 session delta (Block C frontend complete; C5a/b/c/d all merged; C3a RAG infrastructure merged; migration 008 deployed) + 2026-05-18 session delta (5 PRs shipped + 1 hotfix; ~2h production fire; auth race bug promoted to P0; D1 + A0 identified as structural P0 gaps; C6c demoted to P1; C9/F2/F3/F4 demoted to P2; TD-09 added).**
 >
 > **Generated:** 2026-05-16 (post-reconciliation)
 >
@@ -11,7 +11,7 @@
 > - Historical Block C detail removed (complete); replaced with remaining C3 + C5 items.
 > - Status, priority, and launch-readiness calls reflect 2026-05-17 state.
 >
-> **Last updated:** 2026-05-17. **Block C frontend 4/4 complete (C5a/b/c/d merged). C3a RAG infrastructure live (migration 008). C3b corpus ingestion COMPLETE (2476 chunks ingested 2026-05-17). `retrieval_service` now live.**
+> **Last updated:** 2026-05-18. **2026-05-18 session delta: launch priority shift captured. Auth race P0. D1 P0. A0 P0. C6c→P1. C9/F2/F3/F4→P2. TD-09 (one-fix-per-PR post-mortem).**
 >
 > **Companion documents:**
 > - `PROJECT_STATE_v9.md` — current project state (replaces v8)
@@ -90,6 +90,50 @@
 - ⏳ Landing page waitlist test ($14.99 pricing validation)
 - ⏳ UAT with mixed testers
 - ⏳ Web/PWA public launch
+
+---
+
+## 2026-05-18 session delta — launch priority shift
+
+**Context:** Five PRs shipped 2026-05-18 (C3 backend + C3 frontend follow-ups, save-line store sync, auth hydration fix, consolidated C3 squash). A ~2h production fire and subsequent mobile smoke test revealed two structural gaps and surfaced one previously edge-case bug as a consistent P0 blocker. This section captures the resulting priority changes. Where this section conflicts with §11 (Backlog by priority), this section governs.
+
+### New P0 entries
+
+**P0 — bugfixes-3: auth race fix**
+🔴 not started. Refresh on authenticated route loses session and requires new OTP, rather than restoring from existing token. Was P1 edge case; promoted to P0 after the hydration hotfix reintroduced it as consistently observable behavior on mobile.
+
+Fix direction: `/auth` page guard — when `/auth` mounts, if a valid token exists post-rehydration in `localStorage`, redirect to `/app/home` without showing the email form. Alternative to evaluate: keep `_hasHydrated` mechanism but exclude it from `persist` partialize and add a timeout fallback (prevents the guard permanently blocking when hydration stalls on first load).
+
+**Mobile smoke test on PR preview URL is mandatory pre-merge.** Auth/hydration changes must not ship without real-device iOS Safari verification.
+
+**P0 — D1 Home/Today build**
+🔴 not started. Spec exists in SCREENS_TRACKING_v4.md (D1 full spec, build-status note added 2026-05-18). Build-from-spec; no new design needed.
+
+Blocks bottom tab bar reachability post-sign-in (Today/Reflections/Library/Account tabs all invisible until D1 exists). Also blocks C3 save-line ROI (saved lines live in Reflections tab, which is unreachable without D1).
+
+**P0 — A0 Public Landing design + implementation**
+🔴 not started. No spec exists yet. Design proposal pending from founder via separate Claude session. Will define: hero direction, value prop copy, CTA structure, responsive behavior, and integration with the `/` route.
+
+**Cannot start implementation until founder design proposal lands.** Do not design independently. Spec stub added to SCREENS_TRACKING_v4.md.
+
+### Priority demotions (effective 2026-05-18)
+
+| Item | Previous priority | New priority | Justification |
+|---|---|---|---|
+| C6c — cold-start screen | P0 (part of "28 UI line-items") | **P1** | Still needed for Render free-tier cold-start UX, but not launch-blocking in isolation. Address before UAT, not before launch gate. |
+| C9 — real implementation (second mind inline, C9b) | P0 (part of "28 UI line-items") | **P2** | Pro-tier engagement feature. Picker sheet (C9a) can land in v1 with paywalled CTA; inline C9b is post-revenue iteration. |
+| F2 — Suggested insights (lite) | P0 (part of "28 UI line-items") | **P2** | Pro retention feature; requires accumulated `memory_entries`. No organic users yet. Post-revenue. |
+| F3 — Weekly letter inbox | P0 (part of "28 UI line-items") | **P2** | Pro retention feature; requires async batch Sunday generation with minimum material threshold. Post-revenue. |
+| F4 — Weekly letter detail | P0 (part of "28 UI line-items") | **P2** | Dependent on F3. Post-revenue. |
+
+### P1 additions (effective 2026-05-18)
+
+**P1 — I1 Account hub build**
+🔴 not started. Spec locked in SCREENS_TRACKING_v4.md. Tab bar reachability unlocks via D1 (P0). Functional value (subscription management, sign-out, plan changes) requires Block H wiring. I1 becomes co-requisite once Block H lands. Spec already locked; no design work needed.
+
+### Tech debt addition (2026-05-18)
+
+See TD-09 in §3 below.
 
 ---
 
@@ -380,6 +424,20 @@ Currently `gh pr create` is not available in bash from the Windows environment. 
 
 Alembic runs `upgrade head` on Render container startup. It has worked through 7 migrations. The mechanism (Procfile? render.yaml CMD? startup script?) is undocumented. Find and document before the next engineer touches the deployment pipeline or before a migration fails on startup.
 
+## TD-09 — bugfixes-2 post-mortem: one-fix-per-PR rule
+
+**Priority:** P4 (process discipline, not code fix)
+
+PR #72 (squash-merged as ac42a1d on main; local branch HEAD was 27476d4) bundled two unrelated fixes into one commit:
+1. Auth hydration guard — `_hasHydrated` state slice + Zustand `persist` partialize + guard in create-conversation effect
+2. `loadSavedLines()` store sync fix — unrelated to auth; sound fix
+
+The hydration fix broke production chat for ~2h on 2026-05-18. The `_hasHydrated` guard waited for `true` but the Zustand `persist` rehydration callback never fired under the production store configuration. The create-conversation effect was permanently blocked, causing "Summoning..." stall for all users.
+
+Resolution: Hotfix `hotfix/revert-hydration-from-27476d4` surgically removed the three HYDRATION hunks while preserving the SAVED_LINES sync fix.
+
+**Rule:** One logical fix per PR. Auth/hydration changes are high blast-radius and must ship in an isolated PR with mandatory mobile smoke test on the PR preview URL before merge. Bundling with an unrelated store fix masks blast radius during review and makes surgical revert harder.
+
 ---
 
 # 4. Database schemas
@@ -547,6 +605,9 @@ See `HANDOFF_BRIEF_v9.md` §13.3 for full rationale.
 - [x] **C5 — Chat UI frontend** — COMPLETE (C5a/b/c/d merged 2026-05-16/17)
 - [x] **C3a — RAG infrastructure** — COMPLETE (migration 008, HNSW indexes, ingestion scripts, 2026-05-17)
 - [x] **C3b — Corpus ingestion operational run** — COMPLETE (2026-05-17). 2476 chunks ingested across 7 personas.
+- [ ] **bugfixes-3 — auth race fix** (promoted from P1 2026-05-18; mobile smoke mandatory pre-merge; see §"2026-05-18 launch priority shift")
+- [ ] **D1 Home/Today build** (spec locked; build deferred earlier, reprioritized P0 2026-05-18; blocks tab bar reachability + C3 save-line ROI)
+- [ ] **A0 Public Landing design + build** (no spec yet; design proposal pending from founder; implementation blocked until proposal lands)
 - [ ] **Consolidated polish PR** — visually closes Block B
 - [ ] **Landing page waitlist test** — $14.99 validation (founder builds, ~2h, 10-day data window)
 - [ ] **Lawyer review** of Terms / Privacy / disclaimer
@@ -565,6 +626,8 @@ See `HANDOFF_BRIEF_v9.md` §13.3 for full rationale.
 - [ ] **Wire generate_insight_task** (TD-05) — when memory_entries starts accumulating
 - [x] **HNSW vector indexes** on `source_chunks.embedding` + `memory_entries.embedding` — DONE in C3a (migration 008, 2026-05-17)
 - [ ] **Render API plan upgrade** (~$7/mo to eliminate cold-start; do before UAT)
+- [ ] **C6c — cold-start screen** (demoted from P0 2026-05-18; needed for Render free-tier UX, not launch-blocking; address before UAT)
+- [ ] **I1 Account hub build** (added 2026-05-18; tab bar reachability via D1 first; functional value requires Block H; becomes co-requisite when Block H lands; spec locked)
 - [ ] **A6+A7 disclaimer endpoint integration tests** (shipped without tests for speed)
 - [ ] **A6+A7 lazy-load monitoring** — watch Render logs for `MissingGreenlet`
 - [ ] **A4 mailto visible support email fallback** — when `support@thegreatminds.app` mailbox exists
@@ -579,6 +642,10 @@ See `HANDOFF_BRIEF_v9.md` §13.3 for full rationale.
 - [ ] **Portrait style harmonization** — Aurelius + Socrates re-generate
 - [ ] **Extract Lao Tzu / Wilde / Machiavelli to YAML** in `apps/api/philosopher_brain/`
 - [ ] **Premium tier reassignment** (Freud → premium if desired; 1-line UPDATE)
+- [ ] **C9 real implementation** — C9b inline second-opinion response (demoted from P0 2026-05-18; Pro-tier engagement feature, post-revenue; C9a picker sheet with paywalled CTA lands in v1)
+- [ ] **F2 Suggested insights (lite)** (demoted from P0 2026-05-18; Pro retention; requires memory_entries accumulation; post-revenue)
+- [ ] **F3 Weekly letter inbox** (demoted from P0 2026-05-18; Pro retention; async batch generation; post-revenue)
+- [ ] **F4 Weekly letter detail** (demoted from P0 2026-05-18; dependent on F3; post-revenue)
 - [ ] **B1 hydration polish** — 0.5s flash before auth-guard redirect
 - [ ] **Local Python venv for founder** (Windows) — prevents another surrogate emoji disaster
 

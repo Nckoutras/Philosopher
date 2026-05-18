@@ -2,11 +2,11 @@
 
 > **What this file is:** Live snapshot of the project's current implementation status. Manually maintained.
 >
-> **v9 = v8 baseline (2026-05-13/14) + 2026-05-16 session delta (Block C backend shipped; C-RECON reconciliation series completed; PATH B deleted; single canonical send-message endpoint confirmed) + 2026-05-16/17 session delta (Block C frontend complete; C5a/b/c/d merged; C3a RAG infrastructure merged; migration 008 deployed and verified live).**
+> **v9 = v8 baseline (2026-05-13/14) + 2026-05-16 session delta (Block C backend shipped; C-RECON reconciliation series completed; PATH B deleted; single canonical send-message endpoint confirmed) + 2026-05-16/17 session delta (Block C frontend complete; C5a/b/c/d merged; C3a RAG infrastructure merged; migration 008 deployed and verified live) + 2026-05-18 session delta (5 PRs shipped + 1 hotfix; ~2h production fire; 9/9 personas functional; auth race promoted to P0; D1 + A0 structural gaps identified).**
 >
 > **Generated:** 2026-05-16 (post-reconciliation)
 >
-> **Last updated:** 2026-05-17 (Block C frontend 4/4 complete; C3a RAG infrastructure live; migration 008 `008_hnsw_vector_indexes` applied; 292 total backend tests; CLAUDE.md Rule 5 violation log inaugurated; C3b corpus ingestion complete — 2476 chunks across 7 personas; `retrieval_service` now live)
+> **Last updated:** 2026-05-18 (5 PRs + hotfix merged; production fire incident logged; structural gaps D1 + A0 identified; auth race promoted to P0; priority reshuffle captured in IMPLEMENTATION_BACKLOG_v9.md)
 
 > **v9 conflict resolution rule:** Where v9 conflicts with v8, v9 wins. Production reality always wins over docs.
 
@@ -565,6 +565,9 @@ This section records instances where the Pre-Work Investigation Protocol (CLAUDE
 - [x] **C5 — Chat UI frontend** — COMPLETE (C5a/b/c/d merged 2026-05-16/17)
 - [x] **C3a — RAG infrastructure** — COMPLETE (migration 008, HNSW indexes, ingestion scripts, 2026-05-17)
 - [x] **C3b — Corpus ingestion operational run** — COMPLETE (2026-05-17). 2476 chunks ingested across 7 personas. `retrieval_service` now live.
+- [ ] **bugfixes-3 — auth race fix** (promoted to P0 2026-05-18; mobile smoke mandatory pre-merge)
+- [ ] **D1 Home/Today build** (spec locked; reprioritized to P0 2026-05-18; blocks tab bar + C3 ROI)
+- [ ] **A0 Public Landing design + build** (new 2026-05-18; design proposal pending from founder)
 - [ ] **Consolidated polish PR** (blocks Block B visual closure) — 9 mobile walkthrough findings
 - [ ] **Lawyer review of legal templates** — P0 launch blocker
 - [ ] **Resend domain verification** for `thegreatminds.app`
@@ -594,6 +597,12 @@ This section records instances where the Pre-Work Investigation Protocol (CLAUDE
 - [ ] **Extract Lao Tzu / Wilde / Machiavelli to YAML** in `apps/api/philosopher_brain/`
 - [ ] **Document Render alembic auto-run mechanism** — currently undocumented
 
+### Closed items (2026-05-18)
+
+- [x] **CLOSED 2026-05-18** — C3 save-line UI shipped (5 PRs merged; C3 frontend + follow-ups complete)
+- [x] **CLOSED 2026-05-18** — Production fire resolved (hotfix/revert-hydration-from-27476d4 merged; ~2h outage)
+- [x] **CLOSED 2026-05-18** — 9/9 personas functional end-to-end (Lao Tzu, Machiavelli, Wilde unblocked)
+
 ### Closed items (2026-05-16/17)
 
 - [x] **CLOSED 2026-05-17** — **Block C frontend 4/4 complete** (C5a/b/c/d all merged). Chat UI live.
@@ -612,4 +621,53 @@ See v8 §9 "Closed items" section for full list.
 
 ---
 
-**End of PROJECT_STATE v9.** Authoritative as of 2026-05-17. Supersedes `PROJECT_STATE_v8.md` (preserved as historical reference).
+## 18. 2026-05-18 session delta
+
+### PRs merged
+
+| Commit on main | PR # | Description |
+|---|---|---|
+| `9420dce` | #68 | C3 backend — saved lines table + API (migration 009) |
+| `49f047e` | #69 | C3 frontend + F1 minimal — Save line UI + Reflections page |
+| `e588d49` | #70 | C3 follow-up — tap-to-unsave + iOS input + Send icon + Maybe later CSS |
+| `3bfa511` | #71 | C3 follow-up — unblock Lao Tzu / Machiavelli / Wilde + restore Socrates opening |
+| `ac42a1d` | #72 | C3 follow-up — savedLines store sync + auth hydration race fix (bugfixes-2; local branch HEAD was 27476d4) |
+| hotfix branch | — | hotfix/revert-hydration-from-27476d4 — surgical removal of HYDRATION hunks; SAVED_LINES sync fix preserved |
+
+### Production fire incident
+
+**Duration:** ~2 hours. **Root cause:** `_hasHydrated` Zustand guard introduced in bugfixes-2 (PR #72, squash-merged as ac42a1d on main; local branch HEAD was 27476d4) prevented the create-conversation effect from ever firing on real client load. The guard waited for `_hasHydrated === true`, but the `persist` rehydration callback never set it to `true` under the production store configuration. Result: "Summoning..." stall on all chat screens for all users.
+
+**Resolution:** Hotfix branch `hotfix/revert-hydration-from-27476d4` surgically removed the three HYDRATION hunks (the `_hasHydrated` state slice, the `persist` partialize configuration, and the create-conversation effect guard) while preserving the unrelated `loadSavedLines()` sync fix from the same PR.
+
+**Process lesson logged as TD-09:** One logical fix per PR. Auth/hydration changes require isolated PR + mandatory mobile smoke test on preview URL before merge. See IMPLEMENTATION_BACKLOG_v9.md §TD-09.
+
+### Persona functional status
+
+**9/9 personas now functional end-to-end.** Lao Tzu, Niccolò Machiavelli, and Oscar Wilde were previously blocked by missing Python registry files; unblocked in today's session.
+
+**Content debt note:** These three personas still have `None` for `character_anchors`, `behavioral_parameters`, and other Section 5.7 fields. Postprocessing checks skip silently without error. ChatGPT audit of their configs is scheduled as P2 in IMPLEMENTATION_BACKLOG_v9.md §7.
+
+### Auth race bug — status update
+
+**Promoted from P1 edge case to P0 launch blocker.**
+
+The auth race (refresh on authenticated route → redirects to `/auth` → requires new OTP rather than restoring session from existing token) was previously recorded as a P1 edge case. After the hydration hotfix reintroduced it as consistently observable behavior on mobile, it is now P0. Fix direction and alternatives documented in IMPLEMENTATION_BACKLOG_v9.md §"2026-05-18 launch priority shift".
+
+### Structural gaps identified
+
+**Gap 1 — D1 Home/Today not built.** D1 spec has been locked since v4 but was classified under "Block D — Not yet planned" and never built. Without D1, the bottom tab bar is invisible after sign-in: Today, Reflections, Library, and Account tabs are all unreachable. The C3 save-line feature shipped today has ROI = 0 until D1 exists. Reprioritized to P0.
+
+**Gap 2 — No public landing page (A0).** Current A1 Splash is a ~500ms auth-check screen by design. B1 Welcome is onboarding-only. There is no pre-auth marketing surface at the `/` route. First-impression conversion signal is absent; sharing the app with new users produces weak data. A0 Public Landing added as a new pending screen in SCREENS_TRACKING_v4.md and as a P0 item in IMPLEMENTATION_BACKLOG_v9.md. Design proposal pending from founder.
+
+### P0 additions to open items (§17)
+
+The following items are added to §17 Open items (P0) as of this session:
+
+- [ ] **bugfixes-3 — auth race fix** (promoted from P1; mobile smoke mandatory pre-merge)
+- [ ] **D1 Home/Today build** (spec locked; deferred build reprioritized to P0)
+- [ ] **A0 Public Landing design + build** (design proposal pending from founder; implementation blocked until proposal lands)
+
+---
+
+**End of PROJECT_STATE v9.** Authoritative as of 2026-05-18. Supersedes `PROJECT_STATE_v8.md` (preserved as historical reference).

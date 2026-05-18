@@ -2,9 +2,9 @@
 
 > **Purpose:** Full screen inventory of the Great Minds product. Each screen marked covered (✅) or pending (⚠️). Covered screens have full spec; pending screens have status notes.
 >
-> **Total: 55 screens** (D5 folded into D1, D4 deferred v2, F5 deferred v2, J4 dropped, A2/A3 merged, A6/A7 merged).
-> **Effective specced count: 43** (Blocks 1–6 + Block 9 covered)
-> **Pending: 12** (Block 7 Rituals 4 screens + Block 8 Multi-mind 5 screens + K1/K2 deferred v2 + D4 deferred v2 + F5 deferred v2)
+> **Total: 56 screens** (A0 added 2026-05-18; D5 folded into D1, D4 deferred v2, F5 deferred v2, J4 dropped, A2/A3 merged, A6/A7 merged).
+> **Effective specced count: 43** (Blocks 1–6 + Block 9 covered; A0 pending spec)
+> **Pending: 13** (A0 pending spec + Block 7 Rituals 4 screens + Block 8 Multi-mind 5 screens + K1/K2 deferred v2 + D4 deferred v2 + F5 deferred v2)
 >
 > **Companion documents:**
 > - `DESIGN_SYSTEM_v4.md` — visual and component spec
@@ -43,6 +43,11 @@
 > - C6c spec updated: headline "Waiting for a connection." (was "Waiting on connection."); body drops "internet" — "connection" alone reads cleaner.
 > - Component reuse map: 3.26 empty state card extended to J3 + J5; Bronze offline ornament extended from C6c-only to C6c + J2; Sepia concentric circles ornament officially added to inventory (was inline-only in H4b).
 > - Anti-patterns: Rust on app-wide server-side errors flagged.
+>
+> **Changelog v4 → v4.1 (2026-05-18):**
+> - A0 Public Landing added as new pending screen (spec incomplete — design proposal pending from founder)
+> - D1 build-status note added to full spec section (spec locked; build reprioritized to P0)
+> - Screen count: 55 → 56; pending count: 12 → 13
 
 ---
 
@@ -52,6 +57,7 @@
 
 | ID | Screen | Status |
 |---|---|---|
+| A0 | Public Landing (pre-auth marketing) | ⚠️ pending (spec incomplete) |
 | A1 | Splash / loading screen | ✅ covered |
 | A2 | Sign up | ✅ merged with A3 — single screen |
 | A3 | Sign in | ✅ merged with A2 — single screen |
@@ -168,6 +174,14 @@
 ---
 
 ## Covered screens — full specs
+
+### A0 — Public Landing (pre-auth marketing)
+
+**Status:** ⚠️ pending (spec incomplete)
+
+Design proposal forthcoming from founder via separate Claude session. Will define hero direction, value prop copy, CTA structure, responsive behavior, and integration with the `/` route. Awaiting founder input before any implementation work begins.
+
+---
 
 ### A1 — Splash / loading
 
@@ -634,6 +648,8 @@ After C2 loading, persona's first message appears.
 - **Empty state card** (dashed border + Bronze ornament + 3-item list)
 - "Start your first conversation" (Ink button)
 - Bottom tab bar
+
+**Build status note (2026-05-18):** Spec locked since v4. Build was deferred under "Block D — Not yet planned"; reprioritized to P0 on 2026-05-18 after structural gap discovery (without D1, bottom tab bar surface is unreachable post-sign-in, making Reflections/Library/Account tabs invisible and C3 save-line feature effectively ROI-blind). See IMPLEMENTATION_BACKLOG_v9.md §"2026-05-18 launch priority shift".
 
 ---
 
