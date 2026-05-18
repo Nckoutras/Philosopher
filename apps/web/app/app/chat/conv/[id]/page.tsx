@@ -112,6 +112,25 @@ export default function ExistingConversationPage() {
 
   async function handleSaveLine(messageId: string) {
     const state = useStore.getState()
+
+    if (state.savedMessageIds.has(messageId)) {
+      const savedLineToRemove = state.savedLines.find(l => l.message_id === messageId)
+      if (!savedLineToRemove) return
+
+      useStore.getState().removeAfterDelete(savedLineToRemove.id, messageId)
+      try {
+        await api.deleteSavedLine(savedLineToRemove.id)
+      } catch {
+        useStore.setState((s) => ({
+          savedLines: [...s.savedLines, savedLineToRemove],
+          savedMessageIds: new Set([...s.savedMessageIds, messageId]),
+          freeSaveCount: s.freeSaveCount + 1,
+        }))
+        toast.error('Could not remove. Try again.')
+      }
+      return
+    }
+
     const isAtLimit =
       state.plan === 'free' &&
       state.freeTierLimit !== null &&

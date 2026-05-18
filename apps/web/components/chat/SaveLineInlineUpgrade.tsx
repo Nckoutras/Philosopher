@@ -30,7 +30,7 @@ export default function SaveLineInlineUpgrade({ onUpgrade, onDismiss }: Props) {
         <button
           type="button"
           onClick={onDismiss}
-          className="font-lora text-[12px] text-charcoal underline underline-offset-2"
+          className="font-lora text-[12px] text-charcoal underline underline-offset-2 shrink-0 whitespace-nowrap"
         >
           Maybe later
         </button>
