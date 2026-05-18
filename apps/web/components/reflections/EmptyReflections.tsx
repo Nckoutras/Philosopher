@@ -17,10 +17,10 @@ export default function EmptyReflections({ onStartConversation }: Props) {
       </div>
 
       <h2 className="font-cormorant text-[19px] font-normal text-ink text-center leading-snug">
-        A space for the lines that stay with you.
+        Nothing saved yet.
       </h2>
       <p className="font-lora text-[13px] text-charcoal leading-[1.6] text-center mt-[8px]">
-        When a sentence settles, save it. Saved lines live here, ready when you return.
+        When a reply lands, tap Save line below it. The line will live here.
       </p>
 
       <div className="border-t border-[0.5px] border-linen mt-[16px] mb-[16px]" />
@@ -60,8 +60,7 @@ export default function EmptyReflections({ onStartConversation }: Props) {
         onClick={onStartConversation}
         className="bg-ink text-vellum font-cormorant text-[17px] font-medium w-full py-[14px] rounded-sm mt-[16px]"
       >
-        Start a conversation
-        {/* TODO: route to D1 Home once D1 ships */}
+        Choose a mind
       </button>
     </div>
   )

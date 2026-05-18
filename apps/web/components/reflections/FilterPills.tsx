@@ -1,7 +1,5 @@
 'use client'
 
-import toast from 'react-hot-toast'
-
 export type FilterOption = 'all' | 'by-mind' | 'by-theme'
 
 interface PersonaOption {
@@ -18,9 +16,9 @@ interface Props {
 
 export default function FilterPills({ active, personas, selectedPersonaSlug, onChange }: Props) {
   const pillBase =
-    'bg-white text-ink border border-[0.5px] border-edge px-[14px] py-[6px] font-lora text-[12px] rounded-sm whitespace-nowrap flex-shrink-0'
+    'bg-paper text-ink border border-[0.5px] border-edge px-[14px] py-[6px] font-lora text-[12px] rounded-[4px] whitespace-nowrap flex-shrink-0'
   const pillActive =
-    'bg-ink text-paper border-transparent px-[14px] py-[6px] font-lora text-[12px] rounded-sm whitespace-nowrap flex-shrink-0'
+    'bg-linen-deep text-ink border border-ink px-[14px] py-[6px] font-lora text-[12px] font-medium rounded-[4px] whitespace-nowrap flex-shrink-0'
 
   return (
     <div className="flex flex-col gap-[8px]">
@@ -41,8 +39,8 @@ export default function FilterPills({ active, personas, selectedPersonaSlug, onC
         </button>
         <button
           type="button"
-          onClick={() => toast('Coming soon', { duration: 2000 })}
-          className={`${pillBase} opacity-50`}
+          disabled
+          className={`${pillBase} opacity-50 cursor-default`}
           aria-label="By theme (coming soon)"
         >
           By theme

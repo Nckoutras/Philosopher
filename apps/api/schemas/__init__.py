@@ -339,3 +339,30 @@ class SavedLineLimitError(BaseModel):
 
 class SavedLineBadRoleError(BaseModel):
     detail: str
+
+
+# ── Home / Today ───────────────────────────────────────────────────────────────
+
+class DailyQuestionOut(BaseModel):
+    id: str
+    question_text: str
+
+
+class LastConversationOut(BaseModel):
+    conversation_id: str
+    persona_id: str
+    persona_slug: str
+    persona_name: str
+    persona_tagline: Optional[str]
+    persona_portrait_url: str
+    last_message_snippet: Optional[str]
+    updated_at: datetime
+
+
+class RecentSavedLineOut(BaseModel):
+    saved_line_id: str
+    content: str
+    persona_id: str
+    persona_slug: str
+    persona_name: str
+    saved_at: datetime

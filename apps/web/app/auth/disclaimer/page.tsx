@@ -50,7 +50,7 @@ export default function DisclaimerPage() {
         confirmed_non_therapy: true,
         locale: 'en',
       })
-      router.push('/app/welcome')
+      router.push('/app/today')
     } catch {
       toast.error('Could not save your acceptance. Please try again.')
       setIsSubmitting(false)

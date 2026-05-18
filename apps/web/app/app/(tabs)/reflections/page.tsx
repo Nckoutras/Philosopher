@@ -11,22 +11,18 @@ import DateGrouper from '@/components/reflections/DateGrouper'
 import FilterPills, { type FilterOption } from '@/components/reflections/FilterPills'
 import EmptyReflections from '@/components/reflections/EmptyReflections'
 
-function groupLabel(savedAt: string): 'This week' | 'Earlier' | 'Last month' {
+function groupLabel(savedAt: string): 'This week' | 'Earlier' {
   const days = differenceInCalendarDays(new Date(), new Date(savedAt))
   if (days <= 6) return 'This week'
-  if (days <= 29) return 'Earlier'
-  return 'Last month'
+  return 'Earlier'
 }
 
-function groupItems(items: SavedLineRead[]): Array<{ label: string; items: SavedLineRead[] }> {
-  const groups: Record<string, SavedLineRead[]> = {}
-  const order: string[] = []
+function groupItems(items: SavedLineRead[]): Array<{ label: 'This week' | 'Earlier'; items: SavedLineRead[] }> {
+  const groups: Record<'This week' | 'Earlier', SavedLineRead[]> = { 'This week': [], Earlier: [] }
+  const order: Array<'This week' | 'Earlier'> = []
   for (const item of items) {
     const label = groupLabel(item.saved_at)
-    if (!groups[label]) {
-      groups[label] = []
-      order.push(label)
-    }
+    if (!order.includes(label)) order.push(label)
     groups[label].push(item)
   }
   return order.map((label) => ({ label, items: groups[label] }))
@@ -128,7 +124,7 @@ export default function ReflectionsPage() {
           )}
           {savedLines.length === 0 ? (
             <EmptyReflections
-              onStartConversation={() => router.push('/app/explore')}
+              onStartConversation={() => router.push('/app/library')}
             />
           ) : (
             <div className="flex-1 overflow-y-auto px-[16px] pb-[80px]">
