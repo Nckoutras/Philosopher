@@ -57,9 +57,8 @@ async def create_checkout(
         customer=sub.stripe_customer_id,
         mode="subscription",
         line_items=[{"price": price_id, "quantity": 1}],
-        success_url=f"{config.BASE_URL}/billing/success?session_id={{CHECKOUT_SESSION_ID}}",
-        cancel_url=f"{config.BASE_URL}/upgrade",
-        subscription_data={"trial_period_days": 7},
+        success_url=f"{config.BASE_URL}/app/account?checkout=success",
+        cancel_url=f"{config.BASE_URL}/app/account",
         allow_promotion_codes=True,
     )
 
@@ -79,7 +78,7 @@ async def customer_portal(
 
     session = stripe.billing_portal.Session.create(
         customer=sub.stripe_customer_id,
-        return_url=f"{config.BASE_URL}/settings",
+        return_url=f"{config.BASE_URL}/app/account",
     )
     return PortalResponse(portal_url=session.url)
 
@@ -97,6 +96,25 @@ async def stripe_webhook(request: Request, db: AsyncSession = Depends(get_db)):
     obj = event["data"]["object"]
 
     match event["type"]:
+        case "checkout.session.completed":
+            result = await db.execute(
+                select(Subscription).where(Subscription.stripe_customer_id == obj["customer"])
+            )
+            sub = result.scalar_one_or_none()
+            if sub:
+                sub.stripe_subscription_id = obj.get("subscription")
+                sub.plan = "pro"
+                sub.status = "active"
+                analytics_service.track("subscription_activated", sub.user_id, {"plan": "pro"})
+
+        case "invoice.payment_succeeded":
+            result = await db.execute(
+                select(Subscription).where(Subscription.stripe_subscription_id == obj.get("subscription"))
+            )
+            sub = result.scalar_one_or_none()
+            if sub and sub.status != "active":
+                sub.status = "active"
+
         case "customer.subscription.created" | "customer.subscription.updated":
             result = await db.execute(
                 select(Subscription).where(Subscription.stripe_customer_id == obj["customer"])

@@ -109,5 +109,7 @@ async def get_recent_saved_line(
         persona_id=sl.persona_id,
         persona_slug=persona.slug if persona else "",
         persona_name=persona.name if persona else "",
+        persona_portrait_url=persona.portrait_url if persona else "",
+        conversation_id=msg.conversation_id if msg else "",
         saved_at=sl.saved_at,
     )

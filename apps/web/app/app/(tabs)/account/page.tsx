@@ -24,6 +24,16 @@ export default function AccountPage() {
     if (!storeSubscription) {
       api.getSubscription().then(setSubscription).catch(() => {})
     }
+    // Show success toast when returning from Stripe Checkout
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search)
+      if (params.get('checkout') === 'success') {
+        toast.success('Welcome to Pro.')
+        api.getSubscription().then(setSubscription).catch(() => {})
+        // Remove the query param without a full reload
+        window.history.replaceState({}, '', window.location.pathname)
+      }
+    }
   }, [token, router, storeSubscription, setSubscription])
 
   const displayName = user?.full_name ?? user?.email ?? ''
@@ -35,6 +45,10 @@ export default function AccountPage() {
     : 'Free'
 
   async function handleSubscriptionTap() {
+    if (plan === 'Free') {
+      router.push('/app/upgrade')
+      return
+    }
     setPortalLoading(true)
     try {
       const { portal_url } = await api.getPortalUrl()

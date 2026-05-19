@@ -216,6 +216,8 @@ export interface RecentSavedLine {
   persona_id: string
   persona_slug: string
   persona_name: string
+  persona_portrait_url: string
+  conversation_id: string
   saved_at: string
 }
 

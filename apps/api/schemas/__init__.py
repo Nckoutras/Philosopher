@@ -365,4 +365,6 @@ class RecentSavedLineOut(BaseModel):
     persona_id: str
     persona_slug: str
     persona_name: str
+    persona_portrait_url: str
+    conversation_id: str
     saved_at: datetime

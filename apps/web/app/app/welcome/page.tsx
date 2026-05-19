@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
+import toast from 'react-hot-toast'
 import { api, type Persona } from '@/lib/api'
 import { useStore } from '@/lib/store'
 
@@ -19,6 +20,8 @@ export default function WelcomePage() {
 
   const [mind, setMind] = useState<Persona | null>(null)
   const [loadError, setLoadError] = useState(false)
+  const [hasConversations, setHasConversations] = useState<boolean | null>(null)
+  const [convLoading, setConvLoading] = useState(false)
 
   useEffect(() => {
     if (token === null) router.replace('/auth')
@@ -45,6 +48,33 @@ export default function WelcomePage() {
       cancelled = true
     }
   }, [])
+
+  useEffect(() => {
+    api.getLastConversation()
+      .then((result) => setHasConversations(result !== null))
+      .catch(() => setHasConversations(false))
+  }, [])
+
+  async function handleConverse() {
+    if (!mind) return
+    setConvLoading(true)
+    try {
+      const conv = await api.createConversation(mind.slug)
+      useStore.getState().setActiveConversation(
+        conv.id,
+        conv.persona.slug,
+        conv.persona.name,
+        conv.persona.portrait_url ?? '',
+        null,
+      )
+      router.push(`/conversations/${conv.id}`)
+    } catch {
+      toast.error('Could not start conversation.')
+      router.push('/app/library')
+    } finally {
+      setConvLoading(false)
+    }
+  }
 
   return (
     <main className="min-h-screen [min-height:100svh] flex flex-col bg-vellum">
@@ -114,22 +144,52 @@ export default function WelcomePage() {
             </>
           )}
 
-          {/* CTAs */}
+          {/* CTAs — state-aware */}
           <div className="mt-5 space-y-2">
-            <button
-              type="button"
-              onClick={() => router.push('/app/onboarding/themes')}
-              className="w-full h-[46px] rounded-sm font-cormorant text-[17px] font-medium bg-ink text-vellum transition-colors"
-            >
-              Begin
-            </button>
-            <button
-              type="button"
-              onClick={() => router.push('/app/explore')}
-              className="w-full h-[46px] rounded-sm font-cormorant text-[17px] font-medium border-[0.5px] border-edge bg-white text-ink transition-colors"
-            >
-              Explore Minds
-            </button>
+            {hasConversations === null ? (
+              // Loading state — placeholder buttons to prevent layout shift
+              <>
+                <div className="w-full h-[46px] rounded-sm bg-linen" />
+                <div className="w-full h-[46px] rounded-sm bg-linen" />
+              </>
+            ) : !hasConversations ? (
+              // First-time user — onboarding CTAs
+              <>
+                <button
+                  type="button"
+                  onClick={() => router.push('/app/onboarding/themes')}
+                  className="w-full h-[46px] rounded-sm font-cormorant text-[17px] font-medium bg-ink text-vellum transition-colors"
+                >
+                  Begin
+                </button>
+                <button
+                  type="button"
+                  onClick={() => router.push('/app/explore')}
+                  className="w-full h-[46px] rounded-sm font-cormorant text-[17px] font-medium border-[0.5px] border-edge bg-white text-ink transition-colors"
+                >
+                  Explore Minds
+                </button>
+              </>
+            ) : (
+              // Returning user — converse with today's mind
+              <>
+                <button
+                  type="button"
+                  onClick={handleConverse}
+                  disabled={convLoading || !mind}
+                  className="w-full h-[46px] rounded-sm font-cormorant text-[17px] font-medium bg-ink text-vellum transition-colors disabled:opacity-50"
+                >
+                  {convLoading ? 'Opening…' : `Converse with ${mind?.name ?? "today's mind"}`}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => router.push('/app/library')}
+                  className="w-full h-[46px] rounded-sm font-cormorant text-[17px] font-medium border-[0.5px] border-edge bg-white text-ink transition-colors"
+                >
+                  Browse Library
+                </button>
+              </>
+            )}
           </div>
         </div>
       </section>
