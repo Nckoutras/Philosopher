@@ -74,7 +74,7 @@ export default function RootPage() {
           Sign in
         </button>
         <p className="font-lora text-[10px] tracking-[0.15em] uppercase text-sepia/60 text-center mt-[6px]">
-          Reflection, not therapy · 18+
+          Premium reflective companion · 18+
         </p>
       </div>
     </main>

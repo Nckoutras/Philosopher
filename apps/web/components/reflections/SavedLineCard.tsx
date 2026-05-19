@@ -24,12 +24,12 @@ export default function SavedLineCard({ item, portraitUrl, onClick }: Props) {
           <img
             src={portraitUrl}
             alt={item.persona_display_name}
-            width={18}
-            height={18}
+            width={28}
+            height={28}
             className="object-cover rounded-[2px] flex-shrink-0"
           />
         ) : (
-          <div className="w-[18px] h-[18px] bg-edge rounded-[2px] flex-shrink-0" aria-hidden="true" />
+          <div className="w-[28px] h-[28px] bg-edge rounded-[2px] flex-shrink-0" aria-hidden="true" />
         )}
         <span className="font-lora text-[11px] text-sepia">
           {item.persona_display_name} · {formatDistanceToNow(new Date(item.saved_at), { addSuffix: true })}

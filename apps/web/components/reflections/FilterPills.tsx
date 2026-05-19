@@ -40,7 +40,7 @@ export default function FilterPills({ active, personas, selectedPersonaSlug, onC
         <button
           type="button"
           disabled
-          className={`${pillBase} opacity-50 cursor-default`}
+          className={`${pillBase} opacity-[0.75] cursor-default`}
           aria-label="By theme (coming soon)"
         >
           By theme

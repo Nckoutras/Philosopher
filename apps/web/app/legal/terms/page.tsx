@@ -21,7 +21,7 @@ export default function TermsPage() {
               Terms of Service
             </h1>
             <p className="font-lora text-[12px] text-sepia">
-              Effective: 10 May 2026 · Version 1.0
+              Effective: 19 May 2026 · Version 1.1
             </p>
           </header>
 
@@ -62,7 +62,7 @@ export default function TermsPage() {
           </Section>
 
           <Section title="9. Subscriptions and Payment">
-            The Service is currently offered with a free tier. Paid plans, when available, will be processed by Stripe. Specific terms (pricing, billing cycle, refund policy) will be presented at the point of purchase.
+            The Service is offered as a free tier and a Pro subscription tier. Pro subscriptions are processed by Stripe and billed monthly at €14.90/month or annually at €149/year. You can cancel your subscription at any time via your Account screen, which opens the Stripe customer portal. Cancellation takes effect at the end of your current billing period.
           </Section>
 
           <Section title="10. Intellectual Property">

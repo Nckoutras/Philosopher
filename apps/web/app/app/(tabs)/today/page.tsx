@@ -114,10 +114,10 @@ export default function TodayPage() {
         {/* ── Today's question card ── */}
         {question && (
           <div className="bg-paper border border-[0.5px] border-edge rounded-md px-[16px] pt-[14px] pb-[48px] relative">
-            <p className="font-lora text-[11px] uppercase tracking-[0.18em] text-sepia mb-[8px]">
+            <p className="font-lora text-[11px] font-medium uppercase tracking-[0.18em] text-sepia mb-[8px]">
               Today's Question.
             </p>
-            <p className="font-cormorant text-[22px] font-normal text-ink leading-snug">
+            <p className="font-cormorant text-[22px] font-medium text-ink leading-snug">
               {question.question_text}
             </p>
             <button
@@ -142,30 +142,25 @@ export default function TodayPage() {
                 <Image
                   src={lastConv.persona_portrait_url}
                   alt={lastConv.persona_name}
-                  width={36}
-                  height={36}
+                  width={64}
+                  height={64}
                   className="rounded-[2px] object-cover"
                 />
               ) : (
-                <div className="w-[36px] h-[36px] bg-linen rounded-[2px] flex items-center justify-center">
-                  <span className="font-cormorant text-[16px] font-medium text-charcoal">
+                <div className="w-[64px] h-[64px] bg-linen rounded-[2px] flex items-center justify-center">
+                  <span className="font-cormorant text-[24px] font-medium text-charcoal">
                     {lastConv.persona_name.charAt(0)}
                   </span>
                 </div>
               )}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="font-lora text-[10px] uppercase tracking-[0.18em] text-sepia mb-[4px]">
+              <p className="font-lora text-[10px] font-medium uppercase tracking-[0.18em] text-sepia mb-[4px]">
                 Continuing.
               </p>
-              <p className="font-cormorant text-[17px] font-medium text-ink leading-tight">
+              <p className="font-cormorant text-[17px] font-semibold text-ink leading-tight">
                 {lastConv.persona_name}
               </p>
-              {lastConv.persona_tagline && (
-                <p className="font-lora text-[11px] text-charcoal mt-[2px]">
-                  {lastConv.persona_tagline}
-                </p>
-              )}
               {lastConv.last_message_snippet && (
                 <p className="font-lora text-[13px] text-charcoal leading-snug mt-[6px] line-clamp-2">
                   {lastConv.last_message_snippet}
@@ -176,25 +171,42 @@ export default function TodayPage() {
           </button>
         )}
 
-        {/* ── D1a: From your reflections card ── */}
+        {/* ── D1a: Your reflections card ── */}
         {!isFirstDay && recentLine && (
           <div className="bg-paper border border-[0.5px] border-edge rounded-md shadow-card px-[16px] py-[14px]">
             <p className="font-lora text-[11px] uppercase tracking-[0.18em] text-sepia mb-[8px]">
-              From your reflections.
+              Your reflections.
             </p>
             <p className="font-cormorant italic text-[17px] font-normal text-ink leading-[1.5] line-clamp-3">
               {recentLine.content}
             </p>
             <div className="mt-[8px] flex items-center gap-[6px]">
-              <div className="w-[18px] h-[18px] bg-linen rounded-[2px] flex items-center justify-center flex-shrink-0">
-                <span className="font-cormorant text-[9px] font-medium text-charcoal">
-                  {recentLine.persona_name.charAt(0)}
-                </span>
-              </div>
+              {recentLine.persona_portrait_url ? (
+                <img
+                  src={recentLine.persona_portrait_url}
+                  alt={recentLine.persona_name}
+                  width={32}
+                  height={32}
+                  className="rounded-[2px] object-cover flex-shrink-0"
+                />
+              ) : (
+                <div className="w-[32px] h-[32px] bg-linen rounded-[2px] flex items-center justify-center flex-shrink-0">
+                  <span className="font-cormorant text-[13px] font-medium text-charcoal">
+                    {recentLine.persona_name.charAt(0)}
+                  </span>
+                </div>
+              )}
               <span className="font-lora text-[11px] text-sepia">
                 {recentLine.persona_name} · {formatDistanceToNow(new Date(recentLine.saved_at), { addSuffix: true })}
               </span>
             </div>
+            <button
+              type="button"
+              onClick={() => router.push(`/conversations/${recentLine.conversation_id}`)}
+              className="mt-[10px] px-[14px] py-[6px] border border-[0.5px] border-ink rounded-[4px] font-cormorant text-[14px] font-medium text-ink"
+            >
+              Revisit
+            </button>
           </div>
         )}
 
@@ -268,14 +280,14 @@ export default function TodayPage() {
           </div>
         )}
 
-        {/* ── D1a: Ask another mind button ── */}
+        {/* ── D1a: Start fresh button ── */}
         {!isFirstDay && (
           <button
             type="button"
-            onClick={() => router.push('/app/library')}
+            onClick={() => router.push('/app/welcome')}
             className="w-full py-[14px] rounded-md border border-[0.5px] border-ink font-cormorant text-[17px] font-medium text-ink"
           >
-            Ask another mind
+            Start fresh
           </button>
         )}
       </div>
