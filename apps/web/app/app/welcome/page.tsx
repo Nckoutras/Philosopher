@@ -67,7 +67,7 @@ export default function WelcomePage() {
         conv.persona.portrait_url ?? '',
         null,
       )
-      router.push(`/conversations/${conv.id}`)
+      router.push(`/app/chat/conv/${conv.id}`)
     } catch {
       toast.error('Could not start conversation.')
       router.push('/app/library')
@@ -186,7 +186,7 @@ export default function WelcomePage() {
                   onClick={() => router.push('/app/library')}
                   className="w-full h-[46px] rounded-sm font-cormorant text-[17px] font-medium border-[0.5px] border-edge bg-white text-ink transition-colors"
                 >
-                  Browse Library
+                  Past Conversations
                 </button>
               </>
             )}

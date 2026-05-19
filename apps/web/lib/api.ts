@@ -115,6 +115,8 @@ export interface Conversation {
   message_count: number
   last_message_at: string | null
   created_at: string
+  source_persona_slug: string | null
+  source_context_content: string | null
 }
 
 export interface Message {
@@ -359,6 +361,13 @@ class ApiClient {
 
   async deleteConversation(id: string): Promise<void> {
     return this.request(`/conversations/${id}`, { method: 'DELETE' })
+  }
+
+  async createCrossPersonaConversation(savedLineId: string, targetPersonaSlug: string): Promise<Conversation> {
+    return this.request<Conversation>('/conversations/cross-persona', {
+      method: 'POST',
+      body: JSON.stringify({ saved_line_id: savedLineId, target_persona_slug: targetPersonaSlug }),
+    })
   }
 
   // SSE stream — returns the raw Response for manual reading.

@@ -88,6 +88,8 @@ class Conversation(Base):
     last_message_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    source_saved_line_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), ForeignKey("saved_lines.id", ondelete="SET NULL"), nullable=True)
+    source_persona_slug: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
     user: Mapped["User"] = relationship("User", back_populates="conversations")
     persona: Mapped["Persona"] = relationship("Persona", back_populates="conversations")

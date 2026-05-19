@@ -82,9 +82,16 @@ class ConversationOut(BaseModel):
     message_count: int
     last_message_at: Optional[datetime]
     created_at: datetime
+    source_persona_slug: Optional[str] = None
+    source_context_content: Optional[str] = None
 
     class Config:
         from_attributes = True
+
+
+class CrossPersonaRequest(BaseModel):
+    saved_line_id: str
+    target_persona_slug: str
 
 
 # ── Messages ──────────────────────────────────────────────────────────────────

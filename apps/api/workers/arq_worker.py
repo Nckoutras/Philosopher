@@ -98,11 +98,11 @@ async def generate_insight_task(ctx, user_id: str, conversation_id: str):
 
 
 async def generate_conversation_title(ctx, conversation_id: str):
-    """Generates a short title for a conversation from its first 3 messages."""
+    """Generates a short title for a conversation from its first 4 messages."""
     from db.session import AsyncSessionLocal
     from models import Conversation, Message
     from sqlalchemy import select
-    import anthropic as _anthropic
+    from services.llm_client import llm_client
 
     async with AsyncSessionLocal() as db:
         try:
@@ -110,25 +110,25 @@ async def generate_conversation_title(ctx, conversation_id: str):
                 select(Message)
                 .where(Message.conversation_id == conversation_id)
                 .order_by(Message.created_at.asc())
-                .limit(3)
+                .limit(4)
             )
             messages = msgs_result.scalars().all()
             if not messages:
                 return
 
             context = "\n".join(f"{m.role.upper()}: {m.content}" for m in messages)
-            client = _anthropic.AsyncAnthropic(api_key=config.ANTHROPIC_API_KEY)
-            response = await client.messages.create(
+            title = await llm_client.complete(
+                system=(
+                    "Generate a short 4-7 word title for this conversation. "
+                    "Capture the core topic or theme. "
+                    "No quotes, no punctuation at the end, no preamble. "
+                    "Output the title only."
+                ),
+                user=context,
                 model="claude-haiku-4-5-20251001",
                 max_tokens=20,
-                system=(
-                    "Summarize this conversation in 3-5 words for use as a title. "
-                    "Output the title only, no quotes, no preamble. "
-                    "Keep it neutral and respectful."
-                ),
-                messages=[{"role": "user", "content": context}],
             )
-            title = response.content[0].text.strip()[:80]
+            title = title.strip()[:80]
 
             result = await db.execute(
                 select(Conversation).where(Conversation.id == conversation_id)
