@@ -11,7 +11,7 @@ import anthropic
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
 
-from models import Conversation, DailyUsage, Message, Persona, SafetyEvent, User
+from models import Conversation, DailyUsage, Message, Persona, SafetyEvent, SavedLine, User
 from personas import get_persona, is_persona_accessible
 from services.safety_service import safety_service
 from services.memory_service import memory_service
@@ -104,6 +104,101 @@ class ConversationService:
                 content=persona_config.opening_invocation,
             )
             db.add(opening)
+        await db.flush()
+        return conv
+
+    # ── Create cross-persona conversation ────────────────────────────────────
+    async def create_cross_persona(
+        self,
+        db: AsyncSession,
+        user_id: str,
+        saved_line_id: str,
+        target_persona_slug: str,
+    ) -> Conversation:
+        """Create a new conversation seeded from a saved line via a different persona.
+
+        Saves only an assistant bootstrap message (no user message in DB),
+        mirroring the opening_invocation pattern. message_count stays 0 until
+        the user actively engages.
+        """
+        # Load saved line + verify ownership
+        sl_result = await db.execute(
+            select(SavedLine).where(
+                SavedLine.id == saved_line_id,
+                SavedLine.user_id == user_id,
+                SavedLine.deleted_at.is_(None),
+            )
+        )
+        saved_line = sl_result.scalar_one_or_none()
+        if not saved_line:
+            raise ValueError("Saved line not found")
+
+        # Load the source message content
+        msg_result = await db.execute(
+            select(Message).where(Message.id == saved_line.message_id)
+        )
+        source_msg = msg_result.scalar_one_or_none()
+        if not source_msg:
+            raise ValueError("Source message not found")
+
+        # Load source persona name
+        src_persona_result = await db.execute(
+            select(Persona).where(Persona.id == saved_line.persona_id)
+        )
+        source_persona = src_persona_result.scalar_one()
+
+        # Load and validate target persona
+        tgt_persona_result = await db.execute(
+            select(Persona).where(Persona.slug == target_persona_slug)
+        )
+        target_persona = tgt_persona_result.scalar_one_or_none()
+        if not target_persona:
+            raise ValueError(f"Persona not found: {target_persona_slug}")
+        if target_persona.slug == source_persona.slug:
+            raise ValueError("Target persona must differ from source persona")
+
+        target_config = get_persona(target_persona_slug)
+        if not target_config:
+            raise ValueError(f"Persona config not found: {target_persona_slug}")
+
+        # Build system prompt: target persona base + cross-perspective context
+        base_system = prompt_builder.build_system(
+            persona=target_config, memories=[], passages=[]
+        )
+        cross_context = (
+            f"\n\n[Cross-perspective context: The user saved this reflection "
+            f"attributed to {source_persona.name}: \"{source_msg.content}\". "
+            f"Open by sharing your own perspective on this idea in your authentic "
+            f"voice. Do not reference that this is a saved line or mention the "
+            f"framing — simply respond as yourself.]"
+        )
+        system_prompt = base_system + cross_context
+
+        # Create the conversation record
+        conv = Conversation(
+            user_id=user_id,
+            persona_id=target_persona.id,
+            source_saved_line_id=saved_line_id,
+            source_persona_slug=source_persona.slug,
+        )
+        db.add(conv)
+        await db.flush()
+
+        # Generate bootstrap assistant message via Haiku (non-streaming)
+        assistant_text = await llm_client.complete(
+            system=system_prompt,
+            user=source_msg.content,
+            model="claude-haiku-4-5-20251001",
+            max_tokens=400,
+        )
+
+        # Save as assistant-only message — message_count stays 0 (opening pattern)
+        db.add(Message(
+            conversation_id=conv.id,
+            user_id=user_id,
+            role="assistant",
+            content=assistant_text,
+        ))
         await db.flush()
         return conv
 
@@ -205,6 +300,12 @@ class ConversationService:
             for m in history
             if m.role in ("user", "assistant")
         ]
+        # W3 fix: Anthropic API requires messages to start with a user turn.
+        # opening_invocation and cross-persona bootstrap both save an initial
+        # assistant message with no preceding user message in the DB. Strip any
+        # leading assistant turns so the API call is always user-first.
+        while lm_messages and lm_messages[0]["role"] == "assistant":
+            lm_messages.pop(0)
         lm_messages.append({"role": "user", "content": user_text})
 
         # ── 6. SAVE USER MESSAGE ─────────────────────────────────────────────
@@ -348,7 +449,7 @@ class ConversationService:
 
         if (
             arq_queue is not None
-            and new_message_count == 3
+            and new_message_count >= 6
             and conv.title is None
         ):
             await arq_queue.enqueue_job(

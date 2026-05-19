@@ -14,7 +14,15 @@ import ErrorMessage from '@/components/chat/ErrorMessage'
 import SafetyBubble from '@/components/chat/SafetyBubble'
 import SafetyReEntryCard from '@/components/chat/SafetyReEntryCard'
 import PaywallModal from '@/components/chat/PaywallModal'
+import SourceLineModal from '@/components/chat/SourceLineModal'
 import ChatInput from '@/components/chat/ChatInput'
+
+interface SourceContext {
+  personaSlug: string
+  personaName: string
+  portraitUrl: string
+  content: string
+}
 
 export default function ExistingConversationPage() {
   const params = useParams<{ id: string }>()
@@ -38,33 +46,30 @@ export default function ExistingConversationPage() {
   const loadSavedLines = useStore((s) => s.loadSavedLines)
 
   const [loadError, setLoadError] = useState<string | null>(null)
+  const [sourceContext, setSourceContext] = useState<SourceContext | null>(null)
+  const [sourceModalOpen, setSourceModalOpen] = useState(false)
   const { send } = useStream()
 
-  // Auto-scroll to last message whenever messages or streaming content changes
   useEffect(() => {
     const sentinel = document.getElementById('chat-scroll-sentinel')
     sentinel?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, streamingContent])
 
-  // Load existing conversation on mount
   useEffect(() => {
     if (token === null) {
       router.replace('/auth')
       return
     }
 
-    // Already loaded this conversation
     if (activeConversationId === params.id) return
 
     let cancelled = false
     setLoadError(null)
-    // Clear stale safety/error state
     setSafetyActive(false)
     setStreamError(null)
 
     async function init() {
       try {
-        // Fetch all data in parallel: conversation list (for metadata), full personas (for portrait_url), messages
         const [convs, personas, msgs] = await Promise.all([
           api.getConversations(),
           api.getPersonas(),
@@ -80,16 +85,26 @@ export default function ExistingConversationPage() {
 
         const personaFull = personas.find((p) => p.slug === conv.persona.slug)
 
-        // setActiveConversation clears messages — call it first, then setMessages
         setActiveConversation(
           conv.id,
           conv.persona.slug,
           conv.persona.name,
           personaFull?.portrait_url ?? '',
-          null, // existing conversation: no opening invocation
+          null,
         )
         setMessages(msgs)
         await loadSavedLines()
+
+        // Build retrospective context for cross-persona conversations
+        if (conv.source_persona_slug && conv.source_context_content) {
+          const srcPersona = personas.find((p) => p.slug === conv.source_persona_slug)
+          setSourceContext({
+            personaSlug: conv.source_persona_slug,
+            personaName: srcPersona?.name ?? conv.source_persona_slug,
+            portraitUrl: srcPersona?.portrait_url ?? '',
+            content: conv.source_context_content,
+          })
+        }
       } catch (err) {
         if (cancelled) return
         setLoadError(err instanceof Error ? err.message : 'Could not load conversation')
@@ -103,7 +118,6 @@ export default function ExistingConversationPage() {
     }
   }, [params.id, token, router, activeConversationId, setActiveConversation, setMessages, setSafetyActive, setStreamError, loadSavedLines])
 
-  // Clear conversation state on unmount
   useEffect(() => {
     return () => {
       clearActiveConversation()
@@ -187,6 +201,21 @@ export default function ExistingConversationPage() {
   return (
     <main className="min-h-screen [min-height:100svh] flex flex-col bg-paper">
       <ChatHeader personaName={personaName} portraitUrl={portraitUrl} />
+
+      {/* Retrospective banner — only for cross-persona conversations */}
+      {sourceContext && (
+        <button
+          type="button"
+          onClick={() => setSourceModalOpen(true)}
+          className="flex items-center gap-2 px-4 py-2 bg-linen border-b border-[0.5px] border-edge w-full text-left flex-shrink-0"
+        >
+          <span className="font-lora text-[11px] text-sepia flex-1">
+            ↳ From {sourceContext.personaName}&apos;s reflection
+          </span>
+          <span className="font-lora text-[11px] text-sepia">›</span>
+        </button>
+      )}
+
       <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3">
         <MessageList
           messages={messages}
@@ -215,6 +244,15 @@ export default function ExistingConversationPage() {
         details={paywallDetails}
         onClose={clearPaywall}
       />
+      {sourceContext && (
+        <SourceLineModal
+          open={sourceModalOpen}
+          personaName={sourceContext.personaName}
+          personaPortraitUrl={sourceContext.portraitUrl}
+          content={sourceContext.content}
+          onClose={() => setSourceModalOpen(false)}
+        />
+      )}
     </main>
   )
 }

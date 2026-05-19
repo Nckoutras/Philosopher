@@ -10,6 +10,7 @@ import SavedLineCard from '@/components/reflections/SavedLineCard'
 import DateGrouper from '@/components/reflections/DateGrouper'
 import FilterPills, { type FilterOption } from '@/components/reflections/FilterPills'
 import EmptyReflections from '@/components/reflections/EmptyReflections'
+import PersonaPickerSheet from '@/components/personas/PersonaPickerSheet'
 
 function groupLabel(savedAt: string): 'This week' | 'Earlier' {
   const days = differenceInCalendarDays(new Date(), new Date(savedAt))
@@ -39,6 +40,7 @@ export default function ReflectionsPage() {
   const [activeFilter, setActiveFilter] = useState<FilterOption>('all')
   const [selectedPersonaSlug, setSelectedPersonaSlug] = useState<string | null>(null)
   const [portraitBySlug, setPortraitBySlug] = useState<Record<string, string>>({})
+  const [pickerLine, setPickerLine] = useState<SavedLineRead | null>(null)
 
   const load = useCallback(async () => {
     const [, personas] = await Promise.all([loadSavedLines(), api.getPersonas()])
@@ -138,9 +140,10 @@ export default function ReflectionsPage() {
                         portraitUrl={portraitBySlug[item.persona_slug] ?? ''}
                         onClick={() =>
                           router.push(
-                            `/conversations/${item.conversation_id}?messageId=${item.message_id}`,
+                            `/app/chat/conv/${item.conversation_id}`,
                           )
                         }
+                        onAskAnotherMind={() => setPickerLine(item)}
                       />
                     </div>
                   ))}
@@ -149,6 +152,19 @@ export default function ReflectionsPage() {
             </div>
           )}
         </>
+      )}
+
+      {pickerLine && (
+        <PersonaPickerSheet
+          open={pickerLine !== null}
+          excludeSlug={pickerLine.persona_slug}
+          savedLineId={pickerLine.id}
+          onClose={() => setPickerLine(null)}
+          onCreated={(id) => {
+            setPickerLine(null)
+            router.push(`/app/chat/conv/${id}`)
+          }}
+        />
       )}
     </main>
   )

@@ -9,6 +9,7 @@ import { useStore } from '@/lib/store'
 import { api } from '@/lib/api'
 import type { DailyQuestion, LastConversation, RecentSavedLine } from '@/lib/api'
 import { getTimeGreeting } from '@/lib/useTimeGreeting'
+import PersonaPickerSheet from '@/components/personas/PersonaPickerSheet'
 
 function formatDateEyebrow(date: Date): string {
   const weekday = date.toLocaleDateString('en-US', { weekday: 'long' }).toUpperCase()
@@ -44,6 +45,7 @@ export default function TodayPage() {
   const [lastConv, setLastConv] = useState<LastConversation | null>(null)
   const [recentLine, setRecentLine] = useState<RecentSavedLine | null>(null)
   const [loading, setLoading] = useState(true)
+  const [pickerOpen, setPickerOpen] = useState(false)
 
   const today = new Date()
   const dateEyebrow = formatDateEyebrow(today)
@@ -86,7 +88,7 @@ export default function TodayPage() {
         conv.persona.portrait_url ?? '',
         null,
       )
-      router.push(`/conversations/${conv.id}`)
+      router.push(`/app/chat/conv/${conv.id}`)
     } catch {
       router.push('/app/library')
     }
@@ -134,7 +136,7 @@ export default function TodayPage() {
         {!isFirstDay && lastConv && (
           <button
             type="button"
-            onClick={() => router.push(`/conversations/${lastConv.conversation_id}`)}
+            onClick={() => router.push(`/app/chat/conv/${lastConv.conversation_id}`)}
             className="w-full text-left bg-paper border border-[0.5px] border-edge rounded-md px-[16px] py-[14px] flex items-start gap-[12px]"
           >
             <div className="flex-shrink-0">
@@ -200,14 +202,36 @@ export default function TodayPage() {
                 {recentLine.persona_name} · {formatDistanceToNow(new Date(recentLine.saved_at), { addSuffix: true })}
               </span>
             </div>
-            <button
-              type="button"
-              onClick={() => router.push(`/conversations/${recentLine.conversation_id}`)}
-              className="mt-[10px] px-[14px] py-[6px] border border-[0.5px] border-ink rounded-[4px] font-cormorant text-[14px] font-medium text-ink"
-            >
-              Revisit
-            </button>
+            <div className="mt-[10px] flex items-center gap-[8px] flex-wrap">
+              <button
+                type="button"
+                onClick={() => router.push(`/app/chat/conv/${recentLine.conversation_id}`)}
+                className="px-[14px] py-[6px] border border-[0.5px] border-ink rounded-[4px] font-cormorant text-[14px] font-medium text-ink"
+              >
+                Revisit
+              </button>
+              <button
+                type="button"
+                onClick={() => setPickerOpen(true)}
+                className="px-[14px] py-[6px] border border-[0.5px] border-sepia rounded-[4px] font-cormorant text-[14px] font-medium text-sepia"
+              >
+                Ask another mind
+              </button>
+            </div>
           </div>
+        )}
+
+        {recentLine && (
+          <PersonaPickerSheet
+            open={pickerOpen}
+            excludeSlug={recentLine.persona_slug}
+            savedLineId={recentLine.saved_line_id}
+            onClose={() => setPickerOpen(false)}
+            onCreated={(id) => {
+              setPickerOpen(false)
+              router.push(`/app/chat/conv/${id}`)
+            }}
+          />
         )}
 
         {/* ── D1b: Empty state card (first-day user) ── */}

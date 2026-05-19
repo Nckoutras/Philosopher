@@ -1,8 +1,8 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, text
 from db.session import get_db
-from models import User, Persona, SafetyEvent, Subscription
+from models import User, Persona, SafetyEvent, Subscription, Conversation
 from schemas import SafetyEventOut, PersonaOut
 from auth import require_admin
 from personas import PERSONA_REGISTRY
@@ -68,6 +68,37 @@ async def analytics_summary(
         "conversion_rate": round(paying / total_users * 100, 1) if total_users else 0,
         "high_safety_events": high_safety,
     }
+
+
+@router.post("/backfill-titles")
+async def backfill_titles(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    """One-shot: enqueue title generation for all conversations missing a title.
+
+    W1 confirmed: uses existing require_admin dependency (user.is_admin column exists).
+    Run once after deploy via: POST /admin/backfill-titles with admin JWT.
+    """
+    arq_queue = getattr(request.app.state, "arq_queue", None)
+    if arq_queue is None:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=503, detail="ARQ queue not available")
+
+    result = await db.execute(
+        select(Conversation.id)
+        .where(
+            Conversation.message_count >= 6,
+            Conversation.title.is_(None),
+        )
+    )
+    conv_ids = [str(row[0]) for row in result.all()]
+
+    for conv_id in conv_ids:
+        await arq_queue.enqueue_job("generate_conversation_title", conv_id)
+
+    return {"queued": len(conv_ids)}
 
 
 @router.patch("/personas/{persona_id}")
