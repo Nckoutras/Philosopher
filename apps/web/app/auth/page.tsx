@@ -71,7 +71,7 @@ export default function AuthPage() {
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@example.com"
               disabled={isLoading}
-              className="w-full h-[50px] px-[14px] bg-white border-[0.5px] border-edge rounded-sm font-lora text-[14px] text-ink placeholder:text-sepia focus:border focus:border-ink focus:outline-none disabled:opacity-60"
+              className="w-full h-[50px] px-[14px] text-center bg-white border-[0.5px] border-edge rounded-sm font-lora text-[14px] text-ink placeholder:text-sepia focus:border focus:border-ink focus:outline-none disabled:opacity-60"
             />
             <button
               type="submit"

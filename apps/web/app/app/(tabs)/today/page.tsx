@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { ChevronRight } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
+import toast from 'react-hot-toast'
 import { useStore } from '@/lib/store'
 import { api } from '@/lib/api'
 import type { DailyQuestion, LastConversation, RecentSavedLine } from '@/lib/api'
@@ -81,16 +82,25 @@ export default function TodayPage() {
     const slug = activePersonaSlug ?? 'marcus_aurelius'
     try {
       const conv = await api.createConversation(slug)
-      useStore.getState().setActiveConversation(
-        conv.id,
-        conv.persona.slug,
-        conv.persona.name,
-        conv.persona.portrait_url ?? '',
-        null,
-      )
       router.push(`/app/chat/conv/${conv.id}`)
     } catch {
       router.push('/app/library')
+    }
+  }
+
+  async function handleShare(content: string, personaName: string, conversationId: string) {
+    const text = `${personaName} told me:\n\n${content}\n\nthegreatminds.app`
+    const origin = typeof window !== 'undefined' ? window.location.origin : ''
+    const url = `${origin}/app/chat/conv/${conversationId}`
+    try {
+      if (typeof navigator !== 'undefined' && navigator.share) {
+        await navigator.share({ title: 'Great Minds', text, url })
+      } else {
+        await navigator.clipboard.writeText(`${text}\n${url}`)
+        toast('Copied to clipboard')
+      }
+    } catch {
+      // user cancelled or share unavailable
     }
   }
 
@@ -116,9 +126,16 @@ export default function TodayPage() {
         {/* ── Today's question card ── */}
         {question && (
           <div className="bg-paper border border-[0.5px] border-edge rounded-md px-[16px] pt-[14px] pb-[48px] relative">
-            <p className="font-lora text-[11px] font-medium uppercase tracking-[0.18em] text-sepia mb-[8px]">
-              Today's Question.
-            </p>
+            <div className="flex items-center gap-[10px] mb-[8px]">
+              <div className="w-[40px] h-[40px] rounded-full flex-shrink-0 flex items-center justify-center bg-bronze">
+                <span className="font-cormorant text-[14px] font-medium text-vellum">
+                  GM
+                </span>
+              </div>
+              <p className="font-lora text-[11px] font-medium uppercase tracking-[0.18em] text-sepia">
+                Today's Question.
+              </p>
+            </div>
             <p className="font-cormorant text-[22px] font-medium text-ink leading-snug">
               {question.question_text}
             </p>
@@ -165,7 +182,7 @@ export default function TodayPage() {
               </p>
               {lastConv.last_message_snippet && (
                 <p className="font-lora text-[13px] text-charcoal leading-snug mt-[6px] line-clamp-2">
-                  {lastConv.last_message_snippet}
+                  &ldquo;{lastConv.last_message_snippet}&rdquo;
                 </p>
               )}
             </div>
@@ -176,24 +193,24 @@ export default function TodayPage() {
         {/* ── D1a: Your reflections card ── */}
         {!isFirstDay && recentLine && (
           <div className="bg-paper border border-[0.5px] border-edge rounded-md shadow-card px-[16px] py-[14px]">
-            <p className="font-lora text-[11px] uppercase tracking-[0.18em] text-sepia mb-[8px]">
+            <p className="font-lora text-[10px] font-medium uppercase tracking-[0.18em] text-sepia mb-[8px]">
               Your reflections.
             </p>
             <p className="font-cormorant italic text-[17px] font-normal text-ink leading-[1.5] line-clamp-3">
-              {recentLine.content}
+              &ldquo;{recentLine.content}&rdquo;
             </p>
             <div className="mt-[8px] flex items-center gap-[6px]">
               {recentLine.persona_portrait_url ? (
                 <img
                   src={recentLine.persona_portrait_url}
                   alt={recentLine.persona_name}
-                  width={32}
-                  height={32}
+                  width={64}
+                  height={64}
                   className="rounded-[2px] object-cover flex-shrink-0"
                 />
               ) : (
-                <div className="w-[32px] h-[32px] bg-linen rounded-[2px] flex items-center justify-center flex-shrink-0">
-                  <span className="font-cormorant text-[13px] font-medium text-charcoal">
+                <div className="w-[64px] h-[64px] bg-linen rounded-[2px] flex items-center justify-center flex-shrink-0">
+                  <span className="font-cormorant text-[24px] font-medium text-charcoal">
                     {recentLine.persona_name.charAt(0)}
                   </span>
                 </div>
@@ -206,16 +223,23 @@ export default function TodayPage() {
               <button
                 type="button"
                 onClick={() => router.push(`/app/chat/conv/${recentLine.conversation_id}`)}
-                className="px-[14px] py-[6px] border border-[0.5px] border-ink rounded-[4px] font-cormorant text-[14px] font-medium text-ink"
+                className="px-[14px] min-h-[44px] flex items-center border border-[0.5px] border-ink rounded-[4px] font-cormorant text-[14px] font-medium text-ink"
               >
                 Revisit
               </button>
               <button
                 type="button"
                 onClick={() => setPickerOpen(true)}
-                className="px-[14px] py-[6px] border border-[0.5px] border-sepia rounded-[4px] font-cormorant text-[14px] font-medium text-sepia"
+                className="px-[14px] min-h-[44px] flex items-center border border-[0.5px] border-sepia rounded-[4px] font-cormorant text-[14px] font-medium text-sepia"
               >
                 Ask another mind
+              </button>
+              <button
+                type="button"
+                onClick={() => handleShare(recentLine.content, recentLine.persona_name, recentLine.conversation_id)}
+                className="px-[14px] min-h-[44px] flex items-center border border-[0.5px] border-sepia rounded-[4px] font-cormorant text-[14px] font-medium text-sepia"
+              >
+                Share
               </button>
             </div>
           </div>

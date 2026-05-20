@@ -60,13 +60,6 @@ export default function WelcomePage() {
     setConvLoading(true)
     try {
       const conv = await api.createConversation(mind.slug)
-      useStore.getState().setActiveConversation(
-        conv.id,
-        conv.persona.slug,
-        conv.persona.name,
-        conv.persona.portrait_url ?? '',
-        null,
-      )
       router.push(`/app/chat/conv/${conv.id}`)
     } catch {
       toast.error('Could not start conversation.')
