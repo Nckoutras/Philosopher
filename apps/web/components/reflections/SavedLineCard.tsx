@@ -1,6 +1,7 @@
 'use client'
 
 import { formatDistanceToNow } from 'date-fns'
+import toast from 'react-hot-toast'
 import type { SavedLineRead } from '@/lib/api'
 
 interface Props {
@@ -11,6 +12,22 @@ interface Props {
 }
 
 export default function SavedLineCard({ item, portraitUrl, onClick, onAskAnotherMind }: Props) {
+  async function handleShare() {
+    const text = `${item.persona_display_name} told me:\n\n${item.message_content}\n\nthegreatminds.app`
+    const origin = typeof window !== 'undefined' ? window.location.origin : ''
+    const url = `${origin}/app/chat/conv/${item.conversation_id}`
+    try {
+      if (typeof navigator !== 'undefined' && navigator.share) {
+        await navigator.share({ title: 'Great Minds', text, url })
+      } else {
+        await navigator.clipboard.writeText(`${text}\n${url}`)
+        toast('Copied to clipboard')
+      }
+    } catch {
+      // user cancelled or share unavailable
+    }
+  }
+
   return (
     // W2: outer div handles the Revisit tap (whole-card navigation).
     // "Ask another mind" is an explicit inner button with stopPropagation.
@@ -42,14 +59,14 @@ export default function SavedLineCard({ item, portraitUrl, onClick, onAskAnother
       </div>
 
       {onAskAnotherMind && (
-        <div className="mt-[10px] flex items-center gap-[8px]">
+        <div className="mt-[10px] flex items-center gap-[8px] flex-wrap">
           <button
             type="button"
             onClick={(e) => {
               e.stopPropagation()
               onClick()
             }}
-            className="px-[12px] py-[5px] border border-[0.5px] border-ink rounded-[4px] font-cormorant text-[13px] font-medium text-ink"
+            className="px-[12px] min-h-[44px] flex items-center border border-[0.5px] border-ink rounded-[4px] font-cormorant text-[13px] font-medium text-ink"
           >
             Revisit
           </button>
@@ -59,9 +76,19 @@ export default function SavedLineCard({ item, portraitUrl, onClick, onAskAnother
               e.stopPropagation()
               onAskAnotherMind()
             }}
-            className="px-[12px] py-[5px] border border-[0.5px] border-sepia rounded-[4px] font-cormorant text-[13px] font-medium text-sepia"
+            className="px-[12px] min-h-[44px] flex items-center border border-[0.5px] border-sepia rounded-[4px] font-cormorant text-[13px] font-medium text-sepia"
           >
             Ask another mind
+          </button>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation()
+              handleShare()
+            }}
+            className="px-[12px] min-h-[44px] flex items-center border border-[0.5px] border-sepia rounded-[4px] font-cormorant text-[13px] font-medium text-sepia"
+          >
+            Share
           </button>
         </div>
       )}
