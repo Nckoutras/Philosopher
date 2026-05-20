@@ -2,13 +2,13 @@
 
 **For:** The next Claude (chat) and Claude Code session
 **From:** Nikos Koutras (founder) + Claude Code
-**Date updated:** 2026-05-17
+**Date updated:** 2026-05-20
 **Prior version:** `docs/HANDOFF_BRIEF_v8.md` (2026-05-13/14)
-**Generated:** 2026-05-16 (post-reconciliation); updated 2026-05-17 (C5d + C3a session)
+**Generated:** 2026-05-16 (post-reconciliation); updated 2026-05-17 (C5d + C3a session); updated 2026-05-20 (PR1 #77 + PR2 #78 sync)
 
 **Block trigger for v9 baseline regen:** Block C backend complete (8/8 items shipped or reconciled). Single canonical send-message endpoint confirmed. PATH B fully deleted. Per §8.17 (addendum vs baseline regen rule): Block C backend closure is a sufficient regen trigger.
 
-**Status:** Block A ✅ FULLY CLOSED (5/5). Block B ✅ SPINE SHIPPED (6/6 functional, polish PR pending). Block C backend ✅ COMPLETE (all features live in PATH A SSE streaming endpoint; PATH B deleted). Block C frontend ✅ COMPLETE (C5a/b/c/d all merged 2026-05-16/17). C3a RAG infrastructure ✅ COMPLETE (migration 008 live). **C3b corpus ingestion: COMPLETE (2026-05-17). 2476 chunks ingested across 7 personas. `retrieval_service` now live.**
+**Status:** Block A ✅ FULLY CLOSED (5/5). Block B ✅ SPINE SHIPPED (6/6 functional, polish PR pending). Block C backend ✅ COMPLETE (all features live in PATH A SSE streaming endpoint; PATH B deleted). Block C frontend ✅ COMPLETE (C5a/b/c/d all merged 2026-05-16/17). C3a RAG infrastructure ✅ COMPLETE (migration 008 live). **C3b corpus ingestion: COMPLETE (2026-05-17). 2476 chunks ingested across 7 personas. `retrieval_service` now live.** **PR1 #77 (2026-05-19): Stripe sandbox wired (checkout + portal + webhook + 6 events; €14.90/mo + €149/yr); A0 + D1 + F1 polish; ToS/Privacy v1.1.** **PR2 #78 (2026-05-20): auto-title trigger fix (≥6 messages), cross-persona feature, library dual-mode, 5 nav route fixes. Migrations 009/010/011 deployed and confirmed in production (alembic_version = 011_cross_persona_conversations).**
 
 > **v9 conflict resolution rule:** Where v9 conflicts with v8 or earlier, v9 wins. Production reality always wins over docs.
 
@@ -282,24 +282,33 @@ Alembic runs `upgrade head` on Render container startup. The exact mechanism (Pr
 
 ## 5. Next session entry point
 
-**Priority order for next session:**
+**Priority order for next session (as of 2026-05-20):**
 
 1. ~~**C5 — Chat UI frontend**~~ **DONE** (C5a/b/c/d merged 2026-05-16/17)
 
 2. ~~**C3b — Corpus ingestion operational run**~~ **COMPLETE (2026-05-17)**
    - 2476 chunks ingested across 7 personas. `retrieval_service` is live. See §14b for historical runbook.
 
-3. **Block B consolidated polish PR** (P0 — blocked on DNS/Resend confirmation)
-   - 9 mobile walkthrough findings (see v8 §6 BUG-001 through BUG-009)
-   - DNS + Resend domain verification must be confirmed before starting
+3. ~~**Stripe sandbox wiring (Block H)**~~ **COMPLETE (PR1 #77, 2026-05-19)**
+   - Checkout + portal + webhook + 6 events live; €14.90/mo + €149/yr.
 
-4. **Landing page waitlist test** (founder-owned, ~2 hours build)
-   - Validates $14.99 price point before Stripe wiring
-   - Pauses Stripe work until 10-day data period completes
+4. ~~**D1 Home/Today build**~~ **DONE (PR #76, 2026-05-18)**
 
-5. **Pre-launch items** (lawyer review, DNS, GDPR/DPA, runbooks)
+5. ~~**A0 Public Landing**~~ **DONE (PR #76 2026-05-18 + PR1 #77 2026-05-19)**
 
-**Do not start Block D / Block F / Block H / Block I** until polish PR is merged and verified on mobile.
+6. **End-to-end Stripe sandbox test** (P0 — test card → checkout → webhook → entitlement → portal → cancel → verify tier downgrade)
+
+7. **Backfill-titles admin execution** (run `POST /api/v1/admin/backfill-titles` on production; P0)
+
+8. **Mobile 12-point nav smoke test** (verify 5 fixed routes + tab bar + chat + upgrade on real iOS Safari; P0)
+
+9. **Cold beta with 3–5 fresh users** (end-to-end signup → conversation → Stripe upgrade; P0)
+
+10. **Block B consolidated polish PR** (P0 — 9 mobile walkthrough findings; blocked on DNS/Resend confirmation)
+
+11. **Pre-launch items** (lawyer review, DNS, GDPR/DPA, runbooks)
+
+~~**Landing page waitlist test** — superseded; Stripe wired without waitlist gate (PR1 #77).~~
 
 ---
 
@@ -388,6 +397,12 @@ ANTHROPIC_MODEL (config.py)     ⚠️ ORPHANED — not read by conversation_ser
 
 ANTHROPIC_MEMORY_MODEL          "claude-haiku-4-5-20251001" — set in config.py
                                  Used by: verify which service reads this
+
+STRIPE_SECRET_KEY               ✅ Set (PR1 #77, 2026-05-19)
+STRIPE_WEBHOOK_SECRET           ✅ Set (PR1 #77, 2026-05-19)
+STRIPE_PRICE_PRO_MONTHLY        ✅ Set (PR1 #77, 2026-05-19) — €14.90/mo price ID
+STRIPE_PRICE_PRO_YEARLY         ✅ Set (PR1 #77, 2026-05-19) — €149/yr price ID
+STRIPE_PRICE_PREMIUM_MONTHLY    ✅ Set (PR1 #77, 2026-05-19) — placeholder; Premium pricing deferred
 ```
 
 ### Frontend (Netlify)
@@ -395,6 +410,7 @@ ANTHROPIC_MEMORY_MODEL          "claude-haiku-4-5-20251001" — set in config.py
 ```
 NEXT_PUBLIC_API_URL             (unset; api.ts falls back to philosopher-api-z9l9.onrender.com/api/v1)
 NEXT_PUBLIC_SUPPORT_EMAIL       nckoutras@gmail.com (placeholder)
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY  ✅ Set (PR1 #77, 2026-05-19)
 ```
 
 ---
@@ -422,8 +438,11 @@ NEXT_PUBLIC_SUPPORT_EMAIL       nckoutras@gmail.com (placeholder)
 - `auth.py` — `get_current_user` + `get_current_user_plan` dependencies.
 - `config.py` — Settings class. Note `ANTHROPIC_MODEL` orphan.
 - `personas/_base.py` — `PersonaConfig` dataclass. NOT the same as ORM `Persona`. Has no `.config` attribute.
-- `db/migrations/versions/` — alembic migrations 001–008.
+- `db/migrations/versions/` — alembic migrations 001–011 (HEAD: `011_cross_persona_conversations`, confirmed in production 2026-05-20).
 - `db/migrations/versions/008_hnsw_vector_indexes.py` — HNSW indexes on source_chunks.embedding + memory_entries.embedding; chunk_index column on source_chunks.
+- `db/migrations/versions/009_saved_lines.py` — `saved_lines` table (PR #68, 2026-05-17).
+- `db/migrations/versions/010_daily_questions.py` — `daily_questions` table + 30 seed questions (PR #76, 2026-05-18; was undocumented in v9 baseline — see PROJECT_STATE_v9.md §19 audit trail).
+- `db/migrations/versions/011_cross_persona_conversations.py` — adds `source_saved_line_id` (UUID FK→saved_lines) + `source_persona_slug` (VARCHAR) to `conversations` (PR2 #78, 2026-05-20).
 
 **Scripts (NEW — C3a, apps/api/scripts/):**
 - `scripts/README.md` — usage guide for ingestion pipeline
@@ -533,11 +552,11 @@ Updated from v8 §20.
                           philosopher-api-z9l9.onrender.com
                           ⚠️ Free tier; cold-start 30-60s after idle
                           ⚠️ Upgrade decision pending (~$7/mo)
-                          Last deploy: 2026-05-16 C-RECON-8 (PR #60)
+                          Last deploy: 2026-05-20 (PR2 #78 — auto-titles + cross-persona + library dual-mode + nav routes)
 
 ✅ Database               Supabase project plecolxlzshkfvybszgs (eu-west-1, paid)
-                          alembic_version = '007_block_c_schema'
-                          17+ public tables (+ daily_usage from 007)
+                          alembic_version = '011_cross_persona_conversations' (verified 2026-05-20)
+                          20+ public tables (+saved_lines/009, +daily_questions/010, +2 cols on conversations/011)
                           RLS DISABLED on all
                           ⚠️ Mitigation: FastAPI gateway exclusive; no anon key on frontend
 
@@ -559,7 +578,9 @@ Updated from v8 §20.
 ✅ Chat UI (C5)           COMPLETE — C5a/b/c/d merged 2026-05-16/17
 ✅ RAG infrastructure     COMPLETE — migration 008 live; HNSW indexes verified; 19 curated MA chunks loaded
 ✅ RAG corpus (C3b)      COMPLETE (2026-05-17) — 2476 chunks ingested across 7 personas; `retrieval_service` live
-❌ Stripe                 Not wired — paused pending $14.99 landing page validation
+🟡 Stripe                 Sandbox wired (PR1 #77, 2026-05-19) — checkout + portal + webhook + 6 events
+                          Pricing: €14.90/mo · €149/yr. 5 Render env vars + 1 Netlify env var set.
+                          End-to-end test (test card → webhook → entitlement → cancel) pending.
 🟡 DNS / thegreatminds.app IN PROGRESS
 ```
 
@@ -709,9 +730,14 @@ v9 baseline regen triggered by Block C backend closure. Next baseline regen shou
 1. Confirm Plan A still active (default: yes)
 2. Verify DNS + Resend domain setup status
 3. ~~**C3b corpus ingestion run**~~ — **COMPLETE (2026-05-17)**. 2476 chunks ingested across 7 personas.
-4. **Block B consolidated polish PR** — 9 mobile walkthrough findings; blocked on DNS/Resend
-5. **Landing page waitlist test** — founder builds, ~2 hours, 10 days data
+4. ~~**Stripe sandbox wiring**~~ — **COMPLETE (PR1 #77, 2026-05-19)**
+5. **End-to-end Stripe sandbox test** (test card → checkout → webhook → entitlement → portal → cancel)
+6. **Backfill-titles admin execution** (`POST /api/v1/admin/backfill-titles`)
+7. **Mobile 12-point nav smoke test** (real iOS Safari)
+8. **Cold beta with 3–5 fresh users** (signup → conversation → Stripe upgrade)
+9. **Block B consolidated polish PR** — 9 mobile walkthrough findings; blocked on DNS/Resend
+~~10. **Landing page waitlist test** — superseded; Stripe wired without waitlist gate.~~
 
 ---
 
-**End of HANDOFF_BRIEF v9.** Authoritative as of 2026-05-17. Supersedes `HANDOFF_BRIEF_v8.md` (preserved as historical reference). Where v9 conflicts with v8, v9 wins.
+**End of HANDOFF_BRIEF v9.** Authoritative as of 2026-05-20 (synced to PR1 #77 + PR2 #78). Supersedes `HANDOFF_BRIEF_v8.md` (preserved as historical reference). Where v9 conflicts with v8, v9 wins.
