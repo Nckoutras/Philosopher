@@ -11,7 +11,7 @@
 > - Historical Block C detail removed (complete); replaced with remaining C3 + C5 items.
 > - Status, priority, and launch-readiness calls reflect 2026-05-17 state.
 >
-> **Last updated:** 2026-05-18. **2026-05-18 session delta: launch priority shift captured. Auth race P0. D1 P0. A0 P0. C6c→P1. C9/F2/F3/F4→P2. TD-09 (one-fix-per-PR post-mortem).**
+> **Last updated:** 2026-05-20. **2026-05-18 session delta: launch priority shift captured. Auth race P0. D1 P0. A0 P0. C6c→P1. C9/F2/F3/F4→P2. TD-09 (one-fix-per-PR post-mortem). 2026-05-20 sync: PR1 #77 (Stripe sandbox + A0/Reflections polish + ToS/Privacy) + PR2 #78 (auto-titles fix + cross-persona + library dual-mode + nav routes) merged to main. Migrations 009/010/011 confirmed in production (alembic_version = 011_cross_persona_conversations).**
 >
 > **Companion documents:**
 > - `PROJECT_STATE_v9.md` — current project state (replaces v8)
@@ -83,11 +83,12 @@
 - ✅ **C3a — RAG infrastructure** (migration 008 applied, HNSW indexes live, 2026-05-17)
 - ✅ **C3b — Corpus ingestion operational run** — COMPLETE (2026-05-17). 2476 chunks ingested across 7 personas.
 - ⏳ **Consolidated polish PR** (blocks Block B visual closure)
-- ⏳ Stripe wiring (calendar gate passed; paused pending $14.99 landing page validation)
+- ✅ **Stripe sandbox wired** (PR1 #77 — checkout + portal + webhook + 6 events; €14.90/mo + €149/yr)
+- ⏳ End-to-end Stripe sandbox test (test card → webhook → entitlement → portal → cancel)
 - ⏳ DNS + Resend domain verification for `thegreatminds.app`
 - ⏳ Lawyer review of legal templates
 - ⏳ Founder runbooks
-- ⏳ Landing page waitlist test ($14.99 pricing validation)
+- ⏳ Cold beta with 3–5 fresh users
 - ⏳ UAT with mixed testers
 - ⏳ Web/PWA public launch
 
@@ -145,17 +146,20 @@ Priority order under Plan A (confirmed active 2026-05-10):
 
 1. ~~**C5 — Chat UI frontend**~~ **DONE** (C5a/b/c/d merged 2026-05-16/17)
 2. ~~**C3b — Corpus ingestion operational run**~~ **COMPLETE (2026-05-17).** 2476 chunks ingested across 7 personas.
-3. **Block B consolidated polish PR** (P0 — blocked on DNS/Resend confirmation)
-4. **Landing page waitlist test** (founder-owned, ~2 hours build, 10-day data window) — validates $14.99 price before Stripe wiring
-5. **Stripe wiring + Block H** (P0, paused pending landing page signal)
-6. **Remaining 28 UI line-items** (Blocks D, F, H, I, J — after polish PR)
-7. **Lawyer review of legal templates** (P0 launch blocker — parallel with UI work)
-8. **DNS + Resend domain verification** (IN PROGRESS — manual/config)
-9. **GDPR / DPA infrastructure** (when Block C UI ships publicly)
-10. **Founder runbooks** (refund, account recovery, GDPR, cancellation, safety escalation)
-11. **Production smoke test** (after polish PR merged + verified on mobile)
-12. **UAT** with mixed testers (≥2/5 spontaneous "I'd pay")
-13. **Public launch (web/PWA)**
+3. ~~**Stripe wiring + Block H**~~ **SANDBOX COMPLETE (PR1 #77, 2026-05-19)** — checkout + portal + webhook; /app/upgrade live; Account routing split
+4. ~~**D1 Home/Today build**~~ **DONE (PR #76, 2026-05-18)**
+5. ~~**A0 Public Landing**~~ **DONE (PR #76 2026-05-18 + PR1 #77 2026-05-19)**
+6. **End-to-end Stripe sandbox test** (test card → webhook → entitlement → portal → cancel; P0 new)
+7. **Backfill-titles admin execution** (run `POST /api/v1/admin/backfill-titles`; P0 new)
+8. **Mobile 12-point nav smoke test** (P0 new — verify 5 fixed routes + tab bar + chat + upgrade on real iOS Safari)
+9. **Cold beta with 3–5 fresh users** (end-to-end signup → conversation → Stripe upgrade; P0 new)
+10. **Block B consolidated polish PR** (P0 — 9 mobile walkthrough findings; blocked on DNS/Resend)
+11. **Lawyer review of legal templates** (P0 launch blocker — parallel)
+12. **DNS + Resend domain verification** (IN PROGRESS — manual/config)
+13. **GDPR / DPA infrastructure**
+14. **Founder runbooks** (refund, account recovery, GDPR, cancellation, safety escalation)
+15. **UAT** with mixed testers (≥2/5 spontaneous "I'd pay")
+16. **Public launch (web/PWA)**
 
 Avoid reopening Phase 4, Block A, Block B spine, Block C backend, or Block C frontend unless production smoke test reveals a regression.
 
@@ -280,19 +284,11 @@ Status: 🟡 IN PROGRESS (depends on DNS). Flip FROM_EMAIL to `noreply@thegreatm
 
 ### C. Stripe verification
 
-Status: 🟡 Calendar gate passed (2026-05-11). **Paused pending landing page $14.99 validation.** Do not wire until waitlist data (10-day window) signals demand. If signal positive, proceed with Block H work.
+Status: 🟢 **Sandbox complete (PR1 #77, 2026-05-19).** Checkout session, Customer Portal, and webhook with 6 events wired and live. Pricing: €14.90/month · €149/year. 5 Render env vars + 1 Netlify env var set. End-to-end live test (test card → webhook → entitlement → portal → cancel) pending (see §11.1).
 
 ### D. Landing page waitlist test
 
-Status: 🔴 not started (founder-owned, ~2 hours build)
-
-Build a minimal landing page for `thegreatminds.app` with:
-- Product description + persona teaser
-- Email waitlist signup
-- Pricing prominently displayed: **$14.99/month · $129/year**
-- Goal: validate that $14.99 price point generates meaningful waitlist signup intent
-
-Run for ~10 days before wiring Stripe. Decision gate: if strong waitlist interest → wire Stripe at $14.99; if weak → iterate pricing/messaging before launch.
+~~Status: 🔴 not started — **superseded.**~~ Stripe sandbox wired (PR1 #77) without requiring waitlist validation data. Public landing (`/`) now live as A0 with sign-up CTA (PR #76 + PR1 #77). Waitlist gate no longer applies.
 
 ### E. Render API plan upgrade
 
@@ -442,7 +438,7 @@ Resolution: Hotfix `hotfix/revert-hydration-from-27476d4` surgically removed the
 
 # 4. Database schemas
 
-See `PROJECT_STATE_v9.md` §4 for current state. Migration 008 (`008_hnsw_vector_indexes`) is the latest, applied 2026-05-17. No further migrations are expected until a new feature requires schema changes.
+See `PROJECT_STATE_v9.md` §4 for current state. Migration 011 (`011_cross_persona_conversations`) is the latest, confirmed in production via Supabase `alembic_version` 2026-05-20. Migrations 009 (`saved_lines`), 010 (`daily_questions`), and 011 (`source_saved_line_id` + `source_persona_slug` on `conversations`) were applied in PR #68, PR #76, and PR2 #78 respectively.
 
 ---
 
@@ -458,34 +454,34 @@ See `HANDOFF_BRIEF_v9.md` §7 for full env var list and status.
 
 ---
 
-# 6. Stripe Wiring (P0 — paused)
+# 6. Stripe Wiring (sandbox complete — PR1 #77)
 
-Status: 🔴 Paused pending landing page $14.99 validation.
+Status: 🟢 **Sandbox complete (PR1 #77, 2026-05-19).**
 
-**Pricing locked (Decision #8):** $14.99/month · $129/year (~$10.75/month effective)
+**Pricing live:** €14.90/month · €149/year (~€12.42/month effective)
 
-When landing page waitlist data is positive, proceed with:
+### 6.1 Prerequisites — complete
+- [x] Stripe account active
+- [x] Products + prices configured:
+  - Free: €0 — 3 free personas (Aurelius, Socrates, Lao Tzu); 5 messages/persona/day
+  - Pro: **€14.90/month · €149/year** — unlocks all 6 pro personas; unlimited messages
+  - Premium: schema-supported; 0 personas assigned; pricing deferred
+- [x] Webhook endpoint: `https://philosopher-api-z9l9.onrender.com/api/v1/billing/webhook`
+- [x] Webhook events (6): `checkout.session.completed`, `invoice.payment_succeeded`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.payment_failed`
+- [x] Env vars set (5 Render: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_PRO_MONTHLY`, `STRIPE_PRICE_PRO_YEARLY`, `STRIPE_PRICE_PREMIUM_MONTHLY` (placeholder — Premium pricing deferred); 1 Netlify: `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`)
 
-### 6.1 Required before Block H work
-- [ ] Verify Stripe account active (cooldown from ~2026-05-01 — verify status)
-- [ ] Set up products + prices:
-  - Free: $0 — 3 free personas (Aurelius, Socrates, Lao Tzu); 5 messages/persona/day
-  - Pro: **$14.99/month · $129/year** — unlocks all 6 pro personas; unlimited messages
-  - Premium: schema-supported; 0 personas assigned; pricing deferred (no concrete premium feature defined)
-- [ ] Webhook endpoint: `https://philosopher-api-z9l9.onrender.com/api/v1/stripe/webhook`
-- [ ] Webhook events: `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.payment_failed`
-- [ ] Test mode integration verification
+### 6.2 Backend work — complete
+- [x] `apps/api/services/stripe_service.py`
+- [x] `apps/api/routers/billing.py` — `POST /api/v1/billing/checkout`, `POST /api/v1/billing/portal`, `POST /api/v1/billing/webhook`
+- [x] Entitlement wired through `tier_service.get_user_tier()`
 
-### 6.2 Backend work
-- [ ] `apps/api/services/stripe_service.py` (create)
-- [ ] `apps/api/routers/stripe.py` (create) — webhook handler + checkout session endpoint
-- [ ] Entitlement check integration with existing `tier_service.get_user_tier()`
+### 6.3 Frontend work — complete
+- [x] `/app/upgrade` screen live
+- [x] Upgrade CTAs wired (paywall → Stripe Checkout redirect)
+- [x] Customer Portal link in Account screen
 
-### 6.3 Frontend work (Block H)
-- [ ] H1-H6 screens per `SCREENS_TRACKING_v4`
-- [ ] Stripe Checkout redirect or embedded form
-- [ ] Upgrade CTAs in B6 paywall placeholder (currently `alert()`) → real paywall flow
-- [ ] Subscription management in Block I (account settings)
+### 6.4 Remaining (P0)
+- [ ] **End-to-end Stripe sandbox test** — test card → checkout → webhook → entitlement → Customer Portal → cancel → verify tier downgrade. Required before cold beta.
 
 ---
 
@@ -545,7 +541,7 @@ Status: 🟢 done (C5a/b/c/d merged 2026-05-16/17). See §2.1A for spec referenc
 
 ## 9.2 Block D — Discovery (D1, D2, D3)
 
-Not yet planned. After C5 + polish PR.
+**D1 — COMPLETE (PR #76, 2026-05-18).** Daily question + Today screen live. D2, D3 not yet planned.
 
 ## 9.3 Block F — Reflection (F1-F6)
 
@@ -553,7 +549,7 @@ Not yet planned.
 
 ## 9.4 Block H — Subscription & Billing (H1-H6)
 
-Paused pending landing page validation. See §6.
+**Stripe sandbox complete (PR1 #77, 2026-05-19).** Checkout + portal + webhook live. End-to-end sandbox test pending before cold beta. See §6.
 
 ## 9.5 Block I — Account & Settings (I1-I6)
 
@@ -605,21 +601,25 @@ See `HANDOFF_BRIEF_v9.md` §13.3 for full rationale.
 - [x] **C5 — Chat UI frontend** — COMPLETE (C5a/b/c/d merged 2026-05-16/17)
 - [x] **C3a — RAG infrastructure** — COMPLETE (migration 008, HNSW indexes, ingestion scripts, 2026-05-17)
 - [x] **C3b — Corpus ingestion operational run** — COMPLETE (2026-05-17). 2476 chunks ingested across 7 personas.
+- [x] **D1 Home/Today build** — COMPLETE (PR #76, 2026-05-18). Daily question + Today screen live.
+- [x] **A0 Public Landing design + build** — COMPLETE (PR #76 2026-05-18 + PR1 #77 2026-05-19). Public landing route live with sign-up CTA.
+- [x] **Stripe wiring** — SANDBOX COMPLETE (PR1 #77, 2026-05-19). Checkout + portal + webhook + 6 events; €14.90/mo + €149/yr.
+- ~~[ ] **Landing page waitlist test** — superseded; Stripe wired without waitlist gate.~~
 - [ ] **bugfixes-3 — auth race fix** (promoted from P1 2026-05-18; mobile smoke mandatory pre-merge; see §"2026-05-18 launch priority shift")
-- [ ] **D1 Home/Today build** (spec locked; build deferred earlier, reprioritized P0 2026-05-18; blocks tab bar reachability + C3 save-line ROI)
-- [ ] **A0 Public Landing design + build** (no spec yet; design proposal pending from founder; implementation blocked until proposal lands)
+- [ ] **End-to-end Stripe sandbox test** (test card → checkout → webhook → entitlement → portal → cancel → verify tier downgrade; P0 added 2026-05-20)
+- [ ] **Backfill-titles admin execution** (run `POST /api/v1/admin/backfill-titles` on production; P0 added 2026-05-20)
+- [ ] **Mobile 12-point nav smoke test** (verify 5 fixed routes + tab bar + chat + upgrade on real iOS Safari; P0 added 2026-05-20)
+- [ ] **Cold beta with 3–5 fresh users** (end-to-end signup → conversation → Stripe upgrade; P0 added 2026-05-20)
 - [ ] **Consolidated polish PR** — visually closes Block B
-- [ ] **Landing page waitlist test** — $14.99 validation (founder builds, ~2h, 10-day data window)
 - [ ] **Lawyer review** of Terms / Privacy / disclaimer
 - [ ] **DNS + Resend domain verification** for `thegreatminds.app`
 - [ ] **GDPR / DPA infrastructure** (Anthropic DPA, processors doc, request fulfillment workflow)
-- [ ] **Stripe wiring** (paused pending landing page signal; Block H + backend service)
 - [ ] **Founder runbooks** (refund, account recovery, GDPR, cancellation, safety escalation)
 - [ ] **Production smoke test** post-C5+polish-PR
 - [ ] **PHENOMENOLOGY_BRIDGE_ENABLED flag state confirmation**
 - [ ] **RLS policies** added as defense-in-depth (even with FastAPI gateway)
 - [ ] **UAT** with 3-5 testers, ≥2/5 spontaneous "I'd pay"
-- [ ] **Blocks D, F, H, I, J** — 28 remaining UI line-items (after C5)
+- [ ] **Blocks F, I, J** — remaining UI line-items
 
 ## 11.2 P1
 
@@ -709,4 +709,4 @@ Founder also runs **KIEN** — AI companion SaaS — as a separate codebase. Not
 
 ---
 
-**End of IMPLEMENTATION_BACKLOG v9.** Authoritative as of 2026-05-17. Supersedes `IMPLEMENTATION_BACKLOG_v8.md` (preserved as historical reference).
+**End of IMPLEMENTATION_BACKLOG v9.** Authoritative as of 2026-05-20 (synced to PR1 #77 + PR2 #78). Supersedes `IMPLEMENTATION_BACKLOG_v8.md` (preserved as historical reference).

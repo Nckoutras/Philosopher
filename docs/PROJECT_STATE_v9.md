@@ -6,7 +6,7 @@
 >
 > **Generated:** 2026-05-16 (post-reconciliation)
 >
-> **Last updated:** 2026-05-18 (5 PRs + hotfix merged; production fire incident logged; structural gaps D1 + A0 identified; auth race promoted to P0; priority reshuffle captured in IMPLEMENTATION_BACKLOG_v9.md)
+> **Last updated:** 2026-05-20 (v9 sync — PR1 #77 Stripe sandbox complete + Today/Welcome/A0/ToS polish; PR2 #78 auto-titles fix + cross-persona + library dual-mode + 5 nav routes; migrations 009/010/011 documented; see §19)
 
 > **v9 conflict resolution rule:** Where v9 conflicts with v8, v9 wins. Production reality always wins over docs.
 
@@ -31,7 +31,7 @@
 | LLM | Anthropic Claude — **now wired and live for chat (Block C backend complete)** |
 | Embeddings | OpenAI text-embedding-3-small (schema + client wired; corpus ingested 2026-05-17 — 2476 chunks via C3b) |
 | Auth | Passwordless OTP via Resend; JWT issuance with cookie + localStorage |
-| Billing | Stripe (scaffolded, NOT wired) |
+| Billing | Stripe (sandbox — checkout + portal + webhook live; PR1 #77) |
 | Email | Resend (free tier, test sender — custom domain in progress) |
 | Analytics | PostHog (configured, unused) |
 
@@ -49,7 +49,7 @@
 ## 2. Production status
 
 - Live URL: **https://thinkalike.netlify.app** (canonical)
-- Last production deploy: **2026-05-17** — C3a RAG infrastructure (migration 008 + scripts) merged + verified via Supabase MCP. C3b ingestion run executed via Render shell same day; `source_chunks` populated with 2476 entries across 7 personas.
+- Last production deploy: **2026-05-20** — PR2 #78 (auto-titles + cross-persona + library dual-mode + 5 nav routes) merged 2026-05-20. Prior: PR1 #77 (Stripe sandbox wired + Today/Welcome/A0 polish + ToS/Privacy v1.1, 2026-05-19); PR #76 (A0 landing + D1 home + F1 polish + Account stub + tab bar, 2026-05-18).
 - **Has paying users:** No
 - **Has free trial users:** No
 
@@ -82,7 +82,7 @@ All backend infrastructure for chat is live. **Block C frontend is also complete
 
 ### Other systems
 
-- **Stripe wired:** No (calendar gate of 2026-05-11 passed; verify status before Block H work)
+- **Stripe wired:** Yes — sandbox (product + 2 prices [€14.90/mo · €149/yr] + Customer Portal activated + webhook endpoint with 6 events [checkout.session.completed, customer.subscription.updated, customer.subscription.deleted, invoice.payment_failed, invoice.payment_succeeded, customer.subscription.created]; 5 Render env vars + 1 Netlify env var set, redeployed clean; PR1 #77)
 - **User validation done:** No (UAT planned with ≥2/5 spontaneous "I'd pay" criterion)
 - **`PHENOMENOLOGY_BRIDGE_ENABLED` flag:** Verified active 2026-05-04/05; current state in Render env to confirm before launch
 - **API plan upgrade:** Free tier still. Decision pending.
@@ -115,8 +115,11 @@ See v8 §3 for full table and affinity weight signatures.
 | 006 | 3 new personas + Jung bio/portrait update | 2026-05-13 | #43 + #44 hotfix |
 | **007** | **Block C schema: conversations.deleted_at, messages.model_used, daily_usage table** | **2026-05-16** | **#50** |
 | **008** | **HNSW vector indexes + source_chunks.chunk_index column** | **2026-05-17** | **C3a** |
+| **009** | **saved_lines table (C3 save-line feature)** | **2026-05-17** | **#68** |
+| **010** | **daily_questions table + 30 seed prompts (D1/A0)** | **2026-05-18** | **#76** |
+| **011** | **conversations.source_saved_line_id + source_persona_slug (cross-persona)** | **2026-05-20** | **#78** |
 
-**alembic_version = `008_hnsw_vector_indexes`** (as of 2026-05-17 session end)
+**alembic_version = `011_cross_persona_conversations`** (as of 2026-05-20, verified via Supabase MCP 2026-05-20)
 
 ### New tables added in migration 007
 
@@ -167,10 +170,56 @@ uq_source_chunks_persona_title_chunk        UNIQUE PARTIAL on (persona_id, sourc
 
 pgvector version verified: **0.8.0** (HNSW supported from 0.5.0+; confirmed before merge).
 
-### Live database state (2026-05-17 session end)
+### New table added in migration 009
 
 ```
-alembic_version:        008_hnsw_vector_indexes ✓ (verified via Supabase MCP)
+saved_lines             (NEW 2026-05-17, migration 009)
+                        per (user_id, message_id) save record; powers C3 save-line UI + F1 Reflections
+                        id: UUID PK
+                        user_id FK→users ON DELETE CASCADE
+                        message_id FK→messages ON DELETE CASCADE
+                        persona_id FK→personas
+                        source_type: VARCHAR(32) enum (manual_save | kept_insight)
+                        saved_at: TIMESTAMP TZ NOT NULL DEFAULT NOW()
+                        deleted_at: TIMESTAMP TZ NULL (soft delete)
+                        Index ix_saved_lines_user_saved_at: (user_id, saved_at DESC) WHERE deleted_at IS NULL
+                        Unique partial index uq_saved_lines_user_message_active: (user_id, message_id) WHERE deleted_at IS NULL
+```
+
+### New table added in migration 010
+
+> ⚠️ **Migration 010 was undocumented in v9 — added in this v9 sync (2026-05-20).**
+
+```
+daily_questions         (NEW 2026-05-18, migration 010)
+                        rotating daily reflection prompts for D1 Today + A0 landing
+                        id: UUID PK
+                        question_text: TEXT NOT NULL
+                        display_order: INTEGER NOT NULL UNIQUE
+                        active: BOOLEAN NOT NULL DEFAULT true
+                        created_at: TIMESTAMP TZ NOT NULL DEFAULT NOW()
+                        Seeded: 30 curated prompts on migration
+                        (e.g. "What are you pretending not to know?", "Whose approval are you still waiting for?")
+                        Index ix_daily_questions_active_order: (active, display_order)
+```
+
+### New columns added in migration 011
+
+```
+conversations.source_saved_line_id    UUID, nullable, FK→saved_lines.id ON DELETE SET NULL
+                                       Set when conversation originates from cross-persona feature
+                                       (user taps "Ask another mind" on a saved reflection)
+                                       NULL for standard (non-cross-persona) conversations
+
+conversations.source_persona_slug     VARCHAR(100), nullable
+                                       Slug of the origin persona whose reply was saved
+                                       Paired with source_saved_line_id; NULL for standard conversations
+```
+
+### Live database state (2026-05-20 session end)
+
+```
+alembic_version:        011_cross_persona_conversations ✓ (verified via Supabase MCP 2026-05-20)
 users count:            2 (founder, freetester)
 personas count:         9 (all active, all with bio + portrait + error_messages)
 conversations:          50+ (from prior engine sessions + testing)
@@ -233,6 +282,12 @@ GET  /api/v1/conversations             (auth — list conversations, max 50)
 GET  /api/v1/conversations/{id}/messages   (auth — fetch message history)
 POST /api/v1/conversations/{id}/messages   ← CANONICAL SEND-MESSAGE (SSE streaming)
 DELETE /api/v1/conversations/{id}          (auth — soft delete)
+
+POST /api/v1/billing/checkout          (auth — create Stripe Checkout session; returns {url})
+POST /api/v1/billing/portal            (auth — open Stripe Customer Portal; returns {url})
+POST /api/v1/billing/webhook           (public — Stripe webhook handler; 6 events)
+
+POST /api/v1/admin/backfill-titles     (admin — backfill auto-generated titles for existing conversations)
 
 GET  /health                           (public)
 ```
@@ -528,7 +583,36 @@ Unchanged from v8. See v8 §8.
 
 ### Frontend (apps/web/)
 
-Unchanged from v8. See v8 §11.
+**Block C frontend (C5a–d, merged 2026-05-16/17):** `app/app/chat/[slug]/page.tsx`, `app/app/chat/conv/[id]/page.tsx`, `app/app/(tabs)/library/page.tsx`, `app/app/(tabs)/layout.tsx`, `components/chat/` (ChatHeader, MessageBubble, MessageList, OpeningInvocation, StreamingBubble, ErrorMessage, ChatInput, PaywallModal, SafetyBubble, SafetyReEntryCard), `components/library/` (ConversationCard, ConversationList, EmptyConversationHistory), `components/layout/BottomTabBar.tsx`, `lib/api.ts`, `lib/useStream.tsx`, `lib/store.ts`. See HANDOFF_BRIEF_v9.md §8 for full C5 file list.
+
+**PR #76 additions (2026-05-18) — A0 landing + D1 home + F1 + Account stub + tab bar:**
+- `app/page.tsx` — A0 public landing page
+- `app/app/(tabs)/today/page.tsx` — D1 Home/Today screen (returning + empty states)
+- `app/app/(tabs)/reflections/page.tsx` — F1 Reflections polish
+- `app/app/(tabs)/account/page.tsx` — Account hub (routing split: Free → upgrade, Pro → portal)
+- `app/app/(tabs)/layout.tsx` — bottom tab bar (Today / Library / Reflections / Account)
+
+**PR1 #77 additions/updates (2026-05-19) — Stripe + Today/Welcome/A0/F1 polish:**
+- `app/app/upgrade/page.tsx` — /app/upgrade page (Yearly €149/yr + Monthly €14.90/mo Stripe Checkout)
+- `app/app/welcome/page.tsx` — state-aware CTAs (onboarding for first-timers vs returning users)
+- `app/app/(tabs)/today/page.tsx` — typography polish, Continuing thumbnail 36→64px, "Your reflections" rename, Revisit button, "Start fresh" rename
+- `app/legal/terms/page.tsx`, `app/legal/privacy/page.tsx` — ToS v1.1 + Privacy v1.1
+- `app/page.tsx` — A0 trust strip updated to "Premium reflective companion · 18+"
+- `components/reflections/SavedLineCard.tsx` — avatar 18→28px; `FilterPills.tsx` — opacity 50→75
+- `apps/api/routers/billing.py` — 2 missing webhook events added, fix URLs, remove trial period
+
+**PR2 #78 additions/updates (2026-05-20) — auto-titles + cross-persona + library dual-mode:**
+- `app/app/(tabs)/library/page.tsx` — dual-mode (Past Conversations default + Browse Minds toggle + client-side search)
+- `app/app/explore/page.tsx` — redirects to /app/library?mode=browse
+- `app/app/chat/conv/[id]/page.tsx` — cross-persona context support + retrospective banner
+- `components/chat/SourceLineModal.tsx` — cross-persona source line modal (NEW)
+- `components/library/BrowseMindsView.tsx` — Browse Minds view extracted from /app/explore (NEW)
+- `components/library/PastConversationsView.tsx` — Past Conversations list with search (NEW)
+- `components/personas/PersonaPickerSheet.tsx` — slide-up bottom drawer for persona selection (NEW)
+- `components/reflections/SavedLineCard.tsx` — refactored <button>→<div> + explicit footer buttons
+- `apps/api/routers/admin.py` — /backfill-titles endpoint added
+- `apps/api/workers/arq_worker.py` — auto-title task refactored to use llm_client.complete()
+- `apps/api/services/conversation_service.py` — cross-persona W3 fix (strip leading assistant messages)
 
 ---
 
@@ -565,15 +649,19 @@ This section records instances where the Pre-Work Investigation Protocol (CLAUDE
 - [x] **C5 — Chat UI frontend** — COMPLETE (C5a/b/c/d merged 2026-05-16/17)
 - [x] **C3a — RAG infrastructure** — COMPLETE (migration 008, HNSW indexes, ingestion scripts, 2026-05-17)
 - [x] **C3b — Corpus ingestion operational run** — COMPLETE (2026-05-17). 2476 chunks ingested across 7 personas. `retrieval_service` now live.
+- [x] **D1 Home/Today build** — CLOSED 2026-05-18 (PR #76)
+- [x] **A0 Public Landing design + build** — CLOSED 2026-05-18 (PR #76; trust strip updated 2026-05-19 in PR1 #77)
+- [x] **Stripe wiring** — CLOSED 2026-05-19 sandbox (PR1 #77; checkout + portal + webhook + 6 events; see §2 Other systems)
 - [ ] **bugfixes-3 — auth race fix** (promoted to P0 2026-05-18; mobile smoke mandatory pre-merge)
-- [ ] **D1 Home/Today build** (spec locked; reprioritized to P0 2026-05-18; blocks tab bar + C3 ROI)
-- [ ] **A0 Public Landing design + build** (new 2026-05-18; design proposal pending from founder)
+- [ ] **End-to-end Stripe sandbox test** — test card flow: checkout → webhook → entitlement → portal → cancel (new P0 2026-05-20)
+- [ ] **Mobile 12-point nav smoke test** — verify all 5 fixed routes + tab bar + chat + upgrade flow on real iOS Safari (new P0 2026-05-20)
+- [ ] **Backfill-titles admin endpoint execution** — run `POST /api/v1/admin/backfill-titles` to title existing conversations (new P0 2026-05-20)
+- [ ] **Cold beta with 3–5 fresh users** — end-to-end signup → onboarding → conversation → Stripe upgrade (new P0 2026-05-20)
 - [ ] **Consolidated polish PR** (blocks Block B visual closure) — 9 mobile walkthrough findings
 - [ ] **Lawyer review of legal templates** — P0 launch blocker
 - [ ] **Resend domain verification** for `thegreatminds.app`
 - [ ] **DNS configuration** for `thegreatminds.app`
-- [ ] **Stripe wiring** (calendar gate 2026-05-11 passed; verify status; paused pending landing page $14.99 validation)
-- [ ] **Landing page waitlist test** — $14.99 price validation; ~2 hours founder build, 10 days data collection
+- ~~[ ] **Landing page waitlist test**~~ — superseded: Stripe wired directly at €14.90/mo + €149/yr (PR1 #77)
 - [ ] **GDPR/DPA infrastructure** — LLM provider DPA review, processors table, data subject request fulfillment
 - [ ] **Founder runbooks** — refund, account recovery, GDPR fulfillment, cancellation override, safety escalation
 - [ ] **`PHENOMENOLOGY_BRIDGE_ENABLED` flag state confirmation** in Render env
@@ -596,6 +684,20 @@ This section records instances where the Pre-Work Investigation Protocol (CLAUDE
 - [ ] **Portrait style harmonization** — Aurelius + Socrates re-generate
 - [ ] **Extract Lao Tzu / Wilde / Machiavelli to YAML** in `apps/api/philosopher_brain/`
 - [ ] **Document Render alembic auto-run mechanism** — currently undocumented
+
+### Closed items (2026-05-18 – 2026-05-20)
+
+- [x] **CLOSED 2026-05-18** — D1 Home/Today build (PR #76)
+- [x] **CLOSED 2026-05-18** — A0 Public Landing (PR #76; trust strip updated 2026-05-19 in PR1 #77)
+- [x] **CLOSED 2026-05-19** — Stripe sandbox wired (PR1 #77; checkout + portal + webhook)
+- [x] **CLOSED 2026-05-19** — ToS v1.1 + Privacy v1.1 (PR1 #77)
+- [x] **CLOSED 2026-05-19** — /app/upgrade page live (PR1 #77)
+- [x] **CLOSED 2026-05-19** — Welcome state-aware refactor (PR1 #77)
+- [x] **CLOSED 2026-05-19** — Today screen polish (PR1 #77; typography, thumbnail 64px, "Your reflections", Revisit button)
+- [x] **CLOSED 2026-05-20** — Auto-title generation fix (PR2 #78; trigger corrected `>= 6`, prompt updated, llm_client.complete() refactor)
+- [x] **CLOSED 2026-05-20** — Cross-persona feature (PR2 #78; PersonaPickerSheet + SourceLineModal + backend endpoint + migration 011)
+- [x] **CLOSED 2026-05-20** — Library dual-mode (PR2 #78; Past Conversations default + Browse Minds toggle)
+- [x] **CLOSED 2026-05-20** — 5 broken nav routes fixed (PR2 #78; /conversations/{id} → /app/chat/conv/{id} across Welcome, Today ×2, Reflections SavedLineCard)
 
 ### Closed items (2026-05-18)
 
@@ -670,4 +772,53 @@ The following items are added to §17 Open items (P0) as of this session:
 
 ---
 
-**End of PROJECT_STATE v9.** Authoritative as of 2026-05-18. Supersedes `PROJECT_STATE_v8.md` (preserved as historical reference).
+---
+
+## 19. 2026-05-20 v9 sync delta (PR1 #77 + PR2 #78)
+
+This section documents what changed in the v9 in-place sync performed 2026-05-20, reflecting PR1 #77 (merged 2026-05-19) and PR2 #78 (merged 2026-05-20).
+
+### PRs reflected in this sync
+
+| Commit | PR | Description |
+|---|---|---|
+| `799579b` | **PR1 #77** | Stripe checkout/portal completion + Today/A0/Reflections polish + ToS/Privacy v1.1 |
+| `642038c` | **PR2 #78** | Auto-titles fix + cross-persona feature + library dual-mode + nav route fix |
+
+### Stripe sandbox setup (PR1 #77)
+
+- Product created with 2 prices: **€14.90/month** and **€149/year** (Best Value)
+- Stripe Customer Portal activated
+- Webhook endpoint registered with 6 events: `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.payment_failed`, `invoice.payment_succeeded`, `customer.subscription.created`
+- Env vars set: 5 backend (Render) + 1 frontend (`NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, Netlify), both services redeployed clean
+- `/app/upgrade` page live with Yearly/Monthly toggle
+- Account routing: Free users → `/app/upgrade`; Pro/Premium users → Stripe Customer Portal
+
+### Auto-titles fix (PR2 #78)
+
+The `generate_conversation_title` ARQ task had an unreachable trigger condition (`message_count == 3`). Fixed to `>= 6` (after 3 user/assistant exchanges). Title generation prompt updated to produce 4–7 word titles from the first 4 messages. Task refactored to use `llm_client.complete()` for consistency with the rest of the codebase. Admin `/backfill-titles` endpoint added for retroactive titling of existing conversations.
+
+### Cross-persona feature (PR2 #78)
+
+New user flow: tap "Ask another mind" on any saved reflection → `PersonaPickerSheet` (bottom drawer) → selects target persona → new conversation created with source reflection content injected as invisible system context → `SourceLineModal` + retrospective banner shown in the resulting conversation.
+
+**Backend changes:** new `POST /api/v1/conversations` accepts optional `source_saved_line_id` + `source_persona_slug`; `conversation_service.stream_response()` strips leading assistant messages before LLM call (W3 fix — cross-persona convs start with an assistant bootstrap message; Anthropic API requires user-first ordering). Migration 011 adds the two FK columns to `conversations`.
+
+### Library dual-mode (PR2 #78)
+
+`/app/library` now renders in two modes toggled by a header button:
+- **Past Conversations** (default): `PastConversationsView` component with client-side search by title + persona name
+- **Browse Minds**: `BrowseMindsView` component (extracted from `/app/explore`)
+`/app/explore` now redirects to `/app/library?mode=browse`. Welcome "Browse Library" CTA renamed to "Past Conversations".
+
+### Navigation routes fixed (PR2 #78)
+
+5 routes that linked to the non-existent `/conversations/{id}` path were corrected to `/app/chat/conv/{id}`: Welcome `handleConverse`, Today `handleReflect`, Today Continue card, Today Revisit button, Reflections `SavedLineCard` onClick.
+
+### Migration audit note
+
+⚠️ **Migration 010 (`010_daily_questions`) was undocumented in v9.** It was applied to production during PR #76 (2026-05-18) but was never captured in PROJECT_STATE_v9.md §4. Documented in this sync. See §4 "New table added in migration 010" for full schema detail.
+
+---
+
+**End of PROJECT_STATE v9.** Authoritative as of 2026-05-18. Last synced 2026-05-20 to reflect PR1 #77 + PR2 #78. Supersedes `PROJECT_STATE_v8.md` (preserved as historical reference).
