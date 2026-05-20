@@ -11,6 +11,7 @@ import { api, ShareLimitError } from '@/lib/api'
 import type { DailyQuestion, LastConversation, RecentSavedLine } from '@/lib/api'
 import { getTimeGreeting } from '@/lib/useTimeGreeting'
 import PersonaPickerSheet from '@/components/personas/PersonaPickerSheet'
+import RitualsCard from '@/components/today/RitualsCard'
 
 function formatDateEyebrow(date: Date): string {
   const weekday = date.toLocaleDateString('en-US', { weekday: 'long' }).toUpperCase()
@@ -41,6 +42,9 @@ export default function TodayPage() {
   const router = useRouter()
   const token = useStore((s) => s.token)
   const activePersonaSlug = useStore((s) => s.activePersonaSlug)
+  const user = useStore((s) => s.user)
+  const subscription = useStore((s) => s.subscription)
+  const isPro = subscription?.status === 'active' && subscription?.plan !== 'free'
 
   const [question, setQuestion] = useState<DailyQuestion | null>(null)
   const [lastConv, setLastConv] = useState<LastConversation | null>(null)
@@ -285,6 +289,14 @@ export default function TodayPage() {
               </button>
             </div>
           </div>
+        )}
+
+        {/* ── Rituals card ── */}
+        {!isFirstDay && (
+          <RitualsCard
+            isPro={isPro ?? false}
+            userEmail={user?.email ?? ''}
+          />
         )}
 
         {recentLine && (

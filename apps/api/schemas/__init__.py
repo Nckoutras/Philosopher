@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from typing import Optional, Any, Literal
 from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 
@@ -346,6 +346,56 @@ class SavedLineLimitError(BaseModel):
 
 class SavedLineBadRoleError(BaseModel):
     detail: str
+
+
+# ── Scheduled Emails ─────────────────────────────────────────────────────────
+
+class ScheduledEmailCreate(BaseModel):
+    saved_line_id: str
+    note: Optional[str] = Field(None, max_length=2000)
+    scheduled_for: datetime
+    recipient_email: Optional[EmailStr] = None
+
+    @field_validator("scheduled_for")
+    @classmethod
+    def validate_scheduled_for(cls, v: datetime) -> datetime:
+        if v.tzinfo is None:
+            v = v.replace(tzinfo=timezone.utc)
+        now = datetime.now(timezone.utc)
+        if v < now + timedelta(hours=1):
+            raise ValueError("scheduled_for must be at least 1 hour in the future")
+        if v > now + timedelta(days=365):
+            raise ValueError("scheduled_for must be within 1 year from now")
+        return v
+
+
+class ScheduledEmailOut(BaseModel):
+    id: str
+    saved_line_id: Optional[str]
+    persona_id: str
+    note: Optional[str]
+    recipient_email: str
+    scheduled_for: datetime
+    status: str
+    sent_at: Optional[datetime]
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class ScheduledEmailListItem(BaseModel):
+    id: str
+    persona_id: str
+    persona_name: str
+    persona_portrait_url: str
+    scheduled_for: datetime
+    status: str
+    sent_at: Optional[datetime]
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
 
 
 # ── Home / Today ───────────────────────────────────────────────────────────────

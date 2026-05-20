@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>A letter for you</title>
+</head>
+<body style="margin:0;padding:40px 20px;background-color:#FAF4E6;font-family:Georgia,'Times New Roman',serif;">
+  <div style="max-width:520px;margin:0 auto;background-color:#FFFFFF;padding:40px 32px;border-radius:4px;">
+
+    <!-- Wordmark -->
+    <h1 style="font-family:Georgia,serif;font-weight:300;font-size:22px;color:#1F1B14;
+               margin:0 0 32px 0;text-align:center;letter-spacing:1.5px;text-transform:uppercase;">
+      Great Minds
+    </h1>
+
+    <!-- Persona row — table layout for Outlook compatibility (C2) -->
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 24px 0;">
+      <tr>
+        {% if persona_portrait_url %}
+        <td valign="middle" style="padding-right:14px;">
+          <img src="{{ persona_portrait_url }}" alt="{{ persona_name }}" width="52" height="52"
+               style="border-radius:4px;object-fit:cover;display:block;" />
+        </td>
+        {% endif %}
+        <td valign="middle">
+          <p style="font-family:Georgia,serif;font-size:13px;color:#5A5246;margin:0;line-height:1.5;">
+            A letter from<br>
+            <strong style="color:#1F1B14;font-size:16px;">{{ persona_name }}</strong>
+          </p>
+        </td>
+      </tr>
+    </table>
+
+    <!-- Divider -->
+    <div style="border-top:0.5px solid #D6C9B0;margin:0 0 24px 0;"></div>
+
+    <!-- Saved line quote -->
+    {% if quote_content %}
+    <p style="font-family:Georgia,serif;font-style:italic;font-size:18px;color:#1F1B14;
+              line-height:1.7;margin:0 0 24px 0;">
+      &ldquo;{{ quote_content }}&rdquo;
+    </p>
+    {% endif %}
+
+    <!-- User's note -->
+    {% if note %}
+    <div style="background-color:#FAF4E6;padding:16px 20px;border-radius:4px;margin:0 0 24px 0;">
+      <p style="font-size:12px;color:#8A7E6A;margin:0 0 6px 0;font-family:Georgia,serif;
+                text-transform:uppercase;letter-spacing:0.12em;">
+        Your note
+      </p>
+      <p style="font-size:14px;color:#3A3530;line-height:1.6;margin:0;font-family:Georgia,serif;">
+        {{ note }}
+      </p>
+    </div>
+    {% endif %}
+
+    <!-- Divider -->
+    <div style="border-top:0.5px solid #D6C9B0;margin:0 0 20px 0;"></div>
+
+    <!-- Footer — parametrized link (M3) -->
+    <p style="font-size:11px;color:#8A7E6A;text-align:center;margin:0;font-family:Georgia,serif;line-height:1.6;">
+      You scheduled this on {{ scheduled_for_display }}.<br>
+      <a href="{{ public_base_url }}"
+         style="color:#8A7E6A;text-decoration:underline;">
+        {{ public_base_url | replace('https://','') | replace('http://','') }}
+      </a>
+    </p>
+
+  </div>
+</body>
+</html>
