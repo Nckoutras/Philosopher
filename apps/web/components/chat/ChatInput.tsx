@@ -7,10 +7,11 @@ import { useStore } from '@/lib/store'
 interface Props {
   send: (content: string) => void
   placeholder?: string
+  initialValue?: string
 }
 
-export default function ChatInput({ send, placeholder = 'Write your thought…' }: Props) {
-  const [value, setValue] = useState('')
+export default function ChatInput({ send, placeholder = 'Write your thought…', initialValue }: Props) {
+  const [value, setValue] = useState(initialValue ?? '')
   const isStreaming = useStore((s) => s.isStreaming)
   const activeConversationId = useStore((s) => s.activeConversationId)
   const disabled = isStreaming || activeConversationId === null

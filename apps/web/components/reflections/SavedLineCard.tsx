@@ -1,7 +1,9 @@
 'use client'
 
+import { useState } from 'react'
 import { formatDistanceToNow } from 'date-fns'
 import toast from 'react-hot-toast'
+import { api, ShareLimitError } from '@/lib/api'
 import type { SavedLineRead } from '@/lib/api'
 
 interface Props {
@@ -12,19 +14,60 @@ interface Props {
 }
 
 export default function SavedLineCard({ item, portraitUrl, onClick, onAskAnotherMind }: Props) {
+  const [shareLoading, setShareLoading] = useState(false)
+
   async function handleShare() {
-    const text = `${item.persona_display_name} told me:\n\n${item.message_content}\n\nthegreatminds.app`
+    const shortShareText = `${item.persona_display_name} told me:\nthegreatminds.app`
+    const fullShareText  = `${item.persona_display_name} told me:\n\n${item.message_content}\n\nthegreatminds.app`
     const origin = typeof window !== 'undefined' ? window.location.origin : ''
     const url = `${origin}/app/chat/conv/${item.conversation_id}`
+
+    setShareLoading(true)
     try {
-      if (typeof navigator !== 'undefined' && navigator.share) {
-        await navigator.share({ title: 'Great Minds', text, url })
+      const blob = await api.createShareScreenshot(item.id)
+      const file = new File([blob], 'reflection.png', { type: 'image/png' })
+
+      if (typeof navigator !== 'undefined' && navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file], text: shortShareText })
       } else {
-        await navigator.clipboard.writeText(`${text}\n${url}`)
-        toast('Copied to clipboard')
+        const blobUrl = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = blobUrl
+        a.download = 'reflection.png'
+        a.click()
+        URL.revokeObjectURL(blobUrl)
+        await navigator.clipboard.writeText(fullShareText + '\n' + url).catch(() => {})
+        toast('Image saved — share it from your downloads')
       }
-    } catch {
-      // user cancelled or share unavailable
+    } catch (err) {
+      if (err instanceof ShareLimitError) {
+        toast((t) => (
+          <span>
+            Free share limit reached (3/90 days).{' '}
+            <a
+              href="/app/upgrade"
+              onClick={() => toast.dismiss(t.id)}
+              style={{ textDecoration: 'underline' }}
+            >
+              Upgrade
+            </a>
+          </span>
+        ))
+        return
+      }
+      // Fallback: text-only share
+      try {
+        if (typeof navigator !== 'undefined' && navigator.share) {
+          await navigator.share({ title: 'Great Minds', text: fullShareText, url })
+        } else {
+          await navigator.clipboard.writeText(fullShareText + '\n' + url)
+          toast('Copied to clipboard')
+        }
+      } catch {
+        // user cancelled
+      }
+    } finally {
+      setShareLoading(false)
     }
   }
 
@@ -86,9 +129,10 @@ export default function SavedLineCard({ item, portraitUrl, onClick, onAskAnother
               e.stopPropagation()
               handleShare()
             }}
-            className="px-[12px] min-h-[44px] flex items-center border border-[0.5px] border-sepia rounded-[4px] font-cormorant text-[13px] font-medium text-sepia"
+            disabled={shareLoading}
+            className="px-[12px] min-h-[44px] flex items-center border border-[0.5px] border-sepia rounded-[4px] font-cormorant text-[13px] font-medium text-sepia disabled:opacity-50"
           >
-            Share
+            {shareLoading ? 'Sharing…' : 'Share'}
           </button>
         </div>
       )}
