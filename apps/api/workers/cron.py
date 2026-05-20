@@ -2,6 +2,10 @@ import logging
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
+from config import config
+from db.session import AsyncSessionLocal
+from services.email_service import send_email
+from services.template_service import render_future_self_email
 
 logger = logging.getLogger(__name__)
 scheduler = AsyncIOScheduler()
@@ -126,8 +130,81 @@ def setup_cron(arq_queue):
         except Exception as e:
             logger.error(f"Cron Stripe reconcile failed: {e}", exc_info=True)
 
+    @scheduler.scheduled_job(IntervalTrigger(minutes=5), id="future_self_emails")
+    async def send_pending_future_self_emails():
+        """Every 5 min — deliver scheduled_emails WHERE scheduled_for <= NOW() AND status='pending'.
+
+        Per-row try/except ensures one send failure does not block the rest.
+        strftime('%-d') is Linux-only (no zero-padding); this runs on Render (Linux).
+        """
+        from models import ScheduledEmail, Persona, SavedLine, Message
+        from sqlalchemy import select
+        from datetime import datetime, timezone
+
+        async with AsyncSessionLocal() as db:
+            result = await db.execute(
+                select(ScheduledEmail)
+                .where(
+                    ScheduledEmail.status == "pending",
+                    ScheduledEmail.scheduled_for <= datetime.now(timezone.utc),
+                )
+                .order_by(ScheduledEmail.scheduled_for.asc())  # oldest due first (M2)
+                .limit(50)
+            )
+            rows = result.scalars().all()
+
+            for row in rows:
+                try:
+                    persona = await db.get(Persona, row.persona_id)
+                    if persona is None:
+                        raise ValueError(f"Persona {row.persona_id} not found")
+
+                    # Prefix relative portrait paths with PUBLIC_ASSET_BASE_URL (Q1)
+                    portrait_url = persona.portrait_url or ""
+                    if portrait_url and not portrait_url.startswith("http"):
+                        portrait_url = (
+                            config.PUBLIC_ASSET_BASE_URL.rstrip("/")
+                            + "/"
+                            + portrait_url.lstrip("/")
+                        )
+
+                    # Load saved line message content (optional — may be NULL if line deleted)
+                    quote_content = None
+                    if row.saved_line_id:
+                        sl_result = await db.execute(
+                            select(Message.content)
+                            .join(SavedLine, SavedLine.message_id == Message.id)
+                            .where(SavedLine.id == row.saved_line_id)
+                        )
+                        quote_content = sl_result.scalar_one_or_none()
+
+                    scheduled_display = (
+                        f"{row.scheduled_for.strftime('%B')} {row.scheduled_for.day}, {row.scheduled_for.year}"
+                    )
+                    subject = f"A letter from {persona.name} — {scheduled_display}"
+                    html = render_future_self_email(
+                        persona_name=persona.name,
+                        persona_portrait_url=portrait_url,
+                        quote_content=quote_content,
+                        note=row.note,
+                        scheduled_for_display=scheduled_display,
+                        public_base_url=config.PUBLIC_ASSET_BASE_URL,
+                    )
+                    send_email(to=row.recipient_email, subject=subject, html=html)
+                    row.status = "sent"
+                    row.sent_at = datetime.now(timezone.utc)
+                    logger.info("Sent future-self email id=%s", row.id)
+                except Exception as exc:
+                    row.status = "failed"
+                    row.failure_reason = str(exc)[:500]
+                    logger.error(
+                        "Failed to send future-self email id=%s: %s", row.id, exc, exc_info=True
+                    )
+
+            await db.commit()
+
     scheduler.start()
-    logger.info("Cron scheduler started with 3 jobs")
+    logger.info("Cron scheduler started with 4 jobs")
 
 
 def shutdown_cron():

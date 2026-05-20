@@ -230,6 +230,35 @@ export interface RecentSavedLine {
   saved_at: string
 }
 
+export interface ScheduledEmailCreate {
+  saved_line_id: string
+  note?: string
+  scheduled_for: string
+}
+
+export interface ScheduledEmailOut {
+  id: string
+  saved_line_id: string | null
+  persona_id: string
+  note: string | null
+  recipient_email: string
+  scheduled_for: string
+  status: string
+  sent_at: string | null
+  created_at: string
+}
+
+export interface ScheduledEmailListItem {
+  id: string
+  persona_id: string
+  persona_name: string
+  persona_portrait_url: string | null
+  scheduled_for: string
+  status: string
+  sent_at: string | null
+  created_at: string
+}
+
 // ── Client ────────────────────────────────────────────────────────────────────
 
 class ApiClient {
@@ -495,6 +524,24 @@ class ApiClient {
     })
     if (res.status === 404) return
     if (!res.ok) throw new Error('Delete failed')
+  }
+
+  // ── Scheduled emails ─────────────────────────────────────────────────────────
+
+  async createScheduledEmail(body: ScheduledEmailCreate): Promise<ScheduledEmailOut> {
+    return this.request<ScheduledEmailOut>('/scheduled-emails', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    })
+  }
+
+  async listScheduledEmails(status?: string): Promise<ScheduledEmailListItem[]> {
+    const qs = status ? `?status=${encodeURIComponent(status)}` : ''
+    return this.request<ScheduledEmailListItem[]>(`/scheduled-emails${qs}`)
+  }
+
+  async cancelScheduledEmail(emailId: string): Promise<void> {
+    return this.request(`/scheduled-emails/${emailId}`, { method: 'DELETE' })
   }
 
   // ── Home / Today ─────────────────────────────────────────────────────────────

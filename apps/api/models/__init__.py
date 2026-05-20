@@ -321,6 +321,49 @@ class SavedLine(Base):
     )
 
 
+# ── Scheduled Emails ─────────────────────────────────────────────────────────
+
+class ScheduledEmail(Base):
+    __tablename__ = "scheduled_emails"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True,
+                                     server_default=text("gen_random_uuid()"))
+    user_id: Mapped[str] = mapped_column(UUID(as_uuid=False),
+                                          ForeignKey("users.id", ondelete="CASCADE"),
+                                          nullable=False)
+    saved_line_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False),
+                                                        ForeignKey("saved_lines.id",
+                                                                   ondelete="SET NULL"),
+                                                        nullable=True)
+    persona_id: Mapped[str] = mapped_column(UUID(as_uuid=False),
+                                             ForeignKey("personas.id",
+                                                        ondelete="RESTRICT"),
+                                             nullable=False)
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    recipient_email: Mapped[str] = mapped_column(String(320), nullable=False)
+    scheduled_for: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="pending")
+    sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    failure_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True),
+                                                  server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True),
+                                                  server_default=func.now(),
+                                                  onupdate=func.now())
+
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('pending','sent','failed','cancelled')",
+            name="ck_scheduled_emails_status",
+        ),
+        Index(
+            "ix_scheduled_emails_pending",
+            "scheduled_for",
+            postgresql_where=text("status = 'pending'"),
+        ),
+    )
+
+
 # ── Daily Questions ───────────────────────────────────────────────────────────
 
 class DailyQuestion(Base):

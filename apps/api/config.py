@@ -42,6 +42,7 @@ class Settings(BaseSettings):
     # Email (Resend)
     RESEND_API_KEY: str = ""
     FROM_EMAIL: str = "noreply@philosopher.app"
+    PUBLIC_ASSET_BASE_URL: str = "https://thinkalike.netlify.app"
 
     # Analytics
     POSTHOG_API_KEY: str = ""
