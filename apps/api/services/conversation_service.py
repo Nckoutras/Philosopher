@@ -115,11 +115,11 @@ class ConversationService:
         saved_line_id: str,
         target_persona_slug: str,
     ) -> Conversation:
-        """Create a new conversation seeded from a saved line via a different persona.
+        """Create a new empty conversation seeded from a saved line.
 
-        Saves only an assistant bootstrap message (no user message in DB),
-        mirroring the opening_invocation pattern. message_count stays 0 until
-        the user actively engages.
+        Sets source_saved_line_id and source_persona_slug for analytics and
+        frontend pre-fill. No bootstrap message is created; the user sends
+        the first message after the draft is pre-filled from localStorage.
         """
         # Load saved line + verify ownership
         sl_result = await db.execute(
@@ -133,15 +133,7 @@ class ConversationService:
         if not saved_line:
             raise ValueError("Saved line not found")
 
-        # Load the source message content
-        msg_result = await db.execute(
-            select(Message).where(Message.id == saved_line.message_id)
-        )
-        source_msg = msg_result.scalar_one_or_none()
-        if not source_msg:
-            raise ValueError("Source message not found")
-
-        # Load source persona name
+        # Load source persona (for source_persona_slug)
         src_persona_result = await db.execute(
             select(Persona).where(Persona.id == saved_line.persona_id)
         )
@@ -157,23 +149,6 @@ class ConversationService:
         if target_persona.slug == source_persona.slug:
             raise ValueError("Target persona must differ from source persona")
 
-        target_config = get_persona(target_persona_slug)
-        if not target_config:
-            raise ValueError(f"Persona config not found: {target_persona_slug}")
-
-        # Build system prompt: target persona base + cross-perspective context
-        base_system = prompt_builder.build_system(
-            persona=target_config, memories=[], passages=[]
-        )
-        cross_context = (
-            f"\n\n[Cross-perspective context: The user saved this reflection "
-            f"attributed to {source_persona.name}: \"{source_msg.content}\". "
-            f"Open by sharing your own perspective on this idea in your authentic "
-            f"voice. Do not reference that this is a saved line or mention the "
-            f"framing — simply respond as yourself.]"
-        )
-        system_prompt = base_system + cross_context
-
         # Create the conversation record
         conv = Conversation(
             user_id=user_id,
@@ -182,23 +157,6 @@ class ConversationService:
             source_persona_slug=source_persona.slug,
         )
         db.add(conv)
-        await db.flush()
-
-        # Generate bootstrap assistant message via Haiku (non-streaming)
-        assistant_text = await llm_client.complete(
-            system=system_prompt,
-            user=source_msg.content,
-            model="claude-haiku-4-5-20251001",
-            max_tokens=400,
-        )
-
-        # Save as assistant-only message — message_count stays 0 (opening pattern)
-        db.add(Message(
-            conversation_id=conv.id,
-            user_id=user_id,
-            role="assistant",
-            content=assistant_text,
-        ))
         await db.flush()
         return conv
 

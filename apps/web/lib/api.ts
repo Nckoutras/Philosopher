@@ -74,6 +74,13 @@ export class DuplicateSaveError extends Error {
   }
 }
 
+export class ShareLimitError extends Error {
+  constructor() {
+    super('SHARE_LIMIT')
+    this.name = 'ShareLimitError'
+  }
+}
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export interface User {
@@ -368,6 +375,22 @@ class ApiClient {
       method: 'POST',
       body: JSON.stringify({ saved_line_id: savedLineId, target_persona_slug: targetPersonaSlug }),
     })
+  }
+
+  async createShareScreenshot(savedLineId: string): Promise<Blob> {
+    const res = await fetch(`${API_BASE}/share/screenshot`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(this.token ? { Authorization: `Bearer ${this.token}` } : {}),
+      },
+      body: JSON.stringify({ saved_line_id: savedLineId }),
+    })
+    if (!res.ok) {
+      if (res.status === 429) throw new ShareLimitError()
+      throw new Error(`Screenshot failed: ${res.status}`)
+    }
+    return res.blob()
   }
 
   // SSE stream — returns the raw Response for manual reading.

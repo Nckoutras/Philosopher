@@ -14,15 +14,7 @@ import ErrorMessage from '@/components/chat/ErrorMessage'
 import SafetyBubble from '@/components/chat/SafetyBubble'
 import SafetyReEntryCard from '@/components/chat/SafetyReEntryCard'
 import PaywallModal from '@/components/chat/PaywallModal'
-import SourceLineModal from '@/components/chat/SourceLineModal'
 import ChatInput from '@/components/chat/ChatInput'
-
-interface SourceContext {
-  personaSlug: string
-  personaName: string
-  portraitUrl: string
-  content: string
-}
 
 export default function ExistingConversationPage() {
   const params = useParams<{ id: string }>()
@@ -46,8 +38,7 @@ export default function ExistingConversationPage() {
   const loadSavedLines = useStore((s) => s.loadSavedLines)
 
   const [loadError, setLoadError] = useState<string | null>(null)
-  const [sourceContext, setSourceContext] = useState<SourceContext | null>(null)
-  const [sourceModalOpen, setSourceModalOpen] = useState(false)
+  const [inputDraft, setInputDraft] = useState<string | undefined>(undefined)
   const { send } = useStream()
 
   useEffect(() => {
@@ -92,19 +83,16 @@ export default function ExistingConversationPage() {
           personaFull?.portrait_url ?? '',
           null,
         )
+
+        // Pre-fill input draft for cross-persona conversations (written by PersonaPickerSheet)
+        const draft = localStorage.getItem(`cross_persona_draft_${params.id}`)
+        if (draft) {
+          setInputDraft(draft)
+          localStorage.removeItem(`cross_persona_draft_${params.id}`)
+        }
+
         setMessages(msgs)
         await loadSavedLines()
-
-        // Build retrospective context for cross-persona conversations
-        if (conv.source_persona_slug && conv.source_context_content) {
-          const srcPersona = personas.find((p) => p.slug === conv.source_persona_slug)
-          setSourceContext({
-            personaSlug: conv.source_persona_slug,
-            personaName: srcPersona?.name ?? conv.source_persona_slug,
-            portraitUrl: srcPersona?.portrait_url ?? '',
-            content: conv.source_context_content,
-          })
-        }
       } catch (err) {
         if (cancelled) return
         setLoadError(err instanceof Error ? err.message : 'Could not load conversation')
@@ -116,7 +104,7 @@ export default function ExistingConversationPage() {
     return () => {
       cancelled = true
     }
-  }, [params.id, token, router, activeConversationId, setActiveConversation, setMessages, setSafetyActive, setStreamError, loadSavedLines])
+  }, [params.id, token, router, activeConversationId, setActiveConversation, setMessages, setSafetyActive, setStreamError, loadSavedLines, setInputDraft])
 
   useEffect(() => {
     return () => {
@@ -202,20 +190,6 @@ export default function ExistingConversationPage() {
     <main className="min-h-screen [min-height:100svh] flex flex-col bg-paper">
       <ChatHeader personaName={personaName} portraitUrl={portraitUrl} />
 
-      {/* Retrospective banner — only for cross-persona conversations */}
-      {sourceContext && (
-        <button
-          type="button"
-          onClick={() => setSourceModalOpen(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-linen border-b border-[0.5px] border-edge w-full text-left flex-shrink-0"
-        >
-          <span className="font-lora text-[11px] text-sepia flex-1">
-            ↳ From {sourceContext.personaName}&apos;s reflection
-          </span>
-          <span className="font-lora text-[11px] text-sepia">›</span>
-        </button>
-      )}
-
       <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3">
         <MessageList
           messages={messages}
@@ -236,23 +210,16 @@ export default function ExistingConversationPage() {
         <div id="chat-scroll-sentinel" />
       </div>
       <ChatInput
+        key={inputDraft ?? 'empty'}
         send={send}
         placeholder={safetyActive ? 'Write when you\'re ready…' : undefined}
+        initialValue={inputDraft}
       />
       <PaywallModal
         open={showPaywall}
         details={paywallDetails}
         onClose={clearPaywall}
       />
-      {sourceContext && (
-        <SourceLineModal
-          open={sourceModalOpen}
-          personaName={sourceContext.personaName}
-          personaPortraitUrl={sourceContext.portraitUrl}
-          content={sourceContext.content}
-          onClose={() => setSourceModalOpen(false)}
-        />
-      )}
     </main>
   )
 }

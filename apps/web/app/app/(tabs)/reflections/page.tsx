@@ -159,6 +159,7 @@ export default function ReflectionsPage() {
           open={pickerLine !== null}
           excludeSlug={pickerLine.persona_slug}
           savedLineId={pickerLine.id}
+          sourceContent={pickerLine.message_content}
           onClose={() => setPickerLine(null)}
           onCreated={(id) => {
             setPickerLine(null)

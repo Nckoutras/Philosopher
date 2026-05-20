@@ -8,6 +8,7 @@ interface Props {
   open: boolean
   excludeSlug: string
   savedLineId: string
+  sourceContent?: string
   onClose: () => void
   onCreated: (conversationId: string) => void
 }
@@ -16,6 +17,7 @@ export default function PersonaPickerSheet({
   open,
   excludeSlug,
   savedLineId,
+  sourceContent,
   onClose,
   onCreated,
 }: Props) {
@@ -35,6 +37,9 @@ export default function PersonaPickerSheet({
     setLoadingSlug(slug)
     try {
       const conv = await api.createCrossPersonaConversation(savedLineId, slug)
+      if (sourceContent) {
+        localStorage.setItem(`cross_persona_draft_${conv.id}`, sourceContent)
+      }
       onCreated(conv.id)
     } catch {
       setLoadingSlug(null)

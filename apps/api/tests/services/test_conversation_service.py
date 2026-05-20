@@ -1407,3 +1407,80 @@ async def test_memory_extraction_no_error_when_queue_is_none():
     db, _ = _make_db_for_memory(message_count=0)
 
     await _run_stream_for_memory(db, arq_queue=None)
+
+
+# ── create_cross_persona ──────────────────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_create_cross_persona_sets_source_columns_and_no_messages():
+    """
+    create_cross_persona() must:
+    - Create a Conversation with source_saved_line_id + source_persona_slug set.
+    - NOT call llm_client.complete (no bootstrap message).
+    - NOT save any Message row.
+    """
+    from models import SavedLine, Persona, Conversation, Message
+
+    SAVED_LINE_ID = "sl-uuid-1"
+    USER_ID_CP    = "user-uuid-cp"
+    SRC_SLUG      = "marcus_aurelius"
+    TGT_SLUG      = "socrates"
+
+    # Saved line mock
+    mock_saved_line = MagicMock(spec=SavedLine)
+    mock_saved_line.id = SAVED_LINE_ID
+    mock_saved_line.user_id = USER_ID_CP
+    mock_saved_line.persona_id = "src-persona-id"
+    mock_saved_line.message_id = "msg-id-1"
+
+    # Source persona mock
+    mock_src_persona = MagicMock(spec=Persona)
+    mock_src_persona.id = "src-persona-id"
+    mock_src_persona.slug = SRC_SLUG
+
+    # Target persona mock
+    mock_tgt_persona = MagicMock(spec=Persona)
+    mock_tgt_persona.id = "tgt-persona-id"
+    mock_tgt_persona.slug = TGT_SLUG
+
+    # Build DB mock with ordered execute responses
+    db = AsyncMock()
+    results = []
+    for return_val, method in [
+        (mock_saved_line, "scalar_one_or_none"),
+        (mock_src_persona, "scalar_one"),
+        (mock_tgt_persona, "scalar_one_or_none"),
+    ]:
+        r = MagicMock()
+        getattr(r, method).return_value = return_val
+        results.append(r)
+
+    db.execute = AsyncMock(side_effect=results)
+    db.add = MagicMock()
+    db.flush = AsyncMock()
+
+    added_objects: list = []
+    db.add.side_effect = added_objects.append
+
+    service = ConversationService()
+
+    with patch("services.conversation_service.llm_client") as mock_llm:
+        conv = await service.create_cross_persona(
+            db=db,
+            user_id=USER_ID_CP,
+            saved_line_id=SAVED_LINE_ID,
+            target_persona_slug=TGT_SLUG,
+        )
+
+    # LLM must NOT have been called
+    mock_llm.complete.assert_not_called()
+
+    # Exactly one object added: the Conversation (no Message)
+    message_objects = [o for o in added_objects if isinstance(o, Message)]
+    assert len(message_objects) == 0
+
+    # Conversation has correct source columns
+    conv_objects = [o for o in added_objects if isinstance(o, Conversation)]
+    assert len(conv_objects) == 1
+    assert conv_objects[0].source_saved_line_id == SAVED_LINE_ID
+    assert conv_objects[0].source_persona_slug == SRC_SLUG
