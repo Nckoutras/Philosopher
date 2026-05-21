@@ -1,11 +1,18 @@
 """Tests for image_service.generate_share_image and helpers."""
 
 import pytest
+from io import BytesIO
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
-from PIL import ImageFont
+from PIL import Image, ImageFont
 
-from services.image_service import _wrap_text, _compose_canvas, FONTS_DIR
+from services.image_service import (
+    _wrap_text,
+    _compose_canvas,
+    FONTS_DIR,
+    CANVAS_WIDTH,
+    CANVAS_HEIGHT,
+)
 
 
 # ── _wrap_text ──────────────────────────────────────────────────────────────
@@ -64,18 +71,16 @@ def test_compose_canvas_returns_valid_png():
         portrait_path=None,  # triggers initial-avatar fallback
     )
     assert isinstance(png_bytes, bytes)
-    # PNG magic bytes
     assert png_bytes[:8] == b'\x89PNG\r\n\x1a\n'
-    # Non-trivial size
     assert len(png_bytes) > 20_000
+    img = Image.open(BytesIO(png_bytes))
+    assert img.size == (CANVAS_WIDTH, CANVAS_HEIGHT)
 
 
 def test_compose_canvas_with_portrait(tmp_path):
     if not (FONTS_DIR / "CormorantGaramond-Italic.ttf").exists():
         pytest.skip("Font files not available in test env")
 
-    # Create a minimal valid PNG portrait
-    from PIL import Image
     portrait = Image.new("RGB", (100, 100), (128, 64, 32))
     portrait_path = tmp_path / "test_portrait.png"
     portrait.save(str(portrait_path))
@@ -87,6 +92,20 @@ def test_compose_canvas_with_portrait(tmp_path):
     )
     assert png_bytes[:8] == b'\x89PNG\r\n\x1a\n'
     assert len(png_bytes) > 20_000
+    img = Image.open(BytesIO(png_bytes))
+    assert img.size == (CANVAS_WIDTH, CANVAS_HEIGHT)
+
+
+def test_compose_canvas_byte_size_range():
+    if not (FONTS_DIR / "CormorantGaramond-Italic.ttf").exists():
+        pytest.skip("Font files not available in test env")
+
+    png_bytes = _compose_canvas(
+        quote="The unexamined life is not worth living.",
+        persona_name="Socrates",
+        portrait_path=None,
+    )
+    assert 15_000 < len(png_bytes) < 300_000
 
 
 # ── generate_share_image ────────────────────────────────────────────────────

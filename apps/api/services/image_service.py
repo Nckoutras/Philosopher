@@ -1,18 +1,20 @@
 """
 Server-side share image generation.
 
-Produces a 1080×1080 PNG with persona portrait, italic quote, and app branding.
-All assets are bundled in apps/api/static/ — no network calls at render time.
+Produces a 1080×1350 PNG (4:5 portrait) with persona portrait, italic quote,
+and app branding. All assets are bundled in apps/api/static/ — no network calls
+at render time.
 
-Layout (portrait y=80, 38px quote font, 8-line max):
-  Portrait circle   : top=80,  center_x=540, diameter=240  (bottom=320)
-  Intro text        : baseline y=360
-  Quote             : starts y=416, line_h=53px, max 8 lines (bottom≤840)
-  Divider           : y=900
-  Attribution       : baseline y=934
-  Wordmark          : baseline y=1010
-  URL               : baseline y=1040  (Lora 14px, ink 60%)
-  Date              : baseline y=1056  (Lora 12px, ink 50%)
+Layout (portrait y=120, 38px quote font, 8-line max):
+  Portrait circle   : top=120, center_x=540, diameter=200  (bottom=320)
+  Intro text        : baseline y=380
+  Quote             : starts y=440, line_h=53px, max 8 lines (bottom≤864)
+  Footer top        : y=1130  (CANVAS_HEIGHT − 50 − 170)
+  Divider           : y=1180  (footer_top + 50)
+  Attribution       : baseline y=1208  (footer_top + 78)
+  Wordmark          : baseline y=1248  (footer_top + 118)
+  URL               : baseline y=1280  (footer_top + 150, Lora 14px, bronze 60%)
+  Date              : baseline y=1300  (footer_top + 170, Lora 12px, bronze 50%)
 """
 
 import logging
@@ -32,43 +34,48 @@ STATIC_DIR = Path(__file__).parent.parent / "static"
 FONTS_DIR = STATIC_DIR / "fonts"
 PERSONAS_DIR = STATIC_DIR / "personas"
 
-CANVAS_SIZE = 1080
+CANVAS_WIDTH  = 1080
+CANVAS_HEIGHT = 1350
 
-BG_COLOR        = (239, 227, 204)        # Vellum #EFE3CC
-INK_COLOR       = (26,  26,  26)         # #1A1A1A
-BRONZE_COLOR    = (184, 153, 104)        # #B89968
-INK_60_COLOR    = (26,  26,  26,  153)   # ink at 60% opacity (RGBA)
+BG_COLOR        = (239, 227, 204)          # Vellum #EFE3CC
+INK_COLOR       = (26,  26,  26)           # #1A1A1A
+BRONZE_COLOR    = (184, 153, 104)          # #B89968
+BRONZE_60_COLOR = (184, 153, 104, 153)     # Bronze 60% opacity — URL
+BRONZE_50_COLOR = (184, 153, 104, 128)     # Bronze 50% opacity — date
 WHITE_COLOR     = (255, 255, 255)
 
-PORTRAIT_DIAMETER = 240
-PORTRAIT_TOP      = 80
-PORTRAIT_CENTER_X = CANVAS_SIZE // 2    # 540
+PORTRAIT_DIAMETER = 200
+PORTRAIT_TOP      = 120
+PORTRAIT_CENTER_X = CANVAS_WIDTH // 2     # 540
 
-INTRO_BASELINE_Y  = 360
+INTRO_BASELINE_Y  = 380
 INTRO_FONT_SIZE   = 32
 
-QUOTE_START_Y     = 416
+QUOTE_START_Y     = 440
 QUOTE_FONT_SIZE   = 38
 QUOTE_LINE_H      = 53    # 38 × 1.4 ≈ 53
 QUOTE_MAX_WIDTH   = 880
 QUOTE_MAX_LINES   = 8
 
-DIVIDER_Y         = 900
 DIVIDER_WIDTH     = 120
 
-ATTR_BASELINE_Y   = 934
-ATTR_FONT_SIZE    = 22
+FOOTER_BOTTOM_PADDING = 50
+FOOTER_BLOCK_HEIGHT   = 170
+FOOTER_TOP_Y          = CANVAS_HEIGHT - FOOTER_BOTTOM_PADDING - FOOTER_BLOCK_HEIGHT  # 1130
 
-WORDMARK_BASELINE_Y = 1010
+DIVIDER_Y           = FOOTER_TOP_Y + 50   # 1180
+ATTR_BASELINE_Y     = FOOTER_TOP_Y + 78   # 1208
+ATTR_FONT_SIZE      = 22
+
+WORDMARK_BASELINE_Y = FOOTER_TOP_Y + 118  # 1248
 WORDMARK_FONT_SIZE  = 24
 
-URL_BASELINE_Y    = 1040
-URL_FONT_SIZE     = 14
-URL_TEXT          = "thegreatminds.app"
+URL_BASELINE_Y      = FOOTER_TOP_Y + 150  # 1280
+URL_FONT_SIZE       = 14
+URL_TEXT            = "thegreatminds.app"
 
-DATE_BASELINE_Y   = 1056
-DATE_FONT_SIZE    = 12
-INK_50_COLOR      = (26,  26,  26,  128)  # ink at 50% opacity (RGBA)
+DATE_BASELINE_Y     = FOOTER_TOP_Y + 170  # 1300
+DATE_FONT_SIZE      = 12
 
 
 async def generate_share_image(
@@ -148,7 +155,7 @@ def _compose_canvas(
     font_lora_date    = _load_font("Lora-Regular.ttf", DATE_FONT_SIZE)
 
     # Create canvas
-    canvas = Image.new("RGBA", (CANVAS_SIZE, CANVAS_SIZE), BG_COLOR + (255,))
+    canvas = Image.new("RGBA", (CANVAS_WIDTH, CANVAS_HEIGHT), BG_COLOR + (255,))
     draw = ImageDraw.Draw(canvas)
 
     # Portrait
@@ -204,14 +211,14 @@ def _compose_canvas(
     )
 
     # URL and date — rendered on a transparent overlay to support opacity
-    overlay = Image.new("RGBA", (CANVAS_SIZE, CANVAS_SIZE), (0, 0, 0, 0))
+    overlay = Image.new("RGBA", (CANVAS_WIDTH, CANVAS_HEIGHT), (0, 0, 0, 0))
     overlay_draw = ImageDraw.Draw(overlay)
 
     overlay_draw.text(
         (PORTRAIT_CENTER_X, URL_BASELINE_Y),
         URL_TEXT,
         font=font_lora_url,
-        fill=INK_60_COLOR,
+        fill=BRONZE_60_COLOR,
         anchor="ms",
     )
 
@@ -221,7 +228,7 @@ def _compose_canvas(
             (PORTRAIT_CENTER_X, DATE_BASELINE_Y),
             date_str,
             font=font_lora_date,
-            fill=INK_50_COLOR,
+            fill=BRONZE_50_COLOR,
             anchor="ms",
         )
 
