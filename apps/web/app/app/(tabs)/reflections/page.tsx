@@ -1,8 +1,9 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { differenceInCalendarDays } from 'date-fns'
+import toast from 'react-hot-toast'
 import { useStore } from '@/lib/store'
 import { api } from '@/lib/api'
 import type { SavedLineRead } from '@/lib/api'
@@ -12,6 +13,7 @@ import FilterPills, { type FilterOption } from '@/components/reflections/FilterP
 import EmptyReflections from '@/components/reflections/EmptyReflections'
 import PersonaPickerSheet from '@/components/personas/PersonaPickerSheet'
 import AppHeader from '@/components/layout/AppHeader'
+import SwipeableRow from '@/components/ui/SwipeableRow'
 
 function groupLabel(savedAt: string): 'This week' | 'Earlier' {
   const days = differenceInCalendarDays(new Date(), new Date(savedAt))
@@ -42,6 +44,12 @@ export default function ReflectionsPage() {
   const [selectedPersonaSlug, setSelectedPersonaSlug] = useState<string | null>(null)
   const [portraitBySlug, setPortraitBySlug] = useState<Record<string, string>>({})
   const [pickerLine, setPickerLine] = useState<SavedLineRead | null>(null)
+  const [pendingDeletes, setPendingDeletes] = useState<Set<string>>(new Set())
+  const deleteTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
+  const [isFirstReflectionsRender] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false
+    return !sessionStorage.getItem('swipe_hint_seen_reflections')
+  })
 
   const load = useCallback(async () => {
     const [, personas] = await Promise.all([loadSavedLines(), api.getPersonas()])
@@ -53,6 +61,20 @@ export default function ReflectionsPage() {
   }, [loadSavedLines])
 
   useEffect(() => {
+    if (isFirstReflectionsRender) {
+      sessionStorage.setItem('swipe_hint_seen_reflections', '1')
+    }
+  }, [isFirstReflectionsRender])
+
+  useEffect(() => {
+    const timers = deleteTimersRef.current
+    return () => {
+      timers.forEach((t) => clearTimeout(t))
+      timers.clear()
+    }
+  }, [])
+
+  useEffect(() => {
     if (token === null) {
       router.replace('/auth')
       return
@@ -60,9 +82,60 @@ export default function ReflectionsPage() {
     load()
   }, [token, router, load])
 
+  function handleDelete(savedLineId: string, messageId: string) {
+    setPendingDeletes((prev) => new Set(prev).add(savedLineId))
+
+    const timer = setTimeout(async () => {
+      try {
+        await api.deleteSavedLine(savedLineId)
+        useStore.getState().removeAfterDelete(savedLineId, messageId)
+      } catch {
+        setPendingDeletes((prev) => {
+          const next = new Set(prev)
+          next.delete(savedLineId)
+          return next
+        })
+        toast.error('Could not delete. Try again.')
+      } finally {
+        deleteTimersRef.current.delete(savedLineId)
+      }
+    }, 5000)
+    deleteTimersRef.current.set(savedLineId, timer)
+
+    toast.custom(
+      (t) => (
+        <div className="bg-ink text-vellum font-lora text-[13px] rounded-sm px-[16px] py-[12px] flex items-center gap-[16px]">
+          <span>Deleted reflection</span>
+          <button
+            type="button"
+            onClick={() => {
+              const pending = deleteTimersRef.current.get(savedLineId)
+              if (pending) {
+                clearTimeout(pending)
+                deleteTimersRef.current.delete(savedLineId)
+              }
+              setPendingDeletes((prev) => {
+                const next = new Set(prev)
+                next.delete(savedLineId)
+                return next
+              })
+              toast.dismiss(t.id)
+            }}
+            className="font-cormorant text-[15px] font-medium underline underline-offset-2 decoration-[0.5px]"
+          >
+            Undo
+          </button>
+        </div>
+      ),
+      { duration: 5000 },
+    )
+  }
+
+  const visibleSavedLines = savedLines.filter((sl) => !pendingDeletes.has(sl.id))
+
   const uniquePersonas = Array.from(
     new Map(
-      savedLines.map((l) => [
+      visibleSavedLines.map((l) => [
         l.persona_slug,
         { slug: l.persona_slug, display_name: l.persona_display_name },
       ]),
@@ -71,8 +144,8 @@ export default function ReflectionsPage() {
 
   const filtered =
     activeFilter === 'by-mind' && selectedPersonaSlug
-      ? savedLines.filter((l) => l.persona_slug === selectedPersonaSlug)
-      : savedLines
+      ? visibleSavedLines.filter((l) => l.persona_slug === selectedPersonaSlug)
+      : visibleSavedLines
 
   const grouped = groupItems(filtered)
 
@@ -118,7 +191,7 @@ export default function ReflectionsPage() {
         </div>
       ) : (
         <>
-          {savedLines.length > 0 && (
+          {visibleSavedLines.length > 0 && (
             <FilterPills
               active={activeFilter}
               personas={uniquePersonas}
@@ -126,27 +199,32 @@ export default function ReflectionsPage() {
               onChange={handleFilterChange}
             />
           )}
-          {savedLines.length === 0 ? (
+          {visibleSavedLines.length === 0 ? (
             <EmptyReflections
               onStartConversation={() => router.push('/app/library')}
             />
           ) : (
             <div className="flex-1 overflow-y-auto px-[16px] pb-[80px]">
-              {grouped.map(({ label, items }) => (
+              {grouped.map(({ label, items }, groupIdx) => (
                 <div key={label}>
                   <DateGrouper label={label} />
-                  {items.map((item) => (
+                  {items.map((item, itemIdx) => (
                     <div key={item.id} className="mb-[8px]">
-                      <SavedLineCard
-                        item={item}
-                        portraitUrl={portraitBySlug[item.persona_slug] ?? ''}
-                        onClick={() =>
-                          router.push(
-                            `/app/chat/conv/${item.conversation_id}`,
-                          )
-                        }
-                        onAskAnotherMind={() => setPickerLine(item)}
-                      />
+                      <SwipeableRow
+                        onDelete={() => handleDelete(item.id, item.message_id)}
+                        showHint={isFirstReflectionsRender && groupIdx === 0 && itemIdx === 0}
+                      >
+                        <SavedLineCard
+                          item={item}
+                          portraitUrl={portraitBySlug[item.persona_slug] ?? ''}
+                          onClick={() =>
+                            router.push(
+                              `/app/chat/conv/${item.conversation_id}`,
+                            )
+                          }
+                          onAskAnotherMind={() => setPickerLine(item)}
+                        />
+                      </SwipeableRow>
                     </div>
                   ))}
                 </div>

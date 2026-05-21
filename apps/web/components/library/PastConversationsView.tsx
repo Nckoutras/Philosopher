@@ -1,10 +1,14 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Search } from 'lucide-react'
+import toast from 'react-hot-toast'
+import { useStore } from '@/lib/store'
+import { api } from '@/lib/api'
 import type { Conversation } from '@/lib/api'
 import ConversationCard from './ConversationCard'
 import EmptyConversationHistory from './EmptyConversationHistory'
+import SwipeableRow from '@/components/ui/SwipeableRow'
 
 function isThisWeek(dateString: string | null): boolean {
   if (!dateString) return false
@@ -27,6 +31,77 @@ export default function PastConversationsView({
   onRetry,
 }: Props) {
   const [q, setQ] = useState('')
+  const [pendingDeletes, setPendingDeletes] = useState<Set<string>>(new Set())
+  const deleteTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
+  const [isFirstLibraryRender] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false
+    return !sessionStorage.getItem('swipe_hint_seen_library')
+  })
+
+  useEffect(() => {
+    if (isFirstLibraryRender) {
+      sessionStorage.setItem('swipe_hint_seen_library', '1')
+    }
+  }, [isFirstLibraryRender])
+
+  useEffect(() => {
+    const timers = deleteTimersRef.current
+    return () => {
+      timers.forEach((t) => clearTimeout(t))
+      timers.clear()
+    }
+  }, [])
+
+  function handleDelete(conversationId: string) {
+    setPendingDeletes((prev) => new Set(prev).add(conversationId))
+
+    const timer = setTimeout(async () => {
+      try {
+        await api.deleteConversation(conversationId)
+        useStore.getState().setConversations(
+          useStore.getState().conversations.filter((c) => c.id !== conversationId),
+        )
+      } catch {
+        setPendingDeletes((prev) => {
+          const next = new Set(prev)
+          next.delete(conversationId)
+          return next
+        })
+        toast.error('Could not delete. Try again.')
+      } finally {
+        deleteTimersRef.current.delete(conversationId)
+      }
+    }, 5000)
+    deleteTimersRef.current.set(conversationId, timer)
+
+    toast.custom(
+      (t) => (
+        <div className="bg-ink text-vellum font-lora text-[13px] rounded-sm px-[16px] py-[12px] flex items-center gap-[16px]">
+          <span>Deleted conversation</span>
+          <button
+            type="button"
+            onClick={() => {
+              const pending = deleteTimersRef.current.get(conversationId)
+              if (pending) {
+                clearTimeout(pending)
+                deleteTimersRef.current.delete(conversationId)
+              }
+              setPendingDeletes((prev) => {
+                const next = new Set(prev)
+                next.delete(conversationId)
+                return next
+              })
+              toast.dismiss(t.id)
+            }}
+            className="font-cormorant text-[15px] font-medium underline underline-offset-2 decoration-[0.5px]"
+          >
+            Undo
+          </button>
+        </div>
+      ),
+      { duration: 5000 },
+    )
+  }
 
   if (loading && conversations.length === 0) {
     return (
@@ -51,17 +126,20 @@ export default function PastConversationsView({
     )
   }
 
+  const visibleConversations = conversations.filter((c) => !pendingDeletes.has(c.id))
+
   const trimmed = q.trim()
   const filtered = trimmed
-    ? conversations.filter(
+    ? visibleConversations.filter(
         (c) =>
           (c.title ?? '').toLowerCase().includes(trimmed.toLowerCase()) ||
           c.persona.name.toLowerCase().includes(trimmed.toLowerCase()),
       )
-    : conversations
+    : visibleConversations
 
   const thisWeek = filtered.filter((c) => isThisWeek(c.last_message_at))
   const earlier = filtered.filter((c) => !isThisWeek(c.last_message_at))
+  const hintId = isFirstLibraryRender ? (thisWeek[0]?.id ?? earlier[0]?.id ?? null) : null
 
   return (
     <div className="flex flex-col">
@@ -81,7 +159,7 @@ export default function PastConversationsView({
         />
       </div>
 
-      {conversations.length === 0 ? (
+      {visibleConversations.length === 0 ? (
         <EmptyConversationHistory />
       ) : filtered.length === 0 ? (
         <div className="flex items-center justify-center py-12 px-7 text-center">
@@ -92,10 +170,22 @@ export default function PastConversationsView({
       ) : (
         <div className="px-4 py-3 flex flex-col gap-4 pb-[80px]">
           {thisWeek.length > 0 && (
-            <Group label="This week" conversations={thisWeek} portraitUrlsBySlug={portraitUrlsBySlug} />
+            <Group
+              label="This week"
+              conversations={thisWeek}
+              portraitUrlsBySlug={portraitUrlsBySlug}
+              onDelete={handleDelete}
+              hintId={hintId}
+            />
           )}
           {earlier.length > 0 && (
-            <Group label="Earlier" conversations={earlier} portraitUrlsBySlug={portraitUrlsBySlug} />
+            <Group
+              label="Earlier"
+              conversations={earlier}
+              portraitUrlsBySlug={portraitUrlsBySlug}
+              onDelete={handleDelete}
+              hintId={hintId}
+            />
           )}
         </div>
       )}
@@ -107,21 +197,30 @@ function Group({
   label,
   conversations,
   portraitUrlsBySlug,
+  onDelete,
+  hintId,
 }: {
   label: string
   conversations: Conversation[]
   portraitUrlsBySlug: Record<string, string>
+  onDelete: (id: string) => void
+  hintId: string | null
 }) {
   return (
     <div>
       <p className="font-lora text-[11px] uppercase tracking-[0.18em] text-sepia mb-2">{label}</p>
       <div className="flex flex-col gap-2">
         {conversations.map((conv) => (
-          <ConversationCard
+          <SwipeableRow
             key={conv.id}
-            conversation={conv}
-            portraitUrl={portraitUrlsBySlug[conv.persona.slug]}
-          />
+            onDelete={() => onDelete(conv.id)}
+            showHint={conv.id === hintId}
+          >
+            <ConversationCard
+              conversation={conv}
+              portraitUrl={portraitUrlsBySlug[conv.persona.slug]}
+            />
+          </SwipeableRow>
         ))}
       </div>
     </div>
