@@ -61,18 +61,12 @@ export default function ExistingConversationPage() {
 
     async function init() {
       try {
-        const [convs, personas, msgs] = await Promise.all([
-          api.getConversations(),
+        const [conv, personas, msgs] = await Promise.all([
+          api.getConversation(params.id),
           api.getPersonas(),
           api.getMessages(params.id),
         ])
         if (cancelled) return
-
-        const conv = convs.find((c) => c.id === params.id)
-        if (!conv) {
-          setLoadError('Conversation not found')
-          return
-        }
 
         const personaFull = personas.find((p) => p.slug === conv.persona.slug)
 

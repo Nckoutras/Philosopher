@@ -346,3 +346,93 @@ def test_conversation_not_found_returns_404(client):
 
     resp = client.post(ENDPOINT.format(conv_id=CONV_ID), json={"content": "Hello"})
     assert resp.status_code == 404
+
+
+# ── GET /conversations/{id} ────────────────────────────────────────────────────
+
+def _make_full_conv(user_id=USER_ID, conv_id=CONV_ID):
+    """Mock conv with persona eagerly attached for GET /conversations/{id}."""
+    c = MagicMock(spec=Conversation)
+    c.id = conv_id
+    c.user_id = user_id
+    c.persona_id = PERSONA_ID
+    c.ritual_id = None
+    c.title = "Test conversation"
+    c.message_count = 0
+    c.last_message_at = None
+    c.created_at = datetime(2024, 1, 1, tzinfo=timezone.utc)
+    c.source_persona_slug = None
+    c.source_saved_line_id = None
+
+    p = MagicMock()
+    p.id = PERSONA_ID
+    p.slug = "marcus-aurelius"
+    p.name = "Marcus Aurelius"
+    p.era = "2nd century AD"
+    p.tradition = "Stoic"
+    p.tier = "free"
+    c.persona = p
+
+    return c
+
+
+def _make_single_conv_db(conv):
+    """Build mock AsyncSession for GET /conversations/{id}.
+
+    Execute call order:
+      1. select(Conversation) — ownership check → scalar_one_or_none
+    _build_source_contents returns {} immediately (no source_saved_line_id).
+    """
+    db = AsyncMock()
+    r = MagicMock()
+    r.scalar_one_or_none.return_value = conv
+    db.execute = AsyncMock(return_value=r)
+    return db
+
+
+@pytest.fixture
+def get_conv_client():
+    from main import app
+    from auth import get_current_user
+    from db.session import get_db
+
+    db_holder = [None]
+
+    async def override_get_db():
+        yield db_holder[0]
+
+    async def override_user():
+        return _make_user()
+
+    app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_current_user] = override_user
+
+    tc = TestClient(app, raise_server_exceptions=True)
+    tc._db = db_holder
+
+    yield tc
+
+    app.dependency_overrides.clear()
+
+
+def test_get_conversation_by_id_200(get_conv_client):
+    """Owner fetches own conversation → 200 with ConversationOut body."""
+    conv = _make_full_conv()
+    get_conv_client._db[0] = _make_single_conv_db(conv)
+
+    resp = get_conv_client.get(f"/api/v1/conversations/{CONV_ID}")
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["id"] == CONV_ID
+    assert body["persona"]["slug"] == "marcus-aurelius"
+
+
+def test_get_conversation_by_id_404(get_conv_client):
+    """Non-existent or non-owned conversation → 404."""
+    get_conv_client._db[0] = _make_single_conv_db(None)
+
+    resp = get_conv_client.get(f"/api/v1/conversations/{CONV_ID}")
+
+    assert resp.status_code == 404
+    assert resp.json()["detail"] == "Conversation not found"

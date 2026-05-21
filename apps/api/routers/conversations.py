@@ -149,6 +149,26 @@ async def list_conversations(
     return [_conv_out(c, source_contents) for c in convs]
 
 
+@router.get("/{conversation_id}", response_model=ConversationOut)
+async def get_conversation(
+    conversation_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> ConversationOut:
+    """Get a single conversation by ID. Verifies ownership."""
+    result = await db.execute(
+        select(Conversation)
+        .where(Conversation.id == conversation_id, Conversation.user_id == user.id)
+        .options(selectinload(Conversation.persona))
+    )
+    conv = result.scalar_one_or_none()
+    if conv is None:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+
+    source_contents = await _build_source_contents(db, [conv])
+    return _conv_out(conv, source_contents)
+
+
 @router.get("/{conversation_id}/messages", response_model=list[MessageOut])
 async def get_messages(
     conversation_id: str,

@@ -297,7 +297,22 @@ class ApiClient {
     const res = await fetch(`${API_BASE}${path}`, { ...options, headers })
     if (!res.ok) {
       const error = await res.json().catch(() => ({ detail: res.statusText }))
-      throw new Error(error.detail ?? 'Request failed')
+      let message: string
+      if (Array.isArray(error.detail)) {
+        message = error.detail
+          .map((e: { loc?: (string | number)[]; msg?: string }) => {
+            const field = Array.isArray(e.loc) && e.loc.length > 1
+              ? e.loc.slice(1).join('.')
+              : ''
+            return field ? `${field}: ${e.msg}` : (e.msg ?? 'Invalid input')
+          })
+          .join('; ')
+      } else if (typeof error.detail === 'string') {
+        message = error.detail
+      } else {
+        message = 'Request failed'
+      }
+      throw new Error(message)
     }
     if (res.status === 204) return null as T
     return res.json()
@@ -382,6 +397,10 @@ class ApiClient {
 
   async getConversations(): Promise<Conversation[]> {
     return this.request<Conversation[]>('/conversations')
+  }
+
+  async getConversation(id: string): Promise<Conversation> {
+    return this.request<Conversation>(`/conversations/${id}`)
   }
 
   async createConversation(persona_slug: string, ritual_id?: string): Promise<Conversation> {
