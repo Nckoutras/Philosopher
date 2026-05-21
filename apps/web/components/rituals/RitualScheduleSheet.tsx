@@ -5,6 +5,7 @@ import toast from 'react-hot-toast'
 import { api } from '@/lib/api'
 import type { SavedLineRead } from '@/lib/api'
 import BottomSheet from '@/components/ui/BottomSheet'
+import SavedLinePicker from './SavedLinePicker'
 
 interface Props {
   open: boolean
@@ -20,18 +21,24 @@ function toDatetimeLocalString(d: Date): string {
 export default function RitualScheduleSheet({ open, onClose, userEmail }: Props) {
   const [savedLines, setSavedLines] = useState<SavedLineRead[] | null>(null)
   const [selectedLineId, setSelectedLineId] = useState('')
+  const [portraitUrlsBySlug, setPortraitUrlsBySlug] = useState<Record<string, string>>({})
   const [note, setNote] = useState('')
   const [scheduledFor, setScheduledFor] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [fieldError, setFieldError] = useState<string | null>(null)
 
-  // Lazy-load saved lines on first open
+  // Lazy-load saved lines + personas on first open
   useEffect(() => {
     if (!open || savedLines !== null) return
-    api.listSavedLines()
-      .then((res) => {
-        setSavedLines(res.items)
-        if (res.items.length > 0) setSelectedLineId(res.items[0].id)
+    Promise.all([api.listSavedLines(), api.getPersonas()])
+      .then(([linesRes, personas]) => {
+        setSavedLines(linesRes.items)
+        if (linesRes.items.length > 0) setSelectedLineId(linesRes.items[0].id)
+        const map: Record<string, string> = {}
+        for (const p of personas) {
+          if (p.portrait_url) map[p.slug] = p.portrait_url
+        }
+        setPortraitUrlsBySlug(map)
       })
       .catch(() => setSavedLines([]))
   }, [open, savedLines])
@@ -108,19 +115,12 @@ export default function RitualScheduleSheet({ open, onClose, userEmail }: Props)
               No saved reflections yet. Tap <em>Save line</em> on any persona reply first.
             </p>
           ) : (
-            <select
-              value={selectedLineId}
-              onChange={(e) => setSelectedLineId(e.target.value)}
-              className="w-full bg-paper border border-[0.5px] border-edge rounded-sm px-[12px] py-[10px] font-lora text-[13px] text-ink appearance-none"
-            >
-              {savedLines.map((sl) => (
-                <option key={sl.id} value={sl.id}>
-                  {sl.persona_display_name} — {sl.message_content.length > 60
-                    ? sl.message_content.slice(0, 60) + '…'
-                    : sl.message_content}
-                </option>
-              ))}
-            </select>
+            <SavedLinePicker
+              savedLines={savedLines}
+              selectedLineId={selectedLineId}
+              onChange={setSelectedLineId}
+              portraitUrlsBySlug={portraitUrlsBySlug}
+            />
           )}
         </div>
 
