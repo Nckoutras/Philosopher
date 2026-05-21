@@ -48,7 +48,7 @@ def setup_cron(arq_queue):
 
             dispatched = 0
             for row in rows:
-                await arq_queue.enqueue(
+                await arq_queue.enqueue_job(
                     "send_ritual_reminder_task",
                     str(row.user_id),
                     str(row.ritual_id),
