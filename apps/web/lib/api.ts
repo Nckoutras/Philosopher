@@ -403,10 +403,10 @@ class ApiClient {
     return this.request<Conversation>(`/conversations/${id}`)
   }
 
-  async createConversation(persona_slug: string, ritual_id?: string): Promise<Conversation> {
+  async createConversation(persona_slug: string, ritual_id?: string, skip_opening?: boolean): Promise<Conversation> {
     return this.request<Conversation>('/conversations', {
       method: 'POST',
-      body: JSON.stringify({ persona_slug, ritual_id }),
+      body: JSON.stringify({ persona_slug, ritual_id, skip_opening }),
     })
   }
 

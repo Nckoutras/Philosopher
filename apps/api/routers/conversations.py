@@ -74,6 +74,7 @@ async def create_conversation(
             persona_slug=body.persona_slug,
             ritual_id=body.ritual_id,
             user_plan=plan,
+            skip_opening=body.skip_opening,
         )
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
