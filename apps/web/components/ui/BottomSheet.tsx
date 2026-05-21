@@ -10,7 +10,7 @@ interface Props {
   maxHeight?: string
 }
 
-export default function BottomSheet({ open, onClose, children, maxHeight = '75vh' }: Props) {
+export default function BottomSheet({ open, onClose, children, maxHeight = '75svh' }: Props) {
   return (
     <AnimatePresence>
       {open && (

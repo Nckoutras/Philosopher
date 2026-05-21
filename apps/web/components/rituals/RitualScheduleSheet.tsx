@@ -72,7 +72,7 @@ export default function RitualScheduleSheet({ open, onClose, userEmail }: Props)
   }
 
   return (
-    <BottomSheet open={open} onClose={onClose} maxHeight="90vh">
+    <BottomSheet open={open} onClose={onClose} maxHeight="90svh">
       {/* ── Header ── */}
       <div className="px-6 pt-5 pb-3 border-b border-[0.5px] border-edge flex items-start justify-between flex-shrink-0">
         <div>
@@ -172,7 +172,10 @@ export default function RitualScheduleSheet({ open, onClose, userEmail }: Props)
       </div>
 
       {/* ── Submit ── */}
-      <div className="px-6 pb-6 pt-4 border-t border-[0.5px] border-edge flex-shrink-0">
+      <div
+        className="px-6 pt-4 border-t border-[0.5px] border-edge flex-shrink-0"
+        style={{ paddingBottom: 'max(24px, env(safe-area-inset-bottom))' }}
+      >
         <button
           type="button"
           onClick={handleSubmit}
