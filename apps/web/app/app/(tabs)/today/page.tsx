@@ -106,8 +106,9 @@ export default function TodayPage() {
       const conv = await api.createConversation(personaSlug, undefined, true)
       localStorage.setItem(`today_topic_draft_${conv.id}`, pendingTopic)
       router.push(`/app/chat/conv/${conv.id}`)
-    } catch {
-      router.push('/app/library')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not start conversation. Try again.')
+      setTopicPickerOpen(true)
     }
   }
 
