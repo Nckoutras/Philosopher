@@ -1,14 +1,18 @@
 'use client'
 
-import { useState, type FormEvent } from 'react'
-import { useRouter } from 'next/navigation'
+import { Suspense, useState, type FormEvent } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import toast from 'react-hot-toast'
 import { api } from '@/lib/api'
 
+export const dynamic = 'force-dynamic'
+
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
-export default function AuthPage() {
+function AuthForm() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const mode = searchParams.get('mode') === 'signin' ? 'signin' : 'signup'
   const [email, setEmail] = useState('')
   const [isLoading, setIsLoading] = useState(false)
 
@@ -47,10 +51,12 @@ export default function AuthPage() {
         <div className="w-full max-w-[380px] mx-auto space-y-7">
           <header className="text-center space-y-2">
             <h1 className="font-cormorant text-[28px] font-normal text-ink leading-tight">
-              Begin your reflection.
+              {mode === 'signin' ? 'Welcome back.' : 'Create your account.'}
             </h1>
             <p className="font-lora text-[13px] text-charcoal">
-              Sign up or sign in to continue.
+              {mode === 'signin'
+                ? 'Enter your email to receive a code.'
+                : 'We’ll send a code to your email.'}
             </p>
           </header>
 
@@ -76,7 +82,7 @@ export default function AuthPage() {
             <button
               type="submit"
               disabled={!canSubmit}
-              className="w-full h-[50px] rounded-sm font-cormorant text-[17px] font-medium bg-ink text-vellum disabled:bg-linen disabled:text-charcoal disabled:cursor-not-allowed transition-colors"
+              className="w-full h-[52px] rounded-sm font-cormorant text-[17px] font-medium bg-ink text-vellum disabled:bg-linen disabled:text-charcoal disabled:cursor-not-allowed transition-colors"
             >
               {isLoading ? 'Sending…' : 'Continue with email'}
             </button>
@@ -108,5 +114,13 @@ export default function AuthPage() {
         </p>
       </footer>
     </main>
+  )
+}
+
+export default function AuthPage() {
+  return (
+    <Suspense fallback={null}>
+      <AuthForm />
+    </Suspense>
   )
 }

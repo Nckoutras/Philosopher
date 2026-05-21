@@ -61,14 +61,14 @@ export default function RootPage() {
       <div className="bg-ink px-[24px] pt-[24px] pb-[32px] flex flex-col items-center gap-[10px]">
         <button
           type="button"
-          onClick={() => router.push('/auth')}
+          onClick={() => router.push('/auth?mode=signup')}
           className="w-full py-[14px] rounded-[4px] border border-vellum/60 font-cormorant text-[17px] font-medium text-vellum"
         >
           Begin your reflection
         </button>
         <button
           type="button"
-          onClick={() => router.push('/auth')}
+          onClick={() => router.push('/auth?mode=signin')}
           className="font-lora text-[14px] text-vellum/70 underline underline-offset-2 decoration-[0.5px]"
         >
           Sign in
