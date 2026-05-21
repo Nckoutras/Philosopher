@@ -52,6 +52,7 @@ class ConversationService:
         persona_slug: str,
         ritual_id: str | None = None,
         user_plan: str = "free",
+        skip_opening: bool = False,
     ) -> Conversation:
         persona_config = get_persona(persona_slug)
         if not persona_config:
@@ -65,27 +66,28 @@ class ConversationService:
         if not persona:
             raise ValueError(f"Persona {persona_slug} not in database")
 
-        # Return existing empty conversation for this (user, persona, ritual) tuple
-        # rather than creating a duplicate row. message_count == 0 means the user
-        # has never sent a message (opening invocation does not increment this counter).
-        ritual_filter = (
-            Conversation.ritual_id.is_(None) if ritual_id is None
-            else Conversation.ritual_id == ritual_id
-        )
-        dedup_result = await db.execute(
-            select(Conversation)
-            .where(
-                Conversation.user_id == user_id,
-                Conversation.persona_id == persona.id,
-                Conversation.message_count == 0,
-                ritual_filter,
+        # When skip_opening=True we always want a fresh conversation with no
+        # opening_invocation, so bypass the dedup check entirely. A dedup'd
+        # row could already have an opening message even though message_count==0.
+        if not skip_opening:
+            ritual_filter = (
+                Conversation.ritual_id.is_(None) if ritual_id is None
+                else Conversation.ritual_id == ritual_id
             )
-            .order_by(Conversation.created_at.desc())
-            .limit(1)
-        )
-        existing = dedup_result.scalar_one_or_none()
-        if existing:
-            return existing
+            dedup_result = await db.execute(
+                select(Conversation)
+                .where(
+                    Conversation.user_id == user_id,
+                    Conversation.persona_id == persona.id,
+                    Conversation.message_count == 0,
+                    ritual_filter,
+                )
+                .order_by(Conversation.created_at.desc())
+                .limit(1)
+            )
+            existing = dedup_result.scalar_one_or_none()
+            if existing:
+                return existing
 
         conv = Conversation(
             user_id=user_id,
@@ -95,8 +97,7 @@ class ConversationService:
         db.add(conv)
         await db.flush()
 
-        # Send opening invocation as first assistant message
-        if persona_config.opening_invocation:
+        if not skip_opening and persona_config.opening_invocation:
             opening = Message(
                 conversation_id=conv.id,
                 user_id=user_id,

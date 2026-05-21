@@ -73,6 +73,7 @@ class PersonaOut(BaseModel):
 class ConversationCreate(BaseModel):
     persona_slug: str
     ritual_id: Optional[str] = None
+    skip_opening: bool = False
 
 
 class ConversationOut(BaseModel):

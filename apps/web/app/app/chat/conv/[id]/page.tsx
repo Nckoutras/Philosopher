@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useStore } from '@/lib/store'
 import { useStream } from '@/lib/useStream'
@@ -40,6 +40,8 @@ export default function ExistingConversationPage() {
   const [loadError, setLoadError] = useState<string | null>(null)
   const [inputDraft, setInputDraft] = useState<string | undefined>(undefined)
   const { send } = useStream()
+  const hasSentTopicRef = useRef(false)
+  const isReady = activeConversationId === params.id
 
   useEffect(() => {
     const sentinel = document.getElementById('chat-scroll-sentinel')
@@ -106,6 +108,17 @@ export default function ExistingConversationPage() {
     }
   }, [clearActiveConversation])
 
+  useEffect(() => {
+    if (!isReady || hasSentTopicRef.current) return
+    const key = `today_topic_draft_${params.id}`
+    const draft = localStorage.getItem(key)
+    if (draft && messages.length === 0) {
+      hasSentTopicRef.current = true
+      localStorage.removeItem(key)
+      send(draft)
+    }
+  }, [isReady, params.id, messages.length, send])
+
   async function handleSaveLine(messageId: string) {
     const state = useStore.getState()
 
@@ -155,8 +168,6 @@ export default function ExistingConversationPage() {
   function handleUpgradeConfirm() {
     useStore.getState().setShowPaywall(true, { upgradeTarget: 'pro', resetAt: new Date(), limit: 3 })
   }
-
-  const isReady = activeConversationId === params.id
 
   if (loadError) {
     return (

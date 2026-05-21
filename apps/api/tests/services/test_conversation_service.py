@@ -1484,3 +1484,122 @@ async def test_create_cross_persona_sets_source_columns_and_no_messages():
     assert len(conv_objects) == 1
     assert conv_objects[0].source_saved_line_id == SAVED_LINE_ID
     assert conv_objects[0].source_persona_slug == SRC_SLUG
+
+
+# ── Section H: skip_opening flag ────────────────────────────────────────────
+
+from models import Message, Conversation
+
+
+def _make_create_db(*, has_existing=False, existing_conv=None):
+    """DB mock for conversation_service.create() tests.
+
+    Execute call order:
+      1. select(Persona) by slug         → persona_result
+      2. select(Conversation) dedup      → dedup_result  (only when not skip_opening)
+      Both flush() calls → no-op.
+    """
+    db = AsyncMock()
+
+    mock_persona = MagicMock()
+    mock_persona.id = PERSONA_ID
+    mock_persona.slug = "marcus_aurelius"
+
+    persona_result = MagicMock()
+    persona_result.scalar_one_or_none.return_value = mock_persona
+
+    dedup_result = MagicMock()
+    dedup_result.scalar_one_or_none.return_value = existing_conv
+
+    db.execute = AsyncMock(side_effect=[persona_result, dedup_result])
+    db.add = MagicMock()
+    db.flush = AsyncMock()
+    db.commit = AsyncMock()
+    return db
+
+
+def _make_persona_config(*, has_opening=True):
+    cfg = MagicMock()
+    cfg.opening_invocation = "Greetings, mortal." if has_opening else None
+    return cfg
+
+
+@pytest.mark.asyncio
+async def test_create_with_skip_opening_no_assistant_message():
+    """skip_opening=True → no Message row added (opening_invocation suppressed)."""
+    db = _make_create_db()
+
+    service = ConversationService()
+
+    with patch("services.conversation_service.get_persona", return_value=_make_persona_config(has_opening=True)), \
+         patch("services.conversation_service.is_persona_accessible", return_value=True):
+        added: list = []
+        db.add.side_effect = added.append
+
+        await service.create(
+            db=db,
+            user_id=USER_ID,
+            persona_slug="marcus_aurelius",
+            skip_opening=True,
+        )
+
+    message_objects = [o for o in added if isinstance(o, Message)]
+    assert len(message_objects) == 0
+
+
+@pytest.mark.asyncio
+async def test_create_without_skip_opening_has_opening_message():
+    """skip_opening=False (default) → opening_invocation Message row IS added."""
+    db = _make_create_db(has_existing=False)
+
+    service = ConversationService()
+
+    with patch("services.conversation_service.get_persona", return_value=_make_persona_config(has_opening=True)), \
+         patch("services.conversation_service.is_persona_accessible", return_value=True):
+        added: list = []
+        db.add.side_effect = added.append
+
+        await service.create(
+            db=db,
+            user_id=USER_ID,
+            persona_slug="marcus_aurelius",
+            skip_opening=False,
+        )
+
+    message_objects = [o for o in added if isinstance(o, Message)]
+    assert len(message_objects) == 1
+    assert message_objects[0].role == "assistant"
+    assert message_objects[0].content == "Greetings, mortal."
+
+
+@pytest.mark.asyncio
+async def test_create_skip_opening_bypasses_dedup():
+    """skip_opening=True → dedup SELECT never executes; always a fresh Conversation."""
+    # Only one execute side_effect (persona load); a second execute would raise StopAsyncIteration
+    db = AsyncMock()
+
+    mock_persona = MagicMock()
+    mock_persona.id = PERSONA_ID
+    mock_persona.slug = "marcus_aurelius"
+
+    persona_result = MagicMock()
+    persona_result.scalar_one_or_none.return_value = mock_persona
+
+    db.execute = AsyncMock(side_effect=[persona_result])  # only one call expected
+    db.add = MagicMock()
+    db.flush = AsyncMock()
+
+    service = ConversationService()
+
+    with patch("services.conversation_service.get_persona", return_value=_make_persona_config(has_opening=True)), \
+         patch("services.conversation_service.is_persona_accessible", return_value=True):
+        await service.create(
+            db=db,
+            user_id=USER_ID,
+            persona_slug="marcus_aurelius",
+            skip_opening=True,
+        )
+
+    # If dedup ran, execute would have been called twice and the second call
+    # would have returned the existing conv. Verify only one execute call.
+    assert db.execute.call_count == 1

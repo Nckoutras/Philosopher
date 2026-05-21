@@ -7,11 +7,12 @@ import BottomSheet from '@/components/ui/BottomSheet'
 
 interface Props {
   open: boolean
-  excludeSlug: string
-  savedLineId: string
+  excludeSlug?: string
+  savedLineId?: string
   sourceContent?: string
   onClose: () => void
-  onCreated: (conversationId: string) => void
+  onCreated?: (conversationId: string) => void
+  onSelect?: (slug: string) => void
 }
 
 export default function PersonaPickerSheet({
@@ -21,6 +22,7 @@ export default function PersonaPickerSheet({
   sourceContent,
   onClose,
   onCreated,
+  onSelect,
 }: Props) {
   const [personas, setPersonas] = useState<Persona[] | null>(null)
   const [loadingSlug, setLoadingSlug] = useState<string | null>(null)
@@ -35,13 +37,18 @@ export default function PersonaPickerSheet({
 
   async function handleSelect(slug: string) {
     if (loadingSlug) return
+    if (onSelect) {
+      onSelect(slug)
+      onClose()
+      return
+    }
     setLoadingSlug(slug)
     try {
-      const conv = await api.createCrossPersonaConversation(savedLineId, slug)
+      const conv = await api.createCrossPersonaConversation(savedLineId!, slug)
       if (sourceContent) {
         localStorage.setItem(`cross_persona_draft_${conv.id}`, sourceContent)
       }
-      onCreated(conv.id)
+      onCreated!(conv.id)
     } catch {
       setLoadingSlug(null)
     }

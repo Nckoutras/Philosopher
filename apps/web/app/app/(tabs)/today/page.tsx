@@ -12,6 +12,7 @@ import type { DailyQuestion, LastConversation, RecentSavedLine } from '@/lib/api
 import { getTimeGreeting } from '@/lib/useTimeGreeting'
 import PersonaPickerSheet from '@/components/personas/PersonaPickerSheet'
 import RitualsCard from '@/components/today/RitualsCard'
+import TodaysTopicCard from '@/components/today/TodaysTopicCard'
 
 function formatDateEyebrow(date: Date): string {
   const weekday = date.toLocaleDateString('en-US', { weekday: 'long' }).toUpperCase()
@@ -52,6 +53,8 @@ export default function TodayPage() {
   const [loading, setLoading] = useState(true)
   const [pickerOpen, setPickerOpen] = useState(false)
   const [shareLoading, setShareLoading] = useState(false)
+  const [topicPickerOpen, setTopicPickerOpen] = useState(false)
+  const [pendingTopic, setPendingTopic] = useState('')
 
   const today = new Date()
   const dateEyebrow = formatDateEyebrow(today)
@@ -82,11 +85,26 @@ export default function TodayPage() {
     load()
   }, [token, router])
 
-  async function handleReflect() {
+  async function handleFirstDayReflect() {
     if (!question) return
     const slug = activePersonaSlug ?? 'marcus_aurelius'
     try {
       const conv = await api.createConversation(slug)
+      router.push(`/app/chat/conv/${conv.id}`)
+    } catch {
+      router.push('/app/library')
+    }
+  }
+
+  function handleReflect(topicText: string) {
+    setPendingTopic(topicText)
+    setTopicPickerOpen(true)
+  }
+
+  async function handlePersonaSelected(personaSlug: string) {
+    try {
+      const conv = await api.createConversation(personaSlug, undefined, true)
+      localStorage.setItem(`today_topic_draft_${conv.id}`, pendingTopic)
       router.push(`/app/chat/conv/${conv.id}`)
     } catch {
       router.push('/app/library')
@@ -168,30 +186,13 @@ export default function TodayPage() {
       </div>
 
       <div className="px-[16px] flex flex-col gap-[12px]">
-        {/* ── Today's question card ── */}
-        {question && (
-          <div className="bg-paper border border-[0.5px] border-edge rounded-md px-[16px] pt-[14px] pb-[48px] relative">
-            <div className="flex items-center gap-[10px] mb-[8px]">
-              <div className="w-[40px] h-[40px] rounded-full flex-shrink-0 flex items-center justify-center bg-bronze">
-                <span className="font-cormorant text-[14px] font-medium text-vellum">
-                  GM
-                </span>
-              </div>
-              <p className="font-lora text-[11px] font-medium uppercase tracking-[0.18em] text-sepia">
-                Today's Question.
-              </p>
-            </div>
-            <p className="font-cormorant text-[22px] font-medium text-ink leading-snug">
-              {question.question_text}
-            </p>
-            <button
-              type="button"
-              onClick={handleReflect}
-              className="absolute bottom-[14px] right-[16px] h-[28px] w-[86px] bg-ink text-vellum rounded-[4px] font-cormorant text-[14px] font-medium"
-            >
-              Reflect
-            </button>
-          </div>
+        {/* ── Today's topic card ── */}
+        {question && user && (
+          <TodaysTopicCard
+            user={user}
+            dailyQuestion={question.question_text}
+            onReflect={handleReflect}
+          />
         )}
 
         {/* ── D1a: Continue card (returning user) ── */}
@@ -313,6 +314,12 @@ export default function TodayPage() {
           />
         )}
 
+        <PersonaPickerSheet
+          open={topicPickerOpen}
+          onClose={() => setTopicPickerOpen(false)}
+          onSelect={handlePersonaSelected}
+        />
+
         {/* ── D1b: Empty state card (first-day user) ── */}
         {isFirstDay && (
           <div className="bg-paper border border-dashed border-[0.5px] border-edge rounded-md px-[20px] py-[24px]">
@@ -375,7 +382,7 @@ export default function TodayPage() {
 
             <button
               type="button"
-              onClick={handleReflect}
+              onClick={handleFirstDayReflect}
               className="w-full py-[14px] rounded-sm bg-ink text-vellum font-cormorant text-[17px] font-medium mt-[16px]"
             >
               Start your first conversation.
