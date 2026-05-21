@@ -46,7 +46,7 @@ export default function RitualScheduleSheet({ open, onClose, userEmail }: Props)
   }, [open])
 
   const minDate = toDatetimeLocalString(new Date(Date.now() + 60 * 60 * 1000))
-  const maxDate = toDatetimeLocalString(new Date(Date.now() + 365 * 24 * 60 * 60 * 1000))
+  const maxDate = toDatetimeLocalString(new Date(Date.now() + 5 * 365 * 24 * 60 * 60 * 1000))
   const canSubmit = selectedLineId !== '' && scheduledFor !== '' && !submitting
 
   async function handleSubmit() {
@@ -77,7 +77,7 @@ export default function RitualScheduleSheet({ open, onClose, userEmail }: Props)
       <div className="px-6 pt-5 pb-3 border-b border-[0.5px] border-edge flex items-start justify-between flex-shrink-0">
         <div>
           <p className="font-cormorant text-[19px] font-medium text-ink">
-            Send to future self
+            Letter to future self
           </p>
           <p className="font-lora text-[12px] text-charcoal mt-[2px]">
             A reflection arrives in your inbox at the date you choose.
@@ -135,8 +135,8 @@ export default function RitualScheduleSheet({ open, onClose, userEmail }: Props)
             onChange={(e) => setNote(e.target.value)}
             maxLength={2000}
             rows={3}
-            placeholder="What do you want to remember? What question are you sitting with?"
-            className="w-full bg-paper border border-[0.5px] border-edge rounded-sm px-[12px] py-[10px] font-lora text-[13px] text-ink placeholder:text-charcoal resize-none"
+            placeholder="What do you want to remember?"
+            className="w-full bg-paper border border-[0.5px] border-edge rounded-sm px-[12px] py-[10px] font-lora text-[13px] text-ink placeholder:text-charcoal/40 resize-none"
           />
         </div>
 
@@ -154,7 +154,7 @@ export default function RitualScheduleSheet({ open, onClose, userEmail }: Props)
             className="w-full bg-paper border border-[0.5px] border-edge rounded-sm px-[12px] py-[10px] font-lora text-[13px] text-ink [color-scheme:light]"
           />
           <p className="font-lora text-[11px] text-charcoal mt-[4px]">
-            Minimum 1 hour from now · Maximum 1 year
+            Minimum 1 hour from now · Maximum 5 years
           </p>
         </div>
 

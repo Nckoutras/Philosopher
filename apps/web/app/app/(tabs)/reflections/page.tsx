@@ -11,6 +11,7 @@ import DateGrouper from '@/components/reflections/DateGrouper'
 import FilterPills, { type FilterOption } from '@/components/reflections/FilterPills'
 import EmptyReflections from '@/components/reflections/EmptyReflections'
 import PersonaPickerSheet from '@/components/personas/PersonaPickerSheet'
+import AppHeader from '@/components/layout/AppHeader'
 
 function groupLabel(savedAt: string): 'This week' | 'Earlier' {
   const days = differenceInCalendarDays(new Date(), new Date(savedAt))
@@ -94,6 +95,7 @@ export default function ReflectionsPage() {
 
   return (
     <main className="min-h-screen [min-height:100svh] flex flex-col bg-vellum">
+      <AppHeader />
       <header className="px-[24px] pt-[22px] pb-[16px]">
         <p className="font-lora text-[11px] uppercase tracking-[0.18em] text-sepia mb-1">
           Reflections

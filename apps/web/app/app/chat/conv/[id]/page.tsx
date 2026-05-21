@@ -174,10 +174,10 @@ export default function ExistingConversationPage() {
       <main className="min-h-screen [min-height:100svh] flex flex-col items-center justify-center bg-vellum px-7 text-center">
         <p className="font-lora text-[13px] text-safety mb-3">{loadError}</p>
         <button
-          onClick={() => router.push('/app/library')}
+          onClick={() => router.push('/app/today')}
           className="font-lora text-[13px] text-sepia underline"
         >
-          Back to conversations
+          Home
         </button>
       </main>
     )
