@@ -31,14 +31,14 @@ export default function RitualsCard({ isPro, userEmail }: Props) {
           </p>
         </div>
 
-        {/* Send to future self */}
+        {/* Letter to future self */}
         <button
           type="button"
           onClick={handleSendToFutureSelf}
           className="w-full flex items-center justify-between px-[16px] py-[14px] border-t border-[0.5px] border-edge"
         >
           <span className="font-cormorant text-[17px] font-medium text-ink">
-            Send to future self
+            Letter to future self
           </span>
           <ChevronRight size={16} strokeWidth={1.5} className="text-sepia flex-shrink-0" />
         </button>

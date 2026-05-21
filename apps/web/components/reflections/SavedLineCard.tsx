@@ -109,7 +109,7 @@ export default function SavedLineCard({ item, portraitUrl, onClick, onAskAnother
               e.stopPropagation()
               onClick()
             }}
-            className="px-[12px] min-h-[44px] flex items-center border border-[0.5px] border-ink rounded-[4px] font-cormorant text-[13px] font-medium text-ink"
+            className="px-[12px] min-h-[44px] flex items-center border border-[0.5px] border-charcoal rounded-[4px] font-cormorant text-[13px] font-medium text-charcoal"
           >
             Revisit
           </button>
@@ -119,7 +119,7 @@ export default function SavedLineCard({ item, portraitUrl, onClick, onAskAnother
               e.stopPropagation()
               onAskAnotherMind()
             }}
-            className="px-[12px] min-h-[44px] flex items-center border border-[0.5px] border-sepia rounded-[4px] font-cormorant text-[13px] font-medium text-sepia"
+            className="px-[12px] min-h-[44px] flex items-center border border-[0.5px] border-charcoal rounded-[4px] font-cormorant text-[13px] font-medium text-charcoal"
           >
             Ask another mind
           </button>
@@ -130,7 +130,7 @@ export default function SavedLineCard({ item, portraitUrl, onClick, onAskAnother
               handleShare()
             }}
             disabled={shareLoading}
-            className="px-[12px] min-h-[44px] flex items-center border border-[0.5px] border-sepia rounded-[4px] font-cormorant text-[13px] font-medium text-sepia disabled:opacity-50"
+            className="px-[12px] min-h-[44px] flex items-center border border-[0.5px] border-charcoal rounded-[4px] font-cormorant text-[13px] font-medium text-charcoal disabled:opacity-50"
           >
             {shareLoading ? 'Sharing…' : 'Share'}
           </button>

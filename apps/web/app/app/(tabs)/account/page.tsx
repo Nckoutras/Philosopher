@@ -6,6 +6,7 @@ import { ChevronRight } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useStore } from '@/lib/store'
 import { api } from '@/lib/api'
+import AppHeader from '@/components/layout/AppHeader'
 
 export default function AccountPage() {
   const router = useRouter()
@@ -71,6 +72,7 @@ export default function AccountPage() {
 
   return (
     <main className="min-h-screen [min-height:100svh] bg-vellum pb-[80px]">
+      <AppHeader />
       {/* ── Header ── */}
       <div className="px-[24px] pt-[22px] pb-[16px]">
         <p className="font-lora text-[11px] uppercase tracking-[0.18em] text-sepia mb-[4px]">

@@ -29,8 +29,9 @@ GET_URL    = "/api/v1/scheduled-emails"
 DELETE_URL = f"/api/v1/scheduled-emails/{EMAIL_ID}"
 
 _FUTURE_1H  = (datetime.now(timezone.utc) + timedelta(hours=2)).isoformat()
+_FUTURE_4Y  = (datetime.now(timezone.utc) + timedelta(days=365 * 4)).isoformat()
 _TOO_SOON   = (datetime.now(timezone.utc) + timedelta(minutes=30)).isoformat()
-_TOO_FAR    = (datetime.now(timezone.utc) + timedelta(days=400)).isoformat()
+_TOO_FAR    = (datetime.now(timezone.utc) + timedelta(days=365 * 6)).isoformat()
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -160,6 +161,13 @@ def test_post_422_scheduled_for_too_far(client):
             "scheduled_for": _TOO_FAR,
         })
     assert resp.status_code == 422
+
+
+def test_validator_accepts_4_years():
+    from schemas import ScheduledEmailCreate
+    future_4y = datetime.now(timezone.utc) + timedelta(days=365 * 4)
+    obj = ScheduledEmailCreate(saved_line_id="some-id", scheduled_for=future_4y)
+    assert obj.scheduled_for == future_4y
 
 
 def test_post_404_saved_line_not_found(client):

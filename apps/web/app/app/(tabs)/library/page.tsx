@@ -6,6 +6,7 @@ import { useStore } from '@/lib/store'
 import { api, type Persona } from '@/lib/api'
 import PastConversationsView from '@/components/library/PastConversationsView'
 import BrowseMindsView from '@/components/library/BrowseMindsView'
+import AppHeader from '@/components/layout/AppHeader'
 
 function LibraryContent() {
   const router = useRouter()
@@ -62,6 +63,7 @@ function LibraryContent() {
 
   return (
     <main className="min-h-screen [min-height:100svh] flex flex-col bg-vellum">
+      <AppHeader />
       {/* Header */}
       <header className="px-6 pt-6 pb-2">
         <p className="font-lora text-[11px] uppercase tracking-[0.18em] text-sepia mb-1">

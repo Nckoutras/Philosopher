@@ -58,9 +58,9 @@ function VerifyForm() {
       const data = await api.verifyOtp(email, fullCode)
       useStore.getState().setAuth(data.user, data.access_token)
       if (data.user.needs_disclaimer) {
-        router.push('/auth/disclaimer')
+        router.replace('/auth/disclaimer')
       } else {
-        router.push('/app/today')
+        router.replace('/app/today')
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Something went wrong'

@@ -365,8 +365,8 @@ class ScheduledEmailCreate(BaseModel):
         now = datetime.now(timezone.utc)
         if v < now + timedelta(hours=1):
             raise ValueError("scheduled_for must be at least 1 hour in the future")
-        if v > now + timedelta(days=365):
-            raise ValueError("scheduled_for must be within 1 year from now")
+        if v > now + timedelta(days=1825):
+            raise ValueError("scheduled_for must be within 5 years from now")
         return v
 
 

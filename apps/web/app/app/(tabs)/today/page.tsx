@@ -13,6 +13,7 @@ import { getTimeGreeting } from '@/lib/useTimeGreeting'
 import PersonaPickerSheet from '@/components/personas/PersonaPickerSheet'
 import RitualsCard from '@/components/today/RitualsCard'
 import TodaysTopicCard from '@/components/today/TodaysTopicCard'
+import AppHeader from '@/components/layout/AppHeader'
 
 function formatDateEyebrow(date: Date): string {
   const weekday = date.toLocaleDateString('en-US', { weekday: 'long' }).toUpperCase()
@@ -176,6 +177,7 @@ export default function TodayPage() {
 
   return (
     <main className="min-h-screen [min-height:100svh] bg-vellum pb-[80px]">
+      <AppHeader />
       {/* ── Header ── */}
       <div className="px-[24px] pt-[22px] pb-[16px]">
         <p className="font-lora text-[11px] uppercase tracking-[0.18em] text-sepia mb-[4px]">
