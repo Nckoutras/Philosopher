@@ -47,6 +47,9 @@ class Settings(BaseSettings):
     # Analytics
     POSTHOG_API_KEY: str = ""
 
+    # Cold beta override: grants Pro tier to all users regardless of subscription
+    BETA_GRANT_PRO_TO_ALL: bool = False
+
     class Config:
         env_file = ".env"
         case_sensitive = True

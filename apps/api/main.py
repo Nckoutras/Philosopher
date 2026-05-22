@@ -29,6 +29,8 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info(f"Starting Philosopher API [{config.ENV}]")
+    if config.BETA_GRANT_PRO_TO_ALL:
+        logger.warning("⚠️ BETA_GRANT_PRO_TO_ALL is ENABLED — all users granted Pro tier. Disable before production launch.")
 
     # In dev: create tables. In prod: use Alembic migrations.
     if config.ENV == "development":

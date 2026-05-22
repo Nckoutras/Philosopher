@@ -5,10 +5,14 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
+from config import config
 from models import Subscription
 
 
 async def get_user_tier(db: AsyncSession, user_id: UUID) -> Literal["free", "pro"]:
+    if config.BETA_GRANT_PRO_TO_ALL:
+        return "pro"
+
     result = await db.execute(
         select(Subscription).where(Subscription.user_id == str(user_id))
     )
