@@ -121,7 +121,7 @@ export default function SavedLineCard({ item, portraitUrl, onClick, onAskAnother
             }}
             className="px-[12px] min-h-[44px] flex items-center border border-[0.5px] border-charcoal rounded-[4px] font-cormorant text-[13px] font-medium text-charcoal"
           >
-            Ask another mind
+            Choose a mind
           </button>
           <button
             type="button"

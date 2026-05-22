@@ -20,11 +20,11 @@ export default function TodaysTopicCard({ user, dailyQuestion, onReflect }: Prop
   return (
     <div className="bg-paper border border-[0.5px] border-edge rounded-md px-[16px] pt-[14px] pb-[16px]">
       <p className="font-lora text-[11px] uppercase tracking-[0.18em] text-sepia mb-[10px]">
-        Today's topic.
+        What's on your mind?
       </p>
       <div className="flex items-start gap-[10px]">
-        <div className="w-[40px] h-[40px] rounded-full flex-shrink-0 flex items-center justify-center bg-bronze mt-[2px]">
-          <span className="font-cormorant text-[16px] font-medium text-vellum">
+        <div className="w-[64px] h-[64px] rounded-full flex-shrink-0 flex items-center justify-center bg-bronze mt-[2px]">
+          <span className="font-cormorant text-[24px] font-medium text-vellum">
             {initials}
           </span>
         </div>
@@ -33,7 +33,7 @@ export default function TodaysTopicCard({ user, dailyQuestion, onReflect }: Prop
           value={topic}
           onChange={(e) => setTopic(e.target.value)}
           placeholder={dailyQuestion}
-          className="flex-1 resize-none bg-transparent outline-none font-cormorant italic text-[13px] text-ink leading-snug placeholder:opacity-35 placeholder:italic placeholder:font-cormorant"
+          className="flex-1 resize-none bg-transparent outline-none font-cormorant italic text-[13px] text-ink leading-snug placeholder:opacity-60 placeholder:italic placeholder:font-cormorant border border-bronze/40 rounded-[2px] focus:border-bronze focus:ring-1 focus:ring-bronze/20 px-3 py-2"
         />
       </div>
       <div className="mt-[12px] flex justify-end">
