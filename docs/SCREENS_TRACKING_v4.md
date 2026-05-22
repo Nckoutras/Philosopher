@@ -48,6 +48,16 @@
 > - A0 Public Landing added as new pending screen (spec incomplete — design proposal pending from founder)
 > - D1 build-status note added to full spec section (spec locked; build reprioritized to P0)
 > - Screen count: 55 → 56; pending count: 12 → 13
+>
+> **Changelog v4.1 → v4.2 (2026-05-22):**
+> - **A0 / A1 Splash**: Rebuilt in PR4h. Full-bleed dark `chesterfield-hero.jpg` background. Minimal Cormorant italic title overlay (top). Outlined CTA + sign-in link (bottom). Gradient overlays for legibility. Mode-aware routing: CTA passes `?mode=signup`, sign-in link passes `?mode=signin`. Status: ✅ rebuilt.
+> - **A2/A3 Sign Up / Sign In**: Mode-aware copy added in PR4e. Auth entry page reads `?mode=` param: signup → "Create your account."; signin → "Welcome back." `AuthForm` wrapped in `<Suspense>` for Next.js `useSearchParams` compatibility. Status: ✅ updated.
+> - **D1 Today**: `TodaysTopicCard` (editable textarea, 40×40 Bronze initials circle, day-deterministic placeholder, Reflect → `PersonaPickerSheet`) added in PR4b. `AppHeader` ('Great Minds · Day, Mon DD') added in PR4c. `RitualsCard` (Letter to future self functional Pro-gated, Emerging Patterns locked shell, Weekly Letter locked shell) added in PR3c/PR4c. Status: ✅ updated.
+> - **All 4 tab screens (Today / Library / Reflections / Account)**: `AppHeader` component added to all in PR4c. Provides consistent 'Great Minds · Day, Mon DD' header across the tab bar shell.
+> - **F1 Reflections**: `SwipeableRow` wrapping each `SavedLineCard` (framer-motion x-drag, Safety color reveal, undo toast, first-row wiggle hint) added in PR4f. ⚠️ To be revised in a future PR (per task brief: PR4l). Status: ✅ updated (revision pending).
+> - **F6 Library — Past Conversations view**: `SwipeableRow` wrapping each `ConversationCard` (same swipe-to-delete pattern as F1) added in PR4f. Status: ✅ updated.
+> - **New flow — Scheduled letters (PR3c)**: `RitualsCard` on D1 → "Letter to future self" → `RitualScheduleSheet` (BottomSheet, saved-line picker with thumbnails, datetime, note) → `POST /api/v1/scheduled-emails`. View at `/app/scheduled-letters`. No new screen spec needed — covered by existing Rituals + D1 specs.
+> - **Companion documents updated**: `DESIGN_SYSTEM_v5_to_v6_ADDENDUM_2026_05_22.md` added. `IMPLEMENTATION_BACKLOG_v10.md`, `PROJECT_STATE_v10.md`, `HANDOFF_BRIEF_v10.md` replace v9 equivalents.
 
 ---
 
