@@ -1,9 +1,8 @@
 'use client'
 
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { differenceInCalendarDays } from 'date-fns'
-import toast from 'react-hot-toast'
 import { useStore } from '@/lib/store'
 import { api } from '@/lib/api'
 import type { SavedLineRead } from '@/lib/api'
@@ -14,6 +13,7 @@ import EmptyReflections from '@/components/reflections/EmptyReflections'
 import PersonaPickerSheet from '@/components/personas/PersonaPickerSheet'
 import AppHeader from '@/components/layout/AppHeader'
 import SwipeableRow from '@/components/ui/SwipeableRow'
+import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal'
 
 function groupLabel(savedAt: string): 'This week' | 'Earlier' {
   const days = differenceInCalendarDays(new Date(), new Date(savedAt))
@@ -44,8 +44,10 @@ export default function ReflectionsPage() {
   const [selectedPersonaSlug, setSelectedPersonaSlug] = useState<string | null>(null)
   const [portraitBySlug, setPortraitBySlug] = useState<Record<string, string>>({})
   const [pickerLine, setPickerLine] = useState<SavedLineRead | null>(null)
-  const [pendingDeletes, setPendingDeletes] = useState<Set<string>>(new Set())
-  const deleteTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
+  const [revealedRowId, setRevealedRowId] = useState<string | null>(null)
+  const [pendingDelete, setPendingDelete] = useState<{ id: string; messageId: string } | null>(null)
+  const [deleteLoading, setDeleteLoading] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
   const [isFirstReflectionsRender] = useState<boolean>(() => {
     if (typeof window === 'undefined') return false
     return !sessionStorage.getItem('swipe_hint_seen_reflections')
@@ -67,14 +69,6 @@ export default function ReflectionsPage() {
   }, [isFirstReflectionsRender])
 
   useEffect(() => {
-    const timers = deleteTimersRef.current
-    return () => {
-      timers.forEach((t) => clearTimeout(t))
-      timers.clear()
-    }
-  }, [])
-
-  useEffect(() => {
     if (token === null) {
       router.replace('/auth')
       return
@@ -82,56 +76,33 @@ export default function ReflectionsPage() {
     load()
   }, [token, router, load])
 
-  function handleDelete(savedLineId: string, messageId: string) {
-    setPendingDeletes((prev) => new Set(prev).add(savedLineId))
-
-    const timer = setTimeout(async () => {
-      try {
-        await api.deleteSavedLine(savedLineId)
-        useStore.getState().removeAfterDelete(savedLineId, messageId)
-      } catch {
-        setPendingDeletes((prev) => {
-          const next = new Set(prev)
-          next.delete(savedLineId)
-          return next
-        })
-        toast.error('Could not delete. Try again.')
-      } finally {
-        deleteTimersRef.current.delete(savedLineId)
-      }
-    }, 5000)
-    deleteTimersRef.current.set(savedLineId, timer)
-
-    toast.custom(
-      (t) => (
-        <div className="bg-ink text-vellum font-lora text-[13px] rounded-sm px-[16px] py-[12px] flex items-center gap-[16px]">
-          <span>Deleted reflection</span>
-          <button
-            type="button"
-            onClick={() => {
-              const pending = deleteTimersRef.current.get(savedLineId)
-              if (pending) {
-                clearTimeout(pending)
-                deleteTimersRef.current.delete(savedLineId)
-              }
-              setPendingDeletes((prev) => {
-                const next = new Set(prev)
-                next.delete(savedLineId)
-                return next
-              })
-              toast.dismiss(t.id)
-            }}
-            className="font-cormorant text-[15px] font-medium underline underline-offset-2 decoration-[0.5px]"
-          >
-            Undo
-          </button>
-        </div>
-      ),
-      { duration: 5000 },
-    )
+  function handleDeleteRequest(id: string, messageId: string) {
+    setRevealedRowId(null)
+    setPendingDelete({ id, messageId })
   }
 
-  const visibleSavedLines = savedLines.filter((sl) => !pendingDeletes.has(sl.id))
+  async function handleDeleteConfirm() {
+    if (!pendingDelete) return
+    setDeleteLoading(true)
+    setDeleteError(null)
+    try {
+      await api.deleteSavedLine(pendingDelete.id)
+      useStore.getState().removeAfterDelete(pendingDelete.id, pendingDelete.messageId)
+      setPendingDelete(null)
+    } catch {
+      setDeleteError('Could not delete. Please try again.')
+    } finally {
+      setDeleteLoading(false)
+    }
+  }
+
+  function handleDeleteClose() {
+    if (deleteLoading) return
+    setPendingDelete(null)
+    setDeleteError(null)
+  }
+
+  const visibleSavedLines = savedLines
 
   const uniquePersonas = Array.from(
     new Map(
@@ -211,7 +182,10 @@ export default function ReflectionsPage() {
                   {items.map((item, itemIdx) => (
                     <div key={item.id} className="mb-[8px]">
                       <SwipeableRow
-                        onDelete={() => handleDelete(item.id, item.message_id)}
+                        isRevealed={revealedRowId === item.id}
+                        onReveal={() => setRevealedRowId(item.id)}
+                        onCollapse={() => setRevealedRowId(null)}
+                        onDeleteRequest={() => handleDeleteRequest(item.id, item.message_id)}
                         showHint={isFirstReflectionsRender && groupIdx === 0 && itemIdx === 0}
                       >
                         <SavedLineCard
@@ -247,6 +221,16 @@ export default function ReflectionsPage() {
           }}
         />
       )}
+
+      <DeleteConfirmModal
+        open={pendingDelete !== null}
+        title="Delete reflection?"
+        body="This can't be undone."
+        loading={deleteLoading}
+        error={deleteError}
+        onConfirm={handleDeleteConfirm}
+        onClose={handleDeleteClose}
+      />
     </main>
   )
 }
