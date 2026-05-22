@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { deriveInitials } from '@/lib/initials'
 
 interface Props {
@@ -12,13 +12,29 @@ interface Props {
 export default function TodaysTopicCard({ user, dailyQuestion, onReflect }: Props) {
   const [topic, setTopic] = useState('')
   const initials = deriveInitials(user)
+  const cardRef = useRef<HTMLDivElement>(null)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  useEffect(() => {
+    function handleOutsideTap(e: MouseEvent | TouchEvent) {
+      if (cardRef.current && !cardRef.current.contains(e.target as Node)) {
+        textareaRef.current?.blur()
+      }
+    }
+    document.addEventListener('mousedown', handleOutsideTap)
+    document.addEventListener('touchstart', handleOutsideTap, { passive: true })
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideTap)
+      document.removeEventListener('touchstart', handleOutsideTap)
+    }
+  }, [])
 
   function handleReflect() {
     onReflect(topic.trim() || dailyQuestion)
   }
 
   return (
-    <div className="bg-paper border border-[0.5px] border-edge rounded-md px-[16px] pt-[14px] pb-[16px]">
+    <div ref={cardRef} className="bg-paper border border-[0.5px] border-edge rounded-md px-[16px] pt-[14px] pb-[16px]">
       <p className="font-lora text-[11px] uppercase tracking-[0.18em] text-sepia mb-[10px]">
         What's on your mind?
       </p>
@@ -29,6 +45,7 @@ export default function TodaysTopicCard({ user, dailyQuestion, onReflect }: Prop
           </span>
         </div>
         <textarea
+          ref={textareaRef}
           rows={3}
           value={topic}
           onChange={(e) => setTopic(e.target.value)}
