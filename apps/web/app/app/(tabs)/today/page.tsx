@@ -86,6 +86,18 @@ export default function TodayPage() {
     load()
   }, [token, router])
 
+  useEffect(() => {
+    if (window.history.state?.floor !== 'today') {
+      window.history.pushState({ floor: 'today' }, '')
+    }
+    function handlePopState(e: PopStateEvent) {
+      if (e.state?.floor === 'today') return
+      window.history.pushState({ floor: 'today' }, '')
+    }
+    window.addEventListener('popstate', handlePopState)
+    return () => window.removeEventListener('popstate', handlePopState)
+  }, [])
+
   async function handleFirstDayReflect() {
     if (!question) return
     const slug = activePersonaSlug ?? 'marcus_aurelius'
@@ -110,6 +122,13 @@ export default function TodayPage() {
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Could not start conversation. Try again.')
       setTopicPickerOpen(true)
+    }
+  }
+
+  function handleCardKeyDown(e: React.KeyboardEvent) {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      router.push('/app/reflections')
     }
   }
 
@@ -241,7 +260,13 @@ export default function TodayPage() {
 
         {/* ── D1a: Your reflections card ── */}
         {!isFirstDay && recentLine && (
-          <div className="bg-paper border border-[0.5px] border-edge rounded-md shadow-card px-[16px] py-[14px]">
+          <div
+            role="button"
+            tabIndex={0}
+            onClick={() => router.push('/app/reflections')}
+            onKeyDown={handleCardKeyDown}
+            className="w-full text-left bg-paper border border-[0.5px] border-edge rounded-md shadow-card px-[16px] py-[14px]"
+          >
             <p className="font-lora text-[10px] font-medium uppercase tracking-[0.18em] text-sepia mb-[8px]">
               Your reflections.
             </p>
@@ -271,21 +296,21 @@ export default function TodayPage() {
             <div className="mt-[10px] flex items-center gap-[8px] flex-wrap">
               <button
                 type="button"
-                onClick={() => router.push(`/app/chat/conv/${recentLine.conversation_id}`)}
+                onClick={(e) => { e.stopPropagation(); router.push(`/app/chat/conv/${recentLine.conversation_id}`) }}
                 className="px-[14px] min-h-[44px] flex items-center border border-[0.5px] border-charcoal rounded-[4px] font-cormorant text-[13px] font-medium text-charcoal"
               >
                 Revisit
               </button>
               <button
                 type="button"
-                onClick={() => setPickerOpen(true)}
+                onClick={(e) => { e.stopPropagation(); setPickerOpen(true) }}
                 className="px-[14px] min-h-[44px] flex items-center border border-[0.5px] border-charcoal rounded-[4px] font-cormorant text-[13px] font-medium text-charcoal"
               >
                 Choose a mind
               </button>
               <button
                 type="button"
-                onClick={() => handleShare(recentLine.saved_line_id, recentLine.persona_name, recentLine.content, recentLine.conversation_id)}
+                onClick={(e) => { e.stopPropagation(); handleShare(recentLine.saved_line_id, recentLine.persona_name, recentLine.content, recentLine.conversation_id) }}
                 disabled={shareLoading}
                 className="px-[14px] min-h-[44px] flex items-center border border-[0.5px] border-charcoal rounded-[4px] font-cormorant text-[13px] font-medium text-charcoal disabled:opacity-50"
               >

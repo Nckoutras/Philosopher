@@ -1,6 +1,6 @@
 'use client'
 
-import { ReactNode } from 'react'
+import { useEffect, ReactNode } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 
 interface Props {
@@ -11,6 +11,23 @@ interface Props {
 }
 
 export default function BottomSheet({ open, onClose, children, maxHeight = '75svh' }: Props) {
+  useEffect(() => {
+    if (!open) return
+    window.history.pushState({ modal: 'bottom-sheet' }, '')
+    return () => {
+      if (window.history.state?.modal === 'bottom-sheet') {
+        window.history.back()
+      }
+    }
+  }, [open])
+
+  useEffect(() => {
+    if (!open) return
+    function handlePopState() { onClose() }
+    window.addEventListener('popstate', handlePopState)
+    return () => window.removeEventListener('popstate', handlePopState)
+  }, [open, onClose])
+
   return (
     <AnimatePresence>
       {open && (

@@ -25,11 +25,26 @@ export default function PaywallModal({ open, details, onClose }: Props) {
 
   useEffect(() => {
     if (!open) return
-    const handler = (e: KeyboardEvent) => {
+    window.history.pushState({ modal: 'paywall-modal' }, '')
+    return () => {
+      if (window.history.state?.modal === 'paywall-modal') {
+        window.history.back()
+      }
+    }
+  }, [open])
+
+  useEffect(() => {
+    if (!open) return
+    function handleKeyDown(e: KeyboardEvent) {
       if (e.key === 'Escape') onClose()
     }
-    document.addEventListener('keydown', handler)
-    return () => document.removeEventListener('keydown', handler)
+    function handlePopState() { onClose() }
+    document.addEventListener('keydown', handleKeyDown)
+    window.addEventListener('popstate', handlePopState)
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown)
+      window.removeEventListener('popstate', handlePopState)
+    }
   }, [open, onClose])
 
   if (!open || !details) return null
