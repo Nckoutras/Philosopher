@@ -183,7 +183,7 @@ export default function TodayPage() {
         <p className="font-lora text-[11px] uppercase tracking-[0.18em] text-sepia mb-[4px]">
           {dateEyebrow}
         </p>
-        <h1 className="font-cormorant text-[28px] font-normal text-ink leading-tight">
+        <h1 className="font-cormorant text-[24px] font-normal text-ink leading-tight">
           {greeting}
         </h1>
       </div>
@@ -272,22 +272,22 @@ export default function TodayPage() {
               <button
                 type="button"
                 onClick={() => router.push(`/app/chat/conv/${recentLine.conversation_id}`)}
-                className="px-[14px] min-h-[44px] flex items-center border border-[0.5px] border-ink rounded-[4px] font-cormorant text-[14px] font-medium text-ink"
+                className="px-[14px] min-h-[44px] flex items-center border border-[0.5px] border-charcoal rounded-[4px] font-cormorant text-[13px] font-medium text-charcoal"
               >
                 Revisit
               </button>
               <button
                 type="button"
                 onClick={() => setPickerOpen(true)}
-                className="px-[14px] min-h-[44px] flex items-center border border-[0.5px] border-sepia rounded-[4px] font-cormorant text-[14px] font-medium text-sepia"
+                className="px-[14px] min-h-[44px] flex items-center border border-[0.5px] border-charcoal rounded-[4px] font-cormorant text-[13px] font-medium text-charcoal"
               >
-                Ask another mind
+                Choose a mind
               </button>
               <button
                 type="button"
                 onClick={() => handleShare(recentLine.saved_line_id, recentLine.persona_name, recentLine.content, recentLine.conversation_id)}
                 disabled={shareLoading}
-                className="px-[14px] min-h-[44px] flex items-center border border-[0.5px] border-sepia rounded-[4px] font-cormorant text-[14px] font-medium text-sepia disabled:opacity-50"
+                className="px-[14px] min-h-[44px] flex items-center border border-[0.5px] border-charcoal rounded-[4px] font-cormorant text-[13px] font-medium text-charcoal disabled:opacity-50"
               >
                 {shareLoading ? 'Sharing…' : 'Share'}
               </button>

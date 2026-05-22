@@ -60,7 +60,7 @@ export default function PersonaPickerSheet({
     <BottomSheet open={open} onClose={onClose}>
       {/* Header */}
       <div className="px-6 pt-5 pb-3 border-b border-[0.5px] border-edge flex items-center justify-between flex-shrink-0">
-        <p className="font-cormorant text-[19px] font-medium text-ink">Ask another mind</p>
+        <p className="font-cormorant text-[19px] font-medium text-ink">Choose a mind</p>
         <button
           type="button"
           onClick={onClose}
