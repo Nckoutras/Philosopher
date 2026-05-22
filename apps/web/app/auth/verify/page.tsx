@@ -26,7 +26,16 @@ function VerifyForm() {
   const canSubmit = isValid && !isLoading
 
   const handleChange = (i: number, value: string) => {
-    const digit = value.replace(/[^0-9]/g, '').slice(-1)
+    const numeric = value.replace(/[^0-9]/g, '')
+
+    // Autofill: iOS/Android deposits all 6 digits into the focused box via onChange
+    if (numeric.length >= 6) {
+      setCode(numeric.slice(0, 6).split(''))
+      refs.current[5]?.focus()
+      return
+    }
+
+    const digit = numeric.slice(-1)
     const next = [...code]
     next[i] = digit
     setCode(next)
