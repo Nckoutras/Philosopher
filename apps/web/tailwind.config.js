@@ -29,6 +29,7 @@ module.exports = {
           dark: '#8A7340',
         },
         safety: '#7A4030',
+        danger: '#A0341F',
       },
       boxShadow: {
         card: '0 2px 8px rgba(31, 27, 20, 0.06)',

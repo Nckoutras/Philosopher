@@ -1,14 +1,14 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { Search } from 'lucide-react'
-import toast from 'react-hot-toast'
 import { useStore } from '@/lib/store'
 import { api } from '@/lib/api'
 import type { Conversation } from '@/lib/api'
 import ConversationCard from './ConversationCard'
 import EmptyConversationHistory from './EmptyConversationHistory'
 import SwipeableRow from '@/components/ui/SwipeableRow'
+import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal'
 
 function isThisWeek(dateString: string | null): boolean {
   if (!dateString) return false
@@ -31,8 +31,10 @@ export default function PastConversationsView({
   onRetry,
 }: Props) {
   const [q, setQ] = useState('')
-  const [pendingDeletes, setPendingDeletes] = useState<Set<string>>(new Set())
-  const deleteTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
+  const [revealedRowId, setRevealedRowId] = useState<string | null>(null)
+  const [pendingDelete, setPendingDelete] = useState<string | null>(null)
+  const [deleteLoading, setDeleteLoading] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
   const [isFirstLibraryRender] = useState<boolean>(() => {
     if (typeof window === 'undefined') return false
     return !sessionStorage.getItem('swipe_hint_seen_library')
@@ -44,63 +46,32 @@ export default function PastConversationsView({
     }
   }, [isFirstLibraryRender])
 
-  useEffect(() => {
-    const timers = deleteTimersRef.current
-    return () => {
-      timers.forEach((t) => clearTimeout(t))
-      timers.clear()
+  function handleDeleteRequest(id: string) {
+    setRevealedRowId(null)
+    setPendingDelete(id)
+  }
+
+  async function handleDeleteConfirm() {
+    if (!pendingDelete) return
+    setDeleteLoading(true)
+    setDeleteError(null)
+    try {
+      await api.deleteConversation(pendingDelete)
+      useStore.getState().setConversations(
+        useStore.getState().conversations.filter((c) => c.id !== pendingDelete),
+      )
+      setPendingDelete(null)
+    } catch {
+      setDeleteError('Could not delete. Please try again.')
+    } finally {
+      setDeleteLoading(false)
     }
-  }, [])
+  }
 
-  function handleDelete(conversationId: string) {
-    setPendingDeletes((prev) => new Set(prev).add(conversationId))
-
-    const timer = setTimeout(async () => {
-      try {
-        await api.deleteConversation(conversationId)
-        useStore.getState().setConversations(
-          useStore.getState().conversations.filter((c) => c.id !== conversationId),
-        )
-      } catch {
-        setPendingDeletes((prev) => {
-          const next = new Set(prev)
-          next.delete(conversationId)
-          return next
-        })
-        toast.error('Could not delete. Try again.')
-      } finally {
-        deleteTimersRef.current.delete(conversationId)
-      }
-    }, 5000)
-    deleteTimersRef.current.set(conversationId, timer)
-
-    toast.custom(
-      (t) => (
-        <div className="bg-ink text-vellum font-lora text-[13px] rounded-sm px-[16px] py-[12px] flex items-center gap-[16px]">
-          <span>Deleted conversation</span>
-          <button
-            type="button"
-            onClick={() => {
-              const pending = deleteTimersRef.current.get(conversationId)
-              if (pending) {
-                clearTimeout(pending)
-                deleteTimersRef.current.delete(conversationId)
-              }
-              setPendingDeletes((prev) => {
-                const next = new Set(prev)
-                next.delete(conversationId)
-                return next
-              })
-              toast.dismiss(t.id)
-            }}
-            className="font-cormorant text-[15px] font-medium underline underline-offset-2 decoration-[0.5px]"
-          >
-            Undo
-          </button>
-        </div>
-      ),
-      { duration: 5000 },
-    )
+  function handleDeleteClose() {
+    if (deleteLoading) return
+    setPendingDelete(null)
+    setDeleteError(null)
   }
 
   if (loading && conversations.length === 0) {
@@ -126,7 +97,7 @@ export default function PastConversationsView({
     )
   }
 
-  const visibleConversations = conversations.filter((c) => !pendingDeletes.has(c.id))
+  const visibleConversations = conversations
 
   const trimmed = q.trim()
   const filtered = trimmed
@@ -174,8 +145,11 @@ export default function PastConversationsView({
               label="This week"
               conversations={thisWeek}
               portraitUrlsBySlug={portraitUrlsBySlug}
-              onDelete={handleDelete}
+              onDeleteRequest={handleDeleteRequest}
               hintId={hintId}
+              revealedRowId={revealedRowId}
+              onReveal={setRevealedRowId}
+              onCollapse={() => setRevealedRowId(null)}
             />
           )}
           {earlier.length > 0 && (
@@ -183,12 +157,25 @@ export default function PastConversationsView({
               label="Earlier"
               conversations={earlier}
               portraitUrlsBySlug={portraitUrlsBySlug}
-              onDelete={handleDelete}
+              onDeleteRequest={handleDeleteRequest}
               hintId={hintId}
+              revealedRowId={revealedRowId}
+              onReveal={setRevealedRowId}
+              onCollapse={() => setRevealedRowId(null)}
             />
           )}
         </div>
       )}
+
+      <DeleteConfirmModal
+        open={pendingDelete !== null}
+        title="Delete conversation?"
+        body="This can't be undone."
+        loading={deleteLoading}
+        error={deleteError}
+        onConfirm={handleDeleteConfirm}
+        onClose={handleDeleteClose}
+      />
     </div>
   )
 }
@@ -197,14 +184,20 @@ function Group({
   label,
   conversations,
   portraitUrlsBySlug,
-  onDelete,
+  onDeleteRequest,
   hintId,
+  revealedRowId,
+  onReveal,
+  onCollapse,
 }: {
   label: string
   conversations: Conversation[]
   portraitUrlsBySlug: Record<string, string>
-  onDelete: (id: string) => void
+  onDeleteRequest: (id: string) => void
   hintId: string | null
+  revealedRowId: string | null
+  onReveal: (id: string) => void
+  onCollapse: () => void
 }) {
   return (
     <div>
@@ -213,7 +206,10 @@ function Group({
         {conversations.map((conv) => (
           <SwipeableRow
             key={conv.id}
-            onDelete={() => onDelete(conv.id)}
+            isRevealed={revealedRowId === conv.id}
+            onReveal={() => onReveal(conv.id)}
+            onCollapse={onCollapse}
+            onDeleteRequest={() => onDeleteRequest(conv.id)}
             showHint={conv.id === hintId}
           >
             <ConversationCard
