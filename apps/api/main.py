@@ -9,6 +9,7 @@ from config import config
 import models  # noqa: F401
 
 from routers.auth import router as auth_router
+from routers.auth_oauth import router as auth_oauth_router
 from routers.conversations import router as conversations_router
 from routers.personas import router as personas_router
 from routers.memory import memory_router, insights_router
@@ -77,6 +78,7 @@ app.add_middleware(
 
 PREFIX = "/api/v1"
 app.include_router(auth_router,          prefix=PREFIX)
+app.include_router(auth_oauth_router,    prefix=PREFIX)
 app.include_router(personas_router,      prefix=PREFIX)
 app.include_router(conversations_router, prefix=PREFIX)
 app.include_router(memory_router,        prefix=PREFIX)

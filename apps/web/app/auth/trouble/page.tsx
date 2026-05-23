@@ -87,7 +87,7 @@ function TroubleForm() {
               Try a different sign-in method
             </p>
             <p className="font-lora text-[13px] text-charcoal leading-[1.6]">
-              Apple and Google sign-in coming soon.
+              Apple sign-in coming soon.
             </p>
           </div>
 
