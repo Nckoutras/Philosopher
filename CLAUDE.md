@@ -127,3 +127,21 @@ Apply this principle to: schema design (FK constraints, soft vs hard delete,
 retention policies), security (auth flows, dead-end navigation post-signout),
 state management (caching, race conditions), and any "quick fix" that
 touches data integrity.
+
+## Known tech debt
+
+### Dual tier resolution (added PR4j-paywall-audit, 2026-05-23)
+
+`apps/api/auth.py:get_current_user_plan` and `apps/api/services/tier_service.py:get_user_tier`
+are two parallel tier-resolution functions with different semantics:
+
+- `get_current_user_plan` returns `"free" | "pro" | "premium"` from `Subscription.plan` directly
+- `get_user_tier` returns `"free" | "pro"` with expiry/status validation and BETA_GRANT_PRO_TO_ALL bypass
+
+PR4j added BETA bypass to both, but the duplication remains. Eight endpoints across
+`personas.py`, `rituals.py`, `conversations.py`, and `share.py` use `get_current_user_plan`;
+five use `get_user_tier`. Frontend `isPro` logic depends on whichever these endpoints return.
+
+**Refactor before paid launch:** consolidate to a single tier-resolution function used by all
+enforcement points. Decision needed at that time: keep `"premium"` tier semantics or collapse
+to `free | pro`. Affects all paywall gates and the frontend Subscription type.

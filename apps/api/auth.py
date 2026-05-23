@@ -10,6 +10,7 @@ from db.session import get_db
 from models import User, Subscription
 from config import config
 
+
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 bearer_scheme = HTTPBearer()
 
@@ -54,6 +55,8 @@ async def get_current_user_plan(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> tuple[User, str]:
+    if config.BETA_GRANT_PRO_TO_ALL:
+        return user, "pro"
     result = await db.execute(select(Subscription).where(Subscription.user_id == user.id))
     sub = result.scalar_one_or_none()
     plan = sub.plan if sub and sub.status in ("active", "trialing") else "free"
