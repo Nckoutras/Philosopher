@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Lock, ChevronRight } from 'lucide-react'
+import { ChevronRight } from 'lucide-react'
 import RitualScheduleSheet from '@/components/rituals/RitualScheduleSheet'
 
 interface Props {
@@ -43,27 +43,7 @@ export default function RitualsCard({ isPro, userEmail }: Props) {
           <ChevronRight size={16} strokeWidth={1.5} className="text-sepia flex-shrink-0" />
         </button>
 
-        {/* Emerging Patterns — locked shell */}
-        <div className="w-full flex items-center justify-between px-[16px] py-[14px] border-t border-[0.5px] border-edge opacity-50">
-          <span className="font-cormorant text-[17px] font-medium text-ink">
-            Emerging Patterns
-          </span>
-          <div className="flex items-center gap-[6px]">
-            <span className="font-lora text-[11px] text-charcoal">Coming soon</span>
-            <Lock size={13} strokeWidth={1.5} className="text-sepia flex-shrink-0" />
-          </div>
-        </div>
 
-        {/* Weekly Letter — locked shell */}
-        <div className="w-full flex items-center justify-between px-[16px] py-[14px] border-t border-[0.5px] border-edge opacity-50">
-          <span className="font-cormorant text-[17px] font-medium text-ink">
-            Weekly Letter
-          </span>
-          <div className="flex items-center gap-[6px]">
-            <span className="font-lora text-[11px] text-charcoal">Coming soon</span>
-            <Lock size={13} strokeWidth={1.5} className="text-sepia flex-shrink-0" />
-          </div>
-        </div>
       </div>
 
       <RitualScheduleSheet

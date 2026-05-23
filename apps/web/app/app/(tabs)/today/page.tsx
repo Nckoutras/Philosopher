@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import Image from 'next/image'
 import { ChevronRight } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
@@ -260,12 +261,34 @@ export default function TodayPage() {
           </div>
         )}
 
+        {!isFirstDay && recentLine && (
+          <div className="flex justify-end mt-[-4px] px-1">
+            <Link
+              href="/app/reflections"
+              className="font-lora text-[13px] text-bronze underline-offset-2 hover:underline"
+            >
+              See all reflections →
+            </Link>
+          </div>
+        )}
+
         {/* ── Rituals card ── */}
         {!isFirstDay && (
           <RitualsCard
             isPro={isPro ?? false}
             userEmail={user?.email ?? ''}
           />
+        )}
+
+        {!isFirstDay && (
+          <div className="flex justify-end mt-[-4px] px-1">
+            <Link
+              href="/app/rituals"
+              className="font-lora text-[13px] text-bronze underline-offset-2 hover:underline"
+            >
+              See all rituals →
+            </Link>
+          </div>
         )}
 
         {recentLine && (

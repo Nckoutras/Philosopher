@@ -11,15 +11,8 @@ vi.mock('next/navigation', () => ({
   usePathname: () => mockPathname,
 }))
 
-vi.mock('react-hot-toast', () => ({
-  default: vi.fn(),
-}))
-
-import toast from 'react-hot-toast'
-
 beforeEach(() => {
   mockPush.mockClear()
-  vi.mocked(toast).mockClear()
   mockPathname = '/app/library'
 })
 
@@ -27,7 +20,7 @@ describe('BottomTabBar', () => {
   it('renders all 4 tabs', () => {
     render(<BottomTabBar />)
     expect(screen.getByLabelText('Today')).toBeTruthy()
-    expect(screen.getByLabelText('Reflections')).toBeTruthy()
+    expect(screen.getByLabelText('Rituals')).toBeTruthy()
     expect(screen.getByLabelText('Library')).toBeTruthy()
     expect(screen.getByLabelText('Account')).toBeTruthy()
   })
@@ -43,7 +36,7 @@ describe('BottomTabBar', () => {
     mockPathname = '/app/library'
     render(<BottomTabBar />)
     expect(screen.getByLabelText('Today').getAttribute('aria-current')).toBeNull()
-    expect(screen.getByLabelText('Reflections').getAttribute('aria-current')).toBeNull()
+    expect(screen.getByLabelText('Rituals').getAttribute('aria-current')).toBeNull()
     expect(screen.getByLabelText('Account').getAttribute('aria-current')).toBeNull()
   })
 
@@ -54,23 +47,10 @@ describe('BottomTabBar', () => {
     expect(mockPush).toHaveBeenCalledWith('/app/library')
   })
 
-  it('shows Coming soon toast when Today tab tapped', () => {
+  it('navigates to /app/rituals when Rituals tab tapped', () => {
+    mockPathname = '/app/today'
     render(<BottomTabBar />)
-    fireEvent.click(screen.getByLabelText('Today'))
-    expect(toast).toHaveBeenCalledWith('Coming soon', expect.any(Object))
-    expect(mockPush).not.toHaveBeenCalled()
-  })
-
-  it('navigates to /app/reflections when Reflections tab tapped', () => {
-    render(<BottomTabBar />)
-    fireEvent.click(screen.getByLabelText('Reflections'))
-    expect(mockPush).toHaveBeenCalledWith('/app/reflections')
-    expect(toast).not.toHaveBeenCalled()
-  })
-
-  it('shows Coming soon toast when Account tab tapped', () => {
-    render(<BottomTabBar />)
-    fireEvent.click(screen.getByLabelText('Account'))
-    expect(toast).toHaveBeenCalledWith('Coming soon', expect.any(Object))
+    fireEvent.click(screen.getByLabelText('Rituals'))
+    expect(mockPush).toHaveBeenCalledWith('/app/rituals')
   })
 })
