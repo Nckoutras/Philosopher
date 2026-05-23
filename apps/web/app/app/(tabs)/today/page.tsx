@@ -7,8 +7,8 @@ import { ChevronRight } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import toast from 'react-hot-toast'
 import { useStore } from '@/lib/store'
-import { api, ShareLimitError } from '@/lib/api'
 import type { DailyQuestion, LastConversation, RecentSavedLine } from '@/lib/api'
+import SharePreviewModal from '@/components/share/SharePreviewModal'
 import { getTimeGreeting } from '@/lib/useTimeGreeting'
 import PersonaPickerSheet from '@/components/personas/PersonaPickerSheet'
 import RitualsCard from '@/components/today/RitualsCard'
@@ -53,7 +53,7 @@ export default function TodayPage() {
   const [recentLine, setRecentLine] = useState<RecentSavedLine | null>(null)
   const [loading, setLoading] = useState(true)
   const [pickerOpen, setPickerOpen] = useState(false)
-  const [shareLoading, setShareLoading] = useState(false)
+  const [shareModalOpen, setShareModalOpen] = useState(false)
   const [topicPickerOpen, setTopicPickerOpen] = useState(false)
   const [pendingTopic, setPendingTopic] = useState('')
 
@@ -126,62 +126,6 @@ export default function TodayPage() {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault()
       router.push('/app/reflections')
-    }
-  }
-
-  async function handleShare(savedLineId: string, personaName: string, content: string, conversationId: string) {
-    const shortShareText = `${personaName} told me:\nthegreatminds.app`
-    const fullShareText  = `${personaName} told me:\n\n${content}\n\nthegreatminds.app`
-    const origin = typeof window !== 'undefined' ? window.location.origin : ''
-    const url = `${origin}/app/chat/conv/${conversationId}`
-
-    setShareLoading(true)
-    try {
-      const blob = await api.createShareScreenshot(savedLineId)
-      const file = new File([blob], 'reflection.png', { type: 'image/png' })
-
-      if (typeof navigator !== 'undefined' && navigator.canShare?.({ files: [file] })) {
-        await navigator.share({ files: [file], text: shortShareText })
-      } else {
-        // Desktop / no Web Share Level 2: download image + copy full text
-        const blobUrl = URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = blobUrl
-        a.download = 'reflection.png'
-        a.click()
-        URL.revokeObjectURL(blobUrl)
-        await navigator.clipboard.writeText(fullShareText + '\n' + url).catch(() => {})
-        toast('Image saved — share it from your downloads')
-      }
-    } catch (err) {
-      if (err instanceof ShareLimitError) {
-        toast((t) => (
-          <span>
-            Free share limit reached (3/90 days).{' '}
-            <a
-              href="/app/upgrade"
-              onClick={() => toast.dismiss(t.id)}
-              style={{ textDecoration: 'underline' }}
-            >
-              Upgrade
-            </a>
-          </span>
-        ))
-        return
-      }
-      // Fallback: text-only share
-      try {
-        if (typeof navigator !== 'undefined' && navigator.share) {
-          await navigator.share({ title: 'Great Minds', text: fullShareText, url })
-        } else {
-          await navigator.clipboard.writeText(fullShareText + '\n' + url)
-          toast('Copied to clipboard')
-        }
-      } catch {
-        // user cancelled
-      }
-    } finally {
-      setShareLoading(false)
     }
   }
 
@@ -307,11 +251,10 @@ export default function TodayPage() {
               </button>
               <button
                 type="button"
-                onClick={(e) => { e.stopPropagation(); handleShare(recentLine.saved_line_id, recentLine.persona_name, recentLine.content, recentLine.conversation_id) }}
-                disabled={shareLoading}
-                className="px-[14px] min-h-[44px] flex items-center border border-[0.5px] border-charcoal rounded-[4px] font-cormorant text-[13px] font-medium text-charcoal disabled:opacity-50"
+                onClick={(e) => { e.stopPropagation(); setShareModalOpen(true) }}
+                className="px-[14px] min-h-[44px] flex items-center border border-[0.5px] border-charcoal rounded-[4px] font-cormorant text-[13px] font-medium text-charcoal"
               >
-                {shareLoading ? 'Sharing…' : 'Share'}
+                Share
               </button>
             </div>
           </div>
@@ -344,6 +287,20 @@ export default function TodayPage() {
           onClose={() => setTopicPickerOpen(false)}
           onSelect={handlePersonaSelected}
         />
+
+        {/* Sibling to recentLine card — E2: modal must not be a descendant of
+            the role="button" card wrapper */}
+        {recentLine && (
+          <SharePreviewModal
+            isOpen={shareModalOpen}
+            onClose={() => setShareModalOpen(false)}
+            savedLineId={recentLine.saved_line_id}
+            personaName={recentLine.persona_name}
+            portraitUrl={recentLine.persona_portrait_url || undefined}
+            quote={recentLine.content}
+            conversationId={recentLine.conversation_id}
+          />
+        )}
 
         {/* ── D1b: Empty state card (first-day user) ── */}
         {isFirstDay && (

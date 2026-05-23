@@ -425,14 +425,17 @@ class ApiClient {
     })
   }
 
-  async createShareScreenshot(savedLineId: string): Promise<Blob> {
+  async createShareScreenshot(savedLineId: string, annotation?: string): Promise<Blob> {
+    const body: Record<string, string> = { saved_line_id: savedLineId }
+    if (annotation) body.annotation = annotation
+
     const res = await fetch(`${API_BASE}/share/screenshot`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         ...(this.token ? { Authorization: `Bearer ${this.token}` } : {}),
       },
-      body: JSON.stringify({ saved_line_id: savedLineId }),
+      body: JSON.stringify(body),
     })
     if (!res.ok) {
       if (res.status === 429) throw new ShareLimitError()

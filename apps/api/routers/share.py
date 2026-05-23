@@ -1,8 +1,9 @@
+from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse, Response
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from auth import get_current_user_plan
@@ -18,6 +19,7 @@ SHARE_WINDOW_SECS  = 90 * 24 * 60 * 60   # 90 days rolling
 
 class ShareScreenshotRequest(BaseModel):
     saved_line_id: UUID
+    annotation: Optional[str] = Field(None, max_length=140)
 
 
 @router.post("/screenshot")
@@ -51,6 +53,7 @@ async def create_share_screenshot(
             db=db,
             saved_line_id=str(body.saved_line_id),
             user_id=user.id,
+            annotation=body.annotation,
         )
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
