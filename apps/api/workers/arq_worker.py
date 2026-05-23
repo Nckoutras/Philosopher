@@ -170,7 +170,7 @@ async def send_ritual_reminder_task(ctx, user_id: str, ritual_id: str):
                 "html": f"""
                     <p>Good morning{f", {user.full_name.split()[0]}" if user.full_name else ""}.</p>
                     <p>Your ritual <strong>{ritual.name}</strong> is waiting for you.</p>
-                    <p><a href="{config.BASE_URL}/rituals">Begin your practice</a></p>
+                    <p><a href="{config.FRONTEND_URL}/rituals">Begin your practice</a></p>
                 """,
             })
         except Exception as e:

@@ -50,6 +50,15 @@ class Settings(BaseSettings):
     # Cold beta override: grants Pro tier to all users regardless of subscription
     BETA_GRANT_PRO_TO_ALL: bool = False
 
+    # Frontend base URL — used for OAuth redirects, email links, Stripe return URLs
+    FRONTEND_URL: str = "http://localhost:3000"
+
+    # Google OAuth (dormant until GOOGLE_OAUTH_ENABLED=true + credentials set on Render)
+    GOOGLE_CLIENT_ID: str = ""
+    GOOGLE_CLIENT_SECRET: str = ""
+    GOOGLE_OAUTH_REDIRECT_URI: str = "http://localhost:8000/api/v1/auth/oauth/google/callback"
+    GOOGLE_OAUTH_ENABLED: bool = False
+
     class Config:
         env_file = ".env"
         case_sensitive = True
