@@ -101,3 +101,29 @@ Lessons that updated this protocol:
   inspection. Cost: ~3 hours of duplicate work + a rate limit security 
   hole. Lesson: enumerate existing endpoints in same domain BEFORE 
   designing new ones.
+
+## Future-proof first, shortcuts second
+
+Every proposal — code, schema, architecture — must be evaluated against
+production behavior with real subscribers, not just current cold-beta state.
+Cold-beta shortcuts are allowed ONLY when:
+
+1. The shortcut is explicitly named as such (not silently shipped as a "fix")
+2. The production-grade alternative is articulated with concrete cost
+3. A specific milestone is set for the proper implementation (e.g. "before public launch", "after first 10 paying subscribers")
+4. Mentor confirms the shortcut doesn't create user-visible regressions or
+   data integrity risks in the cold-beta window
+
+When proposing solutions, default order:
+- Production-grade approach (long-term sustainable)
+- Hybrid / phased approach if time-to-ship matters
+- Shortcut only if the above are infeasible AND the cost is named
+
+When auditing CC's proposals, flag any solution that ships technical debt
+without naming it. Tech debt that's named is manageable; tech debt that's
+buried compounds silently.
+
+Apply this principle to: schema design (FK constraints, soft vs hard delete,
+retention policies), security (auth flows, dead-end navigation post-signout),
+state management (caching, race conditions), and any "quick fix" that
+touches data integrity.
