@@ -10,12 +10,14 @@ import { api } from '@/lib/api'
 export default function UpgradePage() {
   const router = useRouter()
   const token = useStore((s) => s.token)
+  const _hasHydrated = useStore((s) => s._hasHydrated)
   const [yearlyLoading, setYearlyLoading] = useState(false)
   const [monthlyLoading, setMonthlyLoading] = useState(false)
 
   useEffect(() => {
+    if (!_hasHydrated) return
     if (token === null) router.replace('/auth')
-  }, [token, router])
+  }, [_hasHydrated, token, router])
 
   async function handleSubscribe(interval: 'monthly' | 'yearly') {
     const setLoading = interval === 'yearly' ? setYearlyLoading : setMonthlyLoading

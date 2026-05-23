@@ -17,12 +17,14 @@ export default function PersonaDetailPage() {
   const router = useRouter()
   const params = useParams<{ slug: string }>()
   const token = useStore((s) => s.token)
+  const _hasHydrated = useStore((s) => s._hasHydrated)
 
   const [persona, setPersona] = useState<Persona | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [notFound, setNotFound] = useState(false)
 
   useEffect(() => {
+    if (!_hasHydrated) return
     if (token === null) {
       router.replace('/auth')
       return
@@ -50,7 +52,7 @@ export default function PersonaDetailPage() {
     return () => {
       cancelled = true
     }
-  }, [token, params.slug, router])
+  }, [_hasHydrated, token, params.slug, router])
 
   if (notFound) {
     return (

@@ -36,14 +36,16 @@ const NEED_OPTIONS: {
 export default function NeedPage() {
   const router = useRouter()
   const token = useStore((s) => s.token)
+  const _hasHydrated = useStore((s) => s._hasHydrated)
 
   const [selected, setSelected] = useState<typeof NEED_OPTIONS[number]['slug'] | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
+    if (!_hasHydrated) return
     if (token === null) router.replace('/auth')
-  }, [token, router])
+  }, [_hasHydrated, token, router])
 
   const handleContinue = async () => {
     if (!selected || !token || submitting) return

@@ -15,11 +15,13 @@ interface EnrichedMatch extends Match {
 export default function MatchesPage() {
   const router = useRouter()
   const token = useStore((s) => s.token)
+  const _hasHydrated = useStore((s) => s._hasHydrated)
 
   const [matches, setMatches] = useState<EnrichedMatch[] | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
+    if (!_hasHydrated) return
     if (token === null) {
       router.replace('/auth')
       return
@@ -69,7 +71,7 @@ export default function MatchesPage() {
     return () => {
       cancelled = true
     }
-  }, [token, router])
+  }, [_hasHydrated, token, router])
 
   if (error) {
     return (

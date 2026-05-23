@@ -14,6 +14,7 @@ function LibraryContent() {
   const mode = (searchParams.get('mode') ?? 'past') as 'past' | 'browse'
 
   const token = useStore((s) => s.token)
+  const _hasHydrated = useStore((s) => s._hasHydrated)
   const conversations = useStore((s) => s.conversations)
   const loading = useStore((s) => s.conversationsLoading)
   const error = useStore((s) => s.conversationsError)
@@ -49,12 +50,13 @@ function LibraryContent() {
   }, [setConversations, setLoading, setError])
 
   useEffect(() => {
+    if (!_hasHydrated) return
     if (token === null) {
       router.replace('/auth')
       return
     }
     load()
-  }, [token, router, load])
+  }, [_hasHydrated, token, router, load])
 
   const portraitUrlsBySlug = conversations.reduce<Record<string, string>>((acc, c) => {
     if (c.persona.portrait_url) acc[c.persona.slug] = c.persona.portrait_url

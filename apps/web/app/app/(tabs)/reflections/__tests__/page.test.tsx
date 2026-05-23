@@ -32,6 +32,7 @@ beforeEach(() => {
   mockReplace.mockClear()
   mockLoadSavedLines.mockClear()
   useStore.setState({
+    _hasHydrated: true,
     token: 'test-token',
     savedLines: [],
     savedLinesLoading: false,
@@ -45,7 +46,7 @@ beforeEach(() => {
 
 describe('ReflectionsPage', () => {
   it('redirects to /auth when no token', () => {
-    useStore.setState({ token: null })
+    useStore.setState({ token: null, _hasHydrated: true })
     render(<ReflectionsPage />)
     expect(mockReplace).toHaveBeenCalledWith('/auth')
   })
