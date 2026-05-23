@@ -64,8 +64,8 @@ async def create_checkout(
         customer=sub.stripe_customer_id,
         mode="subscription",
         line_items=[{"price": price_id, "quantity": 1}],
-        success_url=f"{config.BASE_URL}/app/account?checkout=success",
-        cancel_url=f"{config.BASE_URL}/app/account",
+        success_url=f"{config.FRONTEND_URL}/app/account?checkout=success",
+        cancel_url=f"{config.FRONTEND_URL}/app/account",
         allow_promotion_codes=True,
     )
 
@@ -85,7 +85,7 @@ async def customer_portal(
 
     session = stripe.billing_portal.Session.create(
         customer=sub.stripe_customer_id,
-        return_url=f"{config.BASE_URL}/app/account",
+        return_url=f"{config.FRONTEND_URL}/app/account",
     )
     return PortalResponse(portal_url=session.url)
 

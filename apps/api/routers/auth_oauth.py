@@ -61,7 +61,7 @@ async def google_oauth_callback(
     error: str | None = None,
     db: AsyncSession = Depends(get_db),
 ):
-    frontend_error_url = f"{config.BASE_URL}/auth?error="
+    frontend_error_url = f"{config.FRONTEND_URL}/auth?error="
 
     # User cancelled or Google returned an error
     if error or not code or not state:
@@ -172,5 +172,5 @@ async def google_oauth_callback(
     nd_param = "1" if needs_disclaimer else "0"
 
     finish_qs = urlencode({"token": token, "needs_disclaimer": nd_param})
-    finish_url = f"{config.BASE_URL}/auth/oauth/finish?{finish_qs}"
+    finish_url = f"{config.FRONTEND_URL}/auth/oauth/finish?{finish_qs}"
     return RedirectResponse(finish_url, status_code=302)
