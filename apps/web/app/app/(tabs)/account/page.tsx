@@ -11,6 +11,7 @@ import AppHeader from '@/components/layout/AppHeader'
 export default function AccountPage() {
   const router = useRouter()
   const token = useStore((s) => s.token)
+  const _hasHydrated = useStore((s) => s._hasHydrated)
   const user = useStore((s) => s.user)
   const storeSubscription = useStore((s) => s.subscription)
   const setSubscription = useStore((s) => s.setSubscription)
@@ -18,6 +19,7 @@ export default function AccountPage() {
   const [portalLoading, setPortalLoading] = useState(false)
 
   useEffect(() => {
+    if (!_hasHydrated) return
     if (token === null) {
       router.replace('/auth')
       return
@@ -35,7 +37,7 @@ export default function AccountPage() {
         window.history.replaceState({}, '', window.location.pathname)
       }
     }
-  }, [token, router, storeSubscription, setSubscription])
+  }, [_hasHydrated, token, router, storeSubscription, setSubscription])
 
   const displayName = user?.full_name ?? user?.email ?? ''
   const initial = displayName.charAt(0).toUpperCase()

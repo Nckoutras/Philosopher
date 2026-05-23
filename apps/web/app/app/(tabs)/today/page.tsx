@@ -8,6 +8,7 @@ import { ChevronRight } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import toast from 'react-hot-toast'
 import { useStore } from '@/lib/store'
+import { api } from '@/lib/api'
 import type { DailyQuestion, LastConversation, RecentSavedLine } from '@/lib/api'
 import SharePreviewModal from '@/components/share/SharePreviewModal'
 import { getTimeGreeting } from '@/lib/useTimeGreeting'
@@ -44,6 +45,7 @@ function BronzeSparkle() {
 export default function TodayPage() {
   const router = useRouter()
   const token = useStore((s) => s.token)
+  const _hasHydrated = useStore((s) => s._hasHydrated)
   const activePersonaSlug = useStore((s) => s.activePersonaSlug)
   const user = useStore((s) => s.user)
   const subscription = useStore((s) => s.subscription)
@@ -64,6 +66,7 @@ export default function TodayPage() {
   const greeting = isFirstDay ? 'Welcome.' : getTimeGreeting()
 
   useEffect(() => {
+    if (!_hasHydrated) return
     if (token === null) {
       router.replace('/auth')
       return
@@ -85,7 +88,7 @@ export default function TodayPage() {
     }
 
     load()
-  }, [token, router])
+  }, [_hasHydrated, token, router])
 
   useEffect(() => {
     window.history.pushState({ floor: 'today' }, '', '/app/today')

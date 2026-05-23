@@ -99,6 +99,7 @@ beforeEach(() => {
   mockReplace.mockClear()
   // Reset store to logged-in state
   useStore.setState({
+    _hasHydrated: true,
     token: 'test-token',
     activeConversationId: null,
     activePersonaSlug: null,
@@ -142,7 +143,7 @@ describe('ExistingConversationPage', () => {
   })
 
   it('redirects to /auth when no token', () => {
-    useStore.setState({ token: null })
+    useStore.setState({ token: null, _hasHydrated: true })
     render(<ExistingConversationPage />)
     expect(mockReplace).toHaveBeenCalledWith('/auth')
   })

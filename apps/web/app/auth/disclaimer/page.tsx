@@ -16,6 +16,7 @@ type DisclaimerCopy = {
 export default function DisclaimerPage() {
   const router = useRouter()
   const token = useStore((s) => s.token)
+  const _hasHydrated = useStore((s) => s._hasHydrated)
 
   const [copy, setCopy] = useState<DisclaimerCopy | null>(null)
   const [confirmedAge, setConfirmedAge] = useState(false)
@@ -24,8 +25,9 @@ export default function DisclaimerPage() {
   const [fetchError, setFetchError] = useState(false)
 
   useEffect(() => {
+    if (!_hasHydrated) return
     if (token === null) router.replace('/auth')
-  }, [token, router])
+  }, [_hasHydrated, token, router])
 
   async function fetchCopy() {
     setFetchError(false)

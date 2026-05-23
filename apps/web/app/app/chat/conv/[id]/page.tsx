@@ -21,6 +21,7 @@ export default function ExistingConversationPage() {
   const router = useRouter()
 
   const token = useStore((s) => s.token)
+  const _hasHydrated = useStore((s) => s._hasHydrated)
   const messages = useStore((s) => s.messages)
   const streamingContent = useStore((s) => s.streamingContent)
   const activeConversationId = useStore((s) => s.activeConversationId)
@@ -49,6 +50,7 @@ export default function ExistingConversationPage() {
   }, [messages, streamingContent])
 
   useEffect(() => {
+    if (!_hasHydrated) return
     if (token === null) {
       router.replace('/auth')
       return
@@ -100,7 +102,7 @@ export default function ExistingConversationPage() {
     return () => {
       cancelled = true
     }
-  }, [params.id, token, router, activeConversationId, setActiveConversation, setMessages, setSafetyActive, setStreamError, loadSavedLines, setInputDraft])
+  }, [_hasHydrated, params.id, token, router, activeConversationId, setActiveConversation, setMessages, setSafetyActive, setStreamError, loadSavedLines, setInputDraft])
 
   useEffect(() => {
     return () => {
