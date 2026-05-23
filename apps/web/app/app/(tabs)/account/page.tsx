@@ -63,7 +63,7 @@ export default function AccountPage() {
 
   function handleSignOut() {
     useStore.getState().clearAuth()
-    router.replace('/auth')
+    window.location.replace('/auth?mode=signin')
   }
 
   if (!user) {

@@ -87,12 +87,9 @@ export default function TodayPage() {
   }, [token, router])
 
   useEffect(() => {
-    if (window.history.state?.floor !== 'today') {
-      window.history.pushState({ floor: 'today' }, '')
-    }
-    function handlePopState(e: PopStateEvent) {
-      if (e.state?.floor === 'today') return
-      window.history.pushState({ floor: 'today' }, '')
+    window.history.pushState({ floor: 'today' }, '', '/app/today')
+    function handlePopState() {
+      window.history.pushState({ floor: 'today' }, '', '/app/today')
     }
     window.addEventListener('popstate', handlePopState)
     return () => window.removeEventListener('popstate', handlePopState)
@@ -306,7 +303,7 @@ export default function TodayPage() {
                 onClick={(e) => { e.stopPropagation(); setPickerOpen(true) }}
                 className="px-[14px] min-h-[44px] flex items-center border border-[0.5px] border-charcoal rounded-[4px] font-cormorant text-[13px] font-medium text-charcoal"
               >
-                Choose a mind
+                Ask another mind
               </button>
               <button
                 type="button"
