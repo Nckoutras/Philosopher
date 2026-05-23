@@ -52,10 +52,7 @@ INTRO_BASELINE_Y  = 380
 INTRO_FONT_SIZE   = 32
 
 QUOTE_START_Y     = 440
-QUOTE_FONT_SIZE   = 38
-QUOTE_LINE_H      = 53    # 38 × 1.4 ≈ 53
 QUOTE_MAX_WIDTH   = 880
-QUOTE_MAX_LINES   = 8
 
 DIVIDER_WIDTH     = 120
 
@@ -78,10 +75,23 @@ DATE_BASELINE_Y     = FOOTER_TOP_Y + 170  # 1300
 DATE_FONT_SIZE      = 12
 
 
+def dynamic_font_size(char_count: int) -> float:
+    MIN_CHARS, MAX_CHARS = 15, 350
+    MAX_SIZE, MIN_SIZE = 64.0, 28.0
+    clamped = max(MIN_CHARS, min(MAX_CHARS, char_count))
+    return MAX_SIZE + (MIN_SIZE - MAX_SIZE) * (clamped - MIN_CHARS) / (MAX_CHARS - MIN_CHARS)
+
+
+def _strip_emoji(text: str) -> str:
+    import emoji as _emoji_lib
+    return _emoji_lib.replace_emoji(text, replace='').strip()
+
+
 async def generate_share_image(
     db: AsyncSession,
     saved_line_id: str,
     user_id: str,
+    annotation: str | None = None,
 ) -> bytes:
     """
     Load saved line data from DB, verify ownership, compose image.
@@ -127,11 +137,13 @@ async def generate_share_image(
                 f"Portrait file not found for {persona.slug}: {candidate}. Using initial avatar."
             )
 
+    clean_annotation = _strip_emoji(annotation) if annotation else None
     return _compose_canvas(
         quote=msg.content,
         persona_name=persona.name,
         portrait_path=portrait_path,
         saved_at=saved_line.saved_at,
+        annotation=clean_annotation or None,
     )
 
 
@@ -145,10 +157,15 @@ def _compose_canvas(
     persona_name: str,
     portrait_path: Path | None,
     saved_at: datetime | None = None,
+    annotation: str | None = None,
 ) -> bytes:
+    quote_font_size = round(dynamic_font_size(len(quote)))
+    quote_line_h    = round(quote_font_size * 1.4)
+    quote_max_lines = max(4, round(8 * (38 / quote_font_size)))
+
     # Load fonts — fail loud if missing (deploy-time misconfiguration)
     font_medium_intro = _load_font("CormorantGaramond-Medium.ttf", INTRO_FONT_SIZE)
-    font_italic_quote = _load_font("CormorantGaramond-Italic.ttf", QUOTE_FONT_SIZE)
+    font_italic_quote = _load_font("CormorantGaramond-Italic.ttf", quote_font_size)
     font_medium_attr  = _load_font("CormorantGaramond-Medium.ttf", ATTR_FONT_SIZE)
     font_italic_word  = _load_font("CormorantGaramond-Italic.ttf", WORDMARK_FONT_SIZE)
     font_lora_url     = _load_font("Lora-Regular.ttf", URL_FONT_SIZE)
@@ -174,10 +191,10 @@ def _compose_canvas(
         anchor="ms",  # middle-baseline
     )
 
-    # Quote (wrapped, max 8 lines)
-    lines = _wrap_text(quote, font_italic_quote, QUOTE_MAX_WIDTH, QUOTE_MAX_LINES)
+    # Quote (wrapped, dynamic font size and line count)
+    lines = _wrap_text(quote, font_italic_quote, QUOTE_MAX_WIDTH, quote_max_lines)
     for i, line in enumerate(lines):
-        y = QUOTE_START_Y + i * QUOTE_LINE_H
+        y = QUOTE_START_Y + i * quote_line_h
         draw.text(
             (PORTRAIT_CENTER_X, y),
             line,
@@ -185,6 +202,26 @@ def _compose_canvas(
             fill=INK_COLOR,
             anchor="mt",  # middle-top
         )
+
+    # Annotation (user-authored caption in the gap zone between quote and footer)
+    if annotation:
+        ANNOTATION_FONT_SIZE = 22
+        ANNOTATION_LINE_H    = round(ANNOTATION_FONT_SIZE * 1.4)
+        ANNOTATION_MAX_LINES = 3
+        ANNOTATION_Y         = 960
+
+        font_lora_annotation = _load_font("Lora-Regular.ttf", ANNOTATION_FONT_SIZE)
+        annotation_text      = f'“{annotation}”'
+        annotation_lines     = _wrap_text(annotation_text, font_lora_annotation, QUOTE_MAX_WIDTH, ANNOTATION_MAX_LINES)
+        for i, line in enumerate(annotation_lines):
+            y = ANNOTATION_Y + i * ANNOTATION_LINE_H
+            draw.text(
+                (PORTRAIT_CENTER_X, y),
+                line,
+                font=font_lora_annotation,
+                fill=BRONZE_COLOR,
+                anchor="mt",
+            )
 
     # Bronze divider
     x0 = PORTRAIT_CENTER_X - DIVIDER_WIDTH // 2
