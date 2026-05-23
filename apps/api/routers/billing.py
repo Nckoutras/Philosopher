@@ -30,6 +30,13 @@ async def get_subscription(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    if config.BETA_GRANT_PRO_TO_ALL:
+        return SubscriptionOut(
+            plan="pro",
+            status="active",
+            current_period_end=None,
+            cancel_at_period_end=False,
+        )
     result = await db.execute(select(Subscription).where(Subscription.user_id == user.id))
     sub = result.scalar_one_or_none()
     if not sub:
