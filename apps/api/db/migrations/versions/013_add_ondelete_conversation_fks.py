@@ -6,7 +6,7 @@ Create Date: 2026-05-23
 """
 from alembic import op
 
-revision = '013_add_ondelete_conversation_fks'
+revision = '013_conv_fk_ondelete'
 down_revision = '012_scheduled_emails'
 branch_labels = None
 depends_on = None
