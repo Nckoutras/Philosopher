@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, BookOpen, Archive, User } from 'lucide-react'
+import { Home, Compass, Archive, User } from 'lucide-react'
 
 const TABS = [
   {
@@ -12,10 +12,10 @@ const TABS = [
     activePattern: /^\/app\/today/,
   },
   {
-    label: 'Reflections',
-    icon: BookOpen,
-    href: '/app/reflections',
-    activePattern: /^\/app\/reflections/,
+    label: 'Rituals',
+    icon: Compass,
+    href: '/app/rituals',
+    activePattern: /^\/app\/rituals/,
   },
   {
     label: 'Library',
