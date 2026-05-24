@@ -128,6 +128,81 @@ retention policies), security (auth flows, dead-end navigation post-signout),
 state management (caching, race conditions), and any "quick fix" that
 touches data integrity.
 
+## Production safety principles
+
+Five mandatory rules codified after the PR4n→PR4p→PR4q regression chain (May 21-24, 2026).
+These apply to ALL sessions, not just hotfixes.
+
+### P-01 — Hotfix branch protocol
+
+Before creating any hotfix branch from main, ALWAYS execute in order:
+
+```bash
+git fetch origin
+git checkout main
+git reset --hard origin/main
+git log -3 --oneline  # verify expected HEAD commit
+git checkout -b feat/...
+```
+
+Branching from stale local main = empty no-op merge (PR4q lesson). The `git fetch` line is
+the cheapest insurance against this class of failure. NEVER skip.
+
+### P-02 — One logical change per PR
+
+PR4p bundled P0 (api import fix) + P1 (Zustand hydration guard) in one PR. P1 broke
+production; P0 was the actual fix. Rollback was complicated because the two changes were
+tangled in one commit.
+
+Rule: each PR addresses ONE logical change. Critical bug fix + nice-to-have refactor in
+same PR = anti-pattern. If a fix is found alongside an unrelated improvement, ship the
+fix alone first. The improvement gets its own PR after smoke test passes.
+
+### P-03 — Mandatory smoke test cadence
+
+After ANY merge that touches user-facing UI or state-management code, run a 2-minute
+manual smoke test before issuing the next PR brief.
+
+Symptoms requiring immediate stop: empty page, blank tabs, redirect loops, no API calls
+in Network tab, paywall-when-Pro. ANY of these = stop, debug, before any new feature work.
+
+Lesson: PR4n broke Today (api import removed) on May 23 evening. Bug discovered 18 hours
+later during PR4o smoke test. A single 2-minute check at PR4n merge would have caught it.
+Three PRs and ~18 hours of regression followed from skipping that one check.
+
+NO MORE batch-deferred smoke tests. Cadence: merge → 2-minute manual check → next PR
+brief only after check passes.
+
+### P-04 — Preview deploy validation for state/auth changes
+
+Changes touching ANY of the following MUST be smoke tested on Netlify preview deploy
+BEFORE merging to main:
+- Zustand store shape, middleware, or hydration (`lib/store.ts`)
+- Auth flow (OTP, JWT, session management)
+- Layout-level wrappers or providers
+- API client (`lib/api.ts`)
+- Per-page auth useEffects
+
+Unit tests are necessary but not sufficient. Preview deploy runs the actual production
+build pipeline.
+
+Lesson: PR4p `_hasHydrated` guard had passing unit tests + clean code review. Failed in
+production Next.js build because `onRehydrateStorage` callback timing differs from local
+dev. Preview deploy would have caught this in 5 minutes.
+
+### P-05 — Verify backend route changes don't strip data fetching
+
+When refactoring a component (extracting to a new file, renaming imports), grep the
+original file for ALL usages of removed imports BEFORE deleting the import line.
+Each usage must be either re-added to the original file or confirmed genuinely no longer
+needed there.
+
+Lesson: PR4n moved `ShareLimitError` correctly to `SharePreviewModal.tsx` but accidentally
+took `api` with it. All Today data fetching silently broke. A pre-extraction grep for
+every import being removed would have caught this immediately.
+
+---
+
 ## Known tech debt
 
 ### Dual tier resolution (added PR4j-paywall-audit, 2026-05-23)
