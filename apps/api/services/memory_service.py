@@ -50,7 +50,13 @@ class MemoryService:
                 user=f"USER: {user_text}\n\nASSISTANT: {assistant_text}",
                 max_tokens=512,
             )
-            entries_data = json.loads(raw.strip())
+            # Strip markdown code fences if LLM wrapped the JSON
+            text = raw.strip()
+            if text.startswith("```"):
+                text = text.split("\n", 1)[1] if "\n" in text else ""
+            if text.endswith("```"):
+                text = text[:-3].rstrip()
+            entries_data = json.loads(text)
         except (json.JSONDecodeError, Exception) as e:
             logger.warning(f"Memory extraction failed: {e}")
             return []

@@ -7,7 +7,6 @@ class Settings(BaseSettings):
     APP_NAME: str = "Philosopher"
     ENV: str = "development"
     DEBUG: bool = True
-    BASE_URL: str = "http://localhost:3000"
     API_SECRET_KEY: str = "change-me-in-production"
 
     # Database
