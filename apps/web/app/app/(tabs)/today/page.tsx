@@ -13,7 +13,6 @@ import type { DailyQuestion, LastConversation, RecentSavedLine } from '@/lib/api
 import SharePreviewModal from '@/components/share/SharePreviewModal'
 import { getTimeGreeting } from '@/lib/useTimeGreeting'
 import PersonaPickerSheet from '@/components/personas/PersonaPickerSheet'
-import RitualsCard from '@/components/today/RitualsCard'
 import TodaysTopicCard from '@/components/today/TodaysTopicCard'
 import AppHeader from '@/components/layout/AppHeader'
 
@@ -269,25 +268,6 @@ export default function TodayPage() {
               className="font-lora text-[13px] text-bronze underline-offset-2 hover:underline"
             >
               See all reflections →
-            </Link>
-          </div>
-        )}
-
-        {/* ── Rituals card ── */}
-        {!isFirstDay && (
-          <RitualsCard
-            isPro={isPro ?? false}
-            userEmail={user?.email ?? ''}
-          />
-        )}
-
-        {!isFirstDay && (
-          <div className="flex justify-end mt-[-4px] px-1">
-            <Link
-              href="/app/rituals"
-              className="font-lora text-[13px] text-bronze underline-offset-2 hover:underline"
-            >
-              See all rituals →
             </Link>
           </div>
         )}
