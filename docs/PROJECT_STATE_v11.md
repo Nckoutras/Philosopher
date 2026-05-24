@@ -507,10 +507,9 @@ PR4q (#105) was supposed to revert the PR4p hydration guard. Became an empty com
 - [ ] **TD-11** — Tier resolution unified refactor (pre-paid-launch)
 - [ ] **TD-12** — Soft-delete pattern for conversations
 - [ ] **TD-13** — Modal abstraction (3 inline modals now)
-- [ ] **TD-14** — BASE_URL legacy cleanup in config.py
-- [ ] **TD-15** — Memory extraction JSON parse fix
-- [ ] **TD-16** — INK_COLOR mismatch (image_service.py vs Tailwind config)
 - [ ] **TD-17** — Weekly Reading full implementation (post cold-beta)
+- [ ] **TD-20** — safety_events.message_id FK is NO ACTION; should be SET NULL (consistency with PR4m migration 013 pattern). Currently 0 rows trigger the bug. Becomes critical when safety pipeline starts populating message_id. Fix = 1-line migration 015 ALTER.
+- [ ] **TD-21** — passive_deletes=True audit needed across remaining parent-child relationships in apps/api/models/__init__.py (User.conversations, User.messages, User.saved_lines, etc). Not user-facing today; becomes P0 when delete-account / GDPR flow is exposed.
 - All v9 TD-01 through TD-09 items (see IMPLEMENTATION_BACKLOG_v11.md)
 
 ### Closed items (2026-05-21-24)
@@ -523,6 +522,10 @@ PR4q (#105) was supposed to revert the PR4p hydration guard. Became an empty com
 - [x] **CLOSED 2026-05-23** — PR4o Rituals (#103): tab swap + /app/rituals page + Today RitualsCard simplified + migration 012 scheduled_emails
 - [x] **CLOSED 2026-05-23** — PR4p hotfix (#104): api import fix (P0) + hydration guard (P1 — later reverted)
 - [x] **CLOSED 2026-05-23** — PR4q (#105): empty commit (lesson recorded; not a real change)
+- [x] **CLOSED 2026-05-24** — PR4s (#108): conversation delete bug fix; passive_deletes=True + cascade="all, delete-orphan" on Conversation.messages relationship. Root cause: SQLAlchemy ORM was nullifying messages.conversation_id before DB-level CASCADE could fire.
+- [x] **CLOSED 2026-05-24** — PR4t (#109): RitualsCard removed from Today tab (redundant after PR4o promoted Rituals to its own tab). 1 file, 20 lines deleted.
+- [x] **CLOSED 2026-05-24** — PR4v (#110): cleanup bundle (TD-14 BASE_URL removal, TD-15 markdown fence strip in memory extraction, TD-16 INK_COLOR sync to #1F1B14). 3 files, 8/3 insertions/deletions.
+- [x] **CLOSED 2026-05-24** — PR4u (#111): edge state pages (not-found.tsx, app/error.tsx, global-error.tsx). Mixed tone: philosophical 404 / philosophical-lite in-app / direct global. 3 new files, 178 lines.
 
 ---
 

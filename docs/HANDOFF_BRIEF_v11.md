@@ -113,6 +113,23 @@ Changes on main after PR4r merges:
 - All page-level auth `useEffect`s — hydration guard condition REMOVED
 - `import { api }` in `today/page.tsx` — KEPT (the fix that matters)
 
+### 2026-05-24 evening session — PR4s through PR4u
+
+Session shipped 4 PRs in sequence with strict gated methodology:
+
+- **PR4s (#108)** — Conversation delete P0 fix. Diagnosed via Supabase FK inspection + Render log traceback. Root cause: SQLAlchemy ORM ↔ DB CASCADE mismatch. 1-file, 6-line fix.
+- **PR4t (#109)** — RitualsCard removed from Today (PR4o follow-up).
+- **PR4v (#110)** — Cleanup bundle: TD-14 + TD-15 + TD-16.
+- **PR4u (#111)** — Edge state pages: 404, in-app error boundary, global error. 3 new files, 178 lines.
+
+**Process notes:**
+- PR4s smoke test was skipped on preview (only verified on production). Low-risk backend change, no harm done, but P-03 violation logged.
+- PR4u correctly went through Netlify preview before merge (P-04 honored).
+- One diagnostic detour: founder reported "Reflections deleted" mid-PR4t; investigation revealed Reflections card was hidden because all user's saved_lines had been soft-deleted weeks earlier. Not a bug. Lesson logged.
+
+**Lessons codified in CLAUDE.md:**
+- P-06 added (diagnosis-before-action principle).
+
 ---
 
 ## 1. Pre-Work Investigation Protocol
