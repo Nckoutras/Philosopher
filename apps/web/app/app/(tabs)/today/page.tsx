@@ -45,7 +45,6 @@ function BronzeSparkle() {
 export default function TodayPage() {
   const router = useRouter()
   const token = useStore((s) => s.token)
-  const _hasHydrated = useStore((s) => s._hasHydrated)
   const activePersonaSlug = useStore((s) => s.activePersonaSlug)
   const user = useStore((s) => s.user)
   const subscription = useStore((s) => s.subscription)
@@ -66,7 +65,6 @@ export default function TodayPage() {
   const greeting = isFirstDay ? 'Welcome.' : getTimeGreeting()
 
   useEffect(() => {
-    if (!_hasHydrated) return
     if (token === null) {
       router.replace('/auth')
       return
@@ -88,7 +86,7 @@ export default function TodayPage() {
     }
 
     load()
-  }, [_hasHydrated, token, router])
+  }, [token, router])
 
   useEffect(() => {
     window.history.pushState({ floor: 'today' }, '', '/app/today')

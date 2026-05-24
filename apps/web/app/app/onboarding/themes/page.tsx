@@ -22,15 +22,13 @@ const MAX_OTHER_LENGTH = 500
 export default function ThemesPage() {
   const router = useRouter()
   const token = useStore((s) => s.token)
-  const _hasHydrated = useStore((s) => s._hasHydrated)
 
   const [selected, setSelected] = useState<string[]>([])
   const [otherText, setOtherText] = useState('')
 
   useEffect(() => {
-    if (!_hasHydrated) return
     if (token === null) router.replace('/auth')
-  }, [_hasHydrated, token, router])
+  }, [token, router])
 
   // Restore draft from sessionStorage if user navigated back
   useEffect(() => {

@@ -35,7 +35,6 @@ function groupItems(items: SavedLineRead[]): Array<{ label: 'This week' | 'Earli
 export default function ReflectionsPage() {
   const router = useRouter()
   const token = useStore((s) => s.token)
-  const _hasHydrated = useStore((s) => s._hasHydrated)
   const savedLines = useStore((s) => s.savedLines)
   const loading = useStore((s) => s.savedLinesLoading)
   const error = useStore((s) => s.savedLinesError)
@@ -70,13 +69,12 @@ export default function ReflectionsPage() {
   }, [isFirstReflectionsRender])
 
   useEffect(() => {
-    if (!_hasHydrated) return
     if (token === null) {
       router.replace('/auth')
       return
     }
     load()
-  }, [_hasHydrated, token, router, load])
+  }, [token, router, load])
 
   function handleDeleteRequest(id: string, messageId: string) {
     setRevealedRowId(null)
