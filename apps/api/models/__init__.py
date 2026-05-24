@@ -95,7 +95,13 @@ class Conversation(Base):
 
     user: Mapped["User"] = relationship("User", back_populates="conversations")
     persona: Mapped["Persona"] = relationship("Persona", back_populates="conversations")
-    messages: Mapped[list["Message"]] = relationship("Message", back_populates="conversation", order_by="Message.created_at")
+    messages: Mapped[list["Message"]] = relationship(
+        "Message",
+        back_populates="conversation",
+        order_by="Message.created_at",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
 
     __table_args__ = (
         Index('ix_conversations_user_active', 'user_id', postgresql_where=text('deleted_at IS NULL')),
