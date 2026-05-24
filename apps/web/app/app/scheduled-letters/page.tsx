@@ -19,12 +19,10 @@ function formatDeliverDate(iso: string): string {
 export default function ScheduledLettersPage() {
   const router = useRouter()
   const token = useStore((s) => s.token)
-  const _hasHydrated = useStore((s) => s._hasHydrated)
   const [items, setItems] = useState<ScheduledEmailListItem[] | null>(null)
   const [cancelling, setCancelling] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!_hasHydrated) return
     if (token === null) {
       router.replace('/auth')
       return
@@ -32,7 +30,7 @@ export default function ScheduledLettersPage() {
     api.listScheduledEmails()
       .then(setItems)
       .catch(() => setItems([]))
-  }, [_hasHydrated, token, router])
+  }, [token, router])
 
   async function handleCancel(id: string) {
     if (cancelling) return

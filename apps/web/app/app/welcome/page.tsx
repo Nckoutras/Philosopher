@@ -17,7 +17,6 @@ function mindOfTheDayIndex(rotationSize: number): number {
 export default function WelcomePage() {
   const router = useRouter()
   const token = useStore((s) => s.token)
-  const _hasHydrated = useStore((s) => s._hasHydrated)
 
   const [mind, setMind] = useState<Persona | null>(null)
   const [loadError, setLoadError] = useState(false)
@@ -25,9 +24,8 @@ export default function WelcomePage() {
   const [convLoading, setConvLoading] = useState(false)
 
   useEffect(() => {
-    if (!_hasHydrated) return
     if (token === null) router.replace('/auth')
-  }, [_hasHydrated, token, router])
+  }, [token, router])
 
   useEffect(() => {
     let cancelled = false

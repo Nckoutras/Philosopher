@@ -10,16 +10,14 @@ import RitualScheduleSheet from '@/components/rituals/RitualScheduleSheet'
 export default function RitualsPage() {
   const router = useRouter()
   const token = useStore((s) => s.token)
-  const _hasHydrated = useStore((s) => s._hasHydrated)
   const user = useStore((s) => s.user)
   const subscription = useStore((s) => s.subscription)
   const isPro = subscription?.status === 'active' && subscription?.plan !== 'free'
   const [scheduleOpen, setScheduleOpen] = useState(false)
 
   useEffect(() => {
-    if (!_hasHydrated) return
     if (token === null) router.replace('/auth')
-  }, [_hasHydrated, token, router])
+  }, [token, router])
 
   function handleBeginLetter() {
     if (!isPro) {
