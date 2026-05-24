@@ -38,7 +38,7 @@ CANVAS_WIDTH  = 1080
 CANVAS_HEIGHT = 1350
 
 BG_COLOR        = (239, 227, 204)          # Vellum #EFE3CC
-INK_COLOR       = (26,  26,  26)           # #1A1A1A
+INK_COLOR       = (31,  27,  20)           # #1F1B14
 BRONZE_COLOR    = (184, 153, 104)          # #B89968
 BRONZE_60_COLOR = (184, 153, 104, 153)     # Bronze 60% opacity — URL
 BRONZE_50_COLOR = (184, 153, 104, 128)     # Bronze 50% opacity — date
