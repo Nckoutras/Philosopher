@@ -201,6 +201,28 @@ Lesson: PR4n moved `ShareLimitError` correctly to `SharePreviewModal.tsx` but ac
 took `api` with it. All Today data fetching silently broke. A pre-extraction grep for
 every import being removed would have caught this immediately.
 
+### P-06 — Diagnosis before code change
+
+When a user reports "X is broken" but you don't know what changed, do not modify code in
+response. Diagnose first:
+
+1. Query the database state to verify the data the UI claims is missing
+2. Check Render/Netlify logs for actual errors vs perceived errors
+3. Distinguish:
+   (a) Real new bug introduced by recent code
+   (b) Latent issue that's always existed
+   (c) Forgotten user action (e.g., user soft-deleted their own data)
+   (d) Misidentification (user confusing one section for another)
+
+Code only changes after the diagnosis pinpoints (a) and identifies the responsible commit.
+Premature code change in response to perceived bugs wastes time and risks introducing real
+regressions.
+
+**Source:** 2026-05-24 session, "Reflections deletion" diagnostic detour. Founder reported
+Reflections card disappeared after PR4t merge. Investigation revealed: PR4t didn't touch
+Reflections, and the card was conditionally hidden because all user's saved_lines had
+`deleted_at IS NOT NULL` from a soft-delete mass action on May 22 evening. No bug existed.
+
 ---
 
 ## Known tech debt

@@ -279,6 +279,35 @@ The sequence of failures in May 21-24 sessions (PR4n regression → PR4p bundled
 - **P-04:** Preview deploy validation for any Zustand/auth/layout/api-client change (PR4p lesson).
 - **P-05:** Grep original file for ALL usages of removed imports before deleting (PR4n lesson).
 
+### TD-20 — safety_events.message_id FK ondelete (P2, pre-cold-beta)
+
+**Priority:** P2  
+**File:** new migration `apps/api/db/migrations/versions/015_*.py`
+
+`safety_events.message_id` currently uses `ON DELETE NO ACTION`. Inconsistent with PR4m migration 013 pattern which set `safety_events.conversation_id` to `SET NULL`. Latent bug: when safety pipeline starts populating message_id (currently 0 rows), any message hard-delete will fail FK constraint check.
+
+Fix: 1-line ALTER in new migration 015.
+
+### TD-21 — passive_deletes audit (P2, pre-paid-launch)
+
+**Priority:** P2  
+**File:** `apps/api/models/__init__.py`
+
+PR4s fixed `Conversation.messages` relationship. Other parent-child relationships likely have the same latent bug (SQLAlchemy will try to nullify children's FK before DB-level CASCADE fires). Candidates to audit:
+
+- User.conversations
+- User.messages (if defined)
+- User.saved_lines (if defined)
+- Any other parent → child relationship where DB has ON DELETE CASCADE
+
+Not user-visible today because these parents are never deleted in production flows. Becomes P0 when delete-account / GDPR data-deletion flow is exposed.
+
+Fix pattern (apply per relationship):
+```python
+cascade="all, delete-orphan",
+passive_deletes=True,
+```
+
 ---
 
 ## 4. Database schemas
@@ -453,11 +482,12 @@ These rules exist because of the May 21-24 regression chain:
 - [ ] **F3/F4 Weekly letter inbox + detail** (post-revenue; see TD-17)
 - [ ] **TD-17** — Weekly Reading full implementation
 - [ ] **B1 hydration polish** — 0.5s flash before auth-guard redirect
+- [ ] **TD-20** — safety_events.message_id FK ondelete (pre-cold-beta)
+- [ ] **TD-21** — passive_deletes audit across remaining parent-child relationships in apps/api/models/__init__.py (pre-paid-launch)
 
 ## 11.4 P3
 
 - [ ] **TD-13** — Modal abstraction (when 4th modal needed)
-- [ ] **TD-15** — Memory extraction JSON parse fix
 - [ ] **Desktop layout polish** — mobile-first looks broken >768px
 - [ ] **Phase 5 register architecture + UI chips** — post-feedback
 - [ ] **Phase 6 eval suite + CI** — post-revenue
@@ -469,8 +499,6 @@ These rules exist because of the May 21-24 regression chain:
 - [ ] **TD-04** — Backoff discrepancy (0s/2s/4s; document or harmonize)
 - [ ] **TD-06** — `safety_events.message_id` always NULL
 - [ ] **TD-07** — `gh CLI install on founder's Windows`
-- [ ] **TD-14** — BASE_URL legacy cleanup in config.py
-- [ ] **TD-16** — INK_COLOR mismatch
 - [ ] **TD-18** — Process lesson (already codified in CLAUDE.md; keep for audit trail)
 - [ ] **Stale branch cleanup**
 - [ ] **openapi.json → .gitignore** (separate cleanup PR)
