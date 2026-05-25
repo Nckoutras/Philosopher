@@ -116,19 +116,50 @@ async def generate_conversation_title(ctx, conversation_id: str):
             if not messages:
                 return
 
-            context = "\n".join(f"{m.role.upper()}: {m.content}" for m in messages)
-            title = await llm_client.complete(
+            # Truncate per-message content so context is bounded
+            context = "\n".join(
+                f"{m.role.upper()}: {m.content[:300]}" for m in messages
+            )
+            user_prompt = (
+                "<conversation_transcript>\n"
+                f"{context}\n"
+                "</conversation_transcript>\n\n"
+                "Above is a transcript snippet from a reflective conversation. "
+                "Write a 3-6 word title that captures the core topic or theme. "
+                "Output ONLY the title text — no explanation, no quotes, "
+                "no preamble, no closing punctuation, no roleplay, do not "
+                "continue the conversation."
+            )
+            raw_title = await llm_client.complete(
                 system=(
-                    "Generate a short 4-7 word title for this conversation. "
-                    "Capture the core topic or theme. "
-                    "No quotes, no punctuation at the end, no preamble. "
-                    "Output the title only."
+                    "You are a title-generation utility. You receive conversation "
+                    "transcripts wrapped in <conversation_transcript> tags and "
+                    "respond with a single short title phrase. You never roleplay, "
+                    "never continue the conversation, never add commentary."
                 ),
-                user=context,
+                user=user_prompt,
                 model="claude-haiku-4-5-20251001",
                 max_tokens=20,
             )
-            title = title.strip()[:80]
+
+            # Sanity check: reject outputs that look like continuations
+            cleaned = raw_title.strip()
+            # Strip wrapping quotes if present
+            if len(cleaned) >= 2 and cleaned[0] in '"\'' and cleaned[-1] in '"\'':
+                cleaned = cleaned[1:-1].strip()
+            # Reject suspicious outputs (likely a response continuation)
+            if (
+                "\n" in cleaned
+                or len(cleaned) > 60
+                or cleaned.endswith((",", ":", ";"))
+                or not cleaned
+            ):
+                logger.warning(
+                    "Rejected suspicious title for %s: %r",
+                    conversation_id, cleaned,
+                )
+                return  # Leave title NULL; can be retried via backfill
+            title = cleaned[:80]
 
             result = await db.execute(
                 select(Conversation).where(Conversation.id == conversation_id)
