@@ -135,10 +135,39 @@ export default function PastConversationsView({
       {visibleConversations.length === 0 ? (
         <EmptyConversationHistory />
       ) : filtered.length === 0 ? (
-        <div className="flex items-center justify-center py-12 px-7 text-center">
-          <p className="font-lora text-[13px] text-charcoal">
-            No conversations matching &ldquo;{q}&rdquo;.
+        <div className="mx-4 mt-3 bg-paper border border-[0.5px] border-dashed border-edge rounded-md px-5 py-6 text-center">
+          {/* Bronze ornament */}
+          <div className="flex items-center gap-0 mb-3">
+            <div className="flex-1 h-px bg-edge" />
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 12 12"
+              fill="none"
+              className="mx-3 text-bronze"
+              aria-hidden="true"
+            >
+              <circle cx="6" cy="6" r="2.5" stroke="currentColor" strokeWidth="0.7" fill="none" />
+              <line x1="0" y1="6" x2="3.5" y2="6" stroke="currentColor" strokeWidth="0.7" />
+              <line x1="8.5" y1="6" x2="12" y2="6" stroke="currentColor" strokeWidth="0.7" />
+            </svg>
+            <div className="flex-1 h-px bg-edge" />
+          </div>
+
+          <p className="font-cormorant text-[18px] font-normal text-ink leading-snug">
+            Nothing matches &ldquo;{q}&rdquo;.
           </p>
+          <p className="font-lora text-[12px] text-charcoal leading-[1.55] mt-2">
+            Try a different word, or browse the full list below.
+          </p>
+
+          <button
+            type="button"
+            onClick={() => setQ('')}
+            className="mt-4 font-lora text-[12px] text-bronze underline-offset-2 hover:underline"
+          >
+            Clear search
+          </button>
         </div>
       ) : (
         <div className="px-4 py-3 flex flex-col gap-4 pb-[80px]">
