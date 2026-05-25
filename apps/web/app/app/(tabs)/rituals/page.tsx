@@ -16,7 +16,7 @@ export default function RitualsPage() {
   const [scheduleOpen, setScheduleOpen] = useState(false)
 
   useEffect(() => {
-    if (token === null) router.replace('/auth')
+    if (token === null) router.replace('/auth?mode=signin')
   }, [token, router])
 
   function handleBeginLetter() {
