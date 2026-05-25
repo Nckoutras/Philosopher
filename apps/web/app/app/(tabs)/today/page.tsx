@@ -212,28 +212,33 @@ export default function TodayPage() {
             <p className="font-lora text-[10px] font-medium uppercase tracking-[0.18em] text-sepia mb-[8px]">
               Your reflections.
             </p>
-            <p className="font-cormorant italic text-[17px] font-normal text-ink leading-[1.5] line-clamp-3">
-              &ldquo;{recentLine.content}&rdquo;
-            </p>
-            <div className="mt-[8px] flex items-center gap-[6px]">
-              {recentLine.persona_portrait_url ? (
-                <img
-                  src={recentLine.persona_portrait_url}
-                  alt={recentLine.persona_name}
-                  width={64}
-                  height={64}
-                  className="rounded-[2px] object-cover flex-shrink-0"
-                />
-              ) : (
-                <div className="w-[64px] h-[64px] bg-linen rounded-[2px] flex items-center justify-center flex-shrink-0">
-                  <span className="font-cormorant text-[24px] font-medium text-charcoal">
-                    {recentLine.persona_name.charAt(0)}
-                  </span>
-                </div>
-              )}
-              <span className="font-lora text-[11px] text-sepia">
-                {recentLine.persona_name} · {formatDistanceToNow(new Date(recentLine.saved_at), { addSuffix: true })}
-              </span>
+            <div className="flex items-start gap-[12px]">
+              <div className="flex-shrink-0">
+                {recentLine.persona_portrait_url ? (
+                  <Image
+                    src={recentLine.persona_portrait_url}
+                    alt={recentLine.persona_name}
+                    width={64}
+                    height={64}
+                    className="rounded-[2px] object-cover"
+                  />
+                ) : (
+                  <div className="w-[64px] h-[64px] bg-linen rounded-[2px] flex items-center justify-center">
+                    <span className="font-cormorant text-[24px] font-medium text-charcoal">
+                      {recentLine.persona_name.charAt(0)}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex-1 min-w-0">
+                <p className="font-cormorant italic text-[17px] font-normal text-ink leading-[1.5] line-clamp-3">
+                  &ldquo;{recentLine.content}&rdquo;
+                </p>
+                <p className="font-lora text-[11px] text-sepia mt-[6px]">
+                  {recentLine.persona_name} · {formatDistanceToNow(new Date(recentLine.saved_at), { addSuffix: true })}
+                </p>
+              </div>
             </div>
             <div className="mt-[10px] flex items-center gap-[8px] flex-wrap">
               <button
