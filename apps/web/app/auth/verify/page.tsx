@@ -28,13 +28,21 @@ function VerifyForm() {
   const handleChange = (i: number, value: string) => {
     const numeric = value.replace(/[^0-9]/g, '')
 
-    // Autofill: iOS/Android deposits all 6 digits into the focused box via onChange
-    if (numeric.length >= 6) {
-      setCode(numeric.slice(0, 6).split(''))
-      refs.current[5]?.focus()
+    // Multi-character input (autofill or paste): distribute digits
+    // across boxes starting from current index. Handles full 6-digit
+    // autofill AND partial autofills (2-5 digits).
+    if (numeric.length > 1) {
+      const next = [...code]
+      for (let j = 0; j < numeric.length && (i + j) < 6; j++) {
+        next[i + j] = numeric[j]
+      }
+      setCode(next)
+      const lastFilledIdx = Math.min(i + numeric.length - 1, 5)
+      refs.current[lastFilledIdx]?.focus()
       return
     }
 
+    // Single character input (manual typing)
     const digit = numeric.slice(-1)
     const next = [...code]
     next[i] = digit
@@ -115,7 +123,7 @@ function VerifyForm() {
                   inputMode="numeric"
                   pattern="[0-9]*"
                   autoComplete={i === 0 ? 'one-time-code' : 'off'}
-                  maxLength={1}
+                  maxLength={i === 0 ? 6 : 1}
                   autoFocus={i === 0}
                   value={digit}
                   onChange={(e) => handleChange(i, e.target.value)}
