@@ -19,7 +19,7 @@ export default function AccountPage() {
 
   useEffect(() => {
     if (token === null) {
-      router.replace('/auth')
+      router.replace('/auth?mode=signin')
       return
     }
     if (!storeSubscription) {
