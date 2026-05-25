@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { Search } from 'lucide-react'
+import toast from 'react-hot-toast'
 import { useStore } from '@/lib/store'
 import { api } from '@/lib/api'
 import type { Conversation } from '@/lib/api'
@@ -60,6 +61,7 @@ export default function PastConversationsView({
       useStore.getState().setConversations(
         useStore.getState().conversations.filter((c) => c.id !== pendingDelete),
       )
+      toast.success('Deleted')
       setPendingDelete(null)
     } catch {
       setDeleteError('Could not delete. Please try again.')
