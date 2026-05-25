@@ -43,7 +43,7 @@
 html {
   color-scheme: light;
   scroll-behavior: smooth;
-  overscroll-behavior-y: auto;
+  overscroll-behavior-y: contain;
   -webkit-overflow-scrolling: touch;
 }
 
