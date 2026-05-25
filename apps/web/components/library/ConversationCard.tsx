@@ -54,21 +54,21 @@ export default function ConversationCard({ conversation, portraitUrl }: Props) {
     <button
       type="button"
       onClick={() => router.push(`/app/chat/conv/${conversation.id}`)}
-      className="w-full text-left bg-paper border border-[0.5px] border-edge rounded-md px-4 py-3 flex items-center gap-3 transition-colors active:bg-linen"
+      className="w-full text-left bg-paper border border-[0.5px] border-edge rounded-md p-4 flex items-center gap-4 transition-colors active:bg-linen"
       aria-label={`Open conversation with ${persona.name}`}
     >
       {/* 36×36 persona avatar */}
-      <div className="w-9 h-9 flex-shrink-0 rounded-full overflow-hidden bg-linen flex items-center justify-center">
+      <div className="w-14 h-14 flex-shrink-0 rounded-full overflow-hidden bg-linen flex items-center justify-center">
         {avatarUrl ? (
           <Image
             src={avatarUrl}
             alt={persona.name}
-            width={36}
-            height={36}
+            width={56}
+            height={56}
             className="w-full h-full object-cover object-top"
           />
         ) : (
-          <span className="font-cormorant text-[15px] font-medium text-charcoal">
+          <span className="font-cormorant text-[17px] font-medium text-charcoal">
             {persona.name.charAt(0)}
           </span>
         )}
@@ -76,13 +76,13 @@ export default function ConversationCard({ conversation, portraitUrl }: Props) {
 
       {/* Middle content */}
       <div className="flex-1 min-w-0">
-        <p className="font-cormorant text-[16px] font-medium text-ink leading-tight truncate">
+        <p className="font-cormorant text-[17px] font-medium text-ink leading-tight truncate">
           {persona.name}
         </p>
-        <p className="font-lora text-[11px] text-sepia leading-tight mt-[2px]">
+        <p className="font-lora text-[12px] text-sepia leading-tight mt-[2px]">
           {metaLine}
         </p>
-        <p className="font-lora text-[12px] text-charcoal italic leading-tight mt-[3px] truncate">
+        <p className="font-lora text-[13px] text-charcoal italic leading-tight mt-[3px] truncate">
           {snippet}
         </p>
       </div>
