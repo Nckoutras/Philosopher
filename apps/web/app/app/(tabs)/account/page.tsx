@@ -117,23 +117,6 @@ export default function AccountPage() {
           </button>
         </div>
 
-        {/* ── Scheduled letters card ── */}
-        <div className="bg-paper border border-[0.5px] border-edge rounded-md overflow-hidden">
-          <div className="px-[16px] pt-[14px] pb-[2px]">
-            <p className="font-lora text-[11px] uppercase tracking-[0.18em] text-sepia">
-              Scheduled letters
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => router.push('/app/scheduled-letters')}
-            className="w-full flex items-center justify-between px-[16px] py-[14px]"
-          >
-            <span className="font-cormorant text-[17px] font-medium text-ink">Letters to future self</span>
-            <ChevronRight size={16} strokeWidth={1.5} className="text-sepia" />
-          </button>
-        </div>
-
         {/* ── Sign out card ── */}
         <button
           type="button"
