@@ -8,5 +8,5 @@ export function dynamicFontSize(charCount: number): number {
 }
 
 export function stripEmoji(text: string): string {
-  return text.replace(/\p{Extended_Pictographic}/gu, '').trim()
+  return text.replace(/\p{Extended_Pictographic}/gu, '')
 }
