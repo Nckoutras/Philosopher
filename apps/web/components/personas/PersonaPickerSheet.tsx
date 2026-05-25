@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Image from 'next/image'
+import toast from 'react-hot-toast'
 import { api, type Persona } from '@/lib/api'
 import BottomSheet from '@/components/ui/BottomSheet'
 
@@ -35,6 +36,13 @@ export default function PersonaPickerSheet({
       .catch(() => { setPersonas([]); setError(true) })
   }, [open, personas])
 
+  useEffect(() => {
+    if (!open) {
+      setLoadingSlug(null)
+      setError(false)
+    }
+  }, [open])
+
   async function handleSelect(slug: string) {
     if (loadingSlug) return
     if (onSelect) {
@@ -49,8 +57,11 @@ export default function PersonaPickerSheet({
         localStorage.setItem(`cross_persona_draft_${conv.id}`, sourceContent)
       }
       onCreated!(conv.id)
-    } catch {
+    } catch (err) {
       setLoadingSlug(null)
+      toast.error('Could not open conversation. Try again.')
+      // eslint-disable-next-line no-console
+      console.error('createCrossPersonaConversation failed:', err)
     }
   }
 

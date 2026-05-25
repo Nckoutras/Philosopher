@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { differenceInCalendarDays } from 'date-fns'
+import toast from 'react-hot-toast'
 import { useStore } from '@/lib/store'
 import { api } from '@/lib/api'
 import type { SavedLineRead } from '@/lib/api'
@@ -88,6 +89,7 @@ export default function ReflectionsPage() {
     try {
       await api.deleteSavedLine(pendingDelete.id)
       useStore.getState().removeAfterDelete(pendingDelete.id, pendingDelete.messageId)
+      toast.success('Deleted')
       setPendingDelete(null)
     } catch {
       setDeleteError('Could not delete. Please try again.')
