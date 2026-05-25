@@ -2,7 +2,8 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, Compass, Archive, User } from 'lucide-react'
+import { Home, Archive, User } from 'lucide-react'
+import { ReturningPathIcon } from '@/components/icons/RitualIcons'
 
 const TABS = [
   {
@@ -13,7 +14,7 @@ const TABS = [
   },
   {
     label: 'Rituals',
-    icon: Compass,
+    icon: ReturningPathIcon,
     href: '/app/rituals',
     activePattern: /^\/app\/rituals/,
   },
