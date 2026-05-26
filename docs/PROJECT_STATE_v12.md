@@ -138,44 +138,30 @@ See v11 §4 for full scheduled_emails schema. Unchanged.
 
 See v11 §4 for full detail. Unchanged.
 
-### Oregon region migration status (in progress as of 2026-05-26)
+### Oregon region migration — COMPLETE 2026-05-26
 
-```
-Old project: plecolxlzshkfvybszgs (eu-west-1, Ireland) — UNTOUCHED, production intact
-New project: bvzeuwzqgnqcghvqghtb (us-west-2, Oregon)
+Old project: `plecolxlzshkfvybszgs` (eu-west-1, Ireland)
+  — retained 2 weeks rollback buffer, then pg_dump backup + deletion (~2026-06-09)
 
-Schema:             ✅ COMPLETE (20 tables, 31 FKs, 66 indexes, pgvector enabled)
-Reference data:     ✅ COMPLETE
-  personas          9 rows
-  daily_questions   30 rows
-  disclaimer_versions 1 row
-  rituals           4 rows
+New project: `bvzeuwzqgnqcghvqghtb` (us-west-2, Oregon) — **PRODUCTION**
 
-User/app data:      🟡 PARTIAL
-  users             ✅ 2 rows migrated
-  subscriptions     ✅ 2 rows migrated
-  user_preferences  ✅ 1 row migrated
-  conversations     ✅ 87 rows migrated
+| Item | Status |
+|---|---|
+| Schema | ✅ COMPLETE — 20 tables, 31 FKs, 66 indexes, pgvector enabled |
+| Data | ✅ COMPLETE — all 16 user-facing tables migrated; row counts match OLD |
+| source_chunks | ✅ COMPLETE — 2476 rows × 1536-dim copied via postgres_fdw (server-side DB-to-DB; embeddings bit-for-bit identical, md5 verified) |
+| DATABASE_URL | ✅ SWITCHED — both philosopher-api and philosopher-worker on Oregon pooler |
+| Smoke test | ⏳ PENDING — login, Today, chat, rituals, library |
 
-Pending (follow-up session):
-  messages          ⏳ 227 rows
-  saved_lines       ⏳ 13 rows
-  safety_events     ⏳ 5 rows
-  user_ritual_completions ⏳ 4 rows
-  scheduled_emails  ⏳ 2 rows
-  memory_entries    ⏳ 8 rows
-  disclaimer_acceptances ⏳ 1 row
-  alembic_version   ⏳ row (head = 015_add_fk_indexes)
-  conversations.source_saved_line_id UPDATE ⏳ (after saved_lines migrated)
+**Note:** 6 of 8 memory_entries migrated with NULL embedding (pending backfill via worker).
 
-source_chunks (2476 rows × 1536-dim vectors):
-  Separate task — re-ingest via existing OpenAI embeddings script post-migration.
-  NOT migrated via MCP: 2476 × 1536-dim = ~38MB > context window budget.
-  Pattern codified: MCP for structured data; re-ingest from source for vector data.
+Expected latency improvement: ~600-700ms → ~250-350ms per API call (founder in Greece) *(unmeasured)*
+Region alignment: Render + Supabase both us-west-2 (Oregon) *(co-location assumed, ping not measured)*
 
-Render DATABASE_URL switch: pending (founder executes after migration verifies clean)
-Production impact: NONE — Ireland project intact, app fully functional during migration
-```
+**Migration techniques codified:**
+- MCP queries for structured/relational data (sized ≤5MB per batch)
+- `postgres_fdw` foreign data wrapper for vector embeddings (server-side, $0 cost, no re-embedding)
+- Per-row apply_migration with `vector::text` cast for small embedded tables (memory_entries)
 
 ### Live database state (2026-05-26)
 
@@ -303,13 +289,13 @@ See v11 §13.
 ### Carried from v11
 
 - **BUG-012** — Zustand hydration race (hard refresh / direct URL on protected routes flashes to /auth). TD-10. PR4ai deferred (too risky). Approach requires Netlify preview smoke test.
-- **BUG-014** — Letter to my Future Self ARQ email delivery not wired. DB schema and UI live; actual send task not implemented.
 
 ### Closed this session
 
 | ID | Description | Resolution |
 |---|---|---|
 | BUG-013 | PR4p hydration guard broke production | PR4r merged — guard removed, api import fix kept |
+| BUG-014 | Letter to Future Self ARQ email delivery | Confirmed working — founder tested 1-hour-future letter, delivered successfully. Closed as non-bug (P-06 outcome). |
 
 ### No new bugs introduced in 2026-05-25-26 session (0 production regressions).
 
@@ -386,7 +372,7 @@ All v11 paths apply. Additions and changes since v11:
 - `app/app/(tabs)/account/page.tsx` — ScheduledLettersCard removed (PR4af / #121, 17 lines deleted)
 - `components/share/SharePreviewModal.tsx` — portrait height 260px, fonts +4pt, bronze opacity bump (PR4ag1 / #122); `.trim()` on emoji-stripped text removed (spacebar bug fix)
 - `components/rituals/PersonaPickerSheet.tsx` (or equivalent) — stuck state fixed, silent errors surfaced, delete feedback toasts added (PR4ab)
-- `components/rituals/RitualIcons.tsx` — NEW FILE (PR4ah / #123): `ReturningPathIcon` + `MirrorIcon` SVG components; nav tab uses custom symbol swap
+- `components/icons/RitualIcons.tsx` — NEW FILE (PR4ah / #123): `ReturningPathIcon` + `MirrorIcon` SVG components; nav tab uses custom symbol swap
 
 ---
 
@@ -435,7 +421,6 @@ No new CLAUDE.md violations. P-06 (diagnose before code change) was applied corr
 - [ ] **TD-10** — Zustand hydration race fix (preview smoke test mandatory; PR4ai deferred)
 - [ ] **I1 Account hub build**
 - [ ] **A6+A7 disclaimer endpoint integration tests**
-- [ ] **Letter to my Future Self — ARQ email delivery wiring** (BUG-014)
 
 ### Open items (P2 — tech debt)
 
