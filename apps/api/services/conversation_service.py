@@ -21,8 +21,11 @@ from services.prompt_builder import prompt_builder
 from services.analytics_service import analytics_service
 from services.persona_voice import get_error_voice
 from services.postprocessing_service import (
-    regenerate_or_trim,
     POSTPROCESSING_ENABLED,
+    check_universal_forbidden,
+    CheckAction,
+    _build_regen_directive,
+    _deterministic_strip,
 )
 from services.phenomenology_bridge_service import phenomenology_bridge_service
 
@@ -271,38 +274,45 @@ class ConversationService:
         user_msg = await self._save_message(db, conv, user_id, "user", user_text, safety_level=safety_in.level)
         await db.flush()
 
-        # ── 7. STREAM FROM LLM ───────────────────────────────────────────────
-        # Both modes buffer internally so the LLM call can be retried on
-        # transient failure. Legacy mode no longer streams in real-time
-        # during the LLM call; chunks are yielded after the call succeeds.
+        # ── 7. STREAM FROM LLM (real-time) ──────────────────────────────────
+        # Chunks are yielded to the client as they arrive. Retries apply only
+        # when no chunks have been sent yet (connection-phase failures).
         model = MODEL_PRO if user_plan in ("pro", "premium") else MODEL_FREE
         full_response = ""
         yield f"data: {json.dumps({'type': 'start'})}\n\n"
 
         _llm_success = False
         _last_llm_error: Exception | None = None
+        _buf: list[str] = []
+        _chunks_yielded = False
+
         for attempt in range(3):
+            _buf = []
+            _chunks_yielded = False
             try:
-                _buf: list[str] = []
                 async for chunk in llm_client.stream(
                     system=system_prompt, messages=lm_messages, model=model
                 ):
                     _buf.append(chunk)
+                    _chunks_yielded = True
+                    yield f"data: {json.dumps({'type': 'chunk', 'data': chunk})}\n\n"
                 full_response = "".join(_buf)
                 _llm_success = True
                 break
             except anthropic.RateLimitError as exc:
                 _last_llm_error = exc
+                if _chunks_yielded:
+                    break
                 await asyncio.sleep(2**attempt)
             except anthropic.APIStatusError as exc:
-                if exc.status_code >= 500:
-                    _last_llm_error = exc
-                    await asyncio.sleep(2**attempt)
-                else:
-                    _last_llm_error = exc
+                _last_llm_error = exc
+                if _chunks_yielded or exc.status_code < 500:
                     break
+                await asyncio.sleep(2**attempt)
             except (anthropic.APIConnectionError, anthropic.APITimeoutError) as exc:
                 _last_llm_error = exc
+                if _chunks_yielded:
+                    break
                 await asyncio.sleep(2**attempt)
 
         if not _llm_success:
@@ -321,44 +331,95 @@ class ConversationService:
 
         # ── 8. POST-GENERATION SAFETY ────────────────────────────────────────
         # SAFETY OVERRIDE BYPASS — non-negotiable invariant (Decision D).
-        # When safety suppresses the persona, the safety response is sent
-        # AS-IS. Postprocessing MUST NOT touch safety override content.
-        # Reasons: safety copy must be deterministic; brevity / forbidden
-        # rules must never alter safety wording; safety > style, always.
+        # Already-streamed persona content is replaced client-side by safety
+        # response. Postprocessing MUST NOT touch safety override content.
         safety_out = await safety_service.check_output(full_response)
         if safety_out.should_suppress_persona:
             await self._log_safety_event(db, user_id, conversation_id, None, safety_out, "post_generation")
+            logger.warning(
+                "post_gen_safety_override",
+                extra={
+                    "persona_slug": persona.slug,
+                    "safety_level": safety_out.level,
+                    "conversation_id": str(conversation_id),
+                    "user_id": str(user_id),
+                    "exposed_content_first_100": full_response[:100],
+                },
+            )
             yield f"data: {json.dumps({'type': 'safety_override', 'level': safety_out.level})}\n\n"
             safe_text = prompt_builder.build_safety_response(level=safety_out.level)
             for chunk in self._chunk_text(safe_text):
                 yield f"data: {json.dumps({'type': 'chunk', 'data': chunk})}\n\n"
             full_response = safe_text
-            # NOTE: postprocessing intentionally NOT called in this branch.
-            # Safety override is final and immutable.
         elif POSTPROCESSING_ENABLED:
-            # ── 8b. POSTPROCESSING (Phase 2, persona reply only) ──────────────
-            try:
-                conv_position = "first_message" if len(history) <= 1 else "mid_session"
-                full_response, _check_history = await regenerate_or_trim(
-                    reply=full_response,
-                    persona=persona,
-                    system_prompt=system_prompt,
-                    user_text=user_text,
-                    conversation_position=conv_position,
+            # ── 8b. POSTPROCESSING — inline check + streaming correction ─────
+            # Initial chunks already yielded above. If they fail the forbidden-
+            # lexicon check, stream a correction in real-time via `correction`
+            # event. Frontend fades original and shows the new stream.
+            conv_position = "first_message" if len(history) <= 1 else "mid_session"
+            check_result = check_universal_forbidden(full_response)
+            if check_result.action == CheckAction.REGENERATE:
+                hit_categories = sorted(set(
+                    h.category for h in check_result.hits if h.category
+                ))
+                logger.info(
+                    "postprocessing_correction_triggered",
+                    extra={
+                        "persona_slug": persona.slug,
+                        "hit_categories": hit_categories,
+                        "conversation_id": str(conversation_id),
+                        "user_id": str(user_id),
+                        "original_response_first_50": full_response[:50],
+                    },
                 )
-            except Exception as e:
-                logger.warning(
-                    f"Postprocessing failed for persona={persona.slug}: {e}. "
-                    f"Sending original reply (failed-open)."
-                )
-                # Fall through with unmodified full_response
-            # Yield buffered (and possibly postprocessed) content as chunks
-            for chunk in self._chunk_text(full_response):
-                yield f"data: {json.dumps({'type': 'chunk', 'data': chunk})}\n\n"
-        else:
-            # Legacy mode: LLM response buffered during retry window; yield now.
-            for chunk in self._chunk_text(full_response):
-                yield f"data: {json.dumps({'type': 'chunk', 'data': chunk})}\n\n"
+                yield f"data: {json.dumps({'type': 'correction'})}\n\n"
+                directive = _build_regen_directive([check_result], 0, persona)
+                correction_buf: list[str] = []
+                try:
+                    async for chunk in llm_client.stream(
+                        system=system_prompt + "\n\n" + directive,
+                        messages=lm_messages,
+                        model=model,
+                    ):
+                        correction_buf.append(chunk)
+                        yield f"data: {json.dumps({'type': 'chunk', 'data': chunk})}\n\n"
+                    correction_text = "".join(correction_buf)
+                    correction_check = check_universal_forbidden(correction_text)
+                    if correction_check.action in (CheckAction.PASS, CheckAction.SKIP):
+                        logger.info(
+                            "postprocessing_correction_passed",
+                            extra={
+                                "persona_slug": persona.slug,
+                                "conversation_id": str(conversation_id),
+                                "user_id": str(user_id),
+                            },
+                        )
+                        full_response = correction_text
+                    else:
+                        stripped = _deterministic_strip(correction_text, [correction_check])
+                        logger.warning(
+                            "postprocessing_correction_stripped",
+                            extra={
+                                "persona_slug": persona.slug,
+                                "hit_categories": sorted(set(
+                                    h.category for h in correction_check.hits if h.category
+                                )),
+                                "conversation_id": str(conversation_id),
+                                "user_id": str(user_id),
+                            },
+                        )
+                        full_response = stripped
+                except Exception as e:
+                    logger.error(
+                        "postprocessing_correction_failed",
+                        extra={
+                            "persona_slug": persona.slug,
+                            "error": str(e)[:200],
+                            "conversation_id": str(conversation_id),
+                            "user_id": str(user_id),
+                        },
+                    )
+                    # full_response stays as original initial response
 
         latency_ms = int((time.monotonic() - start) * 1000)
 
