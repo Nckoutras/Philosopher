@@ -218,8 +218,8 @@ export default function ReflectionsPage() {
           sourceContent={pickerLine.message_content}
           onClose={() => setPickerLine(null)}
           onCreated={(id) => {
-            setPickerLine(null)
             router.push(`/app/chat/conv/${id}`)
+            setPickerLine(null)
           }}
         />
       )}
