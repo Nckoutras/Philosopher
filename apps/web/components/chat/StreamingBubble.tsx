@@ -15,9 +15,11 @@ export default function StreamingBubble() {
       <div className="max-w-[80%] px-4 py-3 rounded-sm shadow-card bg-white font-lora text-[14px] text-safety leading-relaxed whitespace-pre-wrap">
         {isCorrecting ? (
           <>
-            <span className="opacity-40">{streamingContent}</span>
+            <span className="text-charcoal opacity-55 transition-opacity duration-300">
+              {streamingContent}
+            </span>
             <div className="my-2 border-t border-bronze opacity-60" />
-            <p className="font-lora text-[10px] uppercase tracking-[0.18em] text-bronze mb-2">
+            <p className="font-cormorant italic text-[13px] text-sepia mb-3">
               Let me put that again.
             </p>
             {correctionContent ? (

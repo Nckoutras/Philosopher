@@ -342,6 +342,8 @@ class ConversationService:
                     "persona_slug": persona.slug,
                     "safety_level": safety_out.level,
                     "conversation_id": str(conversation_id),
+                    "user_id": str(user_id),
+                    "exposed_content_first_100": full_response[:100],
                 },
             )
             yield f"data: {json.dumps({'type': 'safety_override', 'level': safety_out.level})}\n\n"
@@ -366,6 +368,8 @@ class ConversationService:
                         "persona_slug": persona.slug,
                         "hit_categories": hit_categories,
                         "conversation_id": str(conversation_id),
+                        "user_id": str(user_id),
+                        "original_response_first_50": full_response[:50],
                     },
                 )
                 yield f"data: {json.dumps({'type': 'correction'})}\n\n"
@@ -387,6 +391,7 @@ class ConversationService:
                             extra={
                                 "persona_slug": persona.slug,
                                 "conversation_id": str(conversation_id),
+                                "user_id": str(user_id),
                             },
                         )
                         full_response = correction_text
@@ -400,6 +405,7 @@ class ConversationService:
                                     h.category for h in correction_check.hits if h.category
                                 )),
                                 "conversation_id": str(conversation_id),
+                                "user_id": str(user_id),
                             },
                         )
                         full_response = stripped
@@ -410,6 +416,7 @@ class ConversationService:
                             "persona_slug": persona.slug,
                             "error": str(e)[:200],
                             "conversation_id": str(conversation_id),
+                            "user_id": str(user_id),
                         },
                     )
                     # full_response stays as original initial response
