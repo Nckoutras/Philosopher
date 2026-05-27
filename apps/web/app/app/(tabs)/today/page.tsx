@@ -285,8 +285,8 @@ export default function TodayPage() {
             sourceContent={recentLine.content}
             onClose={() => setPickerOpen(false)}
             onCreated={(id) => {
-              setPickerOpen(false)
               router.push(`/app/chat/conv/${id}`)
+              setPickerOpen(false)
             }}
           />
         )}
