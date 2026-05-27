@@ -49,6 +49,10 @@ interface AppStore {
   streamingContent: string
   setStreamingContent: (v: string) => void
   appendStreamingContent: (chunk: string) => void
+  isCorrecting: boolean
+  correctionContent: string
+  setCorrection: () => void
+  appendCorrectionContent: (chunk: string) => void
   resetStreaming: () => void
 
   // Safety overlay
@@ -118,6 +122,8 @@ export const useStore = create<AppStore>()(
           activePersonaOpeningInvocation: openingInvocation,
           messages: [],
           streamingContent: '',
+          isCorrecting: false,
+          correctionContent: '',
         }),
       clearActiveConversation: () =>
         set({
@@ -128,6 +134,8 @@ export const useStore = create<AppStore>()(
           activePersonaOpeningInvocation: null,
           isStreaming: false,
           streamingContent: '',
+          isCorrecting: false,
+          correctionContent: '',
           streamError: null,
         }),
 
@@ -149,7 +157,11 @@ export const useStore = create<AppStore>()(
       streamingContent: '',
       setStreamingContent: (v) => set({ streamingContent: v }),
       appendStreamingContent: (chunk) => set((s) => ({ streamingContent: s.streamingContent + chunk })),
-      resetStreaming: () => set({ isStreaming: false, streamingContent: '' }),
+      isCorrecting: false,
+      correctionContent: '',
+      setCorrection: () => set({ isCorrecting: true }),
+      appendCorrectionContent: (chunk) => set((s) => ({ correctionContent: s.correctionContent + chunk })),
+      resetStreaming: () => set({ isStreaming: false, streamingContent: '', isCorrecting: false, correctionContent: '' }),
       safetyActive: false,
       setSafetyActive: (v) => set({ safetyActive: v }),
 

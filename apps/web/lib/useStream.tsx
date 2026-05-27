@@ -13,6 +13,8 @@ export function useStream() {
     setSafetyActive,
     setStreamError,
     setShowPaywall,
+    setCorrection,
+    appendCorrectionContent,
   } = useStore()
 
   const send = useCallback(async (content: string) => {
@@ -41,6 +43,8 @@ export function useStream() {
       const decoder = new TextDecoder()
       let buffer = ''
       let fullContent = ''
+      let isCorrecting = false
+      let contentBeforeCorrection = ''
       // RF-01: capture error event data instead of discarding persona_voice
       let pendingStreamError: { error_code: string; persona_voice: string } | null = null
 
@@ -67,7 +71,17 @@ export function useStream() {
           switch (event.type) {
             case 'chunk':
               fullContent += event.data
-              appendStreamingContent(event.data)
+              if (isCorrecting) {
+                appendCorrectionContent(event.data)
+              } else {
+                appendStreamingContent(event.data)
+              }
+              break
+            case 'correction':
+              contentBeforeCorrection = fullContent
+              fullContent = ''
+              isCorrecting = true
+              setCorrection()
               break
             case 'safety':
             case 'safety_override':
@@ -79,10 +93,13 @@ export function useStream() {
               // Skip appending an empty assistant message when safety fired;
               // SafetyBubble represents that response in the UI.
               if (!useStore.getState().safetyActive) {
+                // When correction was triggered but no correction chunks arrived
+                // (stream failed before first chunk), fall back to original content.
+                const finalContent = fullContent || contentBeforeCorrection
                 const assistantMsg: Message = {
                   id: event.message_id ?? crypto.randomUUID(),
                   role: 'assistant',
-                  content: fullContent,
+                  content: finalContent,
                   safety_level: 'none',
                   persona_override: false,
                   created_at: new Date().toISOString(),
@@ -124,7 +141,7 @@ export function useStream() {
       }
       console.error(err)
     }
-  }, [activeConversationId, appendMessage, setStreaming, appendStreamingContent, resetStreaming, setSafetyActive, setStreamError, setShowPaywall])
+  }, [activeConversationId, appendMessage, setStreaming, appendStreamingContent, resetStreaming, setSafetyActive, setStreamError, setShowPaywall, setCorrection, appendCorrectionContent])
 
   return { send }
 }
