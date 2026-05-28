@@ -2,9 +2,9 @@
 
 > **Purpose:** Full screen inventory of the Great Minds product. Each screen marked covered (✅) or pending (⚠️). Covered screens have full spec; pending screens have status notes.
 >
-> **Total: 56 screens** (A0 added 2026-05-18; D5 folded into D1, D4 deferred v2, F5 deferred v2, J4 dropped, A2/A3 merged, A6/A7 merged).
+> **Total: 63 screens** (A0 added 2026-05-18; D5 folded into D1, D4 deferred v2, F5 deferred v2, J4 dropped, A2/A3 merged, A6/A7 merged; G5–G11 added 2026-05-28).
 > **Effective specced count: 43** (Blocks 1–6 + Block 9 covered; A0 pending spec)
-> **Pending: 13** (A0 pending spec + Block 7 Rituals 4 screens + Block 8 Multi-mind 5 screens + K1/K2 deferred v2 + D4 deferred v2 + F5 deferred v2)
+> **Pending: 20** (A0 pending spec + Block 7 Rituals 11 screens + Block 8 Multi-mind 5 screens + K1/K2 deferred v2 + D4 deferred v2 + F5 deferred v2)
 >
 > **Companion documents:**
 > - `DESIGN_SYSTEM_v4.md` — visual and component spec
@@ -48,6 +48,11 @@
 > - A0 Public Landing added as new pending screen (spec incomplete — design proposal pending from founder)
 > - D1 build-status note added to full spec section (spec locked; build reprioritized to P0)
 > - Screen count: 55 → 56; pending count: 12 → 13
+>
+> **Changelog v4.1 → v4.2 (2026-05-28):**
+> - D1 spec note updated: greeting personalization live (PR-D #129); NamePromptCard conditional render for nameless OTP users (PR-D2 #130)
+> - G5–G11 added: 7 new pending ritual sub-screens (Mirror 3, Counterview 3, Weekly Reading placeholder 1) — scope locked 2026-05-28; full specs pending respective briefs
+> - Screen count: 56 → 63; pending count: 13 → 20
 
 ---
 
@@ -95,7 +100,7 @@
 
 | ID | Screen | Status |
 |---|---|---|
-| D1 | Home / Today (returning + empty) | ✅ covered |
+| D1 | Home / Today (returning + empty) | ✅ covered — greeting personalized PR-D #129; NamePromptCard for nameless OTP users PR-D2 #130 |
 | D2 | Explore Minds — Carousel/list view | ✅ covered |
 | D3 | Explore Minds — Grid view | ✅ covered |
 | D4 | Search / filter minds | ⏸ deferred v2 (when persona count >12) |
@@ -130,6 +135,13 @@
 | G2 | Ritual detail | ⚠️ pending |
 | G3 | Ritual day-by-day flow | ⚠️ pending |
 | G4 | Ritual completion | ⚠️ pending |
+| G5 | The Mirror — Setup | ⚠️ pending (ref Brief #4; BLOCKED on `mirror_ritual_prompt.md` for Jung + Marcus) |
+| G6 | The Mirror — Reflection rounds | ⚠️ pending (ref Brief #4; ≤3 rounds, editorial passages) |
+| G7 | The Mirror — Closing | ⚠️ pending (ref Brief #4; "A line worth keeping" pull-quote + CTAs) |
+| G8 | The Counterview — Setup | ⚠️ pending (ref Brief #5; BLOCKED on Mirror done + `counterview_ritual_prompt.md` for Machiavelli) |
+| G9 | The Counterview — Rounds | ⚠️ pending (ref Brief #5; 2 rounds, ≤4 sentences, steelman-the-opposite) |
+| G10 | The Counterview — Closing | ⚠️ pending (ref Brief #5; 2-line "What shifted, what didn't") |
+| G11 | Weekly Reading — placeholder card (Rituals tile) | ⚠️ pending (ref Brief #2; "Coming this season" locked card; low effort, any time) |
 
 ### H — Subscription & Billing
 
@@ -650,6 +662,10 @@ After C2 loading, persona's first message appears.
 - Bottom tab bar
 
 **Build status note (2026-05-18):** Spec locked since v4. Build was deferred under "Block D — Not yet planned"; reprioritized to P0 on 2026-05-18 after structural gap discovery (without D1, bottom tab bar surface is unreachable post-sign-in, making Reflections/Library/Account tabs invisible and C3 save-line feature effectively ROI-blind). See IMPLEMENTATION_BACKLOG_v9.md §"2026-05-18 launch priority shift".
+
+**v4.2 additions (2026-05-28):**
+- **Greeting personalization (PR-D #129):** Header greeting now personalizes — "Good morning, Nikos." for users with `full_name` set. First name extracted via `full_name?.trim().split(/\s+/)[0]`. Graceful fallback to "Good morning." if name is null/empty/whitespace.
+- **NamePromptCard (PR-D2 #130):** Conditional card shown to OTP users with no `full_name` set. Appears between greeting and Today's question card. LOCKED COPY: "What should we call you?" / "First name" placeholder / "Save" / "Not now". Session-only dismissal. Feeds greeting personalization on save.
 
 ---
 
