@@ -6,3 +6,8 @@ __pycache__/
 apps/api/scripts/voice_test_socrates.py
 apps/api/scripts/test_preferences_endpoint.py
 apps/api/scripts/test_matches_endpoint.py
+
+# Environment files — never commit secrets
+.env
+.env.*
+!.env.example
