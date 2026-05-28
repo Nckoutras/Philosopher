@@ -11,7 +11,7 @@ import { useStore } from '@/lib/store'
 import { api } from '@/lib/api'
 import type { DailyQuestion, LastConversation, RecentSavedLine } from '@/lib/api'
 import SharePreviewModal from '@/components/share/SharePreviewModal'
-import { getTimeGreeting } from '@/lib/useTimeGreeting'
+import { getGreetingWithName } from '@/lib/useTimeGreeting'
 import PersonaPickerSheet from '@/components/personas/PersonaPickerSheet'
 import TodaysTopicCard from '@/components/today/TodaysTopicCard'
 import AppHeader from '@/components/layout/AppHeader'
@@ -61,7 +61,7 @@ export default function TodayPage() {
   const today = new Date()
   const dateEyebrow = formatDateEyebrow(today)
   const isFirstDay = lastConv === null && !loading
-  const greeting = isFirstDay ? 'Welcome.' : getTimeGreeting()
+  const greeting = isFirstDay ? 'Welcome.' : getGreetingWithName(user?.full_name)
 
   useEffect(() => {
     if (token === null) {
