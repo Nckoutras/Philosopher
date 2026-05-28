@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -14,6 +14,7 @@ import SharePreviewModal from '@/components/share/SharePreviewModal'
 import { getGreetingWithName } from '@/lib/useTimeGreeting'
 import PersonaPickerSheet from '@/components/personas/PersonaPickerSheet'
 import TodaysTopicCard from '@/components/today/TodaysTopicCard'
+import NamePromptCard from '@/components/today/NamePromptCard'
 import AppHeader from '@/components/layout/AppHeader'
 
 function formatDateEyebrow(date: Date): string {
@@ -58,10 +59,20 @@ export default function TodayPage() {
   const [topicPickerOpen, setTopicPickerOpen] = useState(false)
   const [pendingTopic, setPendingTopic] = useState('')
 
+  const namePromptInitialized = useRef(false)
+  const [showNamePrompt, setShowNamePrompt] = useState(false)
+
   const today = new Date()
   const dateEyebrow = formatDateEyebrow(today)
   const isFirstDay = lastConv === null && !loading
   const greeting = isFirstDay ? 'Welcome.' : getGreetingWithName(user?.full_name)
+
+  useEffect(() => {
+    if (!loading && !namePromptInitialized.current) {
+      namePromptInitialized.current = true
+      setShowNamePrompt(!user?.full_name?.trim())
+    }
+  }, [loading, user])
 
   useEffect(() => {
     if (token === null) {
@@ -150,6 +161,11 @@ export default function TodayPage() {
       </div>
 
       <div className="px-[16px] flex flex-col gap-[12px]">
+        {/* ── Name capture prompt (nameless users only, session-dismissed) ── */}
+        {showNamePrompt && (
+          <NamePromptCard onDismiss={() => setShowNamePrompt(false)} />
+        )}
+
         {/* ── Today's topic card ── */}
         {question && user && (
           <TodaysTopicCard

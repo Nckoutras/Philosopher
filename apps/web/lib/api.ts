@@ -344,6 +344,13 @@ class ApiClient {
     return this.request<User>('/auth/me')
   }
 
+  async updateMe(fullName: string): Promise<User> {
+    return this.request<User>('/auth/me', {
+      method: 'PATCH',
+      body: JSON.stringify({ full_name: fullName }),
+    })
+  }
+
   async requestOtp(email: string): Promise<void> {
     await this.request<void>('/auth/otp/request', {
       method: 'POST',
