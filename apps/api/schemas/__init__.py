@@ -36,6 +36,20 @@ class UserOut(BaseModel):
         from_attributes = True
 
 
+class UpdateMeRequest(BaseModel):
+    full_name: str
+
+    @field_validator('full_name')
+    @classmethod
+    def validate_full_name(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError('full_name cannot be empty')
+        if len(v) > 100:
+            raise ValueError('full_name must be 100 characters or fewer')
+        return v
+
+
 # ── Subscription ──────────────────────────────────────────────────────────────
 
 class SubscriptionOut(BaseModel):

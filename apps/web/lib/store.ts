@@ -15,6 +15,7 @@ interface AppStore {
   user: User | null
   token: string | null
   setAuth: (user: User, token: string) => void
+  setUser: (user: User) => void
   clearAuth: () => void
 
   // Subscription
@@ -97,6 +98,7 @@ export const useStore = create<AppStore>()(
       user: null,
       token: null,
       setAuth: (user, token) => set({ user, token }),
+      setUser: (user) => set({ user }),
       clearAuth: () => set({ user: null, token: null, subscription: null }),
 
       // Subscription

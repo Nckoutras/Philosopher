@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from db.session import get_db
 from models import User, Subscription
-from schemas import RegisterRequest, LoginRequest, TokenResponse, UserOut, OtpRequest, OtpVerifyRequest
+from schemas import RegisterRequest, LoginRequest, TokenResponse, UserOut, OtpRequest, OtpVerifyRequest, UpdateMeRequest
 from auth import hash_password, verify_password, create_token, get_current_user
 from services.analytics_service import analytics_service
 from services.otp_service import (
@@ -76,6 +76,19 @@ async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
 
 @router.get("/me", response_model=UserOut)
 async def me(user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    needs_disclaimer = await user_needs_acceptance(user.id, db)
+    return UserOut.model_validate(user).model_copy(update={"needs_disclaimer": needs_disclaimer})
+
+
+@router.patch("/me", response_model=UserOut)
+async def update_me(
+    body: UpdateMeRequest,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    user.full_name = body.full_name
+    await db.commit()
+    await db.refresh(user)
     needs_disclaimer = await user_needs_acceptance(user.id, db)
     return UserOut.model_validate(user).model_copy(update={"needs_disclaimer": needs_disclaimer})
 
