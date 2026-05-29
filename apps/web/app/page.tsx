@@ -26,7 +26,7 @@ export default function RootPage() {
   return (
     <main
       className="relative [min-height:100svh] bg-ink bg-cover bg-center flex flex-col"
-      style={{ backgroundImage: "url('/personas/chesterfield-hero.jpg')" }}
+      style={{ backgroundImage: "url('/personas/wise-room-hero.webp')" }}
     >
       {/* Subtle dark gradient at top for title legibility */}
       <div
@@ -37,7 +37,7 @@ export default function RootPage() {
       {/* Title block */}
       <div className="relative z-10 pt-[18vh] flex flex-col items-center px-6 text-center">
         <h1 className="font-cormorant text-[42px] sm:text-[52px] font-medium text-vellum tracking-tight">
-          Great Minds
+          The Wise Room
         </h1>
         <div className="my-[14px]">
           <BronzeDivider width={120} />
@@ -64,14 +64,14 @@ export default function RootPage() {
         <button
           type="button"
           onClick={() => router.push('/auth?mode=signup')}
-          className="w-full max-w-[420px] py-[16px] rounded-[4px] border border-vellum/70 font-cormorant text-[14px] uppercase tracking-[0.18em] text-vellum"
+          className="w-full max-w-[420px] py-[16px] rounded-full bg-paper text-ink font-cormorant text-[18px] font-medium"
         >
-          Begin your reflection
+          Begin your Reflection
         </button>
         <button
           type="button"
           onClick={() => router.push('/auth?mode=signin')}
-          className="font-lora text-[12px] uppercase tracking-[0.18em] text-vellum/80 underline underline-offset-4 decoration-[0.5px]"
+          className="w-full max-w-[420px] py-[16px] rounded-full border border-bronze bg-transparent text-bronze font-cormorant text-[16px]"
         >
           Sign in
         </button>
