@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
+import AnotherMindSheet from '@/components/chat/AnotherMindSheet'
 import { useStore } from '@/lib/store'
 import { useStream } from '@/lib/useStream'
 import { api, SaveLimitError, DuplicateSaveError } from '@/lib/api'
@@ -36,11 +37,18 @@ export default function ExistingConversationPage() {
   const setSafetyActive = useStore((s) => s.setSafetyActive)
   const setStreamError = useStore((s) => s.setStreamError)
   const loadSavedLines = useStore((s) => s.loadSavedLines)
+  const activePersonaSlug = useStore((s) => s.activePersonaSlug)
+  const plan = useStore((s) => s.plan)
 
   const [loadError, setLoadError] = useState<string | null>(null)
   const [inputDraft, setInputDraft] = useState<string | undefined>(undefined)
-  const { send } = useStream()
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const { send, sendAnotherMind } = useStream()
   const hasSentTopicRef = useRef(false)
+
+  const handleBringAnotherMind = () => {
+    if (plan === 'free') { router.push('/app/upgrade') } else { setPickerOpen(true) }
+  }
   const isReady = activeConversationId === params.id
 
   useEffect(() => {
@@ -200,6 +208,7 @@ export default function ExistingConversationPage() {
           messages={messages}
           onSaveLine={handleSaveLine}
           onUpgradeConfirm={handleUpgradeConfirm}
+          onBringAnotherMind={handleBringAnotherMind}
         />
         {safetyActive ? (
           <>
@@ -224,6 +233,12 @@ export default function ExistingConversationPage() {
         open={showPaywall}
         details={paywallDetails}
         onClose={clearPaywall}
+      />
+      <AnotherMindSheet
+        open={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        excludeSlug={activePersonaSlug ?? ''}
+        onSelect={(slug) => { setPickerOpen(false); sendAnotherMind(slug) }}
       />
     </main>
   )

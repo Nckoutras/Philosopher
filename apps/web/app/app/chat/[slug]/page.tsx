@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
+import AnotherMindSheet from '@/components/chat/AnotherMindSheet'
 import { useStore } from '@/lib/store'
 import { useStream } from '@/lib/useStream'
 import { api, SaveLimitError, DuplicateSaveError } from '@/lib/api'
@@ -26,6 +27,7 @@ export default function ChatPage() {
   const streamingContent = useStore((s) => s.streamingContent)
   const activeConversationId = useStore((s) => s.activeConversationId)
   const activePersonaSlug = useStore((s) => s.activePersonaSlug)
+  const plan = useStore((s) => s.plan)
   const personaName = useStore((s) => s.activePersonaName) ?? ''
   const portraitUrl = useStore((s) => s.activePersonaPortraitUrl) ?? ''
   const openingInvocation = useStore((s) => s.activePersonaOpeningInvocation)
@@ -38,7 +40,12 @@ export default function ChatPage() {
   const loadSavedLines = useStore((s) => s.loadSavedLines)
 
   const [createError, setCreateError] = useState<string | null>(null)
-  const { send } = useStream()
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const { send, sendAnotherMind } = useStream()
+
+  const handleBringAnotherMind = () => {
+    if (plan === 'free') { router.push('/app/upgrade') } else { setPickerOpen(true) }
+  }
 
   // Scroll-to-bottom sentinel ref handled via inline ref callback on the sentinel div
   useEffect(() => {
@@ -184,6 +191,7 @@ export default function ChatPage() {
           messages={messages}
           onSaveLine={handleSaveLine}
           onUpgradeConfirm={handleUpgradeConfirm}
+          onBringAnotherMind={handleBringAnotherMind}
         />
         {safetyActive ? (
           <>
@@ -206,6 +214,12 @@ export default function ChatPage() {
         open={showPaywall}
         details={paywallDetails}
         onClose={clearPaywall}
+      />
+      <AnotherMindSheet
+        open={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        excludeSlug={activePersonaSlug ?? ''}
+        onSelect={(slug) => { setPickerOpen(false); sendAnotherMind(slug) }}
       />
     </main>
   )

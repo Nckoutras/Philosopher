@@ -24,7 +24,7 @@ beforeEach(() => {
 describe('QuickActionsRow', () => {
   it('renders three action chips', () => {
     render(
-      <QuickActionsRow messageId="m1" saved={false} onSave={vi.fn()} onUpgradeConfirm={vi.fn()} />,
+      <QuickActionsRow messageId="m1" saved={false} onSave={vi.fn()} onUpgradeConfirm={vi.fn()} onBringAnotherMind={vi.fn()} />,
     )
     expect(screen.getByLabelText('Ask harder')).toBeTruthy()
     expect(screen.getByLabelText('Bring another mind')).toBeTruthy()
@@ -33,24 +33,25 @@ describe('QuickActionsRow', () => {
 
   it('Ask harder shows Coming soon toast', () => {
     render(
-      <QuickActionsRow messageId="m1" saved={false} onSave={vi.fn()} onUpgradeConfirm={vi.fn()} />,
+      <QuickActionsRow messageId="m1" saved={false} onSave={vi.fn()} onUpgradeConfirm={vi.fn()} onBringAnotherMind={vi.fn()} />,
     )
     fireEvent.click(screen.getByLabelText('Ask harder'))
     expect(toast).toHaveBeenCalledWith('Coming soon', expect.any(Object))
   })
 
-  it('Bring another mind shows Coming soon toast', () => {
+  it('Bring another mind calls onBringAnotherMind', () => {
+    const onBringAnotherMind = vi.fn()
     render(
-      <QuickActionsRow messageId="m1" saved={false} onSave={vi.fn()} onUpgradeConfirm={vi.fn()} />,
+      <QuickActionsRow messageId="m1" saved={false} onSave={vi.fn()} onUpgradeConfirm={vi.fn()} onBringAnotherMind={onBringAnotherMind} />,
     )
     fireEvent.click(screen.getByLabelText('Bring another mind'))
-    expect(toast).toHaveBeenCalledWith('Coming soon', expect.any(Object))
+    expect(onBringAnotherMind).toHaveBeenCalledOnce()
   })
 
   it('calls onSave when Save line tapped and under limit', () => {
     const onSave = vi.fn()
     render(
-      <QuickActionsRow messageId="m1" saved={false} onSave={onSave} onUpgradeConfirm={vi.fn()} />,
+      <QuickActionsRow messageId="m1" saved={false} onSave={onSave} onUpgradeConfirm={vi.fn()} onBringAnotherMind={vi.fn()} />,
     )
     fireEvent.click(screen.getByLabelText('Save line'))
     expect(onSave).toHaveBeenCalledOnce()
@@ -59,7 +60,7 @@ describe('QuickActionsRow', () => {
   it('shows inline upgrade card when at free tier limit', () => {
     useStore.setState({ freeSaveCount: 3, freeTierLimit: 3, subscription: null })
     render(
-      <QuickActionsRow messageId="m1" saved={false} onSave={vi.fn()} onUpgradeConfirm={vi.fn()} />,
+      <QuickActionsRow messageId="m1" saved={false} onSave={vi.fn()} onUpgradeConfirm={vi.fn()} onBringAnotherMind={vi.fn()} />,
     )
     fireEvent.click(screen.getByLabelText('Save line'))
     expect(screen.getByTestId('inline-upgrade')).toBeTruthy()
@@ -69,7 +70,7 @@ describe('QuickActionsRow', () => {
     useStore.setState({ freeSaveCount: 3, freeTierLimit: 3, subscription: null })
     const onSave = vi.fn()
     render(
-      <QuickActionsRow messageId="m1" saved={false} onSave={onSave} onUpgradeConfirm={vi.fn()} />,
+      <QuickActionsRow messageId="m1" saved={false} onSave={onSave} onUpgradeConfirm={vi.fn()} onBringAnotherMind={vi.fn()} />,
     )
     fireEvent.click(screen.getByLabelText('Save line'))
     expect(onSave).not.toHaveBeenCalled()
@@ -77,7 +78,7 @@ describe('QuickActionsRow', () => {
 
   it('shows Saved chip when saved=true', () => {
     render(
-      <QuickActionsRow messageId="m1" saved={true} onSave={vi.fn()} onUpgradeConfirm={vi.fn()} />,
+      <QuickActionsRow messageId="m1" saved={true} onSave={vi.fn()} onUpgradeConfirm={vi.fn()} onBringAnotherMind={vi.fn()} />,
     )
     expect(screen.getByLabelText('Saved')).toBeTruthy()
   })
@@ -85,7 +86,7 @@ describe('QuickActionsRow', () => {
   it('upgrade card dismiss restores chips', () => {
     useStore.setState({ freeSaveCount: 3, freeTierLimit: 3, subscription: null })
     render(
-      <QuickActionsRow messageId="m1" saved={false} onSave={vi.fn()} onUpgradeConfirm={vi.fn()} />,
+      <QuickActionsRow messageId="m1" saved={false} onSave={vi.fn()} onUpgradeConfirm={vi.fn()} onBringAnotherMind={vi.fn()} />,
     )
     fireEvent.click(screen.getByLabelText('Save line'))
     expect(screen.getByTestId('inline-upgrade')).toBeTruthy()
