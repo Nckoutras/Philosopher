@@ -44,6 +44,15 @@ PHENOMENOLOGY_BRIDGE_ENABLED = (
     os.getenv("PHENOMENOLOGY_BRIDGE_ENABLED", "false").lower() == "true"
 )
 
+CROSS_MIND_NOTE = (
+    "NOTE ON OTHER VOICES: Earlier in this exchange, the seeker invited other "
+    "thinkers to weigh in. Their contributions are marked inline as \"[Name]: …\". "
+    "Those words are not yours. If the seeker asks what you make of something "
+    "another thinker said, engage with it directly, in your own voice and "
+    "judgement. Never prefix or bracket your own reply with a name — speak "
+    "plainly as yourself."
+)
+
 
 class ConversationService:
 
@@ -257,11 +266,26 @@ class ConversationService:
             .limit(MEMORY_WINDOW_PRO if user_plan in ("pro", "premium") else MEMORY_WINDOW_FREE)
         )
         history = history_result.scalars().all()
-        lm_messages = [
-            {"role": m.role, "content": m.content}
-            for m in history
-            if m.role in ("user", "assistant")
-        ]
+        # Cross-mind awareness: label assistant turns spoken by a brought-in
+        # persona so the home persona recognises them as another mind's words.
+        # When none exist, history is built byte-identically to before.
+        _foreign = [m for m in history if m.role == "assistant" and m.persona_id is not None]
+        if _foreign:
+            _pid_set = {conv.persona_id} | {m.persona_id for m in _foreign}
+            _name_rows = await db.execute(
+                select(Persona.id, Persona.name).where(Persona.id.in_(_pid_set))
+            )
+            _id_to_name = {r.id: r.name for r in _name_rows.all()}
+            lm_messages = self._build_lm_messages(
+                history, conv.persona_id, conv.persona_id, _id_to_name
+            )
+            system_prompt = system_prompt + "\n\n" + CROSS_MIND_NOTE
+        else:
+            lm_messages = [
+                {"role": m.role, "content": m.content}
+                for m in history
+                if m.role in ("user", "assistant")
+            ]
         # W3 fix: Anthropic API requires messages to start with a user turn.
         # opening_invocation and cross-persona bootstrap both save an initial
         # assistant message with no preceding user message in the DB. Strip any
@@ -566,11 +590,30 @@ class ConversationService:
             .limit(MEMORY_WINDOW_PRO if user_plan in ("pro", "premium") else MEMORY_WINDOW_FREE)
         )
         history = history_result.scalars().all()
-        lm_messages = [
-            {"role": m.role, "content": m.content}
-            for m in history
-            if m.role in ("user", "assistant")
+        # Cross-mind awareness: the guest responder sees the home persona and
+        # any other brought-in personas as other minds. Label every assistant
+        # turn not authored by the guest itself (persona_id None => home).
+        _responder_id = target_db.id
+        _foreign = [
+            m for m in history
+            if m.role == "assistant" and (m.persona_id or conv.persona_id) != _responder_id
         ]
+        if _foreign:
+            _pid_set = {conv.persona_id, _responder_id} | {m.persona_id for m in history if m.persona_id}
+            _name_rows = await db.execute(
+                select(Persona.id, Persona.name).where(Persona.id.in_(_pid_set))
+            )
+            _id_to_name = {r.id: r.name for r in _name_rows.all()}
+            lm_messages = self._build_lm_messages(
+                history, conv.persona_id, _responder_id, _id_to_name
+            )
+            system_prompt = system_prompt + "\n\n" + CROSS_MIND_NOTE
+        else:
+            lm_messages = [
+                {"role": m.role, "content": m.content}
+                for m in history
+                if m.role in ("user", "assistant")
+            ]
         # Strip leading assistant turns (same invariant as stream_response).
         while lm_messages and lm_messages[0]["role"] == "assistant":
             lm_messages.pop(0)
@@ -655,6 +698,25 @@ class ConversationService:
         yield f"data: {json.dumps({'type': 'done', 'message_id': assistant_msg.id})}\n\n"
 
     # ── Helpers ───────────────────────────────────────────────────────────────
+    def _build_lm_messages(self, history, home_persona_id, responder_persona_id, id_to_name):
+        """Build the LLM message list, labelling assistant turns spoken by a
+        mind other than the responder as "[Name]: ...". The responder's own
+        turns and all user turns pass through unchanged. A turn's author is its
+        persona_id, or the home persona when persona_id is None."""
+        out = []
+        for m in history:
+            if m.role not in ("user", "assistant"):
+                continue
+            if m.role == "assistant":
+                author_id = m.persona_id or home_persona_id
+                if author_id != responder_persona_id:
+                    name = id_to_name.get(author_id)
+                    if name:
+                        out.append({"role": "assistant", "content": f"[{name}]: {m.content}"})
+                        continue
+            out.append({"role": m.role, "content": m.content})
+        return out
+
     async def _save_message(
         self, db, conv, user_id, role, content,
         retrieval_ids=None, safety_level="none",
