@@ -27,7 +27,6 @@ export default function ChatPage() {
   const streamingContent = useStore((s) => s.streamingContent)
   const activeConversationId = useStore((s) => s.activeConversationId)
   const activePersonaSlug = useStore((s) => s.activePersonaSlug)
-  const plan = useStore((s) => s.plan)
   const personaName = useStore((s) => s.activePersonaName) ?? ''
   const portraitUrl = useStore((s) => s.activePersonaPortraitUrl) ?? ''
   const openingInvocation = useStore((s) => s.activePersonaOpeningInvocation)
@@ -43,9 +42,7 @@ export default function ChatPage() {
   const [pickerOpen, setPickerOpen] = useState(false)
   const { send, sendAnotherMind } = useStream()
 
-  const handleBringAnotherMind = () => {
-    if (plan === 'free') { router.push('/app/upgrade') } else { setPickerOpen(true) }
-  }
+  const handleBringAnotherMind = () => setPickerOpen(true)
 
   // Scroll-to-bottom sentinel ref handled via inline ref callback on the sentinel div
   useEffect(() => {

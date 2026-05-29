@@ -38,7 +38,6 @@ export default function ExistingConversationPage() {
   const setStreamError = useStore((s) => s.setStreamError)
   const loadSavedLines = useStore((s) => s.loadSavedLines)
   const activePersonaSlug = useStore((s) => s.activePersonaSlug)
-  const plan = useStore((s) => s.plan)
 
   const [loadError, setLoadError] = useState<string | null>(null)
   const [inputDraft, setInputDraft] = useState<string | undefined>(undefined)
@@ -46,9 +45,7 @@ export default function ExistingConversationPage() {
   const { send, sendAnotherMind } = useStream()
   const hasSentTopicRef = useRef(false)
 
-  const handleBringAnotherMind = () => {
-    if (plan === 'free') { router.push('/app/upgrade') } else { setPickerOpen(true) }
-  }
+  const handleBringAnotherMind = () => setPickerOpen(true)
   const isReady = activeConversationId === params.id
 
   useEffect(() => {
