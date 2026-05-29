@@ -122,10 +122,15 @@ class MessageOut(BaseModel):
     content: str
     safety_level: str
     persona_override: bool
+    persona_slug: str | None = None
     created_at: datetime
 
     class Config:
         from_attributes = True
+
+
+class AnotherMindCreate(BaseModel):
+    target_persona_slug: str
 
 
 # ── Memory ────────────────────────────────────────────────────────────────────

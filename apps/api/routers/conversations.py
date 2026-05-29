@@ -10,13 +10,14 @@ from models import User, Conversation, Message, Persona, SavedLine
 from schemas import (
     ConversationCreate, ConversationOut, CrossPersonaRequest,
     MessageCreate, MessageOut, PersonaOut, LLMErrorResponse,
+    AnotherMindCreate,
 )
 from auth import get_current_user, get_current_user_plan
 from services.conversation_service import conversation_service
 from services.tier_service import get_user_tier
 from services.persona_voice import get_error_voice
 import services.rate_limit_service as rate_limit_service
-from personas import get_persona
+from personas import get_persona, is_persona_accessible
 
 router = APIRouter(prefix="/conversations", tags=["conversations"])
 
@@ -209,8 +210,20 @@ async def get_messages(
         select(Message)
         .where(Message.conversation_id == conversation_id)
         .order_by(Message.created_at.asc())
+        .options(selectinload(Message.persona))
     )
-    return [MessageOut.model_validate(m) for m in msgs.scalars().all()]
+    return [
+        MessageOut(
+            id=m.id,
+            role=m.role,
+            content=m.content,
+            safety_level=m.safety_level,
+            persona_override=m.persona_override,
+            persona_slug=m.persona.slug if m.persona else None,
+            created_at=m.created_at,
+        )
+        for m in msgs.scalars().all()
+    ]
 
 
 @router.post("/{conversation_id}/messages")
@@ -273,6 +286,91 @@ async def send_message(
             conversation_id=conversation_id,
             user_id=user.id,
             user_text=body.content,
+            user_plan=plan,
+            user_name=user.full_name,
+            is_admin=user.is_admin,
+            arq_queue=arq_queue,
+        ),
+        media_type="text/event-stream",
+        headers=response_headers,
+    )
+
+
+@router.post("/{conversation_id}/another-mind")
+async def another_mind(
+    conversation_id: str,
+    request: Request,
+    body: AnotherMindCreate,
+    db: AsyncSession = Depends(get_db),
+    auth: tuple = Depends(get_current_user_plan),
+):
+    """SSE streaming endpoint. Generates a second persona's reply inside an existing conversation."""
+    user, plan = auth
+
+    result = await db.execute(
+        select(Conversation).where(Conversation.id == conversation_id, Conversation.user_id == user.id)
+    )
+    conv = result.scalar_one_or_none()
+    if not conv:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+
+    home_persona_result = await db.execute(select(Persona).where(Persona.id == conv.persona_id))
+    home_persona = home_persona_result.scalar_one()
+
+    target_config = get_persona(body.target_persona_slug)
+    if not target_config:
+        raise HTTPException(status_code=404, detail="Persona not found")
+
+    if body.target_persona_slug == home_persona.slug:
+        return JSONResponse(status_code=400, content={"error_code": "same_persona"})
+
+    if not is_persona_accessible(target_config, plan):
+        return JSONResponse(status_code=403, content={"error_code": "upgrade_required"})
+
+    target_persona_result = await db.execute(select(Persona).where(Persona.slug == body.target_persona_slug))
+    target_persona = target_persona_result.scalar_one_or_none()
+    if not target_persona:
+        raise HTTPException(status_code=404, detail="Persona not found")
+
+    rate_limit_result = None
+    if not user.is_admin and conv.ritual_id is None:
+        user_tier = await get_user_tier(db, user.id)
+        rate_limit_result = await rate_limit_service.check_rate_limit(
+            db, UUID(user.id), UUID(target_persona.id), user_tier=user_tier
+        )
+        if not rate_limit_result.allowed:
+            return JSONResponse(
+                status_code=429,
+                content=LLMErrorResponse(
+                    error_code="rate_limited",
+                    persona_voice=get_error_voice(target_config, "rate_limited"),
+                ).model_dump(),
+                headers={
+                    "X-RateLimit-Limit": str(rate_limit_result.limit),
+                    "X-RateLimit-Remaining": "0",
+                    "X-RateLimit-Reset": rate_limit_result.reset_at.isoformat(),
+                },
+            )
+
+    response_headers = {
+        "Cache-Control": "no-cache",
+        "X-Accel-Buffering": "no",
+    }
+    if rate_limit_result is not None:
+        response_headers["X-RateLimit-Limit"] = str(rate_limit_result.limit)
+        response_headers["X-RateLimit-Remaining"] = str(
+            max(0, rate_limit_result.remaining - 1)
+        )
+        response_headers["X-RateLimit-Reset"] = rate_limit_result.reset_at.isoformat()
+
+    arq_queue = getattr(request.app.state, "arq_queue", None)
+
+    return StreamingResponse(
+        conversation_service.stream_another_mind(
+            db=db,
+            conversation_id=conversation_id,
+            user_id=user.id,
+            target_persona_slug=body.target_persona_slug,
             user_plan=plan,
             user_name=user.full_name,
             is_admin=user.is_admin,
