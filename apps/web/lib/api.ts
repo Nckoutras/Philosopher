@@ -126,6 +126,7 @@ export interface Conversation {
   created_at: string
   source_persona_slug: string | null
   source_context_content: string | null
+  last_message_snippet: string | null
 }
 
 export interface Message {

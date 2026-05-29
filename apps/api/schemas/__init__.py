@@ -99,6 +99,7 @@ class ConversationOut(BaseModel):
     created_at: datetime
     source_persona_slug: Optional[str] = None
     source_context_content: Optional[str] = None
+    last_message_snippet: Optional[str] = None
 
     class Config:
         from_attributes = True
