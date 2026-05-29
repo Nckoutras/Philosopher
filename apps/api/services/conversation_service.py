@@ -23,6 +23,7 @@ from services.persona_voice import get_error_voice
 from services.postprocessing_service import (
     POSTPROCESSING_ENABLED,
     check_universal_forbidden,
+    check_brevity,
     CheckAction,
     _build_regen_directive,
     _deterministic_strip,
@@ -381,10 +382,12 @@ class ConversationService:
             # lexicon check, stream a correction in real-time via `correction`
             # event. Frontend fades original and shows the new stream.
             conv_position = "first_message" if len(history) <= 1 else "mid_session"
-            check_result = check_universal_forbidden(full_response)
-            if check_result.action == CheckAction.REGENERATE:
+            _fb  = check_universal_forbidden(full_response)
+            _brv = check_brevity(full_response, persona, conv_position)
+            _triggered = [c for c in (_fb, _brv) if c.action == CheckAction.REGENERATE]
+            if _triggered:
                 hit_categories = sorted(set(
-                    h.category for h in check_result.hits if h.category
+                    h.category for c in _triggered for h in c.hits if h.category
                 ))
                 logger.info(
                     "postprocessing_correction_triggered",
@@ -397,7 +400,7 @@ class ConversationService:
                     },
                 )
                 yield f"data: {json.dumps({'type': 'correction'})}\n\n"
-                directive = _build_regen_directive([check_result], 0, persona)
+                directive = _build_regen_directive(_triggered, 0, persona)
                 correction_buf: list[str] = []
                 try:
                     async for chunk in llm_client.stream(
@@ -408,8 +411,9 @@ class ConversationService:
                         correction_buf.append(chunk)
                         yield f"data: {json.dumps({'type': 'chunk', 'data': chunk})}\n\n"
                     correction_text = "".join(correction_buf)
-                    correction_check = check_universal_forbidden(correction_text)
-                    if correction_check.action in (CheckAction.PASS, CheckAction.SKIP):
+                    _fb2  = check_universal_forbidden(correction_text)
+                    _brv2 = check_brevity(correction_text, persona, conv_position)
+                    if _fb2.action in (CheckAction.PASS, CheckAction.SKIP) and _brv2.action in (CheckAction.PASS, CheckAction.SKIP):
                         logger.info(
                             "postprocessing_correction_passed",
                             extra={
@@ -420,14 +424,15 @@ class ConversationService:
                         )
                         full_response = correction_text
                     else:
-                        stripped = _deterministic_strip(correction_text, [correction_check])
+                        stripped = _deterministic_strip(correction_text, [_fb2, _brv2])
                         logger.warning(
                             "postprocessing_correction_stripped",
                             extra={
                                 "persona_slug": persona.slug,
                                 "hit_categories": sorted(set(
-                                    h.category for h in correction_check.hits if h.category
+                                    h.category for c in (_fb2, _brv2) for h in c.hits if h.category
                                 )),
+                                "word_count": _brv2.word_count,
                                 "conversation_id": str(conversation_id),
                                 "user_id": str(user_id),
                             },
