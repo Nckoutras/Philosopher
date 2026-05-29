@@ -1,7 +1,7 @@
 import Link from 'next/link'
 
 export const metadata = {
-  title: 'Privacy Policy — Great Minds',
+  title: 'Privacy Policy — The Wise Room',
 }
 
 export default function PrivacyPage() {

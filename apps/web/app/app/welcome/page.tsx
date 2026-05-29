@@ -96,7 +96,7 @@ export default function WelcomePage() {
             className="font-cormorant font-normal text-white text-[44px] leading-[1.05] tracking-wide"
             style={{ textShadow: '0 2px 8px rgba(0,0,0,0.6), 0 1px 3px rgba(0,0,0,0.8)' }}
           >
-            Great Minds
+            The Wise Room
           </h1>
           <p
             className="font-cormorant font-normal text-white/95 text-[19px] mt-2 leading-snug tracking-wide"

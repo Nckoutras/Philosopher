@@ -1,7 +1,7 @@
 import Link from 'next/link'
 
 export const metadata = {
-  title: 'Terms of Service — Great Minds',
+  title: 'Terms of Service — The Wise Room',
 }
 
 export default function TermsPage() {

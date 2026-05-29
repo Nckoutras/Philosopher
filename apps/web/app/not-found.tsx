@@ -5,7 +5,7 @@ export default function NotFound() {
     <main className="min-h-screen flex flex-col bg-vellum text-ink">
       <header className="px-6 pt-8 flex justify-center">
         <span className="font-cormorant text-[14px] font-medium italic text-ink/60">
-          Great Minds
+          The Wise Room
         </span>
       </header>
 
