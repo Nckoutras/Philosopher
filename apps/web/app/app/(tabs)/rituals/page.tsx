@@ -42,7 +42,7 @@ export default function RitualsPage() {
       </header>
 
       <div className="px-[16px] pb-[8px]">
-        <p className="font-lora text-[13px] text-charcoal leading-[1.65]">
+        <p className="font-lora text-[15px] text-charcoal leading-[1.65]">
           Rituals are guided reflective practices that help you return to what your
           conversations surface — recurring questions, assumptions, tensions, and
           patterns. They are designed to deepen reflection over time, not provide
@@ -61,7 +61,7 @@ export default function RitualsPage() {
             <p className="font-cormorant text-[19px] font-medium text-ink leading-tight">
               Letter to my Future Self
             </p>
-            <p className="font-lora text-[13px] text-charcoal leading-[1.5] mt-[6px]">
+            <p className="font-lora text-[15px] text-charcoal leading-[1.5] mt-[6px]">
               Seal a thought. Return to it later.
             </p>
             <button
@@ -84,7 +84,7 @@ export default function RitualsPage() {
             <p className="font-cormorant text-[19px] font-medium text-ink leading-tight">
               The Mirror
             </p>
-            <p className="font-lora text-[13px] text-charcoal leading-[1.5] mt-[6px]">
+            <p className="font-lora text-[15px] text-charcoal leading-[1.5] mt-[6px]">
               What keeps returning, reflected without judgment.
             </p>
             <p className="font-lora text-[12px] text-charcoal leading-[1.5] mt-[6px]">
@@ -106,7 +106,7 @@ export default function RitualsPage() {
             <p className="font-cormorant text-[19px] font-medium text-ink leading-tight">
               The Counterview
             </p>
-            <p className="font-lora text-[13px] text-charcoal leading-[1.5] mt-[6px]">
+            <p className="font-lora text-[15px] text-charcoal leading-[1.5] mt-[6px]">
               Your assumptions, tested from another angle.
             </p>
             <p className="font-lora text-[12px] text-charcoal leading-[1.5] mt-[6px]">
@@ -128,7 +128,7 @@ export default function RitualsPage() {
             <p className="font-cormorant text-[19px] font-medium text-ink leading-tight">
               The Weekly Reading
             </p>
-            <p className="font-lora text-[13px] text-charcoal leading-[1.5] mt-[6px]">
+            <p className="font-lora text-[15px] text-charcoal leading-[1.5] mt-[6px]">
               What your week circled, narrated back.
             </p>
             <p className="font-lora text-[12px] text-charcoal leading-[1.5] mt-[6px]">

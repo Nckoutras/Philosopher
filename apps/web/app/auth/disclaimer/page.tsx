@@ -72,7 +72,7 @@ export default function DisclaimerPage() {
             <h1 className="font-cormorant text-[26px] font-medium text-ink leading-tight">
               Before we begin.
             </h1>
-            <p className="font-lora text-[13px] text-charcoal leading-[1.65]">
+            <p className="font-lora text-[15px] text-charcoal leading-[1.65]">
               Two things to confirm.
             </p>
           </header>
