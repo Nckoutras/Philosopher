@@ -17,6 +17,7 @@ export function useStream() {
     setShowPaywall,
     setCorrection,
     appendCorrectionContent,
+    setStreamingBroughtIn,
   } = useStore()
 
   const send = useCallback(async (content: string) => {
@@ -160,6 +161,7 @@ export function useStream() {
       let buffer = ''
       let fullContent = ''
       let broughtInSlug: string | undefined
+      let broughtInName: string | undefined
       let pendingStreamError: { error_code: string; persona_voice: string } | null = null
 
       while (true) {
@@ -183,9 +185,13 @@ export function useStream() {
           }
 
           switch (event.type) {
-            case 'start':
-              broughtInSlug = (event as SSEEventStart).persona_slug
+            case 'start': {
+              const ev = event as SSEEventStart
+              broughtInSlug = ev.persona_slug
+              broughtInName = ev.persona_name
+              setStreamingBroughtIn(ev.persona_name ?? null)
               break
+            }
             case 'chunk':
               fullContent += event.data
               appendStreamingContent(event.data)
@@ -199,6 +205,7 @@ export function useStream() {
                 persona_override: false,
                 created_at: new Date().toISOString(),
                 persona_slug: broughtInSlug ?? null,
+                persona_name: broughtInName ?? null,
               }
               appendMessage(assistantMsg)
               resetStreaming()
@@ -233,7 +240,7 @@ export function useStream() {
       }
       console.error(err)
     }
-  }, [activeConversationId, appendMessage, setStreaming, appendStreamingContent, resetStreaming, setSafetyActive, setStreamError, setShowPaywall, router])
+  }, [activeConversationId, appendMessage, setStreaming, appendStreamingContent, resetStreaming, setSafetyActive, setStreamError, setShowPaywall, setStreamingBroughtIn, router])
 
   return { send, sendAnotherMind }
 }

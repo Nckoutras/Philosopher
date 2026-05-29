@@ -137,6 +137,7 @@ export interface Message {
   persona_override: boolean
   created_at: string
   persona_slug?: string | null
+  persona_name?: string | null
 }
 
 export interface MemoryEntry {

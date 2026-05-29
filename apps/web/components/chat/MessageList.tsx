@@ -36,7 +36,7 @@ export default function MessageList({ messages, onSaveLine, onUpgradeConfirm, on
       {visible.map((msg) => {
         const slug = msg.persona_slug
         const broughtIn = msg.role === 'assistant' && !!slug
-        const broughtInName = broughtIn && slug ? personaNames[slug] : undefined
+        const broughtInName = broughtIn ? (msg.persona_name ?? (slug ? personaNames[slug] : undefined)) : undefined
 
         return (
           <div key={msg.id}>
