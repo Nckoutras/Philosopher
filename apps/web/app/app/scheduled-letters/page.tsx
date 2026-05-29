@@ -77,7 +77,7 @@ export default function ScheduledLettersPage() {
         ) : items.length === 0 ? (
           <div className="bg-paper border border-[0.5px] border-edge rounded-md px-[16px] py-[24px] text-center">
             <p className="font-cormorant text-[19px] font-normal text-ink">No letters scheduled.</p>
-            <p className="font-lora text-[13px] text-charcoal mt-[6px] leading-[1.6]">
+            <p className="font-lora text-[15px] text-charcoal mt-[6px] leading-[1.6]">
               Schedule a reflection from the Rituals card on Today.
             </p>
           </div>

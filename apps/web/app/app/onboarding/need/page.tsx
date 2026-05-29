@@ -86,7 +86,7 @@ export default function NeedPage() {
             <h1 className="font-cormorant text-[26px] font-medium text-ink leading-tight">
               What do you need most?
             </h1>
-            <p className="font-lora text-[13px] text-charcoal leading-[1.65]">
+            <p className="font-lora text-[15px] text-charcoal leading-[1.65]">
               Pick the one that fits today.
             </p>
           </header>

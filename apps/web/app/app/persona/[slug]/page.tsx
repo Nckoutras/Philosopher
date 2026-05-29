@@ -153,7 +153,7 @@ export default function PersonaDetailPage() {
           {/* Bio — blurred if locked */}
           {bio && (
             <p
-              className="font-lora text-[13px] text-charcoal leading-[1.7]"
+              className="font-lora text-[15px] text-charcoal leading-[1.7]"
             >
               {bio}
             </p>

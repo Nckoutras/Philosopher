@@ -108,7 +108,7 @@ export default function MatchesPage() {
             <h1 className="font-cormorant text-[26px] font-medium text-ink leading-tight">
               Three minds for you
             </h1>
-            <p className="font-lora text-[13px] text-charcoal leading-[1.65]">
+            <p className="font-lora text-[15px] text-charcoal leading-[1.65]">
               Based on what you shared, these can be a good fit.
             </p>
           </header>
