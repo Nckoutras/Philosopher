@@ -69,7 +69,7 @@ export default function DisclaimerPage() {
 
           {/* Hero */}
           <header className="space-y-3 text-center">
-            <h1 className="font-cormorant text-[26px] font-normal text-ink leading-tight">
+            <h1 className="font-cormorant text-[26px] font-medium text-ink leading-tight">
               Before we begin.
             </h1>
             <p className="font-lora text-[13px] text-charcoal leading-[1.65]">

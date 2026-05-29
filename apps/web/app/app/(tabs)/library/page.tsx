@@ -69,7 +69,7 @@ function LibraryContent() {
         <p className="font-lora text-[11px] uppercase tracking-[0.18em] text-sepia mb-1">
           Library
         </p>
-        <h1 className="font-cormorant text-[26px] font-normal text-ink leading-tight">
+        <h1 className="font-cormorant text-[26px] font-medium text-ink leading-tight">
           {mode === 'browse' ? 'Explore minds.' : 'Past conversations.'}
         </h1>
       </header>

@@ -78,7 +78,7 @@ export default function AccountPage() {
         <p className="font-lora text-[11px] uppercase tracking-[0.18em] text-sepia mb-[4px]">
           Account
         </p>
-        <h1 className="font-cormorant text-[26px] font-normal text-ink leading-tight">
+        <h1 className="font-cormorant text-[26px] font-medium text-ink leading-tight">
           Your account.
         </h1>
       </div>

@@ -79,7 +79,7 @@ export default function PaywallModal({ open, details, onClose }: Props) {
 
         <h2
           id="paywall-title"
-          className="font-cormorant text-[26px] font-normal text-ink leading-tight mb-4"
+          className="font-cormorant text-[26px] font-medium text-ink leading-tight mb-4"
         >
           Daily limit reached.
         </h2>

@@ -12,7 +12,7 @@ export default function StreamingBubble() {
 
   return (
     <div className="flex justify-start">
-      <div className="max-w-[80%] px-4 py-3 rounded-sm shadow-card bg-white font-lora text-[14px] text-safety leading-relaxed whitespace-pre-wrap">
+      <div className="max-w-[80%] px-4 py-3 rounded-sm shadow-card bg-white font-lora text-[16px] text-safety leading-relaxed whitespace-pre-wrap">
         {isCorrecting ? (
           <>
             <span className="text-charcoal opacity-55 transition-opacity duration-300">

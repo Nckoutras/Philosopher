@@ -17,7 +17,7 @@ export default function PrivacyPage() {
 
         <article className="mt-10 space-y-7">
           <header className="space-y-2">
-            <h1 className="font-cormorant text-[32px] font-normal text-ink leading-tight">
+            <h1 className="font-cormorant text-[32px] font-medium text-ink leading-tight">
               Privacy Policy
             </h1>
             <p className="font-lora text-[12px] text-sepia">
@@ -99,7 +99,7 @@ export default function PrivacyPage() {
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="space-y-3">
-      <h2 className="font-cormorant text-[22px] font-normal text-ink leading-tight">
+      <h2 className="font-cormorant text-[22px] font-medium text-ink leading-tight">
         {title}
       </h2>
       <div className="font-lora text-[14px] text-charcoal leading-[1.7]">

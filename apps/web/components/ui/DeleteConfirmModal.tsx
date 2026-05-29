@@ -86,7 +86,7 @@ export default function DeleteConfirmModal({
       <div className="relative z-10 w-full max-w-[340px] bg-paper rounded-lg p-6 shadow-[0_8px_32px_rgba(31,27,20,0.18)]">
         <h2
           id="delete-confirm-title"
-          className="font-cormorant text-[22px] font-normal text-ink leading-tight mb-2"
+          className="font-cormorant text-[22px] font-medium text-ink leading-tight mb-2"
         >
           {title}
         </h2>

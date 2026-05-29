@@ -136,7 +136,7 @@ export default function PersonaDetailPage() {
 
           {/* Name + tagline */}
           <header className="space-y-2 text-center">
-            <h1 className="font-cormorant text-[28px] font-normal text-ink leading-tight">
+            <h1 className="font-cormorant text-[28px] font-medium text-ink leading-tight">
               {persona.name}
             </h1>
             {persona.tagline && (
