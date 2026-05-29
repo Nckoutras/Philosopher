@@ -2,7 +2,7 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'https://philosopher-api-z9l
 
 // ── SSE event types ───────────────────────────────────────────────────────────
 
-export type SSEEventStart = { type: 'start' }
+export type SSEEventStart = { type: 'start'; brought_in?: boolean; persona_slug?: string; persona_name?: string }
 export type SSEEventChunk = { type: 'chunk'; data: string }
 // message_id is absent in pre-generation safety path (Pattern B)
 export type SSEEventDone = { type: 'done'; message_id?: string }
@@ -136,6 +136,7 @@ export interface Message {
   safety_level: string
   persona_override: boolean
   created_at: string
+  persona_slug?: string | null
 }
 
 export interface MemoryEntry {
@@ -466,6 +467,38 @@ class ApiClient {
       body: JSON.stringify({ content }),
     })
     if (!res.ok) {
+      if (res.status === 429) {
+        const body = await res.json().catch(() => ({} as LLMErrorResponse))
+        const limit = parseInt(res.headers.get('X-RateLimit-Limit') ?? '0', 10)
+        const remaining = parseInt(res.headers.get('X-RateLimit-Remaining') ?? '0', 10)
+        const resetHeader = res.headers.get('X-RateLimit-Reset') ?? new Date().toISOString()
+        throw new RateLimitError({
+          resetAt: new Date(resetHeader),
+          limit,
+          remaining,
+          errorCode: body.error_code ?? 'rate_limited',
+          personaVoice: body.persona_voice,
+          upgradeTarget: userPlan === 'pro' ? 'premium' : 'pro',
+        })
+      }
+      throw new Error('Stream failed')
+    }
+    return res
+  }
+
+  async streamAnotherMind(conversationId: string, personaSlug: string, userPlan: string = 'free'): Promise<Response> {
+    const res = await fetch(`${API_BASE}/conversations/${conversationId}/another-mind`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(this.token ? { Authorization: `Bearer ${this.token}` } : {}),
+      },
+      body: JSON.stringify({ target_persona_slug: personaSlug }),
+    })
+    if (!res.ok) {
+      if (res.status === 403) {
+        throw new Error('upgrade_required')
+      }
       if (res.status === 429) {
         const body = await res.json().catch(() => ({} as LLMErrorResponse))
         const limit = parseInt(res.headers.get('X-RateLimit-Limit') ?? '0', 10)

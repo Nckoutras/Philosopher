@@ -11,9 +11,10 @@ interface Props {
   saved: boolean
   onSave: () => void
   onUpgradeConfirm: () => void
+  onBringAnotherMind: () => void
 }
 
-export default function QuickActionsRow({ messageId: _messageId, saved, onSave, onUpgradeConfirm }: Props) {
+export default function QuickActionsRow({ messageId: _messageId, saved, onSave, onUpgradeConfirm, onBringAnotherMind }: Props) {
   const [showUpgrade, setShowUpgrade] = useState(false)
   const freeSaveCount = useStore((s) => s.freeSaveCount)
   const freeTierLimit = useStore((s) => s.freeTierLimit)
@@ -60,7 +61,7 @@ export default function QuickActionsRow({ messageId: _messageId, saved, onSave, 
       </button>
       <button
         type="button"
-        onClick={() => toast('Coming soon', { duration: 2000 })}
+        onClick={onBringAnotherMind}
         className={chipBase}
         aria-label="Bring another mind"
       >

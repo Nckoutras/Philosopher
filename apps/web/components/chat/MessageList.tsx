@@ -9,9 +9,10 @@ interface Props {
   messages: Message[]
   onSaveLine: (messageId: string) => void
   onUpgradeConfirm: () => void
+  onBringAnotherMind: () => void
 }
 
-export default function MessageList({ messages, onSaveLine, onUpgradeConfirm }: Props) {
+export default function MessageList({ messages, onSaveLine, onUpgradeConfirm, onBringAnotherMind }: Props) {
   const savedMessageIds = useStore((s) => s.savedMessageIds)
 
   const visible = messages.filter(
@@ -35,6 +36,7 @@ export default function MessageList({ messages, onSaveLine, onUpgradeConfirm }: 
               saved={savedMessageIds.has(msg.id)}
               onSave={() => onSaveLine(msg.id)}
               onUpgradeConfirm={onUpgradeConfirm}
+              onBringAnotherMind={onBringAnotherMind}
             />
           )}
         </div>
