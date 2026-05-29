@@ -499,11 +499,167 @@ class ConversationService:
 
         yield f"data: {json.dumps({'type': 'done', 'message_id': assistant_msg.id})}\n\n"
 
+    # ── Stream another mind ───────────────────────────────────────────────────
+    async def stream_another_mind(
+        self,
+        db: AsyncSession,
+        conversation_id: str,
+        user_id: str,
+        target_persona_slug: str,
+        user_plan: str = "free",
+        user_name: str | None = None,
+        is_admin: bool = False,
+        arq_queue=None,
+    ) -> AsyncGenerator[str, None]:
+        # Load conversation
+        result = await db.execute(
+            select(Conversation).where(Conversation.id == conversation_id)
+        )
+        conv = result.scalar_one_or_none()
+        if not conv:
+            raise ValueError("Conversation not found")
+
+        # Resolve target persona (config + DB record)
+        persona = get_persona(target_persona_slug)
+        target_result = await db.execute(select(Persona).where(Persona.slug == target_persona_slug))
+        target_db = target_result.scalar_one()
+
+        # Fetch the most recent user message — used for memory/retrieval queries
+        # and as the final user turn the guest responds to.
+        last_user_result = await db.execute(
+            select(Message.content)
+            .where(Message.conversation_id == conversation_id, Message.role == "user")
+            .order_by(Message.created_at.desc())
+            .limit(1)
+        )
+        last_user_text: str = last_user_result.scalar_one_or_none() or ""
+
+        # ── 1. RECALL MEMORY ─────────────────────────────────────────────────
+        memories = []
+        try:
+            memories = await memory_service.recall(db, user_id, last_user_text, top_k=6)
+        except Exception as e:
+            logger.warning(f"Memory recall failed (another_mind): {e}")
+            await db.rollback()
+
+        # ── 2. RETRIEVE PASSAGES (target persona) ────────────────────────────
+        passages = []
+        try:
+            passages = await retrieval_service.retrieve(db, last_user_text, persona)
+        except Exception as e:
+            logger.warning(f"Retrieval failed (another_mind): {e}")
+            await db.rollback()
+
+        # ── 3. BUILD SYSTEM PROMPT (target persona) ──────────────────────────
+        system_prompt = prompt_builder.build_system(
+            persona=persona,
+            memories=memories,
+            passages=passages,
+        )
+
+        # ── 4. BUILD MESSAGE HISTORY ─────────────────────────────────────────
+        # Use same window limits as regular chat.
+        history_result = await db.execute(
+            select(Message)
+            .where(Message.conversation_id == conversation_id)
+            .order_by(Message.created_at.asc())
+            .limit(MEMORY_WINDOW_PRO if user_plan in ("pro", "premium") else MEMORY_WINDOW_FREE)
+        )
+        history = history_result.scalars().all()
+        lm_messages = [
+            {"role": m.role, "content": m.content}
+            for m in history
+            if m.role in ("user", "assistant")
+        ]
+        # Strip leading assistant turns (same invariant as stream_response).
+        while lm_messages and lm_messages[0]["role"] == "assistant":
+            lm_messages.pop(0)
+        # Strip trailing assistant turns so lm_messages ends at the last user
+        # turn (the message the guest persona is responding to).
+        while lm_messages and lm_messages[-1]["role"] == "assistant":
+            lm_messages.pop()
+        # Explicit guarantee: append last_user_text as the final turn.
+        # Handles the window-cutoff case (MEMORY_WINDOW_FREE=5 may not reach the
+        # most recent user message) and ensures recall/retrieval/lm_messages all
+        # key off exactly the same text. Skip when no user message exists.
+        if last_user_text and (not lm_messages or lm_messages[-1]["content"] != last_user_text):
+            lm_messages.append({"role": "user", "content": last_user_text})
+
+        # ── 5. STREAM FROM LLM ───────────────────────────────────────────────
+        model = MODEL_PRO if user_plan in ("pro", "premium") else MODEL_FREE
+        yield f"data: {json.dumps({'type': 'start', 'brought_in': True, 'persona_slug': persona.slug, 'persona_name': persona.name})}\n\n"
+
+        _llm_success = False
+        _last_llm_error: Exception | None = None
+        _buf: list[str] = []
+        _chunks_yielded = False
+
+        for attempt in range(3):
+            _buf = []
+            _chunks_yielded = False
+            try:
+                async for chunk in llm_client.stream(
+                    system=system_prompt, messages=lm_messages, model=model
+                ):
+                    _buf.append(chunk)
+                    _chunks_yielded = True
+                    yield f"data: {json.dumps({'type': 'chunk', 'data': chunk})}\n\n"
+                _llm_success = True
+                break
+            except anthropic.RateLimitError as exc:
+                _last_llm_error = exc
+                if _chunks_yielded:
+                    break
+                await asyncio.sleep(2**attempt)
+            except anthropic.APIStatusError as exc:
+                _last_llm_error = exc
+                if _chunks_yielded or exc.status_code < 500:
+                    break
+                await asyncio.sleep(2**attempt)
+            except (anthropic.APIConnectionError, anthropic.APITimeoutError) as exc:
+                _last_llm_error = exc
+                if _chunks_yielded:
+                    break
+                await asyncio.sleep(2**attempt)
+
+        if not _llm_success:
+            persona_voice_text = get_error_voice(persona, "llm_unavailable")
+            error_event = {
+                "type": "error",
+                "error_code": "llm_unavailable",
+                "persona_voice": persona_voice_text,
+            }
+            logger.error(f"LLM stream failed (another_mind) for persona={persona.slug}: {_last_llm_error}")
+            yield f"data: {json.dumps(error_event)}\n\n"
+            await db.commit()
+            return
+
+        full_response = "".join(_buf)
+
+        # ── 6. PERSIST ASSISTANT MESSAGE WITH TARGET PERSONA ID ───────────────
+        assistant_msg = await self._save_message(
+            db, conv, user_id, "assistant", full_response,
+            retrieval_ids=[str(p.id) for p in passages],
+            persona_id=target_db.id,
+        )
+        await db.execute(
+            update(Conversation)
+            .where(Conversation.id == conversation_id)
+            .values(
+                message_count=Conversation.message_count + 1,
+                last_message_at=assistant_msg.created_at,
+            )
+        )
+        await db.commit()
+
+        yield f"data: {json.dumps({'type': 'done', 'message_id': assistant_msg.id})}\n\n"
+
     # ── Helpers ───────────────────────────────────────────────────────────────
     async def _save_message(
         self, db, conv, user_id, role, content,
         retrieval_ids=None, safety_level="none",
         persona_override=False, latency_ms=None,
+        persona_id=None,
     ) -> Message:
         msg = Message(
             conversation_id=conv.id,
@@ -514,6 +670,7 @@ class ConversationService:
             safety_level=safety_level,
             persona_override=persona_override,
             latency_ms=latency_ms,
+            persona_id=persona_id,
         )
         db.add(msg)
         await db.flush()
