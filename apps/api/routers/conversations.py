@@ -34,7 +34,28 @@ async def _build_source_contents(db: AsyncSession, convs: list[Conversation]) ->
     return {str(row[0]): row[1] for row in rows.all()}
 
 
-def _conv_out(conv: Conversation, source_contents: dict[str, str]) -> ConversationOut:
+async def _build_last_snippets(db: AsyncSession, convs: list[Conversation], max_len: int = 70) -> dict[str, str]:
+    """Latest assistant-message preview per conversation (one DISTINCT ON query)."""
+    conv_ids = [c.id for c in convs]
+    if not conv_ids:
+        return {}
+    rows = await db.execute(
+        select(Message.conversation_id, Message.content)
+        .where(Message.conversation_id.in_(conv_ids))
+        .where(Message.role == "assistant")
+        .order_by(Message.conversation_id, Message.created_at.desc())
+        .distinct(Message.conversation_id)
+    )
+    out: dict[str, str] = {}
+    for conv_id, content in rows.all():
+        text = " ".join((content or "").split())
+        if len(text) > max_len:
+            text = text[:max_len].rstrip() + "…"
+        out[str(conv_id)] = text
+    return out
+
+
+def _conv_out(conv: Conversation, source_contents: dict[str, str], snippets: dict[str, str] | None = None) -> ConversationOut:
     pc = get_persona(conv.persona.slug)
     return ConversationOut(
         id=conv.id,
@@ -57,6 +78,7 @@ def _conv_out(conv: Conversation, source_contents: dict[str, str]) -> Conversati
             source_contents.get(conv.source_saved_line_id)
             if conv.source_saved_line_id else None
         ),
+        last_message_snippet=(snippets or {}).get(str(conv.id)),
     )
 
 
@@ -147,7 +169,8 @@ async def list_conversations(
     convs = result.scalars().all()
 
     source_contents = await _build_source_contents(db, convs)
-    return [_conv_out(c, source_contents) for c in convs]
+    snippets = await _build_last_snippets(db, convs)
+    return [_conv_out(c, source_contents, snippets) for c in convs]
 
 
 @router.get("/{conversation_id}", response_model=ConversationOut)

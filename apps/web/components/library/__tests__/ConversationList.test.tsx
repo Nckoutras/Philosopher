@@ -36,6 +36,9 @@ function makeConv(id: string, daysAgo: number, name = 'Epictetus'): Conversation
       portrait_url: '',
       is_accessible: true,
     },
+    source_persona_slug: null,
+    source_context_content: null,
+    last_message_snippet: null,
   }
 }
 
