@@ -76,7 +76,7 @@ function TroubleForm() {
               Trouble accessing your email?
             </h1>
             <p className="font-lora text-[13px] text-charcoal leading-[1.65]">
-              No password to reset — Great Minds uses passwordless sign-in.
+              No password to reset — The Wise Room uses passwordless sign-in.
               If you can't access the email tied to your account, here's
               what you can do.
             </p>

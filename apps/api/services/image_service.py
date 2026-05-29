@@ -69,7 +69,7 @@ WORDMARK_FONT_SIZE  = 24
 
 URL_BASELINE_Y      = FOOTER_TOP_Y + 150  # 1280
 URL_FONT_SIZE       = 18
-URL_TEXT            = "thegreatminds.app"
+URL_TEXT            = "thewiseroom.app"
 
 DATE_BASELINE_Y     = FOOTER_TOP_Y + 170  # 1300
 DATE_FONT_SIZE      = 12
@@ -238,10 +238,10 @@ def _compose_canvas(
         anchor="ms",
     )
 
-    # "Great Minds" wordmark
+    # "The Wise Room" wordmark
     draw.text(
         (PORTRAIT_CENTER_X, WORDMARK_BASELINE_Y),
-        "Great Minds",
+        "The Wise Room",
         font=font_italic_word,
         fill=BRONZE_COLOR,
         anchor="ms",

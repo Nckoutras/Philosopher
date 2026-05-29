@@ -92,8 +92,8 @@ export default function SharePreviewModal({
   async function handleSend() {
     setShareLoading(true)
     setShareError(null)
-    const shortShareText = `${personaName} told me:\nthegreatminds.app`
-    const fullShareText  = `${personaName} told me:\n\n${quote}\n\nthegreatminds.app`
+    const shortShareText = `${personaName} told me:\nthewiseroom.app`
+    const fullShareText  = `${personaName} told me:\n\n${quote}\n\nthewiseroom.app`
     const origin = typeof window !== 'undefined' ? window.location.origin : ''
     const url    = `${origin}/app/chat/conv/${conversationId}`
 
@@ -209,8 +209,8 @@ export default function SharePreviewModal({
 
           {/* Mini footer */}
           <div className="mt-3 pt-2 border-t border-bronze/20 w-full text-center flex-shrink-0">
-            <p className="font-cormorant italic text-[9px] text-bronze">Great Minds</p>
-            <p className="font-lora text-[7px] text-bronze/60 mt-0.5">thegreatminds.app</p>
+            <p className="font-cormorant italic text-[9px] text-bronze">The Wise Room</p>
+            <p className="font-lora text-[7px] text-bronze/60 mt-0.5">thewiseroom.app</p>
           </div>
         </div>
 

@@ -16,13 +16,13 @@ describe('SafetyBubble', () => {
       screen.getByText(/reach out to a trusted person/),
     ).toBeTruthy()
     expect(
-      screen.getByText(/Great Minds can offer reflection/),
+      screen.getByText(/The Wise Room can offer reflection/),
     ).toBeTruthy()
   })
 
-  it('renders the Great Minds eyebrow', () => {
+  it('renders the The Wise Room eyebrow', () => {
     render(<SafetyBubble />)
-    expect(screen.getByText('Great Minds')).toBeTruthy()
+    expect(screen.getByText('The Wise Room')).toBeTruthy()
   })
 
   it('second paragraph (danger warning) is rendered with bold font weight', () => {

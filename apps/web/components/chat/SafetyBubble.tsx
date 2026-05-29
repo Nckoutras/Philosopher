@@ -23,9 +23,9 @@ export default function SafetyBubble() {
         <LozengePip />
         <span
           className="font-lora text-[9px] text-sepia uppercase tracking-[0.18em]"
-          aria-label="Great Minds app voice"
+          aria-label="The Wise Room app voice"
         >
-          Great Minds
+          The Wise Room
         </span>
       </div>
 
@@ -44,7 +44,7 @@ export default function SafetyBubble() {
           If you can, reach out to a trusted person near you or a qualified mental health professional.
         </p>
         <p>
-          Great Minds can offer reflection, but it cannot provide crisis support, diagnosis, or medical treatment.
+          The Wise Room can offer reflection, but it cannot provide crisis support, diagnosis, or medical treatment.
         </p>
       </div>
     </div>

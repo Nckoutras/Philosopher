@@ -26,11 +26,11 @@ export const viewport: Viewport = {
 }
 
 export const metadata: Metadata = {
-  title: 'Philosopher — Your Reflective Companion',
+  title: 'The Wise Room — Your Reflective Companion',
   description: 'Think deeper with the great minds of history.',
   metadataBase: new URL(process.env.NEXT_PUBLIC_BASE_URL ?? 'https://philosopher.app'),
   openGraph: {
-    title: 'Philosopher',
+    title: 'The Wise Room',
     description: 'A premium AI reflective companion grounded in historical philosophy.',
     type: 'website',
   },
