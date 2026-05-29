@@ -35,7 +35,7 @@ export default function UpgradePage() {
         <p className="font-lora text-[11px] uppercase tracking-[0.18em] text-sepia mb-[4px]">
           Upgrade
         </p>
-        <h1 className="font-cormorant text-[26px] font-normal text-ink leading-tight">
+        <h1 className="font-cormorant text-[26px] font-medium text-ink leading-tight">
           Choose your plan.
         </h1>
         <p className="font-lora text-[13px] text-charcoal mt-[6px] leading-snug">

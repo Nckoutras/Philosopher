@@ -65,7 +65,7 @@ export default function ScheduledLettersPage() {
           <p className="font-lora text-[11px] uppercase tracking-[0.18em] text-sepia">
             Account
           </p>
-          <h1 className="font-cormorant text-[26px] font-normal text-ink leading-tight">
+          <h1 className="font-cormorant text-[26px] font-medium text-ink leading-tight">
             Letters to future self.
           </h1>
         </div>

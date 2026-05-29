@@ -155,7 +155,7 @@ export default function TodayPage() {
         <p className="font-lora text-[11px] uppercase tracking-[0.18em] text-sepia mb-[4px]">
           {dateEyebrow}
         </p>
-        <h1 className="font-cormorant text-[24px] font-normal text-ink leading-tight">
+        <h1 className="font-cormorant text-[24px] font-medium text-ink leading-tight">
           {greeting}
         </h1>
       </div>

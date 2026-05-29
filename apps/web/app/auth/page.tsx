@@ -81,7 +81,7 @@ function AuthForm() {
       <div className="flex-1 flex flex-col justify-center px-7 py-8">
         <div className="w-full max-w-[380px] mx-auto space-y-7">
           <header className="text-center space-y-2">
-            <h1 className="font-cormorant text-[28px] font-normal text-ink leading-tight">
+            <h1 className="font-cormorant text-[28px] font-medium text-ink leading-tight">
               {mode === 'signin' ? 'Welcome back.' : 'Create your account.'}
             </h1>
             <p className="font-lora text-[13px] text-charcoal">

@@ -25,7 +25,7 @@ export default function ErrorMessage({ send }: Props) {
   return (
     <div className="px-1 py-2">
       <p
-        className="font-lora text-[14px] italic leading-relaxed"
+        className="font-lora text-[16px] italic leading-relaxed"
         style={{ color: 'rgba(184, 153, 104, 0.6)' }}
       >
         {streamError.persona_voice}

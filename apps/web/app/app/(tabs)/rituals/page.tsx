@@ -36,7 +36,7 @@ export default function RitualsPage() {
         <p className="font-lora text-[11px] uppercase tracking-[0.18em] text-sepia mb-1">
           Rituals
         </p>
-        <h1 className="font-cormorant text-[26px] font-normal text-ink leading-tight">
+        <h1 className="font-cormorant text-[26px] font-medium text-ink leading-tight">
           Your reflective practices.
         </h1>
       </header>
