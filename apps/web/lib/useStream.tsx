@@ -1,9 +1,11 @@
 import { useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import { api, Message, RateLimitError, SSEEvent, SSEEventStart } from '@/lib/api'
 import { useStore } from '@/lib/store'
 import toast from 'react-hot-toast'
 
 export function useStream() {
+  const router = useRouter()
   const {
     activeConversationId,
     appendMessage,
@@ -224,12 +226,14 @@ export function useStream() {
           limit: err.limit,
           personaVoice: err.personaVoice,
         })
+      } else if (err instanceof Error && err.message === 'upgrade_required') {
+        router.push('/app/upgrade')
       } else {
         toast.error('Something went wrong. Please try again.')
       }
       console.error(err)
     }
-  }, [activeConversationId, appendMessage, setStreaming, appendStreamingContent, resetStreaming, setSafetyActive, setStreamError, setShowPaywall])
+  }, [activeConversationId, appendMessage, setStreaming, appendStreamingContent, resetStreaming, setSafetyActive, setStreamError, setShowPaywall, router])
 
   return { send, sendAnotherMind }
 }
