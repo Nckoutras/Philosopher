@@ -2,11 +2,11 @@
 
 > **What this file is:** Live snapshot of the project's current implementation status. Manually maintained.
 >
-> **v14 = v13 baseline (2026-05-28) + 2026-05-29 session delta (Typography PR-F V1+Phase2; PR-B / C9 "Bring another mind" end-to-end — 5 PRs; cross-mind awareness; migration 016 messages.persona_id; new POST /another-mind endpoint; logged: systemic frontend plan bug, post-beta another-mind feature gate, deferred switch-to-mind enhancement).**
+> **v14 = v13 baseline (2026-05-28) + 2026-05-29 session delta (Typography PR-F V1+Phase2; PR-B / C9 "Bring another mind" end-to-end — 5 PRs; cross-mind awareness; migration 016 messages.persona_id; new POST /another-mind endpoint; logged: systemic frontend plan bug, post-beta another-mind feature gate, deferred switch-to-mind enhancement) + 2026-05-30 addendum (Voice Overhaul: check_brevity wired into live post-stream path; global ending-variation rule; Socrates elenchus cycle; all 9 personas tightened).**
 >
 > **Generated:** 2026-05-29 (v14 rotation)
 >
-> **Last updated:** 2026-05-29
+> **Last updated:** 2026-05-30
 
 > **v14 conflict resolution rule:** Where v14 conflicts with v13, v14 wins. Production reality always wins over docs.
 
@@ -34,6 +34,47 @@
 - ⏸ **Enhancement — switch to the brought-in mind** (persona switching mid-conversation). Post-validation only.
 
 **Status:** C9 / PR-B COMPLETE; cross-mind awareness COMPLETE; typography PR-F COMPLETE. Critical path to revenue (unchanged, still open): cold-beta validation → live Stripe → TD-11 + another-mind feature gate → paid launch.
+
+---
+
+## v14 Addendum — Voice Overhaul (2026-05-30)
+
+> Appended to v14 baseline. Where this conflicts with earlier v14 content, this addendum wins.
+
+**Shipped this session (all merged to main):**
+
+- **`check_brevity` wired into live post-stream path** — previously dead code; word bands were never enforced at runtime. Now called in the post-stream pipeline; enforcement is live for all 9 personas.
+- **Global ending-variation rule in `system_base.jinja2`** — ~40% question / ~40% no-question / ~20% mixed endings enforced globally. Carve-out: personas whose own `ResponseSpec` mandates a question are exempt from the no-question bucket.
+- **Socrates elenchus cycle upgraded** — prior spec mandated "exactly one question, no exceptions" (internal contradiction with the elenctic method). Upgraded to the full cycle: ask → synthesise → expose contradiction. Biography now gated under ANTI-FLEXING.
+- **All 9 personas voice-tightened** — tighter bands, 2026-voice bullets, ANTI-FLEXING bullets, and `voice_calibration_examples` added across Marcus Aurelius, Socrates, Epictetus, Oscar Wilde, Carl Jung, Sigmund Freud, Simone de Beauvoir, Niccolò Machiavelli, Lao Tzu. Each persona's distinct cognitive signature preserved.
+
+**Critical gap closed — Wilde, Machiavelli, Lao Tzu:**
+These three personas previously had **no `ResponseLengthSpec`**, meaning `check_brevity` was skipped entirely for them. This session added a spec to each; brevity enforcement is now active for all 9 personas.
+
+**Per-persona word bands (read from source):**
+
+| Persona | standard (min–max) | first (max) | reflective (max) |
+|---|---|---|---|
+| Marcus Aurelius | 20–55 | 40 | 75 |
+| Socrates | 20–55 | 35 | 70 |
+| Epictetus | 20–55 | 35 | 70 |
+| Oscar Wilde | 20–55 | 40 | 75 |
+| Carl Jung | 25–60 | 40 | 80 |
+| Sigmund Freud | 25–60 | 40 | 80 |
+| Simone de Beauvoir | 30–65 | 50 | 90 |
+| Niccolò Machiavelli | 25–60 | 40 | 80 |
+| Lao Tzu | 15–45 | 35 | 70 |
+
+**Personas pending author smoke-test post-deploy (voice changes live):**
+Oscar Wilde, Carl Jung, Sigmund Freud, Simone de Beauvoir, Niccolò Machiavelli, Lao Tzu.
+
+**Status:** Voice overhaul COMPLETE. Next major feature: Rituals (user-stated entry condition for beta — **scope not yet designed**; design with Claude chat first).
+
+**INFRA ALREADY PRESENT (verified in live DB, project bvzeuwzqgnqcghvqghtb, 2026-05-30):**
+- Tables `rituals` (4 rows) + `user_ritual_completions` (4) exist — rituals skeleton already built.
+- `memory_entries` = 56 rows (worker actively producing).
+- `insights` table EXISTS but is EMPTY (0 rows) — the progress/insight generator is either not running or not wired.
+- The empty `insights` table is the likely leverage point for the "progress" payoff; investigate before building new.
 
 ---
 

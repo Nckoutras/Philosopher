@@ -2,11 +2,13 @@
 
 **For:** The next Claude (chat) and Claude Code session
 **From:** Nikos Koutras (founder) + Claude Code
-**Date updated:** 2026-05-29
+**Date updated:** 2026-05-30
 **Prior version:** `docs/HANDOFF_BRIEF_v13.md` (2026-05-28)
 **Generated:** 2026-05-29 (v14 rotation)
 
 **Block trigger for v14 baseline regen:** 2026-05-29 session shipped Typography PR-F (V1 + Phase 2), the full C9 "Bring another mind" Pro feature end-to-end (5 PRs), and cross-mind awareness; added migration 016 (messages.persona_id) and the POST /another-mind endpoint. Session volume exceeded the v13 regen threshold, so v14 was rotated.
+
+**v14 addendum (2026-05-30):** Voice overhaul — check_brevity wired live, ending-variation rule, Socrates elenchus upgrade, all 9 personas tightened + ANTI-FLEXING + examples. Next major feature: Rituals.
 
 **Status:**
 - Block A ✅ FULLY CLOSED (5/5)
@@ -22,6 +24,7 @@
 - Bug #4 ✅ FIXED (PR-A #128 — real-time streaming)
 - Typography PR-F ✅ COMPLETE (2026-05-29)
 - C9 "Bring another mind" / PR-B ✅ COMPLETE (2026-05-29) — Pro-gated; cross-mind awareness shipped
+- Voice overhaul ✅ COMPLETE (2026-05-30) — check_brevity live; ending-variation rule; Socrates elenchus; all 9 personas tightened
 - Oregon region migration 🟡 IN PROGRESS — data partial, DATABASE_URL switch unconfirmed
 - Upstash ✅ Pay-as-You-Go (upgraded 2026-05-27)
 - ANTHROPIC_API_KEY ✅ Re-added to both services (2026-05-27/28)
@@ -52,6 +55,66 @@
 - ⏸ **Enhancement — switch to the brought-in mind** (persona switching mid-conversation). Post-validation only.
 
 **Status:** C9 / PR-B COMPLETE; cross-mind awareness COMPLETE; typography PR-F COMPLETE. Critical path to revenue (unchanged, still open): cold-beta validation → live Stripe → TD-11 + another-mind feature gate → paid launch.
+
+---
+
+## v14 Addendum — Voice Overhaul (2026-05-30)
+
+> Appended to v14 baseline. Where this conflicts with earlier v14 content, this addendum wins.
+
+**Shipped this session (all merged to main):**
+
+- **`check_brevity` wired into live post-stream path** — previously dead code; word bands were never enforced at runtime. Enforcement is now active for all 9 personas.
+- **Global ending-variation rule (`system_base.jinja2`)** — ~40% question / ~40% no-question / ~20% mixed endings. Carve-out: personas whose own `ResponseSpec` mandates a question are exempt from the no-question bucket.
+- **Socrates elenchus cycle** — upgraded from "exactly one question, no exceptions" (contradicted the elenctic method) to the full cycle: ask → synthesise → expose contradiction. Biography gated under ANTI-FLEXING.
+- **All 9 personas tightened** — bands + 2026-voice bullets + ANTI-FLEXING bullets + `voice_calibration_examples` added for: Marcus Aurelius, Socrates, Epictetus, Oscar Wilde, Carl Jung, Sigmund Freud, Simone de Beauvoir, Niccolò Machiavelli, Lao Tzu. Each persona's cognitive signature preserved.
+
+**Critical gap closed:**
+Oscar Wilde, Niccolò Machiavelli, and Lao Tzu previously had **no `ResponseLengthSpec`** — `check_brevity` was skipped entirely for them. Now all 9 personas have specs; brevity enforcement is universally active.
+
+**Per-persona word bands (from source):**
+
+| Persona | standard (min–max) | first (max) | reflective (max) |
+|---|---|---|---|
+| Marcus Aurelius | 20–55 | 40 | 75 |
+| Socrates | 20–55 | 35 | 70 |
+| Epictetus | 20–55 | 35 | 70 |
+| Oscar Wilde | 20–55 | 40 | 75 |
+| Carl Jung | 25–60 | 40 | 80 |
+| Sigmund Freud | 25–60 | 40 | 80 |
+| Simone de Beauvoir | 30–65 | 50 | 90 |
+| Niccolò Machiavelli | 25–60 | 40 | 80 |
+| Lao Tzu | 15–45 | 35 | 70 |
+
+**Pending author smoke-test (voice changes live, not yet author-tested):**
+Oscar Wilde, Carl Jung, Sigmund Freud, Simone de Beauvoir, Niccolò Machiavelli, Lao Tzu.
+
+---
+
+## Top of mind / Next (2026-05-30)
+
+### Next feature: Rituals
+
+**Rituals = NEXT feature. SCOPE NOT YET DESIGNED.**
+
+User-stated need (from founder's beta users): a sense of **PURPOSE / PROGRESS**, not more chat — "am I improving?", "how was I vs how am I now?", "what's my trajectory?", "which mind do I resemble?". The ritual is the **MECHANISM** (a recurring touchpoint that generates a time-series of reflections); the **PROGRESS VIEW** is the payoff.
+
+Design to be done with Claude (chat) before any build brief. Earlier "Mirror/Counterview" ritual ideas from prior docs are CANDIDATES, not decisions — do not treat as locked.
+
+- **Go-live target:** ~early July 2026
+- **First step:** Design session with Claude (chat) to define scope, flows, and progress mechanics.
+
+**INFRA ALREADY PRESENT (verified in live DB, project bvzeuwzqgnqcghvqghtb, 2026-05-30):**
+- Tables `rituals` (4 rows) + `user_ritual_completions` (4) exist — rituals skeleton already built.
+- `memory_entries` = 56 rows (worker actively producing).
+- `insights` table EXISTS but is EMPTY (0 rows) — the progress/insight generator is either not running or not wired.
+- The empty `insights` table is the likely leverage point for the "progress" payoff; investigate before building new.
+
+### Still-pending from last session
+
+- `.gitignore` security debt — **must fix before any code PR** (branch `chore/gitignore-env-local`)
+- PR-D2 production smoke test — use gmail workaround
+- OTP-01 (ote.gr delivery failure) — investigate Render logs
 
 ---
 
@@ -295,40 +358,47 @@ OTP codes may not deliver to ote.gr (Greek ISP). See §open-issues #3. Workaroun
 
 ## 5. Next session entry point
 
-**Priority order as of 2026-05-28:**
+**Priority order as of 2026-05-30:**
 
 ### Phase 0 — Operational cleanup (do before any code PR)
 
 1. **Fix .gitignore** — add `.env.local`, `.env*.local`. Branch `chore/gitignore-env-local`. Single commit. Squash merge.
 2. **Smoke test PR-D2** — sign in with gmail, verify NamePromptCard save flow end-to-end.
 3. **Investigate OTP-01** — check Render logs for ote.gr delivery failure root cause.
+4. **Author smoke-test voice changes** — test Wilde, Jung, Freud, de Beauvoir, Machiavelli, Lao Tzu in production (voice changes live, author-testing pending).
 
 ### Phase 1 — Remaining Oregon migration (P0, if not already done)
 
-4. Verify Oregon DATABASE_URL switch status in Render env.
-5. If not switched: migrate remaining tables → switch → smoke test → re-ingest source_chunks.
-6. If switched: confirm RAG retrieval working post-switch.
+5. Verify Oregon DATABASE_URL switch status in Render env.
+6. If not switched: migrate remaining tables → switch → smoke test → re-ingest source_chunks.
+7. If switched: confirm RAG retrieval working post-switch.
 
-### Phase 2 — Brief #1 feature queue
+### Phase 2 — Rituals (next major feature — gates beta entry)
 
-7. **PR-C** — Library F6 spec restoration (1-2 days)
-   - Fix duplicate persona name on conversation cards
-   - Add last-message snippet (~70 chars + ellipsis)
-   - Likely needs backend extension to conversation list endpoint
-8. **PR-F** — Typography V1 (2-3 days, labels/headers only)
-9. **PR-G** — F2 verification + Sunday counter (2-4 days)
-10. **PR-E** — Press further mode toggle (3-4 days)
-11. **PR-B** — C9 Bring another mind (4-6 days, biggest)
+**Scope not yet designed.** User-stated need: purpose/progress, not more chat — "am I improving?", "what's my trajectory?", "which mind do I resemble?". The ritual is the mechanism (recurring touchpoint → time-series of reflections); the progress view is the payoff.
 
-### Phase 3 — Infrastructure hardening
+8. **Design session with Claude (chat)** — define rituals scope, flows, and progress mechanics before any build brief is dispatched.
+9. **Investigate `insights` table** — exists in live DB (0 rows); likely leverage point for progress payoff. Determine why the generator is not running before designing around it.
+10. Prior "Mirror/Counterview" ideas are candidates only — scope is open.
 
-12. **TD-24** — render.yaml `sync: false` for all secrets + startup health check + alerts
+### Phase 3 — Remaining Brief #1 queue
 
-### Phase 4 — Launch track
+11. **PR-C** — Library F6 spec restoration (1-2 days)
+    - Fix duplicate persona name on conversation cards
+    - Add last-message snippet (~70 chars + ellipsis)
+12. **PR-G** — F2 verification + Sunday counter (2-4 days)
+13. **PR-E** — Press further mode toggle (3-4 days)
 
-13. Block B consolidated polish PR
-14. Pre-launch items (lawyer review, DNS, GDPR/DPA, runbooks)
-15. UAT (≥2/5 spontaneous "I'd pay")
+### Phase 4 — Infrastructure hardening
+
+14. **TD-24** — render.yaml `sync: false` for all secrets + startup health check + alerts
+
+### Phase 5 — Launch track
+
+15. Block B consolidated polish PR
+16. Pre-launch items (lawyer review, DNS, GDPR/DPA, runbooks)
+17. UAT (≥2/5 spontaneous "I'd pay")
+18. Cold validation with external users (retention + willingness-to-pay) — to run once rituals unblock beta entry
 
 ---
 
