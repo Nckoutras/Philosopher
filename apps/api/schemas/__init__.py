@@ -419,6 +419,30 @@ class ScheduledEmailListItem(BaseModel):
         from_attributes = True
 
 
+# ── Mirror ────────────────────────────────────────────────────────────────────
+
+class MirrorOut(BaseModel):
+    id: str
+    kind: str
+    status: str
+    period_start: datetime
+    period_end: datetime
+    host_persona_slug: str | None = None
+    host_persona_name: str | None = None
+    payload: dict | None = None
+    ring_true: str | None = None
+    ring_true_note: str | None = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class RingTrueRequest(BaseModel):
+    ring_true: Literal["yes", "partly", "no"]
+    note: str | None = None
+
+
 # ── Home / Today ───────────────────────────────────────────────────────────────
 
 class DailyQuestionOut(BaseModel):

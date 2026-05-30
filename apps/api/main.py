@@ -22,6 +22,7 @@ from routers.saved_lines import router as saved_lines_router
 from routers.home import router as home_router
 from routers.share import router as share_router
 from routers.scheduled_emails import router as scheduled_emails_router
+from routers.mirrors import router as mirrors_router
 
 logging.basicConfig(level=logging.INFO if not config.DEBUG else logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -92,6 +93,7 @@ app.include_router(saved_lines_router,   prefix=PREFIX)
 app.include_router(home_router,          prefix=PREFIX)
 app.include_router(share_router,              prefix=PREFIX)
 app.include_router(scheduled_emails_router,   prefix=PREFIX)
+app.include_router(mirrors_router,            prefix=PREFIX)
 
 
 @app.get("/health")
