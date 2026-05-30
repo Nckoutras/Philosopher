@@ -20,6 +20,28 @@ Return JSON only: {"content": "...", "insight_type": "pattern|shift|question|cha
 Return null if there is no meaningful insight to surface.
 Example: {"content": "You often describe ambition as a burden rather than a desire. That tension may be worth examining.", "insight_type": "pattern"}"""
 
+MIRROR_PROMPT = """You are {persona_name}{persona_tradition_clause}. Once a week you hold up a mirror to a person — not to summarize their week, but to show them the deeper meaning beneath their own words, seen through your distinct way of understanding.
+
+You will receive the person's messages from the week, each tagged with a day.
+
+1. From the week, select the 2-3 moments that carry the most emotional weight or significance — where the person revealed something real (a fear, a longing, a contradiction, a vulnerability). Ignore the small talk and the ordinary. Choose through YOUR lens — what YOU would find significant.
+2. For each, interpret what they REALLY meant — the deeper thing beneath the surface of the phrase. Not a restatement; a seeing-through. This is the heart of the mirror: what they said versus what they meant.
+3. Name the single thread that runs through these moments — one sentence.
+4. If — and ONLY if — a phrase genuinely shifted in meaning across the week, add "line_that_moved" (earlier words, later words, and one sentence on why the shift matters). If nothing genuinely moved, set it to null. Never invent one.
+5. Offer exactly one open question, in your voice, to carry back into a conversation.
+
+Return JSON only, no preamble, in exactly this shape:
+{{"status": "generated", "thread": "...", "moments": [{{"said": "...", "meant": "..."}}], "line_that_moved": null, "question": "..."}}
+
+If the week holds nothing significant enough to reflect on, return exactly: {{"status": "empty"}}
+
+Rules:
+- "moments": 2-3 items. "said" = the person's actual words (light trimming fine). "meant" = one or two sentences of genuine interpretation, in your voice — going beneath the phrase to what they were really reaching for.
+- "thread": one sentence, offered as a lens, never a verdict about who they are.
+- "line_that_moved": an object {{"earlier": {{"label": "...", "quote": "..."}}, "later": {{"label": "...", "quote": "..."}}, "read": "..."}} or null. Use null unless a real shift exists.
+- "question": one sentence, specific and unresolved.
+- Be grounded and brief. No clinical or therapy language. You are a reflective companion, not a therapist — never diagnose."""
+
 
 # ── Tasks ─────────────────────────────────────────────────────────────────────
 
@@ -208,6 +230,122 @@ async def send_ritual_reminder_task(ctx, user_id: str, ritual_id: str):
             logger.error(f"Ritual reminder task failed: {e}", exc_info=True)
 
 
+async def generate_weekly_mirror_task(ctx, user_id: str, persona_slug: str, kind: str = "weekly", days: int = 7):
+    """Generates a weekly mirror reflection from the user's recent messages."""
+    from datetime import datetime, timedelta, timezone
+    from db.session import AsyncSessionLocal
+    from models import Mirror, Persona, Message, Conversation
+    from sqlalchemy import select
+    from services.llm_client import llm_client
+
+    async with AsyncSessionLocal() as db:
+        try:
+            period_end = datetime.now(timezone.utc)
+            period_start = period_end - timedelta(days=days)
+
+            persona_result = await db.execute(
+                select(Persona).where(Persona.slug == persona_slug)
+            )
+            persona = persona_result.scalar_one_or_none()
+            host_persona_id = persona.id if persona else None
+
+            msgs_result = await db.execute(
+                select(Message)
+                .join(Conversation, Conversation.id == Message.conversation_id)
+                .where(
+                    Conversation.user_id == user_id,
+                    Message.role == "user",
+                    Message.created_at >= period_start,
+                    Message.created_at <= period_end,
+                )
+                .order_by(Message.created_at.asc())
+            )
+            messages = msgs_result.scalars().all()
+
+            if any(m.safety_level in ("high", "critical") for m in messages):
+                db.add(Mirror(
+                    user_id=user_id,
+                    host_persona_id=host_persona_id,
+                    period_start=period_start,
+                    period_end=period_end,
+                    kind=kind,
+                    status="suppressed",
+                ))
+                await db.commit()
+                logger.info(f"Mirror suppressed for user={user_id} (safety gate)")
+                return
+
+            if len(messages) < 5:
+                db.add(Mirror(
+                    user_id=user_id,
+                    host_persona_id=host_persona_id,
+                    period_start=period_start,
+                    period_end=period_end,
+                    kind=kind,
+                    status="empty",
+                ))
+                await db.commit()
+                logger.info(f"Mirror empty for user={user_id} (fewer than 5 messages)")
+                return
+
+            week_text = "\n".join(
+                f"[{m.created_at:%a %b %d}] {m.content}" for m in messages
+            )
+            persona_tradition_clause = (
+                (", " + persona.tradition) if persona and persona.tradition else ""
+            )
+            system = MIRROR_PROMPT.format(
+                persona_name=persona.name if persona else "A thoughtful observer",
+                persona_tradition_clause=persona_tradition_clause,
+            )
+
+            raw = await llm_client.complete(
+                system=system,
+                user=f"<week>\n{week_text}\n</week>",
+                model=config.ANTHROPIC_MODEL,
+                max_tokens=768,
+            )
+            text = raw.strip()
+            if text.startswith("```"):
+                text = text.split("\n", 1)[1] if "\n" in text else ""
+            if text.endswith("```"):
+                text = text[:-3].rstrip()
+            data = json.loads(text)
+
+            if data.get("status") != "generated":
+                db.add(Mirror(
+                    user_id=user_id,
+                    host_persona_id=host_persona_id,
+                    period_start=period_start,
+                    period_end=period_end,
+                    kind=kind,
+                    status="empty",
+                ))
+                await db.commit()
+                logger.info(f"Mirror empty for user={user_id} (LLM returned non-generated)")
+                return
+
+            payload = {
+                "thread": data.get("thread"),
+                "moments": data.get("moments"),
+                "line_that_moved": data.get("line_that_moved"),
+                "question": data.get("question"),
+            }
+            db.add(Mirror(
+                user_id=user_id,
+                host_persona_id=host_persona_id,
+                period_start=period_start,
+                period_end=period_end,
+                kind=kind,
+                status="generated",
+                payload=payload,
+            ))
+            await db.commit()
+            logger.info(f"Mirror generated for user={user_id}, persona={persona_slug}")
+        except Exception as e:
+            logger.error(f"Mirror task failed: {e}", exc_info=True)
+
+
 # ── Worker settings ───────────────────────────────────────────────────────────
 
 class WorkerSettings:
@@ -216,6 +354,7 @@ class WorkerSettings:
         generate_insight_task,
         generate_conversation_title,
         send_ritual_reminder_task,
+        generate_weekly_mirror_task,
     ]
     redis_settings = RedisSettings.from_dsn(config.REDIS_URL)
     max_jobs = 10
