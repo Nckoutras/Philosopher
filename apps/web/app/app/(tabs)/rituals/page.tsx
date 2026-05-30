@@ -75,8 +75,12 @@ export default function RitualsPage() {
           </div>
         </div>
 
-        {/* ── The Mirror — LOCKED ── */}
-        <div className="bg-paper border border-[0.5px] border-edge rounded-md px-[16px] py-[14px] opacity-50 flex items-start gap-[14px]">
+        {/* ── The Mirror — ACTIVE ── */}
+        <button
+          type="button"
+          onClick={() => router.push('/app/mirror')}
+          className="w-full text-left bg-paper border border-[0.5px] border-edge rounded-md shadow-card px-[16px] py-[14px] flex items-start gap-[14px]"
+        >
           <div className="w-[56px] h-[56px] flex items-center justify-center flex-shrink-0 text-ink">
             <MirrorIcon size={40} strokeWidth={1.2} />
           </div>
@@ -87,15 +91,8 @@ export default function RitualsPage() {
             <p className="font-lora text-[15px] text-charcoal leading-[1.5] mt-[6px]">
               What keeps returning, reflected without judgment.
             </p>
-            <p className="font-lora text-[12px] text-charcoal leading-[1.5] mt-[6px]">
-              Available after 5 conversations or 30 messages with any philosopher.
-            </p>
-            <div className="flex items-center gap-[6px] mt-[12px]">
-              <span className="font-lora text-[11px] text-charcoal">Coming soon</span>
-              <Lock size={13} strokeWidth={1.5} className="text-sepia" />
-            </div>
           </div>
-        </div>
+        </button>
 
         {/* ── The Counterview — LOCKED ── */}
         <div className="bg-paper border border-[0.5px] border-edge rounded-md px-[16px] py-[14px] opacity-50 flex items-start gap-[14px]">

@@ -264,6 +264,38 @@ export interface ScheduledEmailListItem {
   created_at: string
 }
 
+export interface MirrorMoment {
+  said: string
+  meant: string
+}
+
+export interface MirrorLineThatMoved {
+  earlier: { label: string; quote: string }
+  later: { label: string; quote: string }
+  read: string
+}
+
+export interface MirrorPayload {
+  thread: string | null
+  moments: MirrorMoment[] | null
+  line_that_moved: MirrorLineThatMoved | null
+  question: string | null
+}
+
+export interface Mirror {
+  id: string
+  kind: string
+  status: string
+  period_start: string
+  period_end: string
+  host_persona_slug: string | null
+  host_persona_name: string | null
+  payload: MirrorPayload | null
+  ring_true: 'yes' | 'partly' | 'no' | null
+  ring_true_note: string | null
+  created_at: string
+}
+
 // ── Client ────────────────────────────────────────────────────────────────────
 
 class ApiClient {
@@ -622,6 +654,19 @@ class ApiClient {
 
   async getRecentSavedLine(): Promise<RecentSavedLine | null> {
     return this.request<RecentSavedLine | null>('/me/recent-saved-line')
+  }
+
+  // ── Mirrors ───────────────────────────────────────────────────────────────
+
+  async getLatestMirror(): Promise<Mirror | null> {
+    return this.request<Mirror | null>('/mirrors/latest')
+  }
+
+  async setRingTrue(id: string, ringTrue: 'yes' | 'partly' | 'no', note?: string): Promise<Mirror> {
+    return this.request<Mirror>(`/mirrors/${id}/ring-true`, {
+      method: 'POST',
+      body: JSON.stringify({ ring_true: ringTrue, note: note ?? null }),
+    })
   }
 }
 
