@@ -165,6 +165,33 @@ class Insight(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
+# ── Mirrors ───────────────────────────────────────────────────────────────────
+
+class Mirror(Base):
+    __tablename__ = "mirrors"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=gen_uuid)
+    user_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    host_persona_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), ForeignKey("personas.id"), nullable=True)
+    period_start: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    period_end: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    kind: Mapped[str] = mapped_column(String(20), nullable=False, default="weekly")
+    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    payload: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    ring_true: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    ring_true_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    ring_true_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+    __table_args__ = (
+        CheckConstraint("kind IN ('weekly', 'preview')", name="ck_mirrors_kind"),
+        CheckConstraint("status IN ('generated', 'empty', 'suppressed')", name="ck_mirrors_status"),
+        CheckConstraint("ring_true IN ('yes', 'partly', 'no')", name="ck_mirrors_ring_true"),
+        Index("ix_mirrors_user_created", "user_id", text("created_at DESC")),
+        Index("uq_mirrors_user_period_kind", "user_id", "period_start", "kind", unique=True),
+    )
+
+
 # ── Rituals ───────────────────────────────────────────────────────────────────
 
 class Ritual(Base):
