@@ -1,7 +1,7 @@
 # GREAT MINDS — Implementation Backlog v14
 
 > **Purpose:** Source of truth for implementation work for Great Minds / Philosopher v1 launch.
-> **v14 = v13 baseline (2026-05-28) + 2026-05-29 session delta (Typography PR-F V1+Phase2 DONE; PR-B / C9 "Bring another mind" end-to-end DONE — 5 PRs; cross-mind awareness DONE; migration 016 messages.persona_id; POST /another-mind endpoint; logged: systemic frontend plan bug, post-beta another-mind feature gate, deferred switch-to-mind enhancement).**
+> **v14 = v13 baseline (2026-05-28) + 2026-05-29 session delta (Typography PR-F V1+Phase2 DONE; PR-B / C9 "Bring another mind" end-to-end DONE — 5 PRs; cross-mind awareness DONE; migration 016 messages.persona_id; POST /another-mind endpoint; logged: systemic frontend plan bug, post-beta another-mind feature gate, deferred switch-to-mind enhancement) + 2026-05-30 addendum (Voice Overhaul COMPLETE; Rituals added as next priority).**
 >
 > **Generated:** 2026-05-29 (v14 rotation)
 >
@@ -55,6 +55,30 @@
 
 ---
 
+## v14 Addendum — Voice Overhaul (2026-05-30)
+
+> Appended to v14 baseline. Where this conflicts with earlier v14 content, this addendum wins.
+
+**Shipped this session:**
+
+| Item | Status |
+|---|---|
+| `check_brevity` wired into live post-stream path (was dead code — bands never enforced) | ✅ DONE |
+| Global ending-variation rule in `system_base.jinja2` (~40% Q / ~40% no-Q / ~20% mixed) | ✅ DONE |
+| Socrates elenchus cycle (upgraded from "exactly one question, no exceptions") | ✅ DONE |
+| All 9 personas: tightened bands + 2026-voice + ANTI-FLEXING + voice_calibration_examples | ✅ DONE |
+| ResponseLengthSpec added to Wilde, Machiavelli, Lao Tzu (previously missing — check_brevity was skipped) | ✅ DONE |
+
+**Next major feature:** Rituals — user-stated entry condition for beta. Target ~early July 2026. **Scope not yet designed** — design with Claude (chat) first; earlier Mirror/Counterview ideas are candidates only.
+
+**Open items added this session:**
+
+- [ ] **Author smoke-test** — Wilde, Jung, Freud, de Beauvoir, Machiavelli, Lao Tzu (voice changes live; author-testing pending)
+- [ ] **Rituals feature** — NEXT, gates beta entry; scope NOT YET DESIGNED. First step: design with Claude (chat) — user need is purpose/progress ("am I improving?", "what's my trajectory?"). Earlier Mirror/Counterview ideas are candidates, not decisions.
+- [ ] **Cold validation with external users** (retention + willingness-to-pay) — to run once rituals unblock beta entry
+
+---
+
 ## v13 Consolidation Summary
 
 ### What shipped (2026-05-28) — items to mark DONE
@@ -97,20 +121,24 @@ Oregon migration partial data + DATABASE_URL switch + source_chunks re-ingest �
 14. ~~**PR-D2 — Name capture prompt**~~ DONE (#130, 2026-05-28)
 15. **Fix .gitignore security debt** — `.env.local` not protected. Must be done before any further PR work.
 16. **PR-D2 production smoke test** (blocked by OTP issue; use gmail workaround)
-17. **Oregon region migration completion** — remaining tables + source_chunks re-ingest + DATABASE_URL switch
-18. **Post-switch smoke test** — full app verification on Oregon
-19. **End-to-end Stripe sandbox test**
-20. **Mobile 12-point nav smoke test**
-21. **Cold beta with 3–5 fresh users**
-22. **PR-C — Library F6 spec restoration** (fix duplicate persona name + add last-message snippet)
-23. ~~**PR-F — Typography V1**~~ ✅ DONE (2026-05-29)
-24. **PR-G — F2 verification + Sunday counter**
-25. **PR-E — Press further mode toggle**
-26. ~~**PR-B — C9 Bring another mind end-to-end**~~ ✅ DONE (2026-05-29)
-27. **Block B consolidated polish PR**
-28. **Pre-launch items** (lawyer review, DNS, GDPR/DPA, runbooks)
-29. **UAT** (≥2/5 spontaneous "I'd pay")
-30. **Public launch**
+17. ~~**Voice overhaul**~~ ✅ DONE (2026-05-30) — check_brevity live; ending-variation; Socrates elenchus; all 9 personas tightened
+18. **Author smoke-test voice changes** — Wilde, Jung, Freud, de Beauvoir, Machiavelli, Lao Tzu (live, pending author test)
+19. **Rituals feature** — NEXT; scope NOT YET DESIGNED. Users stated they will not try product without it. Target ~early July 2026. First step: design session with Claude (chat) before any build brief.
+20. **Oregon region migration completion** — remaining tables + source_chunks re-ingest + DATABASE_URL switch
+21. **Post-switch smoke test** — full app verification on Oregon
+22. **End-to-end Stripe sandbox test**
+23. **Mobile 12-point nav smoke test**
+24. **Cold beta with 3–5 fresh users**
+25. **Cold validation with external users** (retention + willingness-to-pay) — to run once rituals unblock beta entry
+26. **PR-C — Library F6 spec restoration** (fix duplicate persona name + add last-message snippet)
+27. ~~**PR-F — Typography V1**~~ ✅ DONE (2026-05-29)
+28. **PR-G — F2 verification + Sunday counter**
+29. **PR-E — Press further mode toggle**
+30. ~~**PR-B — C9 Bring another mind end-to-end**~~ ✅ DONE (2026-05-29)
+31. **Block B consolidated polish PR**
+32. **Pre-launch items** (lawyer review, DNS, GDPR/DPA, runbooks)
+33. **UAT** (≥2/5 spontaneous "I'd pay")
+34. **Public launch**
 
 ---
 
@@ -348,6 +376,7 @@ Lesson: ANTHROPIC_API_KEY disappeared silently from both services between May 25
 
 - [ ] **.gitignore security debt** (TD-23) — add `.env.local`, `.env*.local` to `.gitignore`. Single commit.
 - [ ] **PR-D2 production smoke test** — verify name save flow with gmail workaround
+- [ ] **Author smoke-test voice changes** — Wilde, Jung, Freud, de Beauvoir, Machiavelli, Lao Tzu
 
 ### 11.1 P0 (launch blockers)
 
@@ -356,6 +385,8 @@ Lesson: ANTHROPIC_API_KEY disappeared silently from both services between May 25
 - [x] ~~**Bug #4 / PR-A — Real-time streaming**~~ DONE (#128, 2026-05-28)
 - [x] ~~**PR-D — Greeting personalization**~~ DONE (#129, 2026-05-28)
 - [x] ~~**PR-D2 — Name capture prompt**~~ DONE (#130, 2026-05-28)
+- [x] ~~**Voice overhaul**~~ DONE (2026-05-30) — check_brevity live; all 9 personas tightened; Socrates elenchus; ending-variation rule
+- [ ] **Rituals feature** — NEXT; scope NOT YET DESIGNED; gates beta entry (users stated they won't try without it). Target ~early July 2026. First step: design session with Claude (chat) before any build brief. Mirror/Counterview are candidates only.
 - [ ] **Oregon region migration completion** (remaining tables + source_chunks re-ingest)
 - [ ] **Render DATABASE_URL switch** to Oregon (founder action post-verification)
 - [ ] **Post-switch smoke test**
@@ -363,6 +394,7 @@ Lesson: ANTHROPIC_API_KEY disappeared silently from both services between May 25
 - [ ] **End-to-end Stripe sandbox test**
 - [ ] **Mobile 12-point nav smoke test**
 - [ ] **Cold beta with 3–5 fresh users**
+- [ ] **Cold validation with external users** (retention + willingness-to-pay) — to run once rituals unblock beta entry
 - [ ] **Consolidated polish PR** (Block B visual closure)
 - [ ] **Lawyer review** of Terms / Privacy / Disclaimer
 - [ ] **DNS + Resend domain verification** for `thegreatminds.app`
@@ -387,32 +419,35 @@ Lesson: ANTHROPIC_API_KEY disappeared silently from both services between May 25
 
 Suggested execution order post .gitignore fix + smoke test:
 
-1. **PR-C — Library F6 spec restoration** (1-2 days)
+**Priority: Rituals first (gates beta entry) — SCOPE NOT YET DESIGNED**
+
+0. **Design session with Claude (chat)** — define rituals scope, flows, and progress mechanics before any build brief. User need: purpose/progress ("am I improving?", "what's my trajectory?", "which mind do I resemble?"). Investigate `insights` table (exists in live DB, 0 rows) as likely progress payoff mechanism. Mirror/Counterview are candidates, not decisions.
+
+**Then remaining Brief #1 queue:**
+
+3. **PR-C — Library F6 spec restoration** (1-2 days)
    - Fix duplicate persona name on conversation cards
    - Add last-message snippet preview (~70 chars + ellipsis)
    - Likely requires backend extension to conversation list endpoint
    - Brief drafted, awaiting dispatch
 
-2. ~~**PR-F — Typography V1**~~ ✅ DONE (2026-05-29) — chat 16px / titles weight-500 / comprehension 15px
+4. ~~**PR-F — Typography V1**~~ ✅ DONE (2026-05-29) — chat 16px / titles weight-500 / comprehension 15px
 
-3. **PR-G — F2 verification + Sunday counter** (2-4 days)
+5. **PR-G — F2 verification + Sunday counter** (2-4 days)
    - Verify F2 lite Insights wired correctly
    - Add "Saved. This will return in your Sunday reading." toast
    - D1 Today counter row "Reflections gathering for Sunday" (Pro only, ≥1 kept this week)
 
-4. **PR-E — Press further mode toggle** (3-4 days)
+6. **PR-E — Press further mode toggle** (3-4 days)
    - "Ask harder" → "Press further" rename
    - Mode toggle with header sub-pill state indicator
    - May need migration for existing conversations
 
-5. ~~**PR-B — C9 Bring another mind end-to-end**~~ ✅ DONE (2026-05-29) — 5 PRs + cross-mind awareness; live-tested OK
+7. ~~**PR-B — C9 Bring another mind end-to-end**~~ ✅ DONE (2026-05-29) — 5 PRs + cross-mind awareness; live-tested OK
 
 ### Secondary briefs (parallel-track candidates)
 
-- Brief #2 — Weekly Reading placeholder card (drop-in any time, low effort)
 - Brief #3 — About copy integration (depends on brand rename merged)
-- Brief #4 — The Mirror implementation (BLOCKED on `mirror_ritual_prompt.md` for Jung + Marcus)
-- Brief #5 — The Counterview implementation (BLOCKED on Mirror done + `counterview_ritual_prompt.md` for Machiavelli)
 
 ### 11.3 P2 (tech debt)
 
