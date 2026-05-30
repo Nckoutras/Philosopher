@@ -8,6 +8,19 @@ import { useStore } from '@/lib/store'
 import { api } from '@/lib/api'
 import type { Mirror, Persona } from '@/lib/api'
 
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+
+function formatWeekSpan(start: string, end: string): string {
+  const s = new Date(start)
+  const e = new Date(end)
+  const sm = MONTHS[s.getUTCMonth()]
+  const sd = s.getUTCDate()
+  const em = MONTHS[e.getUTCMonth()]
+  const ed = e.getUTCDate()
+  if (sm === em) return `${sm} ${sd}–${ed}`
+  return `${sm} ${sd} – ${em} ${ed}`
+}
+
 export default function MirrorPage() {
   const router = useRouter()
   const token = useStore((s) => s.token)
@@ -80,15 +93,23 @@ export default function MirrorPage() {
         <div className="px-[24px] pt-[22px] pb-[16px]">
           <div className="w-[32px] h-[32px] -ml-[4px] mb-[8px]" />
           <div className="h-[10px] w-[100px] bg-linen rounded animate-pulse mb-[8px]" />
-          <div className="h-[28px] w-[210px] bg-linen rounded animate-pulse" />
+          <div className="h-[44px] w-[280px] bg-linen rounded animate-pulse mb-[20px]" />
+          <div className="flex items-center gap-[16px]">
+            <div className="w-[72px] h-[72px] rounded-full bg-linen animate-pulse flex-shrink-0" />
+            <div className="flex flex-col gap-[6px]">
+              <div className="h-[10px] w-[50px] bg-linen rounded animate-pulse" />
+              <div className="h-[28px] w-[120px] bg-linen rounded animate-pulse" />
+              <div className="h-[10px] w-[80px] bg-linen rounded animate-pulse" />
+            </div>
+          </div>
         </div>
         <div className="px-[16px]">
-          <div className="bg-paper border border-[0.5px] border-edge rounded-md shadow-card px-[16px] py-[24px] flex flex-col gap-[12px]">
-            <div className="h-[18px] bg-linen rounded animate-pulse" />
-            <div className="h-[18px] w-5/6 bg-linen rounded animate-pulse" />
-            <div className="h-[18px] w-4/6 bg-linen rounded animate-pulse" />
-            <div className="h-[18px] w-3/6 bg-linen rounded animate-pulse mt-[12px]" />
-            <div className="h-[18px] bg-linen rounded animate-pulse" />
+          <div className="bg-paper border-[0.5px] border-edge rounded-[18px] shadow-card px-[20px] py-[28px] flex flex-col gap-[12px]">
+            <div className="h-[20px] bg-linen rounded animate-pulse" />
+            <div className="h-[20px] w-5/6 bg-linen rounded animate-pulse" />
+            <div className="h-[20px] w-4/6 bg-linen rounded animate-pulse" />
+            <div className="h-[20px] w-3/6 bg-linen rounded animate-pulse mt-[12px]" />
+            <div className="h-[20px] bg-linen rounded animate-pulse" />
           </div>
         </div>
       </main>
@@ -98,64 +119,68 @@ export default function MirrorPage() {
   const eyebrow = mirror?.kind === 'preview' ? 'A FIRST REFLECTION' : 'WEEKLY MIRROR'
 
   return (
-    <main className="min-h-screen [min-height:100svh] bg-vellum pb-[40px]">
+    <main className="min-h-screen [min-height:100svh] bg-vellum pb-[40px] relative overflow-hidden">
 
-      <div className="relative px-[24px] pt-[22px] pb-[16px] overflow-hidden">
-        <svg
-          aria-hidden="true"
-          width="88"
-          height="88"
-          viewBox="0 0 88 88"
-          fill="none"
-          className="absolute top-0 right-0 opacity-[0.16] pointer-events-none"
-        >
-          <path d="M88 0 C88 48.6 48.6 88 0 88" stroke="#B89968" strokeWidth="1.2" />
-          <path d="M88 18 C88 57 57 88 18 88" stroke="#B89968" strokeWidth="0.6" />
-        </svg>
+      <svg aria-hidden="true" viewBox="0 0 330 760" fill="none"
+           className="absolute top-0 right-[-40px] w-[330px] h-[760px] z-0 pointer-events-none">
+        <path d="M330 760 C330 300 300 70 150 30 C70 9 30 70 22 150 C12 260 30 760 30 760" stroke="#B89968" strokeWidth="1.6" opacity="0.5" />
+        <path d="M330 740 C330 320 300 100 160 62 C92 44 56 96 50 168" stroke="#B89968" strokeWidth="0.9" opacity="0.35" />
+        <path d="M330 716 C330 340 298 130 176 96" stroke="#B89968" strokeWidth="0.6" opacity="0.22" />
+      </svg>
 
-        <button
-          type="button"
-          onClick={() => router.push('/app/rituals')}
-          aria-label="Back to rituals"
-          className="flex items-center justify-center w-[32px] h-[32px] -ml-[4px] mb-[8px]"
-        >
-          <ChevronLeft size={20} strokeWidth={1.5} className="text-sepia" />
-        </button>
+      {/* Header */}
+      <div className="relative px-[24px] pt-[22px] pb-[24px] overflow-hidden">
+        <div className="relative z-10">
+          <button
+            type="button"
+            onClick={() => router.push('/app/rituals')}
+            aria-label="Back to rituals"
+            className="flex items-center justify-center w-[32px] h-[32px] -ml-[4px] mb-[10px]"
+          >
+            <ChevronLeft size={20} strokeWidth={1.5} className="text-sepia" />
+          </button>
 
-        <p className="font-lora text-[11px] uppercase tracking-[0.18em] text-sepia mb-1">
-          {eyebrow}
-        </p>
-        <h1 className="font-cormorant text-[26px] font-medium text-ink leading-tight">
-          What the mirror reflects
-        </h1>
+          <p className="font-lora text-[11px] uppercase tracking-[0.24em] text-bronze-dark mb-[6px]">
+            {eyebrow}
+          </p>
+          <h1 className="font-cormorant text-[44px] font-medium text-ink leading-tight mb-[24px]">
+            What the mirror reflects
+          </h1>
 
-        {mirror?.host_persona_name && (
-          <div className="flex items-center gap-[10px] mt-[12px]">
-            <div className="w-[34px] h-[34px] rounded-full overflow-hidden flex-shrink-0 bg-linen border border-[0.5px] border-edge flex items-center justify-center">
-              {persona?.portrait_url ? (
-                <Image
-                  src={persona.portrait_url}
-                  alt={mirror.host_persona_name}
-                  width={34}
-                  height={34}
-                  className="object-cover w-full h-full"
-                />
-              ) : (
-                <span className="font-cormorant text-[15px] font-medium text-charcoal">
-                  {mirror.host_persona_name.charAt(0)}
-                </span>
-              )}
+          {mirror?.host_persona_name && (
+            <div className="flex items-center gap-[16px]">
+              <div className="w-[72px] h-[72px] rounded-full overflow-hidden flex-shrink-0 bg-linen border border-bronze flex items-center justify-center">
+                {persona?.portrait_url ? (
+                  <Image
+                    src={persona.portrait_url}
+                    alt={mirror.host_persona_name}
+                    width={72}
+                    height={72}
+                    className="object-cover w-full h-full"
+                  />
+                ) : (
+                  <span className="font-cormorant text-[28px] font-medium text-charcoal">
+                    {mirror.host_persona_name.charAt(0)}
+                  </span>
+                )}
+              </div>
+              <div className="flex flex-col gap-[2px]">
+                <p className="font-lora text-[11px] uppercase tracking-wide text-sepia">Through</p>
+                <p className="font-cormorant text-[30px] font-medium text-ink leading-none">
+                  {mirror.host_persona_name}
+                </p>
+                <p className="font-lora text-[12px] text-sepia">
+                  {formatWeekSpan(mirror.period_start, mirror.period_end)}
+                </p>
+              </div>
             </div>
-            <span className="font-lora text-[12px] text-sepia border border-[0.5px] border-sepia/40 rounded-full px-[10px] py-[3px]">
-              Through {mirror.host_persona_name}
-            </span>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {!mirror && (
-        <div className="px-[16px]">
-          <div className="bg-paper border border-[0.5px] border-edge rounded-md shadow-card px-[16px] py-[32px] text-center">
+        <div className="relative z-10 px-[16px]">
+          <div className="bg-paper border-[0.5px] border-edge rounded-[18px] shadow-card px-[16px] py-[32px] text-center">
             <p className="font-cormorant text-[20px] font-normal text-ink leading-snug">
               Your first reflection is still forming.
             </p>
@@ -174,76 +199,49 @@ export default function MirrorPage() {
       )}
 
       {mirror && (
-        <div className="px-[16px] flex flex-col gap-[16px]">
-          <div className="bg-paper border border-[0.5px] border-edge rounded-md shadow-card px-[16px] py-[24px] flex flex-col gap-[24px]">
+        <div className="relative z-10 px-[16px] flex flex-col gap-[16px]">
+          <div className="bg-paper border-[0.5px] border-edge rounded-[18px] shadow-card px-[20px] py-[28px] flex flex-col gap-[28px]">
 
-            {mirror.payload && mirror.payload.thread && (
-              <p className="font-cormorant text-[20px] font-normal text-ink leading-[1.55]">
+            {mirror.payload?.thread && (
+              <p className="font-cormorant text-[27px] font-medium text-ink leading-snug">
                 {mirror.payload.thread}
               </p>
             )}
 
-            {mirror.payload && mirror.payload.moments && mirror.payload.moments.length > 0 && (
-              <div>
-                <p className="font-lora text-[10px] uppercase tracking-[0.18em] text-sepia mb-[14px]">
-                  BENEATH THE WORDS
-                </p>
-                <div className="flex flex-col gap-[20px]">
-                  {mirror.payload.moments.map((moment, i) => (
-                    <div key={i}>
-                      <p className="font-lora text-[15px] text-sepia leading-[1.6] italic">
+            {mirror.payload?.moments && mirror.payload.moments.length > 0 && (
+              <div className="flex flex-col gap-[24px]">
+                {mirror.payload.moments.map((moment, i) => (
+                  <div key={i}>
+                    <div className="bg-linen-deep/30 rounded-[10px] p-[12px_14px]">
+                      <p className="font-lora text-[9.5px] uppercase tracking-[0.18em] text-sepia mb-[6px]">
+                        What you said
+                      </p>
+                      <p className="font-lora italic text-[14px] text-sepia leading-[1.55]">
                         &ldquo;{moment.said}&rdquo;
                       </p>
-                      <p className="font-cormorant text-[17px] text-ink leading-[1.5] mt-[6px]">
+                    </div>
+                    <div className="border-l-[3px] border-bronze pl-[16px] mt-[12px]">
+                      <p className="font-lora text-[9.5px] uppercase tracking-[0.18em] text-bronze-dark mb-[6px]">
+                        What it meant
+                      </p>
+                      <p className="font-cormorant text-[22px] text-ink leading-snug">
                         {moment.meant}
                       </p>
                     </div>
-                  ))}
-                </div>
+                  </div>
+                ))}
               </div>
             )}
 
-            {mirror.payload && mirror.payload.line_that_moved && (
-              <div>
-                <p className="font-lora text-[10px] uppercase tracking-[0.18em] text-sepia mb-[14px]">
-                  THE LINE THAT MOVED
-                </p>
-                <div className="border-l-2 border-bronze pl-[14px] flex flex-col gap-[6px] mb-[12px]">
-                  <p className="font-lora text-[13px] text-charcoal leading-[1.5]">
-                    <span className="text-sepia">{mirror.payload.line_that_moved.earlier.label}</span>
-                    {' — '}&lsquo;{mirror.payload.line_that_moved.earlier.quote}&rsquo;
-                  </p>
-                  <p className="font-lora text-[13px] text-charcoal leading-[1.5]">
-                    <span className="text-sepia">{mirror.payload.line_that_moved.later.label}</span>
-                    {' — '}&lsquo;{mirror.payload.line_that_moved.later.quote}&rsquo;
-                  </p>
-                </div>
-                <p className="font-lora text-[15px] text-ink leading-[1.65]">
-                  {mirror.payload.line_that_moved.read}
-                </p>
-              </div>
-            )}
-
-            <p className="font-lora text-[14px] text-sepia italic leading-[1.6]">
+            <p className="font-cormorant italic text-[18px] text-sepia text-center">
               This may be wrong. If it is, set it down.
             </p>
 
-            {mirror.payload && mirror.payload.question && (
-              <div>
-                <p className="font-lora text-[10px] uppercase tracking-[0.18em] text-sepia mb-[10px]">
-                  THE QUESTION
-                </p>
-                <p className="font-cormorant text-[20px] font-normal text-ink leading-[1.5]">
-                  {mirror.payload.question}
-                </p>
-              </div>
-            )}
-
-            <div>
-              <p className="font-lora text-[10px] uppercase tracking-[0.18em] text-sepia mb-[12px]">
+            <div className="flex flex-col items-center gap-[12px]">
+              <p className="font-lora text-[10px] uppercase tracking-[0.18em] text-sepia">
                 DOES THIS RING TRUE?
               </p>
-              <div className="flex gap-[8px] flex-wrap">
+              <div className="flex gap-[8px] flex-wrap justify-center">
                 {(
                   [
                     { value: 'yes' as const, label: 'Rings true' },
@@ -257,7 +255,7 @@ export default function MirrorPage() {
                     disabled={ringTrueSubmitted}
                     onClick={() => handleRingTrue(value)}
                     className={[
-                      'font-lora text-[13px] px-[16px] py-[8px] rounded-full border border-[0.5px] transition-colors',
+                      'font-lora text-[13px] px-[16px] py-[8px] rounded-full border-[0.5px] transition-colors',
                       ringTrue === value
                         ? 'border-bronze bg-bronze/10 text-bronze'
                         : 'border-edge text-charcoal',
@@ -269,7 +267,7 @@ export default function MirrorPage() {
                 ))}
               </div>
               {ringTrueSubmitted && (
-                <p className="font-lora text-[12px] text-sepia italic mt-[8px]">Noted.</p>
+                <p className="font-lora text-[12px] text-sepia italic">Noted.</p>
               )}
             </div>
 
@@ -281,7 +279,7 @@ export default function MirrorPage() {
                 type="button"
                 onClick={handleContinueWithHost}
                 disabled={startingConv}
-                className="w-full py-[14px] rounded-md bg-ink text-vellum font-cormorant text-[17px] font-medium disabled:opacity-60"
+                className="w-full py-[14px] rounded-[14px] bg-ink text-vellum font-cormorant text-[17px] font-medium disabled:opacity-60"
               >
                 {startingConv ? 'Opening…' : `Continue with ${mirror.host_persona_name}`}
               </button>
@@ -291,11 +289,11 @@ export default function MirrorPage() {
               <button
                 type="button"
                 disabled
-                className="w-full py-[14px] rounded-md border border-[0.5px] border-ink font-cormorant text-[17px] font-medium text-ink opacity-50 cursor-not-allowed"
+                className="w-full py-[14px] rounded-[14px] border-[0.5px] border-bronze font-cormorant text-[17px] font-medium text-ink opacity-50 cursor-not-allowed"
               >
                 Take it to the Council
               </button>
-              <span className="absolute top-[-9px] right-[14px] font-lora text-[10px] text-sepia bg-vellum px-[6px] border border-[0.5px] border-edge rounded-full">
+              <span className="absolute top-[-9px] right-[14px] font-lora text-[10px] text-sepia bg-vellum px-[6px] border-[0.5px] border-edge rounded-full">
                 Premium &middot; soon
               </span>
             </div>
