@@ -101,6 +101,22 @@ async def backfill_titles(
     return {"queued": len(conv_ids)}
 
 
+@router.post("/mirror/generate")
+async def trigger_mirror_generate(
+    request: Request,
+    user_id: str = Query(...),
+    persona_slug: str = Query(...),
+    days: int = Query(7),
+    _: User = Depends(require_admin),
+):
+    arq_queue = getattr(request.app.state, "arq_queue", None)
+    if arq_queue is None:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=503, detail="ARQ queue not available")
+    await arq_queue.enqueue_job("generate_weekly_mirror_task", user_id, persona_slug, "weekly", days)
+    return {"enqueued": True, "user_id": user_id, "persona_slug": persona_slug}
+
+
 @router.patch("/personas/{persona_id}")
 async def update_persona_config(
     persona_id: str,
