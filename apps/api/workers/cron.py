@@ -203,8 +203,71 @@ def setup_cron(arq_queue):
 
             await db.commit()
 
+    @scheduler.scheduled_job(CronTrigger(day_of_week="mon", hour=6, minute=0), id="weekly_mirror")
+    async def dispatch_weekly_mirrors():
+        """Monday 06:00 UTC — enqueue a weekly mirror for users with >=5 user messages in the last 7 days."""
+        logger.info("Cron: dispatching weekly mirrors")
+        try:
+            from db.session import AsyncSessionLocal
+            from models import Message, Conversation
+            from sqlalchemy import select, func
+            from datetime import datetime, timezone, timedelta
+
+            DEFAULT_HOST = "carl_jung"  # TODO post-Picker: use each user's chosen host
+            cutoff = datetime.now(timezone.utc) - timedelta(days=7)
+            async with AsyncSessionLocal() as db:
+                result = await db.execute(
+                    select(Conversation.user_id)
+                    .join(Message, Message.conversation_id == Conversation.id)
+                    .where(Message.role == "user", Message.created_at >= cutoff)
+                    .group_by(Conversation.user_id)
+                    .having(func.count(Message.id) >= 5)
+                )
+                user_ids = [r[0] for r in result.all()]
+
+            for uid in user_ids:
+                await arq_queue.enqueue_job("generate_weekly_mirror_task", str(uid), DEFAULT_HOST, "weekly", 7)
+            logger.info(f"Cron: enqueued {len(user_ids)} weekly mirrors")
+        except Exception as e:
+            logger.error(f"Cron weekly mirrors failed: {e}", exc_info=True)
+
+    @scheduler.scheduled_job(IntervalTrigger(hours=1), id="preview_mirror")
+    async def dispatch_preview_mirrors():
+        """Hourly — give a one-time preview mirror to users with >=3 active chats in 72h who have no mirror yet."""
+        logger.info("Cron: dispatching preview mirrors")
+        try:
+            from db.session import AsyncSessionLocal
+            from models import Conversation, Mirror
+            from sqlalchemy import select, func, distinct
+            from datetime import datetime, timezone, timedelta
+
+            DEFAULT_HOST = "carl_jung"
+            cutoff = datetime.now(timezone.utc) - timedelta(hours=72)
+            async with AsyncSessionLocal() as db:
+                eligible = await db.execute(
+                    select(Conversation.user_id)
+                    .where(Conversation.deleted_at.is_(None), Conversation.last_message_at >= cutoff)
+                    .group_by(Conversation.user_id)
+                    .having(func.count(distinct(Conversation.id)) >= 3)
+                )
+                candidate_ids = [r[0] for r in eligible.all()]
+                if not candidate_ids:
+                    logger.info("Cron: no preview-eligible users")
+                    return
+                existing = await db.execute(
+                    select(distinct(Mirror.user_id)).where(Mirror.user_id.in_(candidate_ids))
+                )
+                have_mirror = {r[0] for r in existing.all()}
+                targets = [uid for uid in candidate_ids if uid not in have_mirror]
+
+            for uid in targets:
+                await arq_queue.enqueue_job("generate_weekly_mirror_task", str(uid), DEFAULT_HOST, "preview", 3)
+            logger.info(f"Cron: enqueued {len(targets)} preview mirrors")
+        except Exception as e:
+            logger.error(f"Cron preview mirrors failed: {e}", exc_info=True)
+
     scheduler.start()
-    logger.info("Cron scheduler started with 4 jobs")
+    logger.info("Cron scheduler started with 6 jobs")
 
 
 def shutdown_cron():
