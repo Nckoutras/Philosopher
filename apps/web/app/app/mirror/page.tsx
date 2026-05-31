@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { ChevronLeft } from 'lucide-react'
@@ -17,8 +17,9 @@ function formatWeekSpan(start: string, end: string): string {
   const sd = s.getUTCDate()
   const em = MONTHS[e.getUTCMonth()]
   const ed = e.getUTCDate()
-  if (sm === em) return `${sm} ${sd}–${ed}`
-  return `${sm} ${sd} – ${em} ${ed}`
+  const yr = e.getUTCFullYear()
+  if (sm === em) return `${sm} ${sd}–${ed}, ${yr}`
+  return `${sm} ${sd} – ${em} ${ed}, ${yr}`
 }
 
 export default function MirrorPage() {
@@ -121,11 +122,11 @@ export default function MirrorPage() {
   return (
     <main className="min-h-screen [min-height:100svh] bg-vellum pb-[40px] relative overflow-hidden">
 
-      <svg aria-hidden="true" viewBox="0 0 330 760" fill="none"
-           className="absolute top-0 right-[-40px] w-[330px] h-[760px] z-0 pointer-events-none">
-        <path d="M330 760 C330 300 300 70 150 30 C70 9 30 70 22 150 C12 260 30 760 30 760" stroke="#B89968" strokeWidth="1.6" opacity="0.5" />
-        <path d="M330 740 C330 320 300 100 160 62 C92 44 56 96 50 168" stroke="#B89968" strokeWidth="0.9" opacity="0.35" />
-        <path d="M330 716 C330 340 298 130 176 96" stroke="#B89968" strokeWidth="0.6" opacity="0.22" />
+      <svg aria-hidden="true" viewBox="0 0 250 540" fill="none"
+           className="absolute top-[14px] right-[-58px] w-[250px] h-[540px] z-0 pointer-events-none">
+        <path d="M20 540 L20 150 C20 60 76 8 125 8 C174 8 230 60 230 150 L230 540" stroke="#B89968" strokeWidth="1.6" opacity="0.5" />
+        <path d="M40 540 L40 156 C40 78 86 30 125 30 C164 30 210 78 210 156 L210 540" stroke="#B89968" strokeWidth="0.7" opacity="0.28" />
+        <path d="M150 70 C120 110 110 180 120 280" stroke="#B89968" strokeWidth="0.6" opacity="0.16" />
       </svg>
 
       {/* Header */}
@@ -143,12 +144,15 @@ export default function MirrorPage() {
           <p className="font-lora text-[11px] uppercase tracking-[0.24em] text-bronze-dark mb-[6px]">
             {eyebrow}
           </p>
-          <h1 className="font-cormorant text-[44px] font-medium text-ink leading-tight mb-[24px]">
+          <h1 className="font-cormorant text-[44px] font-medium text-ink leading-tight">
             What the mirror reflects
           </h1>
+          <p className="font-lora italic text-[14.5px] leading-relaxed text-charcoal mt-[14px] max-w-[300px]">
+            Once a week, the mind you chose reads your own words back to you &mdash; not what you said, but what it meant.
+          </p>
 
           {mirror?.host_persona_name && (
-            <div className="flex items-center gap-[16px]">
+            <div className="flex items-center gap-[16px] mt-[24px]">
               <div className="w-[72px] h-[72px] rounded-full overflow-hidden flex-shrink-0 bg-linen border border-bronze flex items-center justify-center">
                 {persona?.portrait_url ? (
                   <Image
@@ -202,44 +206,66 @@ export default function MirrorPage() {
         <div className="relative z-10 px-[16px] flex flex-col gap-[16px]">
           <div className="bg-paper border-[0.5px] border-edge rounded-[18px] shadow-card px-[20px] py-[28px] flex flex-col gap-[28px]">
 
-            {mirror.payload?.thread && (
-              <p className="font-cormorant text-[27px] font-medium text-ink leading-snug">
-                {mirror.payload.thread}
-              </p>
-            )}
+            {/* 1. Section label */}
+            <p className="font-lora text-[11px] font-semibold uppercase tracking-[0.2em] text-bronze-dark">
+              Beneath the words
+            </p>
 
+            {/* 2. Moments */}
             {mirror.payload?.moments && mirror.payload.moments.length > 0 && (
               <div className="flex flex-col gap-[24px]">
                 {mirror.payload.moments.map((moment, i) => (
-                  <div key={i}>
-                    <div className="bg-linen-deep/30 rounded-[10px] p-[12px_14px]">
-                      <p className="font-lora text-[9.5px] uppercase tracking-[0.18em] text-sepia mb-[6px]">
-                        What you said
-                      </p>
-                      <p className="font-lora italic text-[14px] text-sepia leading-[1.55]">
-                        &ldquo;{moment.said}&rdquo;
-                      </p>
+                  <Fragment key={i}>
+                    {i > 0 && (
+                      <div className="flex justify-center" aria-hidden="true">
+                        <span className="text-bronze text-[12px] tracking-[0.3em] opacity-70">◆</span>
+                      </div>
+                    )}
+                    <div>
+                      <div className="bg-linen-deep/30 rounded-[10px] p-[12px_14px]">
+                        <p className="font-lora text-[10.5px] font-semibold uppercase tracking-[0.16em] text-charcoal mb-[6px]">
+                          What you said
+                        </p>
+                        <p className="font-lora italic text-[14px] text-sepia leading-[1.55] line-clamp-3">
+                          &ldquo;{moment.said}&rdquo;
+                        </p>
+                      </div>
+                      <div className="border-l-[3px] border-bronze pl-[16px] mt-[12px]">
+                        <p className="font-lora text-[10.5px] font-semibold uppercase tracking-[0.16em] text-bronze-dark mb-[6px]">
+                          What it may mean
+                        </p>
+                        <p className="font-cormorant text-[22px] text-ink leading-snug">
+                          {moment.meant}
+                        </p>
+                      </div>
                     </div>
-                    <div className="border-l-[3px] border-bronze pl-[16px] mt-[12px]">
-                      <p className="font-lora text-[9.5px] uppercase tracking-[0.18em] text-bronze-dark mb-[6px]">
-                        What it meant
-                      </p>
-                      <p className="font-cormorant text-[22px] text-ink leading-snug">
-                        {moment.meant}
-                      </p>
-                    </div>
-                  </div>
+                  </Fragment>
                 ))}
               </div>
             )}
 
-            <p className="font-cormorant italic text-[18px] text-sepia text-center">
+            {/* 3. Divider */}
+            <div className="h-px bg-edge my-[30px]" />
+
+            {/* 4. Synthesis (thread moved here, centered, host-attributed) */}
+            {mirror.payload?.thread && (
+              <div className="text-center">
+                <p className="font-lora text-[11px] font-semibold uppercase tracking-[0.2em] text-bronze-dark mb-[14px]">
+                  {mirror.host_persona_name ? `What ${mirror.host_persona_name} sees` : 'The reflection'}
+                </p>
+                <p className="font-cormorant text-[25px] text-ink leading-snug">{mirror.payload.thread}</p>
+              </div>
+            )}
+
+            {/* 5. Humility */}
+            <p className="font-cormorant italic text-[17px] text-sepia text-center my-[28px]">
               This may be wrong. If it is, set it down.
             </p>
 
+            {/* 6. Ring-true */}
             <div className="flex flex-col items-center gap-[12px]">
-              <p className="font-lora text-[10px] uppercase tracking-[0.18em] text-sepia">
-                DOES THIS RING TRUE?
+              <p className="font-lora text-[11px] font-semibold uppercase tracking-[0.18em] text-charcoal text-center">
+                Does this ring true?
               </p>
               <div className="flex gap-[8px] flex-wrap justify-center">
                 {(
@@ -255,10 +281,10 @@ export default function MirrorPage() {
                     disabled={ringTrueSubmitted}
                     onClick={() => handleRingTrue(value)}
                     className={[
-                      'font-lora text-[13px] px-[16px] py-[8px] rounded-full border-[0.5px] transition-colors',
+                      'font-lora text-[13px] px-[16px] py-[8px] rounded-full transition-colors',
                       ringTrue === value
-                        ? 'border-bronze bg-bronze/10 text-bronze'
-                        : 'border-edge text-charcoal',
+                        ? 'border-[1.5px] border-bronze bg-bronze/10 text-bronze'
+                        : 'border-[1.5px] border-bronze text-charcoal',
                       ringTrueSubmitted && ringTrue !== value ? 'opacity-40' : '',
                     ].join(' ')}
                   >
