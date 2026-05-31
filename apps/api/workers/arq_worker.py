@@ -238,13 +238,24 @@ async def generate_weekly_mirror_task(ctx, user_id: str, persona_slug: str, kind
     async with AsyncSessionLocal() as db:
         try:
             period_end = datetime.now(timezone.utc)
-            period_start = period_end - timedelta(days=days)
+            period_start = (period_end - timedelta(days=days)).replace(hour=0, minute=0, second=0, microsecond=0)
 
             persona_result = await db.execute(
                 select(Persona).where(Persona.slug == persona_slug)
             )
             persona = persona_result.scalar_one_or_none()
             host_persona_id = persona.id if persona else None
+
+            existing = await db.execute(
+                select(Mirror.id).where(
+                    Mirror.user_id == user_id,
+                    Mirror.period_start == period_start,
+                    Mirror.kind == kind,
+                )
+            )
+            if existing.scalar_one_or_none() is not None:
+                logger.info(f"Mirror already exists for user={user_id} period={period_start} kind={kind}, skipping")
+                return
 
             msgs_result = await db.execute(
                 select(Message)
