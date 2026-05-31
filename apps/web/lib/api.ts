@@ -296,6 +296,12 @@ export interface Mirror {
   created_at: string
 }
 
+export interface MirrorHost {
+  slug: string
+  name: string
+  portrait_url: string | null
+}
+
 // ── Client ────────────────────────────────────────────────────────────────────
 
 class ApiClient {
@@ -666,6 +672,17 @@ class ApiClient {
     return this.request<Mirror>(`/mirrors/${id}/ring-true`, {
       method: 'POST',
       body: JSON.stringify({ ring_true: ringTrue, note: note ?? null }),
+    })
+  }
+
+  async getMirrorHosts(): Promise<{ hosts: MirrorHost[]; selected: string | null; default: string }> {
+    return this.request('/mirrors/hosts')
+  }
+
+  async setMirrorHost(host_slug: string): Promise<{ host_slug: string }> {
+    return this.request('/mirrors/host', {
+      method: 'POST',
+      body: JSON.stringify({ host_slug }),
     })
   }
 }

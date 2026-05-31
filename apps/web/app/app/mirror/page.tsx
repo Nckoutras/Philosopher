@@ -3,10 +3,10 @@
 import { Fragment, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
-import { ChevronLeft } from 'lucide-react'
+import { Check, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import { api } from '@/lib/api'
-import type { Mirror, Persona } from '@/lib/api'
+import type { Mirror, MirrorHost, Persona } from '@/lib/api'
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
@@ -32,6 +32,10 @@ export default function MirrorPage() {
   const [ringTrue, setRingTrue] = useState<'yes' | 'partly' | 'no' | null>(null)
   const [ringTrueSubmitted, setRingTrueSubmitted] = useState(false)
   const [startingConv, setStartingConv] = useState(false)
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const [hosts, setHosts] = useState<MirrorHost[]>([])
+  const [selectedHost, setSelectedHost] = useState<string | null>(null)
+  const [savedHostName, setSavedHostName] = useState<string | null>(null)
 
   useEffect(() => {
     if (token === null) {
@@ -86,6 +90,23 @@ export default function MirrorPage() {
     } catch {
       setStartingConv(false)
     }
+  }
+
+  async function openPicker() {
+    setPickerOpen(true)
+    try {
+      const res = await api.getMirrorHosts()
+      setHosts(res.hosts)
+      setSelectedHost(res.selected ?? res.default)
+    } catch { /* leave empty; sheet shows nothing gracefully */ }
+  }
+
+  async function chooseHost(slug: string, name: string) {
+    setSelectedHost(slug)
+    try {
+      await api.setMirrorHost(slug)
+      setSavedHostName(name)
+    } catch { /* optimistic; ignore */ }
   }
 
   if (loading) {
@@ -168,15 +189,16 @@ export default function MirrorPage() {
                   </span>
                 )}
               </div>
-              <div className="flex flex-col gap-[2px]">
+              <button type="button" onClick={openPicker} className="flex flex-col gap-[2px] text-left">
                 <p className="font-lora text-[11px] uppercase tracking-wide text-sepia">Through</p>
-                <p className="font-cormorant text-[30px] font-medium text-ink leading-none">
+                <p className="font-cormorant text-[30px] font-medium text-ink leading-none flex items-center gap-[4px]">
                   {mirror.host_persona_name}
+                  <ChevronRight size={16} strokeWidth={1.5} className="text-bronze" />
                 </p>
                 <p className="font-lora text-[12px] text-sepia">
                   {formatWeekSpan(mirror.period_start, mirror.period_end)}
                 </p>
-              </div>
+              </button>
             </div>
           )}
         </div>
@@ -325,6 +347,65 @@ export default function MirrorPage() {
             </div>
           </div>
         </div>
+      )}
+      {pickerOpen && (
+        <>
+          <div
+            className="fixed inset-0 bg-ink/40 z-40"
+            onClick={() => setPickerOpen(false)}
+          />
+          <div
+            className="fixed bottom-0 left-0 right-0 z-50 bg-paper rounded-t-[20px] px-[20px] pt-[20px] pb-[32px] shadow-card"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="font-cormorant text-[24px] font-medium text-ink">Whose eyes?</p>
+            <p className="font-lora text-[13px] text-sepia mt-[4px]">
+              Choose the mind that holds your weekly mirror. Your next mirror will come through them.
+            </p>
+            <div className="flex flex-col mt-[12px]">
+              {hosts.map((host) => (
+                <button
+                  key={host.slug}
+                  type="button"
+                  onClick={() => chooseHost(host.slug, host.name)}
+                  className="flex items-center gap-[14px] py-[12px] w-full"
+                >
+                  <div className="w-[48px] h-[48px] rounded-full overflow-hidden flex-shrink-0 bg-linen flex items-center justify-center">
+                    {host.portrait_url ? (
+                      <Image
+                        src={host.portrait_url}
+                        alt={host.name}
+                        width={48}
+                        height={48}
+                        className="object-cover w-full h-full"
+                      />
+                    ) : (
+                      <span className="font-cormorant text-[20px] font-medium text-charcoal">
+                        {host.name.charAt(0)}
+                      </span>
+                    )}
+                  </div>
+                  <span className="font-cormorant text-[22px] text-ink flex-1 text-left">{host.name}</span>
+                  {host.slug === selectedHost && (
+                    <Check size={18} className="text-bronze" />
+                  )}
+                </button>
+              ))}
+            </div>
+            {savedHostName && (
+              <p className="font-lora text-[13px] text-bronze-dark italic">
+                Your next mirror will come through {savedHostName}.
+              </p>
+            )}
+            <button
+              type="button"
+              onClick={() => setPickerOpen(false)}
+              className="w-full mt-[20px] bg-ink text-vellum rounded-[14px] py-[14px] font-cormorant text-[17px]"
+            >
+              Done
+            </button>
+          </div>
+        </>
       )}
     </main>
   )
