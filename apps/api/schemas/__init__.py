@@ -443,6 +443,25 @@ class RingTrueRequest(BaseModel):
     note: str | None = None
 
 
+class MirrorHostOut(BaseModel):
+    slug: str
+    name: str
+    portrait_url: str | None = None
+
+    class Config:
+        from_attributes = True
+
+
+class MirrorHostsResponse(BaseModel):
+    hosts: list[MirrorHostOut]
+    selected: str | None = None
+    default: str = "carl_jung"
+
+
+class SetMirrorHostRequest(BaseModel):
+    host_slug: str
+
+
 # ── Home / Today ───────────────────────────────────────────────────────────────
 
 class DailyQuestionOut(BaseModel):

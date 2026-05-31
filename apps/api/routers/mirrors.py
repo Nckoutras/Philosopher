@@ -7,7 +7,7 @@ from sqlalchemy import select
 from auth import get_current_user, get_current_user_plan
 from db.session import get_db
 from models import Mirror, Persona, User
-from schemas import MirrorOut, RingTrueRequest
+from schemas import MirrorOut, RingTrueRequest, MirrorHostOut, MirrorHostsResponse, SetMirrorHostRequest
 
 router = APIRouter(prefix="/mirrors", tags=["mirrors"])
 
@@ -76,3 +76,34 @@ async def set_ring_true(
     await db.flush()
     persona = await _load_persona(db, mirror.host_persona_id)
     return _mirror_out(mirror, persona)
+
+
+@router.get("/hosts", response_model=MirrorHostsResponse)
+async def get_mirror_hosts(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    result = await db.execute(select(Persona).where(Persona.is_active == True))
+    personas = result.scalars().all()
+    eligible = [p for p in personas if p.config.get("mirror_capable")]
+    jung_first = [p for p in eligible if p.slug == "carl_jung"]
+    others = sorted([p for p in eligible if p.slug != "carl_jung"], key=lambda p: p.name)
+    ordered = jung_first + others
+    hosts = [MirrorHostOut(slug=p.slug, name=p.name, portrait_url=p.portrait_url or None) for p in ordered]
+    return MirrorHostsResponse(hosts=hosts, selected=user.mirror_host_slug, default="carl_jung")
+
+
+@router.post("/host", response_model=dict)
+async def set_mirror_host(
+    body: SetMirrorHostRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    result = await db.execute(select(Persona).where(Persona.is_active == True))
+    personas = result.scalars().all()
+    eligible_slugs = {p.slug for p in personas if p.config.get("mirror_capable")}
+    if body.host_slug not in eligible_slugs:
+        raise HTTPException(status_code=400, detail="Not an eligible mirror host")
+    user.mirror_host_slug = body.host_slug
+    await db.flush()
+    return {"host_slug": body.host_slug}
