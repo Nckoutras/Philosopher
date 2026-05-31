@@ -209,25 +209,27 @@ def setup_cron(arq_queue):
         logger.info("Cron: dispatching weekly mirrors")
         try:
             from db.session import AsyncSessionLocal
-            from models import Message, Conversation
+            from models import Message, Conversation, User
             from sqlalchemy import select, func
             from datetime import datetime, timezone, timedelta
 
-            DEFAULT_HOST = "carl_jung"  # TODO post-Picker: use each user's chosen host
+            DEFAULT_HOST = "carl_jung"
             cutoff = datetime.now(timezone.utc) - timedelta(days=7)
             async with AsyncSessionLocal() as db:
                 result = await db.execute(
-                    select(Conversation.user_id)
+                    select(Conversation.user_id, User.mirror_host_slug)
                     .join(Message, Message.conversation_id == Conversation.id)
+                    .join(User, User.id == Conversation.user_id)
                     .where(Message.role == "user", Message.created_at >= cutoff)
-                    .group_by(Conversation.user_id)
+                    .group_by(Conversation.user_id, User.mirror_host_slug)
                     .having(func.count(Message.id) >= 5)
                 )
-                user_ids = [r[0] for r in result.all()]
+                rows = result.all()
 
-            for uid in user_ids:
-                await arq_queue.enqueue_job("generate_weekly_mirror_task", str(uid), DEFAULT_HOST, "weekly", 7)
-            logger.info(f"Cron: enqueued {len(user_ids)} weekly mirrors")
+            for row in rows:
+                host = row.mirror_host_slug or DEFAULT_HOST
+                await arq_queue.enqueue_job("generate_weekly_mirror_task", str(row.user_id), host, "weekly", 7)
+            logger.info(f"Cron: enqueued {len(rows)} weekly mirrors")
         except Exception as e:
             logger.error(f"Cron weekly mirrors failed: {e}", exc_info=True)
 
