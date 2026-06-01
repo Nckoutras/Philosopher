@@ -26,7 +26,7 @@ from PIL import Image, ImageDraw, ImageFont
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
-from models import SavedLine, Message, Persona
+from models import CouncilCase, CouncilSession, SavedLine, Message, Persona
 
 logger = logging.getLogger(__name__)
 
@@ -138,12 +138,50 @@ async def generate_share_image(
             )
 
     clean_annotation = _strip_emoji(annotation) if annotation else None
-    return _compose_canvas(
+    return _render_share_canvas(
         quote=msg.content,
-        persona_name=persona.name,
+        attribution=f"— {persona.name.upper()}",
         portrait_path=portrait_path,
-        saved_at=saved_line.saved_at,
+        persona_initial=persona.name[0].upper(),
+        intro_text=f"{persona.name} told me:",
         annotation=clean_annotation or None,
+        saved_at=saved_line.saved_at,
+    )
+
+
+async def generate_council_share_image(
+    *,
+    db: AsyncSession,
+    session_id: str,
+    user_id: str,
+    annotation: str | None = None,
+) -> bytes:
+    """
+    Load council session, verify ownership and synthesis presence, compose image.
+    Returns raw PNG bytes.
+    Raises ValueError if session not found, not owned by user_id, or has no synthesis.
+    """
+    result = await db.execute(
+        select(CouncilSession)
+        .join(CouncilCase, CouncilSession.case_id == CouncilCase.id)
+        .where(
+            CouncilSession.id == session_id,
+            CouncilCase.user_id == user_id,
+        )
+    )
+    session = result.scalar_one_or_none()
+    if not session or not session.synthesis:
+        raise ValueError("Council session not found or has no synthesis")
+
+    clean_annotation = _strip_emoji(annotation) if annotation else None
+    return _render_share_canvas(
+        quote=session.synthesis,
+        attribution="— THE COUNCIL",
+        portrait_path=None,
+        persona_initial=None,
+        intro_text=None,
+        annotation=clean_annotation or None,
+        saved_at=session.created_at,
     )
 
 
@@ -152,12 +190,15 @@ def _format_date(dt: datetime) -> str:
     return f"{dt.day} {dt.strftime('%b %Y')}"
 
 
-def _compose_canvas(
+def _render_share_canvas(
+    *,
     quote: str,
-    persona_name: str,
+    attribution: str,
     portrait_path: Path | None,
-    saved_at: datetime | None = None,
+    persona_initial: str | None = None,
+    intro_text: str | None = None,
     annotation: str | None = None,
+    saved_at: datetime | None = None,
 ) -> bytes:
     quote_font_size = round(dynamic_font_size(len(quote)))
     quote_line_h    = round(quote_font_size * 1.4)
@@ -175,21 +216,21 @@ def _compose_canvas(
     canvas = Image.new("RGBA", (CANVAS_WIDTH, CANVAS_HEIGHT), BG_COLOR + (255,))
     draw = ImageDraw.Draw(canvas)
 
-    # Portrait
+    # Portrait — skip entirely when neither portrait_path nor persona_initial is set (council)
     if portrait_path:
         _draw_circular_portrait(canvas, draw, portrait_path)
-    else:
-        _draw_initial_avatar(canvas, draw, persona_name[0].upper())
+    elif persona_initial is not None:
+        _draw_initial_avatar(canvas, draw, persona_initial)
 
-    # "{Persona Name} told me:"
-    intro_text = f"{persona_name} told me:"
-    draw.text(
-        (PORTRAIT_CENTER_X, INTRO_BASELINE_Y),
-        intro_text,
-        font=font_medium_intro,
-        fill=INK_COLOR,
-        anchor="ms",  # middle-baseline
-    )
+    # "{Persona Name} told me:" — omitted for council
+    if intro_text:
+        draw.text(
+            (PORTRAIT_CENTER_X, INTRO_BASELINE_Y),
+            intro_text,
+            font=font_medium_intro,
+            fill=INK_COLOR,
+            anchor="ms",  # middle-baseline
+        )
 
     # Quote (wrapped, dynamic font size and line count)
     lines = _wrap_text(quote, font_italic_quote, QUOTE_MAX_WIDTH, quote_max_lines)
@@ -228,11 +269,10 @@ def _compose_canvas(
     x1 = PORTRAIT_CENTER_X + DIVIDER_WIDTH // 2
     draw.line([(x0, DIVIDER_Y), (x1, DIVIDER_Y)], fill=BRONZE_COLOR, width=1)
 
-    # "— PERSONA NAME" attribution
-    attr_text = f"— {persona_name.upper()}"
+    # Attribution line (e.g. "— PERSONA NAME" or "— THE COUNCIL")
     draw.text(
         (PORTRAIT_CENTER_X, ATTR_BASELINE_Y),
-        attr_text,
+        attribution,
         font=font_medium_attr,
         fill=BRONZE_COLOR,
         anchor="ms",

@@ -8,28 +8,37 @@ import { dynamicFontSize, stripEmoji } from '@/lib/shareUtils'
 interface SharePreviewModalProps {
   isOpen: boolean
   onClose: () => void
-  savedLineId: string
-  personaName: string
+  kind?: 'line' | 'council'
+  // 'line' variant
+  savedLineId?: string
+  personaName?: string
   portraitUrl?: string
+  conversationId?: string
+  // 'council' variant
+  councilSessionId?: string
+  // both variants
   quote: string
-  conversationId: string
   onShareComplete?: () => void
 }
 
 export default function SharePreviewModal({
   isOpen,
   onClose,
+  kind = 'line',
   savedLineId,
   personaName,
   portraitUrl,
-  quote,
   conversationId,
+  councilSessionId,
+  quote,
   onShareComplete,
 }: SharePreviewModalProps) {
   const cancelRef = useRef<HTMLButtonElement>(null)
   const [annotation, setAnnotation]     = useState('')
   const [shareLoading, setShareLoading] = useState(false)
   const [shareError, setShareError]     = useState<string | null>(null)
+
+  const isCouncil = kind === 'council'
 
   // Reset state on each open
   useEffect(() => {
@@ -92,17 +101,25 @@ export default function SharePreviewModal({
   async function handleSend() {
     setShareLoading(true)
     setShareError(null)
-    const shortShareText = `${personaName} told me:\nthewiseroom.app`
-    const fullShareText  = `${personaName} told me:\n\n${quote}\n\nthewiseroom.app`
+
+    const shortShareText = isCouncil
+      ? `The Council's reading:\nthewiseroom.app`
+      : `${personaName} told me:\nthewiseroom.app`
+    const fullShareText = isCouncil
+      ? `The Council's reading:\n\n${quote}\n\nthewiseroom.app`
+      : `${personaName} told me:\n\n${quote}\n\nthewiseroom.app`
     const origin = typeof window !== 'undefined' ? window.location.origin : ''
-    const url    = `${origin}/app/chat/conv/${conversationId}`
+    const url    = isCouncil
+      ? `${origin}/app/council`
+      : `${origin}/app/chat/conv/${conversationId}`
+    const filename = isCouncil ? 'council-reading.png' : 'reflection.png'
 
     try {
-      const blob = await api.createShareScreenshot(
-        savedLineId,
-        annotation.trim() || undefined,
-      )
-      const file = new File([blob], 'reflection.png', { type: 'image/png' })
+      const blob = isCouncil
+        ? await api.shareCouncil(councilSessionId!, annotation.trim() || undefined)
+        : await api.createShareScreenshot(savedLineId!, annotation.trim() || undefined)
+
+      const file = new File([blob], filename, { type: 'image/png' })
 
       if (typeof navigator !== 'undefined' && navigator.canShare?.({ files: [file] })) {
         await navigator.share({ files: [file], text: shortShareText })
@@ -110,7 +127,7 @@ export default function SharePreviewModal({
         const blobUrl = URL.createObjectURL(blob)
         const a = document.createElement('a')
         a.href = blobUrl
-        a.download = 'reflection.png'
+        a.download = filename
         a.click()
         URL.revokeObjectURL(blobUrl)
         await navigator.clipboard.writeText(fullShareText + '\n' + url).catch(() => {})
@@ -176,21 +193,28 @@ export default function SharePreviewModal({
           style={{ aspectRatio: '4/5' }}
           aria-hidden="true"
         >
-          {/* Portrait circle */}
-          <div className="w-[52px] h-[52px] rounded-full overflow-hidden flex-shrink-0 mb-2 bg-edge flex items-center justify-center">
-            {portraitUrl ? (
-              <img src={portraitUrl} alt="" className="w-full h-full object-cover" />
-            ) : (
-              <span className="font-cormorant text-[22px] font-medium text-charcoal">
-                {personaName[0]?.toUpperCase()}
-              </span>
-            )}
-          </div>
-
-          {/* Intro */}
-          <p className="font-cormorant text-[11px] font-medium text-ink text-center mb-2">
-            {personaName} told me:
-          </p>
+          {isCouncil ? (
+            /* Council variant — no portrait, council label instead */
+            <p className="font-lora text-[9px] uppercase tracking-[0.22em] text-bronze text-center mb-2">
+              THE COUNCIL&apos;S READING
+            </p>
+          ) : (
+            /* Line variant — portrait circle + persona intro */
+            <>
+              <div className="w-[52px] h-[52px] rounded-full overflow-hidden flex-shrink-0 mb-2 bg-edge flex items-center justify-center">
+                {portraitUrl ? (
+                  <img src={portraitUrl} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  <span className="font-cormorant text-[22px] font-medium text-charcoal">
+                    {personaName?.[0]?.toUpperCase()}
+                  </span>
+                )}
+              </div>
+              <p className="font-cormorant text-[11px] font-medium text-ink text-center mb-2">
+                {personaName} told me:
+              </p>
+            </>
+          )}
 
           {/* Quote — scaled dynamic font */}
           <p

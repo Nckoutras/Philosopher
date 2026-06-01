@@ -604,6 +604,25 @@ class ApiClient {
     return this.request(`/council/${sessionId}/save`, { method: 'DELETE' })
   }
 
+  async shareCouncil(sessionId: string, annotation?: string): Promise<Blob> {
+    const body: Record<string, string> = {}
+    if (annotation) body.annotation = annotation
+
+    const res = await fetch(`${API_BASE}/council/${sessionId}/share`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(this.token ? { Authorization: `Bearer ${this.token}` } : {}),
+      },
+      body: JSON.stringify(body),
+    })
+    if (!res.ok) {
+      if (res.status === 429) throw new ShareLimitError()
+      throw new Error(`Council share failed: ${res.status}`)
+    }
+    return res.blob()
+  }
+
   // ── Memory ────────────────────────────────────────────────────────────────
 
   async getMemory(): Promise<MemoryEntry[]> {
