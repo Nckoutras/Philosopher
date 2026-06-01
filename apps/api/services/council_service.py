@@ -190,7 +190,7 @@ class CouncilService:
 
         # ── 5. COMMIT + DONE ──────────────────────────────────────────────
         await db.commit()
-        yield f"data: {json.dumps({'type': 'done', 'case_id': case.id})}\n\n"
+        yield f"data: {json.dumps({'type': 'done', 'case_id': case.id, 'session_id': session.id})}\n\n"
 
 
 council_service = CouncilService()

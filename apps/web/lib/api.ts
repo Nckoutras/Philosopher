@@ -5,7 +5,7 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'https://philosopher-api-z9l
 export type SSEEventStart = { type: 'start'; brought_in?: boolean; persona_slug?: string; persona_name?: string }
 export type SSEEventChunk = { type: 'chunk'; data: string }
 // message_id is absent in pre-generation safety path (Pattern B)
-export type SSEEventDone = { type: 'done'; message_id?: string }
+export type SSEEventDone = { type: 'done'; message_id?: string; case_id?: string; session_id?: string }
 export type SSEEventSafety = { type: 'safety'; level: string }
 export type SSEEventSafetyOverride = { type: 'safety_override'; level: string }
 export type SSEEventError = { type: 'error'; error_code: 'llm_unavailable'; persona_voice: string }
@@ -594,6 +594,14 @@ class ApiClient {
       throw new Error('Council stream failed')
     }
     return res
+  }
+
+  async saveCouncil(sessionId: string): Promise<void> {
+    return this.request(`/council/${sessionId}/save`, { method: 'POST' })
+  }
+
+  async unsaveCouncil(sessionId: string): Promise<void> {
+    return this.request(`/council/${sessionId}/save`, { method: 'DELETE' })
   }
 
   // ── Memory ────────────────────────────────────────────────────────────────

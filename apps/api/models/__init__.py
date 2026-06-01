@@ -473,3 +473,18 @@ class CouncilResponse(Base):
     quote: Mapped[str | None] = mapped_column(Text, nullable=True)
     quote_source: Mapped[str | None] = mapped_column(String(200), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
+class CouncilSave(Base):
+    __tablename__ = "council_saves"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=gen_uuid)
+    user_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    session_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("council_sessions.id", ondelete="CASCADE"), nullable=False)
+    saved_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "session_id", name="uq_council_saves_user_session"),
+        Index("ix_council_saves_user", "user_id"),
+    )

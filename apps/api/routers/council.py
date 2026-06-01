@@ -1,8 +1,13 @@
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse, StreamingResponse
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from db.session import get_db
+
 from auth import get_current_user_plan
+from db.session import get_db
+from models import CouncilCase, CouncilSave, CouncilSession
 from schemas import CouncilCreate
 from services.council_service import council_service
 
@@ -62,3 +67,64 @@ async def create_council(
         media_type="text/event-stream",
         headers=response_headers,
     )
+
+
+@router.post("/{session_id}/save")
+async def save_council_session(
+    session_id: str,
+    db: AsyncSession = Depends(get_db),
+    auth: tuple = Depends(get_current_user_plan),
+):
+    user, _plan = auth
+
+    # Verify the session belongs to a case owned by this user
+    result = await db.execute(
+        select(CouncilSession)
+        .join(CouncilCase, CouncilSession.case_id == CouncilCase.id)
+        .where(
+            CouncilSession.id == session_id,
+            CouncilCase.user_id == user.id,
+        )
+    )
+    if result.scalar_one_or_none() is None:
+        return JSONResponse(status_code=404, content={"error_code": "session_not_found"})
+
+    # Upsert: re-save if soft-deleted, insert if absent, no-op if active
+    existing = await db.execute(
+        select(CouncilSave).where(
+            CouncilSave.user_id == user.id,
+            CouncilSave.session_id == session_id,
+        )
+    )
+    row = existing.scalar_one_or_none()
+
+    if row is None:
+        db.add(CouncilSave(user_id=user.id, session_id=session_id))
+    elif row.deleted_at is not None:
+        row.deleted_at = None
+
+    await db.commit()
+    return {"saved": True}
+
+
+@router.delete("/{session_id}/save")
+async def unsave_council_session(
+    session_id: str,
+    db: AsyncSession = Depends(get_db),
+    auth: tuple = Depends(get_current_user_plan),
+):
+    user, _plan = auth
+
+    result = await db.execute(
+        select(CouncilSave).where(
+            CouncilSave.user_id == user.id,
+            CouncilSave.session_id == session_id,
+            CouncilSave.deleted_at.is_(None),
+        )
+    )
+    row = result.scalar_one_or_none()
+    if row is not None:
+        row.deleted_at = datetime.now(timezone.utc)
+        await db.commit()
+
+    return {"saved": False}
