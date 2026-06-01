@@ -93,6 +93,8 @@ export default function CouncilPage() {
   const [source, setSource] = useState('direct')
   const [mirrorId, setMirrorId] = useState<string | null>(null)
   const [phase, setPhase] = useState<VisualPhase>({ kind: 'idle' })
+  const [sessionId, setSessionId] = useState<string | null>(null)
+  const [saved, setSaved] = useState(false)
 
   // ── Network-side refs ──
   // slug → { name, portraitUrl } — loaded once from API, stable across sessions
@@ -378,6 +380,8 @@ export default function CouncilPage() {
     resetSession()
     setPhase({ kind: 'idle' })
     setMatter('')
+    setSessionId(null)
+    setSaved(false)
   }
 
   // ──────────────────────────────────────────────
@@ -387,6 +391,24 @@ export default function CouncilPage() {
     const el = e.currentTarget
     const fromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
     autoScrollPaused.current = fromBottom > 80
+  }
+
+  // ──────────────────────────────────────────────
+  // Save / unsave reading
+  // ──────────────────────────────────────────────
+  async function handleSave() {
+    if (!sessionId) return
+    const next = !saved
+    setSaved(next)
+    try {
+      if (next) {
+        await api.saveCouncil(sessionId)
+      } else {
+        await api.unsaveCouncil(sessionId)
+      }
+    } catch {
+      setSaved(!next) // revert on error
+    }
   }
 
   // ──────────────────────────────────────────────
@@ -460,9 +482,13 @@ export default function CouncilPage() {
               synStartedRef.current = true
               break
             }
-            case 'done':
             case 'synthesis_error': {
               synBuf.current.netDone = true
+              break
+            }
+            case 'done': {
+              synBuf.current.netDone = true
+              if (event.session_id) setSessionId(event.session_id)
               break
             }
             case 'safety':
@@ -630,11 +656,12 @@ export default function CouncilPage() {
                   <div className="flex gap-[10px] justify-center flex-wrap">
                     <button
                       type="button"
-                      onClick={() => {}}
-                      className="flex items-center gap-[6px] font-lora text-[13px] text-sepia border-[0.5px] border-edge rounded-full px-[16px] py-[8px]"
+                      onClick={handleSave}
+                      disabled={!sessionId}
+                      className="flex items-center gap-[6px] font-lora text-[13px] text-sepia border-[0.5px] border-edge rounded-full px-[16px] py-[8px] disabled:opacity-40"
                     >
-                      <Bookmark size={14} strokeWidth={1.5} />
-                      Save reading
+                      <Bookmark size={14} strokeWidth={1.5} fill={saved ? 'currentColor' : 'none'} />
+                      {saved ? 'Saved' : 'Save reading'}
                     </button>
                     <button
                       type="button"
