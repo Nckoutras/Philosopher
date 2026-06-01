@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>The Council — v1 mock</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Lora:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --vellum:#EFE3CC;--paper:#FAF4E6;--linen:#E8DCC4;--linen-deep:#DDD0B5;--edge:#D4C8B0;
+    --ink:#1F1B14;--charcoal:#5A5246;--sepia:#8A7E6A;--bronze:#B89968;--bronze-dark:#7C6A38;--safety:#7A4030;
+    --cormorant:'Cormorant Garamond',Georgia,serif;--lora:'Lora',Georgia,serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-font-smoothing:antialiased;}
+  body{background:var(--vellum);font-family:var(--lora);color:var(--ink);padding:40px 20px;display:flex;justify-content:center;}
+  .wrap{width:100%;max-width:860px;}
+
+  /* Header gravitas */
+  .eyebrow{font-family:var(--lora);font-size:12px;font-weight:600;letter-spacing:.28em;text-transform:uppercase;color:var(--bronze-dark);}
+  h1{font-family:var(--cormorant);font-weight:500;font-size:52px;line-height:1.05;color:var(--ink);margin:10px 0 6px;}
+  .sub{font-family:var(--lora);font-style:italic;font-size:15px;color:var(--charcoal);max-width:520px;line-height:1.5;}
+  .bench{display:flex;gap:30px;margin:26px 0 8px;flex-wrap:wrap;}
+  .member{display:flex;flex-direction:column;align-items:center;gap:8px;width:96px;text-align:center;}
+  .avatar{width:78px;height:78px;border-radius:50%;background:var(--linen-deep);border:1.5px solid var(--bronze);
+    display:flex;align-items:center;justify-content:center;font-family:var(--cormorant);font-size:30px;color:var(--charcoal);
+    box-shadow:0 3px 12px rgba(31,27,20,.14);}
+  .member .nm{font-family:var(--lora);font-size:11px;letter-spacing:.04em;color:var(--sepia);line-height:1.2;}
+
+  .rule{height:1px;background:linear-gradient(to right,transparent,var(--edge),transparent);margin:28px 0;}
+
+  /* the matter */
+  .matter{background:var(--linen-deep);opacity:.92;border-radius:12px;padding:16px 18px;margin-bottom:8px;}
+  .matter .lbl{font-family:var(--lora);font-size:10px;font-weight:600;letter-spacing:.2em;text-transform:uppercase;color:var(--charcoal);margin-bottom:6px;}
+  .matter p{font-family:var(--cormorant);font-size:21px;color:var(--ink);line-height:1.4;}
+
+  /* deliberation indicator */
+  .convening{display:flex;align-items:center;gap:10px;color:var(--sepia);font-style:italic;font-size:15px;padding:20px 0;}
+  .dots span{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--bronze);margin:0 2px;animation:pulse 1.2s infinite;}
+  .dots span:nth-child(2){animation-delay:.2s;}.dots span:nth-child(3){animation-delay:.4s;}
+  @keyframes pulse{0%,60%,100%{opacity:.25;}30%{opacity:1;}}
+
+  /* verdict block */
+  .verdict{display:flex;gap:18px;padding:26px 0;border-bottom:1px solid var(--edge);opacity:0;transform:translateY(8px);transition:opacity .6s ease,transform .6s ease;}
+  .verdict.show{opacity:1;transform:none;}
+  .verdict .ava{flex:none;width:64px;height:64px;border-radius:50%;background:var(--linen-deep);border:1.5px solid var(--bronze);
+    display:flex;align-items:center;justify-content:center;font-family:var(--cormorant);font-size:26px;color:var(--charcoal);}
+  .verdict .body{flex:1;}
+  .verdict .who{font-family:var(--lora);font-size:13px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:var(--bronze-dark);margin-bottom:10px;}
+  .verdict .say{font-family:var(--cormorant);font-size:23px;line-height:1.42;color:var(--ink);}
+  .quote{margin-top:14px;border-left:3px solid var(--bronze);padding:4px 0 4px 16px;}
+  .quote .q{font-family:var(--lora);font-style:italic;font-size:14.5px;color:var(--sepia);line-height:1.5;}
+  .quote .src{font-family:var(--lora);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--bronze-dark);margin-top:5px;}
+
+  /* synthesis */
+  .synth{opacity:0;transform:translateY(8px);transition:.6s;background:var(--paper);border:.5px solid var(--edge);border-radius:16px;
+    box-shadow:0 2px 12px rgba(31,27,20,.07);padding:28px 24px;margin-top:28px;text-align:center;}
+  .synth.show{opacity:1;transform:none;}
+  .synth .lbl{font-family:var(--lora);font-size:11px;font-weight:600;letter-spacing:.2em;text-transform:uppercase;color:var(--bronze-dark);margin-bottom:14px;}
+  .synth p{font-family:var(--cormorant);font-size:24px;line-height:1.4;color:var(--ink);}
+
+  /* footer */
+  .foot{display:flex;justify-content:space-between;align-items:center;margin-top:26px;flex-wrap:wrap;gap:12px;}
+  .limit{font-family:var(--lora);font-size:12px;color:var(--sepia);}
+  .teaser{font-family:var(--lora);font-size:12px;color:var(--bronze-dark);border:1px solid var(--bronze);border-radius:999px;padding:6px 14px;opacity:.7;}
+  .replay{font-family:var(--lora);font-size:13px;color:var(--charcoal);background:transparent;border:1.5px solid var(--bronze);border-radius:999px;padding:8px 18px;cursor:pointer;margin-top:18px;}
+  .note{font-family:var(--lora);font-size:11px;color:var(--sepia);font-style:italic;margin-top:14px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p class="eyebrow">The Council</p>
+  <h1>The council has convened</h1>
+  <p class="sub">Four minds weigh your matter, each in their own light. Hear them, then decide.</p>
+
+  <div class="bench">
+    <div class="member"><div class="avatar">M</div><div class="nm">Machiavelli</div></div>
+    <div class="member"><div class="avatar">E</div><div class="nm">Epictetus</div></div>
+    <div class="member"><div class="avatar">F</div><div class="nm">Freud</div></div>
+    <div class="member"><div class="avatar">B</div><div class="nm">de&nbsp;Beauvoir</div></div>
+  </div>
+
+  <div class="rule"></div>
+
+  <div class="matter">
+    <div class="lbl">Your matter</div>
+    <p>"I keep starting things and abandoning them before they're done. I'm afraid that if I commit to one path, I'll choose wrong."</p>
+  </div>
+
+  <div class="convening" id="conv"><span class="dots"><span></span><span></span><span></span></span> The council deliberates…</div>
+
+  <div id="verdicts">
+    <div class="verdict">
+      <div class="ava">M</div>
+      <div class="body">
+        <div class="who">Machiavelli</div>
+        <div class="say">You scatter your forces and call it keeping options open. It is fear wearing prudence's mask. A prince who garrisons every town defends none — choose one ground and fortify it. The others were never yours to hold.</div>
+        <div class="quote"><div class="q">"It is better to be feared than loved, if you cannot be both."</div><div class="src">The Prince</div></div>
+      </div>
+    </div>
+
+    <div class="verdict">
+      <div class="ava">E</div>
+      <div class="body">
+        <div class="who">Epictetus</div>
+        <div class="say">Whether you finish is in your power; whether it succeeds is not. You have confused the two, and abandon the first to escape the second. Do the part that is yours — complete one thing. Leave the rest to fortune, where it has always lived.</div>
+        <div class="quote"><div class="q">"Some things are within our power, and some are not."</div><div class="src">Enchiridion</div></div>
+      </div>
+    </div>
+
+    <div class="verdict">
+      <div class="ava">F</div>
+      <div class="body">
+        <div class="who">Freud</div>
+        <div class="say">Notice what the abandoning protects. So long as a thing is unfinished, it cannot be judged — and neither can you. You leave before you can be left. The fear is not of choosing wrong; it is of being seen and found wanting.</div>
+        <div class="quote"><div class="q">Representative line — final quote sourced &amp; rights-checked.</div><div class="src">Representative · to verify</div></div>
+      </div>
+    </div>
+
+    <div class="verdict">
+      <div class="ava">B</div>
+      <div class="body">
+        <div class="who">de Beauvoir</div>
+        <div class="say">Each thing you abandon, you call circumstance — but it was a choice, and naming it fear is how you avoid owning it. To refuse to choose is itself a choice, and a less free one. Freedom is heavier than indecision. Pick up the weight.</div>
+        <div class="quote"><div class="q">Representative line — final quote sourced &amp; rights-checked.</div><div class="src">Representative · to verify</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="synth" id="synth">
+    <div class="lbl">Where the council stands</div>
+    <p>They name different causes — scattered force, a confusion of control, a flight from judgment, a refusal of responsibility — but converge on one verdict: the problem is not which path, but the unwillingness to commit to any. Finish one thing. Let it be judged.</p>
+  </div>
+
+  <div class="foot">
+    <span class="limit">1 of your 2 weekly councils used</span>
+    <span class="teaser">Return with your progress · soon</span>
+  </div>
+  <button class="replay" onclick="run()">▸ Replay the convening</button>
+  <p class="note">Avatars = placeholder initials (real portraits plug in). Freud/de Beauvoir quotes are representative placeholders — final quotes will be sourced &amp; rights-checked.</p>
+</div>
+
+<script>
+  const blocks=[...document.querySelectorAll('.verdict')];
+  const conv=document.getElementById('conv'), synth=document.getElementById('synth');
+  function reset(){blocks.forEach(b=>b.classList.remove('show'));synth.classList.remove('show');conv.style.display='flex';}
+  function run(){
+    reset();
+    let i=0;
+    const step=()=>{
+      if(i<blocks.length){ if(i===0)conv.style.display='none'; blocks[i].classList.add('show'); i++; setTimeout(step,1100); }
+      else { setTimeout(()=>synth.classList.add('show'),300); }
+    };
+    setTimeout(step,1400);
+  }
+  run();
+</script>
+</body>
+</html>
