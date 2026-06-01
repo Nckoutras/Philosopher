@@ -339,7 +339,7 @@ export default function MirrorPage() {
                 sessionStorage.setItem('council_prefill', mirror.payload?.thread ?? '')
                 sessionStorage.setItem('council_source', 'mirror')
                 sessionStorage.setItem('council_mirror_id', mirror.id)
-                router.push('/council')
+                router.push('/app/council')
               }}
               className="w-full py-[14px] rounded-[14px] border-[0.5px] border-bronze font-cormorant text-[17px] font-medium text-ink"
             >
