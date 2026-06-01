@@ -1,7 +1,7 @@
 # THE WISE ROOM — Implementation Backlog v16
 
 > **Purpose:** Source of truth for implementation work for The Wise Room / Philosopher v1 launch.
-> **v16 = v15 baseline (2026-06-01) + 2026-06-01 Council session delta (The Council shipped end-to-end: C5–C7c, PRs #182–#186; migrations 019 + 020; boardroom screen; save/unsave; share PNG; Mirror animated; shared Pillow renderer).**
+> **v16 = v15 baseline (2026-06-01) + 2026-06-01 Council session delta (The Council shipped end-to-end: C5–C7c; migrations 019 + 020; boardroom screen; save/unsave; share PNG; Mirror animated; shared Pillow renderer).**
 >
 > **Generated:** 2026-06-01 (v16 rotation)
 >
@@ -32,7 +32,7 @@
 
 > v16 = v15 baseline + The Council shipped. Where v16 conflicts with v15, v16 wins.
 
-**Shipped this session (PRs #182–#186):**
+**Shipped this session (C5–C7c):**
 
 - **The Council** — 4-member philosophical council (Machiavelli, Epictetus, Freud, de Beauvoir); 4 sequential verdicts + app-voice synthesis; SSE stream end-to-end; save/unsave toggle; share PNG with shared Pillow renderer. Boardroom screen live. Migrations 019 (council_cases / council_sessions / council_responses) + 020 (council_saves).
 - **Mirror animated** — `INTRO_HOLD` 1100→2100 in both mirror and council pages; CTA border 1.5px on mirror.
@@ -78,7 +78,7 @@ All 9 personas voice-tightened; check_brevity live; Socrates elenchus upgraded; 
 17. ~~**Voice overhaul**~~ ✅ DONE (2026-05-30)
 18. **Author smoke-test voice changes** — Wilde, Jung, Freud, de Beauvoir, Machiavelli, Lao Tzu (live, pending author test)
 19. ~~**The Mirror**~~ ✅ DONE (2026-06-01) — PRs #166–#173
-20. ~~**The Council**~~ ✅ DONE (2026-06-01) — PRs #182–#186; 4 members; verdicts + synthesis; save/share; migrations 019 + 020
+20. ~~**The Council**~~ ✅ DONE (2026-06-01) — C5–C7c; 4 members; verdicts + synthesis; save/share; migrations 019 + 020
 21. **TD-11 — Tier resolution refactor** — required before BETA flag can be safely disabled [REVENUE GATE]
 22. **Disable BETA_GRANT_PRO_TO_ALL** — then run end-to-end Stripe sandbox test [REVENUE GATE]
 23. **End-to-end Stripe sandbox test** (with BETA flag OFF)
@@ -205,7 +205,7 @@ Current council share PNG is a functional placeholder. Full design: boardroom.we
 
 ## 4. Database schemas
 
-See `PROJECT_STATE_v16.md §4`. Migration head: `020_council_saves`. Migrations 019 (council_cases/sessions/responses) and 020 (council_saves) added 2026-06-01.
+See `PROJECT_STATE_v16.md §4`. Migration head: `020_create_council_saves`. Migrations 019 (council_cases/sessions/responses) and 020 (council_saves) added 2026-06-01.
 
 ---
 
@@ -270,7 +270,7 @@ Unchanged from v12.
 |---|---|---|
 | Letter to Future Self | 🟡 UI live, ARQ delivery not wired | Remove account card until wired (PR4af done) |
 | The Mirror | 🟢 **SHIPPED** (2026-06-01, PRs #166–#173) | Generator + idempotent cron (weekly + preview) + host picker + ring-true live. Eligible hosts: Jung (default), Lao Tzu, Marcus Aurelius. MIRROR_PROMPT locked. |
-| The Council | 🟢 **SHIPPED** (2026-06-01, PRs #182–#186) | 4 members (Machiavelli, Epictetus, Freud, de Beauvoir). Verdicts + synthesis SSE. Save/unsave. Share PNG. Migrations 019 + 020. |
+| The Council | 🟢 **SHIPPED** (2026-06-01, C5–C7c) | 4 members (Machiavelli, Epictetus, Freud, de Beauvoir). Verdicts + synthesis SSE. Save/unsave. Share PNG. Migrations 019 + 020. |
 | The Counterview | 🔴 NOT DESIGNED | Spec §1.3.2 describes the flow (locked in Option B); implementation not yet designed. Do not dispatch brief until design session complete. Host: Machiavelli (Pro-only). |
 | Weekly Reading placeholder | 🔴 pending | "Coming this season" locked card in Rituals tile |
 
@@ -338,7 +338,7 @@ All share card variants should use `_render_share_canvas` as the Pillow drawing 
 - [x] ~~Prior P0 items through 2026-05-28~~ — DONE (see v12–v13 §11.1)
 - [x] ~~**Voice overhaul**~~ DONE (2026-05-30)
 - [x] ~~**The Mirror**~~ ✅ DONE (2026-06-01) — PRs #166–#173
-- [x] ~~**The Council**~~ ✅ DONE (2026-06-01) — PRs #182–#186; 4 members + synthesis + save + share; migrations 019 + 020
+- [x] ~~**The Council**~~ ✅ DONE (2026-06-01) — C5–C7c; 4 members + synthesis + save + share; migrations 019 + 020
 - [ ] **🔴 TD-11 — Tier resolution refactor** — REVENUE GATE; required before disabling BETA flag
 - [ ] **🔴 Disable BETA_GRANT_PRO_TO_ALL** — set false in Render env after TD-11; then run Stripe test
 - [ ] **End-to-end Stripe sandbox test** (test card → webhook → entitlement → portal → cancel → tier downgrade; MUST run with BETA flag OFF)

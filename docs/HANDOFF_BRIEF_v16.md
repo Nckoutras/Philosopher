@@ -6,7 +6,7 @@
 **Prior version:** `docs/HANDOFF_BRIEF_v15.md` (2026-06-01)
 **Generated:** 2026-06-01 (v16 rotation)
 
-**Block trigger for v16 baseline regen:** The Council shipped end-to-end (C5–C7c, PRs #182–#186, 2026-06-01). 4-member council, sequential verdicts, app-voice synthesis, save/unsave toggle, share PNG. Migrations 019 + 020. Session volume sufficient for rotation.
+**Block trigger for v16 baseline regen:** The Council shipped end-to-end (C5–C7c, 2026-06-01). 4-member council, sequential verdicts, app-voice synthesis, save/unsave toggle, share PNG. Migrations 019 + 020. Session volume sufficient for rotation.
 
 **v16 baseline (2026-06-01):** Council ✅ COMPLETE. Mirror ✅ COMPLETE. BETA_GRANT_PRO_TO_ALL still enabled — top revenue-gate blocker. Next: revenue gate (TD-11 + BETA off + Stripe test), then share card redesigns and Counterview.
 
@@ -26,7 +26,7 @@
 - C9 "Bring another mind" / PR-B ✅ COMPLETE (2026-05-29) — Pro-gated; cross-mind awareness shipped
 - Voice overhaul ✅ COMPLETE (2026-05-30)
 - **The Mirror ✅ COMPLETE (2026-06-01)** — PRs #166–#173; generator + cron + host picker + ring-true; migrations 017 + 018
-- **The Council ✅ COMPLETE (2026-06-01)** — PRs #182–#186; 4 members; verdicts + synthesis SSE; save/unsave; share PNG; migrations 019 + 020; boardroom screen live
+- **The Council ✅ COMPLETE (2026-06-01)** — C5–C7c; 4 members; verdicts + synthesis SSE; save/unsave; share PNG; migrations 019 + 020; boardroom screen live
 - Oregon region migration ✅ CONFIRMED LIVE — bvzeuwzqgnqcghvqghtb (us-west-2)
 - Upstash ✅ Pay-as-You-Go (upgraded 2026-05-27)
 - ANTHROPIC_API_KEY ✅ Re-added to both services (2026-05-27/28)
@@ -37,7 +37,7 @@
 
 > v16 = v15 baseline + The Council shipped end-to-end. Where v16 conflicts with v15, v16 wins.
 
-**Shipped (PRs #182–#186):**
+**Shipped (C5–C7c):**
 
 - **The Council** — full Council feature live. Full technical detail in `PROJECT_STATE_v16.md §v16 Session Delta`.
   - 4 members: Machiavelli, Epictetus, Freud, de Beauvoir. All Pro-tier.
@@ -48,7 +48,7 @@
 - **Mirror animated** — `INTRO_HOLD` updated 1100→2100 in both mirror and council pages.
 
 **Key superseded facts:**
-- `alembic_version` = **`020_council_saves`** (was `018_user_mirror_host`). Two new migrations: `019_council_tables` + `020_council_saves`.
+- `alembic_version` = **`020_create_council_saves`** (was `018_user_mirror_host`). Two new migrations: `019_create_council` + `020_create_council_saves`.
 - The Council: was Phase 5 parked → **🟢 SHIPPED**.
 - `image_service.py`: `_compose_canvas` → `_render_share_canvas` (shared core); reflections output byte-identical.
 - Share counter is **shared** between reflections and council: key `share_screenshot:{user.id}`, 3/90-day free-tier limit.
@@ -121,37 +121,37 @@ ANTHROPIC_API_KEY disappeared from both services between May 25-27. `render.yaml
 
 ## Changelog v15 → v16
 
-### The Council — C5 (#182, 87a9c32)
+### The Council — C5 (87a9c32, #182)
 
 **Council screen scaffold + boardroom bg + rAF word-reveal + bench + synthesis card**
 
 - `apps/web/app/app/council/page.tsx` — NEW: full council screen
 - `apps/web/app/app/council/council.module.css` — NEW: `.word` keyframe
-- Backend: `routers/council.py` + `services/council_service.py` + `db/migrations/versions/019_council_tables.py` — NEW
+- Backend: `routers/council.py` + `services/council_service.py` + `db/migrations/versions/019_create_council.py` — NEW
 
-### The Council — C6 (#183, 3149764)
+### The Council — C6 (3149764, #183)
 
 **Polish: input framing, full bench + sequential light, veil 0.75, auto-scroll**
 
 - `council/page.tsx` — `VEIL_OPACITY` 0.75; flex-nowrap bench; auto-scroll sentinel + pause-on-scroll; `scrollPendingRef` pattern
 
-### The Council — C7a (#184, adc2592)
+### The Council — C7a (adc2592, #184)
 
 **Mirror session animation, council lit-name polish, stronger CTA border**
 
 - `mirror/page.tsx` — `INTRO_HOLD` 1100→2100; CTA border 1.5px
 - `council/page.tsx` — lit bench names `text-ink`; synthesis card label styling
 
-### The Council — C7b (#185, 76340ef)
+### The Council — C7b (76340ef, #185)
 
 **Save synthesis: council_saves table, save/unsave endpoints, button wiring**
 
 - `routers/council.py` — `POST+DELETE /council/{id}/save`
-- `db/migrations/versions/020_council_saves.py` — NEW
+- `db/migrations/versions/020_create_council_saves.py` — NEW
 - `lib/api.ts` — `saveCouncil`, `unsaveCouncil`
 - `council/page.tsx` — `saved` state, `handleSave`, Bookmark button wired
 
-### The Council — C7c (#186, 7b9bb2f)
+### The Council — C7c (c7d181f, #186)
 
 **Share synthesis: shared Pillow renderer, council share endpoint, modal generalization, intro/prominence tweaks**
 
@@ -272,11 +272,11 @@ Current council share PNG uses the same centered text + footer layout as reflect
 
 | PR | Description | Date | Status |
 |---|---|---|---|
-| C5 #182 87a9c32 | Council: screen scaffold, boardroom bg, rAF reveal, bench, synthesis | 2026-06-01 | ✅ merged |
-| C6 #183 3149764 | Council: input framing, full bench + sequential light, veil 0.75, auto-scroll | 2026-06-01 | ✅ merged |
-| C7a #184 adc2592 | Council: Mirror animation (INTRO_HOLD 2100), lit-name polish, CTA border | 2026-06-01 | ✅ merged |
-| C7b #185 76340ef | Council: save synthesis (council_saves, save/unsave endpoints, button) | 2026-06-01 | ✅ merged |
-| C7c #186 7b9bb2f | Council: share synthesis (shared Pillow renderer, modal generalization, polish) | 2026-06-01 | ✅ merged |
+| C5 87a9c32 (#182) | Council: screen scaffold, boardroom bg, rAF reveal, bench, synthesis | 2026-06-01 | ✅ merged |
+| C6 3149764 (#183) | Council: input framing, full bench + sequential light, veil 0.75, auto-scroll | 2026-06-01 | ✅ merged |
+| C7a adc2592 (#184) | Council: Mirror animation (INTRO_HOLD 2100), lit-name polish, CTA border | 2026-06-01 | ✅ merged |
+| C7b 76340ef (#185) | Council: save synthesis (council_saves, save/unsave endpoints, button) | 2026-06-01 | ✅ merged |
+| C7c c7d181f (#186) | Council: share synthesis (shared Pillow renderer, modal generalization, polish) | 2026-06-01 | ✅ merged |
 
 Earlier PR history (v12–v15): see `HANDOFF_BRIEF_v15.md §6`.
 
@@ -303,8 +303,8 @@ All v15 paths apply. Additions since v15:
 - `routers/council.py` — NEW: POST /council, POST+DELETE /council/{id}/save, POST /council/{id}/share; `CouncilShareRequest`, `CouncilShareRequest` models; rate-limit guard
 - `services/council_service.py` — NEW: `CouncilService.stream_council` (SSE generator); `weekly_remaining`
 - `services/image_service.py` — REFACTORED: `_render_share_canvas` shared core; `generate_council_share_image`
-- `db/migrations/versions/019_council_tables.py` — NEW
-- `db/migrations/versions/020_council_saves.py` — NEW
+- `db/migrations/versions/019_create_council.py` — NEW
+- `db/migrations/versions/020_create_council_saves.py` — NEW
 
 ### Frontend (apps/web/)
 
@@ -348,7 +348,7 @@ Unchanged from v12. All 9 personas have full character config.
 
 ## 11. Migration plan — status
 
-All phases through Block C complete. Oregon complete. alembic_version = `020_council_saves`.
+All phases through Block C complete. Oregon complete. alembic_version = `020_create_council_saves`.
 
 ---
 
@@ -364,7 +364,7 @@ All phases through Block C complete. Oregon complete. alembic_version = `020_cou
                           ✅ Paid Starter tier — no cold-start
                           ✅ Upstash Pay-as-You-Go
 
-✅ Database               alembic_version = '020_council_saves'
+✅ Database               alembic_version = '020_create_council_saves'
                           Oregon data migration confirmed.
                           DATABASE_URL pointing to Oregon bvzeuwzqgnqcghvqghtb.
 
