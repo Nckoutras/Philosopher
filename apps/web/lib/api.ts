@@ -11,6 +11,12 @@ export type SSEEventSafetyOverride = { type: 'safety_override'; level: string }
 export type SSEEventError = { type: 'error'; error_code: 'llm_unavailable'; persona_voice: string }
 export type SSEEventCorrection = { type: 'correction' }
 
+// ── Council SSE event types ───────────────────────────────────────────────────
+export type SSEEventConvening = { type: 'convening' }
+export type SSEEventMember = { type: 'member'; slug: string; name: string; position: string }
+export type SSEEventSynthesisStart = { type: 'synthesis_start' }
+export type SSEEventSynthesisError = { type: 'synthesis_error' }
+
 export type SSEEvent =
   | SSEEventStart
   | SSEEventChunk
@@ -19,6 +25,10 @@ export type SSEEvent =
   | SSEEventSafetyOverride
   | SSEEventError
   | SSEEventCorrection
+  | SSEEventConvening
+  | SSEEventMember
+  | SSEEventSynthesisStart
+  | SSEEventSynthesisError
 
 // ── 429 response body (LLMErrorResponse from backend) ────────────────────────
 
@@ -553,6 +563,35 @@ class ApiClient {
         })
       }
       throw new Error('Stream failed')
+    }
+    return res
+  }
+
+  async streamCouncil(body: { matter: string; source?: string; mirror_id?: string | null }): Promise<Response> {
+    const res = await fetch(`${API_BASE}/council`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(this.token ? { Authorization: `Bearer ${this.token}` } : {}),
+      },
+      body: JSON.stringify(body),
+    })
+    if (!res.ok) {
+      if (res.status === 429) {
+        const b = await res.json().catch(() => ({} as LLMErrorResponse))
+        const limit = parseInt(res.headers.get('X-RateLimit-Limit') ?? '0', 10)
+        const remaining = parseInt(res.headers.get('X-RateLimit-Remaining') ?? '0', 10)
+        const resetHeader = res.headers.get('X-RateLimit-Reset') ?? new Date().toISOString()
+        throw new RateLimitError({
+          resetAt: new Date(resetHeader),
+          limit,
+          remaining,
+          errorCode: b.error_code ?? 'rate_limited',
+          personaVoice: b.persona_voice,
+          upgradeTarget: 'pro',
+        })
+      }
+      throw new Error('Council stream failed')
     }
     return res
   }
