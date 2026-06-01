@@ -13,7 +13,7 @@ export type SSEEventCorrection = { type: 'correction' }
 
 // ── Council SSE event types ───────────────────────────────────────────────────
 export type SSEEventConvening = { type: 'convening' }
-export type SSEEventMember = { type: 'member'; slug: string; name: string; position: string }
+export type SSEEventMember = { type: 'member'; slug: string; name: string; position: number }
 export type SSEEventSynthesisStart = { type: 'synthesis_start' }
 export type SSEEventSynthesisError = { type: 'synthesis_error' }
 
