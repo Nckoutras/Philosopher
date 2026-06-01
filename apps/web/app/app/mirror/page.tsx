@@ -1,14 +1,22 @@
 'use client'
 
-import { Fragment, useEffect, useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { Check, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import { api } from '@/lib/api'
 import type { Mirror, MirrorHost, Persona } from '@/lib/api'
+import styles from '../council/council.module.css'
 
+// ──────────────────────────────────────────────
+// Constants (same values as Council)
+// ──────────────────────────────────────────────
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+const INTRO_HOLD = 1100
+const WORD_STAGGER = 105
+const SENTENCE_PAUSE = 480
+const VEIL_OPACITY = 0.75
 
 function formatWeekSpan(start: string, end: string): string {
   const s = new Date(start)
@@ -22,6 +30,50 @@ function formatWeekSpan(start: string, end: string): string {
   return `${sm} ${sd} – ${em} ${ed}, ${yr}`
 }
 
+// ──────────────────────────────────────────────
+// Word-reveal helpers
+// ──────────────────────────────────────────────
+type RevealSeg = { key: string; words: string[]; startIdx: number }
+
+function tokenize(text: string): string[] {
+  return text.split(/\s+/).filter(Boolean)
+}
+
+function sentenceEnds(word: string): boolean {
+  return /[.!?]["')\]]*$/.test(word)
+}
+
+function buildSegs(mirror: Mirror): { segs: RevealSeg[]; flatWords: string[] } {
+  const segs: RevealSeg[] = []
+  const flatWords: string[] = []
+  if (mirror.payload?.moments) {
+    for (let i = 0; i < mirror.payload.moments.length; i++) {
+      const m = mirror.payload.moments[i]
+      const sw = tokenize(m.said)
+      segs.push({ key: `said_${i}`, words: sw, startIdx: flatWords.length })
+      flatWords.push(...sw)
+      const mw = tokenize(m.meant)
+      segs.push({ key: `meant_${i}`, words: mw, startIdx: flatWords.length })
+      flatWords.push(...mw)
+    }
+  }
+  if (mirror.payload?.thread) {
+    const tw = tokenize(mirror.payload.thread)
+    segs.push({ key: 'thread', words: tw, startIdx: flatWords.length })
+    flatWords.push(...tw)
+  }
+  return { segs, flatWords }
+}
+
+function segWords(segs: RevealSeg[], key: string, totalRevealed: number): string[] {
+  const seg = segs.find(s => s.key === key)
+  if (!seg) return []
+  return seg.words.slice(0, Math.max(0, Math.min(totalRevealed - seg.startIdx, seg.words.length)))
+}
+
+// ──────────────────────────────────────────────
+// Component
+// ──────────────────────────────────────────────
 export default function MirrorPage() {
   const router = useRouter()
   const token = useStore((s) => s.token)
@@ -36,6 +88,28 @@ export default function MirrorPage() {
   const [hosts, setHosts] = useState<MirrorHost[]>([])
   const [selectedHost, setSelectedHost] = useState<string | null>(null)
   const [savedHostName, setSavedHostName] = useState<string | null>(null)
+
+  // ── Animation state ──
+  const [animPhase, setAnimPhase] = useState<'idle' | 'intro' | 'revealing' | 'done'>('idle')
+  const [totalRevealed, setTotalRevealed] = useState(0)
+
+  // ── Animation refs ──
+  const segsRef = useRef<RevealSeg[]>([])
+  const flatWordsRef = useRef<string[]>([])
+  const totalRevealedRef = useRef(0)
+  const animRef = useRef<{
+    phase: 'idle' | 'intro' | 'revealing' | 'done'
+    phaseStart: number
+    lastWordTime: number
+    nextWordDelay: number
+  }>({ phase: 'idle', phaseStart: 0, lastWordTime: 0, nextWordDelay: WORD_STAGGER })
+  const rafRef = useRef<number | null>(null)
+
+  // ── Scroll refs ──
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
+  const sentinelRef = useRef<HTMLDivElement>(null)
+  const scrollPendingRef = useRef(false)
+  const autoScrollPaused = useRef(false)
 
   useEffect(() => {
     if (token === null) {
@@ -62,13 +136,82 @@ export default function MirrorPage() {
           setRingTrue(m.ring_true)
           setRingTrueSubmitted(true)
         }
+
+        if (m) {
+          const { segs, flatWords } = buildSegs(m)
+          segsRef.current = segs
+          flatWordsRef.current = flatWords
+          animRef.current = {
+            phase: 'intro',
+            phaseStart: performance.now(),
+            lastWordTime: 0,
+            nextWordDelay: WORD_STAGGER,
+          }
+          setAnimPhase('intro')
+          rafRef.current = requestAnimationFrame(tick)
+        }
       } finally {
         setLoading(false)
       }
     }
 
     load()
+
+    return () => {
+      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current)
+    }
   }, [token, router])
+
+  // ──────────────────────────────────────────────
+  // Animation tick (rAF loop) — same pattern as Council
+  // ──────────────────────────────────────────────
+  function tick(now: number) {
+    if (scrollPendingRef.current && !autoScrollPaused.current) {
+      sentinelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
+      scrollPendingRef.current = false
+    }
+
+    const a = animRef.current
+
+    if (a.phase === 'intro') {
+      if (now - a.phaseStart >= INTRO_HOLD) {
+        a.phase = 'revealing'
+        a.lastWordTime = now
+        a.nextWordDelay = WORD_STAGGER
+        scrollPendingRef.current = true
+        setAnimPhase('revealing')
+      }
+    } else if (a.phase === 'revealing') {
+      const flatWords = flatWordsRef.current
+      const revealed = totalRevealedRef.current
+
+      if (now - a.lastWordTime >= a.nextWordDelay && revealed < flatWords.length) {
+        const next = revealed + 1
+        totalRevealedRef.current = next
+        a.lastWordTime = now
+        const justRevealed = flatWords[revealed]
+        const jitter = Math.random() * 20 - 10
+        a.nextWordDelay = WORD_STAGGER + jitter + (sentenceEnds(justRevealed) ? SENTENCE_PAUSE : 0)
+        if (next % 4 === 0) scrollPendingRef.current = true
+        setTotalRevealed(next)
+      } else if (revealed >= flatWords.length) {
+        a.phase = 'done'
+        scrollPendingRef.current = true
+        setAnimPhase('done')
+        return
+      }
+    }
+
+    if (a.phase !== 'done') {
+      rafRef.current = requestAnimationFrame(tick)
+    }
+  }
+
+  function handleScrollContainer(e: React.UIEvent<HTMLDivElement>) {
+    const el = e.currentTarget
+    const fromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
+    autoScrollPaused.current = fromBottom > 80
+  }
 
   async function handleRingTrue(value: 'yes' | 'partly' | 'no') {
     if (ringTrueSubmitted || !mirror) return
@@ -109,6 +252,7 @@ export default function MirrorPage() {
     } catch { /* optimistic; ignore */ }
   }
 
+  // ── Loading skeleton ──
   if (loading) {
     return (
       <main className="min-h-screen [min-height:100svh] bg-vellum">
@@ -139,20 +283,32 @@ export default function MirrorPage() {
   }
 
   const eyebrow = mirror?.kind === 'preview' ? 'A FIRST REFLECTION' : 'WEEKLY MIRROR'
+  const showContent = animPhase === 'revealing' || animPhase === 'done'
+  const threadW = mirror ? segWords(segsRef.current, 'thread', totalRevealed) : []
 
   return (
-    <main className="min-h-screen [min-height:100svh] bg-vellum pb-[40px] relative overflow-hidden">
+    <main className="relative min-h-screen [min-height:100svh] overflow-hidden">
+      {/* Full-bleed background + vellum veil */}
+      <div className="fixed inset-0 z-0">
+        <Image
+          src="/personas/mirror.png"
+          alt=""
+          fill
+          className="object-cover object-center"
+          priority
+        />
+        <div className="absolute inset-0" style={{ backgroundColor: '#EFE3CC', opacity: VEIL_OPACITY }} />
+      </div>
 
-      <svg aria-hidden="true" viewBox="0 0 250 540" fill="none"
-           className="absolute top-[14px] right-[-58px] w-[250px] h-[540px] z-0 pointer-events-none">
-        <path d="M20 540 L20 150 C20 60 76 8 125 8 C174 8 230 60 230 150 L230 540" stroke="#B89968" strokeWidth="1.6" opacity="0.5" />
-        <path d="M40 540 L40 156 C40 78 86 30 125 30 C164 30 210 78 210 156 L210 540" stroke="#B89968" strokeWidth="0.7" opacity="0.28" />
-        <path d="M150 70 C120 110 110 180 120 280" stroke="#B89968" strokeWidth="0.6" opacity="0.16" />
-      </svg>
-
-      {/* Header */}
-      <div className="relative px-[24px] pt-[22px] pb-[24px] overflow-hidden">
-        <div className="relative z-10">
+      {/* Scrollable content with faint readability scrim */}
+      <div
+        ref={scrollContainerRef}
+        onScroll={handleScrollContainer}
+        className="relative z-10 min-h-screen [min-height:100svh] overflow-y-auto px-[24px] pt-[22px] pb-[56px] flex flex-col gap-[32px]"
+        style={{ background: 'linear-gradient(to bottom, rgba(239,227,204,0.10) 0%, rgba(239,227,204,0.22) 100%)' }}
+      >
+        {/* Header — always shown after loading */}
+        <div>
           <button
             type="button"
             onClick={() => router.push('/app/rituals')}
@@ -202,10 +358,9 @@ export default function MirrorPage() {
             </div>
           )}
         </div>
-      </div>
 
-      {!mirror && (
-        <div className="relative z-10 px-[16px]">
+        {/* No mirror yet */}
+        {!mirror && (
           <div className="bg-paper border-[0.5px] border-edge rounded-[18px] shadow-card px-[16px] py-[32px] text-center">
             <p className="font-cormorant text-[20px] font-normal text-ink leading-snug">
               Your first reflection is still forming.
@@ -221,133 +376,161 @@ export default function MirrorPage() {
               Back to rituals
             </button>
           </div>
-        </div>
-      )}
+        )}
 
-      {mirror && (
-        <div className="relative z-10 px-[16px] flex flex-col gap-[16px]">
-          <div className="bg-paper border-[0.5px] border-edge rounded-[18px] shadow-card px-[20px] py-[28px] flex flex-col gap-[28px]">
+        {/* Mirror payload — hidden during intro hold, reveals word-by-word after */}
+        {mirror && showContent && (
+          <div className="flex flex-col gap-[16px]">
+            <div className="bg-paper border-[0.5px] border-edge rounded-[18px] shadow-card px-[20px] py-[28px] flex flex-col gap-[28px]">
 
-            {/* 1. Section label */}
-            <p className="font-lora text-[11px] font-semibold uppercase tracking-[0.2em] text-bronze-dark">
-              Beneath the words
-            </p>
-
-            {/* 2. Moments */}
-            {mirror.payload?.moments && mirror.payload.moments.length > 0 && (
-              <div className="flex flex-col gap-[24px]">
-                {mirror.payload.moments.map((moment, i) => (
-                  <Fragment key={i}>
-                    {i > 0 && (
-                      <div className="flex justify-center" aria-hidden="true">
-                        <span className="text-bronze text-[12px] tracking-[0.3em] opacity-70">◆</span>
-                      </div>
-                    )}
-                    <div>
-                      <div className="bg-linen-deep/30 rounded-[10px] p-[12px_14px]">
-                        <p className="font-lora text-[10.5px] font-semibold uppercase tracking-[0.16em] text-charcoal mb-[6px]">
-                          What you said
-                        </p>
-                        <p className="font-lora italic text-[14px] text-sepia leading-[1.55] line-clamp-3">
-                          &ldquo;{moment.said}&rdquo;
-                        </p>
-                      </div>
-                      <div className="border-l-[3px] border-bronze pl-[16px] mt-[12px]">
-                        <p className="font-lora text-[10.5px] font-semibold uppercase tracking-[0.16em] text-bronze-dark mb-[6px]">
-                          What it may mean
-                        </p>
-                        <p className="font-cormorant text-[22px] text-ink leading-snug">
-                          {moment.meant}
-                        </p>
-                      </div>
-                    </div>
-                  </Fragment>
-                ))}
-              </div>
-            )}
-
-            {/* 3. Divider */}
-            <div className="h-px bg-edge my-[30px]" />
-
-            {/* 4. Synthesis (thread moved here, centered, host-attributed) */}
-            {mirror.payload?.thread && (
-              <div className="text-center">
-                <p className="font-lora text-[11px] font-semibold uppercase tracking-[0.2em] text-bronze-dark mb-[14px]">
-                  {mirror.host_persona_name ? `What ${mirror.host_persona_name} sees` : 'The reflection'}
-                </p>
-                <p className="font-cormorant text-[25px] text-ink leading-snug">{mirror.payload.thread}</p>
-              </div>
-            )}
-
-            {/* 5. Humility */}
-            <p className="font-cormorant italic text-[17px] text-sepia text-center my-[28px]">
-              This may be wrong. If it is, set it down.
-            </p>
-
-            {/* 6. Ring-true */}
-            <div className="flex flex-col items-center gap-[12px]">
-              <p className="font-lora text-[11px] font-semibold uppercase tracking-[0.18em] text-charcoal text-center">
-                Does this ring true?
+              <p className="font-lora text-[11px] font-semibold uppercase tracking-[0.2em] text-bronze-dark">
+                Beneath the words
               </p>
-              <div className="flex gap-[8px] flex-wrap justify-center">
-                {(
-                  [
-                    { value: 'yes' as const, label: 'Rings true' },
-                    { value: 'partly' as const, label: 'Partly' },
-                    { value: 'no' as const, label: 'No' },
-                  ] as const
-                ).map(({ value, label }) => (
-                  <button
-                    key={value}
-                    type="button"
-                    disabled={ringTrueSubmitted}
-                    onClick={() => handleRingTrue(value)}
-                    className={[
-                      'font-lora text-[13px] px-[16px] py-[8px] rounded-full transition-colors',
-                      ringTrue === value
-                        ? 'border-[1.5px] border-bronze bg-bronze/10 text-bronze'
-                        : 'border-[1.5px] border-bronze text-charcoal',
-                      ringTrueSubmitted && ringTrue !== value ? 'opacity-40' : '',
-                    ].join(' ')}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-              {ringTrueSubmitted && (
-                <p className="font-lora text-[12px] text-sepia italic">Noted.</p>
+
+              {mirror.payload?.moments && mirror.payload.moments.length > 0 && (
+                <div className="flex flex-col gap-[24px]">
+                  {mirror.payload.moments.map((moment, i) => {
+                    const saidW = segWords(segsRef.current, `said_${i}`, totalRevealed)
+                    const meantW = segWords(segsRef.current, `meant_${i}`, totalRevealed)
+                    return (
+                      <Fragment key={i}>
+                        {i > 0 && (
+                          <div className="flex justify-center" aria-hidden="true">
+                            <span className="text-bronze text-[12px] tracking-[0.3em] opacity-70">◆</span>
+                          </div>
+                        )}
+                        <div>
+                          <div className="bg-linen-deep/30 rounded-[10px] p-[12px_14px]">
+                            <p className="font-lora text-[10.5px] font-semibold uppercase tracking-[0.16em] text-charcoal mb-[6px]">
+                              What you said
+                            </p>
+                            <p className="font-lora italic text-[14px] text-sepia leading-[1.55]">
+                              {saidW.map((word, wi) => (
+                                <Fragment key={wi}>
+                                  {wi > 0 && ' '}
+                                  <span className={styles.word}>{word}</span>
+                                </Fragment>
+                              ))}
+                            </p>
+                          </div>
+                          <div className="border-l-[3px] border-bronze pl-[16px] mt-[12px]">
+                            <p className="font-lora text-[10.5px] font-semibold uppercase tracking-[0.16em] text-bronze-dark mb-[6px]">
+                              What it may mean
+                            </p>
+                            <p className="font-cormorant text-[22px] text-ink leading-snug">
+                              {meantW.map((word, wi) => (
+                                <Fragment key={wi}>
+                                  {wi > 0 && ' '}
+                                  <span className={styles.word}>{word}</span>
+                                </Fragment>
+                              ))}
+                            </p>
+                          </div>
+                        </div>
+                      </Fragment>
+                    )
+                  })}
+                </div>
+              )}
+
+              {/* Thread — appears when first thread word is ready */}
+              {threadW.length > 0 && (
+                <>
+                  <div className="h-px bg-edge my-[30px]" />
+                  <div className="text-center">
+                    <p className="font-lora text-[11px] font-semibold uppercase tracking-[0.2em] text-bronze-dark mb-[14px]">
+                      {mirror.host_persona_name ? `What ${mirror.host_persona_name} sees` : 'The reflection'}
+                    </p>
+                    <p className="font-cormorant text-[25px] text-ink leading-snug">
+                      {threadW.map((word, wi) => (
+                        <Fragment key={wi}>
+                          {wi > 0 && ' '}
+                          <span className={styles.word}>{word}</span>
+                        </Fragment>
+                      ))}
+                    </p>
+                  </div>
+                </>
+              )}
+
+              {/* Humility + ring-true — appear when all words are revealed */}
+              {animPhase === 'done' && (
+                <>
+                  <p className="font-cormorant italic text-[17px] text-sepia text-center my-[28px]">
+                    This may be wrong. If it is, set it down.
+                  </p>
+                  <div className="flex flex-col items-center gap-[12px]">
+                    <p className="font-lora text-[11px] font-semibold uppercase tracking-[0.18em] text-charcoal text-center">
+                      Does this ring true?
+                    </p>
+                    <div className="flex gap-[8px] flex-wrap justify-center">
+                      {(
+                        [
+                          { value: 'yes' as const, label: 'Rings true' },
+                          { value: 'partly' as const, label: 'Partly' },
+                          { value: 'no' as const, label: 'No' },
+                        ] as const
+                      ).map(({ value, label }) => (
+                        <button
+                          key={value}
+                          type="button"
+                          disabled={ringTrueSubmitted}
+                          onClick={() => handleRingTrue(value)}
+                          className={[
+                            'font-lora text-[13px] px-[16px] py-[8px] rounded-full transition-colors',
+                            ringTrue === value
+                              ? 'border-[1.5px] border-bronze bg-bronze/10 text-bronze'
+                              : 'border-[1.5px] border-bronze text-charcoal',
+                            ringTrueSubmitted && ringTrue !== value ? 'opacity-40' : '',
+                          ].join(' ')}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                    {ringTrueSubmitted && (
+                      <p className="font-lora text-[12px] text-sepia italic">Noted.</p>
+                    )}
+                  </div>
+                </>
               )}
             </div>
 
-          </div>
-
-          <div className="flex flex-col gap-[10px]">
-            {mirror.host_persona_slug && mirror.host_persona_name && (
-              <button
-                type="button"
-                onClick={handleContinueWithHost}
-                disabled={startingConv}
-                className="w-full py-[14px] rounded-[14px] bg-ink text-vellum font-cormorant text-[17px] font-medium disabled:opacity-60"
-              >
-                {startingConv ? 'Opening…' : `Continue with ${mirror.host_persona_name}`}
-              </button>
+            {/* CTAs — appear when all words are revealed */}
+            {animPhase === 'done' && (
+              <div className="flex flex-col gap-[10px]">
+                {mirror.host_persona_slug && mirror.host_persona_name && (
+                  <button
+                    type="button"
+                    onClick={handleContinueWithHost}
+                    disabled={startingConv}
+                    className="w-full py-[14px] rounded-[14px] bg-ink text-vellum font-cormorant text-[17px] font-medium disabled:opacity-60"
+                  >
+                    {startingConv ? 'Opening…' : `Continue with ${mirror.host_persona_name}`}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    sessionStorage.setItem('council_prefill', mirror.payload?.thread ?? '')
+                    sessionStorage.setItem('council_source', 'mirror')
+                    sessionStorage.setItem('council_mirror_id', mirror.id)
+                    router.push('/app/council')
+                  }}
+                  className="w-full py-[14px] rounded-[14px] border-[1.5px] border-bronze font-cormorant text-[17px] font-medium text-ink"
+                >
+                  Take it to the Council
+                </button>
+              </div>
             )}
-
-            <button
-              type="button"
-              onClick={() => {
-                sessionStorage.setItem('council_prefill', mirror.payload?.thread ?? '')
-                sessionStorage.setItem('council_source', 'mirror')
-                sessionStorage.setItem('council_mirror_id', mirror.id)
-                router.push('/app/council')
-              }}
-              className="w-full py-[14px] rounded-[14px] border-[0.5px] border-bronze font-cormorant text-[17px] font-medium text-ink"
-            >
-              Take it to the Council
-            </button>
           </div>
-        </div>
-      )}
+        )}
+
+        {/* Bottom sentinel — auto-scroll target */}
+        <div ref={sentinelRef} aria-hidden="true" />
+      </div>
+
+      {/* Picker sheet — unchanged */}
       {pickerOpen && (
         <>
           <div
