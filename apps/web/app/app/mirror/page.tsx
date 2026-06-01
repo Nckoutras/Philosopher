@@ -13,7 +13,7 @@ import styles from '../council/council.module.css'
 // Constants (same values as Council)
 // ──────────────────────────────────────────────
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
-const INTRO_HOLD = 1100
+const INTRO_HOLD = 2100
 const WORD_STAGGER = 105
 const SENTENCE_PAUSE = 480
 const VEIL_OPACITY = 0.75

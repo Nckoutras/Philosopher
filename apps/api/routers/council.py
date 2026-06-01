@@ -1,15 +1,26 @@
 from datetime import datetime, timezone
+from typing import Optional
 
-from fastapi import APIRouter, Depends, Request
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import JSONResponse, Response, StreamingResponse
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from auth import get_current_user_plan
 from db.session import get_db
+import services.rate_limit_service as rate_limit_service
 from models import CouncilCase, CouncilSave, CouncilSession
 from schemas import CouncilCreate
 from services.council_service import council_service
+from services.image_service import generate_council_share_image
+
+FREE_SHARE_LIMIT  = 3
+SHARE_WINDOW_SECS = 90 * 24 * 60 * 60   # 90 days rolling
+
+
+class CouncilShareRequest(BaseModel):
+    annotation: Optional[str] = Field(None, max_length=140)
 
 router = APIRouter(prefix="/council", tags=["council"])
 
@@ -128,3 +139,43 @@ async def unsave_council_session(
         await db.commit()
 
     return {"saved": False}
+
+
+@router.post("/{session_id}/share")
+async def share_council_session(
+    session_id: str,
+    body: CouncilShareRequest,
+    db: AsyncSession = Depends(get_db),
+    auth: tuple = Depends(get_current_user_plan),
+) -> Response:
+    """
+    Generate a share image for a council session synthesis.
+    Returns raw image/png bytes.
+    Free tier: max 3 per 90-day rolling window (shared counter with line shares).
+    Pro/premium: unlimited.
+    """
+    user, plan = auth
+
+    if plan not in ("pro", "premium"):
+        allowed = await rate_limit_service.check_and_increment(
+            key=f"share_screenshot:{user.id}",
+            max_count=FREE_SHARE_LIMIT,
+            window_seconds=SHARE_WINDOW_SECS,
+        )
+        if not allowed:
+            return JSONResponse(
+                status_code=429,
+                content={"error_code": "share_limit_reached"},
+            )
+
+    try:
+        png_bytes = await generate_council_share_image(
+            db=db,
+            session_id=session_id,
+            user_id=user.id,
+            annotation=body.annotation,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+    return Response(content=png_bytes, media_type="image/png")

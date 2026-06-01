@@ -8,12 +8,13 @@ import { useStore } from '@/lib/store'
 import { api, RateLimitError } from '@/lib/api'
 import type { SSEEvent, SSEEventMember } from '@/lib/api'
 import styles from './council.module.css'
+import SharePreviewModal from '@/components/share/SharePreviewModal'
 
 // ──────────────────────────────────────────────
 // Constants (all tunable)
 // ──────────────────────────────────────────────
 const MATTER_MAX = 600
-const INTRO_HOLD = 1100
+const INTRO_HOLD = 2100
 const WORD_STAGGER = 105
 const SENTENCE_PAUSE = 480
 const SEAT_LIGHT = 950
@@ -95,6 +96,7 @@ export default function CouncilPage() {
   const [phase, setPhase] = useState<VisualPhase>({ kind: 'idle' })
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
+  const [shareModalOpen, setShareModalOpen] = useState(false)
 
   // ── Network-side refs ──
   // slug → { name, portraitUrl } — loaded once from API, stable across sessions
@@ -644,7 +646,7 @@ export default function CouncilPage() {
                 <p className="font-lora text-[11px] uppercase tracking-[0.24em] text-bronze-dark text-center">
                   THE COUNCIL&apos;S READING
                 </p>
-                <p className="font-cormorant text-[21px] text-ink leading-snug">
+                <p className="font-cormorant font-medium text-[21px] text-ink leading-snug">
                   {phase.synthesisWords.map((word, i) => (
                     <Fragment key={i}>
                       {i > 0 && ' '}
@@ -665,8 +667,9 @@ export default function CouncilPage() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => {}}
-                      className="flex items-center gap-[6px] font-lora text-[13px] text-sepia border-[0.5px] border-edge rounded-full px-[16px] py-[8px]"
+                      onClick={() => setShareModalOpen(true)}
+                      disabled={!sessionId}
+                      className="flex items-center gap-[6px] font-lora text-[13px] text-sepia border-[0.5px] border-edge rounded-full px-[16px] py-[8px] disabled:opacity-40"
                     >
                       <Share2 size={14} strokeWidth={1.5} />
                       Share reading
@@ -724,6 +727,15 @@ export default function CouncilPage() {
         {/* Bottom sentinel — auto-scroll target */}
         <div ref={sentinelRef} aria-hidden="true" />
       </div>
+
+      {/* Share modal */}
+      <SharePreviewModal
+        isOpen={shareModalOpen}
+        onClose={() => setShareModalOpen(false)}
+        kind="council"
+        councilSessionId={sessionId ?? ''}
+        quote={phase.kind === 'session' ? phase.synthesisWords.join(' ') : ''}
+      />
     </main>
   )
 }
@@ -767,7 +779,7 @@ function BenchPortrait({ member }: { member: BenchItem }) {
         )}
       </div>
       <p
-        className={`font-lora text-[10px] text-center leading-tight ${isLit ? 'text-ink' : 'text-sepia'}`}
+        className={`font-lora text-[11px] font-medium text-center leading-tight ${isLit ? 'text-ink' : 'text-sepia'}`}
         style={{ opacity: isLit ? 1 : isPending ? 0.4 : 0.6 }}
       >
         {member.name.split(' ')[0]}
@@ -801,7 +813,7 @@ function VerdictBlock({ verdict }: { verdict: VerdictCard }) {
           {verdict.name}
         </p>
       </div>
-      <p className="font-cormorant text-[21px] text-ink leading-snug">
+      <p className="font-cormorant font-medium text-[21px] text-ink leading-snug">
         {verdict.revealedWords.map((word, i) => (
           <Fragment key={i}>
             {i > 0 && ' '}
