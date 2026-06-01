@@ -18,6 +18,15 @@ const WORD_STAGGER = 105
 const SENTENCE_PAUSE = 480
 const SEAT_LIGHT = 950
 const MEMBER_GAP = 1500
+const VEIL_OPACITY = 0.75
+
+// Backend sends members in this order; bench is always shown in this order.
+const ROSTER = [
+  'niccolo_machiavelli',
+  'epictetus',
+  'sigmund_freud',
+  'simone_de_beauvoir',
+] as const
 
 // ──────────────────────────────────────────────
 // Types
@@ -51,7 +60,7 @@ type SessionPhase = {
 type VisualPhase =
   | { kind: 'idle' }
   | { kind: 'intro' }
-  | { kind: 'convening' }
+  | { kind: 'convening'; bench: BenchItem[] }
   | SessionPhase
   | { kind: 'safety' }
   | { kind: 'error'; message: string }
@@ -69,6 +78,10 @@ function sentenceEnds(word: string): boolean {
   return /[.!?]["')\]]*$/.test(word)
 }
 
+function slugToDisplay(slug: string): string {
+  return slug.replace(/_/g, ' ')
+}
+
 // ──────────────────────────────────────────────
 // Component
 // ──────────────────────────────────────────────
@@ -81,11 +94,11 @@ export default function CouncilPage() {
   const [mirrorId, setMirrorId] = useState<string | null>(null)
   const [phase, setPhase] = useState<VisualPhase>({ kind: 'idle' })
 
-  // ── Network-side refs (mutated by SSE, read by animation tick) ──
-  const portraits = useRef(new Map<string, string>())
-  const memberBufs = useRef(
-    new Map<string, { text: string; netDone: boolean; name: string; position: number }>()
-  )
+  // ── Network-side refs ──
+  // slug → { name, portraitUrl } — loaded once from API, stable across sessions
+  const rosterMeta = useRef(new Map<string, { name: string; portraitUrl: string }>())
+  // slug → { text, netDone } — per-session text buffers
+  const memberBufs = useRef(new Map<string, { text: string; netDone: boolean }>())
   const memberOrder = useRef<string[]>([])
   const synBuf = useRef({ text: '', netDone: false })
   const synStartedRef = useRef(false)
@@ -105,6 +118,14 @@ export default function CouncilPage() {
 
   const rafRef = useRef<number | null>(null)
 
+  // ── Scroll refs ──
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
+  const sentinelRef = useRef<HTMLDivElement>(null)
+  const autoScrollPaused = useRef(false)
+  // Set true before a setPhase that adds new content; consumed at the START of the next tick
+  // (after React commits), so scrollIntoView sees the new DOM.
+  const scrollPendingRef = useRef(false)
+
   // ──────────────────────────────────────────────
   // Mount
   // ──────────────────────────────────────────────
@@ -115,7 +136,9 @@ export default function CouncilPage() {
     }
 
     api.getPersonas().then((ps) => {
-      for (const p of ps) portraits.current.set(p.slug, p.portrait_url ?? '')
+      for (const p of ps) {
+        rosterMeta.current.set(p.slug, { name: p.name, portraitUrl: p.portrait_url })
+      }
     }).catch(() => {})
 
     const prefill = sessionStorage.getItem('council_prefill') ?? ''
@@ -134,26 +157,21 @@ export default function CouncilPage() {
   }, [token, router])
 
   // ──────────────────────────────────────────────
-  // Bench builder (reads only refs, safe in stale closures)
+  // Bench builder — always reads from ROSTER, safe in stale closures
+  // activeIdx = -1 means all pending; index into ROSTER/memberOrder
   // ──────────────────────────────────────────────
   function buildBench(activeIdx: number, activeState: BenchState): BenchItem[] {
-    const slugs = [...memberOrder.current].sort((a, b) => {
-      const pa = memberBufs.current.get(a)?.position ?? 0
-      const pb = memberBufs.current.get(b)?.position ?? 0
-      return pa - pb
-    })
-    return slugs.map((slug) => {
-      const buf = memberBufs.current.get(slug)!
-      const idx = memberOrder.current.indexOf(slug)
+    return ROSTER.map((slug, idx) => {
+      const meta = rosterMeta.current.get(slug)
       let benchState: BenchState
       if (idx < activeIdx) benchState = 'done'
       else if (idx === activeIdx) benchState = activeState
       else benchState = 'pending'
       return {
         slug,
-        name: buf.name,
-        position: buf.position,
-        portraitUrl: portraits.current.get(slug) ?? '',
+        name: meta?.name ?? slugToDisplay(slug),
+        position: idx,
+        portraitUrl: meta?.portraitUrl ?? '',
         benchState,
       }
     })
@@ -163,9 +181,16 @@ export default function CouncilPage() {
   // Animation tick (rAF loop)
   // ──────────────────────────────────────────────
   function tick(now: number) {
+    // Execute scroll deferred from the previous frame's setPhase calls.
+    // By the time this fires, React has committed those renders to the DOM.
+    if (scrollPendingRef.current && !autoScrollPaused.current) {
+      sentinelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
+      scrollPendingRef.current = false
+    }
+
     const a = anim.current
 
-    // Network errors take priority — checked every frame
+    // Network errors take priority
     if (netErrRef.current) {
       const err = netErrRef.current
       netErrRef.current = null
@@ -181,7 +206,8 @@ export default function CouncilPage() {
       case 'intro': {
         if (now - a.phaseStart >= INTRO_HOLD) {
           a.phase = 'convening'
-          setPhase({ kind: 'convening' })
+          // Show all-pending bench immediately on entering convening
+          setPhase({ kind: 'convening', bench: buildBench(-1, 'pending') })
         }
         break
       }
@@ -191,6 +217,7 @@ export default function CouncilPage() {
           a.phase = 'seat'
           a.memberIdx = 0
           a.phaseStart = now
+          scrollPendingRef.current = true
           setPhase({
             kind: 'session',
             bench: buildBench(0, 'lighting'),
@@ -209,8 +236,11 @@ export default function CouncilPage() {
           a.phase = 'speak'
           a.lastWordTime = now
           a.nextWordDelay = WORD_STAGGER
-          const name = memberBufs.current.get(slug)?.name ?? ''
-          const portraitUrl = portraits.current.get(slug) ?? ''
+          const meta = rosterMeta.current.get(slug)
+          const name = meta?.name ?? slugToDisplay(slug)
+          const portraitUrl = meta?.portraitUrl ?? ''
+          // New verdict card is about to appear — scroll after render
+          scrollPendingRef.current = true
           setPhase((prev) => {
             if (prev.kind !== 'session') return prev
             return {
@@ -235,10 +265,12 @@ export default function CouncilPage() {
           const next = revealed + 1
           revealedBySlug.current.set(slug, next)
           a.lastWordTime = now
-          // Delay for the NEXT word is based on the word we just revealed
           const justRevealed = words[revealed]
           const jitter = Math.random() * 20 - 10
           a.nextWordDelay = WORD_STAGGER + jitter + (sentenceEnds(justRevealed) ? SENTENCE_PAUSE : 0)
+
+          // Scroll every 4th word
+          if (next % 4 === 0) scrollPendingRef.current = true
 
           const slice = words.slice(0, next)
           setPhase((prev) => {
@@ -276,12 +308,12 @@ export default function CouncilPage() {
             a.phase = 'synthesis'
             a.lastWordTime = now
             a.nextWordDelay = WORD_STAGGER
+            scrollPendingRef.current = true
             setPhase((prev) => {
               if (prev.kind !== 'session') return prev
               return { ...prev, synthesisActive: true }
             })
           }
-          // else: wait for next member event or synthesis_start
         }
         break
       }
@@ -298,6 +330,8 @@ export default function CouncilPage() {
           const jitter = Math.random() * 20 - 10
           a.nextWordDelay = WORD_STAGGER + jitter + (sentenceEnds(justRevealed) ? SENTENCE_PAUSE : 0)
 
+          if (next % 4 === 0) scrollPendingRef.current = true
+
           const slice = words.slice(0, next)
           setPhase((prev) => {
             if (prev.kind !== 'session') return prev
@@ -305,6 +339,7 @@ export default function CouncilPage() {
           })
         } else if (revealed >= words.length && synBuf.current.netDone) {
           a.phase = 'done'
+          scrollPendingRef.current = true
           setPhase((prev) => {
             if (prev.kind !== 'session') return prev
             return { ...prev, allDone: true, synthesisActive: false }
@@ -334,6 +369,8 @@ export default function CouncilPage() {
     netErrRef.current = null
     revealedBySlug.current.clear()
     synRevealedRef.current = 0
+    autoScrollPaused.current = false
+    scrollPendingRef.current = false
     anim.current = { phase: 'idle', phaseStart: 0, memberIdx: -1, nextWordDelay: WORD_STAGGER, lastWordTime: 0 }
   }
 
@@ -341,6 +378,15 @@ export default function CouncilPage() {
     resetSession()
     setPhase({ kind: 'idle' })
     setMatter('')
+  }
+
+  // ──────────────────────────────────────────────
+  // Scroll guard — pauses auto-scroll when user scrolls away from bottom
+  // ──────────────────────────────────────────────
+  function handleScrollContainer(e: React.UIEvent<HTMLDivElement>) {
+    const el = e.currentTarget
+    const fromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
+    autoScrollPaused.current = fromBottom > 80
   }
 
   // ──────────────────────────────────────────────
@@ -392,7 +438,7 @@ export default function CouncilPage() {
                 if (prev) prev.netDone = true
               }
               memberOrder.current = [...memberOrder.current, ev.slug]
-              memberBufs.current.set(ev.slug, { text: '', netDone: false, name: ev.name, position: ev.position })
+              memberBufs.current.set(ev.slug, { text: '', netDone: false })
               activeSlug = ev.slug
               break
             }
@@ -445,6 +491,7 @@ export default function CouncilPage() {
   // Render — Idle
   // ──────────────────────────────────────────────
   const canSubmit = matter.trim().length > 0 && matter.length <= MATTER_MAX && phase.kind === 'idle'
+  const fromMirror = source === 'mirror' && matter.length > 0
 
   if (phase.kind === 'idle') {
     return (
@@ -454,11 +501,16 @@ export default function CouncilPage() {
             THE COUNCIL
           </p>
           <h1 className="font-cormorant text-[44px] font-medium text-ink leading-tight">
-            The council is in session
+            Bring your matter before them
           </h1>
         </div>
 
         <div className="flex flex-col gap-[12px]">
+          {fromMirror && (
+            <p className="font-lora text-[10px] uppercase tracking-[0.22em] text-bronze-dark">
+              Carried from your mirror — make it your own
+            </p>
+          )}
           <textarea
             value={matter}
             onChange={(e) => setMatter(e.target.value)}
@@ -499,11 +551,16 @@ export default function CouncilPage() {
           className="object-cover object-center"
           priority
         />
-        <div className="absolute inset-0" style={{ backgroundColor: '#EFE3CC', opacity: 0.85 }} />
+        <div className="absolute inset-0" style={{ backgroundColor: '#EFE3CC', opacity: VEIL_OPACITY }} />
       </div>
 
-      {/* Scrollable content */}
-      <div className="relative z-10 min-h-screen [min-height:100svh] overflow-y-auto px-[24px] pt-[44px] pb-[56px] flex flex-col gap-[32px]">
+      {/* Scrollable content with faint readability scrim */}
+      <div
+        ref={scrollContainerRef}
+        onScroll={handleScrollContainer}
+        className="relative z-10 min-h-screen [min-height:100svh] overflow-y-auto px-[24px] pt-[44px] pb-[56px] flex flex-col gap-[32px]"
+        style={{ background: 'linear-gradient(to bottom, rgba(239,227,204,0.10) 0%, rgba(239,227,204,0.22) 100%)' }}
+      >
 
         {/* ── Header (convening + session) ── */}
         {(phase.kind === 'convening' || phase.kind === 'session') && (
@@ -522,24 +579,29 @@ export default function CouncilPage() {
           </div>
         )}
 
-        {/* ── Convening indicator ── */}
+        {/* ── Convening: bench (all pending) + indicator ── */}
         {phase.kind === 'convening' && (
-          <p className="font-lora italic text-[15px] text-sepia text-center">
-            The council convenes…
-          </p>
+          <>
+            <div className="flex justify-center gap-[10px] flex-nowrap">
+              {phase.bench.map((m) => (
+                <BenchPortrait key={m.slug} member={m} />
+              ))}
+            </div>
+            <p className="font-lora italic text-[15px] text-sepia text-center">
+              The council convenes…
+            </p>
+          </>
         )}
 
         {/* ── Session ── */}
         {phase.kind === 'session' && (
           <>
-            {/* Bench */}
-            {phase.bench.length > 0 && (
-              <div className="flex justify-center gap-[18px] flex-wrap">
-                {phase.bench.map((m) => (
-                  <BenchPortrait key={m.slug} member={m} />
-                ))}
-              </div>
-            )}
+            {/* Bench — all 4 always shown */}
+            <div className="flex justify-center gap-[10px] flex-nowrap">
+              {phase.bench.map((m) => (
+                <BenchPortrait key={m.slug} member={m} />
+              ))}
+            </div>
 
             {/* Verdicts */}
             {phase.verdicts.length > 0 && (
@@ -631,6 +693,9 @@ export default function CouncilPage() {
             </button>
           </div>
         )}
+
+        {/* Bottom sentinel — auto-scroll target */}
+        <div ref={sentinelRef} aria-hidden="true" />
       </div>
     </main>
   )
@@ -642,40 +707,41 @@ export default function CouncilPage() {
 
 function BenchPortrait({ member }: { member: BenchItem }) {
   const isLit = member.benchState === 'lighting' || member.benchState === 'speaking'
-  const isDimmed = member.benchState === 'pending' || member.benchState === 'done'
+  const isPending = member.benchState === 'pending'
+  const isDone = member.benchState === 'done'
 
   return (
-    <div className="flex flex-col items-center gap-[6px]">
+    <div className="flex flex-col items-center gap-[5px]">
       <div
         className={[
-          'w-[84px] h-[84px] rounded-full overflow-hidden transition-all duration-500',
+          'w-[66px] h-[66px] rounded-full overflow-hidden transition-all duration-500',
           isLit
-            ? 'ring-[2.5px] ring-[#B89968] shadow-[0_4px_18px_rgba(184,153,104,0.38)] -translate-y-[3px] opacity-100'
-            : isDimmed
-            ? 'opacity-40'
-            : 'opacity-100',
+            ? 'ring-[2.5px] ring-[#B89968] shadow-[0_4px_18px_rgba(184,153,104,0.4)] -translate-y-[3px]'
+            : '',
         ].join(' ')}
+        style={{
+          opacity: isLit ? 1 : isPending ? 0.35 : isDone ? 0.5 : 1,
+        }}
       >
         {member.portraitUrl ? (
           <Image
             src={member.portraitUrl}
             alt={member.name}
-            width={84}
-            height={84}
+            width={66}
+            height={66}
             className="object-cover w-full h-full"
           />
         ) : (
           <div className="w-full h-full bg-linen flex items-center justify-center">
-            <span className="font-cormorant text-[32px] font-medium text-charcoal">
+            <span className="font-cormorant text-[28px] font-medium text-charcoal">
               {member.name.charAt(0)}
             </span>
           </div>
         )}
       </div>
       <p
-        className={`font-lora text-[11px] text-center leading-tight ${
-          isDimmed ? 'text-sepia/50' : 'text-sepia'
-        }`}
+        className="font-lora text-[10px] text-center leading-tight text-sepia"
+        style={{ opacity: isLit ? 1 : isPending ? 0.4 : 0.6 }}
       >
         {member.name.split(' ')[0]}
       </p>
