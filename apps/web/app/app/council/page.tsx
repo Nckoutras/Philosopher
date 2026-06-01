@@ -740,7 +740,7 @@ function BenchPortrait({ member }: { member: BenchItem }) {
         )}
       </div>
       <p
-        className="font-lora text-[10px] text-center leading-tight text-sepia"
+        className={`font-lora text-[10px] text-center leading-tight ${isLit ? 'text-ink' : 'text-sepia'}`}
         style={{ opacity: isLit ? 1 : isPending ? 0.4 : 0.6 }}
       >
         {member.name.split(' ')[0]}
