@@ -429,3 +429,47 @@ class DailyUsage(Base):
     __table_args__ = (
         Index("ix_daily_usage_lookup", "user_id", "usage_date"),
     )
+
+
+# ── Council ───────────────────────────────────────────────────────────────────
+
+class CouncilCase(Base):
+    __tablename__ = "council_cases"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=gen_uuid)
+    user_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    source: Mapped[str] = mapped_column(String(20), nullable=False, default="direct")
+    mirror_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), ForeignKey("mirrors.id", ondelete="SET NULL"), nullable=True)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="open")
+    session_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class CouncilSession(Base):
+    __tablename__ = "council_sessions"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=gen_uuid)
+    case_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("council_cases.id", ondelete="CASCADE"), nullable=False)
+    session_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    input_text: Mapped[str] = mapped_column(Text, nullable=False)
+    synthesis: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="generating")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+    __table_args__ = (
+        UniqueConstraint("case_id", "session_number", name="uq_council_sessions_case_number"),
+    )
+
+
+class CouncilResponse(Base):
+    __tablename__ = "council_responses"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=gen_uuid)
+    session_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("council_sessions.id", ondelete="CASCADE"), nullable=False)
+    persona_slug: Mapped[str] = mapped_column(String(100), nullable=False)
+    position: Mapped[int] = mapped_column(Integer, nullable=False)
+    verdict: Mapped[str] = mapped_column(Text, nullable=False)
+    quote: Mapped[str | None] = mapped_column(Text, nullable=True)
+    quote_source: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
