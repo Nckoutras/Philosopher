@@ -133,6 +133,12 @@ class AnotherMindCreate(BaseModel):
     target_persona_slug: str
 
 
+class CouncilCreate(BaseModel):
+    matter: str
+    source: str = "direct"          # "direct" | "mirror"
+    mirror_id: str | None = None
+
+
 # ── Memory ────────────────────────────────────────────────────────────────────
 
 class MemoryEntryOut(BaseModel):
