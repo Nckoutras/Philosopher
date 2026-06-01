@@ -333,18 +333,18 @@ export default function MirrorPage() {
               </button>
             )}
 
-            <div className="relative">
-              <button
-                type="button"
-                disabled
-                className="w-full py-[14px] rounded-[14px] border-[0.5px] border-bronze font-cormorant text-[17px] font-medium text-ink opacity-50 cursor-not-allowed"
-              >
-                Take it to the Council
-              </button>
-              <span className="absolute top-[-9px] right-[14px] font-lora text-[10px] text-sepia bg-vellum px-[6px] border-[0.5px] border-edge rounded-full">
-                Premium &middot; soon
-              </span>
-            </div>
+            <button
+              type="button"
+              onClick={() => {
+                sessionStorage.setItem('council_prefill', mirror.payload?.thread ?? '')
+                sessionStorage.setItem('council_source', 'mirror')
+                sessionStorage.setItem('council_mirror_id', mirror.id)
+                router.push('/council')
+              }}
+              className="w-full py-[14px] rounded-[14px] border-[0.5px] border-bronze font-cormorant text-[17px] font-medium text-ink"
+            >
+              Take it to the Council
+            </button>
           </div>
         </div>
       )}
