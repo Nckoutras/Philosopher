@@ -1,0 +1,142 @@
+import asyncio
+import json
+import logging
+from datetime import datetime, timedelta, timezone
+from typing import AsyncGenerator
+
+import anthropic
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from models import SelfComparison, Message, Conversation
+from services.llm_client import llm_client
+from services.prompt_builder import prompt_builder
+from services.safety_service import safety_service
+from services.self_model_service import self_model_service
+from services.self_comparison_prompts import SELF_SYSTEM_PROMPT
+
+logger = logging.getLogger(__name__)
+
+MODEL_PRO = "claude-sonnet-4-6"   # same model Council uses
+WEEKLY_LIMIT = 5                  # cost guard; PR7 makes this tier-aware
+
+
+def _week_start() -> datetime:
+    now = datetime.now(timezone.utc)
+    monday = now - timedelta(days=now.isoweekday() - 1)
+    return monday.replace(hour=0, minute=0, second=0, microsecond=0)
+
+
+def _format_signals(by_type: dict) -> str:
+    lines: list[str] = []
+    for entry_type, items in by_type.items():
+        lines.append(f"{entry_type}:")
+        for it in items:
+            lines.append(f"- {it}")
+    return "\n".join(lines)
+
+
+class SelfComparisonService:
+
+    async def weekly_remaining(self, db: AsyncSession, user_id: str) -> int:
+        result = await db.execute(
+            select(func.count()).select_from(SelfComparison).where(
+                SelfComparison.user_id == user_id,
+                SelfComparison.created_at >= _week_start(),
+            )
+        )
+        return max(0, WEEKLY_LIMIT - result.scalar_one())
+
+    async def _window_has_crisis(self, db, user_id, start, end) -> bool:
+        result = await db.execute(
+            select(func.count()).select_from(Message)
+            .join(Conversation, Conversation.id == Message.conversation_id)
+            .where(
+                Conversation.user_id == user_id,
+                Message.created_at >= start,
+                Message.created_at <= end,
+                Message.safety_level.in_(("high", "critical")),
+            )
+        )
+        return result.scalar_one() > 0
+
+    async def stream(self, db: AsyncSession, user_id: str, prompt: str) -> AsyncGenerator[str, None]:
+        # 1. Safety gate on the prompt
+        safety_in = await safety_service.check_input(prompt, user_id)
+        if safety_in.should_suppress_persona:
+            yield f"data: {json.dumps({'type': 'safety', 'level': safety_in.level})}\n\n"
+            safe = prompt_builder.build_safety_response(level=safety_in.level)
+            yield f"data: {json.dumps({'type': 'chunk', 'which': 'safety', 'data': safe})}\n\n"
+            yield f"data: {json.dumps({'type': 'done'})}\n\n"
+            return
+
+        # 2. Require unlocked self-model
+        model = await self_model_service.build(db, user_id)
+        if not model["unlocked"]:
+            yield f"data: {json.dumps({'type': 'error', 'error_code': 'not_unlocked'})}\n\n"
+            return
+
+        then_w, now_w = model["then"], model["now"]
+
+        # 3. Window crisis-content safety gate (weekly-mirror inheritance)
+        if await self._window_has_crisis(db, user_id, then_w["start"], now_w["end"]):
+            yield f"data: {json.dumps({'type': 'safety', 'level': 'suppressed'})}\n\n"
+            yield f"data: {json.dumps({'type': 'done'})}\n\n"
+            return
+
+        # 4. Create pending row
+        row = SelfComparison(
+            user_id=user_id, prompt=prompt,
+            then_start=then_w["start"], then_end=then_w["end"],
+            now_start=now_w["start"], now_end=now_w["end"],
+            status="pending",
+        )
+        db.add(row)
+        await db.flush()
+
+        # 5. Stream the two selves
+        answers: dict[str, str] = {}
+        for which, label, win in (("then", "earlier", then_w), ("now", "more recent", now_w)):
+            system = SELF_SYSTEM_PROMPT.format(which_label=label, signals=_format_signals(win["by_type"]))
+            yield f"data: {json.dumps({'type': 'self', 'which': which, 'start': win['start'].isoformat(), 'end': win['end'].isoformat()})}\n\n"
+            buf: list[str] = []
+            chunks_yielded = False
+            success = False
+            for attempt in range(3):
+                buf = []
+                chunks_yielded = False
+                try:
+                    async for chunk in llm_client.stream(
+                        system=system, messages=[{"role": "user", "content": prompt}], model=MODEL_PRO
+                    ):
+                        buf.append(chunk)
+                        chunks_yielded = True
+                        yield f"data: {json.dumps({'type': 'chunk', 'which': which, 'data': chunk})}\n\n"
+                    success = True
+                    break
+                except anthropic.RateLimitError:
+                    if chunks_yielded: break
+                    await asyncio.sleep(2 ** attempt)
+                except anthropic.APIStatusError as exc:
+                    if chunks_yielded or exc.status_code < 500: break
+                    await asyncio.sleep(2 ** attempt)
+                except (anthropic.APIConnectionError, anthropic.APITimeoutError):
+                    if chunks_yielded: break
+                    await asyncio.sleep(2 ** attempt)
+            if not success and not chunks_yielded:
+                yield f"data: {json.dumps({'type': 'error', 'error_code': 'self_unavailable', 'which': which})}\n\n"
+            answers[which] = "".join(buf)
+
+        # 6. Persist
+        row.payload = {
+            "then": {"answer": answers.get("then", ""), "start": then_w["start"].isoformat(), "end": then_w["end"].isoformat()},
+            "now":  {"answer": answers.get("now", ""),  "start": now_w["start"].isoformat(),  "end": now_w["end"].isoformat()},
+        }
+        row.status = "ready"
+        await db.commit()
+
+        # 7. Done
+        yield f"data: {json.dumps({'type': 'done', 'comparison_id': row.id})}\n\n"
+
+
+self_comparison_service = SelfComparisonService()
