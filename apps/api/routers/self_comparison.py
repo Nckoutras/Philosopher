@@ -10,7 +10,7 @@ from models import User, SelfComparison
 from schemas import SelfModelStatusOut
 from auth import get_current_user, get_current_user_plan
 from services.self_model_service import self_model_service
-from services.self_comparison_service import self_comparison_service
+from services.self_comparison_service import self_comparison_service, weekly_limit
 
 router = APIRouter(prefix="/self-comparison", tags=["self-comparison"])
 
@@ -50,12 +50,12 @@ async def create_self_comparison(
         return JSONResponse(status_code=400, content={"error_code": "empty_prompt"})
 
     if not user.is_admin:
-        remaining = await self_comparison_service.weekly_remaining(db, user.id)
+        remaining = await self_comparison_service.weekly_remaining(db, user.id, plan)
         if remaining <= 0:
             return JSONResponse(
                 status_code=429,
                 content={"error_code": "weekly_limit"},
-                headers={"X-RateLimit-Limit": str(5), "X-RateLimit-Remaining": "0"},
+                headers={"X-RateLimit-Limit": str(weekly_limit(plan)), "X-RateLimit-Remaining": "0"},
             )
 
     return StreamingResponse(

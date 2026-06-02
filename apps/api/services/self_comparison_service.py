@@ -18,9 +18,14 @@ from services.self_comparison_prompts import SELF_SYSTEM_PROMPT, CLOSING_PROMPT
 logger = logging.getLogger(__name__)
 
 MODEL_PRO = "claude-sonnet-4-6"   # same model Council uses
-WEEKLY_LIMIT = 5                  # cost guard; PR7 makes this tier-aware
+WEEKLY_LIMIT_BY_TIER = {"pro": 5, "premium": 30}   # asks/week; premium capped (cost safety)
+DEFAULT_WEEKLY_LIMIT = 5
 CANDIDATES_PER_WINDOW = 8
 QUOTE_TRUNC = 200
+
+
+def weekly_limit(plan: str) -> int:
+    return WEEKLY_LIMIT_BY_TIER.get(plan, DEFAULT_WEEKLY_LIMIT)
 
 
 def _week_start() -> datetime:
@@ -40,14 +45,14 @@ def _format_signals(by_type: dict) -> str:
 
 class SelfComparisonService:
 
-    async def weekly_remaining(self, db: AsyncSession, user_id: str) -> int:
+    async def weekly_remaining(self, db: AsyncSession, user_id: str, plan: str) -> int:
         result = await db.execute(
             select(func.count()).select_from(SelfComparison).where(
                 SelfComparison.user_id == user_id,
                 SelfComparison.created_at >= _week_start(),
             )
         )
-        return max(0, WEEKLY_LIMIT - result.scalar_one())
+        return max(0, weekly_limit(plan) - result.scalar_one())
 
     async def _candidates(self, db: AsyncSession, user_id: str, start, end) -> list[dict]:
         result = await db.execute(
