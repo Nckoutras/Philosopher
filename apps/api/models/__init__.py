@@ -193,6 +193,26 @@ class Mirror(Base):
     )
 
 
+# ── Self Comparisons ─────────────────────────────────────────────────────────
+
+class SelfComparison(Base):
+    __tablename__ = "self_comparisons"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=gen_uuid)
+    user_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    prompt: Mapped[str] = mapped_column(Text, nullable=False)
+    then_start: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    then_end: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    now_start: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    now_end: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    payload: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
+    ring_true: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    ring_true_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    ring_true_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
 # ── Rituals ───────────────────────────────────────────────────────────────────
 
 class Ritual(Base):
