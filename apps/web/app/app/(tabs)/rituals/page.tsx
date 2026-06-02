@@ -62,7 +62,7 @@ export default function RitualsPage() {
               Letter to my Future Self
             </p>
             <p className="font-lora text-[15px] text-charcoal leading-[1.5] mt-[6px]">
-              Seal a thought. Return to it later.
+              Seal a thought now. Let it find you changed.
             </p>
             <button
               type="button"
@@ -89,7 +89,7 @@ export default function RitualsPage() {
               The Mirror
             </p>
             <p className="font-lora text-[15px] text-charcoal leading-[1.5] mt-[6px]">
-              What keeps returning, reflected without judgment.
+              What keeps returning — not what you said, but what you meant.
             </p>
           </div>
         </button>
@@ -104,7 +104,7 @@ export default function RitualsPage() {
               The Counterview
             </p>
             <p className="font-lora text-[15px] text-charcoal leading-[1.5] mt-[6px]">
-              Your assumptions, tested from another angle.
+              The strongest case against what you believe.
             </p>
             <p className="font-lora text-[12px] text-charcoal leading-[1.5] mt-[6px]">
               Available after 5 conversations or 30 messages with any philosopher.
@@ -126,7 +126,7 @@ export default function RitualsPage() {
               The Weekly Reading
             </p>
             <p className="font-lora text-[15px] text-charcoal leading-[1.5] mt-[6px]">
-              What your week circled, narrated back.
+              Your week, gathered into one reading — sent to you.
             </p>
             <p className="font-lora text-[12px] text-charcoal leading-[1.5] mt-[6px]">
               A 3-paragraph weekly reading drawn from your conversations and ritual
