@@ -6,6 +6,7 @@ import { ChevronLeft, ChevronDown } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import { api, RateLimitError } from '@/lib/api'
 import type { SelfComparisonStatus, SavedLineRead } from '@/lib/api'
+import Image from 'next/image'
 import WiseMark from '@/components/ui/WiseMark'
 
 type Quote = { text: string; date: string }
@@ -139,7 +140,15 @@ export default function YouVsYouPage() {
   }
 
   return (
-    <main className="min-h-screen [min-height:100svh] bg-vellum px-[24px] pt-[24px] pb-[60px] flex flex-col gap-[20px]">
+    <main className="relative min-h-screen [min-height:100svh] overflow-hidden">
+      <div className="fixed inset-0 z-0">
+        <Image src="/personas/youvsyou.webp" alt="" fill className="object-cover object-center" priority />
+        <div className="absolute inset-0" style={{ backgroundColor: '#EFE3CC', opacity: 0.75 }} />
+      </div>
+      <div
+        className="relative z-10 min-h-screen [min-height:100svh] overflow-y-auto px-[24px] pt-[24px] pb-[60px] flex flex-col gap-[20px]"
+        style={{ background: 'linear-gradient(to bottom, rgba(239,227,204,0.10) 0%, rgba(239,227,204,0.22) 100%)' }}
+      >
       <button type="button" onClick={() => router.push('/app/rituals')} aria-label="Back to rituals"
         className="flex items-center gap-[4px] text-sepia self-start">
         <ChevronLeft size={18} strokeWidth={1.5} />
@@ -305,6 +314,7 @@ export default function YouVsYouPage() {
       {!loading && !status && (
         <p className="font-lora text-[15px] text-charcoal text-center mt-[40px]">Couldn&rsquo;t load this right now. Try again in a moment.</p>
       )}
+      </div>
     </main>
   )
 }
