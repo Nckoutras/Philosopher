@@ -495,3 +495,20 @@ class RecentSavedLineOut(BaseModel):
     persona_portrait_url: str
     conversation_id: str
     saved_at: datetime
+
+
+# ── Self Comparison ───────────────────────────────────────────────────────────
+
+class SelfModelWindowOut(BaseModel):
+    start: datetime
+    end: datetime
+    by_type: dict[str, list[str]]
+
+
+class SelfModelStatusOut(BaseModel):
+    unlocked: bool
+    total_signals: int
+    reason: Optional[str] = None
+    forming_preview: list[str] = []
+    then: Optional[SelfModelWindowOut] = None
+    now: Optional[SelfModelWindowOut] = None
