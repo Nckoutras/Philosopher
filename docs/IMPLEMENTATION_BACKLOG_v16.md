@@ -205,7 +205,7 @@ Current council share PNG is a functional placeholder. Full design: boardroom.we
 
 ## 4. Database schemas
 
-See `PROJECT_STATE_v16.md §4`. Migration head: `020_council_saves`. Migrations 019 (council_cases/sessions/responses) and 020 (council_saves) added 2026-06-01.
+See `PROJECT_STATE_v16.md §4`. Migration head: `020_create_council_saves`. Migrations 019 (council_cases/sessions/responses) and 020 (council_saves) added 2026-06-01.
 
 ---
 
