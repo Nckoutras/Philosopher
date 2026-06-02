@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -178,9 +178,9 @@ export default function YouVsYouPage() {
           <p className="font-cormorant italic text-[18px] text-charcoal text-center leading-snug">{prompt}</p>
           {streamError && (
             <p className="font-lora text-[14px] text-charcoal text-center">
-              {streamError === ‘rate_limit’ ? ‘You’ve reached this week’s limit. Try again next week.’
-                : streamError === ‘safety’ ? ‘Let’s set this one aside for now.’
-                : ‘Something went wrong. Try again in a moment.’}
+              {streamError === 'rate_limit' ? 'You\u2019ve reached this week\u2019s limit. Try again next week.'
+                : streamError === 'safety' ? 'Let\u2019s set this one aside for now.'
+                : 'Something went wrong. Try again in a moment.'}
             </p>
           )}
           {!streamError && (
