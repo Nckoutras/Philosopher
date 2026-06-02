@@ -615,6 +615,31 @@ class ApiClient {
     return res
   }
 
+  async streamSelfComparison(body: { prompt: string }): Promise<Response> {
+    const res = await fetch(`${API_BASE}/self-comparison`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(this.token ? { Authorization: `Bearer ${this.token}` } : {}),
+      },
+      body: JSON.stringify(body),
+    })
+    if (!res.ok) {
+      if (res.status === 429) {
+        const b = await res.json().catch(() => ({} as LLMErrorResponse))
+        const limit = parseInt(res.headers.get('X-RateLimit-Limit') ?? '0', 10)
+        const remaining = parseInt(res.headers.get('X-RateLimit-Remaining') ?? '0', 10)
+        const resetHeader = res.headers.get('X-RateLimit-Reset') ?? new Date().toISOString()
+        throw new RateLimitError({
+          resetAt: new Date(resetHeader), limit, remaining,
+          errorCode: b.error_code ?? 'rate_limited', personaVoice: b.persona_voice, upgradeTarget: 'pro',
+        })
+      }
+      throw new Error('Self-comparison stream failed')
+    }
+    return res
+  }
+
   async saveCouncil(sessionId: string): Promise<void> {
     return this.request(`/council/${sessionId}/save`, { method: 'POST' })
   }
