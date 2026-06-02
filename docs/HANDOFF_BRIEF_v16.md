@@ -48,7 +48,7 @@
 - **Mirror animated** — `INTRO_HOLD` updated 1100→2100 in both mirror and council pages.
 
 **Key superseded facts:**
-- `alembic_version` = **`020_council_saves`** (was `018_user_mirror_host`). Two new migrations: `019_council_tables` + `020_council_saves`.
+- `alembic_version` = **`020_create_council_saves`** (was `018_user_mirror_host`). Two new migrations: `019_create_council` + `020_create_council_saves`.
 - The Council: was Phase 5 parked → **🟢 SHIPPED**.
 - `image_service.py`: `_compose_canvas` → `_render_share_canvas` (shared core); reflections output byte-identical.
 - Share counter is **shared** between reflections and council: key `share_screenshot:{user.id}`, 3/90-day free-tier limit.
@@ -127,7 +127,7 @@ ANTHROPIC_API_KEY disappeared from both services between May 25-27. `render.yaml
 
 - `apps/web/app/app/council/page.tsx` — NEW: full council screen
 - `apps/web/app/app/council/council.module.css` — NEW: `.word` keyframe
-- Backend: `routers/council.py` + `services/council_service.py` + `db/migrations/versions/019_council_tables.py` — NEW
+- Backend: `routers/council.py` + `services/council_service.py` + `db/migrations/versions/019_create_council.py` — NEW
 
 ### The Council — C6 (#183, 3149764)
 
@@ -147,11 +147,11 @@ ANTHROPIC_API_KEY disappeared from both services between May 25-27. `render.yaml
 **Save synthesis: council_saves table, save/unsave endpoints, button wiring**
 
 - `routers/council.py` — `POST+DELETE /council/{id}/save`
-- `db/migrations/versions/020_council_saves.py` — NEW
+- `db/migrations/versions/020_create_council_saves.py` — NEW
 - `lib/api.ts` — `saveCouncil`, `unsaveCouncil`
 - `council/page.tsx` — `saved` state, `handleSave`, Bookmark button wired
 
-### The Council — C7c (#186, 7b9bb2f)
+### The Council — C7c (#186, c7d181f)
 
 **Share synthesis: shared Pillow renderer, council share endpoint, modal generalization, intro/prominence tweaks**
 
@@ -276,7 +276,7 @@ Current council share PNG uses the same centered text + footer layout as reflect
 | C6 #183 3149764 | Council: input framing, full bench + sequential light, veil 0.75, auto-scroll | 2026-06-01 | ✅ merged |
 | C7a #184 adc2592 | Council: Mirror animation (INTRO_HOLD 2100), lit-name polish, CTA border | 2026-06-01 | ✅ merged |
 | C7b #185 76340ef | Council: save synthesis (council_saves, save/unsave endpoints, button) | 2026-06-01 | ✅ merged |
-| C7c #186 7b9bb2f | Council: share synthesis (shared Pillow renderer, modal generalization, polish) | 2026-06-01 | ✅ merged |
+| C7c #186 c7d181f | Council: share synthesis (shared Pillow renderer, modal generalization, polish) | 2026-06-01 | ✅ merged |
 
 Earlier PR history (v12–v15): see `HANDOFF_BRIEF_v15.md §6`.
 
@@ -303,8 +303,8 @@ All v15 paths apply. Additions since v15:
 - `routers/council.py` — NEW: POST /council, POST+DELETE /council/{id}/save, POST /council/{id}/share; `CouncilShareRequest`, `CouncilShareRequest` models; rate-limit guard
 - `services/council_service.py` — NEW: `CouncilService.stream_council` (SSE generator); `weekly_remaining`
 - `services/image_service.py` — REFACTORED: `_render_share_canvas` shared core; `generate_council_share_image`
-- `db/migrations/versions/019_council_tables.py` — NEW
-- `db/migrations/versions/020_council_saves.py` — NEW
+- `db/migrations/versions/019_create_council.py` — NEW
+- `db/migrations/versions/020_create_council_saves.py` — NEW
 
 ### Frontend (apps/web/)
 
@@ -348,7 +348,7 @@ Unchanged from v12. All 9 personas have full character config.
 
 ## 11. Migration plan — status
 
-All phases through Block C complete. Oregon complete. alembic_version = `020_council_saves`.
+All phases through Block C complete. Oregon complete. alembic_version = `020_create_council_saves`.
 
 ---
 
@@ -364,7 +364,7 @@ All phases through Block C complete. Oregon complete. alembic_version = `020_cou
                           ✅ Paid Starter tier — no cold-start
                           ✅ Upstash Pay-as-You-Go
 
-✅ Database               alembic_version = '020_council_saves'
+✅ Database               alembic_version = '020_create_council_saves'
                           Oregon data migration confirmed.
                           DATABASE_URL pointing to Oregon bvzeuwzqgnqcghvqghtb.
 

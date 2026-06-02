@@ -2,7 +2,7 @@
 
 > **What this file is:** Live snapshot of the project's current implementation status. Manually maintained.
 >
-> **v16 = v15 baseline (2026-06-01) + 2026-06-01 session delta (The Council shipped end-to-end: C5–C7c, PRs #182–#186; migrations 019_council_tables + 020_council_saves; 3 Council endpoints; boardroom screen live; Mirror INTRO_HOLD updated; share renderer shared).**
+> **v16 = v15 baseline (2026-06-01) + 2026-06-01 session delta (The Council shipped end-to-end: C5–C7c, PRs #182–#186; migrations 019_create_council + 020_create_council_saves; 3 Council endpoints; boardroom screen live; Mirror INTRO_HOLD updated; share renderer shared).**
 >
 > **Generated:** 2026-06-01 (v16 rotation)
 >
@@ -29,7 +29,7 @@
 - **Mirror animated** — `apps/web/app/app/mirror/page.tsx`: `INTRO_HOLD` updated to 2100 (was 1100); CTA border 1.5px.
 
 **Supersedes prior facts:**
-- `alembic_version` is now **`020_council_saves`** (was `018_user_mirror_host`). Two new migrations since v15: `019_council_tables` + `020_council_saves`.
+- `alembic_version` is now **`020_create_council_saves`** (was `018_user_mirror_host`). Two new migrations since v15: `019_create_council` + `020_create_council_saves`.
 - The Council: was Phase 5 / parked → now **🟢 SHIPPED end-to-end**.
 - "Take it to the Council" CTA on Mirror page now navigates to live `/app/council`.
 - `SharePreviewModal` now accepts `kind` prop; existing `kind='line'` call sites unaffected.
@@ -160,10 +160,10 @@ Pro tier: Simone de Beauvoir, Epictetus, Sigmund Freud, Carl Jung, Oscar Wilde, 
 | **016** | **messages.persona_id nullable FK → personas.id + ix_messages_persona_id** | **2026-05-29** | **PR-B / 71ce6e3** |
 | **017** | **mirrors table: uq_mirrors_user_period_kind UNIQUE(user_id, period_start, kind); kind ∈ {weekly,preview}; status ∈ {generated,empty,suppressed}; payload JSONB; ring_true fields** | **2026-06-01** | **Mirror / #168** |
 | **018** | **users.mirror_host_slug VARCHAR(100) NULL** | **2026-06-01** | **Mirror / #171** |
-| **019** | **council_cases (id, user_id FK CASCADE, mirror_id FK SET NULL, status, session_count, created_at, closed_at) + council_sessions (id, case_id FK CASCADE, session_number, input_text, synthesis TEXT NULL, status, created_at) + council_responses (id, session_id FK CASCADE, persona_id FK SET NULL, position, verdict TEXT, quote TEXT NULL, quote_source, created_at) + UNIQUE(case_id, session_number) + indexes** | **2026-06-01** | **Council / #182** |
-| **020** | **council_saves (id UUID PK, user_id FK CASCADE, session_id FK CASCADE, saved_at, deleted_at NULL) + UNIQUE(user_id, session_id) + ix_council_saves_user** | **2026-06-01** | **Council C7b / #185** |
+| **019** | **council_cases (id, user_id FK CASCADE, mirror_id FK SET NULL, status, session_count, created_at, closed_at) + council_sessions (id, case_id FK CASCADE, session_number, input_text, synthesis TEXT NULL, status, created_at) + council_responses (id, session_id FK CASCADE, persona_slug VARCHAR(100) NULL, position, verdict TEXT, quote TEXT NULL, quote_source, created_at) + UNIQUE(case_id, session_number) + indexes** | **2026-06-01** | **Council C5–C7b** |
+| **020** | **council_saves (id UUID PK, user_id FK CASCADE, session_id FK CASCADE, saved_at, deleted_at NULL) + UNIQUE(user_id, session_id) + ix_council_saves_user** | **2026-06-01** | **Council C7b** |
 
-**alembic_version = `020_council_saves`** (migration 020 added 2026-06-01, Council save storage)
+**alembic_version = `020_create_council_saves`** (migration 020 added 2026-06-01, Council save storage)
 
 ### Oregon region migration — CONFIRMED LIVE
 
@@ -179,7 +179,7 @@ Oregon migration status (confirmed as of 2026-06-01):
 ### Live database state (2026-06-01)
 
 ```
-alembic_version:        020_council_saves ✓
+alembic_version:        020_create_council_saves ✓
 users count:            ~2-3 (founder + test accounts; no organic users yet)
 personas count:         9 (all active, all with bio + portrait + error_messages)
 conversations:          87+ (testing adds more)
@@ -326,9 +326,9 @@ Unchanged from v12 §12. DATABASE_URL confirmed Oregon.
 
 | Metric | Value |
 |---|---|
-| PRs merged | C5 87a9c32 (#182), C6 3149764 (#183), C7a adc2592 (#184), C7b 76340ef (#185), C7c 7b9bb2f (#186) |
+| PRs merged | C5 87a9c32 (#182), C6 3149764 (#183), C7a adc2592 (#184), C7b 76340ef (#185), C7c c7d181f (#186) |
 | Production regressions | 0 |
-| Migrations deployed | 019_council_tables, 020_council_saves |
+| Migrations deployed | 019_create_council, 020_create_council_saves |
 | New tables | `council_cases`, `council_sessions`, `council_responses`, `council_saves` |
 | New endpoints | POST /council, POST+DELETE /council/{id}/save, POST /council/{id}/share |
 | New backend files | `routers/council.py`, `services/council_service.py`, `services/image_service.py` (refactored) |
@@ -384,8 +384,8 @@ All v15 paths apply. Additions since v15:
 - `routers/council.py` — NEW: POST /council, POST+DELETE /council/{id}/save, POST /council/{id}/share
 - `services/council_service.py` — NEW: `council_service.stream_council` (SSE stream, verdict + synthesis); `weekly_remaining` rate-limit check
 - `services/image_service.py` — REFACTORED: `_render_share_canvas` shared core; `generate_council_share_image` added; `generate_share_image` output byte-identical
-- `db/migrations/versions/019_council_tables.py` — NEW
-- `db/migrations/versions/020_council_saves.py` — NEW
+- `db/migrations/versions/019_create_council.py` — NEW
+- `db/migrations/versions/020_create_council_saves.py` — NEW
 
 ### Frontend (apps/web/)
 
