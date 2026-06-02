@@ -142,6 +142,7 @@
 | G9 | The Counterview — Rounds | ⚠️ pending (ref Brief #5; 2 rounds, ≤4 sentences, steelman-the-opposite) |
 | G10 | The Counterview — Closing | ⚠️ pending (ref Brief #5; 2-line "What shifted, what didn't") |
 | G11 | Weekly Reading — placeholder card (Rituals tile) | ⚠️ pending (ref Brief #2; "Coming this season" locked card; low effort, any time) |
+| G12 | You vs You | ✅ shipped (2026-06-02, PRs #193–#202) — forming/locked guard → input (textarea + saved-lines) → dual-self reveal THEN/NOW → closing card (WiseMark + evidence quotes + ring-true + humility line) + usage meter + premium nudge. Pro-gated. Bg: youvsyou.webp. |
 
 ### H — Subscription & Billing
 

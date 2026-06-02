@@ -1,9 +1,9 @@
 # THE WISE ROOM — Implementation Backlog v16
 
 > **Purpose:** Source of truth for implementation work for The Wise Room / Philosopher v1 launch.
-> **v16 = v15 baseline (2026-06-01) + 2026-06-01 Council session delta (The Council shipped end-to-end: C5–C7c, PRs #182–#186; migrations 019 + 020; boardroom screen; save/unsave; share PNG; Mirror animated; shared Pillow renderer).**
+> **v16 = v15 baseline (2026-06-01) + 2026-06-01 Council session delta (The Council shipped end-to-end: C5–C7c, PRs #182–#186; migrations 019 + 020; boardroom screen; save/unsave; share PNG; Mirror animated; shared Pillow renderer) + 2026-06-02 You vs You session delta (WiseMark #191; You vs You end-to-end: PRs #193–#202; migration 021; dual-self SSE; closing card; ring-true; tier-aware weekly rate limit; usage meter).**
 >
-> **Generated:** 2026-06-01 (v16 rotation)
+> **Generated:** 2026-06-01 (v16 rotation) · **Last appended:** 2026-06-02 (You vs You session)
 >
 > **How to read this file:**
 > - This v16 file supersedes v15 and all prior backlog files.
@@ -52,6 +52,34 @@
 
 ---
 
+## 2026-06-02 Consolidation Summary — You vs You + polish PRs
+
+> Appended to v16. Where this conflicts with the v16 baseline, this section wins.
+
+**Polish / brand (PRs #190–#192):**
+
+- **#190** Mirror reveal frameless + Council idle heading centered
+- **#191** WiseMark icon component shipped; placed on Council synthesis card
+- **#192** Ritual hub descriptor copy sharpened
+
+**You vs You shipped (PRs #193–#202):**
+
+- DB: `self_comparisons` table (migration 021).
+- Services: `self_model_service` (pure-read; then/now window split; unlock gate: ≥20 signals AND ≥14 day span); `self_comparison_service` (SSE: two safety gates → dual first-person LLM gen → app-voice closing with VERBATIM evidence quotes + degradation ladder → done); `self_comparison_prompts`.
+- API: GET /self-comparison/status, POST /self-comparison (SSE; Pro-gated; tier-aware weekly limit), PATCH /self-comparison/{id}/ring-true.
+- Tiers: Pro+ only; free → 403. Weekly limits: pro=5, premium=30 (capped, not unlimited).
+- Frontend: `/app/you-vs-you` — forming/locked guard → input (textarea + saved-lines) → dual-self reveal THEN/NOW → closing card (WiseMark + evidence quotes + ring-true + humility line) + usage meter + premium nudge → `/app/upgrade`.
+
+**New open items added this session:**
+
+- [ ] **You vs You funnel analytics** (deferred) — limit-hit → premium-nudge click tracking. P3.
+- [ ] **Rolling-both window anchor** (deferred) — v2, user-selectable. P3.
+- [ ] **Free user → You vs You → upgrade CTA** watch item — after BETA flip, confirm rituals hub gates free users before the screen. P0 post-flip check.
+
+**Status:** You vs You ✅ COMPLETE. TD-11 🔴 not started; BETA flip 🟡 in progress / verify. Stripe smoke test 🔴 pending.
+
+---
+
 ## v15 Consolidation Summary (2026-06-01)
 
 The Mirror shipped (PRs #166–#173). See `IMPLEMENTATION_BACKLOG_v15.md §v15 Consolidation Summary` for full detail.
@@ -79,9 +107,10 @@ All 9 personas voice-tightened; check_brevity live; Socrates elenchus upgraded; 
 18. **Author smoke-test voice changes** — Wilde, Jung, Freud, de Beauvoir, Machiavelli, Lao Tzu (live, pending author test)
 19. ~~**The Mirror**~~ ✅ DONE (2026-06-01) — PRs #166–#173
 20. ~~**The Council**~~ ✅ DONE (2026-06-01) — PRs #182–#186; 4 members; verdicts + synthesis; save/share; migrations 019 + 020
-21. **TD-11 — Tier resolution refactor** — required before BETA flag can be safely disabled [REVENUE GATE]
-22. **Disable BETA_GRANT_PRO_TO_ALL** — then run end-to-end Stripe sandbox test [REVENUE GATE]
-23. **End-to-end Stripe sandbox test** (with BETA flag OFF)
+20.5. ~~**You vs You**~~ ✅ DONE (2026-06-02) — PRs #193–#202; self_comparisons table; migration 021; dual-self SSE; closing card + ring-true; tier-aware weekly rate limit; usage meter + premium nudge
+21. **TD-11 — Tier resolution refactor** — 🔴 not started [REVENUE GATE]
+22. **Disable BETA_GRANT_PRO_TO_ALL** — 🟡 in progress; flip initiated; pending redeploy + free-account verification [REVENUE GATE]
+23. **End-to-end Stripe sandbox test** — 🔴 pending (with BETA flag confirmed OFF)
 24. **source_chunks re-ingest** into Oregon (TD-22; status unconfirmed post-switch)
 25. **Post-Oregon smoke test** — login, chat, Mirror, Council, share, library, RAG retrieval
 26. **Mobile 12-point nav smoke test**
@@ -153,9 +182,9 @@ Unchanged from v12. See v11 §3 for full text.
 
 Unchanged from v12. PR4ai deferred.
 
-### TD-11 — Tier resolution unified refactor (P0 launch blocker)
+### TD-11 — Tier resolution unified refactor (P0 launch blocker, 🔴 not started)
 
-Must consolidate `get_current_user_plan` and `get_user_tier` before disabling `BETA_GRANT_PRO_TO_ALL`. Escalated to P0.
+Must consolidate `get_current_user_plan` and `get_user_tier` before the Stripe smoke test. ⚠️ Flip was initiated BEFORE TD-11 (out of documented order). Harmless while zero real subscriptions exist; but TD-11 MUST land before the Stripe smoke test, since `get_current_user_plan` and `get_user_tier` diverge on premium/trialing/expiry once a real subscription exists.
 
 ### TD-12 through TD-15
 
@@ -271,6 +300,7 @@ Unchanged from v12.
 | Letter to Future Self | 🟡 UI live, ARQ delivery not wired | Remove account card until wired (PR4af done) |
 | The Mirror | 🟢 **SHIPPED** (2026-06-01, PRs #166–#173) | Generator + idempotent cron (weekly + preview) + host picker + ring-true live. Eligible hosts: Jung (default), Lao Tzu, Marcus Aurelius. MIRROR_PROMPT locked. |
 | The Council | 🟢 **SHIPPED** (2026-06-01, PRs #182–#186) | 4 members (Machiavelli, Epictetus, Freud, de Beauvoir). Verdicts + synthesis SSE. Save/unsave. Share PNG. Migrations 019 + 020. |
+| You vs You | 🟢 **SHIPPED** (2026-06-02, PRs #193–#202) | Pro-gated SSE. Self-model: ≥20 signals + ≥14 day span to unlock. Dual-self reveal (then/now). Closing card: WiseMark + evidence quotes + ring-true + humility line. Weekly limit pro=5, premium=30. Usage meter + premium nudge. Migration 021. |
 | The Counterview | 🔴 NOT DESIGNED | Spec §1.3.2 describes the flow (locked in Option B); implementation not yet designed. Do not dispatch brief until design session complete. Host: Machiavelli (Pro-only). |
 | Weekly Reading placeholder | 🔴 pending | "Coming this season" locked card in Rituals tile |
 
@@ -280,7 +310,14 @@ Unchanged from v12.
 
 The Council was originally Phase 5 / post-launch Premium. It shipped earlier than planned as a Pro-gated ritual (BETA_GRANT_PRO_TO_ALL makes everyone Pro during cold beta). The "Heraclitus secret host" and Premium-tier mechanics remain parked (⏸ Phase 5).
 
-### 9.8 Council fast-follows (post-first-paying-user; NOT before)
+### 9.8 You vs You fast-follows (post-first-paying-user; NOT before)
+
+These should NOT block launch. Implement after first paying user confirmed.
+
+- [ ] **You vs You funnel analytics** — limit-hit → premium-nudge click tracking. P3.
+- [ ] **Rolling-both window anchor (v2)** — user-selectable then/now window anchoring. P3.
+
+### 9.9 Council fast-follows (post-first-paying-user; NOT before)
 
 These should NOT block launch or the first Stripe test. Implement after first paying user confirmed.
 
@@ -289,7 +326,7 @@ These should NOT block launch or the first Stripe test. Implement after first pa
 - [ ] **Reflection share card redesign** — center text, smaller/lower thumbnail. P1.
 - [ ] **compress mirror.png → WebP** (TD-25). P1.
 
-### 9.9 Mirror fast-follows (post-first-paying-user; NOT before)
+### 9.10 Mirror fast-follows (post-first-paying-user; NOT before)
 
 Unchanged from v15.
 
@@ -297,7 +334,7 @@ Unchanged from v15.
 - [ ] **Host-aware handoff** — reuse `CROSS_MIND_NOTE` pattern. P1.
 - [ ] **Smart input cap on Mirror generator** — cost control at scale. P1.
 
-### 9.10 Counterview — spec §1.3.2 exists; implementation NOT DESIGNED
+### 9.11 Counterview — spec §1.3.2 exists; implementation NOT DESIGNED
 
 Counterview is locked in Option B (Setup → 2 rounds steelman-the-opposite → 2-line closing "What shifted, what didn't"). Implementation not yet designed.
 
@@ -323,6 +360,10 @@ Full text in prior handoff briefs. Key rules: P-01 through P-06 in CLAUDE.md.
 
 All share card variants should use `_render_share_canvas` as the Pillow drawing core. Do not duplicate Pillow boilerplate. New share card types: add new callers, not new drawing functions from scratch.
 
+### 10.27 — You vs You is mirror-not-oracle (NEW 2026-06-02)
+
+You vs You observes and asks; it never asserts. No numeric scores, no clinical labels, no verdicts. The two selves reflect the user's own words back; the closing asks a question rather than concluding. User is always the judge. Encoded in `SELF_SYSTEM_PROMPT` and `CLOSING_PROMPT`.
+
 ---
 
 ## 11. Backlog by priority (consolidated)
@@ -339,9 +380,11 @@ All share card variants should use `_render_share_canvas` as the Pillow drawing 
 - [x] ~~**Voice overhaul**~~ DONE (2026-05-30)
 - [x] ~~**The Mirror**~~ ✅ DONE (2026-06-01) — PRs #166–#173
 - [x] ~~**The Council**~~ ✅ DONE (2026-06-01) — PRs #182–#186; 4 members + synthesis + save + share; migrations 019 + 020
-- [ ] **🔴 TD-11 — Tier resolution refactor** — REVENUE GATE; required before disabling BETA flag
-- [ ] **🔴 Disable BETA_GRANT_PRO_TO_ALL** — set false in Render env after TD-11; then run Stripe test
-- [ ] **End-to-end Stripe sandbox test** (test card → webhook → entitlement → portal → cancel → tier downgrade; MUST run with BETA flag OFF)
+- [x] ~~**You vs You**~~ ✅ DONE (2026-06-02) — PRs #193–#202; migration 021; dual-self SSE; closing card + ring-true; tier-aware weekly rate limit; usage meter + premium nudge
+- [ ] **🔴 TD-11 — Tier resolution refactor** — not started; REVENUE GATE; must land before Stripe smoke test
+- [ ] **🟡 Disable BETA_GRANT_PRO_TO_ALL** — in progress; flip initiated on Render; verify: redeploy done + startup warning gone + free account gets 403 on Pro content
+- [ ] **🔴 Watch: free user → You vs You upgrade CTA** — after BETA flip, confirm rituals hub gates free users before the screen
+- [ ] **End-to-end Stripe sandbox test** — 🔴 pending (test card → webhook → entitlement → portal → cancel → tier downgrade; MUST run with BETA flag confirmed OFF)
 - [x] ~~**Oregon region migration completion**~~ — DATABASE_URL confirmed pointing to Oregon
 - [ ] **source_chunks re-ingest** into Oregon (TD-22; status unconfirmed post-switch)
 - [ ] **Post-Oregon smoke test** (login, chat, Mirror, Council, rituals, share, library, RAG retrieval)
@@ -403,7 +446,7 @@ Suggested execution order post .gitignore fix + smoke test:
 
 ### 11.3 P2 (tech debt)
 
-- [ ] **TD-11** — Tier resolution unified refactor — **escalated to P0 blocker; see §11.1**
+- [ ] **TD-11** — Tier resolution unified refactor — **not started; P0 blocker; see §11.1**
 - [ ] **TD-12** — Soft-delete pattern for conversations
 - [ ] **TD-01** — Split `rate_limit_service.py`
 - [ ] **TD-02** — PersonaConfig / Persona ORM naming confusion
@@ -427,6 +470,8 @@ Suggested execution order post .gitignore fix + smoke test:
 - [ ] **Phase 5 Council Premium mechanics + Heraclitus secret host** (post-launch, post-feedback)
 - [ ] **Phase 6 eval suite + CI**
 - [ ] **LLM eval test** for Lao Tzu
+- [ ] **You vs You funnel analytics** — limit-hit → premium-nudge click tracking (deferred from YvY session)
+- [ ] **Rolling-both window anchor (v2)** — user-selectable then/now anchoring (deferred from YvY session)
 
 ### 11.5 P4
 
@@ -453,4 +498,4 @@ Realistic timeline from end of 2026-06-01 session: 5-8 weeks total.
 
 ---
 
-**End of IMPLEMENTATION_BACKLOG v16.** Authoritative as of 2026-06-01. Supersedes `IMPLEMENTATION_BACKLOG_v15.md` (preserved as historical reference).
+**End of IMPLEMENTATION_BACKLOG v16.** Authoritative as of 2026-06-02 (You vs You appended). Supersedes `IMPLEMENTATION_BACKLOG_v15.md` (preserved as historical reference).

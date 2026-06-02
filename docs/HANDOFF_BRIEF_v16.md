@@ -2,13 +2,15 @@
 
 **For:** The next Claude (chat) and Claude Code session
 **From:** Nikos Koutras (founder) + Claude Code
-**Date updated:** 2026-06-01
+**Date updated:** 2026-06-02
 **Prior version:** `docs/HANDOFF_BRIEF_v15.md` (2026-06-01)
-**Generated:** 2026-06-01 (v16 rotation)
+**Generated:** 2026-06-01 (v16 rotation) · **Last appended:** 2026-06-02 (You vs You session)
 
 **Block trigger for v16 baseline regen:** The Council shipped end-to-end (C5–C7c, PRs #182–#186, 2026-06-01). 4-member council, sequential verdicts, app-voice synthesis, save/unsave toggle, share PNG. Migrations 019 + 020. Session volume sufficient for rotation.
 
 **v16 baseline (2026-06-01):** Council ✅ COMPLETE. Mirror ✅ COMPLETE. BETA_GRANT_PRO_TO_ALL still enabled — top revenue-gate blocker. Next: revenue gate (TD-11 + BETA off + Stripe test), then share card redesigns and Counterview.
+
+**2026-06-02 append:** You vs You ✅ COMPLETE (PRs #193–#202, migration 021). WiseMark shipped (#191). TD-11 🔴 not started; BETA flip 🟡 in progress / verify (flip initiated on Render, redeploy pending); Stripe smoke test 🔴 pending.
 
 **Status:**
 - Block A ✅ FULLY CLOSED (5/5)
@@ -27,6 +29,8 @@
 - Voice overhaul ✅ COMPLETE (2026-05-30)
 - **The Mirror ✅ COMPLETE (2026-06-01)** — PRs #166–#173; generator + cron + host picker + ring-true; migrations 017 + 018
 - **The Council ✅ COMPLETE (2026-06-01)** — PRs #182–#186; 4 members; verdicts + synthesis SSE; save/unsave; share PNG; migrations 019 + 020; boardroom screen live
+- **WiseMark ✅ SHIPPED (#191)** — standalone icon component; placed on Council synthesis card
+- **You vs You ✅ COMPLETE (2026-06-02)** — PRs #193–#202; self_comparisons table (migration 021); dual-self SSE; closing card with evidence quotes + ring-true; weekly limit pro=5/wk, premium=30/wk; usage meter + premium nudge; faded bg
 - Oregon region migration ✅ CONFIRMED LIVE — bvzeuwzqgnqcghvqghtb (us-west-2)
 - Upstash ✅ Pay-as-You-Go (upgraded 2026-05-27)
 - ANTHROPIC_API_KEY ✅ Re-added to both services (2026-05-27/28)
@@ -61,22 +65,61 @@ The Mirror shipped (PRs #166–#173). Full detail in `HANDOFF_BRIEF_v15.md §v15
 
 ---
 
-## Top of mind / Next (2026-06-01)
+## 2026-06-02 Session Delta — You vs You + polish PRs
 
-### Council is shipped. The revenue gate is the priority.
+> Appended to v16. Where this conflicts with the v16 baseline, this section wins.
 
-**Priority order as of 2026-06-01:**
+**Polish / brand (PRs #190–#192, between Council and You vs You):**
 
-1. **Stripe checkout smoke test + disable `BETA_GRANT_PRO_TO_ALL`** — revenue gate. Must run TD-11 (tier resolution refactor) first. Then flip BETA flag off. Then test Stripe checkout end-to-end with a real test card. This is the highest-leverage item before public launch.
+- **#190** — Mirror reveal frameless + center Council idle heading
+- **#191** — WiseMark icon component added; placed on Council synthesis card
+- **#192** — Ritual hub descriptor copy sharpened
 
-2. **Council fast-follows** (post-first-paying-user, NOT before launch):
+**You vs You — full ritual shipped (PRs #193–#202):**
+
+- **DB:** `self_comparisons` table (migration 021). Columns: `id UUID PK`, `user_id FK CASCADE`, `prompt TEXT NOT NULL`, `then_start / then_end / now_start / now_end TIMESTAMPTZ` (window boundaries), `payload JSONB` (carries dual-self answers + closing), `status VARCHAR(20) DEFAULT 'pending'`, `ring_true VARCHAR(10)`, `ring_true_note TEXT`, `ring_true_at TIMESTAMPTZ`, `created_at TIMESTAMPTZ`. Index: `ix_self_comparisons_user`.
+- **Model:** `SelfComparison` ORM in `models/__init__.py`.
+- **Services:** `self_model_service` (pure-read; splits active `memory_entries` into then/now windows: earliest 12 = then, latest 12 = now; unlock gate: ≥20 total active signals AND ≥14 day span; forming state below threshold); `self_comparison_service` (SSE stream: two safety gates → dual first-person LLM generation [then / now] → app-voice closing with VERBATIM evidence quotes selected by `message_id` + anti-hallucination guard + degradation ladder → `done` with `comparison_id`); `self_comparison_prompts` (SELF_SYSTEM_PROMPT, CLOSING_PROMPT). Model: `MODEL_PRO = claude-sonnet-4-6`.
+- **API:**
+  - `GET /self-comparison/status` — unlock/forming state + `weekly_remaining` / `weekly_limit` / `plan` (when unlocked)
+  - `POST /self-comparison` — Pro-gated (plan ∉ {pro, premium} → 403); weekly rate-limit tier-aware (pro=5, premium=30; admins bypass); SSE stream
+  - `PATCH /self-comparison/{id}/ring-true` — 204; sets `ring_true`, `ring_true_note`, `ring_true_at`
+- **SSE events:** `safety` → `chunk[safety]` → `done` (suppressed path); `error[not_unlocked]`; `self` (which, start, end) → `chunk` (which, data); `closing` (observation, question, then_quote, now_quote); `done` (comparison_id)
+- **Tiers/limits:** Pro+ only; free → 403. Weekly limits tier-aware: pro=5, premium=30.
+- **Frontend:** `/app/you-vs-you` screen — locked/forming guard → input (textarea + saved-lines accordion) → dual-self streaming reveal THEN/NOW (date spans) → "The Wise Room says" closing card (WiseMark + observation + question + verbatim evidence quotes + ring-true pills + humility line); weekly usage meter + pro→premium upgrade nudge (→ `/app/upgrade`); faded room background (`/personas/youvsyou.webp`); hub card on `/app/rituals`.
+- **`lib/api.ts`:** `getSelfComparisonStatus`, `streamSelfComparison`, `setSelfComparisonRingTrue` added.
+
+**Key superseded facts:**
+- `alembic_version` = **`021_create_self_comparisons`** (was `020_create_council_saves`)
+- You vs You: was planned/backlog → **🟢 SHIPPED end-to-end**
+- Rituals hub: Mirror ✅ Council ✅ You vs You ✅ (Counterview + Weekly Reading still placeholder-locked)
+
+---
+
+## Top of mind / Next (2026-06-02)
+
+### Council + You vs You are shipped. The revenue gate is the priority.
+
+**Priority order as of 2026-06-02:**
+
+1. **Revenue gate — in progress:**
+   - **TD-11 (tier resolution refactor)** — 🔴 not started. Consolidate `get_current_user_plan` + `get_user_tier`. Must land before Stripe smoke test. ⚠️ Flip was initiated BEFORE TD-11 (out of documented order). Harmless while zero real subscriptions exist; but TD-11 MUST land before the Stripe smoke test, since `get_current_user_plan` and `get_user_tier` diverge on premium/trialing/expiry once a real subscription exists.
+   - **Disable `BETA_GRANT_PRO_TO_ALL`** — 🟡 in progress. Flip initiated on Render (config is Pydantic bool; "OFF" → False). Pending redeploy verification (startup warning must disappear) + functional check with a real free account.
+   - **Watch item:** after BETA flip, a free user reaching You vs You gets a 403 → confirm the rituals hub gates free users BEFORE the screen with an upgrade CTA (else a small frontend follow-up needed).
+   - **Stripe smoke test** — 🔴 pending. TEST mode: checkout → webhook `checkout.session.completed` → plan flip in Subscription → gates open. Must run with BETA flag OFF.
+
+2. **You vs You fast-follows** (post-first-paying-user, NOT before launch):
+   - Funnel analytics: limit-hit → premium-nudge click tracking.
+   - Rolling-both window anchor (v2, user-selectable).
+
+3. **Council fast-follows** (post-first-paying-user, NOT before launch):
    - Per-verdict → reflections save: needs design (saved_lines is message-centric; council_responses are not messages).
    - Council share card redesign: boardroom bg, date header, 4 portrait thumbnails, centered synthesis. Needs boardroom.webp + 4 portraits under `apps/api/static/personas/`.
    - Reflection share card redesign: center text, smaller/lower thumbnail.
 
-3. **Rituals guided programs** — Counterview spec §1.3.2 ready; implementation not yet designed. Design with Claude (chat) before brief dispatch.
+4. **Rituals guided programs** — Counterview spec §1.3.2 ready; implementation not yet designed. Design with Claude (chat) before brief dispatch.
 
-4. **Mirror fast-follows** (post-first-paying-user, NOT before): branded email postcard; host-aware handoff; smart input cap.
+5. **Mirror fast-follows** (post-first-paying-user, NOT before): branded email postcard; host-aware handoff; smart input cap.
 
 ### Still-pending from prior sessions
 
@@ -227,9 +270,9 @@ Current council share PNG uses the same centered text + footer layout as reflect
 
 ### Phase 1 — Revenue gate [HIGHEST PRIORITY]
 
-5. **TD-11 — Tier resolution unified refactor** — consolidate `get_current_user_plan` + `get_user_tier`. Required before BETA flag can be safely disabled.
-6. **Disable `BETA_GRANT_PRO_TO_ALL`** — set to `false` in Render env after TD-11 is deployed. Verify no enforcement breakage.
-7. **End-to-end Stripe sandbox test** — test card → webhook → entitlement → portal → cancel → tier downgrade. Must run with BETA flag OFF.
+5. **TD-11 — Tier resolution unified refactor** — 🔴 not started. Consolidate `get_current_user_plan` + `get_user_tier`. Must land before Stripe smoke test.
+6. **Disable `BETA_GRANT_PRO_TO_ALL`** — 🟡 in progress. Flip initiated on Render. Verify: redeploy completed, startup warning gone, free account hits You vs You and gets 403 (not Pro content).
+7. **End-to-end Stripe sandbox test** — 🔴 pending. test card → webhook → entitlement → portal → cancel → tier downgrade. Must run with BETA flag confirmed OFF.
 
 ### Phase 2 — Council fast-follows (post-first-paying-user, NOT before)
 
@@ -277,6 +320,19 @@ Current council share PNG uses the same centered text + footer layout as reflect
 | C7a #184 adc2592 | Council: Mirror animation (INTRO_HOLD 2100), lit-name polish, CTA border | 2026-06-01 | ✅ merged |
 | C7b #185 76340ef | Council: save synthesis (council_saves, save/unsave endpoints, button) | 2026-06-01 | ✅ merged |
 | C7c #186 c7d181f | Council: share synthesis (shared Pillow renderer, modal generalization, polish) | 2026-06-01 | ✅ merged |
+| #190 46dac9e4 | polish(rituals): frameless Mirror reveal + center Council idle heading | 2026-06-02 | ✅ merged |
+| #191 804af4ad | feat(brand): add WiseMark, place on Council synthesis | 2026-06-02 | ✅ merged |
+| #192 4e5ceba1 | copy(rituals): sharpen ritual hub descriptors | 2026-06-02 | ✅ merged |
+| YvY PR1 #193 e8a5c4de | feat(self-comparisons): add table and migration (021) | 2026-06-02 | ✅ merged |
+| YvY PR2 #194 4d66f401 | feat(self-comparison): self-model read service and status endpoint | 2026-06-02 | ✅ merged |
+| YvY PR3 #195 a5ce9ff1 | feat(you-vs-you): hub card and forming screen | 2026-06-02 | ✅ merged |
+| YvY PR4 #196 cf813210 | feat(self-comparison): ask endpoint and dual generation | 2026-06-02 | ✅ merged |
+| YvY PR5 #197 1001e6d8 | feat(self-comparison): app-voice closing, evidence quotes, ring-true | 2026-06-02 | ✅ merged |
+| YvY PR6 #198 7d4390ca | feat(you-vs-you): input reveal | 2026-06-02 | ✅ merged |
+| YvY PR6b #199 fd88625a | feat(you-vs-you): closing card with evidence and ring-true | 2026-06-02 | ✅ merged |
+| YvY PR7 #200 54ebd4a3 | feat(you-vs-you): tier-aware weekly rate limit | 2026-06-02 | ✅ merged |
+| YvY PR7.5 #201 5a859bbb | feat(you-vs-you): weekly usage meter and premium nudge | 2026-06-02 | ✅ merged |
+| YvY bg #202 9ca95e65 | feat(you-vs-you): faded room background | 2026-06-02 | ✅ merged |
 
 Earlier PR history (v12–v15): see `HANDOFF_BRIEF_v15.md §6`.
 
@@ -305,6 +361,11 @@ All v15 paths apply. Additions since v15:
 - `services/image_service.py` — REFACTORED: `_render_share_canvas` shared core; `generate_council_share_image`
 - `db/migrations/versions/019_create_council.py` — NEW
 - `db/migrations/versions/020_create_council_saves.py` — NEW
+- `routers/self_comparison.py` — NEW: GET /self-comparison/status, POST /self-comparison (SSE), PATCH /self-comparison/{id}/ring-true
+- `services/self_model_service.py` — NEW: `SelfModelService.build` (pure read; then/now window split from memory_entries; unlock gates)
+- `services/self_comparison_service.py` — NEW: `SelfComparisonService.stream` (SSE dual-gen + closing + evidence); `weekly_remaining`
+- `services/self_comparison_prompts.py` — NEW: `SELF_SYSTEM_PROMPT`, `CLOSING_PROMPT`
+- `db/migrations/versions/021_create_self_comparisons.py` — NEW
 
 ### Frontend (apps/web/)
 
@@ -312,9 +373,11 @@ All v15 paths apply. Additions and changes since v15:
 
 - `app/app/council/page.tsx` — NEW: full council screen
 - `app/app/council/council.module.css` — NEW: `.word` keyframe
-- `app/app/mirror/page.tsx` — UPDATED: `INTRO_HOLD` 1100→2100; CTA border
+- `app/app/mirror/page.tsx` — UPDATED: `INTRO_HOLD` 1100→2100; CTA border; frameless reveal (#190)
 - `components/share/SharePreviewModal.tsx` — UPDATED: `kind` discriminant; council preview
-- `lib/api.ts` — UPDATED: `streamCouncil`, `saveCouncil`, `unsaveCouncil`, `shareCouncil`; council SSE event types
+- `components/ui/WiseMark.tsx` — NEW: WiseMark icon component (#191)
+- `app/app/you-vs-you/page.tsx` — NEW: full You vs You screen (forming/locked guard → input → dual-self reveal → closing card + ring-true + usage meter)
+- `lib/api.ts` — UPDATED: `streamCouncil`, `saveCouncil`, `unsaveCouncil`, `shareCouncil`; council SSE event types; `getSelfComparisonStatus`, `streamSelfComparison`, `setSelfComparisonRingTrue`; `SelfComparisonStatus` type
 
 ---
 
@@ -332,6 +395,18 @@ Line shares and Council shares share the `share_screenshot:{user.id}` Redis coun
 
 `_compose_canvas` extracted to `_render_share_canvas` with keyword-only params. This is the canonical approach for any future share card variant. The reflections path is byte-identical; the council path passes `portrait_path=None`, `intro_text=None`, `attribution="— THE COUNCIL"`.
 
+### 2026-06-02 — You vs You design stance locked (mirror-not-oracle)
+
+You vs You observes and asks — it never asserts. No numeric scores, no clinical labels, no verdicts. The two selves reflect back the user's own words; the closing asks a question rather than concluding. User is always the judge. Encoded in `SELF_SYSTEM_PROMPT` and `CLOSING_PROMPT` in `self_comparison_prompts.py`.
+
+### 2026-06-02 — You vs You weekly limits are tier-aware (not unlimited)
+
+pro=5/week, premium=30/week. Premium is capped (not unlimited) as a cost-safety measure. Constants in `self_comparison_service.py`: `WEEKLY_LIMIT_BY_TIER = {"pro": 5, "premium": 30}`. Admins bypass for testing.
+
+### 2026-06-02 — Self-model windows: then = earliest 12 signals, now = latest 12 signals
+
+The "then" and "now" windows are fixed slices of the user's active `memory_entries` ordered by `created_at`. Unlock gate: ≥20 total active signals AND ≥14 day span between oldest and newest. This is not user-configurable in v1. Rolling-both window anchor (user-selectable) is deferred to v2.
+
 ### All prior decisions from v15 §9
 
 Unchanged.
@@ -348,7 +423,7 @@ Unchanged from v12. All 9 personas have full character config.
 
 ## 11. Migration plan — status
 
-All phases through Block C complete. Oregon complete. alembic_version = `020_create_council_saves`.
+All phases through Block C complete. Oregon complete. alembic_version = `021_create_self_comparisons`.
 
 ---
 
@@ -364,7 +439,7 @@ All phases through Block C complete. Oregon complete. alembic_version = `020_cre
                           ✅ Paid Starter tier — no cold-start
                           ✅ Upstash Pay-as-You-Go
 
-✅ Database               alembic_version = '020_create_council_saves'
+✅ Database               alembic_version = '021_create_self_comparisons'
                           Oregon data migration confirmed.
                           DATABASE_URL pointing to Oregon bvzeuwzqgnqcghvqghtb.
 
@@ -420,15 +495,17 @@ Every new code item must follow the Pre-Work Investigation Protocol in `CLAUDE.m
 
 ### The most important context for the next session
 
-**Four things in order:**
+**Five things in order:**
 
 1. **Fix .gitignore first.** Production secrets are one `git add -A` away from the public repo. This is the highest-priority item — above all feature work.
 
-2. **Disable `BETA_GRANT_PRO_TO_ALL` before any Stripe test.** TD-11 must land first. Revenue cannot be validated until this is off.
+2. **Verify the BETA_GRANT_PRO_TO_ALL flip before any Stripe test.** Flip was initiated on Render — confirm redeploy completed and startup warning is gone. Then test with a real free account: reach You vs You, confirm 403 (not Pro content). Only then run the Stripe smoke test.
 
-3. **Council share card redesign is not done.** The current PNG is a functional placeholder. The intended design (boardroom bg, 4 thumbnails, date header) requires static asset work that hasn't been done. Don't ship paid Council without the proper card.
+3. **After BETA flip: check the rituals hub gates free users** before the You vs You screen. If a free user can reach `/app/you-vs-you` and only hits the 403 from the API, the UX is broken — there should be an upgrade CTA before they start the flow.
 
-4. **Per-verdict saves need an investigation brief** before any implementation. `saved_lines` is message-centric; council verdicts are not messages. The schema gap is real.
+4. **Council share card redesign is not done.** The current PNG is a functional placeholder. The intended design (boardroom bg, 4 thumbnails, date header) requires static asset work that hasn't been done. Don't ship paid Council without the proper card.
+
+5. **Per-verdict saves need an investigation brief** before any implementation. `saved_lines` is message-centric; council verdicts are not messages. The schema gap is real.
 
 ### Documentation hygiene
 
@@ -436,13 +513,13 @@ v16 rotation triggered by The Council shipping end-to-end (5 PRs, 2 migrations, 
 
 ### Launch timeline from here
 
-Realistic from end of 2026-06-01 session: 5-8 weeks.
-- Revenue gate (TD-11 + BETA off + Stripe test): ~1-2 weeks
-- Council fast-follows + Counterview design: ~1-2 weeks
-- Rituals guided programs (Counterview): ~2-4 weeks
+Realistic from end of 2026-06-02 session: 4-7 weeks.
+- Revenue gate (TD-11 build + BETA flip confirm + Stripe test): ~1-2 weeks
+- Council + You vs You fast-follows + Counterview design: ~1-2 weeks
+- Rituals guided programs (Counterview): ~2-3 weeks
 - Cold beta + DNS cutover: 1-2 weeks
 - **Target: mid-July 2026.**
 
 ---
 
-**End of HANDOFF_BRIEF v16.** Authoritative as of 2026-06-01. Supersedes `HANDOFF_BRIEF_v15.md` (preserved as historical reference). Where v16 conflicts with v15, v16 wins.
+**End of HANDOFF_BRIEF v16.** Authoritative as of 2026-06-02 (You vs You appended). Supersedes `HANDOFF_BRIEF_v15.md` (preserved as historical reference). Where this file conflicts with v15, v16 wins.
