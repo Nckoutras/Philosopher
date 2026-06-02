@@ -13,12 +13,14 @@ from services.llm_client import llm_client
 from services.prompt_builder import prompt_builder
 from services.safety_service import safety_service
 from services.self_model_service import self_model_service
-from services.self_comparison_prompts import SELF_SYSTEM_PROMPT
+from services.self_comparison_prompts import SELF_SYSTEM_PROMPT, CLOSING_PROMPT
 
 logger = logging.getLogger(__name__)
 
 MODEL_PRO = "claude-sonnet-4-6"   # same model Council uses
 WEEKLY_LIMIT = 5                  # cost guard; PR7 makes this tier-aware
+CANDIDATES_PER_WINDOW = 8
+QUOTE_TRUNC = 200
 
 
 def _week_start() -> datetime:
@@ -46,6 +48,20 @@ class SelfComparisonService:
             )
         )
         return max(0, WEEKLY_LIMIT - result.scalar_one())
+
+    async def _candidates(self, db: AsyncSession, user_id: str, start, end) -> list[dict]:
+        result = await db.execute(
+            select(Message.id, Message.content, Message.created_at)
+            .where(
+                Message.user_id == user_id,
+                Message.role == "user",
+                Message.created_at >= start,
+                Message.created_at <= end,
+            )
+            .order_by(Message.created_at.asc())
+            .limit(CANDIDATES_PER_WINDOW)
+        )
+        return [{"id": r.id, "text": r.content, "date": r.created_at} for r in result.all()]
 
     async def _window_has_crisis(self, db, user_id, start, end) -> bool:
         result = await db.execute(
@@ -127,10 +143,50 @@ class SelfComparisonService:
                 yield f"data: {json.dumps({'type': 'error', 'error_code': 'self_unavailable', 'which': which})}\n\n"
             answers[which] = "".join(buf)
 
+        # ── 6. App-voice closing + evidence ──────────────────────────────
+        candidates = {
+            "then": await self._candidates(db, user_id, then_w["start"], then_w["end"]),
+            "now":  await self._candidates(db, user_id, now_w["start"], now_w["end"]),
+        }
+        by_id = {c["id"]: c for side in candidates.values() for c in side}
+
+        def _fmt(side: str) -> str:
+            return "\n".join(f"[{c['id']}] ({c['date']:%b %d}) {c['text'][:240]}" for c in candidates[side])
+
+        closing_user = (
+            f"Question:\n{prompt}\n\n"
+            f"Earlier self answered:\n{answers.get('then','')}\n\n"
+            f"More recent self answered:\n{answers.get('now','')}\n\n"
+            f"Earlier-period messages:\n{_fmt('then')}\n\n"
+            f"Recent-period messages:\n{_fmt('now')}"
+        )
+
+        closing = {"observation": "", "question": "", "then_quote": None, "now_quote": None}
+        try:
+            raw = await llm_client.complete(system=CLOSING_PROMPT, user=closing_user, model=MODEL_PRO, max_tokens=512)
+            ctext = raw.strip()
+            if ctext.startswith("```"):
+                ctext = ctext.split("\n", 1)[1] if "\n" in ctext else ""
+            if ctext.endswith("```"):
+                ctext = ctext[:-3].rstrip()
+            data = json.loads(ctext)
+            closing["observation"] = data.get("observation", "")
+            closing["question"] = data.get("question", "")
+            for side, key in (("then", "then_quote_id"), ("now", "now_quote_id")):
+                qid = data.get(key)
+                cand = by_id.get(qid) if qid else None
+                if cand:
+                    closing[f"{side}_quote"] = {"text": cand["text"][:QUOTE_TRUNC], "date": cand["date"].isoformat()}
+        except Exception as exc:
+            logger.error(f"Self-comparison closing failed for user={user_id}: {exc}")
+
+        yield f"data: {json.dumps({'type': 'closing', **closing})}\n\n"
+
         # 6. Persist
         row.payload = {
             "then": {"answer": answers.get("then", ""), "start": then_w["start"].isoformat(), "end": then_w["end"].isoformat()},
             "now":  {"answer": answers.get("now", ""),  "start": now_w["start"].isoformat(),  "end": now_w["end"].isoformat()},
+            "closing": closing,
         }
         row.status = "ready"
         await db.commit()
