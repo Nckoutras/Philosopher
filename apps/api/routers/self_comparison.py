@@ -1,9 +1,12 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
+from typing import Optional
+from datetime import datetime, timezone
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from db.session import get_db
-from models import User
+from models import User, SelfComparison
 from schemas import SelfModelStatusOut
 from auth import get_current_user, get_current_user_plan
 from services.self_model_service import self_model_service
@@ -16,6 +19,11 @@ PROMPT_MAX_CHARS = 600
 
 class SelfComparisonCreate(BaseModel):
     prompt: str = Field(..., max_length=PROMPT_MAX_CHARS)
+
+
+class RingTrueUpdate(BaseModel):
+    ring_true: str = Field(..., max_length=10)
+    note: Optional[str] = Field(None, max_length=280)
 
 
 @router.get("/status", response_model=SelfModelStatusOut)
@@ -55,3 +63,24 @@ async def create_self_comparison(
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
+
+
+@router.patch("/{comparison_id}/ring-true", status_code=204)
+async def set_ring_true(
+    comparison_id: str,
+    body: RingTrueUpdate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    result = await db.execute(
+        select(SelfComparison).where(
+            SelfComparison.id == comparison_id,
+            SelfComparison.user_id == user.id,
+        )
+    )
+    row = result.scalar_one_or_none()
+    if not row:
+        raise HTTPException(status_code=404)
+    row.ring_true = body.ring_true
+    row.ring_true_note = body.note
+    row.ring_true_at = datetime.now(timezone.utc)
