@@ -381,7 +381,7 @@ export default function MirrorPage() {
         {/* Mirror payload — hidden during intro hold, reveals word-by-word after */}
         {mirror && showContent && (
           <div className="flex flex-col gap-[16px]">
-            <div className="bg-paper border-[0.5px] border-edge rounded-[18px] shadow-card px-[20px] py-[28px] flex flex-col gap-[28px]">
+            <div className="flex flex-col gap-[28px]">
 
               <p className="font-lora text-[11px] font-semibold uppercase tracking-[0.2em] text-bronze-dark">
                 Beneath the words
@@ -400,7 +400,7 @@ export default function MirrorPage() {
                           </div>
                         )}
                         <div>
-                          <div className="bg-linen-deep/30 rounded-[10px] p-[12px_14px]">
+                          <div>
                             <p className="font-lora text-[10.5px] font-semibold uppercase tracking-[0.16em] text-charcoal mb-[6px]">
                               What you said
                             </p>
