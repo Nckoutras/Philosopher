@@ -466,6 +466,13 @@ class ApiClient {
     return this.request<SelfComparisonStatus>('/self-comparison/status')
   }
 
+  async setSelfComparisonRingTrue(comparisonId: string, ringTrue: string, note?: string): Promise<void> {
+    return this.request(`/self-comparison/${comparisonId}/ring-true`, {
+      method: 'PATCH',
+      body: JSON.stringify({ ring_true: ringTrue, ...(note ? { note } : {}) }),
+    })
+  }
+
   // ── Personas ──────────────────────────────────────────────────────────────
 
   async getPersonas(): Promise<Persona[]> {

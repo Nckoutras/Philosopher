@@ -8,6 +8,8 @@ import { api, RateLimitError } from '@/lib/api'
 import type { SelfComparisonStatus, SavedLineRead } from '@/lib/api'
 import WiseMark from '@/components/ui/WiseMark'
 
+type Quote = { text: string; date: string }
+type ClosingData = { observation: string; question: string; then_quote: Quote | null; now_quote: Quote | null }
 type YvYEvent = {
   type: string
   which?: 'then' | 'now'
@@ -15,12 +17,21 @@ type YvYEvent = {
   start?: string
   end?: string
   error_code?: string
+  observation?: string
+  question?: string
+  then_quote?: Quote | null
+  now_quote?: Quote | null
+  comparison_id?: string
 }
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 function fmtSpan(startISO: string, endISO: string): string {
   const s = new Date(startISO), e = new Date(endISO)
   return `${MONTHS[s.getUTCMonth()]} ${s.getUTCDate()} – ${MONTHS[e.getUTCMonth()]} ${e.getUTCDate()}`
+}
+function fmtDate(iso: string): string {
+  const d = new Date(iso)
+  return `${MONTHS[d.getUTCMonth()]} ${d.getUTCDate()}`
 }
 
 export default function YouVsYouPage() {
@@ -40,6 +51,10 @@ export default function YouVsYouPage() {
   const [thenDates, setThenDates] = useState<{ start: string; end: string } | null>(null)
   const [nowDates, setNowDates] = useState<{ start: string; end: string } | null>(null)
   const [streamError, setStreamError] = useState<string | null>(null)
+  const [closing, setClosing] = useState<ClosingData | null>(null)
+  const [comparisonId, setComparisonId] = useState<string | null>(null)
+  const [ringTrue, setRingTrue] = useState<string | null>(null)
+  const [ringSubmitting, setRingSubmitting] = useState(false)
 
   useEffect(() => {
     if (token === null) { router.replace('/auth?mode=signin'); return }
@@ -61,6 +76,7 @@ export default function YouVsYouPage() {
     setSubmitting(true)
     setMode('streaming')
     setThenText(''); setNowText(''); setThenDates(null); setNowDates(null); setStreamError(null)
+    setClosing(null); setComparisonId(null); setRingTrue(null)
     try {
       const res = await api.streamSelfComparison({ prompt: p })
       const reader = res.body!.getReader()
@@ -91,8 +107,16 @@ export default function YouVsYouPage() {
             setStreamError('safety')
           } else if (ev.type === 'error') {
             setStreamError(ev.error_code ?? 'error')
+          } else if (ev.type === 'closing') {
+            setClosing({
+              observation: ev.observation ?? '',
+              question: ev.question ?? '',
+              then_quote: ev.then_quote ?? null,
+              now_quote: ev.now_quote ?? null,
+            })
+          } else if (ev.type === 'done') {
+            if (ev.comparison_id) setComparisonId(ev.comparison_id)
           }
-          // 'closing' handled in PR6b; 'done' ends the stream
         }
       }
     } catch (e) {
@@ -100,6 +124,15 @@ export default function YouVsYouPage() {
     } finally {
       setSubmitting(false)
     }
+  }
+
+  async function submitRingTrue(value: string) {
+    if (!comparisonId || ringSubmitting) return
+    setRingSubmitting(true)
+    setRingTrue(value)
+    try { await api.setSelfComparisonRingTrue(comparisonId, value) }
+    catch { /* best-effort signal */ }
+    finally { setRingSubmitting(false) }
   }
 
   return (
@@ -199,6 +232,56 @@ export default function YouVsYouPage() {
                 </div>
                 <p className="font-cormorant text-[17px] text-ink leading-snug whitespace-pre-wrap">{nowText}</p>
               </div>
+
+              {closing && closing.observation && (
+                <div className="bg-linen border-[0.5px] border-bronze/30 rounded-[16px] shadow-card px-[18px] py-[20px] flex flex-col gap-[14px]">
+                  <div className="flex items-center gap-[8px]">
+                    <WiseMark size={22} />
+                    <span className="font-lora text-[11px] uppercase tracking-[0.2em] text-bronze-dark">The Wise Room says</span>
+                  </div>
+                  <p className="font-cormorant text-[18px] text-ink leading-snug">{closing.observation}</p>
+
+                  {(closing.then_quote || closing.now_quote) && (
+                    <div className="flex flex-col gap-[10px]">
+                      {closing.then_quote && (
+                        <div className="border-l-2 border-bronze/40 pl-[12px]">
+                          <p className="font-cormorant italic text-[15px] text-charcoal leading-snug">&ldquo;{closing.then_quote.text}&rdquo;</p>
+                          <p className="font-lora text-[10px] uppercase tracking-[0.16em] text-sepia mt-[3px]">Then · {fmtDate(closing.then_quote.date)}</p>
+                        </div>
+                      )}
+                      {closing.now_quote && (
+                        <div className="border-l-2 border-bronze/40 pl-[12px]">
+                          <p className="font-cormorant italic text-[15px] text-charcoal leading-snug">&ldquo;{closing.now_quote.text}&rdquo;</p>
+                          <p className="font-lora text-[10px] uppercase tracking-[0.16em] text-sepia mt-[3px]">Now · {fmtDate(closing.now_quote.date)}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {closing.question && (
+                    <p className="font-cormorant text-[16px] text-ink leading-snug">{closing.question}</p>
+                  )}
+
+                  {comparisonId && (
+                    <div className="flex flex-col gap-[8px] mt-[2px]">
+                      <p className="font-lora text-[11px] text-sepia">Does this ring true?</p>
+                      <div className="flex gap-[8px]">
+                        {([['yes','Rings true'],['partly','Partly'],['no','Not really']] as const).map(([val, label]) => (
+                          <button key={val} type="button" onClick={() => submitRingTrue(val)} disabled={ringSubmitting}
+                            className={`flex-1 min-h-[40px] rounded-[6px] border-[0.5px] font-lora text-[12px] transition-colors disabled:opacity-50
+                              ${ringTrue === val ? 'bg-ink text-vellum border-ink' : 'bg-paper text-charcoal border-edge active:bg-linen/60'}`}>
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <p className="font-lora text-[11px] text-sepia italic leading-snug">
+                    This is only what your words suggest &mdash; you&rsquo;re the one who knows.
+                  </p>
+                </div>
+              )}
             </>
           )}
           <button type="button" onClick={() => { setMode('input'); setPrompt('') }}
