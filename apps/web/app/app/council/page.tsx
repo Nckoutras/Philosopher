@@ -9,6 +9,7 @@ import { api, RateLimitError } from '@/lib/api'
 import type { SSEEvent, SSEEventMember } from '@/lib/api'
 import styles from './council.module.css'
 import SharePreviewModal from '@/components/share/SharePreviewModal'
+import WiseMark from '@/components/ui/WiseMark'
 
 // ──────────────────────────────────────────────
 // Constants (all tunable)
@@ -643,9 +644,12 @@ export default function CouncilPage() {
             {/* Synthesis card */}
             {(phase.synthesisActive || phase.synthesisWords.length > 0) && (
               <div className="bg-paper border border-edge rounded-[16px] px-[24px] py-[28px] flex flex-col gap-[20px]">
-                <p className="font-lora text-[11px] uppercase tracking-[0.24em] text-bronze-dark text-center">
-                  THE COUNCIL&apos;S READING
-                </p>
+                <div className="flex items-center justify-center gap-[8px]">
+                  <WiseMark size={24} />
+                  <p className="font-lora text-[11px] uppercase tracking-[0.24em] text-bronze-dark">
+                    THE COUNCIL&apos;S READING
+                  </p>
+                </div>
                 <p className="font-cormorant font-medium text-[21px] text-ink leading-snug">
                   {phase.synthesisWords.map((word, i) => (
                     <Fragment key={i}>
