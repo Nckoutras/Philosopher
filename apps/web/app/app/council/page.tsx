@@ -524,7 +524,7 @@ export default function CouncilPage() {
   if (phase.kind === 'idle') {
     return (
       <main className="min-h-screen [min-height:100svh] bg-vellum px-[24px] pt-[32px] pb-[40px] flex flex-col gap-[24px]">
-        <div>
+        <div className="text-center">
           <p className="font-lora text-[11px] uppercase tracking-[0.24em] text-bronze-dark mb-[6px]">
             THE COUNCIL
           </p>
