@@ -312,6 +312,21 @@ export interface MirrorHost {
   portrait_url: string | null
 }
 
+export interface SelfComparisonWindow {
+  start: string
+  end: string
+  by_type: Record<string, string[]>
+}
+
+export interface SelfComparisonStatus {
+  unlocked: boolean
+  total_signals: number
+  reason: string | null
+  forming_preview: string[]
+  then: SelfComparisonWindow | null
+  now: SelfComparisonWindow | null
+}
+
 // ── Client ────────────────────────────────────────────────────────────────────
 
 class ApiClient {
@@ -445,6 +460,10 @@ class ApiClient {
     return this.request<Match[]>('/preferences/matches', {
       method: 'GET',
     })
+  }
+
+  async getSelfComparisonStatus(): Promise<SelfComparisonStatus> {
+    return this.request<SelfComparisonStatus>('/self-comparison/status')
   }
 
   // ── Personas ──────────────────────────────────────────────────────────────
