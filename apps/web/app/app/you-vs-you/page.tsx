@@ -27,7 +27,7 @@ type YvYEvent = {
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 function fmtSpan(startISO: string, endISO: string): string {
   const s = new Date(startISO), e = new Date(endISO)
-  return `${MONTHS[s.getUTCMonth()]} ${s.getUTCDate()} – ${MONTHS[e.getUTCMonth()]} ${e.getUTCDate()}`
+  return `${MONTHS[s.getUTCMonth()]} ${s.getUTCDate()} \u2013 ${MONTHS[e.getUTCMonth()]} ${e.getUTCDate()}`
 }
 function fmtDate(iso: string): string {
   const d = new Date(iso)
@@ -51,6 +51,7 @@ export default function YouVsYouPage() {
   const [thenDates, setThenDates] = useState<{ start: string; end: string } | null>(null)
   const [nowDates, setNowDates] = useState<{ start: string; end: string } | null>(null)
   const [streamError, setStreamError] = useState<string | null>(null)
+  const [remaining, setRemaining] = useState<number | null>(null)
   const [closing, setClosing] = useState<ClosingData | null>(null)
   const [comparisonId, setComparisonId] = useState<string | null>(null)
   const [ringTrue, setRingTrue] = useState<string | null>(null)
@@ -62,6 +63,7 @@ export default function YouVsYouPage() {
       try {
         const s = await api.getSelfComparisonStatus()
         setStatus(s)
+        setRemaining(s.weekly_remaining ?? null)
         if (s.unlocked) {
           try { const r = await api.listSavedLines(); setSavedLines(r.items) } catch { /* optional */ }
         }
@@ -116,6 +118,7 @@ export default function YouVsYouPage() {
             })
           } else if (ev.type === 'done') {
             if (ev.comparison_id) setComparisonId(ev.comparison_id)
+            setRemaining((r) => (r !== null ? Math.max(0, r - 1) : r))
           }
         }
       }
@@ -171,14 +174,14 @@ export default function YouVsYouPage() {
         </div>
       )}
 
-      {/* Unlocked — input */}
+      {/* Unlocked - input */}
       {!loading && status && status.unlocked && mode === 'input' && (
         <div className="flex flex-col gap-[16px]">
           <p className="font-cormorant text-[22px] font-medium text-ink text-center leading-snug">
-            Ask one question — and hear it answered by who you were, and who you are now.
+            Ask one question &mdash; and hear it answered by who you were, and who you are now.
           </p>
           <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} rows={3} maxLength={600}
-            placeholder="Ask both of you something — about loneliness, about doomscrolling, about anything."
+            placeholder="Ask both of you something &mdash; about loneliness, about doomscrolling, about anything."
             className="w-full resize-none bg-white border border-[0.5px] border-edge rounded-sm px-[14px] py-[12px] font-lora text-[15px] text-ink leading-[1.5] placeholder:text-sepia/60 focus:outline-none focus:border-bronze/50" />
           {savedLines.length > 0 && (
             <div>
@@ -198,14 +201,24 @@ export default function YouVsYouPage() {
               )}
             </div>
           )}
-          <button type="button" onClick={ask} disabled={!prompt.trim() || submitting}
+          <button type="button" onClick={ask} disabled={!prompt.trim() || submitting || remaining === 0}
             className="self-center mt-[4px] bg-ink text-vellum rounded-[6px] px-[24px] py-[12px] font-cormorant text-[17px] font-medium disabled:opacity-40">
             Ask both selves
           </button>
+          {status.weekly_limit != null && (
+            <p className="font-lora text-[12px] text-sepia text-center">
+              {remaining === 0
+                ? <>You&rsquo;ve used all {status.weekly_limit} this week.</>
+                : <>{remaining ?? status.weekly_remaining} of {status.weekly_limit} left this week</>}
+              {status.plan === 'pro' && (
+                <> &middot; <button type="button" onClick={() => router.push('/app/upgrade')} className="text-bronze-dark underline underline-offset-2">Premium: 30 a week</button></>
+              )}
+            </p>
+          )}
         </div>
       )}
 
-      {/* Unlocked — streaming reveal */}
+      {/* Unlocked - streaming reveal */}
       {!loading && status && status.unlocked && mode === 'streaming' && (
         <div className="flex flex-col gap-[20px]">
           <p className="font-cormorant italic text-[18px] text-charcoal text-center leading-snug">{prompt}</p>

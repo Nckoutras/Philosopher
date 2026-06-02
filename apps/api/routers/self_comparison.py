@@ -29,9 +29,14 @@ class RingTrueUpdate(BaseModel):
 @router.get("/status", response_model=SelfModelStatusOut)
 async def get_self_comparison_status(
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
+    auth: tuple = Depends(get_current_user_plan),
 ):
+    user, plan = auth
     data = await self_model_service.build(db, user.id)
+    data["plan"] = plan
+    if data.get("unlocked"):
+        data["weekly_remaining"] = await self_comparison_service.weekly_remaining(db, user.id, plan)
+        data["weekly_limit"] = weekly_limit(plan)
     return SelfModelStatusOut(**data)
 
 

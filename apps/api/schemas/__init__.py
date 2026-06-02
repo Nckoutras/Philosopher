@@ -512,3 +512,6 @@ class SelfModelStatusOut(BaseModel):
     forming_preview: list[str] = []
     then: Optional[SelfModelWindowOut] = None
     now: Optional[SelfModelWindowOut] = None
+    weekly_remaining: Optional[int] = None
+    weekly_limit: Optional[int] = None
+    plan: Optional[str] = None

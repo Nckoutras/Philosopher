@@ -325,6 +325,9 @@ export interface SelfComparisonStatus {
   forming_preview: string[]
   then: SelfComparisonWindow | null
   now: SelfComparisonWindow | null
+  weekly_remaining: number | null
+  weekly_limit: number | null
+  plan: string | null
 }
 
 // ── Client ────────────────────────────────────────────────────────────────────
