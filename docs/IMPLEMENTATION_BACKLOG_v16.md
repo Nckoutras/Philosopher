@@ -1,9 +1,9 @@
 # THE WISE ROOM — Implementation Backlog v16
 
 > **Purpose:** Source of truth for implementation work for The Wise Room / Philosopher v1 launch.
-> **v16 = v15 baseline (2026-06-01) + 2026-06-01 Council session delta (The Council shipped end-to-end: C5–C7c, PRs #182–#186; migrations 019 + 020; boardroom screen; save/unsave; share PNG; Mirror animated; shared Pillow renderer) + 2026-06-02 You vs You session delta (WiseMark #191; You vs You end-to-end: PRs #193–#202; migration 021; dual-self SSE; closing card; ring-true; tier-aware weekly rate limit; usage meter).**
+> **v16 = v15 baseline (2026-06-01) + 2026-06-01 Council session delta (The Council shipped end-to-end: C5–C7c, PRs #182–#186; migrations 019 + 020; boardroom screen; save/unsave; share PNG; Mirror animated; shared Pillow renderer) + 2026-06-02 You vs You session delta (WiseMark #191; You vs You end-to-end: PRs #193–#202; migration 021; dual-self SSE; closing card; ring-true; tier-aware weekly rate limit; usage meter) + 2026-06-03 revenue chain session delta (TD-11 #203; BETA_GRANT_PRO_TO_ALL OFF; Stripe webhook URL fix; current_period_end fix #205; account auth hydration #207; revenue chain verified in TEST; PR3a sweep triage).**
 >
-> **Generated:** 2026-06-01 (v16 rotation) · **Last appended:** 2026-06-02 (You vs You session)
+> **Generated:** 2026-06-01 (v16 rotation) · **Last appended:** 2026-06-03 (revenue chain + PR3a triage)
 >
 > **How to read this file:**
 > - This v16 file supersedes v15 and all prior backlog files.
@@ -80,6 +80,52 @@
 
 ---
 
+## 2026-06-03 Consolidation Summary — Revenue chain + PR3a triage
+
+> Appended to v16. Where this conflicts with the v16 baseline or 2026-06-02 section, this section wins.
+
+**Revenue gate items shipped (merged to main, TEST/sandbox):**
+
+- **TD-11 — Canonical tier resolver (#203):** `get_user_tier` (tier_service.py) is the single source; `get_current_user_plan` (auth.py) wraps it. Dual tier resolution tech debt from CLAUDE.md §Known tech debt is resolved.
+- **BETA_GRANT_PRO_TO_ALL = OFF:** Confirmed disabled on both API and worker.
+- **Stripe webhook URL corrected (sandbox):** `/api/v1/billing/webhook`.
+- **current_period_end fix (#205):** Now read from `subscription.items.data[0]`. Regression tests added.
+- **Account auth hydration fix (#207):** `useHydrated()` via Zustand `onFinishHydration` / `hasHydrated` / `rehydrate`. Supersedes #204 and #206.
+- **Revenue chain verified end-to-end in TEST/sandbox** ✅
+
+**PR3a sweep triage (agreed plan — NOT yet started):**
+
+Cold-beta blockers:
+- PR3a memory bugs (fresh-chat missing opening message/thumbnail; home "Continuing" / "Mind-of-the-Day" 404s)
+- Item A: "Ask another mind" → chat does not start / stuck
+- Item #2: `ConversationCard.tsx:49` title demoted to snippet fallback — fix required
+
+Micro-polish:
+- Item B: app icon (`apps/web/public/personas/appbutton.png`)
+- Item #5: You-vs-You ritual card icon unclear
+- Item #8: Letter to Future Self — replace pushbutton with tap-the-card (NOTE: only functional ritual — preserve distinctiveness)
+
+Content (needs founder copy):
+- Item #6: replace 30 rotating "What's on your mind?" prompts with modern-phenomenology themes (loneliness, social-media relationships, doomscrolling, AI threats to work)
+
+Deferred to post-cold-beta:
+- Item #3: Google/Apple OAuth (backend scaffolding `auth_oauth_router` exists)
+- Item #4: Surface The Council in Rituals
+- Item #7: Intent/mode selection screen
+
+**New open items added this session:**
+
+- [ ] **PR3a cold-beta sweep** — all items above. P0.
+- [ ] **OPS-001 — nkoutr@ote.gr current_period_end re-sync** — pre-#205 row has `NULL`; needs manual re-sync. P1.
+- [ ] **Block H live Stripe wiring** — live keys + live price IDs + live-mode webhook (URL fix + live signing secret) + `ENVIRONMENT=production` on Render API. P0 before any live payment.
+- [ ] **Backfill-titles run** — `POST /api/v1/admin/backfill-titles` not yet executed. Not a cold-beta blocker; data hygiene for founder's test conversations. P1.
+
+**Brand note:** Product brand name is **"The Wise Room"** (locked). Rename audit PENDING — docs/code/Stripe may still say "Great Minds".
+
+**Status:** Revenue gate ✅ CLOSED (TEST). Cold beta: date TBD. Next: PR3a sweep → cold beta → live Stripe wiring → public launch.
+
+---
+
 ## v15 Consolidation Summary (2026-06-01)
 
 The Mirror shipped (PRs #166–#173). See `IMPLEMENTATION_BACKLOG_v15.md §v15 Consolidation Summary` for full detail.
@@ -108,9 +154,10 @@ All 9 personas voice-tightened; check_brevity live; Socrates elenchus upgraded; 
 19. ~~**The Mirror**~~ ✅ DONE (2026-06-01) — PRs #166–#173
 20. ~~**The Council**~~ ✅ DONE (2026-06-01) — PRs #182–#186; 4 members; verdicts + synthesis; save/share; migrations 019 + 020
 20.5. ~~**You vs You**~~ ✅ DONE (2026-06-02) — PRs #193–#202; self_comparisons table; migration 021; dual-self SSE; closing card + ring-true; tier-aware weekly rate limit; usage meter + premium nudge
-21. **TD-11 — Tier resolution refactor** — 🔴 not started [REVENUE GATE]
-22. **Disable BETA_GRANT_PRO_TO_ALL** — 🟡 in progress; flip initiated; pending redeploy + free-account verification [REVENUE GATE]
-23. **End-to-end Stripe sandbox test** — 🔴 pending (with BETA flag confirmed OFF)
+21. ~~**TD-11 — Tier resolution refactor**~~ ✅ DONE (#203, 2026-06-03) — `get_user_tier` is canonical; `get_current_user_plan` wraps it
+22. ~~**Disable BETA_GRANT_PRO_TO_ALL**~~ ✅ DONE (2026-06-03) — confirmed OFF on both API and worker
+23. ~~**End-to-end Stripe sandbox test**~~ ✅ DONE (2026-06-03) — revenue chain verified in TEST; "Welcome to Pro" confirmed
+23.5. **PR3a cold-beta sweep** — 🔴 not started. Memory bugs + item A + item #2 + micro-polish (B, #5, #8) + content #6
 24. **source_chunks re-ingest** into Oregon (TD-22; status unconfirmed post-switch)
 25. **Post-Oregon smoke test** — login, chat, Mirror, Council, share, library, RAG retrieval
 26. **Mobile 12-point nav smoke test**
@@ -150,8 +197,9 @@ All 9 personas voice-tightened; check_brevity live; Socrates elenchus upgraded; 
 
 ### 2.2 Code-side P0
 
+- [x] ~~**End-to-end Stripe sandbox test**~~ — DONE (2026-06-03). Revenue chain verified in TEST/sandbox.
+- [ ] **PR3a cold-beta sweep** — memory bugs + item A + item #2 + micro-polish (B, #5, #8) + content #6 (needs founder copy)
 - [ ] **bugfixes-3 — auth race fix** (P0; see TD-10; PR4ai deferred)
-- [ ] **End-to-end Stripe sandbox test** (test card → webhook → entitlement → portal → cancel → tier downgrade)
 - [ ] **Mobile 12-point nav smoke test** (real iOS Safari)
 - [ ] **Cold beta with 3–5 fresh users**
 - [ ] **Consolidated polish PR** (Block B visual closure — 9 mobile walkthrough findings)
@@ -182,9 +230,9 @@ Unchanged from v12. See v11 §3 for full text.
 
 Unchanged from v12. PR4ai deferred.
 
-### TD-11 — Tier resolution unified refactor (P0 launch blocker, 🔴 not started)
+### TD-11 — Tier resolution unified refactor (🟢 DONE — #203, 2026-06-03)
 
-Must consolidate `get_current_user_plan` and `get_user_tier` before the Stripe smoke test. ⚠️ Flip was initiated BEFORE TD-11 (out of documented order). Harmless while zero real subscriptions exist; but TD-11 MUST land before the Stripe smoke test, since `get_current_user_plan` and `get_user_tier` diverge on premium/trialing/expiry once a real subscription exists.
+`get_user_tier` (`services/tier_service.py`) is now the single source of truth. `get_current_user_plan` (`auth.py`) is a thin wrapper around it. `rate_limit_service` enforces `plan in ("pro","premium")`. The dual tier resolution tech debt documented in CLAUDE.md §Known tech debt is resolved.
 
 ### TD-12 through TD-15
 
@@ -221,6 +269,16 @@ Current council share PNG is a functional placeholder. Full design: boardroom.we
 - 4 member portrait files (Machiavelli, Epictetus, Freud, de Beauvoir) confirmed available at the same static path
 - New `_draw_council_canvas` or extended `_render_share_canvas` in `image_service.py`
 
+### TD-28 — Live Stripe wiring (P0 before any live payment)
+
+Sandbox is complete. Wiring to production Stripe requires:
+1. Live Stripe publishable + secret keys (different from sandbox keys)
+2. Live Stripe price IDs (different from sandbox price IDs)
+3. A **new live-mode webhook** registered in Stripe dashboard — same endpoint path (`/api/v1/billing/webhook`) but live-mode signing secret (sandbox and live webhooks use separate secrets)
+4. `ENVIRONMENT=development` → `production` on the Render API service
+
+None of these require code changes beyond env var updates and Stripe dashboard configuration. Must complete before accepting any real payment.
+
 ### TD-27 — Per-verdict → reflections save (investigation required, P1)
 
 `saved_lines` requires `message_id` FK. Council verdicts live in `council_responses`, not `messages`. Three options to investigate:
@@ -234,7 +292,7 @@ Current council share PNG is a functional placeholder. Full design: boardroom.we
 
 ## 4. Database schemas
 
-See `PROJECT_STATE_v16.md §4`. Migration head: `020_create_council_saves`. Migrations 019 (council_cases/sessions/responses) and 020 (council_saves) added 2026-06-01.
+See `PROJECT_STATE_v16.md §4`. Migration head: `021_create_self_comparisons`. No new migrations in 2026-06-03 session.
 
 ---
 
@@ -373,6 +431,7 @@ You vs You observes and asks; it never asserts. No numeric scores, no clinical l
 - [ ] **.gitignore security debt** (TD-23) — add `.env.local`, `.env*.local` to `.gitignore`. Single commit.
 - [ ] **PR-D2 production smoke test** — verify name save flow with gmail workaround
 - [ ] **Author smoke-test voice changes** — Wilde, Jung, Freud, de Beauvoir, Machiavelli, Lao Tzu
+- [ ] **PR3a cold-beta sweep** — memory bugs + item A + item #2 (ConversationCard title) + micro-polish (B, #5, #8) + content #6 (phenomenology prompts — needs founder-supplied copy first)
 
 ### 11.1 P0 (launch blockers)
 
@@ -381,15 +440,17 @@ You vs You observes and asks; it never asserts. No numeric scores, no clinical l
 - [x] ~~**The Mirror**~~ ✅ DONE (2026-06-01) — PRs #166–#173
 - [x] ~~**The Council**~~ ✅ DONE (2026-06-01) — PRs #182–#186; 4 members + synthesis + save + share; migrations 019 + 020
 - [x] ~~**You vs You**~~ ✅ DONE (2026-06-02) — PRs #193–#202; migration 021; dual-self SSE; closing card + ring-true; tier-aware weekly rate limit; usage meter + premium nudge
-- [ ] **🔴 TD-11 — Tier resolution refactor** — not started; REVENUE GATE; must land before Stripe smoke test
-- [ ] **🟡 Disable BETA_GRANT_PRO_TO_ALL** — in progress; flip initiated on Render; verify: redeploy done + startup warning gone + free account gets 403 on Pro content
-- [ ] **🔴 Watch: free user → You vs You upgrade CTA** — after BETA flip, confirm rituals hub gates free users before the screen
-- [ ] **End-to-end Stripe sandbox test** — 🔴 pending (test card → webhook → entitlement → portal → cancel → tier downgrade; MUST run with BETA flag confirmed OFF)
+- [x] ~~**TD-11 — Tier resolution refactor**~~ ✅ DONE (#203, 2026-06-03)
+- [x] ~~**Disable BETA_GRANT_PRO_TO_ALL**~~ ✅ DONE (2026-06-03) — confirmed OFF on both services
+- [x] ~~**End-to-end Stripe sandbox test**~~ ✅ DONE (2026-06-03) — revenue chain verified in TEST
+- [ ] **🔴 PR3a cold-beta sweep** — memory bugs + item A + item #2 + polish (B, #5, #8) + content #6
 - [x] ~~**Oregon region migration completion**~~ — DATABASE_URL confirmed pointing to Oregon
 - [ ] **source_chunks re-ingest** into Oregon (TD-22; status unconfirmed post-switch)
 - [ ] **Post-Oregon smoke test** (login, chat, Mirror, Council, rituals, share, library, RAG retrieval)
 - [ ] **bugfixes-3 — auth race fix** (TD-10; preview smoke test required)
 - [ ] **Mobile 12-point nav smoke test**
+- [ ] **TD-28 — Live Stripe wiring** — live keys + live price IDs + live-mode webhook (URL fix + live signing secret) + `ENVIRONMENT=production` on Render API. Must complete before any real payment.
+- [ ] **OPS-001 — nkoutr@ote.gr current_period_end re-sync** — NULL pre-#205 row needs manual re-sync. P1.
 - [ ] **Cold beta with 3–5 fresh users**
 - [ ] **Cold validation with external users** (retention + willingness-to-pay)
 - [ ] **Consolidated polish PR** (Block B visual closure)
@@ -403,6 +464,8 @@ You vs You observes and asks; it never asserts. No numeric scores, no clinical l
 
 ### 11.2 P1 (post-revenue, shortly after first paying user)
 
+- [ ] **OPS-001 — nkoutr@ote.gr current_period_end re-sync** — manual re-sync for pre-#205 row
+- [ ] **Backfill-titles run** — `POST /api/v1/admin/backfill-titles`; targets `message_count >= 6 AND title IS NULL`; data hygiene for founder's test conversations; not a cold-beta blocker
 - [ ] **Per-verdict → reflections save** (TD-27) — investigation brief first
 - [ ] **Council share card redesign** (TD-26) — boardroom bg + 4 thumbnails + date header
 - [ ] **Reflection share card redesign** — center text, smaller thumbnail
@@ -446,7 +509,7 @@ Suggested execution order post .gitignore fix + smoke test:
 
 ### 11.3 P2 (tech debt)
 
-- [ ] **TD-11** — Tier resolution unified refactor — **not started; P0 blocker; see §11.1**
+- [x] ~~**TD-11**~~ — Tier resolution unified refactor — **DONE (#203, 2026-06-03)**
 - [ ] **TD-12** — Soft-delete pattern for conversations
 - [ ] **TD-01** — Split `rate_limit_service.py`
 - [ ] **TD-02** — PersonaConfig / Persona ORM naming confusion
@@ -489,13 +552,13 @@ Suggested execution order post .gitignore fix + smoke test:
 
 Unchanged from v12. Plan A active.
 
-Realistic timeline from end of 2026-06-01 session: 5-8 weeks total.
-- Revenue gate (TD-11 + BETA off + Stripe test): ~1-2 weeks
-- Council fast-follows + Counterview design: ~1-2 weeks
-- Rituals guided programs (Counterview): ~2-4 weeks
+Realistic timeline from end of 2026-06-03 session: 3-6 weeks total.
+- Revenue gate: ✅ CLOSED (TEST). Live Stripe wiring: ~1 week (env vars + dashboard config, no code changes)
+- PR3a cold-beta sweep: ~1-2 weeks
+- Counterview design + build: ~2-4 weeks
 - Cold beta + DNS cutover: 1-2 weeks
 - **Target: mid-July 2026.**
 
 ---
 
-**End of IMPLEMENTATION_BACKLOG v16.** Authoritative as of 2026-06-02 (You vs You appended). Supersedes `IMPLEMENTATION_BACKLOG_v15.md` (preserved as historical reference).
+**End of IMPLEMENTATION_BACKLOG v16.** Authoritative as of 2026-06-03 (revenue chain + PR3a triage appended). Supersedes `IMPLEMENTATION_BACKLOG_v15.md` (preserved as historical reference).

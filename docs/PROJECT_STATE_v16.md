@@ -2,11 +2,11 @@
 
 > **What this file is:** Live snapshot of the project's current implementation status. Manually maintained.
 >
-> **v16 = v15 baseline (2026-06-01) + 2026-06-01 session delta (The Council shipped end-to-end: C5–C7c, PRs #182–#186; migrations 019_create_council + 020_create_council_saves; 3 Council endpoints; boardroom screen live; Mirror INTRO_HOLD updated; share renderer shared) + 2026-06-02 session delta (WiseMark #191; You vs You shipped end-to-end: PRs #193–#202; migration 021_create_self_comparisons; 3 endpoints; dual-self SSE; closing card; ring-true; weekly rate limit; usage meter).**
+> **v16 = v15 baseline (2026-06-01) + 2026-06-01 session delta (The Council shipped end-to-end: C5–C7c, PRs #182–#186; migrations 019_create_council + 020_create_council_saves; 3 Council endpoints; boardroom screen live; Mirror INTRO_HOLD updated; share renderer shared) + 2026-06-02 session delta (WiseMark #191; You vs You shipped end-to-end: PRs #193–#202; migration 021_create_self_comparisons; 3 endpoints; dual-self SSE; closing card; ring-true; weekly rate limit; usage meter) + 2026-06-03 session delta (TD-11 canonical tier resolver #203; BETA_GRANT_PRO_TO_ALL OFF; Stripe webhook URL corrected; current_period_end fix #205; account auth hydration fix #207; REVENUE CHAIN CLOSED IN TEST/SANDBOX; PR3a sweep triage).**
 >
-> **Generated:** 2026-06-01 (v16 rotation) · **Last appended:** 2026-06-02 (You vs You session)
+> **Generated:** 2026-06-01 (v16 rotation) · **Last appended:** 2026-06-03 (revenue chain + PR3a triage)
 >
-> **Last updated:** 2026-06-02
+> **Last updated:** 2026-06-03
 
 > **v16 conflict resolution rule:** Where v16 conflicts with v15, v16 wins. Production reality always wins over docs.
 
@@ -76,6 +76,72 @@
 
 ---
 
+---
+
+## 2026-06-03 Session Delta — Revenue chain closed (TEST) + PR3a triage
+
+> Appended to v16. Where this conflicts with the v16 baseline or 2026-06-02 section, this section wins.
+
+**Merged to main this session (all in production TEST/sandbox):**
+
+- **TD-11 — Canonical tier resolver (#203):** `services/tier_service.py:get_user_tier` is now the single source of truth for tier resolution. `auth.py:get_current_user_plan` is a thin wrapper around it. `rate_limit_service` enforces plan `in ("pro","premium")`. Resolves the dual tier resolution tech debt documented in CLAUDE.md §Known tech debt.
+
+- **BETA_GRANT_PRO_TO_ALL = OFF:** Confirmed disabled on both API and worker services.
+
+- **Stripe webhook URL corrected (sandbox):** Webhook URL fixed to `/api/v1/billing/webhook`.
+
+- **current_period_end fix (#205):** `current_period_end` now read from `subscription.items.data[0]` (Stripe API 2026-04-22 moved it off the top-level Subscription object). Regression tests added.
+
+- **Account auth hydration fix (#207, commit dfbfd81):** `useHydrated()` hook implemented via Zustand `onFinishHydration` / `hasHydrated` / `rehydrate`. Supersedes the failed `mounted`-state approach from #204 and #206 (both removed).
+
+- **REVENUE CHAIN CLOSED IN TEST/SANDBOX:** Verified end-to-end: signup → Stripe checkout → 4242 test card → webhook `checkout.session.completed` (HTTP 200) → `current_period_end` set → `get_user_tier` returns `"pro"` → account page renders (hydration guard passes) → UI shows "Welcome to Pro".
+
+**Investigation findings this session:**
+
+- **Title generation flow confirmed:** ARQ worker (Haiku model) auto-generates a conversation title after the first messages; leaves title `NULL` if output looks suspicious. Backfill endpoint `POST /api/v1/admin/backfill-titles` targets `WHERE message_count >= 6 AND title IS NULL`; returns `{queued: N}`. Backfill NOT yet executed — not a cold-beta blocker (fresh conversations get auto-titles). Data hygiene for founder's existing test conversations.
+
+- **ConversationCard title bug root cause (item #2):** `apps/web/components/library/ConversationCard.tsx:49` renders `last_message_snippet ?? title`, demoting the conversation title to a fallback of the snippet. Title never renders. **Frontend fix PENDING — PR3a sweep.**
+
+- **OAuth scaffolding present:** `auth_oauth_router` (partial OAuth implementation) exists in the backend — relevant to deferred item #3 (Google/Apple OAuth).
+
+**PR3a sweep plan (agreed triage of founder's 9 items):**
+
+Cold-beta blockers (in PR3a sweep):
+- PR3a memory bugs: fresh-chat missing opening message/thumbnail; home "Continuing" / "Mind-of-the-Day" 404s
+- Item A: Today → Your reflections → "Ask another mind" → choose a mind: chat does not start / stuck
+- Item #2: restore conversation title on `ConversationCard.tsx:49` (`last_message_snippet ?? title` demotes to snippet)
+
+Micro-polish (in PR3a sweep):
+- Item B: app icon — use `apps/web/public/personas/appbutton.png`
+- Item #5: You-vs-You ritual card icon is unclear
+- Item #8: Letter to Future Self — replace pushbutton with tap-the-card entry. NOTE: Letter to Future Self is the **only functional ritual** (others are locked shells); preserve its distinctiveness.
+
+Content (in PR3a sweep — needs founder-supplied copy):
+- Item #6: replace the 30 rotating philosophical prompts in "What's on your mind?" with modern-phenomenology themes: loneliness, social-media relationships, doomscrolling, AI threats to work.
+
+Deferred until after cold beta:
+- Item #3: Google/Apple OAuth (backend `auth_oauth_router` scaffolding exists)
+- Item #4: surface The Council in Rituals (currently only accessible as continuation of Mirror)
+- Item #7: re-introduce intent/mode selection screen (grief/anxiety/free-text + challenge/comfort → persona routing)
+
+**Pending (NOT done this session):**
+
+- Backfill-titles endpoint not yet executed.
+- `nkoutr@ote.gr` subscription `current_period_end = NULL` (pre-#205 row) — needs manual re-sync via Stripe dashboard or admin endpoint.
+- ~19 other frontend pages still lack the Zustand hydration guard → bounce to login on hard refresh. Deferred; not revenue-blocking.
+- Block H live Stripe wiring: live keys, live price IDs, a separate live-mode webhook (needs same URL fix + live signing secret), and `ENVIRONMENT=development` → `production` on Render API service.
+- Cold beta date: to be locked.
+
+**Brand:**
+- Product brand name is **"The Wise Room"** (locked). A rename audit is PENDING — docs, code, and Stripe product names may still say "Great Minds". Do NOT perform any rename until the audit is complete.
+
+**Key superseded facts (2026-06-03):**
+- TD-11 dual tier resolution: was "unresolved, known tech debt" → **RESOLVED. `get_user_tier` is the canonical function; `get_current_user_plan` wraps it.**
+- BETA_GRANT_PRO_TO_ALL: was "🟡 in progress" → **🟢 OFF. Confirmed disabled on both services.**
+- End-to-end Stripe sandbox test: was "🔴 pending" → **🟢 COMPLETE. Revenue chain verified in TEST mode.**
+
+---
+
 ## v15 Session Delta (2026-06-01)
 
 > v15 = v14 baseline + Mirror feature shipped. Where v15 conflicts with v14, v15 wins.
@@ -142,7 +208,7 @@ Unchanged from v15. Netlify (canonical), Render (API + worker, paid tier), Supab
 ## 2. Production status
 
 - Live URL: **https://thinkalike.netlify.app** (canonical)
-- Last production deploy: **2026-06-02** — You vs You end-to-end (PRs #193–#202); also WiseMark (#191), frameless Mirror (#190), hub copy (#192)
+- Last production deploy: **2026-06-03** — TD-11 tier resolver (#203); current_period_end fix (#205); account auth hydration fix (#207); BETA_GRANT_PRO_TO_ALL OFF; Stripe webhook URL corrected. Revenue chain verified end-to-end in TEST/sandbox.
 - **Has paying users:** No
 - **Has free trial users:** No (cold beta with 3-5 fresh users still pending)
 
@@ -161,7 +227,7 @@ Real-time streaming architecture shipped (PR-A / Bug #4). See §6.
 ### Other systems
 
 - **Stripe wired:** Yes — sandbox (checkout + portal + webhook; €14.90/mo + €149/yr; PR1 #77)
-- **BETA bypass active:** Yes — `BETA_GRANT_PRO_TO_ALL=true` in Render env (PR4j). All users treated as Pro during cold beta.
+- **BETA bypass active:** No — `BETA_GRANT_PRO_TO_ALL=false` confirmed disabled on both API and worker (2026-06-03). Tier enforcement is now live via `get_user_tier`.
 - **Paywall system wired:** Yes
 - **Google OAuth:** Dormant
 - **Rituals tab:** Live (PR4o) — ritual cards shown; **Mirror ✅ SHIPPED** (PRs #166–#173); **Council ✅ SHIPPED** (PRs #182–#186); **You vs You ✅ SHIPPED** (PRs #193–#202); Counterview + Weekly Reading are placeholder-locked; Letter to Future Self is functional (ARQ delivery not yet wired).
@@ -428,6 +494,17 @@ Unchanged from v12 §12. DATABASE_URL confirmed Oregon.
 | New frontend files | `app/app/you-vs-you/page.tsx`, `components/ui/WiseMark.tsx` |
 | Modified frontend files | `lib/api.ts` (getSelfComparisonStatus, streamSelfComparison, setSelfComparisonRingTrue), `app/app/rituals/page.tsx` (hub card), `app/app/mirror/page.tsx` (frameless reveal) |
 
+### 2026-06-03 session — Revenue chain + PR3a triage
+
+| Metric | Value |
+|---|---|
+| PRs merged | TD-11 #203 (canonical tier resolver); current_period_end fix #205; account auth hydration fix #207. PRs #204 and #206 superseded/removed. |
+| Production regressions | 0 |
+| Migrations deployed | None |
+| New tables | None |
+| New endpoints | None |
+| Revenue chain verified | signup → checkout → 4242 → webhook 200 → tier = pro → account renders → "Welcome to Pro" ✅ |
+
 ### Earlier sessions
 
 See v15 §13 for 2026-06-01 Mirror session, 2026-05-28, 2026-05-25-26, 2026-05-21-24 sessions.
@@ -443,6 +520,11 @@ See v15 §13 for 2026-06-01 Mirror session, 2026-05-28, 2026-05-25-26, 2026-05-2
 ### Open issues carried from v15
 
 - **OTP-01** — OTP delivery failure for ote.gr (Greek ISP). Workaround: use gmail. Not related to any PR code changes.
+
+### New bugs / debt logged (2026-06-03)
+
+- **BUG-013 — ConversationCard title never renders:** `apps/web/components/library/ConversationCard.tsx:49` evaluates `last_message_snippet ?? title`, so the title is only ever shown when there is no snippet. All conversations with a snippet display the snippet instead of the title. Fix in PR3a sweep.
+- **OPS-001 — nkoutr@ote.gr subscription current_period_end = NULL:** Row predates #205 fix; needs manual re-sync via Stripe dashboard or admin endpoint.
 
 ### New tech debt logged (v16)
 
@@ -517,10 +599,9 @@ No new CLAUDE.md violations.
 
 ### Open items (P0 launch blockers)
 
-- [ ] **🔴 TD-11 — Tier resolution unified refactor** — not started. Required before Stripe smoke test.
-- [ ] **🟡 Disable BETA_GRANT_PRO_TO_ALL** — in progress. Flip initiated on Render. Verify: redeploy completed + startup warning gone + free account hits 403 on Pro-gated rituals.
-- [ ] **🔴 Watch: free user → You vs You → upgrade CTA** — after BETA flip, confirm rituals hub gates free users before the screen (else 5-line frontend follow-up needed).
-- [ ] **End-to-end Stripe sandbox test** (with BETA flag confirmed OFF)
+- [ ] **🔴 PR3a cold-beta sweep** — memory bugs (fresh-chat missing opening message/thumbnail; home 404s) + item A (Ask another mind chat stuck) + item #2 (ConversationCard title) + micro-polish (B, #5, #8) + content item #6 (phenomenology prompts — needs founder copy)
+- [ ] **🔴 BUG-013 — ConversationCard title** — `ConversationCard.tsx:49` demotes title to snippet fallback. Fix in PR3a sweep.
+- [ ] **OPS-001 — nkoutr@ote.gr current_period_end re-sync** — pre-#205 row has NULL current_period_end; needs manual re-sync.
 - [ ] **source_chunks re-ingest** into Oregon via OpenAI embeddings script (TD-22); status unconfirmed post-switch
 - [ ] **Post-Oregon smoke test** (login, chat, rituals/Mirror/Council, share, library, RAG retrieval)
 - [ ] **bugfixes-3 — auth race fix** (TD-10; PR4ai deferred; preview smoke test required)
@@ -569,6 +650,15 @@ No new CLAUDE.md violations.
 - [ ] **TD-21** — passive_deletes audit
 - [ ] **branding** — "The Wise Room" vs "Great Minds" still unresolved across codebase (FROM_EMAIL, FRONTEND_URL, copy); separate thread in progress
 
+### Closed items (2026-06-03) — Revenue chain session
+
+- [x] **CLOSED 2026-06-03** — TD-11 canonical tier resolver shipped (#203): `get_user_tier` is single source of truth; `get_current_user_plan` wraps it; dual tier resolution tech debt resolved.
+- [x] **CLOSED 2026-06-03** — BETA_GRANT_PRO_TO_ALL confirmed OFF on both API and worker.
+- [x] **CLOSED 2026-06-03** — Stripe webhook URL corrected to `/api/v1/billing/webhook` (sandbox).
+- [x] **CLOSED 2026-06-03** — current_period_end fix (#205): now read from `subscription.items.data[0]`; regression tests added.
+- [x] **CLOSED 2026-06-03** — Account auth hydration fix (#207): `useHydrated()` hook via Zustand; supersedes failed #204 and #206.
+- [x] **CLOSED 2026-06-03** — Revenue chain verified end-to-end in TEST/sandbox: signup → checkout → 4242 card → webhook 200 → tier = pro → account renders → "Welcome to Pro".
+
 ### Closed items (2026-06-02) — You vs You session additions
 
 - [x] **CLOSED 2026-06-02** — You vs You shipped end-to-end (PRs #193–#202); migration 021 deployed; dual-self SSE live; closing card + ring-true wired; tier-aware weekly rate limit + usage meter live; faded bg
@@ -595,12 +685,13 @@ No new CLAUDE.md violations.
 
 > These items gate Stripe checkout / revenue activation. None may be deferred past the first paying user.
 
-- [ ] **`BETA_GRANT_PRO_TO_ALL`** — 🟡 in progress. Flip to `false` initiated on Render. Verify: redeploy completed, startup warning gone, free account gets 403 on Pro-gated content. Must be confirmed OFF before Stripe test.
-- [ ] **TD-11 — Tier resolution unified refactor** — 🔴 not started. Consolidate `get_current_user_plan` + `get_user_tier` into a single function. Both used by different endpoints with different semantics. Must precede Stripe smoke test. ⚠️ Flip was initiated BEFORE TD-11 (out of documented order). Harmless while zero real subscriptions exist; but TD-11 MUST land before the Stripe smoke test, since `get_current_user_plan` and `get_user_tier` diverge on premium/trialing/expiry once a real subscription exists.
-- [ ] **Another-mind feature gate (post-beta)** — backend gates per-persona, not feature-level. Add a feature-level Pro gate before disabling BETA bypass.
+- [x] ~~**`BETA_GRANT_PRO_TO_ALL`**~~ — 🟢 **CONFIRMED OFF** (2026-06-03) on both API and worker.
+- [x] ~~**TD-11 — Tier resolution unified refactor**~~ — 🟢 **COMPLETE** (#203, 2026-06-03). `get_user_tier` is the canonical function; `get_current_user_plan` wraps it. Dual tier resolution debt resolved.
+- [x] ~~**End-to-end Stripe sandbox test**~~ — 🟢 **COMPLETE** (2026-06-03). Revenue chain verified: signup → checkout → 4242 → webhook → tier = pro → "Welcome to Pro".
+- [ ] **Another-mind feature gate (post-cold-beta)** — backend gates per-persona, not feature-level. Add a feature-level Pro gate before disabling BETA bypass for real paying users.
 - [ ] **Systemic frontend `plan` reliability bug** — `plan` getter unreliable outside `(tabs)/layout.tsx`. Affects all client-side paywall gates. Fix before paid launch.
-- [ ] **End-to-end Stripe sandbox test** — must be run with BETA flag OFF to verify real tier enforcement, checkout, portal, cancel, and tier downgrade flows.
+- [ ] **Live Stripe wiring** — sandbox complete; live wiring requires: live Stripe keys + live price IDs + a **separate live-mode webhook** (same URL fix + live signing secret) + `ENVIRONMENT=development` → `production` on the Render API service.
 
 ---
 
-**End of PROJECT_STATE v16.** Authoritative as of 2026-06-02 (You vs You appended). Supersedes `PROJECT_STATE_v15.md` (preserved as historical reference).
+**End of PROJECT_STATE v16.** Authoritative as of 2026-06-03 (revenue chain + PR3a triage appended). Supersedes `PROJECT_STATE_v15.md` (preserved as historical reference).

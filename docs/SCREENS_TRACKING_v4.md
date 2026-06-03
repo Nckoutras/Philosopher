@@ -53,6 +53,11 @@
 > - D1 spec note updated: greeting personalization live (PR-D #129); NamePromptCard conditional render for nameless OTP users (PR-D2 #130)
 > - G5–G11 added: 7 new pending ritual sub-screens (Mirror 3, Counterview 3, Weekly Reading placeholder 1) — scope locked 2026-05-28; full specs pending respective briefs
 > - Screen count: 56 → 63; pending count: 13 → 20
+>
+> **v4.2 additions (2026-06-03):**
+> - D1 bug note added: PR3a cold-beta bugs pending (Continuing/Mind-of-the-Day 404s; item A chat stuck)
+> - F6 bug note added: PR3a item #2 — ConversationCard.tsx:49 demotes title to snippet fallback (root cause identified; fix in PR3a sweep)
+> - G deferred triage: item #3 (OAuth), item #4 (Council in Rituals), item #7 (intent/mode selection) deferred to post-cold-beta; item #8 (Letter to Future Self tap-to-card) in PR3a sweep — NOTE: Letter to Future Self is the only functional ritual (others are locked shells)
 
 ---
 
@@ -100,7 +105,7 @@
 
 | ID | Screen | Status |
 |---|---|---|
-| D1 | Home / Today (returning + empty) | ✅ covered — greeting personalized PR-D #129; NamePromptCard for nameless OTP users PR-D2 #130 |
+| D1 | Home / Today (returning + empty) | ✅ covered — greeting personalized PR-D #129; NamePromptCard for nameless OTP users PR-D2 #130; ⚠️ PR3a bugs pending: "Continuing"/Mind-of-the-Day 404s; item A (Ask another mind chat stuck) |
 | D2 | Explore Minds — Carousel/list view | ✅ covered |
 | D3 | Explore Minds — Grid view | ✅ covered |
 | D4 | Search / filter minds | ⏸ deferred v2 (when persona count >12) |
@@ -125,7 +130,7 @@
 | F3 | Weekly letter inbox | ✅ covered |
 | F4 | Weekly letter detail / read view | ✅ covered |
 | F5 | Recurring themes dashboard | ⏸ deferred v2 (volume-dependent feature) |
-| F6 | Reflection history (UI: "Past conversations") | ✅ covered |
+| F6 | Reflection history (UI: "Past conversations") | ✅ covered; ⚠️ PR3a item #2: ConversationCard.tsx:49 renders snippet ?? title — title never shows; fix pending |
 
 ### G — Rituals (Phase 3, post-MVP)
 
@@ -667,6 +672,10 @@ After C2 loading, persona's first message appears.
 **v4.2 additions (2026-05-28):**
 - **Greeting personalization (PR-D #129):** Header greeting now personalizes — "Good morning, Nikos." for users with `full_name` set. First name extracted via `full_name?.trim().split(/\s+/)[0]`. Graceful fallback to "Good morning." if name is null/empty/whitespace.
 - **NamePromptCard (PR-D2 #130):** Conditional card shown to OTP users with no `full_name` set. Appears between greeting and Today's question card. LOCKED COPY: "What should we call you?" / "First name" placeholder / "Save" / "Not now". Session-only dismissal. Feeds greeting personalization on save.
+
+**v4.2 additions (2026-06-03):**
+- **PR3a cold-beta bugs pending:** "Continuing" card and Mind-of-the-Day surface 404s for some users. Item A: tapping "Ask another mind" → choosing a mind does not start a new chat (stuck). Both in PR3a sweep.
+- **Item #6 content — "What's on your mind?" prompts:** 30 rotating philosophical prompts to be replaced with modern-phenomenology themes (loneliness, social-media relationships, doomscrolling, AI threats to work). Pending founder-supplied copy.
 
 ---
 
