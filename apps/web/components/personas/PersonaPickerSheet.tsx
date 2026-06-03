@@ -51,6 +51,10 @@ export default function PersonaPickerSheet({
       return
     }
     setLoadingSlug(slug)
+    // Close the sheet BEFORE navigating. BottomSheet pops its own history entry
+    // via history.back() on close; if we navigate first, that back() reverts the
+    // pushed route. Closing first lets back() settle before the post-await push.
+    onClose()
     try {
       const conv = await api.createCrossPersonaConversation(savedLineId!, slug)
       if (sourceContent) {
@@ -58,7 +62,6 @@ export default function PersonaPickerSheet({
       }
       onCreated!(conv.id)
     } catch (err) {
-      setLoadingSlug(null)
       toast.error('Could not open conversation. Try again.')
       // eslint-disable-next-line no-console
       console.error('createCrossPersonaConversation failed:', err)
