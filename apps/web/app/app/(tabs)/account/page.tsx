@@ -8,6 +8,20 @@ import { useStore } from '@/lib/store'
 import { api } from '@/lib/api'
 import AppHeader from '@/components/layout/AppHeader'
 
+function useHydrated() {
+  const [hydrated, setHydrated] = useState(false)
+  useEffect(() => {
+    if (useStore.persist.hasHydrated()) {
+      setHydrated(true)
+      return
+    }
+    const unsub = useStore.persist.onFinishHydration(() => setHydrated(true))
+    void useStore.persist.rehydrate()
+    return unsub
+  }, [])
+  return hydrated
+}
+
 export default function AccountPage() {
   const router = useRouter()
   const token = useStore((s) => s.token)
@@ -15,15 +29,11 @@ export default function AccountPage() {
   const storeSubscription = useStore((s) => s.subscription)
   const setSubscription = useStore((s) => s.setSubscription)
 
+  const hydrated = useHydrated()
   const [portalLoading, setPortalLoading] = useState(false)
-  const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
-    setMounted(true)
-  }, [])
-
-  useEffect(() => {
-    if (!mounted) return
+    if (!hydrated) return
     if (token === null) {
       router.replace('/auth?mode=signin')
       return
@@ -41,7 +51,7 @@ export default function AccountPage() {
         window.history.replaceState({}, '', window.location.pathname)
       }
     }
-  }, [mounted, token, router, storeSubscription, setSubscription])
+  }, [hydrated, token, router, storeSubscription, setSubscription])
 
   const displayName = user?.full_name ?? user?.email ?? ''
   const initial = displayName.charAt(0).toUpperCase()
@@ -72,7 +82,7 @@ export default function AccountPage() {
     window.location.replace('/auth?mode=signin')
   }
 
-  if (!mounted || token === null) {
+  if (!hydrated || token === null) {
     return <div className="min-h-screen [min-height:100svh] bg-vellum" />
   }
 
