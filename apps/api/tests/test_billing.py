@@ -4,7 +4,7 @@ Tests for billing plan gating logic.
 Run: cd apps/api && pytest tests/test_billing.py -v
 """
 import pytest
-from routers.billing import PLANS, _plan_from_stripe
+from routers.billing import PLANS, _plan_from_stripe, _period_end_from_stripe
 from constants import PLAN_FEATURES, TIER_ORDER, is_plan_sufficient
 
 
@@ -73,3 +73,16 @@ def test_premium_user_can_access_pro_ritual():
 
 def test_unknown_plan_treated_as_free():
     assert not is_plan_sufficient("enterprise_fake", "pro")
+
+
+def test_period_end_prefers_items():
+    obj = {"items": {"data": [{"current_period_end": 111}]}, "current_period_end": 999}
+    assert _period_end_from_stripe(obj) == 111
+
+def test_period_end_falls_back_to_top_level():
+    obj = {"items": {"data": [{}]}, "current_period_end": 999}
+    assert _period_end_from_stripe(obj) == 999
+
+def test_period_end_none_when_absent():
+    obj = {"items": {"data": []}}
+    assert _period_end_from_stripe(obj) is None

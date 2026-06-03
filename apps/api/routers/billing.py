@@ -131,7 +131,7 @@ async def stripe_webhook(request: Request, db: AsyncSession = Depends(get_db)):
                 sub.stripe_subscription_id = obj["id"]
                 sub.plan = _plan_from_stripe(obj)
                 sub.status = obj["status"]
-                sub.current_period_end = _ts(obj.get("current_period_end"))
+                sub.current_period_end = _ts(_period_end_from_stripe(obj))
                 sub.cancel_at_period_end = obj.get("cancel_at_period_end", False)
                 analytics_service.track("subscription_activated", sub.user_id, {"plan": sub.plan})
 
@@ -165,6 +165,15 @@ def _plan_from_stripe(sub_obj: dict) -> str:
     if config.STRIPE_PRICE_PRO_MONTHLY in price_ids or config.STRIPE_PRICE_PRO_YEARLY in price_ids:
         return "pro"
     return "free"
+
+
+def _period_end_from_stripe(sub_obj: dict) -> "int | None":
+    """current_period_end moved onto subscription items in recent Stripe API
+    versions; fall back to the legacy top-level field for older versions."""
+    items = sub_obj.get("items", {}).get("data", [])
+    if items and items[0].get("current_period_end"):
+        return items[0]["current_period_end"]
+    return sub_obj.get("current_period_end")
 
 
 def _ts(unix_ts) -> "datetime | None":
