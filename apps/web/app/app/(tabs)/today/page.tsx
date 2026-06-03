@@ -45,7 +45,6 @@ function BronzeSparkle() {
 export default function TodayPage() {
   const router = useRouter()
   const token = useStore((s) => s.token)
-  const activePersonaSlug = useStore((s) => s.activePersonaSlug)
   const user = useStore((s) => s.user)
   const subscription = useStore((s) => s.subscription)
   const isPro = subscription?.status === 'active' && subscription?.plan !== 'free'
@@ -107,15 +106,9 @@ export default function TodayPage() {
     return () => window.removeEventListener('popstate', handlePopState)
   }, [])
 
-  async function handleFirstDayReflect() {
-    if (!question) return
-    const slug = activePersonaSlug ?? 'marcus_aurelius'
-    try {
-      const conv = await api.createConversation(slug)
-      router.push(`/app/chat/conv/${conv.id}`)
-    } catch {
-      router.push('/app/library')
-    }
+  function handleFirstDayReflect() {
+    setPendingTopic('')
+    setTopicPickerOpen(true)
   }
 
   function handleReflect(topicText: string) {
@@ -124,9 +117,10 @@ export default function TodayPage() {
   }
 
   async function handlePersonaSelected(personaSlug: string) {
+    const hasTopic = pendingTopic.trim().length > 0
     try {
-      const conv = await api.createConversation(personaSlug, undefined, true)
-      localStorage.setItem(`today_topic_draft_${conv.id}`, pendingTopic)
+      const conv = await api.createConversation(personaSlug, undefined, hasTopic)
+      if (hasTopic) localStorage.setItem(`today_topic_draft_${conv.id}`, pendingTopic)
       router.push(`/app/chat/conv/${conv.id}`)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Could not start conversation. Try again.')
