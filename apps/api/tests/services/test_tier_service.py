@@ -32,10 +32,11 @@ def _make_db(sub):
     return db
 
 
-def _make_sub(status="active", current_period_end=None):
+def _make_sub(status="active", current_period_end=None, plan="pro"):
     sub = MagicMock()
     sub.status = status
     sub.current_period_end = current_period_end
+    sub.plan = plan
     return sub
 
 
@@ -81,3 +82,17 @@ async def test_past_due_subscription_returns_free():
     sub = _make_sub(status="past_due", current_period_end=_future())
     db = _make_db(sub)
     assert await get_user_tier(db, USER_ID) == "free"
+
+
+@pytest.mark.asyncio
+async def test_trialing_subscription_returns_plan():
+    sub = _make_sub(status="trialing", current_period_end=_future(), plan="pro")
+    db = _make_db(sub)
+    assert await get_user_tier(db, USER_ID) == "pro"
+
+
+@pytest.mark.asyncio
+async def test_premium_subscription_returns_premium():
+    sub = _make_sub(status="active", current_period_end=_future(), plan="premium")
+    db = _make_db(sub)
+    assert await get_user_tier(db, USER_ID) == "premium"

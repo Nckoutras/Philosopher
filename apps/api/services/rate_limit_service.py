@@ -77,7 +77,7 @@ async def check_rate_limit(
         from services.tier_service import get_user_tier
         user_tier = await get_user_tier(db, user_id)
 
-    if user_tier == "pro":
+    if user_tier in ("pro", "premium"):
         return RateLimitResult(
             allowed=True,
             remaining=-1,

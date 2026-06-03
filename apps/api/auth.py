@@ -55,12 +55,9 @@ async def get_current_user_plan(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> tuple[User, str]:
-    if config.BETA_GRANT_PRO_TO_ALL:
-        return user, "pro"
-    result = await db.execute(select(Subscription).where(Subscription.user_id == user.id))
-    sub = result.scalar_one_or_none()
-    plan = sub.plan if sub and sub.status in ("active", "trialing") else "free"
-    return user, plan
+    from services.tier_service import get_user_tier
+    tier = await get_user_tier(db, user.id)
+    return user, tier
 
 
 async def require_admin(user: User = Depends(get_current_user)) -> User:
