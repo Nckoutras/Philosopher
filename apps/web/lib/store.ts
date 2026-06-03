@@ -14,6 +14,8 @@ interface AppStore {
   // Auth
   user: User | null
   token: string | null
+  hasHydrated: boolean
+  setHasHydrated: (v: boolean) => void
   setAuth: (user: User, token: string) => void
   setUser: (user: User) => void
   clearAuth: () => void
@@ -99,6 +101,8 @@ export const useStore = create<AppStore>()(
       // Auth
       user: null,
       token: null,
+      hasHydrated: false,
+      setHasHydrated: (v) => set({ hasHydrated: v }),
       setAuth: (user, token) => set({ user, token }),
       setUser: (user) => set({ user }),
       clearAuth: () => set({ user: null, token: null, subscription: null }),
@@ -239,6 +243,9 @@ export const useStore = create<AppStore>()(
     {
       name: 'philosopher-store',
       partialize: (s) => ({ user: s.user, token: s.token, subscription: s.subscription }),
+      onRehydrateStorage: () => (state) => {
+        state?.setHasHydrated(true)
+      },
     }
   )
 )
