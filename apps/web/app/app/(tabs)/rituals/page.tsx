@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Lock, ChevronRight, MailOpen, MessagesSquare, BookMarked, Contrast } from 'lucide-react'
+import { Lock, MailOpen, MessagesSquare, BookMarked } from 'lucide-react'
 import { MirrorIcon } from '@/components/icons/RitualIcons'
 import { useStore } from '@/lib/store'
 import AppHeader from '@/components/layout/AppHeader'
@@ -53,7 +53,11 @@ export default function RitualsPage() {
       <div className="px-[16px] flex flex-col gap-[12px] mt-[16px]">
 
         {/* ── Letter to my Future Self — ACTIVE ── */}
-        <div className="bg-paper border border-[0.5px] border-edge rounded-md shadow-card px-[16px] py-[14px] flex items-start gap-[14px]">
+        <button
+          type="button"
+          onClick={handleBeginLetter}
+          className="w-full text-left bg-paper border border-[0.5px] border-edge rounded-md shadow-card px-[16px] py-[14px] flex items-start gap-[14px]"
+        >
           <div className="w-[56px] h-[56px] flex items-center justify-center flex-shrink-0 text-ink">
             <MailOpen size={40} strokeWidth={1.2} />
           </div>
@@ -64,16 +68,8 @@ export default function RitualsPage() {
             <p className="font-lora text-[15px] text-charcoal leading-[1.5] mt-[6px]">
               Seal a thought now. Let it find you changed.
             </p>
-            <button
-              type="button"
-              onClick={handleBeginLetter}
-              className="mt-[14px] flex items-center gap-[4px] border border-[0.5px] border-ink rounded-sm px-[14px] min-h-[40px] font-cormorant text-[15px] font-medium text-ink"
-            >
-              Begin
-              <ChevronRight size={14} strokeWidth={1.5} />
-            </button>
           </div>
-        </div>
+        </button>
 
         {/* ── The Mirror — ACTIVE ── */}
         <button
@@ -101,7 +97,10 @@ export default function RitualsPage() {
           className="w-full text-left bg-paper border border-[0.5px] border-edge rounded-md shadow-card px-[16px] py-[14px] flex items-start gap-[14px]"
         >
           <div className="w-[56px] h-[56px] flex items-center justify-center flex-shrink-0 text-ink">
-            <Contrast size={40} strokeWidth={1.2} />
+            <svg width="40" height="40" viewBox="0 0 40 40" aria-hidden="true">
+              <circle cx="20" cy="20" r="19" fill="none" stroke="currentColor" strokeWidth="1.2" />
+              <path d="M20 1 A19 19 0 0 1 20 39 Z" fill="currentColor" />
+            </svg>
           </div>
           <div className="flex-1 min-w-0">
             <p className="font-cormorant text-[19px] font-medium text-ink leading-tight">
