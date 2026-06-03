@@ -11,15 +11,19 @@ import AppHeader from '@/components/layout/AppHeader'
 export default function AccountPage() {
   const router = useRouter()
   const token = useStore((s) => s.token)
-  const hasHydrated = useStore((s) => s.hasHydrated)
   const user = useStore((s) => s.user)
   const storeSubscription = useStore((s) => s.subscription)
   const setSubscription = useStore((s) => s.setSubscription)
 
   const [portalLoading, setPortalLoading] = useState(false)
+  const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
-    if (!hasHydrated) return
+    setMounted(true)
+  }, [])
+
+  useEffect(() => {
+    if (!mounted) return
     if (token === null) {
       router.replace('/auth?mode=signin')
       return
@@ -37,7 +41,7 @@ export default function AccountPage() {
         window.history.replaceState({}, '', window.location.pathname)
       }
     }
-  }, [hasHydrated, token, router, storeSubscription, setSubscription])
+  }, [mounted, token, router, storeSubscription, setSubscription])
 
   const displayName = user?.full_name ?? user?.email ?? ''
   const initial = displayName.charAt(0).toUpperCase()
@@ -68,7 +72,7 @@ export default function AccountPage() {
     window.location.replace('/auth?mode=signin')
   }
 
-  if (!user) {
+  if (!mounted || token === null) {
     return <div className="min-h-screen [min-height:100svh] bg-vellum" />
   }
 
