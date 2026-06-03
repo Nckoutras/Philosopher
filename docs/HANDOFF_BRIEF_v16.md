@@ -2,15 +2,17 @@
 
 **For:** The next Claude (chat) and Claude Code session
 **From:** Nikos Koutras (founder) + Claude Code
-**Date updated:** 2026-06-02
+**Date updated:** 2026-06-03
 **Prior version:** `docs/HANDOFF_BRIEF_v15.md` (2026-06-01)
-**Generated:** 2026-06-01 (v16 rotation) · **Last appended:** 2026-06-02 (You vs You session)
+**Generated:** 2026-06-01 (v16 rotation) · **Last appended:** 2026-06-03 (revenue chain + PR3a triage)
 
 **Block trigger for v16 baseline regen:** The Council shipped end-to-end (C5–C7c, PRs #182–#186, 2026-06-01). 4-member council, sequential verdicts, app-voice synthesis, save/unsave toggle, share PNG. Migrations 019 + 020. Session volume sufficient for rotation.
 
 **v16 baseline (2026-06-01):** Council ✅ COMPLETE. Mirror ✅ COMPLETE. BETA_GRANT_PRO_TO_ALL still enabled — top revenue-gate blocker. Next: revenue gate (TD-11 + BETA off + Stripe test), then share card redesigns and Counterview.
 
 **2026-06-02 append:** You vs You ✅ COMPLETE (PRs #193–#202, migration 021). WiseMark shipped (#191). TD-11 🔴 not started; BETA flip 🟡 in progress / verify (flip initiated on Render, redeploy pending); Stripe smoke test 🔴 pending.
+
+**2026-06-03 append:** TD-11 ✅ DONE (#203). BETA_GRANT_PRO_TO_ALL ✅ OFF (both services). Stripe webhook URL corrected. current_period_end fix (#205). Account auth hydration fix (#207, dfbfd81). **Revenue chain CLOSED in TEST/sandbox.** PR3a sweep triage agreed. Brand name "The Wise Room" locked (rename audit pending).
 
 **Status:**
 - Block A ✅ FULLY CLOSED (5/5)
@@ -31,6 +33,12 @@
 - **The Council ✅ COMPLETE (2026-06-01)** — PRs #182–#186; 4 members; verdicts + synthesis SSE; save/unsave; share PNG; migrations 019 + 020; boardroom screen live
 - **WiseMark ✅ SHIPPED (#191)** — standalone icon component; placed on Council synthesis card
 - **You vs You ✅ COMPLETE (2026-06-02)** — PRs #193–#202; self_comparisons table (migration 021); dual-self SSE; closing card with evidence quotes + ring-true; weekly limit pro=5/wk, premium=30/wk; usage meter + premium nudge; faded bg
+- **TD-11 ✅ DONE (#203, 2026-06-03)** — canonical tier resolver: `get_user_tier` is single source; `get_current_user_plan` wraps it; dual tier resolution tech debt resolved
+- **BETA_GRANT_PRO_TO_ALL ✅ OFF (2026-06-03)** — confirmed disabled on both API and worker
+- **Stripe webhook URL ✅ corrected (2026-06-03)** — `/api/v1/billing/webhook` (sandbox)
+- **current_period_end fix ✅ (#205, 2026-06-03)** — reads from `subscription.items.data[0]`; regression tests added
+- **Account auth hydration fix ✅ (#207, dfbfd81, 2026-06-03)** — `useHydrated()` via Zustand; supersedes #204 and #206
+- **🟢 REVENUE CHAIN CLOSED IN TEST/SANDBOX (2026-06-03)** — signup → checkout → 4242 → webhook 200 → tier = pro → account renders → "Welcome to Pro"
 - Oregon region migration ✅ CONFIRMED LIVE — bvzeuwzqgnqcghvqghtb (us-west-2)
 - Upstash ✅ Pay-as-You-Go (upgraded 2026-05-27)
 - ANTHROPIC_API_KEY ✅ Re-added to both services (2026-05-27/28)
@@ -96,30 +104,87 @@ The Mirror shipped (PRs #166–#173). Full detail in `HANDOFF_BRIEF_v15.md §v15
 
 ---
 
-## Top of mind / Next (2026-06-02)
+## 2026-06-03 Session Delta — Revenue chain + PR3a triage
 
-### Council + You vs You are shipped. The revenue gate is the priority.
+> Appended to v16. Where this conflicts with the v16 baseline or 2026-06-02 section, this section wins.
 
-**Priority order as of 2026-06-02:**
+**Shipped (merged to main, TEST/sandbox):**
 
-1. **Revenue gate — in progress:**
-   - **TD-11 (tier resolution refactor)** — 🔴 not started. Consolidate `get_current_user_plan` + `get_user_tier`. Must land before Stripe smoke test. ⚠️ Flip was initiated BEFORE TD-11 (out of documented order). Harmless while zero real subscriptions exist; but TD-11 MUST land before the Stripe smoke test, since `get_current_user_plan` and `get_user_tier` diverge on premium/trialing/expiry once a real subscription exists.
-   - **Disable `BETA_GRANT_PRO_TO_ALL`** — 🟡 in progress. Flip initiated on Render (config is Pydantic bool; "OFF" → False). Pending redeploy verification (startup warning must disappear) + functional check with a real free account.
-   - **Watch item:** after BETA flip, a free user reaching You vs You gets a 403 → confirm the rituals hub gates free users BEFORE the screen with an upgrade CTA (else a small frontend follow-up needed).
-   - **Stripe smoke test** — 🔴 pending. TEST mode: checkout → webhook `checkout.session.completed` → plan flip in Subscription → gates open. Must run with BETA flag OFF.
+- **TD-11 (#203):** `services/tier_service.py:get_user_tier` is the single source of truth. `auth.py:get_current_user_plan` is a thin wrapper. `rate_limit_service` enforces `plan in ("pro","premium")`. Resolves the dual tier resolution tech debt.
+- **BETA_GRANT_PRO_TO_ALL = OFF:** Disabled on both API and worker services.
+- **Stripe webhook URL corrected (sandbox):** `/api/v1/billing/webhook`.
+- **current_period_end fix (#205):** Reads from `subscription.items.data[0]`. Stripe moved this field off the top-level Subscription object in their API version 2026-04-22. Regression tests added.
+- **Account auth hydration fix (#207, dfbfd81):** `useHydrated()` hook via Zustand `onFinishHydration` / `hasHydrated` / `rehydrate`. Supersedes and removes the `mounted`-state approach from failed #204 and #206.
+- **Revenue chain verified end-to-end in TEST/sandbox ✅**
 
-2. **You vs You fast-follows** (post-first-paying-user, NOT before launch):
+**PRs that failed and were superseded:**
+- #204: `_hasHydrated` guard approach — failed in production Next.js build; removed.
+- #206: `mounted` state approach — also failed; removed.
+
+**Key superseded facts:**
+- TD-11: was "unresolved known tech debt" → **RESOLVED.**
+- BETA_GRANT_PRO_TO_ALL: was "🟡 in progress" → **🟢 OFF.**
+- Stripe sandbox test: was "🔴 pending" → **🟢 COMPLETE.**
+
+**Investigation findings:**
+- **Title generation:** ARQ worker (Haiku) auto-generates titles; backfill endpoint `POST /api/v1/admin/backfill-titles` targets `message_count >= 6 AND title IS NULL` → `{queued: N}`. Not yet run (not a cold-beta blocker).
+- **ConversationCard title bug:** `apps/web/components/library/ConversationCard.tsx:49` renders `last_message_snippet ?? title`; title never shows when snippet exists. Fix in PR3a sweep.
+- **OAuth scaffolding:** `auth_oauth_router` (partial implementation) exists in backend — relevant to deferred item #3.
+
+**PR3a sweep plan:**
+
+| Category | Items |
+|---|---|
+| Cold-beta blockers | PR3a memory bugs (fresh-chat missing message/thumbnail; home 404s); item A (Ask another mind chat stuck); item #2 (ConversationCard title) |
+| Micro-polish | Item B (app icon: `apps/web/public/personas/appbutton.png`); item #5 (You-vs-You card icon); item #8 (Letter to Future Self: tap-the-card — NOTE: only functional ritual) |
+| Content (needs founder copy) | Item #6: replace 30 "What's on your mind?" prompts with phenomenology themes (loneliness, social-media, doomscrolling, AI threats to work) |
+| Deferred post-cold-beta | Item #3 (OAuth — scaffolding exists); item #4 (Council in Rituals); item #7 (intent/mode selection screen) |
+
+**Pending (NOT done this session):**
+- Backfill-titles not executed (data hygiene, not blocker).
+- `nkoutr@ote.gr` `current_period_end = NULL` — needs manual re-sync.
+- ~19 frontend pages lack hydration guard. Deferred.
+- Block H live Stripe wiring: live keys + live price IDs + live-mode webhook (URL fix + live signing secret) + `ENVIRONMENT=production` on Render API.
+- Cold beta date: to be locked.
+
+**Brand:** "The Wise Room" is the locked product brand name. Rename audit PENDING — docs/code/Stripe may still say "Great Minds".
+
+---
+
+## Top of mind / Next (2026-06-03)
+
+### Revenue gate is CLOSED in TEST. Next: PR3a cold-beta sweep, then live Stripe wiring, then cold beta.
+
+**Priority order as of 2026-06-03:**
+
+1. **PR3a cold-beta sweep — 🔴 not started (highest priority):**
+   - Memory bugs: fresh-chat missing opening message/thumbnail; home "Continuing" / "Mind-of-the-Day" 404s
+   - Item A: Today → Your reflections → "Ask another mind" → choose a mind: chat does not start / stuck
+   - Item #2: `ConversationCard.tsx:49` title demoted to snippet fallback — fix required
+   - Micro-polish: item B (app icon from `apps/web/public/personas/appbutton.png`), item #5 (You-vs-You card icon), item #8 (Letter to Future Self tap-to-card — NOTE: only functional ritual)
+   - Content item #6: replace 30 "What's on your mind?" prompts with phenomenology themes — **needs founder-supplied copy first**
+
+2. **Live Stripe wiring (TD-28) — 🔴 not started (P0 before any real payment):**
+   - Live Stripe keys + live price IDs
+   - A separate live-mode webhook registered in Stripe dashboard (same path `/api/v1/billing/webhook`, different signing secret)
+   - `ENVIRONMENT=development` → `production` on Render API service
+
+3. **OPS-001 — nkoutr@ote.gr current_period_end re-sync** — NULL pre-#205 row needs manual re-sync.
+
+4. **Cold beta with 3–5 fresh users** — date to be locked.
+
+5. **You vs You fast-follows** (post-first-paying-user, NOT before launch):
    - Funnel analytics: limit-hit → premium-nudge click tracking.
    - Rolling-both window anchor (v2, user-selectable).
 
-3. **Council fast-follows** (post-first-paying-user, NOT before launch):
+6. **Council fast-follows** (post-first-paying-user, NOT before launch):
    - Per-verdict → reflections save: needs design (saved_lines is message-centric; council_responses are not messages).
-   - Council share card redesign: boardroom bg, date header, 4 portrait thumbnails, centered synthesis. Needs boardroom.webp + 4 portraits under `apps/api/static/personas/`.
+   - Council share card redesign: boardroom bg, date header, 4 portrait thumbnails, centered synthesis.
    - Reflection share card redesign: center text, smaller/lower thumbnail.
 
-4. **Rituals guided programs** — Counterview spec §1.3.2 ready; implementation not yet designed. Design with Claude (chat) before brief dispatch.
+7. **Rituals guided programs** — Counterview spec §1.3.2 ready; implementation not yet designed. Design with Claude (chat) before brief dispatch.
 
-5. **Mirror fast-follows** (post-first-paying-user, NOT before): branded email postcard; host-aware handoff; smart input cap.
+8. **Mirror fast-follows** (post-first-paying-user, NOT before): branded email postcard; host-aware handoff; smart input cap.
 
 ### Still-pending from prior sessions
 
@@ -128,6 +193,7 @@ The Mirror shipped (PRs #166–#173). Full detail in `HANDOFF_BRIEF_v15.md §v15
 - PR-D2 production smoke test — use gmail workaround
 - OTP-01 (ote.gr delivery failure) — investigate Render logs
 - compress mirror.png (2.3MB → WebP)
+- OPS-001 — nkoutr@ote.gr subscription `current_period_end = NULL`; needs re-sync (pre-#205 row)
 
 ---
 
@@ -251,6 +317,14 @@ All v15 limitations apply. Additions and updates since v15:
 
 Individual verdict saves require a `saved_lines` entry but `saved_lines` is message-centric (`message_id` FK required). Council verdicts live in `council_responses`, not `messages`. Wiring per-verdict saves needs an investigation brief to determine approach (extend `saved_lines` schema, create a parallel table, or something else).
 
+### 4.18 ConversationCard title never renders (NEW 2026-06-03)
+
+`apps/web/components/library/ConversationCard.tsx:49` evaluates `last_message_snippet ?? title`. Because virtually all conversations have a snippet, the title is never displayed — the snippet renders in its place. Fix: change to `title ?? last_message_snippet` or render title independently. **PR3a sweep item #2.**
+
+### 4.19 nkoutr@ote.gr subscription current_period_end = NULL (NEW 2026-06-03)
+
+The founder's ote.gr account created its subscription row before the #205 fix. `current_period_end` is NULL. Tier resolver will not return "pro" for this account until the row is re-synced via Stripe dashboard webhook re-send or admin endpoint.
+
 ### 4.17 Council share card is generic Pillow layout (NEW v16)
 
 Current council share PNG uses the same centered text + footer layout as reflections, with `"— THE COUNCIL"` attribution and no portrait. The intended final design is: boardroom.webp background, date header, 4 member portrait thumbnails at top, centered synthesis text. This requires boardroom.webp + 4 member portrait files under `apps/api/static/personas/` (currently only available as Next.js public assets). Not a blocker for launch.
@@ -259,7 +333,7 @@ Current council share PNG uses the same centered text + footer layout as reflect
 
 ## 5. Next session entry point
 
-**Priority order as of 2026-06-01:**
+**Priority order as of 2026-06-03:**
 
 ### Phase 0 — Operational cleanup (do before any code PR)
 
@@ -268,11 +342,27 @@ Current council share PNG uses the same centered text + footer layout as reflect
 3. **Investigate OTP-01** — check Render logs for ote.gr delivery failure root cause.
 4. **Author smoke-test voice changes** — test Wilde, Jung, Freud, de Beauvoir, Machiavelli, Lao Tzu in production.
 
-### Phase 1 — Revenue gate [HIGHEST PRIORITY]
+### Phase 1 — Revenue gate [COMPLETE ✅]
 
-5. **TD-11 — Tier resolution unified refactor** — 🔴 not started. Consolidate `get_current_user_plan` + `get_user_tier`. Must land before Stripe smoke test.
-6. **Disable `BETA_GRANT_PRO_TO_ALL`** — 🟡 in progress. Flip initiated on Render. Verify: redeploy completed, startup warning gone, free account hits You vs You and gets 403 (not Pro content).
-7. **End-to-end Stripe sandbox test** — 🔴 pending. test card → webhook → entitlement → portal → cancel → tier downgrade. Must run with BETA flag confirmed OFF.
+- ~~TD-11~~ ✅ DONE (#203)
+- ~~Disable BETA_GRANT_PRO_TO_ALL~~ ✅ DONE (both services)
+- ~~End-to-end Stripe sandbox test~~ ✅ DONE (revenue chain verified)
+
+### Phase 1b — PR3a cold-beta sweep [NEXT PRIORITY]
+
+5. **Get founder copy for item #6** — 30 phenomenology prompts (loneliness, social-media relationships, doomscrolling, AI threats to work). Content must arrive from founder before sweep can complete.
+6. **PR3a memory bugs** — fresh-chat missing opening message/thumbnail; home "Continuing" / "Mind-of-the-Day" 404s.
+7. **PR3a item A** — "Ask another mind" chat doesn't start / stuck.
+8. **PR3a item #2** — fix `ConversationCard.tsx:49` title demoted to snippet.
+9. **PR3a micro-polish** — item B (app icon), item #5 (You-vs-You card icon), item #8 (Letter to Future Self tap-to-card entry).
+
+### Phase 1c — Live Stripe wiring (before any real payment)
+
+10. **TD-28 — Live Stripe wiring** — live keys + live price IDs + live-mode webhook (URL fix + live signing secret) + `ENVIRONMENT=production` on Render API.
+
+### Phase 1d — OPS cleanup
+
+11. **OPS-001 — nkoutr@ote.gr re-sync** — re-sync subscription row via Stripe dashboard or admin endpoint.
 
 ### Phase 2 — Council fast-follows (post-first-paying-user, NOT before)
 
@@ -333,6 +423,12 @@ Current council share PNG uses the same centered text + footer layout as reflect
 | YvY PR7 #200 54ebd4a3 | feat(you-vs-you): tier-aware weekly rate limit | 2026-06-02 | ✅ merged |
 | YvY PR7.5 #201 5a859bbb | feat(you-vs-you): weekly usage meter and premium nudge | 2026-06-02 | ✅ merged |
 | YvY bg #202 9ca95e65 | feat(you-vs-you): faded room background | 2026-06-02 | ✅ merged |
+
+| #203 (TD-11) | feat(billing): canonical tier resolver — get_user_tier is single source | 2026-06-03 | ✅ merged |
+| #204 | fix(auth): _hasHydrated guard — FAILED, superseded by #207 | 2026-06-03 | ❌ removed |
+| #205 04709a80 | fix(billing): read current_period_end from subscription items | 2026-06-03 | ✅ merged |
+| #206 c22c18d6 | fix(account): mounted state approach — FAILED, superseded by #207 | 2026-06-03 | ❌ removed |
+| #207 dfbfd81d | fix(account): useHydrated() via Zustand onFinishHydration | 2026-06-03 | ✅ merged |
 
 Earlier PR history (v12–v15): see `HANDOFF_BRIEF_v15.md §6`.
 
@@ -407,6 +503,14 @@ pro=5/week, premium=30/week. Premium is capped (not unlimited) as a cost-safety 
 
 The "then" and "now" windows are fixed slices of the user's active `memory_entries` ordered by `created_at`. Unlock gate: ≥20 total active signals AND ≥14 day span between oldest and newest. This is not user-configurable in v1. Rolling-both window anchor (user-selectable) is deferred to v2.
 
+### 2026-06-03 — TD-11 tier resolution architecture locked
+
+`get_user_tier` in `services/tier_service.py` is the canonical tier resolution function. `get_current_user_plan` in `auth.py` is a thin wrapper — it calls `get_user_tier` and returns its result. All enforcement points should prefer `get_current_user_plan` (the FastAPI dependency) for new endpoints, understanding it now delegates to `get_user_tier`. `rate_limit_service` enforces `plan in ("pro","premium")` directly. The previous semantic divergence between the two functions (premium handling, expiry validation) is resolved.
+
+### 2026-06-03 — Account auth hydration approach locked
+
+`useHydrated()` is the canonical pattern for guarding auth redirects in account-related pages. Implemented via Zustand `onFinishHydration` / `hasHydrated` / `rehydrate`. The simpler `mounted` + `useEffect` approach was tried twice (#204, #206) and failed in production Next.js builds due to timing differences. Do not revert to the `mounted` pattern.
+
 ### All prior decisions from v15 §9
 
 Unchanged.
@@ -454,7 +558,8 @@ All phases through Block C complete. Oregon complete. alembic_version = `021_cre
 
 ✅ LLM                    Anthropic API wired — chat + Council synthesis live
 
-✅ Stripe                 Sandbox wired. End-to-end test pending (requires BETA flag OFF first).
+✅ Stripe                 Sandbox: end-to-end verified (2026-06-03). Revenue chain CLOSED in TEST.
+                          ⚠️ LIVE wiring pending: live keys + live price IDs + live-mode webhook + ENVIRONMENT=production
 
 🟡 Google OAuth           Dormant (GOOGLE_OAUTH_ENABLED=false).
 
@@ -499,13 +604,13 @@ Every new code item must follow the Pre-Work Investigation Protocol in `CLAUDE.m
 
 1. **Fix .gitignore first.** Production secrets are one `git add -A` away from the public repo. This is the highest-priority item — above all feature work.
 
-2. **Verify the BETA_GRANT_PRO_TO_ALL flip before any Stripe test.** Flip was initiated on Render — confirm redeploy completed and startup warning is gone. Then test with a real free account: reach You vs You, confirm 403 (not Pro content). Only then run the Stripe smoke test.
+2. **Revenue chain is CLOSED in TEST/sandbox.** TD-11 done, BETA off, Stripe verified. The next gate is live Stripe wiring (TD-28) — different from sandbox: live keys, live price IDs, a *separate* live-mode webhook with its own signing secret, and `ENVIRONMENT=production` on Render.
 
-3. **After BETA flip: check the rituals hub gates free users** before the You vs You screen. If a free user can reach `/app/you-vs-you` and only hits the 403 from the API, the UX is broken — there should be an upgrade CTA before they start the flow.
+3. **PR3a sweep needs founder copy for item #6 before it can ship.** Items B, #5, #8, memory bugs, item A, and item #2 (ConversationCard title) can proceed without founder input. Item #6 (phenomenology prompts) is blocked on founder-supplied copy.
 
-4. **Council share card redesign is not done.** The current PNG is a functional placeholder. The intended design (boardroom bg, 4 thumbnails, date header) requires static asset work that hasn't been done. Don't ship paid Council without the proper card.
+4. **Brand name is "The Wise Room" (locked).** A rename audit is pending across docs, code, and Stripe product names. Do not rename anything until the audit is complete and the founder approves.
 
-5. **Per-verdict saves need an investigation brief** before any implementation. `saved_lines` is message-centric; council verdicts are not messages. The schema gap is real.
+5. **ConversationCard.tsx:49 is the root cause of item #2.** `last_message_snippet ?? title` means the title never renders when a snippet exists. Fix: invert the fallback or render title independently. Backend already generates and stores titles correctly via the ARQ Haiku worker.
 
 ### Documentation hygiene
 
@@ -513,13 +618,13 @@ v16 rotation triggered by The Council shipping end-to-end (5 PRs, 2 migrations, 
 
 ### Launch timeline from here
 
-Realistic from end of 2026-06-02 session: 4-7 weeks.
-- Revenue gate (TD-11 build + BETA flip confirm + Stripe test): ~1-2 weeks
-- Council + You vs You fast-follows + Counterview design: ~1-2 weeks
-- Rituals guided programs (Counterview): ~2-3 weeks
-- Cold beta + DNS cutover: 1-2 weeks
+Realistic from end of 2026-06-03 session: 3-6 weeks.
+- Revenue gate: ✅ CLOSED (TEST). Live Stripe wiring (TD-28): ~1 week (env vars + dashboard config, no code changes).
+- PR3a cold-beta sweep: ~1-2 weeks.
+- Counterview design + build: ~2-3 weeks.
+- Cold beta + DNS cutover: 1-2 weeks.
 - **Target: mid-July 2026.**
 
 ---
 
-**End of HANDOFF_BRIEF v16.** Authoritative as of 2026-06-02 (You vs You appended). Supersedes `HANDOFF_BRIEF_v15.md` (preserved as historical reference). Where this file conflicts with v15, v16 wins.
+**End of HANDOFF_BRIEF v16.** Authoritative as of 2026-06-03 (revenue chain + PR3a triage appended). Supersedes `HANDOFF_BRIEF_v15.md` (preserved as historical reference). Where this file conflicts with v15, v16 wins.
