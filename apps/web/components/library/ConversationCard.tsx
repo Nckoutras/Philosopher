@@ -46,7 +46,7 @@ export default function ConversationCard({ conversation, portraitUrl }: Props) {
   const router = useRouter()
   const { persona, title, last_message_snippet } = conversation
 
-  const snippet = last_message_snippet ?? title ?? ''
+  const subject = title ?? last_message_snippet ?? ''
   const metaLine = buildMetaLine(conversation)
   const avatarUrl = portraitUrl || persona.portrait_url || ''
 
@@ -82,9 +82,9 @@ export default function ConversationCard({ conversation, portraitUrl }: Props) {
         <p className="font-lora text-[12px] text-sepia leading-tight mt-[2px]">
           {metaLine}
         </p>
-        {snippet && (
+        {subject && (
           <p className="font-lora text-[13px] text-charcoal italic leading-tight mt-[3px] truncate">
-            {snippet}
+            {subject}
           </p>
         )}
       </div>
