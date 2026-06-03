@@ -46,7 +46,7 @@ export default function PrivacyPage() {
           </Section>
 
           <Section title="4. Who Has Access (Processors)">
-            We work with the following third-party processors, each bound by data processing agreements: Supabase (database hosting, Ireland/EU); Render (backend API hosting, United States); Anthropic (AI language model, United States); Resend (transactional email, United States); Netlify (frontend hosting, United States); Upstash (cache for rate limiting, Ireland/EU); and Stripe (payment processing, United States).
+            We work with the following third-party processors, each bound by data processing agreements: Supabase (database hosting, United States); Render (backend API hosting, United States); Anthropic (AI language model, United States); Resend (transactional email, United States); Netlify (frontend hosting, United States); Upstash (cache for rate limiting, Ireland/EU); and Stripe (payment processing, United States).
             {' '}
             When personal data is transferred outside the EU/EEA, we rely on Standard Contractual Clauses (SCCs) approved by the European Commission. We do not sell your personal data.
           </Section>
