@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Lock, MailOpen, MessagesSquare, BookMarked } from 'lucide-react'
+import { Lock, Mail, MailOpen, MessagesSquare } from 'lucide-react'
 import { MirrorIcon } from '@/components/icons/RitualIcons'
 import { useStore } from '@/lib/store'
 import AppHeader from '@/components/layout/AppHeader'
@@ -31,6 +31,11 @@ export default function RitualsPage() {
   function handleOpenCouncil() {
     if (!isPro) { router.push('/app/upgrade'); return }
     router.push('/app/council')
+  }
+
+  function handleOpenLetter() {
+    if (!isPro) { router.push('/app/upgrade'); return }
+    router.push('/app/letters')
   }
 
   return (
@@ -166,28 +171,27 @@ export default function RitualsPage() {
           </div>
         </div>
 
-        {/* ── The Weekly Reading — LOCKED ── */}
-        <div className="bg-paper border border-[0.5px] border-edge rounded-md px-[16px] py-[14px] opacity-50 flex items-start gap-[14px]">
+        {/* ── The Sunday Letter — ACTIVE (PRO) ── */}
+        <button
+          type="button"
+          onClick={handleOpenLetter}
+          className="w-full text-left bg-paper border border-[0.5px] border-edge rounded-md shadow-card px-[16px] py-[14px] flex items-start gap-[14px]"
+        >
           <div className="w-[56px] h-[56px] flex items-center justify-center flex-shrink-0 text-ink">
-            <BookMarked size={40} strokeWidth={1.2} />
+            <Mail size={40} strokeWidth={1.2} />
           </div>
           <div className="flex-1 min-w-0">
             <p className="font-cormorant text-[19px] font-medium text-ink leading-tight">
-              The Weekly Reading
+              The Sunday Letter
             </p>
             <p className="font-lora text-[15px] text-charcoal leading-[1.5] mt-[6px]">
-              Your week, gathered into one reading — sent to you.
+              A letter from the mind you spent the week with.
             </p>
-            <p className="font-lora text-[12px] text-charcoal leading-[1.5] mt-[6px]">
-              A 3-paragraph weekly reading drawn from your conversations and ritual
-              entries. Delivered via email and in-app, after your first active week.
+            <p className="font-lora text-[11px] uppercase tracking-[0.18em] text-bronze mt-[10px]">
+              Pro
             </p>
-            <div className="flex items-center gap-[6px] mt-[12px]">
-              <span className="font-lora text-[11px] text-charcoal">Coming soon</span>
-              <Lock size={13} strokeWidth={1.5} className="text-sepia" />
-            </div>
           </div>
-        </div>
+        </button>
 
       </div>
 
