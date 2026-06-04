@@ -193,6 +193,29 @@ class Mirror(Base):
     )
 
 
+# ── Weekly Letters ───────────────────────────────────────────────────────────
+
+class WeeklyLetter(Base):
+    __tablename__ = "weekly_letters"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=gen_uuid)
+    user_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    voice_persona_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), ForeignKey("personas.id"), nullable=True)
+    period_start: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    period_end: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    payload: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    email_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+    __table_args__ = (
+        CheckConstraint("status IN ('generated', 'empty', 'suppressed')", name="ck_weekly_letters_status"),
+        Index("uq_weekly_letters_user_period", "user_id", "period_start", unique=True),
+        Index("ix_weekly_letters_user_id", "user_id"),
+    )
+
+
 # ── Self Comparisons ─────────────────────────────────────────────────────────
 
 class SelfComparison(Base):

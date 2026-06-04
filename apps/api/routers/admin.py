@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, text
 from db.session import get_db
-from models import User, Persona, SafetyEvent, Subscription, Conversation
+from models import User, Persona, SafetyEvent, Subscription, Conversation, Message
 from schemas import SafetyEventOut, PersonaOut
 from auth import require_admin
 from personas import PERSONA_REGISTRY
@@ -115,6 +115,55 @@ async def trigger_mirror_generate(
         raise HTTPException(status_code=503, detail="ARQ queue not available")
     await arq_queue.enqueue_job("generate_weekly_mirror_task", user_id, persona_slug, "weekly", days)
     return {"enqueued": True, "user_id": user_id, "persona_slug": persona_slug}
+
+
+@router.post("/generate-weekly-letter")
+async def trigger_weekly_letter_generate(
+    request: Request,
+    admin: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Trigger immediate weekly-letter generation for the current admin user.
+
+    Determines the voice persona by the same most-conversed-this-week logic as the
+    Sunday cron. Falls back to enqueueing with no slug (task will produce 'empty')
+    when the admin has no messages in the last 7 days.
+    """
+    from datetime import datetime, timezone, timedelta
+    from fastapi import HTTPException
+
+    arq_queue = getattr(request.app.state, "arq_queue", None)
+    if arq_queue is None:
+        raise HTTPException(status_code=503, detail="ARQ queue not available")
+
+    cutoff = datetime.now(timezone.utc) - timedelta(days=7)
+    result = await db.execute(
+        select(
+            Conversation.persona_id,
+            func.count(Message.id).label("msg_count"),
+        )
+        .join(Message, Message.conversation_id == Conversation.id)
+        .where(
+            Conversation.user_id == admin.id,
+            Message.role == "user",
+            Message.created_at >= cutoff,
+        )
+        .group_by(Conversation.persona_id)
+        .order_by(func.count(Message.id).desc(), Conversation.persona_id.asc())
+        .limit(1)
+    )
+    row = result.first()
+
+    voice_persona_slug = None
+    if row:
+        p_result = await db.execute(select(Persona.slug).where(Persona.id == str(row.persona_id)))
+        voice_persona_slug = p_result.scalar_one_or_none()
+
+    if voice_persona_slug is None:
+        voice_persona_slug = "carl_jung"  # safe fallback; task will gate on <5 messages
+
+    await arq_queue.enqueue_job("generate_weekly_letter_task", str(admin.id), voice_persona_slug)
+    return {"enqueued": True, "voice_persona_slug": voice_persona_slug}
 
 
 @router.patch("/personas/{persona_id}")

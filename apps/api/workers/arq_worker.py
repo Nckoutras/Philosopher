@@ -20,6 +20,41 @@ Return JSON only: {"content": "...", "insight_type": "pattern|shift|question|cha
 Return null if there is no meaningful insight to surface.
 Example: {"content": "You often describe ambition as a burden rather than a desire. That tension may be worth examining.", "insight_type": "pattern"}"""
 
+LETTER_PROMPT = """You are {persona_name}{persona_tradition_clause}. Once a week you write a personal letter to someone whose inner life you've been quietly witnessing through their own words. This is NOT a reflection or a confrontation — it is a letter: warm, epistolary, written in your voice, addressed directly to them.
+
+You will receive the person's messages from the week, each tagged with a day.
+
+Write a letter that does the following:
+1. Opens with a greeting — "Dear {user_first_name}" — and sets a tone that is intimate but not presumptuous.
+2. Draws on 2-3 specific things they said or seemed to be grappling with, and holds them up not as evidence but as texture — this is what you noticed, what stayed with you.
+3. Offers one forward gesture: a question, a thought, a direction that feels like a natural next step from where they ended the week. Not advice. An opening.
+4. Closes warmly, briefly — as a letter ends, not a therapy session.
+
+Return JSON only, no preamble, in exactly this shape:
+{{"status": "generated",
+  "title": "...",
+  "opening": "...",
+  "references": "...",
+  "pull_quote": "...",
+  "forward_gesture": "...",
+  "suggested_persona_slug": "..."}}
+
+Where:
+- "title": a 4-8 word title for the letter (e.g. "On the week you held still")
+- "opening": 1-2 paragraphs of the opening greeting and first reflection
+- "references": 1 paragraph citing 2-3 specifics from their week — in your voice, not a transcript
+- "pull_quote": one sentence from the letter worth keeping — a line with staying power
+- "forward_gesture": 1-2 sentences — a question or opening, not advice
+- "suggested_persona_slug": choose ONE slug from this list of other minds they have not yet spoken with this week: {other_persona_slugs}
+
+If the week holds nothing meaningful to letter about, return exactly: {{"status": "empty"}}
+
+Rules:
+- Speak in the second person ("you"), never describe them in the third person.
+- Your letter carries your philosophical tradition and voice — it is not generic.
+- Warmth and care, not distance. A letter from someone who has been paying attention.
+- Never diagnose, never prescribe. Witness and open."""
+
 MIRROR_PROMPT = """You are {persona_name}{persona_tradition_clause}. Once a week you hold up a mirror to a person — not to summarize their week, but to show them the deeper meaning beneath their own words, seen through your distinct way of understanding.
 
 You will receive the person's messages from the week, each tagged with a day.
@@ -353,6 +388,167 @@ async def generate_weekly_mirror_task(ctx, user_id: str, persona_slug: str, kind
             logger.error(f"Mirror task failed: {e}", exc_info=True)
 
 
+async def generate_weekly_letter_task(ctx, user_id: str, voice_persona_slug: str):
+    """Generates a weekly epistolary letter in the voice of the user's most-conversed persona."""
+    from datetime import datetime, timedelta, timezone
+    from db.session import AsyncSessionLocal
+    from models import WeeklyLetter, Persona, User, Message, Conversation
+    from sqlalchemy import select
+    from services.llm_client import llm_client
+
+    async with AsyncSessionLocal() as db:
+        try:
+            period_end = datetime.now(timezone.utc)
+            period_start = (period_end - timedelta(days=7)).replace(hour=0, minute=0, second=0, microsecond=0)
+
+            # Load voice persona
+            persona_result = await db.execute(
+                select(Persona).where(Persona.slug == voice_persona_slug)
+            )
+            persona = persona_result.scalar_one_or_none()
+            voice_persona_id = persona.id if persona else None
+
+            # Dedup: skip if a letter already exists for this user+period
+            existing = await db.execute(
+                select(WeeklyLetter.id).where(
+                    WeeklyLetter.user_id == user_id,
+                    WeeklyLetter.period_start == period_start,
+                )
+            )
+            if existing.scalar_one_or_none() is not None:
+                logger.info(f"WeeklyLetter already exists for user={user_id} period={period_start}, skipping")
+                return
+
+            # Load user's first name for personalised greeting
+            user_result = await db.execute(select(User).where(User.id == user_id))
+            user = user_result.scalar_one_or_none()
+            user_first_name = "friend"
+            if user and user.full_name:
+                first = user.full_name.strip().split()[0]
+                if first:
+                    user_first_name = first
+
+            # Fetch user messages in the period
+            msgs_result = await db.execute(
+                select(Message)
+                .join(Conversation, Conversation.id == Message.conversation_id)
+                .where(
+                    Conversation.user_id == user_id,
+                    Message.role == "user",
+                    Message.created_at >= period_start,
+                    Message.created_at <= period_end,
+                )
+                .order_by(Message.created_at.asc())
+            )
+            messages = msgs_result.scalars().all()
+
+            # Safety gate
+            if any(m.safety_level in ("high", "critical") for m in messages):
+                db.add(WeeklyLetter(
+                    user_id=user_id,
+                    voice_persona_id=voice_persona_id,
+                    period_start=period_start,
+                    period_end=period_end,
+                    status="suppressed",
+                ))
+                await db.commit()
+                logger.info(f"WeeklyLetter suppressed for user={user_id} (safety gate)")
+                return
+
+            # Quiet-week gate
+            if len(messages) < 5:
+                db.add(WeeklyLetter(
+                    user_id=user_id,
+                    voice_persona_id=voice_persona_id,
+                    period_start=period_start,
+                    period_end=period_end,
+                    status="empty",
+                ))
+                await db.commit()
+                logger.info(f"WeeklyLetter empty for user={user_id} (fewer than 5 messages)")
+                return
+
+            # Build list of other active persona slugs for the suggestion field
+            other_personas_result = await db.execute(
+                select(Persona.slug)
+                .where(Persona.is_active == True, Persona.slug != voice_persona_slug)
+                .order_by(Persona.slug)
+            )
+            other_slugs = [r[0] for r in other_personas_result.all()]
+            other_persona_slugs_str = ", ".join(other_slugs) if other_slugs else "none"
+
+            week_text = "\n".join(
+                f"[{m.created_at:%a %b %d}] {m.content}" for m in messages
+            )
+            persona_tradition_clause = (
+                (", " + persona.tradition) if persona and persona.tradition else ""
+            )
+            system = LETTER_PROMPT.format(
+                persona_name=persona.name if persona else "A thoughtful observer",
+                persona_tradition_clause=persona_tradition_clause,
+                user_first_name=user_first_name,
+                other_persona_slugs=other_persona_slugs_str,
+            )
+
+            raw = await llm_client.complete(
+                system=system,
+                user=f"<week>\n{week_text}\n</week>",
+                model=config.ANTHROPIC_MODEL,
+                max_tokens=1024,
+            )
+            text = raw.strip()
+            if text.startswith("```"):
+                text = text.split("\n", 1)[1] if "\n" in text else ""
+            if text.endswith("```"):
+                text = text[:-3].rstrip()
+            data = json.loads(text)
+
+            # Change 3: if LLM returns status != "generated", store empty without reading payload keys
+            if data.get("status") != "generated":
+                db.add(WeeklyLetter(
+                    user_id=user_id,
+                    voice_persona_id=voice_persona_id,
+                    period_start=period_start,
+                    period_end=period_end,
+                    status="empty",
+                ))
+                await db.commit()
+                logger.info(f"WeeklyLetter empty for user={user_id} (LLM returned non-generated)")
+                return
+
+            # Change 2b: validate suggested_persona_slug against real slugs
+            raw_suggestion = data.get("suggested_persona_slug")
+            valid_suggestion_result = await db.execute(
+                select(Persona.slug).where(
+                    Persona.slug == raw_suggestion,
+                    Persona.is_active == True,
+                    Persona.slug != voice_persona_slug,
+                )
+            )
+            suggested_slug = valid_suggestion_result.scalar_one_or_none()
+
+            payload = {
+                "title": data.get("title"),
+                "opening": data.get("opening"),
+                "references": data.get("references"),
+                "pull_quote": data.get("pull_quote"),
+                "forward_gesture": data.get("forward_gesture"),
+                "suggested_persona_slug": suggested_slug,
+            }
+            db.add(WeeklyLetter(
+                user_id=user_id,
+                voice_persona_id=voice_persona_id,
+                period_start=period_start,
+                period_end=period_end,
+                status="generated",
+                payload=payload,
+            ))
+            await db.commit()
+            logger.info(f"WeeklyLetter generated for user={user_id}, persona={voice_persona_slug}")
+        except Exception as e:
+            logger.error(f"WeeklyLetter task failed: {e}", exc_info=True)
+
+
 # ── Worker settings ───────────────────────────────────────────────────────────
 
 class WorkerSettings:
@@ -362,6 +558,7 @@ class WorkerSettings:
         generate_conversation_title,
         send_ritual_reminder_task,
         generate_weekly_mirror_task,
+        generate_weekly_letter_task,
     ]
     redis_settings = RedisSettings.from_dsn(config.REDIS_URL)
     max_jobs = 10

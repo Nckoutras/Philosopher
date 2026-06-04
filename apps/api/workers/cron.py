@@ -233,6 +233,76 @@ def setup_cron(arq_queue):
         except Exception as e:
             logger.error(f"Cron weekly mirrors failed: {e}", exc_info=True)
 
+    @scheduler.scheduled_job(CronTrigger(day_of_week="sun", hour=18, minute=0), id="weekly_letter")
+    async def dispatch_weekly_letters():
+        """Sunday 18:00 UTC — enqueue a weekly letter for users with >=5 user messages in the last 7 days,
+        voiced by the persona they conversed with most that week."""
+        logger.info("Cron: dispatching weekly letters")
+        try:
+            from db.session import AsyncSessionLocal
+            from models import Message, Conversation, Persona
+            from sqlalchemy import select, func
+            from datetime import datetime, timezone, timedelta
+
+            cutoff = datetime.now(timezone.utc) - timedelta(days=7)
+            async with AsyncSessionLocal() as db:
+                # Fetch per-(user, persona) message counts for the window
+                result = await db.execute(
+                    select(
+                        Conversation.user_id,
+                        Conversation.persona_id,
+                        func.count(Message.id).label("msg_count"),
+                    )
+                    .join(Message, Message.conversation_id == Conversation.id)
+                    .where(
+                        Message.role == "user",
+                        Message.created_at >= cutoff,
+                    )
+                    .group_by(Conversation.user_id, Conversation.persona_id)
+                    .order_by(
+                        Conversation.user_id,
+                        func.count(Message.id).desc(),
+                        Conversation.persona_id.asc(),  # deterministic tie-break
+                    )
+                )
+                rows = result.all()
+
+            # Group by user; keep only users with total >=5 messages; pick top persona
+            from collections import defaultdict
+            user_persona_counts: dict = defaultdict(list)
+            for row in rows:
+                user_persona_counts[str(row.user_id)].append((str(row.persona_id), row.msg_count))
+
+            targets: list[tuple[str, str]] = []  # [(user_id, persona_id)]
+            for uid, entries in user_persona_counts.items():
+                total = sum(c for _, c in entries)
+                if total >= 5:
+                    top_persona_id = entries[0][0]  # already ordered desc by count, asc by id
+                    targets.append((uid, top_persona_id))
+
+            if not targets:
+                logger.info("Cron: no weekly-letter-eligible users")
+                return
+
+            # Resolve persona_ids → slugs in one query
+            async with AsyncSessionLocal() as db:
+                persona_ids = list({pid for _, pid in targets})
+                slug_result = await db.execute(
+                    select(Persona.id, Persona.slug).where(Persona.id.in_(persona_ids))
+                )
+                id_to_slug = {str(r.id): r.slug for r in slug_result.all()}
+
+            dispatched = 0
+            for uid, pid in targets:
+                slug = id_to_slug.get(pid)
+                if slug:
+                    await arq_queue.enqueue_job("generate_weekly_letter_task", uid, slug)
+                    dispatched += 1
+
+            logger.info(f"Cron: enqueued {dispatched} weekly letters")
+        except Exception as e:
+            logger.error(f"Cron weekly letters failed: {e}", exc_info=True)
+
     @scheduler.scheduled_job(IntervalTrigger(hours=1), id="preview_mirror")
     async def dispatch_preview_mirrors():
         """Hourly — give a one-time preview mirror to users with >=3 active chats in 72h who have no mirror yet."""
@@ -269,7 +339,7 @@ def setup_cron(arq_queue):
             logger.error(f"Cron preview mirrors failed: {e}", exc_info=True)
 
     scheduler.start()
-    logger.info("Cron scheduler started with 6 jobs")
+    logger.info("Cron scheduler started with 7 jobs")
 
 
 def shutdown_cron():
