@@ -28,6 +28,11 @@ export default function RitualsPage() {
     setScheduleOpen(true)
   }
 
+  function handleOpenCouncil() {
+    if (!isPro) { router.push('/app/upgrade'); return }
+    router.push('/app/council')
+  }
+
   return (
     <main className="min-h-screen [min-height:100svh] bg-vellum pb-[80px]">
       <AppHeader />
@@ -108,6 +113,33 @@ export default function RitualsPage() {
             </p>
             <p className="font-lora text-[15px] text-charcoal leading-[1.5] mt-[6px]">
               You, then. You, now. Watch them disagree.
+            </p>
+          </div>
+        </button>
+
+        {/* ── The Council — ACTIVE (PRO) ── */}
+        <button
+          type="button"
+          onClick={handleOpenCouncil}
+          className="w-full text-left bg-paper border border-[0.5px] border-edge rounded-md shadow-card px-[16px] py-[14px] flex items-start gap-[14px]"
+        >
+          <div className="w-[56px] h-[56px] flex items-center justify-center flex-shrink-0 text-ink">
+            <svg width="40" height="40" viewBox="0 0 40 40" aria-hidden="true">
+              <circle cx="12" cy="12" r="5" fill="none" stroke="currentColor" strokeWidth="1.2" />
+              <circle cx="28" cy="12" r="5" fill="none" stroke="currentColor" strokeWidth="1.2" />
+              <circle cx="12" cy="28" r="5" fill="none" stroke="currentColor" strokeWidth="1.2" />
+              <circle cx="28" cy="28" r="5" fill="none" stroke="currentColor" strokeWidth="1.2" />
+            </svg>
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-cormorant text-[19px] font-medium text-ink leading-tight">
+              The Council
+            </p>
+            <p className="font-lora text-[15px] text-charcoal leading-[1.5] mt-[6px]">
+              Four minds. One matter. They will not agree.
+            </p>
+            <p className="font-lora text-[11px] uppercase tracking-[0.18em] text-bronze mt-[10px]">
+              Pro
             </p>
           </div>
         </button>
