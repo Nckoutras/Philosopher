@@ -38,7 +38,7 @@ export default function ScheduledLettersPage() {
     try {
       await api.cancelScheduledEmail(id)
       setItems((prev) => prev?.filter((item) => item.id !== id) ?? null)
-      toast.success('Letter cancelled.')
+      toast.success('Message cancelled.')
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Could not cancel. Try again.')
     } finally {
@@ -66,7 +66,7 @@ export default function ScheduledLettersPage() {
             Account
           </p>
           <h1 className="font-cormorant text-[26px] font-medium text-ink leading-tight">
-            Letters to future self.
+            Messages to future self.
           </h1>
         </div>
       </div>
@@ -76,7 +76,7 @@ export default function ScheduledLettersPage() {
           <p className="font-lora text-[13px] text-sepia italic text-center py-12">Loading…</p>
         ) : items.length === 0 ? (
           <div className="bg-paper border border-[0.5px] border-edge rounded-md px-[16px] py-[24px] text-center">
-            <p className="font-cormorant text-[19px] font-normal text-ink">No letters scheduled.</p>
+            <p className="font-cormorant text-[19px] font-normal text-ink">No messages scheduled.</p>
             <p className="font-lora text-[15px] text-charcoal mt-[6px] leading-[1.6]">
               Schedule a reflection from the Rituals card on Today.
             </p>
