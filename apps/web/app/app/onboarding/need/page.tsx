@@ -63,7 +63,6 @@ export default function NeedPage() {
       })
 
       sessionStorage.removeItem('onboarding_themes')
-      sessionStorage.removeItem('onboarding_other_text')
 
       router.push('/app/onboarding/matches')
     } catch (err) {
