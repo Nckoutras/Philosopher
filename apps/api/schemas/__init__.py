@@ -497,6 +497,22 @@ class RecentSavedLineOut(BaseModel):
     saved_at: datetime
 
 
+# ── Weekly Letter ────────────────────────────────────────────────────────────
+
+class WeeklyLetterOut(BaseModel):
+    id: str
+    period_start: datetime
+    period_end: datetime
+    status: str
+    payload: dict | None = None
+    read_at: datetime | None = None
+    voice_persona_slug: str | None = None
+    voice_persona_name: str | None = None
+
+    class Config:
+        from_attributes = True
+
+
 # ── Self Comparison ───────────────────────────────────────────────────────────
 
 class SelfModelWindowOut(BaseModel):
