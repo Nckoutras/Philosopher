@@ -16,6 +16,7 @@ import PersonaPickerSheet from '@/components/personas/PersonaPickerSheet'
 import TodaysTopicCard from '@/components/today/TodaysTopicCard'
 import NamePromptCard from '@/components/today/NamePromptCard'
 import AppHeader from '@/components/layout/AppHeader'
+import SundayLetterCard from '@/components/today/SundayLetterCard'
 
 function formatDateEyebrow(date: Date): string {
   const weekday = date.toLocaleDateString('en-US', { weekday: 'long' }).toUpperCase()
@@ -390,6 +391,10 @@ export default function TodayPage() {
               Start your first conversation.
             </button>
           </div>
+        )}
+
+        {!isFirstDay && (
+          <SundayLetterCard isPro={isPro} />
         )}
 
         {/* ── D1a: Start fresh button ── */}
