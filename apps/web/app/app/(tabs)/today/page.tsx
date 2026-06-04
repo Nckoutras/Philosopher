@@ -166,6 +166,7 @@ export default function TodayPage() {
             user={user}
             dailyQuestion={question.question_text}
             onReflect={handleReflect}
+            onStartFresh={() => router.push('/app/onboarding/themes')}
           />
         )}
 
@@ -395,10 +396,10 @@ export default function TodayPage() {
         {!isFirstDay && (
           <button
             type="button"
-            onClick={() => router.push('/app/welcome')}
+            onClick={() => router.push('/app/explore')}
             className="w-full py-[14px] rounded-md border border-[0.5px] border-ink font-cormorant text-[17px] font-medium text-ink"
           >
-            Start fresh
+            Explore minds
           </button>
         )}
       </div>

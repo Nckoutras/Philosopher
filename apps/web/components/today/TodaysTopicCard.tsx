@@ -7,9 +7,10 @@ interface Props {
   user: { full_name: string | null; email: string }
   dailyQuestion: string
   onReflect: (topicText: string) => void
+  onStartFresh: () => void
 }
 
-export default function TodaysTopicCard({ user, dailyQuestion, onReflect }: Props) {
+export default function TodaysTopicCard({ user, dailyQuestion, onReflect, onStartFresh }: Props) {
   const [topic, setTopic] = useState('')
   const initials = deriveInitials(user)
   const cardRef = useRef<HTMLDivElement>(null)
@@ -53,13 +54,20 @@ export default function TodaysTopicCard({ user, dailyQuestion, onReflect }: Prop
           className="flex-1 resize-none bg-transparent outline-none font-cormorant italic text-[16px] text-ink leading-snug placeholder:opacity-60 placeholder:italic placeholder:font-cormorant border border-bronze/40 rounded-[2px] focus:border-bronze focus:ring-1 focus:ring-bronze/20 px-3 py-2"
         />
       </div>
-      <div className="mt-[12px] flex justify-end">
+      <div className="mt-[12px] flex gap-[10px]">
         <button
           type="button"
           onClick={handleReflect}
-          className="h-[32px] px-[18px] bg-ink text-vellum rounded-[4px] font-cormorant text-[17px] font-medium"
+          className="flex-1 h-[44px] bg-ink text-vellum rounded-[4px] font-cormorant text-[17px] font-medium"
         >
-          Reflect
+          Reflect on this
+        </button>
+        <button
+          type="button"
+          onClick={onStartFresh}
+          className="flex-1 h-[44px] bg-transparent border border-ink text-ink rounded-[4px] font-cormorant text-[17px] font-medium"
+        >
+          Start fresh
         </button>
       </div>
     </div>
