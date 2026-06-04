@@ -57,7 +57,7 @@ export default function RitualsPage() {
 
       <div className="px-[16px] flex flex-col gap-[12px] mt-[16px]">
 
-        {/* ── Letter to my Future Self — ACTIVE ── */}
+        {/* ── Message to my Future Self — ACTIVE ── */}
         <button
           type="button"
           onClick={handleBeginLetter}
@@ -68,7 +68,7 @@ export default function RitualsPage() {
           </div>
           <div className="flex-1 min-w-0">
             <p className="font-cormorant text-[19px] font-medium text-ink leading-tight">
-              Letter to my Future Self
+              Message to my Future Self
             </p>
             <p className="font-lora text-[15px] text-charcoal leading-[1.5] mt-[6px]">
               Seal a thought now. Let it find you changed.

@@ -69,7 +69,7 @@ export default function RitualScheduleSheet({ open, onClose, userEmail }: Props)
       onClose()
       const d = new Date(scheduledFor)
       toast.success(
-        `Letter scheduled for ${d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`
+        `Message scheduled for ${d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`
       )
     } catch (err) {
       setFieldError(err instanceof Error ? err.message : 'Something went wrong. Try again.')
@@ -84,7 +84,7 @@ export default function RitualScheduleSheet({ open, onClose, userEmail }: Props)
       <div className="px-6 pt-5 pb-3 border-b border-[0.5px] border-edge flex items-start justify-between flex-shrink-0">
         <div>
           <p className="font-cormorant text-[19px] font-medium text-ink">
-            Letter to future self
+            Message to future self
           </p>
           <p className="font-lora text-[12px] text-charcoal mt-[2px]">
             A reflection arrives in your inbox at the date you choose.
@@ -182,7 +182,7 @@ export default function RitualScheduleSheet({ open, onClose, userEmail }: Props)
           disabled={!canSubmit}
           className="w-full py-[14px] bg-ink text-vellum rounded-sm font-cormorant text-[17px] font-medium disabled:opacity-40"
         >
-          {submitting ? 'Scheduling…' : 'Schedule letter'}
+          {submitting ? 'Scheduling…' : 'Schedule message'}
         </button>
       </div>
     </BottomSheet>
