@@ -54,6 +54,7 @@ body {
   font-size: 15px;
   line-height: 1.65;
   min-height: 100dvh;
+  zoom: 1.15;
 }
 
 .prose-philosopher {
