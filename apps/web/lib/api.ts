@@ -312,6 +312,26 @@ export interface MirrorHost {
   portrait_url: string | null
 }
 
+export interface WeeklyLetterPayload {
+  title: string | null
+  opening: string | null
+  references: string | null
+  pull_quote: string | null
+  forward_gesture: string | null
+  suggested_persona_slug: string | null
+}
+
+export interface WeeklyLetter {
+  id: string
+  period_start: string
+  period_end: string
+  status: 'generated' | 'empty' | 'suppressed'
+  payload: WeeklyLetterPayload | null
+  read_at: string | null
+  voice_persona_slug: string | null
+  voice_persona_name: string | null
+}
+
 export interface SelfComparisonWindow {
   start: string
   end: string
@@ -804,6 +824,16 @@ class ApiClient {
       method: 'POST',
       body: JSON.stringify({ host_slug }),
     })
+  }
+
+  // ── Weekly Letters ─────────────────────────────────────────────────────────
+
+  async getWeeklyLetters(): Promise<WeeklyLetter[]> {
+    return this.request<WeeklyLetter[]>('/weekly-letters')
+  }
+
+  async getWeeklyLetter(id: string): Promise<WeeklyLetter> {
+    return this.request<WeeklyLetter>(`/weekly-letters/${id}`)
   }
 }
 
