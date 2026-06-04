@@ -66,6 +66,7 @@ async def get_matches(
     matches = compute_matches(
         user_themes=prefs.themes,
         user_need_most=prefs.need_most,
+        top_n=9,
     )
 
     return [
