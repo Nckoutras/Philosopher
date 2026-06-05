@@ -114,7 +114,7 @@ function VerifyForm() {
           </header>
 
           <form onSubmit={handleSubmit} className="space-y-3">
-            <div className="flex gap-2 justify-center" onPaste={handlePaste}>
+            <div className="flex gap-[5px] justify-center" onPaste={handlePaste}>
               {code.map((digit, i) => (
                 <input
                   key={i}
@@ -129,7 +129,7 @@ function VerifyForm() {
                   onChange={(e) => handleChange(i, e.target.value)}
                   onKeyDown={(e) => handleKeyDown(i, e)}
                   disabled={isLoading}
-                  className="w-12 h-14 text-center font-cormorant text-[28px] font-normal text-ink bg-white border-[0.5px] border-edge rounded-sm focus:border focus:border-ink focus:outline-none disabled:opacity-60 caret-transparent"
+                  className="w-[40px] h-[50px] text-center font-cormorant text-[24px] font-normal text-ink bg-white border-[0.5px] border-edge rounded-sm focus:border focus:border-ink focus:outline-none disabled:opacity-60 caret-transparent"
                 />
               ))}
             </div>
