@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import { Lock } from 'lucide-react'
 import { api } from '@/lib/api'
 import type { WeeklyLetter } from '@/lib/api'
@@ -48,12 +49,7 @@ export default function SundayLetterCard({ isPro }: Props) {
         className={`relative w-full text-left bg-paper border border-[0.5px] border-edge rounded-md shadow-card px-[16px] py-[14px] flex items-center gap-[14px]${!isUnread ? ' opacity-60' : ''}`}
       >
         <div className="w-[56px] h-[56px] flex items-center justify-center text-ink flex-shrink-0">
-          <svg width="40" height="40" viewBox="0 0 40 40" fill="none" aria-hidden="true">
-            <rect x="2" y="8" width="36" height="24" rx="1" stroke="currentColor" strokeWidth="1.2" />
-            <line x1="2" y1="8" x2="20" y2="22" stroke="currentColor" strokeWidth="1.2" />
-            <line x1="38" y1="8" x2="20" y2="22" stroke="currentColor" strokeWidth="1.2" />
-            {isUnread && <circle cx="20" cy="22" r="3.5" fill="#B89968" />}
-          </svg>
+          <Image src="/personas/sundayletter.png" alt="" width={56} height={56} className="w-full h-full object-cover rounded-[8px]" />
         </div>
 
         <div className={`flex-1 min-w-0${!isPro ? ' pr-[68px]' : ''}`}>

@@ -33,11 +33,6 @@ export default function RitualsPage() {
     router.push('/app/council')
   }
 
-  function handleOpenLetter() {
-    if (!isPro) { router.push('/app/upgrade'); return }
-    router.push('/app/letters')
-  }
-
   return (
     <main className="min-h-screen [min-height:100svh] bg-vellum pb-[80px]">
       <AppHeader />
@@ -163,27 +158,6 @@ export default function RitualsPage() {
           </div>
         </div>
 
-        {/* ── The Sunday Letter — ACTIVE (PRO) ── */}
-        <button
-          type="button"
-          onClick={handleOpenLetter}
-          className="w-full text-left bg-paper border border-[0.5px] border-edge rounded-md shadow-card px-[16px] py-[14px] flex items-start gap-[14px]"
-        >
-          <div className="w-[56px] h-[56px] flex items-center justify-center flex-shrink-0 text-ink">
-            <Image src="/personas/sundayletter.png" alt="" width={56} height={56} className="w-full h-full object-cover rounded-[8px]" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="font-cormorant text-[19px] font-medium text-ink leading-tight">
-              The Sunday Letter
-            </p>
-            <p className="font-lora text-[15px] text-charcoal leading-[1.5] mt-[6px]">
-              A letter from the mind you spent the week with.
-            </p>
-            <p className="font-lora text-[11px] uppercase tracking-[0.18em] text-bronze mt-[10px]">
-              Pro
-            </p>
-          </div>
-        </button>
 
       </div>
 
