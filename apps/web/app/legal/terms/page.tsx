@@ -12,7 +12,7 @@ export default function TermsPage() {
           href="/"
           className="font-cormorant text-[20px] font-medium text-ink hover:underline underline-offset-2 decoration-[0.5px]"
         >
-          Great Minds
+          The Wise Room
         </Link>
 
         <article className="mt-10 space-y-7">
@@ -26,15 +26,15 @@ export default function TermsPage() {
           </header>
 
           <Section title="1. Welcome">
-            These Terms govern your use of Great Minds (the &ldquo;Service&rdquo;), an AI-powered reflective companion that lets you have written conversations with personas inspired by historical thinkers. By using the Service, you agree to these Terms. If you do not agree, do not use the Service.
+            These Terms govern your use of The Wise Room (the &ldquo;Service&rdquo;), an AI-powered reflective companion that lets you have written conversations with personas inspired by historical thinkers. By using the Service, you agree to these Terms. If you do not agree, do not use the Service.
           </Section>
 
           <Section title="2. Who We Are">
-            Great Minds is operated from Greece. You can reach us at <Email />.
+            The Wise Room is operated by Nikolaos Koutras, based in Greece. You can reach us at <Email />.
           </Section>
 
           <Section title="3. The Service">
-            Great Minds provides written, conversational interactions with AI-generated personas inspired by historical figures. The personas are fictional reconstructions, not actual representations of historical individuals or their views.
+            The Wise Room provides written, conversational interactions with AI-generated personas inspired by historical figures. The personas are fictional reconstructions, not actual representations of historical individuals or their views.
             {' '}
             The Service is provided <strong className="font-lora font-medium text-ink">for personal reflection only</strong>. It is not, and is not a substitute for: therapy, counseling, or psychological treatment; medical advice, diagnosis, or treatment; crisis support or emergency services; legal, financial, or professional advice of any kind.
             {' '}
@@ -66,7 +66,7 @@ export default function TermsPage() {
           </Section>
 
           <Section title="10. Intellectual Property">
-            The Service, including its design, content, and software, is owned by Great Minds. The historical figures referenced are public-domain personas; the persona configurations are our own work.
+            The Service, including its design, content, and software, is owned by Nikolaos Koutras. The historical figures referenced are public-domain personas; the persona configurations are our own work.
           </Section>
 
           <Section title="11. Termination">
@@ -114,10 +114,10 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 function Email() {
   return (
     <a
-      href="mailto:support@thegreatminds.app"
+      href="mailto:support@thewiseroom.app"
       className="text-ink underline underline-offset-2 decoration-[0.5px]"
     >
-      support@thegreatminds.app
+      support@thewiseroom.app
     </a>
   )
 }
