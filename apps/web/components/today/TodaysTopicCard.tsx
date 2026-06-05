@@ -54,9 +54,14 @@ export default function TodaysTopicCard({ user, dailyQuestion, onReflect, onStar
           value={topic}
           onChange={(e) => setTopic(e.target.value)}
           placeholder={heavyPhrase}
-          className="flex-1 resize-none bg-transparent outline-none font-cormorant italic text-[16px] text-ink leading-snug placeholder:opacity-60 placeholder:italic placeholder:font-cormorant border border-bronze/40 rounded-[2px] focus:border-bronze focus:ring-1 focus:ring-bronze/20 px-3 py-2"
+          className="flex-1 resize-none bg-transparent outline-none font-cormorant italic text-[16px] text-ink leading-snug placeholder:opacity-60 placeholder:italic placeholder:font-cormorant border border-bronze/40 rounded-[2px] focus:border-bronze focus:ring-1 focus:ring-bronze/20 pl-[10px] pr-3 py-2"
         />
       </div>
+      {!topic && (
+        <p className="font-lora text-[11px] italic text-sepia/70 mt-[8px] pl-[74px]">
+          (or tap in to write your own)
+        </p>
+      )}
       <div className="mt-[12px] flex gap-[10px]">
         <button
           type="button"
