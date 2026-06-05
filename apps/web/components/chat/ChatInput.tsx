@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { Send } from 'lucide-react'
 import { useStore } from '@/lib/store'
+import AutoGrowTextarea from '@/components/ui/AutoGrowTextarea'
 
 interface Props {
   send: (content: string) => void
@@ -32,15 +33,15 @@ export default function ChatInput({ send, placeholder = 'Write your thought…',
 
   return (
     <div className="border-t border-edge bg-vellum px-4 py-3 pb-safe flex items-end gap-2">
-      <textarea
+      <AutoGrowTextarea
         value={value}
         onChange={(e) => setValue(e.target.value)}
         onKeyDown={handleKeyDown}
         disabled={disabled}
         placeholder={placeholder}
-        rows={1}
-        className="flex-1 resize-none bg-white rounded-sm px-3 py-2 font-lora text-base text-ink placeholder:text-sepia focus:outline-none disabled:opacity-50"
-        style={{ maxHeight: '120px' }}
+        minRows={1}
+        maxHeight={120}
+        className="flex-1 bg-white rounded-sm px-3 py-2 font-lora text-base text-ink placeholder:text-sepia focus:outline-none disabled:opacity-50"
       />
       <button
         onClick={handleSend}
