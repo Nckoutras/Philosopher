@@ -42,7 +42,7 @@ export default function ExistingConversationPage() {
   const [loadError, setLoadError] = useState<string | null>(null)
   const [inputDraft, setInputDraft] = useState<string | undefined>(undefined)
   const [pickerOpen, setPickerOpen] = useState(false)
-  const { send, sendAnotherMind } = useStream()
+  const { send, sendAnotherMind, sendGoDeeper } = useStream()
   const hasSentTopicRef = useRef(false)
 
   const handleBringAnotherMind = () => setPickerOpen(true)
@@ -206,6 +206,7 @@ export default function ExistingConversationPage() {
           onSaveLine={handleSaveLine}
           onUpgradeConfirm={handleUpgradeConfirm}
           onBringAnotherMind={handleBringAnotherMind}
+          onGoDeeper={() => sendGoDeeper()}
         />
         {safetyActive ? (
           <>

@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import { Zap, Users, Bookmark } from 'lucide-react'
-import toast from 'react-hot-toast'
 import { useStore } from '@/lib/store'
 import SaveLineInlineUpgrade from './SaveLineInlineUpgrade'
 
@@ -12,9 +11,10 @@ interface Props {
   onSave: () => void
   onUpgradeConfirm: () => void
   onBringAnotherMind: () => void
+  onGoDeeper: () => void
 }
 
-export default function QuickActionsRow({ messageId: _messageId, saved, onSave, onUpgradeConfirm, onBringAnotherMind }: Props) {
+export default function QuickActionsRow({ messageId: _messageId, saved, onSave, onUpgradeConfirm, onBringAnotherMind, onGoDeeper }: Props) {
   const [showUpgrade, setShowUpgrade] = useState(false)
   const freeSaveCount = useStore((s) => s.freeSaveCount)
   const freeTierLimit = useStore((s) => s.freeTierLimit)
@@ -52,12 +52,12 @@ export default function QuickActionsRow({ messageId: _messageId, saved, onSave, 
     <div className="flex gap-[6px] flex-wrap ml-[32px] mt-[4px]">
       <button
         type="button"
-        onClick={() => toast('Coming soon', { duration: 2000 })}
+        onClick={onGoDeeper}
         className={chipBase}
-        aria-label="Ask harder"
+        aria-label="Go deeper"
       >
         <Zap size={11} strokeWidth={1.5} />
-        <span className="hidden min-[360px]:inline">Ask harder</span>
+        <span className="hidden min-[360px]:inline">Go deeper</span>
       </button>
       <button
         type="button"

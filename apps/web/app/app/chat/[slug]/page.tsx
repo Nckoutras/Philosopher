@@ -40,7 +40,7 @@ export default function ChatPage() {
 
   const [createError, setCreateError] = useState<string | null>(null)
   const [pickerOpen, setPickerOpen] = useState(false)
-  const { send, sendAnotherMind } = useStream()
+  const { send, sendAnotherMind, sendGoDeeper } = useStream()
 
   const handleBringAnotherMind = () => setPickerOpen(true)
 
@@ -189,6 +189,7 @@ export default function ChatPage() {
           onSaveLine={handleSaveLine}
           onUpgradeConfirm={handleUpgradeConfirm}
           onBringAnotherMind={handleBringAnotherMind}
+          onGoDeeper={() => sendGoDeeper()}
         />
         {safetyActive ? (
           <>

@@ -616,6 +616,38 @@ class ApiClient {
     return res
   }
 
+  async streamGoDeeper(conversationId: string, userPlan: string = 'free'): Promise<Response> {
+    const res = await fetch(`${API_BASE}/conversations/${conversationId}/go-deeper`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(this.token ? { Authorization: `Bearer ${this.token}` } : {}),
+      },
+      body: JSON.stringify({}),
+    })
+    if (!res.ok) {
+      if (res.status === 403) {
+        throw new Error('upgrade_required')
+      }
+      if (res.status === 429) {
+        const body = await res.json().catch(() => ({} as LLMErrorResponse))
+        const limit = parseInt(res.headers.get('X-RateLimit-Limit') ?? '0', 10)
+        const remaining = parseInt(res.headers.get('X-RateLimit-Remaining') ?? '0', 10)
+        const resetHeader = res.headers.get('X-RateLimit-Reset') ?? new Date().toISOString()
+        throw new RateLimitError({
+          resetAt: new Date(resetHeader),
+          limit,
+          remaining,
+          errorCode: body.error_code ?? 'rate_limited',
+          personaVoice: body.persona_voice,
+          upgradeTarget: userPlan === 'pro' ? 'premium' : 'pro',
+        })
+      }
+      throw new Error('Stream failed')
+    }
+    return res
+  }
+
   async streamCouncil(body: { matter: string; source?: string; mirror_id?: string | null }): Promise<Response> {
     const res = await fetch(`${API_BASE}/council`, {
       method: 'POST',

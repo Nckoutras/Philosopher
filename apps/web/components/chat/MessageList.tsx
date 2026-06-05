@@ -11,9 +11,10 @@ interface Props {
   onSaveLine: (messageId: string) => void
   onUpgradeConfirm: () => void
   onBringAnotherMind: () => void
+  onGoDeeper: () => void
 }
 
-export default function MessageList({ messages, onSaveLine, onUpgradeConfirm, onBringAnotherMind }: Props) {
+export default function MessageList({ messages, onSaveLine, onUpgradeConfirm, onBringAnotherMind, onGoDeeper }: Props) {
   const savedMessageIds = useStore((s) => s.savedMessageIds)
   const activePersonaName = useStore((s) => s.activePersonaName)
 
@@ -59,6 +60,7 @@ export default function MessageList({ messages, onSaveLine, onUpgradeConfirm, on
                 onSave={() => onSaveLine(msg.id)}
                 onUpgradeConfirm={onUpgradeConfirm}
                 onBringAnotherMind={onBringAnotherMind}
+                onGoDeeper={onGoDeeper}
               />
             )}
             {broughtIn && activePersonaName && (

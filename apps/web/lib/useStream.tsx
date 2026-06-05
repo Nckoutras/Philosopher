@@ -242,5 +242,95 @@ export function useStream() {
     }
   }, [activeConversationId, appendMessage, setStreaming, appendStreamingContent, resetStreaming, setSafetyActive, setStreamError, setShowPaywall, setStreamingBroughtIn, router])
 
-  return { send, sendAnotherMind }
+  const sendGoDeeper = useCallback(async () => {
+    if (!activeConversationId) return
+
+    setSafetyActive(false)
+    setStreamError(null)
+    setStreaming(true)
+
+    try {
+      const currentPlan = useStore.getState().plan
+      const res = await api.streamGoDeeper(activeConversationId, currentPlan)
+      const reader = res.body!.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+      let fullContent = ''
+      let pendingStreamError: { error_code: string; persona_voice: string } | null = null
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() ?? ''
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue
+          const raw = line.slice(6).trim()
+          if (!raw) continue
+
+          let event: SSEEvent
+          try {
+            event = JSON.parse(raw) as SSEEvent
+          } catch {
+            continue
+          }
+
+          switch (event.type) {
+            case 'start': {
+              break
+            }
+            case 'chunk':
+              fullContent += event.data
+              appendStreamingContent(event.data)
+              break
+            case 'done': {
+              const assistantMsg: Message = {
+                id: event.message_id ?? crypto.randomUUID(),
+                role: 'assistant',
+                content: fullContent,
+                safety_level: 'none',
+                persona_override: false,
+                created_at: new Date().toISOString(),
+                persona_slug: null,
+                persona_name: null,
+              }
+              appendMessage(assistantMsg)
+              resetStreaming()
+              break
+            }
+            case 'error':
+              pendingStreamError = { error_code: event.error_code, persona_voice: event.persona_voice }
+              break
+          }
+        }
+
+        if (pendingStreamError) break
+      }
+
+      if (pendingStreamError) {
+        setStreamError(pendingStreamError)
+        resetStreaming()
+      }
+    } catch (err: unknown) {
+      resetStreaming()
+      if (err instanceof RateLimitError) {
+        setShowPaywall(true, {
+          upgradeTarget: err.upgradeTarget,
+          resetAt: err.resetAt,
+          limit: err.limit,
+          personaVoice: err.personaVoice,
+        })
+      } else if (err instanceof Error && err.message === 'upgrade_required') {
+        router.push('/app/upgrade')
+      } else {
+        toast.error('Something went wrong. Please try again.')
+      }
+      console.error(err)
+    }
+  }, [activeConversationId, appendMessage, setStreaming, appendStreamingContent, resetStreaming, setSafetyActive, setStreamError, setShowPaywall, router])
+
+  return { send, sendAnotherMind, sendGoDeeper }
 }
