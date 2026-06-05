@@ -26,7 +26,7 @@ export default function StreamingBubble() {
           </p>
         </>
       )}
-      <div className={`max-w-[80%] px-4 py-3 rounded-sm shadow-card font-lora text-[16px] text-safety leading-relaxed whitespace-pre-wrap ${broughtIn ? 'bg-linen' : 'bg-white'}`}>
+      <div className={`max-w-[80%] px-4 py-3 rounded-sm shadow-card font-lora text-[16px] text-safety leading-relaxed whitespace-pre-wrap animate-fade-in ${broughtIn ? 'bg-linen' : 'bg-white'}`}>
         {isCorrecting ? (
           <>
             <span className="text-charcoal opacity-55 transition-opacity duration-300">
