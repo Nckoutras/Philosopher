@@ -521,7 +521,7 @@ class ConversationService:
 
         if (
             arq_queue is not None
-            and new_message_count >= 6
+            and new_message_count >= 2
             and conv.title is None
         ):
             await arq_queue.enqueue_job(
