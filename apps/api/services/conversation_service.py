@@ -54,6 +54,16 @@ CROSS_MIND_NOTE = (
     "plainly as yourself."
 )
 
+GUEST_ENTRANCE = (
+    "ENTERING AN ONGOING REFLECTION: You have just been invited into a conversation "
+    "that is already underway. Before you respond, take in the last several turns as a "
+    "whole — what the seeker is actually wrestling with — rather than reacting only to "
+    "their final line, which may be a fragment or an aside. Open by orienting yourself to "
+    "where the exchange truly is, in your own voice. If the thread is genuinely unclear or "
+    "too thin to engage honestly, it is better to ask the seeker what they would like from "
+    "you than to guess or perform."
+)
+
 
 class ConversationService:
 
@@ -585,6 +595,7 @@ class ConversationService:
             memories=memories,
             passages=passages,
         )
+        system_prompt = system_prompt + "\n\n" + GUEST_ENTRANCE
 
         # ── 4. BUILD MESSAGE HISTORY ─────────────────────────────────────────
         # Use same window limits as regular chat.
