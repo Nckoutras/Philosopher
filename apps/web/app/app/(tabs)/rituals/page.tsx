@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Lock, Mail, MailOpen, MessagesSquare } from 'lucide-react'
-import { MirrorIcon } from '@/components/icons/RitualIcons'
+import Image from 'next/image'
+import { Lock } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import AppHeader from '@/components/layout/AppHeader'
 import RitualScheduleSheet from '@/components/rituals/RitualScheduleSheet'
@@ -69,7 +69,7 @@ export default function RitualsPage() {
           className="w-full text-left bg-paper border border-[0.5px] border-edge rounded-md shadow-card px-[16px] py-[14px] flex items-start gap-[14px]"
         >
           <div className="w-[56px] h-[56px] flex items-center justify-center flex-shrink-0 text-ink">
-            <MailOpen size={40} strokeWidth={1.2} />
+            <Image src="/personas/messagetomyfutureself.png" alt="" width={56} height={56} className="w-full h-full object-cover rounded-[8px]" />
           </div>
           <div className="flex-1 min-w-0">
             <p className="font-cormorant text-[19px] font-medium text-ink leading-tight">
@@ -88,7 +88,7 @@ export default function RitualsPage() {
           className="w-full text-left bg-paper border border-[0.5px] border-edge rounded-md shadow-card px-[16px] py-[14px] flex items-start gap-[14px]"
         >
           <div className="w-[56px] h-[56px] flex items-center justify-center flex-shrink-0 text-ink">
-            <MirrorIcon size={40} strokeWidth={1.2} />
+            <Image src="/personas/mirror.png" alt="" width={56} height={56} className="w-full h-full object-cover rounded-[8px]" />
           </div>
           <div className="flex-1 min-w-0">
             <p className="font-cormorant text-[19px] font-medium text-ink leading-tight">
@@ -107,10 +107,7 @@ export default function RitualsPage() {
           className="w-full text-left bg-paper border border-[0.5px] border-edge rounded-md shadow-card px-[16px] py-[14px] flex items-start gap-[14px]"
         >
           <div className="w-[56px] h-[56px] flex items-center justify-center flex-shrink-0 text-ink">
-            <svg width="40" height="40" viewBox="0 0 40 40" aria-hidden="true">
-              <circle cx="20" cy="20" r="19" fill="none" stroke="currentColor" strokeWidth="1.2" />
-              <path d="M20 1 A19 19 0 0 1 20 39 Z" fill="currentColor" />
-            </svg>
+            <Image src="/personas/youvsyou.webp" alt="" width={56} height={56} className="w-full h-full object-cover rounded-[8px]" />
           </div>
           <div className="flex-1 min-w-0">
             <p className="font-cormorant text-[19px] font-medium text-ink leading-tight">
@@ -129,12 +126,7 @@ export default function RitualsPage() {
           className="w-full text-left bg-paper border border-[0.5px] border-edge rounded-md shadow-card px-[16px] py-[14px] flex items-start gap-[14px]"
         >
           <div className="w-[56px] h-[56px] flex items-center justify-center flex-shrink-0 text-ink">
-            <svg width="40" height="40" viewBox="0 0 40 40" aria-hidden="true">
-              <circle cx="12" cy="12" r="5" fill="none" stroke="currentColor" strokeWidth="1.2" />
-              <circle cx="28" cy="12" r="5" fill="none" stroke="currentColor" strokeWidth="1.2" />
-              <circle cx="12" cy="28" r="5" fill="none" stroke="currentColor" strokeWidth="1.2" />
-              <circle cx="28" cy="28" r="5" fill="none" stroke="currentColor" strokeWidth="1.2" />
-            </svg>
+            <Image src="/personas/boardroom.webp" alt="" width={56} height={56} className="w-full h-full object-cover rounded-[8px]" />
           </div>
           <div className="flex-1 min-w-0">
             <p className="font-cormorant text-[19px] font-medium text-ink leading-tight">
@@ -152,7 +144,7 @@ export default function RitualsPage() {
         {/* ── The Counterview — LOCKED ── */}
         <div className="bg-paper border border-[0.5px] border-edge rounded-md px-[16px] py-[14px] opacity-50 flex items-start gap-[14px]">
           <div className="w-[56px] h-[56px] flex items-center justify-center flex-shrink-0 text-ink">
-            <MessagesSquare size={40} strokeWidth={1.2} />
+            <Image src="/personas/thecounterview.png" alt="" width={56} height={56} className="w-full h-full object-cover rounded-[8px]" />
           </div>
           <div className="flex-1 min-w-0">
             <p className="font-cormorant text-[19px] font-medium text-ink leading-tight">
@@ -178,7 +170,7 @@ export default function RitualsPage() {
           className="w-full text-left bg-paper border border-[0.5px] border-edge rounded-md shadow-card px-[16px] py-[14px] flex items-start gap-[14px]"
         >
           <div className="w-[56px] h-[56px] flex items-center justify-center flex-shrink-0 text-ink">
-            <Mail size={40} strokeWidth={1.2} />
+            <Image src="/personas/sundayletter.png" alt="" width={56} height={56} className="w-full h-full object-cover rounded-[8px]" />
           </div>
           <div className="flex-1 min-w-0">
             <p className="font-cormorant text-[19px] font-medium text-ink leading-tight">
