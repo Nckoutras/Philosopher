@@ -12,7 +12,7 @@ export default function PrivacyPage() {
           href="/"
           className="font-cormorant text-[20px] font-medium text-ink hover:underline underline-offset-2 decoration-[0.5px]"
         >
-          Great Minds
+          The Wise Room
         </Link>
 
         <article className="mt-10 space-y-7">
@@ -26,7 +26,7 @@ export default function PrivacyPage() {
           </header>
 
           <Section title="1. Introduction">
-            This Privacy Policy explains how Great Minds (&ldquo;we&rdquo;, &ldquo;us&rdquo;) collects, uses, and protects your personal data. We are the data controller for the personal data we process to provide the Service. If you have questions, contact us at <Email />.
+            This Privacy Policy explains how The Wise Room, operated by Nikolaos Koutras (&ldquo;we&rdquo;, &ldquo;us&rdquo;), collects, uses, and protects your personal data. We are the data controller for the personal data we process to provide the Service. If you have questions, contact us at <Email />.
           </Section>
 
           <Section title="2. Personal Data We Collect">
@@ -88,7 +88,7 @@ export default function PrivacyPage() {
           </Section>
 
           <Section title="13. Contact">
-            Data Controller: Great Minds, Greece. Email: <Email />.
+            Data Controller: Nikolaos Koutras, Greece. Email: <Email />.
           </Section>
         </article>
       </div>
@@ -112,10 +112,10 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 function Email() {
   return (
     <a
-      href="mailto:support@thegreatminds.app"
+      href="mailto:support@thewiseroom.app"
       className="text-ink underline underline-offset-2 decoration-[0.5px]"
     >
-      support@thegreatminds.app
+      support@thewiseroom.app
     </a>
   )
 }

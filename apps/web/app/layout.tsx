@@ -27,7 +27,7 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   title: 'The Wise Room — Your Reflective Companion',
-  description: 'Think deeper with the great minds of history.',
+  description: 'Think deeper with the greatest thinkers of history.',
   metadataBase: new URL(process.env.NEXT_PUBLIC_BASE_URL ?? 'https://philosopher.app'),
   openGraph: {
     title: 'The Wise Room',
