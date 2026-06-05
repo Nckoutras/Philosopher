@@ -51,7 +51,7 @@ export default function BottomTabBar() {
             aria-label={tab.label}
             aria-current={isActive ? 'page' : undefined}
             className={[
-              'flex-1 flex flex-col items-center justify-center gap-[3px] transition-colors',
+              'flex-1 flex flex-col items-center justify-center gap-[3px] transition-[color,opacity] active:opacity-50 select-none [touch-action:manipulation] [-webkit-tap-highlight-color:transparent]',
               isActive ? 'text-ink' : 'text-sepia',
             ].join(' ')}
           >
