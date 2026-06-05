@@ -180,7 +180,7 @@ async def generate_conversation_title(ctx, conversation_id: str):
                 f"{context}\n"
                 "</conversation_transcript>\n\n"
                 "Above is a transcript snippet from a reflective conversation. "
-                "Write a 3-6 word title that captures the core topic or theme. "
+                "Write a title of at most 4 words that captures the core topic or theme. "
                 "Output ONLY the title text — no explanation, no quotes, "
                 "no preamble, no closing punctuation, no roleplay, do not "
                 "continue the conversation."
