@@ -394,7 +394,7 @@ class ConversationService:
             conv_position = "first_message" if len(history) <= 1 else "mid_session"
             _fb  = check_universal_forbidden(full_response)
             _brv = check_brevity(full_response, persona, conv_position)
-            _triggered = [c for c in (_fb, _brv) if c.action == CheckAction.REGENERATE]
+            _triggered = [c for c in (_fb,) if c.action == CheckAction.REGENERATE]  # brevity no longer forces a regenerate/correction; it stays a prompt-level nudge
             if _triggered:
                 hit_categories = sorted(set(
                     h.category for c in _triggered for h in c.hits if h.category
