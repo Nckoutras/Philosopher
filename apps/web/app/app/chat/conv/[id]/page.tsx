@@ -16,6 +16,7 @@ import SafetyBubble from '@/components/chat/SafetyBubble'
 import SafetyReEntryCard from '@/components/chat/SafetyReEntryCard'
 import PaywallModal from '@/components/chat/PaywallModal'
 import ChatInput from '@/components/chat/ChatInput'
+import SubPageNav from '@/components/layout/SubPageNav'
 
 export default function ExistingConversationPage() {
   const params = useParams<{ id: string }>()
@@ -198,6 +199,7 @@ export default function ExistingConversationPage() {
 
   return (
     <main className="min-h-screen [min-height:100svh] flex flex-col bg-paper">
+      <SubPageNav fallbackHref="/app/library" showHome={false} />
       <ChatHeader personaName={personaName} portraitUrl={portraitUrl} />
 
       <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3">

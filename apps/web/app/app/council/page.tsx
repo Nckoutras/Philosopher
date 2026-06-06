@@ -10,6 +10,7 @@ import type { SSEEvent, SSEEventMember } from '@/lib/api'
 import styles from './council.module.css'
 import SharePreviewModal from '@/components/share/SharePreviewModal'
 import WiseMark from '@/components/ui/WiseMark'
+import SubPageNav from '@/components/layout/SubPageNav'
 
 // ──────────────────────────────────────────────
 // Constants (all tunable)
@@ -590,6 +591,7 @@ export default function CouncilPage() {
         className="relative z-10 min-h-screen [min-height:100svh] overflow-y-auto px-[24px] pt-[44px] pb-[56px] flex flex-col gap-[32px]"
         style={{ background: 'linear-gradient(to bottom, rgba(239,227,204,0.10) 0%, rgba(239,227,204,0.22) 100%)' }}
       >
+        <SubPageNav fallbackHref="/app/rituals" />
 
         {/* ── Header (convening + session) ── */}
         {(phase.kind === 'convening' || phase.kind === 'session') && (
