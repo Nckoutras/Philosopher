@@ -48,10 +48,9 @@ export default function RitualsPage() {
 
       <div className="px-[16px] pb-[8px]">
         <p className="font-lora text-[15px] text-charcoal leading-[1.65]">
-          Rituals are guided reflective practices that help you return to what your
-          conversations surface — recurring questions, assumptions, tensions, and
-          patterns. They are designed to deepen reflection over time, not provide
-          quick answers.
+          Return to what keeps surfacing. Rituals invite you to revisit the questions,
+          patterns, and tensions your thoughts reveal — through timeless perspectives
+          that help you see deeper, wider, and more clearly.
         </p>
       </div>
 
@@ -128,7 +127,7 @@ export default function RitualsPage() {
               The Council
             </p>
             <p className="font-lora text-[15px] text-charcoal leading-[1.5] mt-[6px]">
-              Four minds. One matter. They will not agree.
+              Four thinkers. Your question. The Wise Room brings it together.
             </p>
             <p className="font-lora text-[11px] uppercase tracking-[0.18em] text-bronze mt-[10px]">
               Pro
