@@ -213,20 +213,35 @@ Historical note for context: `BASE_URL` in Render was `https://philosopher-api.o
 
 ---
 
-## 5. Next session entry point
+## 5. Next session entry point (2026-05-25 onward)
 
-**Priority order as of 2026-05-24:**
+Production restored. Cold-beta path mostly unblocked from code
+side — remaining blockers are external (brand, Resend, ΚΑΔ).
 
-1. **Confirm PR4r is merged** — verify main is clean after rollback
-2. **Smoke test today page** on production after PR4r merge:
-   - Login → Today → verify conversations load (not first-day state for returning user)
-   - Hard refresh on `/app/rituals` (expect auth flash — known bug, not regression)
-3. **End-to-end Stripe sandbox test** (test card → webhook → entitlement → portal → cancel)
-4. **Backfill-titles admin execution** (`POST /api/v1/admin/backfill-titles`)
-5. **Mobile 12-point nav smoke test** (real iOS Safari)
-6. **Cold beta with 3–5 fresh users**
-7. **Block B consolidated polish PR**
-8. **Pre-launch items** (lawyer review, DNS, GDPR/DPA, runbooks)
+Founder's stated focus: shift from feature work to UI/UX polish
++ edge-case screens.
+
+### Three first-move options for next session
+
+1. P0 conversation delete bug — debug + hotfix. Probably
+   ~1-2 hours total cycle if root cause is straightforward.
+
+2. UI/UX edge-case screens batch — coherent design system
+   set: 404, 500, error boundary, offline state, retry component,
+   maintenance mode, empty states audit, loading skeletons.
+   Estimated ~200-300 lines, single PR.
+
+3. Brand decision discussion — unblocks Resend domain + DNS +
+   eventual rebrand of Great Minds → ?. Strategic, not code work.
+
+Wait for founder choice before producing any briefs. Don't bundle.
+
+### What's NOT a priority
+
+- New rituals engineering (Mirror/Counterview/Weekly Reading) —
+  post cold-beta
+- Ritual icons implementation — post brand decision + source files
+- Apple Sign In — needs Apple Dev $99 + domain
 
 ---
 
@@ -234,6 +249,7 @@ Historical note for context: `BASE_URL` in Render was `https://philosopher-api.o
 
 | PR | Description | Date | Status |
 |---|---|---|---|
+| docs/v11-rotation | 2026-05-24 evening | Docs v9→v11 rotation, CLAUDE.md P-01 through P-05 codified | ✅ Merged |
 | PR1 #77 | Stripe checkout/portal + A0/Today/F1 polish + ToS/Privacy v1.1 | 2026-05-19 | ✅ merged |
 | PR2 #78 | Auto-titles fix + cross-persona + library dual-mode + 5 nav routes | 2026-05-20 | ✅ merged |
 | PR4j #100 | Paywall audit: BETA bypass + synthetic /subscription + SubscriptionBootstrap | 2026-05-22 | ✅ merged |
