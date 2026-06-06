@@ -355,6 +355,10 @@ PR4r (in flight 2026-05-24) reverts the hydration guard while keeping the api im
 
 ---
 
+## Open bugs (2026-05-24)
+
+- P0: Conversation deletion failing. Discovered post-restore smoke test. See IMPLEMENTATION_BACKLOG_v11.md P0-NEW for details.
+
 ## 14. Known bugs (active)
 
 ### Carried from v9

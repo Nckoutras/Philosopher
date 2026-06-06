@@ -87,6 +87,31 @@ Ten new items added since v9. See §3 below.
 
 ### 2.1 Code-side P0
 
+### P0-NEW — Conversation deletion failing (2026-05-24, found in post-restore smoke test)
+
+User reports DELETE conversation throws error. Reproducible.
+Suspected causes (investigate in order):
+
+1. PR4m migration 013 FK CASCADE ondelete clauses may have changed
+   the deletion path semantics. Specifically: memory_entries CASCADE,
+   insights CASCADE, safety_events SET NULL, user_ritual_completions
+   SET NULL — verify these don't conflict with the soft-delete logic
+   in conversations.deleted_at
+2. DELETE /api/v1/conversations/{id} endpoint may return non-2xx
+   status. Check Render logs after a failed delete attempt
+3. Frontend SwipeableRow handler may call wrong endpoint or fail
+   to refresh state after delete
+
+Investigation approach for next session:
+- Reproduce in user's normal browser (logged-in session)
+- Capture exact error from Network tab + Console
+- Check Render logs for the specific request
+- If backend error: check delete_conversation service logic
+- If frontend issue: check Library or chat conv page delete handler
+
+Priority: P0 — affects every paid user who wants to clean up history.
+Pre-paid-launch blocker.
+
 - [ ] **bugfixes-3 — auth race fix** (P0; see TD-10 for approach options)
 - [ ] **PR4r merge** (in flight — reverts hydration guard, keeps api import fix)
 - [ ] **End-to-end Stripe sandbox test** (test card → webhook → entitlement → portal → cancel → tier downgrade)
@@ -279,6 +304,42 @@ The sequence of failures in May 21-24 sessions (PR4n regression → PR4p bundled
 - **P-04:** Preview deploy validation for any Zustand/auth/layout/api-client change (PR4p lesson).
 - **P-05:** Grep original file for ALL usages of removed imports before deleting (PR4n lesson).
 
+### TD-19 — Ritual icon set (P2, post-cold-beta)
+
+**Priority:** P2
+
+Aesthetic direction LOCKED 2026-05-24: editorial minimalism, NOT tarot/antique engraving.
+
+Reference brands for visual language:
+- Aesop packaging (refined, restrained)
+- Pentagram design (Linear, Mailchimp redesign)
+- A24 film posters (classical typography, minimal)
+- NYT Op-Ed illustration style
+- Iconoir / Phosphor Icons (modern monoline)
+
+Style requirements (strict):
+- Single uniform stroke weight (clean monoline)
+- Geometric abstraction, not literal depiction
+- Bronze (#B89968) line on transparent background
+- Generous negative space
+- Maximum 2-3 visual elements per icon
+- No engraving texture, no antique feel, no ornament
+- No tarot/occult symbolism (no constellations, candles, moons, wax seals)
+
+4 icons needed for launch MVP:
+- The Mirror — oval with diagonal stroke OR two stacked circles
+- The Counterview — opposing arrows OR mirrored triangles
+- Letter to my Future Self — simple envelope outline, no decoration
+- The Weekly Reading — three stacked horizontal lines OR open book
+
+4 additional concepts parked for future rituals (Daily Question, Examined Day, Unanswered Questions, Thought Card) — visual exploration only, NOT roadmap commitment.
+
+Asset generation: DALL-E 3 with prompt template documented in May 24 chat session. PNG 1024x1024 with transparent background, background-removed via remove.bg post-processing. Optional SVG conversion via Vectorizer.AI for vector format.
+
+Implementation: ~30-40 lines code change (icon assets in apps/web/public/icons/rituals/ + rituals page component update + Today RitualsCard letter icon). Estimated 1 hour implementation after source files ready.
+
+Trigger: post cold-beta validation + brand decision locked.
+
 ### TD-20 — safety_events.message_id FK ondelete (P2, pre-cold-beta)
 
 **Priority:** P2  
@@ -436,6 +497,7 @@ These rules exist because of the May 21-24 regression chain:
 - [x] **PR4n Share v2** — DONE (#102, 2026-05-23)
 - [x] **PR4o Rituals tab + page** — DONE (#103, 2026-05-23)
 - [x] ~~**Landing page waitlist test**~~ — superseded (Stripe wired directly)
+- [ ] **P0-NEW — Conversation deletion failing** (post-restore smoke test 2026-05-24; see §2.1 for investigation approach)
 - [ ] **PR4r merge** (in flight — revert hydration guard, keep api import fix)
 - [ ] **bugfixes-3 — auth race fix** (TD-10; P1, preview smoke test required before any attempt)
 - [ ] **End-to-end Stripe sandbox test**
