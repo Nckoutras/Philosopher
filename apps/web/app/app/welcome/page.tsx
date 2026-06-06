@@ -93,13 +93,13 @@ export default function WelcomePage() {
         {/* Hero text — V2: white serif + drop shadow */}
         <div className="absolute inset-x-0 top-0 z-10 px-3 flex flex-col items-center text-center" style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))' }}>
           <h1
-            className="font-cormorant font-normal text-white text-[44px] leading-[1.05] tracking-wide"
+            className="font-cormorant font-medium text-white text-[44px] leading-[1.05] tracking-wide"
             style={{ textShadow: '0 2px 8px rgba(0,0,0,0.6), 0 1px 3px rgba(0,0,0,0.8)' }}
           >
             The Wise Room
           </h1>
           <p
-            className="font-cormorant font-normal text-white/95 text-[19px] mt-2 leading-snug tracking-wide"
+            className="font-cormorant font-normal text-white text-[19px] mt-2 leading-snug tracking-wide"
             style={{ textShadow: '0 1px 4px rgba(0,0,0,0.5)' }}
           >
             Reflect with the greatest thinkers

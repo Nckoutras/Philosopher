@@ -126,7 +126,7 @@ export default function PersonaPickerSheet({
                 )}
               </div>
               {p.tier !== 'free' && (
-                <span className="font-lora text-[10px] uppercase tracking-[0.18em] text-bronze flex-shrink-0">
+                <span className="font-lora text-[12px] uppercase tracking-[0.18em] text-bronze flex-shrink-0">
                   🔒 {p.tier}
                 </span>
               )}

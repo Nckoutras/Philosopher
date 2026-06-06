@@ -39,7 +39,7 @@ export default function TodaysTopicCard({ user, dailyQuestion, onReflect, onStar
 
   return (
     <div ref={cardRef} className="bg-paper border border-[0.5px] border-edge rounded-md px-[16px] pt-[14px] pb-[16px]">
-      <p className="font-lora text-[11px] uppercase tracking-[0.18em] text-sepia mb-[10px]">
+      <p className="font-lora text-[12px] uppercase tracking-[0.18em] text-charcoal mb-[10px]">
         What's on your mind?
       </p>
       <div className="flex items-start gap-[10px]">
@@ -58,7 +58,7 @@ export default function TodaysTopicCard({ user, dailyQuestion, onReflect, onStar
         />
       </div>
       {!topic && (
-        <p className="font-lora text-[11px] italic text-sepia/70 mt-[8px] pl-[74px]">
+        <p className="font-lora text-[12px] italic text-charcoal/80 mt-[8px] pl-[74px]">
           (or tap in to write your own)
         </p>
       )}

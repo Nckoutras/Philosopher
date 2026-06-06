@@ -91,7 +91,7 @@ export default function AccountPage() {
       <AppHeader />
       {/* ── Header ── */}
       <div className="px-[24px] pt-[22px] pb-[16px]">
-        <p className="font-lora text-[11px] uppercase tracking-[0.18em] text-sepia mb-[4px]">
+        <p className="font-lora text-[12px] uppercase tracking-[0.18em] text-charcoal mb-[4px]">
           Account
         </p>
         <h1 className="font-cormorant text-[26px] font-medium text-ink leading-tight">
@@ -112,13 +112,13 @@ export default function AccountPage() {
               {user.full_name}
             </p>
           )}
-          <p className="font-lora text-[13px] text-charcoal">{user.email}</p>
+          <p className="font-lora text-[14px] text-charcoal">{user.email}</p>
         </div>
 
         {/* ── Subscription card ── */}
         <div className="bg-paper border border-[0.5px] border-edge rounded-md overflow-hidden">
           <div className="px-[16px] pt-[14px] pb-[2px]">
-            <p className="font-lora text-[11px] uppercase tracking-[0.18em] text-sepia">
+            <p className="font-lora text-[12px] uppercase tracking-[0.18em] text-charcoal">
               Subscription
             </p>
           </div>

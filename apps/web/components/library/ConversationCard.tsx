@@ -79,7 +79,7 @@ export default function ConversationCard({ conversation, portraitUrl }: Props) {
         <p className="font-cormorant text-[17px] font-medium text-ink leading-tight truncate">
           {persona.name}
         </p>
-        <p className="font-lora text-[12px] text-sepia leading-tight mt-[2px]">
+        <p className="font-lora text-[13px] text-charcoal leading-tight mt-[2px]">
           {metaLine}
         </p>
         {subject && (

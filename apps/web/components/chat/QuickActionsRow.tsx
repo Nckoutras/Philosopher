@@ -44,9 +44,9 @@ export default function QuickActionsRow({ messageId: _messageId, saved, onSave, 
   }
 
   const chipBase =
-    'bg-paper text-ink border border-[0.5px] border-edge px-[10px] py-[6px] font-lora text-[11px] rounded-sm inline-flex items-center gap-[5px] transition-colors'
+    'bg-paper text-ink border border-[0.5px] border-edge px-[10px] py-[6px] font-lora text-[13px] rounded-sm inline-flex items-center gap-[5px] transition-colors'
   const chipSaved =
-    'bg-linen-deep text-ink border border-ink font-medium px-[10px] py-[6px] font-lora text-[11px] rounded-sm inline-flex items-center gap-[5px]'
+    'bg-linen-deep text-ink border border-ink font-medium px-[10px] py-[6px] font-lora text-[13px] rounded-sm inline-flex items-center gap-[5px]'
 
   return (
     <div className="flex gap-[6px] flex-wrap ml-[32px] mt-[4px]">

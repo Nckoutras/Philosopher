@@ -147,7 +147,7 @@ export default function TodayPage() {
       <AppHeader />
       {/* ── Header ── */}
       <div className="px-[24px] pt-[22px] pb-[16px]">
-        <p className="font-lora text-[11px] uppercase tracking-[0.18em] text-sepia mb-[4px]">
+        <p className="font-lora text-[12px] uppercase tracking-[0.18em] text-charcoal mb-[4px]">
           {dateEyebrow}
         </p>
         <h1 className="font-cormorant text-[24px] font-medium text-ink leading-tight">
@@ -196,7 +196,7 @@ export default function TodayPage() {
               )}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="font-lora text-[10px] font-medium uppercase tracking-[0.18em] text-sepia mb-[4px]">
+              <p className="font-lora text-[12px] font-medium uppercase tracking-[0.18em] text-charcoal mb-[4px]">
                 Continuing.
               </p>
               <p className="font-cormorant text-[17px] font-semibold text-ink leading-tight">
@@ -221,7 +221,7 @@ export default function TodayPage() {
             onKeyDown={handleCardKeyDown}
             className="w-full text-left bg-paper border border-[0.5px] border-edge rounded-md shadow-card px-[16px] py-[14px]"
           >
-            <p className="font-lora text-[10px] font-medium uppercase tracking-[0.18em] text-sepia mb-[8px]">
+            <p className="font-lora text-[12px] font-medium uppercase tracking-[0.18em] text-charcoal mb-[8px]">
               Your reflections.
             </p>
             <div className="flex items-start gap-[12px]">
@@ -247,7 +247,7 @@ export default function TodayPage() {
                 <p className="font-cormorant italic text-[17px] font-normal text-ink leading-[1.5] line-clamp-3">
                   &ldquo;{recentLine.content}&rdquo;
                 </p>
-                <p className="font-lora text-[11px] text-sepia mt-[6px]">
+                <p className="font-lora text-[13px] text-charcoal mt-[6px]">
                   {recentLine.persona_name} · {formatDistanceToNow(new Date(recentLine.saved_at), { addSuffix: true })}
                 </p>
               </div>

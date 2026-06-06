@@ -91,8 +91,8 @@ export default function ThemesPage() {
                   aria-pressed={isSelected}
                   className={`px-4 py-2 rounded-full font-lora text-[13px] border-[0.5px] transition-colors ${
                     isSelected
-                      ? 'bg-linen-deep border-ink text-ink'
-                      : 'bg-linen border-edge text-charcoal'
+                      ? 'bg-bronze border-bronze-dark text-ink'
+                      : 'bg-white border-bronze/60 text-charcoal shadow-card'
                   }`}
                 >
                   {label}
@@ -103,7 +103,7 @@ export default function ThemesPage() {
 
           {/* Other textarea */}
           <div className="space-y-2">
-            <label className="font-lora text-[11px] uppercase tracking-[0.18em] text-sepia">
+            <label className="font-lora text-[12px] uppercase tracking-[0.18em] text-charcoal">
               Or describe in your own words
             </label>
             <textarea
@@ -114,7 +114,7 @@ export default function ThemesPage() {
               maxLength={MAX_OTHER_LENGTH}
               className="w-full bg-white border-[0.5px] border-edge rounded-md px-4 py-3 font-lora text-[14px] text-ink placeholder:text-sepia resize-none focus:outline-none focus:border-ink transition-colors"
             />
-            <p className="font-lora text-[11px] text-sepia text-right">
+            <p className="font-lora text-[12px] text-charcoal text-right">
               {otherText.length} / {MAX_OTHER_LENGTH}
             </p>
           </div>

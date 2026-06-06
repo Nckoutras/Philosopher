@@ -42,7 +42,7 @@ export default function RootPage() {
         <div className="my-[14px]">
           <BronzeDivider width={120} />
         </div>
-        <p className="font-cormorant italic text-[18px] sm:text-[20px] text-vellum/85">
+        <p className="font-cormorant italic text-[18px] sm:text-[20px] text-vellum">
           Reflect with the greatest thinkers.
         </p>
       </div>
