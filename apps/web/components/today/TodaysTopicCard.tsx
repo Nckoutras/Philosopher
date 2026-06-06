@@ -14,7 +14,7 @@ const REFLECT_TAIL = " Let's think through this together — where would you sta
 
 export default function TodaysTopicCard({ user, dailyQuestion, onReflect, onStartFresh }: Props) {
   const [topic, setTopic] = useState('')
-  const heavyPhrase = dailyQuestion.split(/\s+—\s+/)[0]
+  const heavyPhrase = dailyQuestion.split(/\s+—\s+/)[0].trim()
   const initials = deriveInitials(user)
   const cardRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -54,7 +54,7 @@ export default function TodaysTopicCard({ user, dailyQuestion, onReflect, onStar
           value={topic}
           onChange={(e) => setTopic(e.target.value)}
           placeholder={heavyPhrase}
-          className="flex-1 resize-none bg-transparent outline-none font-cormorant italic text-[16px] text-ink leading-snug placeholder:opacity-60 placeholder:italic placeholder:font-cormorant border border-bronze/40 rounded-[2px] focus:border-bronze focus:ring-1 focus:ring-bronze/20 pl-[10px] pr-3 py-2"
+          className="flex-1 resize-none bg-transparent outline-none font-cormorant italic text-[16px] text-ink leading-snug placeholder:opacity-60 placeholder:italic placeholder:font-cormorant border border-bronze/40 rounded-[2px] focus:border-bronze focus:ring-1 focus:ring-bronze/20 pl-1 pr-3 py-2"
         />
       </div>
       {!topic && (
