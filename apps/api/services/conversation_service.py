@@ -123,6 +123,28 @@ class ConversationService:
             )
             existing = dedup_result.scalar_one_or_none()
             if existing:
+                # A reused empty conversation may lack its opening message (e.g. created
+                # earlier via skip_opening=True then abandoned). Ensure it has one before
+                # returning, so a fresh no-topic chat always shows the persona's opening.
+                if persona_config.opening_invocation:
+                    has_opening = await db.execute(
+                        select(Message.id)
+                        .where(
+                            Message.conversation_id == existing.id,
+                            Message.role == "assistant",
+                        )
+                        .limit(1)
+                    )
+                    if has_opening.scalar_one_or_none() is None:
+                        db.add(
+                            Message(
+                                conversation_id=existing.id,
+                                user_id=user_id,
+                                role="assistant",
+                                content=persona_config.opening_invocation,
+                            )
+                        )
+                        await db.flush()
                 return existing
 
         conv = Conversation(
