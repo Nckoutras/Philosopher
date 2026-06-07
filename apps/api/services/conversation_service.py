@@ -9,7 +9,7 @@ from typing import AsyncGenerator
 import anthropic
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 
 from models import Conversation, DailyUsage, Message, Persona, SafetyEvent, SavedLine, User
 from personas import get_persona, is_persona_accessible
@@ -76,6 +76,17 @@ DEEPEN_DIRECTIVE = (
     "of your actual thought and work — the ideas and stance you are known for, never generic "
     "philosophy. End on the edge, not on comfort."
 )
+
+DEEPEN_ESCALATION = {
+    2: " ESCALATION (second deepening of this SAME reply): cut harder still. Half the length "
+       "of your last reply — two sentences at most. Verdict only: no questions, no preamble, "
+       "no restating. One blade.",
+    3: " ESCALATION (third deepening): sharpest, shortest cut — one or two sentences, a final "
+       "verdict, then stop.",
+}
+
+TURN_LIMIT   = {'free': 3, 'pro': 5, 'premium': 5}
+THREAD_LIMIT = {'free': 15, 'pro': 30, 'premium': 30}
 
 
 class ConversationService:
@@ -772,6 +783,44 @@ class ConversationService:
         target_db = home_result.scalar_one()
         persona = get_persona(target_db.slug)
 
+        # ── LIMIT ENFORCEMENT ────────────────────────────────────────────────
+        thread_result = await db.execute(
+            select(func.count()).select_from(Message).where(
+                Message.conversation_id == conv.id,
+                Message.message_kind == 'go_deeper',
+            )
+        )
+        thread_count = thread_result.scalar()
+
+        last_std_result = await db.execute(
+            select(func.max(Message.created_at)).where(
+                Message.conversation_id == conv.id,
+                Message.role == 'assistant',
+                Message.message_kind == 'standard',
+            )
+        )
+        last_std_at = last_std_result.scalar()
+
+        turn_filter = [
+            Message.conversation_id == conv.id,
+            Message.message_kind == 'go_deeper',
+        ]
+        if last_std_at:
+            turn_filter.append(Message.created_at > last_std_at)
+        turn_result = await db.execute(
+            select(func.count()).select_from(Message).where(*turn_filter)
+        )
+        turn_count = turn_result.scalar()
+
+        tier = user_plan if user_plan in ('pro', 'premium') else 'free'
+        if thread_count >= THREAD_LIMIT[tier]:
+            yield f"data: {json.dumps({'type': 'limit', 'scope': 'thread', 'tier': tier})}\n\n"
+            return
+        if turn_count >= TURN_LIMIT[tier]:
+            yield f"data: {json.dumps({'type': 'limit', 'scope': 'turn', 'tier': tier})}\n\n"
+            return
+        level = turn_count + 1
+
         # Fetch the most recent user message — used for memory/retrieval queries
         # and as the final user turn the guest responds to.
         last_user_result = await db.execute(
@@ -804,7 +853,7 @@ class ConversationService:
             memories=memories,
             passages=passages,
         )
-        system_prompt = system_prompt + "\n\n" + DEEPEN_DIRECTIVE
+        system_prompt = system_prompt + "\n\n" + DEEPEN_DIRECTIVE + DEEPEN_ESCALATION.get(level, "")
 
         # ── 4. BUILD MESSAGE HISTORY ─────────────────────────────────────────
         # Use same window limits as regular chat.
@@ -909,6 +958,7 @@ class ConversationService:
             db, conv, user_id, "assistant", full_response,
             retrieval_ids=[str(p.id) for p in passages],
             persona_id=target_db.id,
+            message_kind='go_deeper',
         )
         await db.execute(
             update(Conversation)
@@ -946,7 +996,7 @@ class ConversationService:
         self, db, conv, user_id, role, content,
         retrieval_ids=None, safety_level="none",
         persona_override=False, latency_ms=None,
-        persona_id=None,
+        persona_id=None, message_kind: str = 'standard',
     ) -> Message:
         msg = Message(
             conversation_id=conv.id,
@@ -958,6 +1008,7 @@ class ConversationService:
             persona_override=persona_override,
             latency_ms=latency_ms,
             persona_id=persona_id,
+            message_kind=message_kind,
         )
         db.add(msg)
         await db.flush()
