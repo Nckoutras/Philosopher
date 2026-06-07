@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronLeft, ChevronDown } from 'lucide-react'
+import { ChevronDown } from 'lucide-react'
+import SubPageNav from '@/components/layout/SubPageNav'
 import { useStore } from '@/lib/store'
 import { api, RateLimitError } from '@/lib/api'
 import type { SelfComparisonStatus, SavedLineRead } from '@/lib/api'
@@ -149,11 +150,7 @@ export default function YouVsYouPage() {
         className="relative z-10 min-h-screen [min-height:100svh] overflow-y-auto px-[24px] pt-[24px] pb-[60px] flex flex-col gap-[20px]"
         style={{ background: 'linear-gradient(to bottom, rgba(239,227,204,0.10) 0%, rgba(239,227,204,0.22) 100%)' }}
       >
-      <button type="button" onClick={() => router.push('/app/rituals')} aria-label="Back to rituals"
-        className="flex items-center gap-[4px] text-sepia self-start">
-        <ChevronLeft size={18} strokeWidth={1.5} />
-        <span className="font-lora text-[13px]">Rituals</span>
-      </button>
+      <SubPageNav fallbackHref="/app/rituals" />
 
       <p className="font-lora text-[11px] uppercase tracking-[0.24em] text-bronze-dark text-center">YOU VS. YOU</p>
 

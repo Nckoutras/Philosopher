@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronLeft } from 'lucide-react'
 import toast from 'react-hot-toast'
+import SubPageNav from '@/components/layout/SubPageNav'
 import { useStore } from '@/lib/store'
 import { api } from '@/lib/api'
 import type { ScheduledEmailListItem } from '@/lib/api'
@@ -53,14 +53,7 @@ export default function ScheduledLettersPage() {
     <main className="min-h-screen [min-height:100svh] bg-vellum pb-[80px]">
       {/* ── Header ── */}
       <div className="px-[24px] pt-[22px] pb-[16px] flex items-center gap-[12px]">
-        <button
-          type="button"
-          onClick={() => router.back()}
-          aria-label="Back"
-          className="flex items-center justify-center w-[32px] h-[32px] -ml-[4px]"
-        >
-          <ChevronLeft size={20} strokeWidth={1.5} className="text-sepia" />
-        </button>
+        <SubPageNav fallbackHref="/app/letters" />
         <div>
           <p className="font-lora text-[11px] uppercase tracking-[0.18em] text-sepia">
             Account

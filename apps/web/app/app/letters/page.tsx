@@ -2,11 +2,11 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronLeft } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import { api } from '@/lib/api'
 import type { WeeklyLetter } from '@/lib/api'
 import AppHeader from '@/components/layout/AppHeader'
+import SubPageNav from '@/components/layout/SubPageNav'
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
@@ -50,14 +50,7 @@ export default function LettersPage() {
       <AppHeader />
 
       <div className="px-[24px] pt-[22px] pb-[16px] flex items-center gap-[12px]">
-        <button
-          type="button"
-          onClick={() => router.push('/app/rituals')}
-          aria-label="Back to rituals"
-          className="flex items-center justify-center w-[32px] h-[32px] -ml-[4px]"
-        >
-          <ChevronLeft size={20} strokeWidth={1.5} className="text-sepia" />
-        </button>
+        <SubPageNav fallbackHref="/app/rituals" />
         <div>
           <p className="font-lora text-[11px] uppercase tracking-[0.18em] text-sepia">
             Rituals
