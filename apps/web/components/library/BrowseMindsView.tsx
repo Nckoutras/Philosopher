@@ -35,7 +35,7 @@ export default function BrowseMindsView({ personas, loading }: Props) {
           key={p.slug}
           type="button"
           onClick={() => router.push(`/app/persona/${p.slug}`)}
-          className="w-full text-left p-4 rounded-md border-[0.5px] bg-linen border-edge flex items-center gap-4 transition-colors active:bg-linen-deep"
+          className="w-full text-left p-4 rounded-md border-[0.5px] bg-paper border-edge flex items-center gap-4 transition-colors active:bg-linen"
         >
           <div className="w-14 h-14 rounded-full overflow-hidden bg-linen-deep flex-shrink-0">
             {p.portrait_url && (
