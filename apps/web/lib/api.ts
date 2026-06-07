@@ -10,6 +10,7 @@ export type SSEEventSafety = { type: 'safety'; level: string }
 export type SSEEventSafetyOverride = { type: 'safety_override'; level: string }
 export type SSEEventError = { type: 'error'; error_code: 'llm_unavailable'; persona_voice: string }
 export type SSEEventCorrection = { type: 'correction' }
+export type SSEEventLimit = { type: 'limit'; scope: 'turn' | 'thread'; tier: 'free' | 'pro' | 'premium' }
 
 // ── Council SSE event types ───────────────────────────────────────────────────
 export type SSEEventConvening = { type: 'convening' }
@@ -25,6 +26,7 @@ export type SSEEvent =
   | SSEEventSafetyOverride
   | SSEEventError
   | SSEEventCorrection
+  | SSEEventLimit
   | SSEEventConvening
   | SSEEventMember
   | SSEEventSynthesisStart

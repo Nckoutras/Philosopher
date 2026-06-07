@@ -77,21 +77,39 @@ export default function PaywallModal({ open, details, onClose }: Props) {
           ×
         </button>
 
-        <h2
-          id="paywall-title"
-          className="font-cormorant text-[26px] font-medium text-ink leading-tight mb-4"
-        >
-          Daily limit reached.
-        </h2>
+        {details.reason === 'go_deeper_depth' ? (
+          <>
+            <h2
+              id="paywall-title"
+              className="font-cormorant text-[26px] font-medium text-ink leading-tight mb-4"
+            >
+              You&apos;ve reached the depth of this conversation.
+            </h2>
 
-        <p className="font-lora text-[13px] text-charcoal leading-relaxed mb-2">
-          You&apos;ve used today&apos;s reflections with {personaLabel}.
-        </p>
+            <p className="font-lora text-[13px] text-charcoal leading-relaxed mb-8">
+              You&apos;ve pressed this thread as far as the free tier goes. Pro unfolds further &mdash;
+              more depth per reply, longer threads.
+            </p>
+          </>
+        ) : (
+          <>
+            <h2
+              id="paywall-title"
+              className="font-cormorant text-[26px] font-medium text-ink leading-tight mb-4"
+            >
+              Daily limit reached.
+            </h2>
 
-        <p className="font-lora text-[13px] text-charcoal leading-relaxed mb-8">
-          Your free conversations reset{' '}
-          {formatResetAt(details.resetAt)}.
-        </p>
+            <p className="font-lora text-[13px] text-charcoal leading-relaxed mb-2">
+              You&apos;ve used today&apos;s reflections with {personaLabel}.
+            </p>
+
+            <p className="font-lora text-[13px] text-charcoal leading-relaxed mb-8">
+              Your free conversations reset{' '}
+              {details.resetAt ? formatResetAt(details.resetAt) : ''}.
+            </p>
+          </>
+        )}
 
         <div className="flex flex-col gap-3">
           <div className="relative group">
