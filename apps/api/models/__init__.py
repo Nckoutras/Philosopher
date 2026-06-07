@@ -122,6 +122,7 @@ class Message(Base):
     retrieval_ids: Mapped[list | None] = mapped_column(JSONB)
     safety_level: Mapped[str] = mapped_column(String(20), default="none")
     persona_override: Mapped[bool] = mapped_column(Boolean, default=False)
+    message_kind: Mapped[str] = mapped_column(String(20), nullable=False, default='standard')
     latency_ms: Mapped[int | None] = mapped_column(Integer)
     persona_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), ForeignKey("personas.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
