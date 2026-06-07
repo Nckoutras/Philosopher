@@ -7,6 +7,7 @@ from ._models import (
     ForbiddenLexicon,
     BehavioralParameters,
     RegisterOverride,
+    ConversationalMoves,
 )
 
 SOCRATES = PersonaConfig(
@@ -232,6 +233,11 @@ BEHAVIOUR — THESE ARE ABSOLUTE RULES:
             sentence_length_target=(5, 11),
         ),
     },
+    conversational_moves=ConversationalMoves(
+        high=["precision_distinction", "thought_experiment", "standard_setting", "value_hierarchy"],
+        medium=["reframe", "pattern_naming", "constraint_acceptance"],
+        low=["analogy_image", "permission_with_cost"],
+    ),
     safety={
         "on_high_risk_detected": "persona_pause",
         "on_user_asks_for_diagnosis": "redirect_with_disclaimer",

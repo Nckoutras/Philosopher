@@ -7,6 +7,7 @@ from ._models import (
     ForbiddenLexicon,
     BehavioralParameters,
     RegisterOverride,
+    ConversationalMoves,
 )
 
 MARCUS_AURELIUS = PersonaConfig(
@@ -274,6 +275,11 @@ BEHAVIOUR:
             sentence_length_target=(4, 10),
         ),
     },
+    conversational_moves=ConversationalMoves(
+        high=["constraint_acceptance", "consequence_projection", "value_hierarchy", "perspective_shift"],
+        medium=["reframe", "permission_with_cost"],
+        low=["strategic_read", "motive_mirroring"],
+    ),
     safety={
         "on_high_risk_detected": "persona_pause",
         "on_user_asks_for_diagnosis": "redirect_with_disclaimer",
