@@ -301,6 +301,17 @@ export function useStream() {
               resetStreaming()
               break
             }
+            case 'limit': {
+              if (event.scope === 'turn') {
+                toast("You've drawn this reply as far as it goes — bring a new thought, or another mind.")
+              } else if (event.tier === 'free') {
+                setShowPaywall(true, { upgradeTarget: 'pro', reason: 'go_deeper_depth' })
+              } else {
+                toast("You've reached this conversation's depth. Start a fresh thread to keep going.")
+              }
+              resetStreaming()
+              break
+            }
             case 'error':
               pendingStreamError = { error_code: event.error_code, persona_voice: event.persona_voice }
               break

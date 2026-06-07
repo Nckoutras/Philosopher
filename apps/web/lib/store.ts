@@ -5,8 +5,9 @@ import { api } from './api'
 
 export interface PaywallDetails {
   upgradeTarget: 'pro' | 'premium'
-  resetAt: Date
-  limit: number
+  reason?: 'daily' | 'go_deeper_depth'
+  resetAt?: Date
+  limit?: number
   personaVoice?: string
 }
 
