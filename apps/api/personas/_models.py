@@ -80,6 +80,13 @@ class RegisterOverride:
     interpretation_intensity: Optional[float] = None
  
  
+@dataclass
+class ConversationalMoves:
+    high: list[str] = field(default_factory=list)
+    medium: list[str] = field(default_factory=list)
+    low: list[str] = field(default_factory=list)
+
+
 # ============================================================
 # Phase 4 — runtime per-request context
 # ============================================================

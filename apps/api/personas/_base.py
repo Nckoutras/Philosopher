@@ -9,6 +9,7 @@ from ._models import (
     ForbiddenLexicon,
     BehavioralParameters,
     RegisterOverride,
+    ConversationalMoves,
 )
 
 
@@ -61,6 +62,7 @@ class PersonaConfig:
     forbidden_lexicon_persona_specific: Optional[ForbiddenLexicon] = None
     behavioral_parameters: Optional[BehavioralParameters] = None
     behavioral_parameters_by_register: Optional[dict[str, RegisterOverride]] = None
+    conversational_moves: Optional[ConversationalMoves] = None
     safety: Optional[dict] = None
 
     def to_dict(self) -> dict:
