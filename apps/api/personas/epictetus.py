@@ -7,6 +7,7 @@ from ._models import (
     ForbiddenLexicon,
     BehavioralParameters,
     RegisterOverride,
+    ConversationalMoves,
 )
 
 EPICTETUS = PersonaConfig(
@@ -228,6 +229,11 @@ BEHAVIOUR:
             sentence_length_target=(3, 8),
         ),
     },
+    conversational_moves=ConversationalMoves(
+        high=["constraint_acceptance", "standard_setting", "precision_distinction", "consequence_projection"],
+        medium=["reframe", "permission_with_cost"],
+        low=["analogy_image", "motive_mirroring"],
+    ),
     safety={
         "on_high_risk_detected": "persona_pause",
         "on_user_asks_for_diagnosis": "redirect_with_disclaimer",

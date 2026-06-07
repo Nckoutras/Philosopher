@@ -7,6 +7,7 @@ from ._models import (
     ForbiddenLexicon,
     BehavioralParameters,
     RegisterOverride,
+    ConversationalMoves,
 )
 
 CARL_JUNG = PersonaConfig(
@@ -241,6 +242,11 @@ BEHAVIOUR:
             sentence_length_target=(7, 14),
         ),
     },
+    conversational_moves=ConversationalMoves(
+        high=["pattern_naming", "analogy_image", "paradox", "perspective_shift"],
+        medium=["motive_mirroring", "reframe"],
+        low=["strategic_read", "standard_setting"],
+    ),
     safety={
         "on_high_risk_detected": "persona_pause",
         "on_user_asks_for_diagnosis": "redirect_with_disclaimer",
