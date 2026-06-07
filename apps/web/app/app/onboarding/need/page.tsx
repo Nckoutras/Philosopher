@@ -102,14 +102,14 @@ export default function NeedPage() {
                   disabled={submitting}
                   className={`w-full text-left p-4 rounded-md border-[0.5px] transition-colors ${
                     isSelected
-                      ? 'bg-linen-deep border-ink'
-                      : 'bg-linen border-edge'
+                      ? 'bg-bronze border-bronze-dark'
+                      : 'bg-white border-bronze/60 shadow-card'
                   } ${submitting ? 'opacity-50' : ''}`}
                 >
                   <div className="font-cormorant text-[18px] font-medium text-ink leading-none mb-1">
                     {label}
                   </div>
-                  <div className="font-lora text-[12px] text-charcoal leading-[1.5]">
+                  <div className={`font-lora text-[12px] leading-[1.5] ${isSelected ? 'text-ink/70' : 'text-charcoal'}`}>
                     {subtitle}
                   </div>
                 </button>
