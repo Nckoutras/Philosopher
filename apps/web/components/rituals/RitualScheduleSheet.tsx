@@ -83,7 +83,7 @@ export default function RitualScheduleSheet({ open, onClose, userEmail }: Props)
       {/* ── Header ── */}
       <div className="px-6 pt-5 pb-3 border-b border-[0.5px] border-edge flex items-start justify-between flex-shrink-0">
         <div>
-          <p className="font-cormorant text-[19px] font-medium text-ink">
+          <p className="font-cormorant text-[21px] font-medium text-ink">
             Message to future self
           </p>
           <p className="font-lora text-[12px] text-charcoal mt-[2px]">
@@ -103,15 +103,48 @@ export default function RitualScheduleSheet({ open, onClose, userEmail }: Props)
       {/* ── Form body ── */}
       <div className="overflow-y-auto flex-1 px-6 py-5 flex flex-col gap-[18px]">
 
+        {/* Datetime picker (C1: local time, not UTC) */}
+        <div>
+          <label className="font-lora text-[12px] font-medium uppercase tracking-[0.18em] text-charcoal block mb-[8px]">
+            Deliver on
+          </label>
+          <input
+            type="datetime-local"
+            value={scheduledFor}
+            min={minDate}
+            max={maxDate}
+            onChange={(e) => setScheduledFor(e.target.value)}
+            className="w-full bg-paper border border-[0.5px] border-edge rounded-sm px-[12px] py-[10px] font-lora text-[14px] text-ink [color-scheme:light]"
+          />
+          <p className="font-lora text-[12px] text-charcoal mt-[4px]">
+            Minimum 1 hour from now · Maximum 5 years
+          </p>
+        </div>
+
+        {/* Note textarea */}
+        <div>
+          <label className="font-lora text-[12px] font-medium uppercase tracking-[0.18em] text-charcoal block mb-[8px]">
+            A note for your future self
+          </label>
+          <textarea
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            maxLength={2000}
+            rows={3}
+            placeholder="What do you want to remember?"
+            className="w-full bg-paper border border-[0.5px] border-edge rounded-sm px-[12px] py-[10px] font-lora text-[14px] text-ink placeholder:text-charcoal/40 resize-none"
+          />
+        </div>
+
         {/* Reflection picker */}
         <div>
-          <label className="font-lora text-[11px] uppercase tracking-[0.18em] text-sepia block mb-[8px]">
+          <label className="font-lora text-[12px] font-medium uppercase tracking-[0.18em] text-charcoal block mb-[8px]">
             Reflection
           </label>
           {savedLines === null ? (
-            <p className="font-lora text-[13px] text-sepia italic">Loading…</p>
+            <p className="font-lora text-[14px] text-sepia italic">Loading…</p>
           ) : savedLines.length === 0 ? (
-            <p className="font-lora text-[13px] text-charcoal leading-[1.55]">
+            <p className="font-lora text-[14px] text-charcoal leading-[1.55]">
               No saved reflections yet. Tap <em>Save line</em> on any persona reply first.
             </p>
           ) : (
@@ -124,50 +157,16 @@ export default function RitualScheduleSheet({ open, onClose, userEmail }: Props)
           )}
         </div>
 
-        {/* Note textarea */}
-        <div>
-          <label className="font-lora text-[11px] uppercase tracking-[0.18em] text-sepia block mb-[8px]">
-            A note for your future self{' '}
-            <span className="normal-case tracking-normal text-charcoal">(optional)</span>
-          </label>
-          <textarea
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            maxLength={2000}
-            rows={3}
-            placeholder="What do you want to remember?"
-            className="w-full bg-paper border border-[0.5px] border-edge rounded-sm px-[12px] py-[10px] font-lora text-[13px] text-ink placeholder:text-charcoal/40 resize-none"
-          />
-        </div>
-
-        {/* Datetime picker (C1: local time, not UTC) */}
-        <div>
-          <label className="font-lora text-[11px] uppercase tracking-[0.18em] text-sepia block mb-[8px]">
-            Deliver on
-          </label>
-          <input
-            type="datetime-local"
-            value={scheduledFor}
-            min={minDate}
-            max={maxDate}
-            onChange={(e) => setScheduledFor(e.target.value)}
-            className="w-full bg-paper border border-[0.5px] border-edge rounded-sm px-[12px] py-[10px] font-lora text-[13px] text-ink [color-scheme:light]"
-          />
-          <p className="font-lora text-[11px] text-charcoal mt-[4px]">
-            Minimum 1 hour from now · Maximum 5 years
-          </p>
-        </div>
-
         {/* Recipient (read-only v1) */}
         <div>
-          <label className="font-lora text-[11px] uppercase tracking-[0.18em] text-sepia block mb-[8px]">
+          <label className="font-lora text-[12px] font-medium uppercase tracking-[0.18em] text-charcoal block mb-[8px]">
             To
           </label>
-          <p className="font-lora text-[13px] text-charcoal">{userEmail}</p>
+          <p className="font-lora text-[14px] text-charcoal">{userEmail}</p>
         </div>
 
         {fieldError && (
-          <p className="font-lora text-[13px] text-red-600 leading-snug">{fieldError}</p>
+          <p className="font-lora text-[14px] text-red-600 leading-snug">{fieldError}</p>
         )}
       </div>
 
