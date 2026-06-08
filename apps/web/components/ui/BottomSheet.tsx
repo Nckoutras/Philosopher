@@ -25,7 +25,7 @@ export default function BottomSheet({ open, onClose, children, maxHeight = '75sv
   return (
     <AnimatePresence>
       {open && (
-        <div className="fixed inset-0 z-50">
+        <div className="fixed inset-0 z-[60]">
           <motion.div
             className="absolute inset-0 bg-[rgba(31,27,20,0.5)]"
             initial={{ opacity: 0 }}
