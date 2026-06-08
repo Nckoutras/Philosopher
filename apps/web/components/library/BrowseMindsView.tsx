@@ -49,7 +49,7 @@ export default function BrowseMindsView({ personas, loading }: Props) {
             )}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="font-cormorant text-[17px] font-medium text-ink leading-tight mb-1">
+            <p className="font-cormorant text-[18px] font-medium text-ink leading-tight mb-1">
               {p.name}
             </p>
             {p.tagline && (
