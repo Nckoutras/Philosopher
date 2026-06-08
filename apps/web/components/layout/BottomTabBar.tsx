@@ -37,7 +37,7 @@ export default function BottomTabBar() {
 
   return (
     <nav
-      className="fixed bottom-0 left-0 right-0 h-16 bg-paper border-t border-[0.5px] border-edge flex items-stretch z-50"
+      className="w-full h-16 bg-paper border-t border-[0.5px] border-edge flex items-stretch flex-shrink-0"
       aria-label="Main navigation"
     >
       {TABS.map((tab) => {
