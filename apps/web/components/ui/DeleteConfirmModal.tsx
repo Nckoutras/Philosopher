@@ -25,18 +25,7 @@ export default function DeleteConfirmModal({
 }: Props) {
   const cancelRef = useRef<HTMLButtonElement>(null)
 
-  // Push a history entry so the back button closes the modal
-  useEffect(() => {
-    if (!open) return
-    window.history.pushState({ modal: 'delete-confirm' }, '')
-    return () => {
-      if (window.history.state?.modal === 'delete-confirm') {
-        window.history.back()
-      }
-    }
-  }, [open])
-
-  // Keyboard (Escape + Tab trap) and back-button (popstate) handlers
+  // Keyboard (Escape + Tab trap) handlers
   useEffect(() => {
     if (!open) return
     function handleKeyDown(e: KeyboardEvent) {
@@ -54,12 +43,9 @@ export default function DeleteConfirmModal({
         e.preventDefault(); first.focus()
       }
     }
-    function handlePopState() { onClose() }
     document.addEventListener('keydown', handleKeyDown)
-    window.addEventListener('popstate', handlePopState)
     return () => {
       document.removeEventListener('keydown', handleKeyDown)
-      window.removeEventListener('popstate', handlePopState)
     }
   }, [open, loading, onClose])
 

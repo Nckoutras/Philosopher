@@ -98,15 +98,6 @@ export default function TodayPage() {
     load()
   }, [token, router])
 
-  useEffect(() => {
-    window.history.pushState({ floor: 'today' }, '', '/app/today')
-    function handlePopState() {
-      window.history.pushState({ floor: 'today' }, '', '/app/today')
-    }
-    window.addEventListener('popstate', handlePopState)
-    return () => window.removeEventListener('popstate', handlePopState)
-  }, [])
-
   function handleFirstDayReflect() {
     setPendingTopic('')
     setTopicPickerOpen(true)

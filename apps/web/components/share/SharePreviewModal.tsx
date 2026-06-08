@@ -48,18 +48,7 @@ export default function SharePreviewModal({
     }
   }, [isOpen])
 
-  // Push history entry so the back button closes the modal
-  useEffect(() => {
-    if (!isOpen) return
-    window.history.pushState({ modal: 'share-preview' }, '')
-    return () => {
-      if (window.history.state?.modal === 'share-preview') {
-        window.history.back()
-      }
-    }
-  }, [isOpen])
-
-  // Keyboard (Escape + Tab trap) and popstate handlers
+  // Keyboard (Escape + Tab trap) handlers
   useEffect(() => {
     if (!isOpen) return
     function handleKeyDown(e: KeyboardEvent) {
@@ -79,12 +68,9 @@ export default function SharePreviewModal({
         e.preventDefault(); first.focus()
       }
     }
-    function handlePopState() { onClose() }
     document.addEventListener('keydown', handleKeyDown)
-    window.addEventListener('popstate', handlePopState)
     return () => {
       document.removeEventListener('keydown', handleKeyDown)
-      window.removeEventListener('popstate', handlePopState)
     }
   }, [isOpen, shareLoading, onClose])
 

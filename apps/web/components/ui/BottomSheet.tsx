@@ -11,21 +11,15 @@ interface Props {
 }
 
 export default function BottomSheet({ open, onClose, children, maxHeight = '75svh' }: Props) {
+  // Close on Escape. (Replaces the previous browser-history dismissal mechanism,
+  // which collided with Next.js App Router client navigation and froze the tabs.)
   useEffect(() => {
     if (!open) return
-    window.history.pushState({ modal: 'bottom-sheet' }, '')
-    return () => {
-      if (window.history.state?.modal === 'bottom-sheet') {
-        window.history.back()
-      }
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose()
     }
-  }, [open])
-
-  useEffect(() => {
-    if (!open) return
-    function handlePopState() { onClose() }
-    window.addEventListener('popstate', handlePopState)
-    return () => window.removeEventListener('popstate', handlePopState)
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
   }, [open, onClose])
 
   return (
