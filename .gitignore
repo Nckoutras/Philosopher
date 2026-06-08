@@ -23,3 +23,11 @@ next-env.d.ts
 .claude/
 .DS_Store
 Thumbs.db
+
+# --- Local secret / env backups — NEVER commit ---
+scripts/migration/
+*env_backup*.json
+*.env.backup
+
+# --- Generated API spec (FastAPI auto-export) — local artifact ---
+openapi.json
