@@ -21,9 +21,10 @@ async def get_user_tier(db: AsyncSession, user_id: UUID) -> Literal["free", "pro
         return "free"
     if sub.status not in ("active", "trialing"):
         return "free"
-    if sub.current_period_end is None:
-        return "free"
-    if sub.current_period_end <= datetime.now(timezone.utc):
+    # NULL current_period_end = manual/comp grant with no expiry. Stripe-managed
+    # subscriptions always set current_period_end, so NULL only ever occurs for
+    # manually-granted access. Only an explicit past expiry downgrades to free.
+    if sub.current_period_end is not None and sub.current_period_end <= datetime.now(timezone.utc):
         return "free"
     if sub.plan not in ("pro", "premium"):
         return "free"

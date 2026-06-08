@@ -57,6 +57,16 @@ async def test_no_subscription_returns_free():
     assert await get_user_tier(db, USER_ID) == "free"
 
 
+# ── Manually-granted / comp access (current_period_end=NULL) ─────────────────
+
+@pytest.mark.asyncio
+async def test_comp_grant_null_period_end_returns_pro():
+    # Stripe always sets current_period_end; NULL means manual grant with no expiry.
+    sub = _make_sub(status="active", current_period_end=None, plan="pro")
+    db = _make_db(sub)
+    assert await get_user_tier(db, USER_ID) == "pro"
+
+
 # ── Cancelled subscription ────────────────────────────────────────────────────
 
 @pytest.mark.asyncio
