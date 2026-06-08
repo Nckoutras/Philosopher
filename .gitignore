@@ -11,3 +11,15 @@ apps/api/scripts/test_matches_endpoint.py
 .env
 .env.*
 !.env.example
+
+# --- Node / Next.js ---
+node_modules/
+.next/
+out/
+next-env.d.ts
+*.tsbuildinfo
+
+# --- Tooling / editor / OS ---
+.claude/
+.DS_Store
+Thumbs.db
