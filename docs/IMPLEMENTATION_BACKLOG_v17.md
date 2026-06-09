@@ -3,7 +3,7 @@
 > **Purpose:** Source of truth for implementation work for The Wise Room / Philosopher v1 launch.
 > **v17 = v16 baseline (2026-06-03) + 2026-06-03 session delta (PR #210: 3 bug fixes; rituals micro-polish: half-sphere YvY SVG, Letter whole-card tap; app icon deferred; daily_questions: 50 phenomenology themes active, old 30 deactivated; backfill-titles executed queued=0; OTP lockout root cause documented; Pro test account created).**
 >
-> **Generated:** 2026-06-03 (v17 rotation) · **Last updated:** 2026-06-03
+> **Generated:** 2026-06-03 (v17 rotation) · **Last updated:** 2026-06-09 (TD-30 added)
 >
 > **How to read this file:**
 > - This v17 file supersedes v16 and all prior backlog files.
@@ -238,6 +238,16 @@ Sandbox complete. Live wiring: live keys + live price IDs + separate live-mode w
 
 Photo icon (`appbutton.png`) tried and removed. A purpose-built icon mark is required. Design TBD. Next attempt: wire `apps/web/app/icon.png` and `apps/web/app/apple-icon.png` once mark is ready.
 
+### TD-30 — `zoom: 1.15` / `100svh/1.15` compensation coupled across three sites (P4)
+
+`apps/web/app/globals.css` sets `body { zoom: 1.15 }`. CSS `zoom` magnifies `position: fixed` descendants and their viewport-unit sizing, so any full-viewport or bottom-anchored fixed overlay must divide its height by 1.15 or it renders ~15% below the visible viewport (bottom content / submit buttons cut off). Three sites now carry this divisor:
+
+1. `app/app/(tabs)/layout.tsx` — tabs shell `h-[calc(100svh/1.15)]`
+2. `components/ui/BottomSheet.tsx` — container `h-[calc(100svh/1.15)]` + `maxHeight: calc(<prop> / 1.15)` (#263, 2026-06-09)
+3. `app/app/mirror/page.tsx` — "Whose eyes?" host picker container `h-[calc(100svh/1.15)]` (2026-06-09)
+
+These are coupled: when `zoom: 1.15` is eventually removed (durable fix = drop the global zoom hack and size the app shell responsively), **all three `/1.15` divisors and BottomSheet's `maxHeight` calc must be removed together**, or those overlays become 15% too short. Until then, any new full-viewport/bottom-anchored fixed overlay must apply the same `/1.15` compensation.
+
 ---
 
 ## 4. Database schemas
@@ -466,6 +476,7 @@ Full text in prior backlog files. Key rules: P-01 through P-06 in CLAUDE.md.
 - [ ] **TD-06** — `safety_events.message_id` always NULL
 - [ ] **TD-07** — gh CLI install on founder's Windows
 - [ ] **TD-14** — BASE_URL legacy cleanup in config.py
+- [ ] **TD-30 — `zoom:1.15` / `100svh/1.15` coupling** across tabs shell, BottomSheet (#263), Mirror picker; remove all divisors + BottomSheet maxHeight calc together when the global zoom hack is dropped
 - [ ] **openapi.json → .gitignore**
 - [ ] **Legal pages `target="_blank"` rel hardening**
 - [ ] **Stale branch cleanup**
