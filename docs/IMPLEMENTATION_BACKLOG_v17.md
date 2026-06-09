@@ -3,7 +3,7 @@
 > **Purpose:** Source of truth for implementation work for The Wise Room / Philosopher v1 launch.
 > **v17 = v16 baseline (2026-06-03) + 2026-06-03 session delta (PR #210: 3 bug fixes; rituals micro-polish: half-sphere YvY SVG, Letter whole-card tap; app icon deferred; daily_questions: 50 phenomenology themes active, old 30 deactivated; backfill-titles executed queued=0; OTP lockout root cause documented; Pro test account created).**
 >
-> **Generated:** 2026-06-03 (v17 rotation) · **Last updated:** 2026-06-09 (TD-30 added)
+> **Generated:** 2026-06-03 (v17 rotation) · **Last updated:** 2026-06-09 (TD-30, TD-31 added)
 >
 > **How to read this file:**
 > - This v17 file supersedes v16 and all prior backlog files.
@@ -248,6 +248,12 @@ Photo icon (`appbutton.png`) tried and removed. A purpose-built icon mark is req
 
 These are coupled: when `zoom: 1.15` is eventually removed (durable fix = drop the global zoom hack and size the app shell responsively), **all three `/1.15` divisors and BottomSheet's `maxHeight` calc must be removed together**, or those overlays become 15% too short. Until then, any new full-viewport/bottom-anchored fixed overlay must apply the same `/1.15` compensation.
 
+### TD-31 — Cache You-vs-You "taking shape" forming reflection (P2)
+
+`self_comparison_service.forming_reflection()` synthesizes the warm second-person reflection on **every forming-state `/status` load** (one `llm_client.complete` call + latency each time the locked You-vs-You screen opens). Introduced 2026-06-09 with the block-scoped synthesis (`feat/yvy-forming-reflection`). The recent signals only change when new `MemoryEntry` rows are added, so the reflection is recomputed needlessly on repeat views.
+
+Optimization: cache the synthesized reflection and regenerate only when new signals arrive — e.g. key the cache on user_id + latest signal `created_at` (or count of the last-N signals), or persist it on a column and invalidate when memory extraction writes new entries. Removes the per-view LLM call/latency. Not a correctness issue; defer until after the wording is validated live.
+
 ---
 
 ## 4. Database schemas
@@ -459,6 +465,7 @@ Full text in prior backlog files. Key rules: P-01 through P-06 in CLAUDE.md.
 - [ ] **TD-17** — Weekly Reading full implementation (post cold-beta)
 - [ ] **TD-20** — safety_events.message_id FK ondelete
 - [ ] **TD-21** — passive_deletes audit
+- [ ] **TD-31 — Cache You-vs-You forming reflection** — `forming_reflection()` runs an LLM call on every forming-state `/status` load; cache + invalidate on new signals (introduced `feat/yvy-forming-reflection`, 2026-06-09)
 
 ### 11.4 P3
 
