@@ -44,6 +44,9 @@ async def _build_last_snippets(db: AsyncSession, convs: list[Conversation], max_
         select(Message.conversation_id, Message.content)
         .where(Message.conversation_id.in_(conv_ids))
         .where(Message.role == "assistant")
+        # CONCLUSION EXCLUSION: list preview should be the real last spoken line,
+        # not a distilled conclusion bubble.
+        .where(Message.message_kind != 'conclusion')
         .order_by(Message.conversation_id, Message.created_at.desc())
         .distinct(Message.conversation_id)
     )
@@ -220,6 +223,7 @@ async def get_messages(
             safety_level=m.safety_level,
             persona_override=m.persona_override,
             persona_slug=m.persona.slug if m.persona else None,
+            message_kind=m.message_kind,
             created_at=m.created_at,
         )
         for m in msgs.scalars().all()

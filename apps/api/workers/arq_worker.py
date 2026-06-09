@@ -75,6 +75,21 @@ Rules:
 - Frame every reading as a lens you are offering, never a verdict you are delivering. Prefer "you may be...", "perhaps...", "what if..." over flat pronouncements about who they are. Sharpness is welcome; certainty about their character is not. Even a hard truth is offered as something to consider, not a sentence passed.
 - Be grounded and brief. No clinical or therapy language. You are a reflective companion, not a therapist — never diagnose."""
 
+CONCLUSION_PROMPT = """You are {persona_name}{persona_tradition_clause}. You have been listening to someone think aloud across a conversation. Most of what is said is not worth keeping. But occasionally a real theme surfaces — a question they keep circling, a tension they are living inside, something with weight.
+
+You will receive recent turns of the conversation, tagged by speaker.
+
+Your task: decide whether a genuinely save-worthy theme has emerged, and if so, distill it into a single weighty conclusion — at most two sentences, aphoristic, in your own voice. Not a summary of what was said. A crystallization of what it was *about* — the kind of line a person would want to keep and return to.
+
+Rules:
+- If nothing has yet risen to that weight, respond with exactly: NOT_YET
+- Otherwise respond with ONLY the conclusion text — at most two sentences. No preamble, no quotation marks, no attribution, no roleplay, do not continue the conversation.
+- Speak in your own philosophical voice and tradition. Gravity, not cleverness.
+- Address the theme, not the person clinically. No therapy language."""
+
+# How many recent turns the conclusion assessment reads as context. Worker-local.
+CONCLUSION_CONTEXT_WINDOW = 14
+
 
 # ── Tasks ─────────────────────────────────────────────────────────────────────
 
@@ -152,6 +167,129 @@ async def generate_insight_task(ctx, user_id: str, conversation_id: str):
             logger.error(f"Insight task failed: {e}", exc_info=True)
 
 
+async def assess_conclusion_task(ctx, conversation_id: str, user_id: str):
+    """Gravity-gated conclusion: assess whether the conversation has surfaced a
+    save-worthy theme and, if so, distill it into a <=2-sentence conclusion in
+    the persona's voice. May emit nothing ('not yet'). Off the chat critical
+    path; logs to the WORKER.
+
+    Storage: a messages row with message_kind='conclusion'. It does NOT increment
+    Conversation.message_count and is excluded from every LLM-context / counting
+    read path (see conversation_service history loads, title-gen, previews).
+    """
+    from db.session import AsyncSessionLocal
+    from models import Message, Conversation, Persona
+    from sqlalchemy import select, func
+    from services.llm_client import llm_client
+    from services.conversation_service import CONCLUSION_CADENCE
+
+    async with AsyncSessionLocal() as db:
+        try:
+            conv_result = await db.execute(
+                select(Conversation).where(Conversation.id == conversation_id)
+            )
+            conv = conv_result.scalar_one_or_none()
+            if conv is None:
+                return
+
+            # ── DEDUP ────────────────────────────────────────────────────────
+            # Don't emit a new conclusion unless at least CONCLUSION_CADENCE real
+            # (non-conclusion) messages have passed since the last one. This both
+            # spaces conclusions out and makes the task idempotent against ARQ's
+            # at-least-once delivery / duplicate enqueues.
+            last_concl_at = (
+                await db.execute(
+                    select(func.max(Message.created_at)).where(
+                        Message.conversation_id == conversation_id,
+                        Message.message_kind == 'conclusion',
+                    )
+                )
+            ).scalar()
+            if last_concl_at is not None:
+                since = (
+                    await db.execute(
+                        select(func.count()).select_from(Message).where(
+                            Message.conversation_id == conversation_id,
+                            Message.message_kind != 'conclusion',
+                            Message.created_at > last_concl_at,
+                        )
+                    )
+                ).scalar()
+                if (since or 0) < CONCLUSION_CADENCE:
+                    logger.info(
+                        "Conclusion skipped (dedup) conv=%s: only %s msgs since last",
+                        conversation_id, since,
+                    )
+                    return
+
+            # ── CONTEXT WINDOW (conclusions excluded; real turns only) ────────
+            window_result = await db.execute(
+                select(Message)
+                .where(
+                    Message.conversation_id == conversation_id,
+                    Message.role.in_(("user", "assistant")),
+                    Message.message_kind != 'conclusion',
+                )
+                .order_by(Message.created_at.desc())
+                .limit(CONCLUSION_CONTEXT_WINDOW)
+            )
+            window = list(reversed(window_result.scalars().all()))
+            if not window:
+                return
+
+            # ── SAFETY GATE (defense-in-depth; enqueue site already skips when
+            #    the persona is safety-suppressed, like the memory task) ───────
+            if any(m.safety_level in ("high", "critical") for m in window):
+                logger.info("Conclusion suppressed conv=%s (safety gate)", conversation_id)
+                return
+
+            persona = (
+                await db.execute(select(Persona).where(Persona.id == conv.persona_id))
+            ).scalar_one_or_none()
+            persona_tradition_clause = (
+                (", " + persona.tradition) if persona and persona.tradition else ""
+            )
+            system = CONCLUSION_PROMPT.format(
+                persona_name=persona.name if persona else "A thoughtful observer",
+                persona_tradition_clause=persona_tradition_clause,
+            )
+            transcript = "\n".join(
+                f"{'PERSON' if m.role == 'user' else 'YOU'}: {m.content}" for m in window
+            )
+
+            raw = await llm_client.complete(
+                system=system,
+                user=f"<conversation>\n{transcript}\n</conversation>",
+                model=config.ANTHROPIC_MODEL,  # SONNET — the gravity/differentiation artifact
+                max_tokens=160,
+            )
+            text = (raw or "").strip()
+            # Strip wrapping quotes if the model added them despite instructions.
+            if len(text) >= 2 and text[0] in '"\'' and text[-1] in '"\'':
+                text = text[1:-1].strip()
+
+            if not text or text.upper() == "NOT_YET":
+                logger.info("Conclusion: not yet for conv=%s", conversation_id)
+                return
+
+            # ── PERSIST as a conclusion row. NOTE: deliberately does NOT touch
+            #    Conversation.message_count — turn math (message_count // 2) and
+            #    the standard/go_deeper limit counts must stay correct. ─────────
+            db.add(Message(
+                conversation_id=conversation_id,
+                user_id=user_id,
+                role="assistant",
+                content=text,
+                persona_id=conv.persona_id,
+                message_kind="conclusion",
+                safety_level="none",
+            ))
+            await db.commit()
+            logger.info("Conclusion generated for conv=%s", conversation_id)
+        except Exception as e:
+            logger.error("assess_conclusion_task failed for %s: %s", conversation_id, e, exc_info=True)
+
+
 async def generate_conversation_title(ctx, conversation_id: str):
     """Generates a short title for a conversation from its first 4 messages."""
     from db.session import AsyncSessionLocal
@@ -163,7 +301,12 @@ async def generate_conversation_title(ctx, conversation_id: str):
         try:
             msgs_result = await db.execute(
                 select(Message)
-                .where(Message.conversation_id == conversation_id)
+                .where(
+                    Message.conversation_id == conversation_id,
+                    # CONCLUSION EXCLUSION: keep distilled conclusions out of the
+                    # title-generation context (they are not real conversation turns).
+                    Message.message_kind != 'conclusion',
+                )
                 .order_by(Message.created_at.asc())
                 .limit(4)
             )
@@ -555,6 +698,7 @@ class WorkerSettings:
     functions = [
         extract_memory_task,
         generate_insight_task,
+        assess_conclusion_task,
         generate_conversation_title,
         send_ritual_reminder_task,
         generate_weekly_mirror_task,

@@ -56,7 +56,12 @@ async def get_last_conversation(
 
     last_msg_result = await db.execute(
         select(Message)
-        .where(Message.conversation_id == conv.id, Message.role == "assistant")
+        .where(
+            Message.conversation_id == conv.id,
+            Message.role == "assistant",
+            # CONCLUSION EXCLUSION: home snippet = real last spoken line.
+            Message.message_kind != 'conclusion',
+        )
         .order_by(Message.created_at.desc())
         .limit(1)
     )

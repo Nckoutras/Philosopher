@@ -35,6 +35,12 @@ MODEL_PRO = "claude-sonnet-4-6"
 MEMORY_WINDOW_FREE = 5
 MEMORY_WINDOW_PRO = 20
 
+# Gravity-gated conclusion assessment (async, off the chat critical path).
+# First assessment fires at CONCLUSION_MIN_DEPTH messages, then every
+# CONCLUSION_CADENCE messages thereafter. Tunable.
+CONCLUSION_MIN_DEPTH = 8
+CONCLUSION_CADENCE = 6
+
 logger = logging.getLogger(__name__)
 
 SSE_SAFETY_TOKEN = "\n\n[PHILOSOPHER_SAFETY_OVERRIDE]\n\n"
@@ -340,7 +346,14 @@ class ConversationService:
         # ── 5. BUILD MESSAGE HISTORY ─────────────────────────────────────────
         history_result = await db.execute(
             select(Message)
-            .where(Message.conversation_id == conversation_id)
+            .where(
+                Message.conversation_id == conversation_id,
+                # CONCLUSION EXCLUSION: distilled conclusion rows must NEVER enter
+                # the LLM context window. message_kind is NOT NULL (default
+                # 'standard'), so this filter is byte-equivalent to the prior
+                # behaviour for all existing/standard/go_deeper rows.
+                Message.message_kind != 'conclusion',
+            )
             .order_by(Message.created_at.asc())
             .limit(MEMORY_WINDOW_PRO if user_plan in ("pro", "premium") else MEMORY_WINDOW_FREE)
         )
@@ -602,6 +615,20 @@ class ConversationService:
                 (conv.message_count or 0) // 2,
             )
 
+        # Gravity-gated conclusion: assess (and maybe distill) only at cadence,
+        # never before min-depth, and never when the persona is safety-suppressed
+        # (same gate as memory extraction above). The task itself decides whether
+        # the conversation is save-worthy yet — it may emit nothing.
+        if (
+            arq_queue is not None
+            and not safety_out.should_suppress_persona
+            and new_message_count >= CONCLUSION_MIN_DEPTH
+            and (new_message_count - CONCLUSION_MIN_DEPTH) % CONCLUSION_CADENCE == 0
+        ):
+            await arq_queue.enqueue_job(
+                "assess_conclusion_task", str(conv.id), str(user_id)
+            )
+
         # ── 11. ANALYTICS ────────────────────────────────────────────────────
         analytics_service.track("message_sent", user_id, {
             "persona_slug": persona.slug,
@@ -677,7 +704,14 @@ class ConversationService:
         # Use same window limits as regular chat.
         history_result = await db.execute(
             select(Message)
-            .where(Message.conversation_id == conversation_id)
+            .where(
+                Message.conversation_id == conversation_id,
+                # CONCLUSION EXCLUSION: distilled conclusion rows must NEVER enter
+                # the LLM context window. message_kind is NOT NULL (default
+                # 'standard'), so this filter is byte-equivalent to the prior
+                # behaviour for all existing/standard/go_deeper rows.
+                Message.message_kind != 'conclusion',
+            )
             .order_by(Message.created_at.asc())
             .limit(MEMORY_WINDOW_PRO if user_plan in ("pro", "premium") else MEMORY_WINDOW_FREE)
         )
@@ -889,7 +923,14 @@ class ConversationService:
         # Use same window limits as regular chat.
         history_result = await db.execute(
             select(Message)
-            .where(Message.conversation_id == conversation_id)
+            .where(
+                Message.conversation_id == conversation_id,
+                # CONCLUSION EXCLUSION: distilled conclusion rows must NEVER enter
+                # the LLM context window. message_kind is NOT NULL (default
+                # 'standard'), so this filter is byte-equivalent to the prior
+                # behaviour for all existing/standard/go_deeper rows.
+                Message.message_kind != 'conclusion',
+            )
             .order_by(Message.created_at.asc())
             .limit(MEMORY_WINDOW_PRO if user_plan in ("pro", "premium") else MEMORY_WINDOW_FREE)
         )

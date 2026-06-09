@@ -82,12 +82,16 @@ class SavedLinesService:
             if count >= FREE_SAVE_LIMIT:
                 raise FreeSavesLimitError(limit=FREE_SAVE_LIMIT, current_count=count)
 
-        # 6. Create — set saved_at Python-side so it's accessible after commit
+        # 6. Create — set saved_at Python-side so it's accessible after commit.
+        #    A saved gravity-gated conclusion is tagged 'conclusion'; everything
+        #    else remains a manual_save. (Requires the extended CHECK constraint
+        #    from migration 024.)
+        source_type = "conclusion" if message.message_kind == "conclusion" else "manual_save"
         saved_line = SavedLine(
             user_id=user_id,
             message_id=message_id,
             persona_id=conversation.persona_id,
-            source_type="manual_save",
+            source_type=source_type,
             saved_at=datetime.now(timezone.utc),
         )
         db.add(saved_line)
