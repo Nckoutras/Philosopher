@@ -530,15 +530,19 @@ export default function MirrorPage() {
         <div ref={sentinelRef} aria-hidden="true" />
       </div>
 
-      {/* Picker sheet — unchanged */}
+      {/* Picker sheet */}
       {pickerOpen && (
-        <>
+        // Top-anchored container at compensated height: body has zoom:1.15, which would
+        // otherwise push a fixed bottom-0 panel ~15% below the visible viewport (cutting
+        // off the Done button). 100svh/1.15 mirrors the shared BottomSheet fix so the
+        // panel's bottom lands on-screen. Backdrop + panel are absolute inside it.
+        <div className="fixed top-0 left-0 right-0 z-50 h-[calc(100svh/1.15)]">
           <div
-            className="fixed inset-0 bg-ink/40 z-40"
+            className="absolute inset-0 bg-ink/40"
             onClick={() => setPickerOpen(false)}
           />
           <div
-            className="fixed bottom-0 left-0 right-0 z-50 bg-paper rounded-t-[20px] px-[20px] pt-[20px] pb-[32px] shadow-card"
+            className="absolute bottom-0 left-0 right-0 bg-paper rounded-t-[20px] px-[20px] pt-[20px] pb-[32px] shadow-card"
             onClick={(e) => e.stopPropagation()}
           >
             <p className="font-cormorant text-[24px] font-medium text-ink">Whose eyes?</p>
@@ -588,7 +592,7 @@ export default function MirrorPage() {
               Done
             </button>
           </div>
-        </>
+        </div>
       )}
     </main>
   )
