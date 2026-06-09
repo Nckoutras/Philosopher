@@ -557,14 +557,14 @@ class ApiClient {
 
   // SSE stream — returns the raw Response for manual reading.
   // userPlan is used to determine upgradeTarget on 429 ('free' → 'pro', 'pro' → 'premium').
-  async streamMessage(conversationId: string, content: string, userPlan: string = 'free'): Promise<Response> {
+  async streamMessage(conversationId: string, content: string, userPlan: string = 'free', seededOpening: boolean = false): Promise<Response> {
     const res = await fetch(`${API_BASE}/conversations/${conversationId}/messages`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         ...(this.token ? { Authorization: `Bearer ${this.token}` } : {}),
       },
-      body: JSON.stringify({ content }),
+      body: JSON.stringify({ content, seeded_opening: seededOpening }),
     })
     if (!res.ok) {
       if (res.status === 429) {

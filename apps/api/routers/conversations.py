@@ -290,6 +290,7 @@ async def send_message(
             user_name=user.full_name,
             is_admin=user.is_admin,
             arq_queue=arq_queue,
+            seeded_opening=body.seeded_opening,
         ),
         media_type="text/event-stream",
         headers=response_headers,

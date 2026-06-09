@@ -121,7 +121,7 @@ export default function ExistingConversationPage() {
     if (draft && messages.length === 0) {
       hasSentTopicRef.current = true
       localStorage.removeItem(key)
-      send(draft)
+      send(draft, true)
     }
   }, [isReady, params.id, messages.length, send])
 

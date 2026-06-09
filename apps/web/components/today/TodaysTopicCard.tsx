@@ -10,8 +10,6 @@ interface Props {
   onStartFresh: () => void
 }
 
-const REFLECT_TAIL = " Let's think through this together — where would you start?"
-
 export default function TodaysTopicCard({ user, dailyQuestion, onReflect, onStartFresh }: Props) {
   const [topic, setTopic] = useState('')
   const heavyPhrase = dailyQuestion.split(/\s+—\s+/)[0].trim()
@@ -34,7 +32,11 @@ export default function TodaysTopicCard({ user, dailyQuestion, onReflect, onStar
   }, [])
 
   function handleReflect() {
-    onReflect((topic.trim() || dailyQuestion) + REFLECT_TAIL)
+    // Send the bare topic as the seeded message — no appended tail. A trailing
+    // "where would you start?" was auto-attributed to the user and cued the
+    // persona to question back; the seeded-opening directive now handles the
+    // persona's framing server-side.
+    onReflect(topic.trim() || dailyQuestion)
   }
 
   return (

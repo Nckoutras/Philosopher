@@ -114,6 +114,7 @@ class CrossPersonaRequest(BaseModel):
 
 class MessageCreate(BaseModel):
     content: str = Field(min_length=1, max_length=4000)
+    seeded_opening: bool = False
 
 
 class MessageOut(BaseModel):
