@@ -114,7 +114,7 @@ export default function RitualScheduleSheet({ open, onClose, userEmail }: Props)
             min={minDate}
             max={maxDate}
             onChange={(e) => setScheduledFor(e.target.value)}
-            className="w-full bg-paper border border-[0.5px] border-edge rounded-sm px-[12px] py-[10px] font-lora text-[14px] text-ink [color-scheme:light]"
+            className="w-full bg-paper border border-[0.5px] border-edge rounded-sm px-[12px] py-[10px] font-lora text-[15px] font-medium text-ink [color-scheme:light] transition-[border-color,box-shadow] duration-200 focus:outline-none focus:border-bronze focus:ring-1 focus:ring-bronze/20"
           />
           <p className="font-lora text-[12px] text-charcoal mt-[4px]">
             Minimum 1 hour from now · Maximum 5 years
@@ -132,7 +132,7 @@ export default function RitualScheduleSheet({ open, onClose, userEmail }: Props)
             maxLength={2000}
             rows={3}
             placeholder="What do you want to remember?"
-            className="w-full bg-paper border border-[0.5px] border-edge rounded-sm px-[12px] py-[10px] font-lora text-[14px] text-ink placeholder:text-charcoal/40 resize-none"
+            className="w-full bg-paper border border-[0.5px] border-edge rounded-sm px-[12px] py-[10px] font-lora text-[15px] font-medium text-ink placeholder:text-charcoal/40 placeholder:font-normal resize-none transition-[border-color,box-shadow] duration-200 focus:outline-none focus:border-bronze focus:ring-1 focus:ring-bronze/20"
           />
         </div>
 
