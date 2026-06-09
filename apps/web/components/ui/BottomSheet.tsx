@@ -25,7 +25,12 @@ export default function BottomSheet({ open, onClose, children, maxHeight = '75sv
   return (
     <AnimatePresence>
       {open && (
-        <div className="fixed inset-0 z-[60]">
+        // Height is divided by 1.15 to compensate for the global `body { zoom: 1.15 }`
+        // hack (globals.css), which magnifies fixed descendants and would otherwise push
+        // this overlay's bottom edge ~15% below the visible viewport. Mirrors the tabs
+        // shell's `100svh/1.15` math. Anchored top/left/right (not inset-0) so the
+        // compensated height lands the bottom edge at the true visible viewport bottom.
+        <div className="fixed top-0 left-0 right-0 z-[60] h-[calc(100svh/1.15)]">
           <motion.div
             className="absolute inset-0 bg-[rgba(31,27,20,0.5)]"
             initial={{ opacity: 0 }}
@@ -39,7 +44,7 @@ export default function BottomSheet({ open, onClose, children, maxHeight = '75sv
             role="dialog"
             aria-modal="true"
             className="absolute inset-x-0 bottom-0 bg-paper rounded-t-xl flex flex-col"
-            style={{ maxHeight }}
+            style={{ maxHeight: `calc(${maxHeight} / 1.15)` }}
             initial={{ y: '100%' }}
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
