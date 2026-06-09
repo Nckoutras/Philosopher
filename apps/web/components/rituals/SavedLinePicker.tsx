@@ -46,13 +46,13 @@ export default function SavedLinePicker({ savedLines, selectedLineId, onChange, 
       <button
         type="button"
         onClick={() => setExpanded((v) => !v)}
-        className="w-full flex items-center gap-3 px-3 min-h-[44px] py-[10px] bg-paper border border-[0.5px] border-edge rounded-sm"
+        className="w-full flex items-center gap-3 px-3 min-h-[44px] py-[10px] bg-paper border border-[0.5px] border-edge rounded-sm transition-[border-color,box-shadow] duration-200 focus:outline-none focus:border-bronze focus:ring-1 focus:ring-bronze/20"
       >
         <AvatarCircle
           url={portraitUrlsBySlug[selectedLine.persona_slug]}
           name={selectedLine.persona_display_name}
         />
-        <span className="font-lora text-[13px] text-ink flex-1 min-w-0 truncate text-left">
+        <span className="font-lora text-[14px] font-medium text-ink flex-1 min-w-0 truncate text-left">
           {selectedLine.message_content}
         </span>
         <ChevronDown
@@ -85,7 +85,7 @@ export default function SavedLinePicker({ savedLines, selectedLineId, onChange, 
                     url={portraitUrlsBySlug[sl.persona_slug]}
                     name={sl.persona_display_name}
                   />
-                  <span className="font-lora text-[13px] text-ink flex-1 min-w-0 line-clamp-2 leading-snug">
+                  <span className={`font-lora text-[14px] text-ink flex-1 min-w-0 line-clamp-2 leading-snug ${sl.id === selectedLineId ? 'font-medium' : ''}`}>
                     {sl.message_content}
                   </span>
                 </button>
