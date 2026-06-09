@@ -124,6 +124,9 @@ class MessageOut(BaseModel):
     safety_level: str
     persona_override: bool
     persona_slug: str | None = None
+    # 'standard' | 'go_deeper' | 'conclusion'. Lets the client feature the
+    # gravity-gated conclusion as the headline savable unit.
+    message_kind: str = 'standard'
     created_at: datetime
 
     class Config:
