@@ -13,7 +13,7 @@ from services.llm_client import llm_client
 from services.prompt_builder import prompt_builder
 from services.safety_service import safety_service
 from services.self_model_service import self_model_service
-from services.self_comparison_prompts import SELF_SYSTEM_PROMPT, CLOSING_PROMPT
+from services.self_comparison_prompts import SELF_SYSTEM_PROMPT, CLOSING_PROMPT, FORMING_REFLECTION_PROMPT
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +22,7 @@ WEEKLY_LIMIT_BY_TIER = {"pro": 5, "premium": 30}   # asks/week; premium capped (
 DEFAULT_WEEKLY_LIMIT = 5
 CANDIDATES_PER_WINDOW = 8
 QUOTE_TRUNC = 200
+FORMING_REFLECTION_MAX_TOKENS = 220
 
 
 def weekly_limit(plan: str) -> int:
@@ -44,6 +45,33 @@ def _format_signals(by_type: dict) -> str:
 
 
 class SelfComparisonService:
+
+    async def forming_reflection(self, signals: list[str]) -> list[str]:
+        """Synthesize the raw recent memory signals into a short, warm, second-person
+        reflection for the "what's beginning to take shape" block.
+
+        Block-scoped: does NOT touch memory extraction or RAG — it only rewrites how
+        these already-stored signals are surfaced in this one preview. Returns a
+        single-element list (one paragraph, so the existing frontend renders it as one
+        line) or [] on failure, in which case the block hides rather than show raw,
+        third-person ("user") text. Uses the default memory-tier model (fast/cheap)
+        since this fires on each forming-state status load.
+        """
+        cleaned = [s.strip() for s in signals if s and s.strip()]
+        if not cleaned:
+            return []
+        user_block = "Observations:\n" + "\n".join(f"- {s}" for s in cleaned)
+        try:
+            raw = await llm_client.complete(
+                system=FORMING_REFLECTION_PROMPT,
+                user=user_block,
+                max_tokens=FORMING_REFLECTION_MAX_TOKENS,
+            )
+        except Exception as exc:
+            logger.warning(f"Forming reflection synthesis failed: {exc}")
+            return []
+        text = raw.strip().strip('"').strip()
+        return [text] if text else []
 
     async def weekly_remaining(self, db: AsyncSession, user_id: str, plan: str) -> int:
         result = await db.execute(

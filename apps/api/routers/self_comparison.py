@@ -37,6 +37,10 @@ async def get_self_comparison_status(
     if data.get("unlocked"):
         data["weekly_remaining"] = await self_comparison_service.weekly_remaining(db, user.id, plan)
         data["weekly_limit"] = weekly_limit(plan)
+    elif data.get("forming_preview"):
+        # Surface a warm, short, second-person reflection instead of the raw
+        # third-person memory signals (which read robotically and say "user").
+        data["forming_preview"] = await self_comparison_service.forming_reflection(data["forming_preview"])
     return SelfModelStatusOut(**data)
 
 
