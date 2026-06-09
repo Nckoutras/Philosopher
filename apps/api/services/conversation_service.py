@@ -77,6 +77,27 @@ DEEPEN_DIRECTIVE = (
     "philosophy. End on the edge, not on comfort."
 )
 
+SEEDED_OPENING_DIRECTIVE = (
+    "OPENING A SEEDED REFLECTION: The seeker has handed you a topic to begin from, "
+    "not a question of their own. This is your first turn. Do NOT open by asking them "
+    "what they think, where they would start, or what they mean — they came to hear YOU.\n\n"
+    "Lead with your own position on this topic, stated sharply and in your unmistakable "
+    "voice. Not a balanced overview, not a neutral summary, not throat-clearing — the "
+    "actual view that only you would hold, carrying the flavour of your own thought and "
+    "work. Stake a claim. Say the thing only you would say.\n\n"
+    "Then, and only then, close with a SINGLE invitation to go further on one specific "
+    "aspect — phrased as an invitation, never an interrogation. Something in the spirit of "
+    "\"I'd want to hear where this lands for you, especially on X\": one open door, not a "
+    "stack of questions, not a quiz. The invitation is the last beat, after the position — "
+    "never the whole reply.\n\n"
+    "This overrides, for THIS opening turn ONLY, any rule that you usually lead with a "
+    "question or that a fixed fraction of replies must end in a question. Socrates: you too "
+    "lead with a position here — but it may be a sharp provocation, a claim sly enough to "
+    "itch, rather than a flat thesis. Remain unmistakably yourself; simply do not open on a "
+    "question. Your normal questioning resumes on the next turn.\n\n"
+    "Stay within your usual length and register. One clean opening move: a position, then a door."
+)
+
 DEEPEN_ESCALATION = {
     2: " ESCALATION (second deepening of this SAME reply): cut harder still. Half the length "
        "of your last reply — two sentences at most. Verdict only: no questions, no preamble, "
@@ -241,6 +262,7 @@ class ConversationService:
         user_name: str | None = None,
         is_admin: bool = False,
         arq_queue=None,
+        seeded_opening: bool = False,
     ) -> AsyncGenerator[str, None]:
         start = time.monotonic()
 
@@ -350,6 +372,14 @@ class ConversationService:
         while lm_messages and lm_messages[0]["role"] == "assistant":
             lm_messages.pop(0)
         lm_messages.append({"role": "user", "content": user_text})
+
+        # Seeded opening: the seeker handed the persona a topic to begin from
+        # (no opening_invocation exists on these conversations). For this first
+        # turn only, steer the persona to lead with its own position and close
+        # with an invitation — not a question. Gated to an empty prior history
+        # so it never affects later turns.
+        if seeded_opening and len(history) == 0:
+            system_prompt = system_prompt + "\n\n" + SEEDED_OPENING_DIRECTIVE
 
         # ── 6. SAVE USER MESSAGE ─────────────────────────────────────────────
         user_msg = await self._save_message(db, conv, user_id, "user", user_text, safety_level=safety_in.level)

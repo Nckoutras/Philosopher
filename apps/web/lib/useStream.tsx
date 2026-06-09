@@ -20,7 +20,7 @@ export function useStream() {
     setStreamingBroughtIn,
   } = useStore()
 
-  const send = useCallback(async (content: string) => {
+  const send = useCallback(async (content: string, seededOpening: boolean = false) => {
     if (!activeConversationId) return
 
     // Clear prior safety and error states before starting
@@ -41,7 +41,7 @@ export function useStream() {
 
     try {
       const currentPlan = useStore.getState().plan
-      const res = await api.streamMessage(activeConversationId, content, currentPlan)
+      const res = await api.streamMessage(activeConversationId, content, currentPlan, seededOpening)
       const reader = res.body!.getReader()
       const decoder = new TextDecoder()
       let buffer = ''
