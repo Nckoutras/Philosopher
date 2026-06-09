@@ -1,7 +1,8 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { useEffect } from 'react'
+import { usePathname, useRouter } from 'next/navigation'
 import { Home, Archive, User } from 'lucide-react'
 import { ReturningPathIcon } from '@/components/icons/RitualIcons'
 
@@ -34,6 +35,21 @@ const TABS = [
 
 export default function BottomTabBar() {
   const pathname = usePathname()
+  const router = useRouter()
+
+  // Warm the sibling tab route chunks on idle so the first navigation to each
+  // is instant rather than waiting on the on-tap chunk download. Non-visual;
+  // relies only on Next's router prefetch cache.
+  useEffect(() => {
+    const warm = () => TABS.forEach((tab) => router.prefetch(tab.href))
+    const ric = typeof window !== 'undefined' ? window.requestIdleCallback : undefined
+    if (ric) {
+      const id = ric(warm)
+      return () => window.cancelIdleCallback?.(id)
+    }
+    const id = window.setTimeout(warm, 200)
+    return () => window.clearTimeout(id)
+  }, [router])
 
   return (
     <nav
