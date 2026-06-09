@@ -156,6 +156,11 @@ export default function SharePreviewModal({
   const previewFontSize    = (dynamicFontSize(quote.length) * 0.296).toFixed(1)
   const displayAnnotation  = annotation.trim()
 
+  // Approximate date stamp for the line-variant preview (mm/dd/yyyy).
+  // The real card uses the saved line's saved_at; preview uses today.
+  const now = new Date()
+  const previewDate = `${String(now.getMonth() + 1).padStart(2, '0')}/${String(now.getDate()).padStart(2, '0')}/${now.getFullYear()}`
+
   return (
     <div
       role="dialog"
@@ -174,77 +179,120 @@ export default function SharePreviewModal({
       <div className="relative z-10 w-full max-w-[360px] bg-paper rounded-lg p-5 shadow-[0_8px_32px_rgba(31,27,20,0.18)] max-h-[85svh] overflow-y-auto">
 
         {/* ── Preview card (4:5 aspect ratio) ── */}
-        <div
-          className="w-full bg-vellum rounded-sm overflow-hidden mb-4 flex flex-col items-center px-6 pt-5 pb-4"
-          style={{ aspectRatio: '4/5' }}
-          aria-hidden="true"
-        >
-          {isCouncil ? (
-            /* Council variant — no portrait, council label instead */
+        {isCouncil ? (
+          /* Council variant — legacy layout, unchanged */
+          <div
+            className="w-full bg-vellum rounded-sm overflow-hidden mb-4 flex flex-col items-center px-6 pt-5 pb-4"
+            style={{ aspectRatio: '4/5' }}
+            aria-hidden="true"
+          >
             <p className="font-lora text-[9px] uppercase tracking-[0.22em] text-bronze text-center mb-2">
               THE COUNCIL&apos;S READING
             </p>
-          ) : (
-            /* Line variant — portrait circle + persona intro */
-            <>
-              <div className="w-[52px] h-[52px] rounded-full overflow-hidden flex-shrink-0 mb-2 bg-edge flex items-center justify-center">
+
+            {/* Quote — scaled dynamic font */}
+            <p
+              className="font-cormorant italic text-ink text-center leading-[1.4] flex-1 overflow-hidden"
+              style={{ fontSize: `${previewFontSize}px` }}
+            >
+              {quote}
+            </p>
+
+            {/* Annotation preview */}
+            {displayAnnotation && (
+              <p className="font-lora text-[9px] text-bronze text-center mt-2 italic">
+                &ldquo;{displayAnnotation}&rdquo;
+              </p>
+            )}
+
+            {/* Mini footer */}
+            <div className="mt-3 pt-2 border-t border-bronze/20 w-full text-center flex-shrink-0">
+              <p className="font-cormorant italic text-[9px] text-bronze">The Wise Room</p>
+              <p className="font-lora text-[7px] text-bronze/60 mt-0.5">thewiseroom.app</p>
+            </div>
+          </div>
+        ) : (
+          /* Line variant — redesigned: faint hero bg, top wordmark+date,
+             larger portrait, intro, auto-centred reflection, bold stamp.
+             Approximation of the server-rendered PNG. */
+          <div
+            className="relative w-full bg-vellum rounded-sm overflow-hidden mb-4"
+            style={{ aspectRatio: '4/5' }}
+            aria-hidden="true"
+          >
+            {/* Faint chesterfield hero — resize-to-cover, very low opacity */}
+            <img
+              src="/personas/wise-room-hero.webp"
+              alt=""
+              className="pointer-events-none absolute inset-0 w-full h-full object-cover opacity-[0.12]"
+            />
+
+            <div className="relative z-10 flex flex-col items-center h-full px-6 pt-4 pb-3">
+              {/* "The Wise Room" + date — pinned top */}
+              <p className="font-cormorant italic text-[10px] text-bronze text-center">The Wise Room</p>
+              <p className="font-lora text-[7px] text-bronze/70 text-center mt-0.5">{previewDate}</p>
+
+              {/* Portrait — 10% larger (52 → 57px) */}
+              <div className="w-[57px] h-[57px] rounded-full overflow-hidden flex-shrink-0 mt-3 mb-2 bg-edge flex items-center justify-center">
                 {portraitUrl ? (
                   <img src={portraitUrl} alt="" className="w-full h-full object-cover" />
                 ) : (
-                  <span className="font-cormorant text-[22px] font-medium text-charcoal">
+                  <span className="font-cormorant text-[24px] font-medium text-charcoal">
                     {personaName?.[0]?.toUpperCase()}
                   </span>
                 )}
               </div>
-              <p className="font-cormorant text-[11px] font-medium text-ink text-center mb-2">
-                {personaName} told me:
+
+              {/* "{Persona} told me" */}
+              <p className="font-cormorant text-[11px] font-medium text-ink text-center mb-1">
+                {personaName} told me
               </p>
-            </>
-          )}
 
-          {/* Quote — scaled dynamic font */}
-          <p
-            className="font-cormorant italic text-ink text-center leading-[1.4] flex-1 overflow-hidden"
-            style={{ fontSize: `${previewFontSize}px` }}
-          >
-            {quote}
-          </p>
+              {/* Reflection — centred in the leftover band */}
+              <p
+                className="font-cormorant italic text-ink text-center leading-[1.4] flex-1 flex items-center justify-center overflow-hidden"
+                style={{ fontSize: `${previewFontSize}px` }}
+              >
+                {quote}
+              </p>
 
-          {/* Annotation preview */}
-          {displayAnnotation && (
-            <p className="font-lora text-[9px] text-bronze text-center mt-2 italic">
-              &ldquo;{displayAnnotation}&rdquo;
-            </p>
-          )}
-
-          {/* Mini footer */}
-          <div className="mt-3 pt-2 border-t border-bronze/20 w-full text-center flex-shrink-0">
-            <p className="font-cormorant italic text-[9px] text-bronze">The Wise Room</p>
-            <p className="font-lora text-[7px] text-bronze/60 mt-0.5">thewiseroom.app</p>
+              {/* Bold "thewiseroom.app" stamp */}
+              <p className="font-lora text-[9px] font-bold text-bronze text-center mt-2">
+                thewiseroom.app
+              </p>
+            </div>
           </div>
-        </div>
+        )}
 
-        {/* ── Annotation input ── */}
-        <textarea
-          value={annotation}
-          onChange={handleAnnotationChange}
-          placeholder="Add your thought…"
-          maxLength={140}
-          rows={1}
-          disabled={shareLoading}
-          className="w-full font-lora text-[13px] text-ink bg-transparent border border-edge rounded-sm px-3 py-2 resize-none overflow-hidden placeholder:text-sepia/60 focus:outline-none focus:border-bronze/50 disabled:opacity-50"
-          style={{ minHeight: '38px', maxHeight: '60px' }}
-          onInput={(e) => {
-            const el = e.currentTarget
-            el.style.height = 'auto'
-            el.style.height = `${Math.min(el.scrollHeight, 60)}px`
-          }}
-        />
+        {/* ── Annotation input ──
+            Council cards still render an annotation; the redesigned reflection
+            card does not, so the input only appears for the council variant. */}
+        {isCouncil ? (
+          <>
+            <textarea
+              value={annotation}
+              onChange={handleAnnotationChange}
+              placeholder="Add your thought…"
+              maxLength={140}
+              rows={1}
+              disabled={shareLoading}
+              className="w-full font-lora text-[13px] text-ink bg-transparent border border-edge rounded-sm px-3 py-2 resize-none overflow-hidden placeholder:text-sepia/60 focus:outline-none focus:border-bronze/50 disabled:opacity-50"
+              style={{ minHeight: '38px', maxHeight: '60px' }}
+              onInput={(e) => {
+                const el = e.currentTarget
+                el.style.height = 'auto'
+                el.style.height = `${Math.min(el.scrollHeight, 60)}px`
+              }}
+            />
 
-        {/* Character counter */}
-        <p className="font-lora text-[11px] text-sepia text-right mt-1 mb-4">
-          {annotation.length}/140
-        </p>
+            {/* Character counter */}
+            <p className="font-lora text-[11px] text-sepia text-right mt-1 mb-4">
+              {annotation.length}/140
+            </p>
+          </>
+        ) : (
+          <div className="mb-4" />
+        )}
 
         {/* ── Buttons ── */}
         <div className="flex gap-3">

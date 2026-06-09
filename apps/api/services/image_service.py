@@ -33,6 +33,8 @@ logger = logging.getLogger(__name__)
 STATIC_DIR = Path(__file__).parent.parent / "static"
 FONTS_DIR = STATIC_DIR / "fonts"
 PERSONAS_DIR = STATIC_DIR / "personas"
+SHARE_DIR = STATIC_DIR / "share"
+HERO_PATH = SHARE_DIR / "wise-room-hero.webp"
 
 CANVAS_WIDTH  = 1080
 CANVAS_HEIGHT = 1350
@@ -73,6 +75,37 @@ URL_TEXT            = "thewiseroom.app"
 
 DATE_BASELINE_Y     = FOOTER_TOP_Y + 170  # 1300
 DATE_FONT_SIZE      = 12
+
+
+# ── Reflection card (redesigned PR4ah) ───────────────────────────────────────
+# Top→bottom: faint hero bg · "The Wise Room" · date · portrait · "{Persona}
+# told me" · auto-fit reflection (vertically centred in the leftover band) ·
+# bold "thewiseroom.app" stamp. Council uses the legacy layout above.
+REFLECT_HERO_OPACITY     = 0.12          # tunable — founder picks from samples
+
+REFLECT_WORDMARK_BASELINE_Y = 88
+REFLECT_WORDMARK_FONT_SIZE  = 30
+
+REFLECT_DATE_BASELINE_Y  = 128
+REFLECT_DATE_FONT_SIZE   = 18
+
+REFLECT_PORTRAIT_DIAMETER = round(PORTRAIT_DIAMETER * 1.1)  # 260 → 286 (10% larger)
+REFLECT_PORTRAIT_TOP      = 176
+
+REFLECT_INTRO_BASELINE_Y = 530
+REFLECT_INTRO_FONT_SIZE  = 38
+
+# Reflection block lives in the band between the intro and the bottom stamp.
+REFLECT_BAND_TOP    = 576
+REFLECT_BAND_BOTTOM = 1232
+REFLECT_QUOTE_MAX_WIDTH = 880
+REFLECT_QUOTE_MAX_SIZE  = 76
+REFLECT_QUOTE_MIN_SIZE  = 30
+REFLECT_QUOTE_LINE_RATIO = 1.38
+
+REFLECT_STAMP_BASELINE_Y = 1296
+REFLECT_STAMP_FONT_SIZE  = 30
+REFLECT_STAMP_TEXT       = "thewiseroom.app"
 
 
 def dynamic_font_size(char_count: int) -> float:
@@ -137,14 +170,14 @@ async def generate_share_image(
                 f"Portrait file not found for {persona.slug}: {candidate}. Using initial avatar."
             )
 
-    clean_annotation = _strip_emoji(annotation) if annotation else None
-    return _render_share_canvas(
+    # Annotation is intentionally dropped from the redesigned reflection card
+    # (kept clean / reflection-focused). The `annotation` arg is still accepted
+    # for API compatibility but no longer rendered.
+    return _render_reflection_canvas(
         quote=msg.content,
-        attribution=f"— {persona.name.upper()}",
         portrait_path=portrait_path,
         persona_initial=persona.name[0].upper(),
-        intro_text=f"{persona.name} told me:",
-        annotation=clean_annotation or None,
+        intro_text=f"{persona.name} told me",
         saved_at=saved_line.saved_at,
     )
 
@@ -318,6 +351,195 @@ def _render_share_canvas(
     return buf.getvalue()
 
 
+def _format_date_us(dt: datetime) -> str:
+    """Format as mm/dd/yyyy with leading zeros (e.g. '05/01/2026')."""
+    return dt.strftime("%m/%d/%Y")
+
+
+def _load_hero_cover(opacity: float) -> Image.Image | None:
+    """
+    Load the chesterfield hero, resize-to-cover the full canvas (center-crop),
+    and knock its alpha down to `opacity` so it reads as a very faint texture.
+    Returns None if the asset is missing (card renders on plain Vellum).
+    """
+    if not HERO_PATH.exists():
+        logger.warning(f"Hero background missing: {HERO_PATH}. Rendering on plain Vellum.")
+        return None
+    try:
+        img = Image.open(HERO_PATH).convert("RGBA")
+    except Exception as e:
+        logger.warning(f"Could not open hero {HERO_PATH}: {e}. Rendering on plain Vellum.")
+        return None
+
+    target_ratio = CANVAS_WIDTH / CANVAS_HEIGHT
+    w, h = img.size
+    ratio = w / h
+    if ratio > target_ratio:
+        new_h = CANVAS_HEIGHT
+        new_w = round(new_h * ratio)
+    else:
+        new_w = CANVAS_WIDTH
+        new_h = round(new_w / ratio)
+    img = img.resize((new_w, new_h), Image.LANCZOS)
+
+    left = (new_w - CANVAS_WIDTH) // 2
+    top  = (new_h - CANVAS_HEIGHT) // 2
+    img = img.crop((left, top, left + CANVAS_WIDTH, top + CANVAS_HEIGHT))
+
+    # Uniform faintness: source is opaque, so scale alpha to opacity*255.
+    alpha = img.getchannel("A").point(lambda a: round(a * opacity))
+    img.putalpha(alpha)
+    return img
+
+
+def _wrap_all_lines(text: str, font: ImageFont.FreeTypeFont, max_width: int) -> list[str]:
+    """Word-wrap to fit max_width px, returning every line (no truncation)."""
+    words = text.split()
+    lines: list[str] = []
+    current = ""
+    for word in words:
+        candidate = (current + " " + word).strip()
+        if font.getlength(candidate) <= max_width or not current:
+            current = candidate
+        else:
+            lines.append(current)
+            current = word
+    if current:
+        lines.append(current)
+    return lines
+
+
+def _fit_reflection(
+    quote: str,
+    band_height: int,
+    max_width: int,
+    load_quote_font,
+) -> tuple[ImageFont.FreeTypeFont, list[str], int]:
+    """
+    Fit-to-fill: step from MAX down to MIN font size and pick the LARGEST size
+    whose fully-wrapped block fits inside band_height. Short reflections render
+    big; long ones shrink. If nothing fits even at MIN, fall back to MIN with
+    ellipsis-truncated wrapping. Returns (font, lines, line_height).
+    """
+    for size in range(REFLECT_QUOTE_MAX_SIZE, REFLECT_QUOTE_MIN_SIZE - 1, -1):
+        font = load_quote_font(size)
+        line_h = round(size * REFLECT_QUOTE_LINE_RATIO)
+        lines = _wrap_all_lines(quote, font, max_width)
+        if len(lines) * line_h <= band_height:
+            return font, lines, line_h
+
+    # Overflow at MIN size — truncate to the lines that fit, with ellipsis.
+    size = REFLECT_QUOTE_MIN_SIZE
+    font = load_quote_font(size)
+    line_h = round(size * REFLECT_QUOTE_LINE_RATIO)
+    max_lines = max(1, band_height // line_h)
+    lines = _wrap_text(quote, font, max_width, max_lines)
+    return font, lines, line_h
+
+
+def _render_reflection_canvas(
+    *,
+    quote: str,
+    portrait_path: Path | None,
+    persona_initial: str | None,
+    intro_text: str,
+    saved_at: datetime | None,
+    hero_opacity: float = REFLECT_HERO_OPACITY,
+) -> bytes:
+    """
+    Redesigned reflection share card (1080×1350). Faint chesterfield hero
+    behind everything; "The Wise Room" + date pinned top; 10%-larger portrait;
+    "{Persona} told me"; the reflection auto-fit and vertically centred in the
+    leftover band; bold "thewiseroom.app" stamp at the bottom.
+    """
+    # Base canvas (Vellum) + faint hero composited over it.
+    canvas = Image.new("RGBA", (CANVAS_WIDTH, CANVAS_HEIGHT), BG_COLOR + (255,))
+    hero = _load_hero_cover(hero_opacity)
+    if hero is not None:
+        canvas = Image.alpha_composite(canvas, hero)
+    draw = ImageDraw.Draw(canvas)
+
+    # Fonts
+    font_wordmark = _load_font("CormorantGaramond-Italic.ttf", REFLECT_WORDMARK_FONT_SIZE)
+    font_date     = _load_font("Lora-Regular.ttf", REFLECT_DATE_FONT_SIZE)
+    font_intro    = _load_font("CormorantGaramond-Medium.ttf", REFLECT_INTRO_FONT_SIZE)
+    font_stamp    = _load_font("Lora-Regular.ttf", REFLECT_STAMP_FONT_SIZE)
+
+    # 2. "The Wise Room" — pinned top
+    draw.text(
+        (PORTRAIT_CENTER_X, REFLECT_WORDMARK_BASELINE_Y),
+        "The Wise Room",
+        font=font_wordmark,
+        fill=BRONZE_COLOR,
+        anchor="ms",
+    )
+
+    # 3. Date — mm/dd/yyyy
+    if saved_at is not None:
+        draw.text(
+            (PORTRAIT_CENTER_X, REFLECT_DATE_BASELINE_Y),
+            _format_date_us(saved_at),
+            font=font_date,
+            fill=BRONZE_COLOR,
+            anchor="ms",
+        )
+
+    # 4. Portrait — 10% larger than the legacy card
+    if portrait_path:
+        _draw_circular_portrait(
+            canvas, draw, portrait_path,
+            diameter=REFLECT_PORTRAIT_DIAMETER, top=REFLECT_PORTRAIT_TOP,
+        )
+    elif persona_initial is not None:
+        _draw_initial_avatar(
+            canvas, draw, persona_initial,
+            diameter=REFLECT_PORTRAIT_DIAMETER, top=REFLECT_PORTRAIT_TOP,
+        )
+
+    # 5. "{Persona} told me"
+    draw.text(
+        (PORTRAIT_CENTER_X, REFLECT_INTRO_BASELINE_Y),
+        intro_text,
+        font=font_intro,
+        fill=INK_COLOR,
+        anchor="ms",
+    )
+
+    # 6. Reflection — auto-fit, vertically centred in the leftover band
+    band_height = REFLECT_BAND_BOTTOM - REFLECT_BAND_TOP
+    font_quote, lines, line_h = _fit_reflection(
+        quote, band_height, REFLECT_QUOTE_MAX_WIDTH,
+        lambda s: _load_font("CormorantGaramond-Italic.ttf", s),
+    )
+    block_h = len(lines) * line_h
+    start_y = REFLECT_BAND_TOP + max(0, (band_height - block_h) // 2)
+    for i, line in enumerate(lines):
+        draw.text(
+            (PORTRAIT_CENTER_X, start_y + i * line_h),
+            line,
+            font=font_quote,
+            fill=INK_COLOR,
+            anchor="mt",
+        )
+
+    # 7. "thewiseroom.app" — bold, high-opacity bottom stamp.
+    # No bold Lora is bundled, so simulate weight with a stroke at full opacity.
+    draw.text(
+        (PORTRAIT_CENTER_X, REFLECT_STAMP_BASELINE_Y),
+        REFLECT_STAMP_TEXT,
+        font=font_stamp,
+        fill=BRONZE_COLOR,
+        anchor="ms",
+        stroke_width=1,
+        stroke_fill=BRONZE_COLOR,
+    )
+
+    out = canvas.convert("RGB")
+    buf = BytesIO()
+    out.save(buf, format="PNG", optimize=False)
+    return buf.getvalue()
+
+
 def _load_font(filename: str, size: int) -> ImageFont.FreeTypeFont:
     path = FONTS_DIR / filename
     if not path.exists():
@@ -329,25 +551,26 @@ def _draw_circular_portrait(
     canvas: Image.Image,
     draw: ImageDraw.ImageDraw,
     portrait_path: Path,
+    diameter: int = PORTRAIT_DIAMETER,
+    top: int = PORTRAIT_TOP,
 ) -> None:
-    r = PORTRAIT_DIAMETER // 2
+    r = diameter // 2
     left = PORTRAIT_CENTER_X - r
-    top = PORTRAIT_TOP
 
     try:
         portrait = Image.open(portrait_path).convert("RGBA")
-        portrait = portrait.resize((PORTRAIT_DIAMETER, PORTRAIT_DIAMETER), Image.LANCZOS)
+        portrait = portrait.resize((diameter, diameter), Image.LANCZOS)
     except Exception as e:
         logger.warning(f"Could not open portrait {portrait_path}: {e}. Falling back to initial avatar.")
-        _draw_initial_avatar(canvas, draw, "?")
+        _draw_initial_avatar(canvas, draw, "?", diameter=diameter, top=top)
         return
 
     # Circular mask
-    mask = Image.new("L", (PORTRAIT_DIAMETER, PORTRAIT_DIAMETER), 0)
+    mask = Image.new("L", (diameter, diameter), 0)
     mask_draw = ImageDraw.Draw(mask)
-    mask_draw.ellipse([(0, 0), (PORTRAIT_DIAMETER - 1, PORTRAIT_DIAMETER - 1)], fill=255)
+    mask_draw.ellipse([(0, 0), (diameter - 1, diameter - 1)], fill=255)
 
-    portrait_rgba = Image.new("RGBA", (PORTRAIT_DIAMETER, PORTRAIT_DIAMETER), (0, 0, 0, 0))
+    portrait_rgba = Image.new("RGBA", (diameter, diameter), (0, 0, 0, 0))
     portrait_rgba.paste(portrait, (0, 0), mask)
     canvas.paste(portrait_rgba, (left, top), portrait_rgba)
 
@@ -356,20 +579,21 @@ def _draw_initial_avatar(
     canvas: Image.Image,
     draw: ImageDraw.ImageDraw,
     letter: str,
+    diameter: int = PORTRAIT_DIAMETER,
+    top: int = PORTRAIT_TOP,
 ) -> None:
-    r = PORTRAIT_DIAMETER // 2
+    r = diameter // 2
     left = PORTRAIT_CENTER_X - r
-    top = PORTRAIT_TOP
 
     # Bronze filled circle
     draw.ellipse(
-        [(left, top), (left + PORTRAIT_DIAMETER, top + PORTRAIT_DIAMETER)],
+        [(left, top), (left + diameter, top + diameter)],
         fill=BRONZE_COLOR,
     )
 
-    # White letter centered
+    # White letter centered — scale glyph to the circle
     try:
-        font = _load_font("CormorantGaramond-Medium.ttf", 96)
+        font = _load_font("CormorantGaramond-Medium.ttf", round(diameter * 0.37))
     except RuntimeError:
         return
 
