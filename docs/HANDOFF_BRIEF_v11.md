@@ -302,17 +302,15 @@ attention. UI/UX edge-case work moved back in queue.
 
 ### Updated first-move options (post 2026-05-25 smoke test)
 
-1. P0 BUG BATCH — Investigate + hotfix the four P0 bugs discovered
+1. P0 BUG BATCH — Investigate + hotfix the three P0 bugs discovered
    in smoke testing:
-   - P0-NEW: Conversation deletion failing
    - P0-SMOKE-01: Bottom tab bar position regression
    - P0-SMOKE-03a: Letter submit button missing
    - P0-SMOKE-03b: Letter screen tab bar drag
 
    P0-SMOKE-01 and 03b likely share root cause. Recommended sequence:
-   1) Conversation delete (separate root cause)
-   2) Tab bar position bugs (likely one fix for both)
-   3) Letter submit button (likely separate)
+   1) Tab bar position bugs (likely one fix for both)
+   2) Letter submit button (likely separate)
 
 2. P1 BUG BATCH — Voice/UX issues that aren't blocking but degrade
    experience:

@@ -89,6 +89,8 @@ Ten new items added since v9. See §3 below.
 
 ### P0-NEW — Conversation deletion failing (2026-05-24, found in post-restore smoke test)
 
+STATUS: CLOSED 2026-05-24 by PR4s (#108). Re-verified working 2026-05-25.
+
 User reports DELETE conversation throws error. Reproducible.
 Suspected causes (investigate in order):
 

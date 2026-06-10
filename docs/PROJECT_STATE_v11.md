@@ -357,8 +357,6 @@ PR4r (in flight 2026-05-24) reverts the hydration guard while keeping the api im
 
 ## Open bugs (2026-05-25 smoke test update)
 
-- P0: Conversation deletion failing (PR4m migration 013 FK side effect
-  suspected). See IMPLEMENTATION_BACKLOG_v11.md P0-NEW.
 - P0: Bottom tab bar position regression on certain navigations.
   See IMPLEMENTATION_BACKLOG_v11.md P0-SMOKE-01.
 - P0: Letter to my Future Self submit button not visible.
