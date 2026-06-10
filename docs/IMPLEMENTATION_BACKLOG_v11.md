@@ -112,6 +112,50 @@ Investigation approach for next session:
 Priority: P0 — affects every paid user who wants to clean up history.
 Pre-paid-launch blocker.
 
+### P0-SMOKE-01 — Bottom tab bar position regression (2026-05-25)
+
+Bottom tab bar (today / rituals / library / account) appears mid-screen
+instead of bottom on certain navigations. Returns to correct bottom
+position only after a full screen change (e.g., enter+exit Mirror ritual).
+
+Likely related to P0-SMOKE-03b (same root cause suspected).
+
+Investigation needed:
+- Reproduce: which navigation triggers the bug?
+- Check BottomTabBar component CSS positioning
+- Check parent layout safe-area-inset handling
+- Check for stale state in Zustand store affecting tab bar height
+- Check if modal/sheet overlays leave residual layout shift
+
+Component: apps/web/components/layout/BottomTabBar.tsx
+Page parent: apps/web/app/app/(tabs)/layout.tsx
+
+### P0-SMOKE-03a — Letter to my Future Self submit button not visible (2026-05-25)
+
+Submit button does not appear on the Letter to my Future Self screen.
+Users cannot submit their letter. Feature is broken.
+
+Investigation:
+- Check letter form component rendering
+- Verify submit button conditional rendering (form valid state?)
+- Verify CSS not hiding/clipping the button
+- Check mobile vs desktop viewport differences
+
+Component path: apps/web/components/rituals/LetterForm.tsx (or similar)
+
+### P0-SMOKE-03b — Letter screen: tab bar position + drag interaction (2026-05-25)
+
+On the Letter to my Future Self screen:
+- Bottom tab bar appears higher than expected position
+- User can physically drag the tab bar up and down with finger gesture
+
+Likely same root cause as P0-SMOKE-01. Both should be investigated
+together.
+
+The drag-with-finger interaction is particularly broken — suggests
+the tab bar is not properly fixed-position or has a pan-y touch
+handler bound where it shouldn't.
+
 - [ ] **bugfixes-3 — auth race fix** (P0; see TD-10 for approach options)
 - [ ] **PR4r merge** (in flight — reverts hydration guard, keeps api import fix)
 - [ ] **End-to-end Stripe sandbox test** (test card → webhook → entitlement → portal → cancel → tier downgrade)
@@ -135,6 +179,169 @@ Pre-paid-launch blocker.
 ### 2.4 UAT P0
 
 - [ ] **UAT** with 3–5 mixed testers (≥2/5 spontaneous "I'd pay")
+
+---
+
+## 2.5 Smoke test findings — P1/P2/P3 (2026-05-25 founder review)
+
+*(P0 smoke findings P0-SMOKE-01/03a/03b are in §2.1 above. The entries
+below are the non-blocking findings from the same 2026-05-25 review.)*
+
+### P1-SMOKE-02 — "Go deeper" button caveats (2026-05-25)
+
+a) "Go deeper" should be DISABLED on the first turn after Reflect-on-this
+   from a pre-populated topic. The persona's first message is an opening
+   statement on a generic subject — there's no depth to "go deeper" into.
+
+b) Socrates persona STILL ends responses with a question (despite voice
+   calibration work in previous PRs). Voice not tamed yet.
+
+Investigation:
+- "Go deeper" button: add conditional disable when message_count === 1
+  AND user is in pre-populated topic flow
+- Socrates voice: review system_socrates.jinja2 ending rules; possibly
+  needs explicit example of non-question ending OR stronger ANTI-FLEXING
+  rule
+
+### P1-SMOKE-04 — Council weekly rate limit + admin bypass (2026-05-25)
+
+User nkoutr@ote.gr (founder's secondary test account) hit "you have
+reached your weekly council limit" message.
+
+Questions to resolve:
+1. What is the Council rate limit for Pro tier? (Document the design)
+2. Is there an admin bypass for is_admin=true users?
+3. If not, build one — founder + beta users need unlimited testing access
+
+Note: nkoutr@ote.gr is DIFFERENT from primary founder account
+nckoutras@gmail.com. Check if nkoutr@ote.gr has is_admin=true set.
+
+Investigation:
+- Check council rate limit configuration (services/rate_limit_service.py
+  or council-specific service)
+- Check admin bypass logic in council router
+- Decide on documented limit for Pro tier post-bypass
+
+### P1-SMOKE-05 — Mirror date range should lock to calendar week (2026-05-25)
+
+Mirror currently shows date range like "05 to 08 June" — arbitrary
+window not aligned to calendar week.
+
+Design decision: lock Mirror window to ISO calendar week (Mon-Sun)
+for predictability and shareability ("this week's Mirror").
+
+Implementation:
+- Backend: services/mirror_service.py date range calculation
+- Frontend: Mirror result display formatting
+
+### P1-SMOKE-06 — Mirror revisit: "Does this ring true" stuck on initial answer (2026-05-25)
+
+When user revisits a previously-completed Mirror, the "Does this ring
+true?" question is locked to the answer given on first viewing (e.g.,
+"rings true" from initial feedback).
+
+Current state: user sees their first answer permanently displayed,
+no UX cue that this is historical feedback already incorporated into
+the Mirror's interpretation.
+
+UX need: clarity that the feedback has been received and is now part
+of the persistent record. Options:
+- Display first answer as "You said: X" disabled state
+- Show muted timestamp "Reflected: [date]"
+- Hide the question entirely on revisit
+- Allow re-answering with explicit "Update reflection" affordance
+
+Design call needed before implementation.
+
+### P2-SMOKE-07 — Share card typography polish (2026-05-25)
+
+"the wise room" and date on share card need:
+- More space (kerning, padding around)
+- Larger font size
+
+Component: apps/api/services/image_service.py (Pillow generation)
++ template assets
+
+### P2-SMOKE-09 — Sunday Letter card: missing close button (2026-05-25)
+
+The card that explains "Sunday letter is coming on Sunday" lacks a
+close ("X") button in top-right corner. User cannot dismiss the card.
+
+Add standard close button (top-right X icon, dismisses to
+non-displayed state for current session OR forever — design call).
+
+Component: apps/web/components/today/SundayLetterCard.tsx (or similar)
+
+### P2-SMOKE-10 — Save Mirror verdict to Reflections + share card (2026-05-25)
+
+New feature request: Add "Save" option to Mirror verdict screens
+(e.g., "What Carl Jung sees").
+
+Behavior:
+- Save button on verdict screen → persists to reflections table
+- Verdict appears in Reflections tab alongside saved lines
+- Share affordance opens share card with same visual treatment as
+  existing saved lines share cards
+- ONE difference: background faded image = Mirror visual asset
+  (instead of persona portrait)
+
+Engineering scope:
+- Backend: extend saved_lines schema OR new reflections table type
+  to handle mirror verdicts
+- Frontend: Save button on verdict UI + Reflections list integration
+  + share card variant with mirror background asset
+
+Estimated: 1 PR, ~100-150 lines
+
+### P2-SMOKE-11 — Save Council verdict to Reflections + share card (2026-05-25)
+
+Same pattern as P2-SMOKE-10 for Council verdicts.
+
+Save Council verdict → reflections → shareable.
+
+Differences from Mirror version:
+- Background faded image = "boardroom" visual asset
+- Share card additionally displays thumbnail row of the 4 personas
+  that participated in the council
+
+Engineering scope: similar to P2-SMOKE-10, slightly larger due to
+persona thumbnails row.
+
+Estimated: 1 PR, ~120-170 lines
+
+### P3-SMOKE-08 — Today tab consolidation redesign (2026-05-25)
+
+Founder proposes major Today tab restructure. Strategic UX call —
+needs mockup/wireframe before implementation.
+
+Proposed structure:
+- Keep card titled "What brings you here?"
+- Top half of card: pills (separation, anxiety, fear, grief,
+  acceptance, work, relationships, purpose) — currently a separate
+  screen
+- Bottom half of card: "or describe in your own words" + the
+  pre-populated rotating prompts (currently TodaysTopicCard) with
+  affordance to tap-in and write own text
+
+Implications:
+- ELIMINATES the "what-brings-you-here" screen that opens on "Start
+  Fresh" button press
+- ELIMINATES the start-fresh push button
+- RENAMES "Reflect on this" → "Initiate reflection"
+- WORKFLOW: Initiate reflection button → "what do you need most"
+  screen (existing) → persona selection → existing journey
+
+Pre-implementation needed:
+- Mockup or wireframe showing the consolidated card layout
+- UX flow diagram showing where eliminated screens connected
+- Decision on what happens to current TodaysTopicCard surface and
+  copy
+- Consider impact on Today tab visual density
+
+Estimated: 2-3 PRs (1 for card redesign, 1 for navigation cleanup,
+1 for copy + analytics)
+
+Trigger: post P0/P1 bug fixes + design pass complete.
 
 ---
 
