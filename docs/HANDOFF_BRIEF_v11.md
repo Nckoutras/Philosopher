@@ -213,35 +213,117 @@ Historical note for context: `BASE_URL` in Render was `https://philosopher-api.o
 
 ---
 
+## Process notes (2026-05-24)
+
+### OTP rate limit observation
+
+During PR4p → PR4q → PR4r debugging cycle, founder hit Upstash Redis
+OTP rate limit on nckoutras@gmail.com after 10 OTP requests within
+~3.5 hours. Workaround used: verification via existing valid JWT in
+normal browser session (no OTP needed), instead of incognito +
+re-login.
+
+For future debugging sessions involving auth:
+- Use existing logged-in browser when possible (JWT is valid for 7 days)
+- Alternative: freetester@gmail.com or other test accounts have
+  separate rate limit pools
+- Avoid testing the OTP flow itself >5 times per hour from one email
+
+### Ritual icon prompt template (DALL-E 3)
+
+Per TD-19, editorial minimal direction locked. Below is the prompt
+template used during May 24 design exploration session, preserved for
+when icon generation phase begins:
+
+Style requirements (strict):
+- Editorial illustration aesthetic, modernist sensibility
+- Single uniform stroke weight throughout (clean monoline)
+- Geometric abstraction, not literal depiction
+- Generous negative space, breathing composition
+- Bronze color (hex #B89968) line work only
+- Pure white background, no shading, no gradients
+- Maximum 2-3 visual elements per icon
+- Inspired by: Aesop packaging, Pentagram design, A24 branding,
+  NYT Op-Ed illustration
+
+Absolutely avoid:
+- Engraving textures, antique feel, ornamental details
+- Wax seals, ribbons, constellations, candles, moons, stars
+- Tarot or occult symbolism
+- Decorative borders or flourishes
+- Photographic realism or shading
+- Religious or mystical iconography
+- Multiple stroke weights or hand-drawn imperfection
+- Background patterns or textures
+
+Subject placeholder: [SUBJECT-PER-ICON]
+Output: 1024x1024 PNG, centered composition, suitable for app
+thumbnail at 64x64px display size.
+
+Per-icon subjects:
+- Mirror (primary): "A simple oval shape, vertically oriented,
+  bisected by a single diagonal line from top-right to bottom-left.
+  No handle. No frame ornament."
+- Mirror (alternative): "Two identical perfect circles, one positioned
+  directly above the other, mirrored vertically."
+- Counterview (primary): "Two thin lines forming opposing arrows,
+  meeting at center. Left arrow points right, right arrow points left.
+  Equal length, mirrored composition."
+- Counterview (alternative): "A single perfect triangle pointing up,
+  with a second identical triangle pointing down directly below it,
+  sharing only their tips at the center."
+- Letter to Future Self (primary): "A simple rectangle with a
+  triangular flap on top (basic envelope outline). No wax seal. No
+  decoration."
+- Weekly Reading (primary): "Three horizontal parallel lines stacked
+  vertically, each of slightly different length. The shortest line
+  at the bottom."
+- Weekly Reading (alternative): "A simple book outline viewed from
+  the side, slightly open at center, showing two angled rectangular
+  pages meeting at a vertical spine."
+
+Asset processing pipeline:
+1. Generate PNG 1024x1024 via DALL-E 3 (one icon at a time, 2-3
+   variants per icon for selection)
+2. Background removal: remove.bg (drag-drop, transparent PNG output)
+3. Optional vectorization: Vectorizer.AI ($9.95/month or free trial)
+4. Output: mirror.png, counterview.png, letter.png, weekly-reading.png
+5. Destination: apps/web/public/icons/rituals/
+
+---
+
 ## 5. Next session entry point (2026-05-25 onward)
 
 Production restored. Cold-beta path mostly unblocked from code
 side — remaining blockers are external (brand, Resend, ΚΑΔ).
 
-Founder's stated focus: shift from feature work to UI/UX polish
-+ edge-case screens.
+Smoke test 2026-05-25 surfaced 4 P0 bugs requiring immediate
+attention. UI/UX edge-case work moved back in queue.
 
-### Three first-move options for next session
+### Updated first-move options (post 2026-05-25 smoke test)
 
-1. P0 conversation delete bug — debug + hotfix. Probably
-   ~1-2 hours total cycle if root cause is straightforward.
+1. P0 BUG BATCH — Investigate + hotfix the three P0 bugs discovered
+   in smoke testing:
+   - P0-SMOKE-01: Bottom tab bar position regression
+   - P0-SMOKE-03a: Letter submit button missing
+   - P0-SMOKE-03b: Letter screen tab bar drag
 
-2. UI/UX edge-case screens batch — coherent design system
-   set: 404, 500, error boundary, offline state, retry component,
-   maintenance mode, empty states audit, loading skeletons.
-   Estimated ~200-300 lines, single PR.
+   P0-SMOKE-01 and 03b likely share root cause. Recommended sequence:
+   1) Tab bar position bugs (likely one fix for both)
+   2) Letter submit button (likely separate)
 
-3. Brand decision discussion — unblocks Resend domain + DNS +
-   eventual rebrand of Great Minds → ?. Strategic, not code work.
+2. P1 BUG BATCH — Voice/UX issues that aren't blocking but degrade
+   experience:
+   - Go deeper disable on first turn + Socrates voice
+   - Council weekly limit + admin bypass
+   - Mirror calendar week locking
+   - Mirror revisit UX clarification
 
-Wait for founder choice before producing any briefs. Don't bundle.
+3. UI/UX edge-case screens (404 / 500 / offline / retry / maintenance)
+   — original plan, lower priority now that P0 bugs surfaced
 
-### What's NOT a priority
-
-- New rituals engineering (Mirror/Counterview/Weekly Reading) —
-  post cold-beta
-- Ritual icons implementation — post brand decision + source files
-- Apple Sign In — needs Apple Dev $99 + domain
+4. Strategic design — Today tab consolidation redesign (P3-SMOKE-08)
+   needs mockup pass before any implementation
 
 ---
 
@@ -249,6 +331,7 @@ Wait for founder choice before producing any briefs. Don't bundle.
 
 | PR | Description | Date | Status |
 |---|---|---|---|
+| docs/v11-thread-end-updates | 2026-05-24 night | P0 conv delete + TD-19 ritual icons + UI/UX focus | ✅ Merged |
 | docs/v11-rotation | 2026-05-24 evening | Docs v9→v11 rotation, CLAUDE.md P-01 through P-05 codified | ✅ Merged |
 | PR1 #77 | Stripe checkout/portal + A0/Today/F1 polish + ToS/Privacy v1.1 | 2026-05-19 | ✅ merged |
 | PR2 #78 | Auto-titles fix + cross-persona + library dual-mode + 5 nav routes | 2026-05-20 | ✅ merged |
@@ -260,7 +343,7 @@ Wait for founder choice before producing any briefs. Don't bundle.
 | PR4o #103 | Rituals tab swap + /app/rituals page + Today RitualsCard simplified | 2026-05-23 | ✅ merged |
 | PR4p #104 | api import fix (TODAY P0 ✅) + hydration guard (P1 ❌ broke prod) | 2026-05-23 | ✅ merged (P1 reverted by PR4r) |
 | PR4q #105 | Empty commit (stale local main branching error — lesson only) | 2026-05-23 | ✅ merged (no-op) |
-| PR4r | Actual rollback: revert hydration guard, keep api import fix | 2026-05-24 | 🟡 in flight |
+| PR4r | Actual rollback: revert hydration guard, keep api import fix | 2026-05-24 | ✅ Merged 2026-05-24 |
 
 ---
 
