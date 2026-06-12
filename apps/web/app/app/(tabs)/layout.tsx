@@ -10,9 +10,9 @@ export default function TabsLayout({ children }: { children: React.ReactNode }) 
       <SubscriptionBootstrap />
       <div
         className="flex-1 overflow-y-auto overscroll-contain"
-        // Bar is now a fixed bottom overlay (out of flow); reserve its footprint so
-        // scrolled content is never hidden under it. h-16 bar + safe-area inset.
-        style={{ paddingBottom: 'calc(4rem + env(safe-area-inset-bottom))' }}
+        // Bar is now a fixed floating pill (out of flow); reserve its footprint so
+        // scrolled content clears it. h-16 pill + safe-area + 12px lift + 8px breathing.
+        style={{ paddingBottom: 'calc(4rem + env(safe-area-inset-bottom) + 12px + 8px)' }}
       >
         {children}
       </div>

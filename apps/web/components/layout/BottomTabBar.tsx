@@ -52,15 +52,16 @@ export default function BottomTabBar() {
   }, [router])
 
   return (
-    // Bottom-anchored frosted overlay (Design System v5, Instagram-style). Fixed to
-    // the visible viewport bottom directly rather than computed from the shell height —
-    // the top-down height-computed shell could not reliably place the bar across
-    // zoom/svh/browser-chrome/banner variations. The frosted Paper + backdrop-blur sits
-    // above scrolling content; (tabs)/layout.tsx pads the scroll area by bar height +
-    // safe-area so nothing is ever covered. BodyScrollLock keeps `fixed` safe here.
+    // Floating frosted pill (Design System v5, Instagram-style). Fixed to the visible
+    // viewport bottom directly rather than computed from the shell height — the top-down
+    // height-computed shell could not reliably place the bar across
+    // zoom/svh/browser-chrome/banner variations. Inset from the edges and lifted off the
+    // bottom so it reads as floating; the safe-area is an OFFSET below the pill (single
+    // source of truth) rather than padding inside it. (tabs)/layout.tsx pads the scroll
+    // area to match so nothing is covered. BodyScrollLock keeps `fixed` safe here.
     <nav
-      className="fixed bottom-0 left-0 right-0 z-50 bg-paper/80 backdrop-blur-md border-t-[0.5px] border-bronze/30"
-      style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+      className="fixed left-4 right-4 z-50 bg-paper/80 backdrop-blur-md border border-bronze/30 rounded-2xl shadow-card overflow-hidden"
+      style={{ bottom: 'calc(env(safe-area-inset-bottom) + 12px)' }}
       aria-label="Main navigation"
     >
       <div className="h-16 flex items-stretch">
