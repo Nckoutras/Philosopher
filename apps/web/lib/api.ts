@@ -220,6 +220,42 @@ export interface SavedLineListResponse {
   free_tier_limit: number | null
 }
 
+// ── Reflections feed (unified saved lines + mirror/council verdicts) ──────────
+
+export interface ReflectionFeedLine extends SavedLineRead {
+  kind: 'line'
+}
+
+export interface ReflectionFeedMirror {
+  kind: 'mirror_verdict'
+  save_id: string
+  mirror_id: string
+  thread: string
+  host_persona_slug: string | null
+  host_persona_name: string | null
+  mirror_kind: string // 'weekly' | 'preview'
+  saved_at: string
+}
+
+export interface ReflectionFeedCouncil {
+  kind: 'council_verdict'
+  save_id: string
+  session_id: string
+  synthesis: string
+  persona_slugs: string[]
+  created_at: string
+  saved_at: string
+}
+
+export type ReflectionFeedItem =
+  | ReflectionFeedLine
+  | ReflectionFeedMirror
+  | ReflectionFeedCouncil
+
+export interface ReflectionsFeedResponse {
+  items: ReflectionFeedItem[]
+}
+
 export interface DailyQuestion {
   id: string
   question_text: string
@@ -801,6 +837,10 @@ class ApiClient {
 
   async listSavedLines(): Promise<SavedLineListResponse> {
     return this.request<SavedLineListResponse>('/saved-lines')
+  }
+
+  async getReflectionsFeed(): Promise<ReflectionsFeedResponse> {
+    return this.request<ReflectionsFeedResponse>('/reflections/feed')
   }
 
   async deleteSavedLine(savedLineId: string): Promise<void> {

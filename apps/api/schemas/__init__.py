@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta, timezone
-from typing import Optional, Any, Literal
+from typing import Optional, Any, Literal, Union
+from typing_extensions import Annotated
 from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 
 
@@ -535,3 +536,52 @@ class SelfModelStatusOut(BaseModel):
     weekly_remaining: Optional[int] = None
     weekly_limit: Optional[int] = None
     plan: Optional[str] = None
+
+
+# ── Reflections feed (unified saved lines + mirror/council verdicts) ──────────
+
+class ReflectionFeedLine(BaseModel):
+    """A saved line — identical shape to SavedLineRead, tagged with a kind."""
+    kind: Literal["line"] = "line"
+    id: str
+    message_id: str
+    persona_id: str
+    persona_slug: str
+    persona_display_name: str
+    message_content: str
+    conversation_id: str
+    saved_at: datetime
+    source_type: str
+
+
+class ReflectionFeedMirror(BaseModel):
+    """A saved Mirror verdict — the closing-line `thread` plus its host persona."""
+    kind: Literal["mirror_verdict"] = "mirror_verdict"
+    save_id: str
+    mirror_id: str
+    thread: str
+    host_persona_slug: Optional[str] = None
+    host_persona_name: Optional[str] = None
+    mirror_kind: str  # 'weekly' | 'preview'
+    saved_at: datetime
+
+
+class ReflectionFeedCouncil(BaseModel):
+    """A saved Council verdict — the synthesis plus the participating persona slugs."""
+    kind: Literal["council_verdict"] = "council_verdict"
+    save_id: str
+    session_id: str
+    synthesis: str
+    persona_slugs: list[str]
+    created_at: datetime
+    saved_at: datetime
+
+
+ReflectionFeedItem = Annotated[
+    Union[ReflectionFeedLine, ReflectionFeedMirror, ReflectionFeedCouncil],
+    Field(discriminator="kind"),
+]
+
+
+class ReflectionsFeedResponse(BaseModel):
+    items: list[ReflectionFeedItem]

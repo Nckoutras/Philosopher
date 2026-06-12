@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { User, Conversation, Message, Subscription, SavedLineRead } from './api'
+import type { User, Conversation, Message, Subscription, SavedLineRead, ReflectionFeedItem } from './api'
 import { api } from './api'
 
 export interface PaywallDetails {
@@ -94,6 +94,15 @@ interface AppStore {
   optimisticSave: (messageId: string) => void
   revertSave: (messageId: string) => void
   removeAfterDelete: (savedLineId: string, messageId: string) => void
+
+  // Reflections feed (unified lines + mirror/council verdicts)
+  feedItems: ReflectionFeedItem[]
+  feedLoading: boolean
+  feedError: Error | null
+  loadReflectionsFeed: () => Promise<void>
+  removeFeedLine: (savedLineId: string, messageId: string) => void
+  removeFeedMirror: (mirrorId: string) => void
+  removeFeedCouncil: (sessionId: string) => void
 }
 
 export const useStore = create<AppStore>()(
@@ -240,6 +249,52 @@ export const useStore = create<AppStore>()(
             freeSaveCount: Math.max(0, s.freeSaveCount - 1),
           }
         }),
+
+      // Reflections feed — separate from loadSavedLines so the chat save
+      // paywall state (savedMessageIds/freeSaveCount/freeTierLimit), which the
+      // chat pages populate via loadSavedLines, is never disturbed by feed loads.
+      feedItems: [],
+      feedLoading: false,
+      feedError: null,
+      loadReflectionsFeed: async () => {
+        set({ feedLoading: true, feedError: null })
+        try {
+          const res = await api.getReflectionsFeed()
+          set({ feedItems: res.items, feedLoading: false })
+        } catch (err) {
+          set({
+            feedError: err instanceof Error ? err : new Error('Load failed'),
+            feedLoading: false,
+          })
+        }
+      },
+      // Deleting a saved line from the feed also decrements the shared paywall
+      // counters, mirroring removeAfterDelete so the chat screens stay accurate.
+      removeFeedLine: (savedLineId, messageId) =>
+        set((s) => {
+          const next = new Set(s.savedMessageIds)
+          next.delete(messageId)
+          return {
+            feedItems: s.feedItems.filter(
+              (i) => !(i.kind === 'line' && i.id === savedLineId),
+            ),
+            savedLines: s.savedLines.filter((l) => l.id !== savedLineId),
+            savedMessageIds: next,
+            freeSaveCount: Math.max(0, s.freeSaveCount - 1),
+          }
+        }),
+      removeFeedMirror: (mirrorId) =>
+        set((s) => ({
+          feedItems: s.feedItems.filter(
+            (i) => !(i.kind === 'mirror_verdict' && i.mirror_id === mirrorId),
+          ),
+        })),
+      removeFeedCouncil: (sessionId) =>
+        set((s) => ({
+          feedItems: s.feedItems.filter(
+            (i) => !(i.kind === 'council_verdict' && i.session_id === sessionId),
+          ),
+        })),
     }),
     {
       name: 'philosopher-store',
