@@ -36,6 +36,15 @@ export default function ViewportDebugHUD() {
   const pathnameRef = useRef(pathname)
   pathnameRef.current = pathname
 
+  // Decisive unit probes: hidden, out-of-flow divs sized to 100svh / 100dvh /
+  // 100lvh. Their measured getBoundingClientRect().height reveals exactly how
+  // this engine resolves each viewport unit under body zoom + dynamic chrome,
+  // ending the guesswork. Zero layout impact (absolute, 1px wide, clipped by the
+  // shell's overflow-hidden, visibility:hidden).
+  const pSvhRef = useRef<HTMLDivElement>(null)
+  const pDvhRef = useRef<HTMLDivElement>(null)
+  const pLvhRef = useRef<HTMLDivElement>(null)
+
   useEffect(() => {
     const fmt = (n: number | undefined | null) =>
       n === undefined || n === null || Number.isNaN(n)
@@ -104,6 +113,8 @@ export default function ViewportDebugHUD() {
       const shellRect = shell?.getBoundingClientRect()
       const barRect = tabBar?.getBoundingClientRect()
       const sheetOpen = !!document.querySelector('[role="dialog"][aria-modal="true"]')
+      const probeH = (el: HTMLDivElement | null) =>
+        el ? el.getBoundingClientRect().height : null
 
       const params = new URLSearchParams({
         sy: ri(window.scrollY),
@@ -116,6 +127,10 @@ export default function ViewportDebugHUD() {
         sh: ri(shellRect?.height),
         tbt: ri(barRect?.top),
         tbb: ri(barRect?.bottom),
+        p_svh: ri(probeH(pSvhRef.current)),
+        p_dvh: ri(probeH(pDvhRef.current)),
+        p_lvh: ri(probeH(pLvhRef.current)),
+        dch: ri(document.documentElement.clientHeight),
         route: pathnameRef.current ?? '',
         sheet: sheetOpen ? '1' : '0',
       })
@@ -135,21 +150,38 @@ export default function ViewportDebugHUD() {
     }
   }, [])
 
+  // Hidden unit probes — out of flow, 1px wide, invisible, clipped by the shell's
+  // overflow-hidden. Only their resolved height is read (getBoundingClientRect).
+  const probeStyle = {
+    position: 'absolute' as const,
+    top: 0,
+    left: 0,
+    width: 1,
+    visibility: 'hidden' as const,
+    pointerEvents: 'none' as const,
+    zIndex: -1,
+  }
+
   return (
-    <div
-      aria-hidden="true"
-      className="absolute top-0 left-0 z-[2147483647] pointer-events-none whitespace-pre px-2 py-1"
-      style={{
-        fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
-        fontSize: '10px',
-        lineHeight: 1.35,
-        color: '#7CFC00',
-        background: 'rgba(0,0,0,0.8)',
-      }}
-    >
-      {lines.map((line, i) => (
-        <div key={i}>{line}</div>
-      ))}
-    </div>
+    <>
+      <div ref={pSvhRef} aria-hidden="true" style={{ ...probeStyle, height: '100svh' }} />
+      <div ref={pDvhRef} aria-hidden="true" style={{ ...probeStyle, height: '100dvh' }} />
+      <div ref={pLvhRef} aria-hidden="true" style={{ ...probeStyle, height: '100lvh' }} />
+      <div
+        aria-hidden="true"
+        className="absolute top-0 left-0 z-[2147483647] pointer-events-none whitespace-pre px-2 py-1"
+        style={{
+          fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+          fontSize: '10px',
+          lineHeight: 1.35,
+          color: '#7CFC00',
+          background: 'rgba(0,0,0,0.8)',
+        }}
+      >
+        {lines.map((line, i) => (
+          <div key={i}>{line}</div>
+        ))}
+      </div>
+    </>
   )
 }
