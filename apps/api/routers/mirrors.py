@@ -6,7 +6,7 @@ from sqlalchemy import select
 
 from auth import get_current_user, get_current_user_plan
 from db.session import get_db
-from models import Mirror, Persona, User
+from models import Mirror, MirrorSave, Persona, User
 from schemas import MirrorOut, RingTrueRequest, MirrorHostOut, MirrorHostsResponse, SetMirrorHostRequest
 
 router = APIRouter(prefix="/mirrors", tags=["mirrors"])
@@ -107,3 +107,55 @@ async def set_mirror_host(
     user.mirror_host_slug = body.host_slug
     await db.flush()
     return {"host_slug": body.host_slug}
+
+
+@router.post("/{mirror_id}/save")
+async def save_mirror(
+    mirror_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    # Verify the mirror belongs to this user
+    result = await db.execute(
+        select(Mirror).where(Mirror.id == mirror_id, Mirror.user_id == user.id)
+    )
+    if result.scalar_one_or_none() is None:
+        raise HTTPException(status_code=404)
+
+    # Upsert: re-save if soft-deleted, insert if absent, no-op if active
+    existing = await db.execute(
+        select(MirrorSave).where(
+            MirrorSave.user_id == user.id,
+            MirrorSave.mirror_id == mirror_id,
+        )
+    )
+    row = existing.scalar_one_or_none()
+
+    if row is None:
+        db.add(MirrorSave(user_id=user.id, mirror_id=mirror_id))
+    elif row.deleted_at is not None:
+        row.deleted_at = None
+
+    await db.commit()
+    return {"saved": True}
+
+
+@router.delete("/{mirror_id}/save")
+async def unsave_mirror(
+    mirror_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    result = await db.execute(
+        select(MirrorSave).where(
+            MirrorSave.user_id == user.id,
+            MirrorSave.mirror_id == mirror_id,
+            MirrorSave.deleted_at.is_(None),
+        )
+    )
+    row = result.scalar_one_or_none()
+    if row is not None:
+        row.deleted_at = datetime.now(timezone.utc)
+        await db.commit()
+
+    return {"saved": False}

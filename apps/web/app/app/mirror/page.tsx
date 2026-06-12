@@ -3,7 +3,7 @@
 import { Fragment, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
-import { Check, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Bookmark, Check, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import { api } from '@/lib/api'
 import type { Mirror, MirrorHost, Persona } from '@/lib/api'
@@ -88,6 +88,7 @@ export default function MirrorPage() {
   const [hosts, setHosts] = useState<MirrorHost[]>([])
   const [selectedHost, setSelectedHost] = useState<string | null>(null)
   const [savedHostName, setSavedHostName] = useState<string | null>(null)
+  const [saved, setSaved] = useState(false)
 
   // ── Animation state ──
   const [animPhase, setAnimPhase] = useState<'idle' | 'intro' | 'revealing' | 'done'>('idle')
@@ -221,6 +222,21 @@ export default function MirrorPage() {
       await api.setRingTrue(mirror.id, value)
     } catch {
       // optimistic -- silent
+    }
+  }
+
+  async function handleSave() {
+    if (!mirror) return
+    const next = !saved
+    setSaved(next)
+    try {
+      if (next) {
+        await api.saveMirror(mirror.id)
+      } else {
+        await api.unsaveMirror(mirror.id)
+      }
+    } catch {
+      setSaved(!next) // revert on error
     }
   }
 
@@ -456,6 +472,17 @@ export default function MirrorPage() {
               {/* Humility + ring-true — appear when all words are revealed */}
               {animPhase === 'done' && (
                 <>
+                  <div className="flex justify-center mt-[24px]">
+                    <button
+                      type="button"
+                      onClick={handleSave}
+                      disabled={!mirror}
+                      className="flex items-center gap-[6px] font-lora text-[13px] text-sepia border-[0.5px] border-edge rounded-full px-[16px] py-[8px] disabled:opacity-40"
+                    >
+                      <Bookmark size={14} strokeWidth={1.5} fill={saved ? 'currentColor' : 'none'} />
+                      {saved ? 'Saved' : 'Save'}
+                    </button>
+                  </div>
                   <p className="font-cormorant italic text-[17px] text-sepia text-center my-[28px]">
                     This may be wrong. If it is, set it down.
                   </p>
