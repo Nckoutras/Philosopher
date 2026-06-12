@@ -43,7 +43,11 @@ export default function BottomSheet({ open, onClose, children, maxHeight = '75sv
             role="dialog"
             aria-modal="true"
             className="absolute inset-x-0 bottom-0 bg-paper rounded-t-xl flex flex-col"
-            style={{ maxHeight }}
+            // Single source of safe-area truth for all sheets: the panel insets its own
+            // bottom by the home-indicator/browser zone so a pinned footer (or the last
+            // scrolled item in footer-less sheets) clears it. Consumers must NOT add
+            // env(safe-area-inset-bottom) again in their footer — that double-compensates.
+            style={{ maxHeight, paddingBottom: 'env(safe-area-inset-bottom)' }}
             initial={{ y: '100%' }}
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
