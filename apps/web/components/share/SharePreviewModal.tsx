@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import toast from 'react-hot-toast'
 import { api, ShareLimitError } from '@/lib/api'
-import { dynamicFontSize, stripEmoji } from '@/lib/shareUtils'
+import { dynamicFontSize } from '@/lib/shareUtils'
 
 interface SharePreviewModalProps {
   isOpen: boolean
@@ -16,6 +16,7 @@ interface SharePreviewModalProps {
   conversationId?: string
   // 'council' variant
   councilSessionId?: string
+  councilPortraits?: string[]   // participating-persona portrait URLs (preview thumbnails)
   // 'mirror' variant (personaName = host name, portraitUrl = host portrait)
   mirrorId?: string
   // all variants
@@ -32,6 +33,7 @@ export default function SharePreviewModal({
   portraitUrl,
   conversationId,
   councilSessionId,
+  councilPortraits,
   mirrorId,
   quote,
   onShareComplete,
@@ -82,11 +84,6 @@ export default function SharePreviewModal({
   useEffect(() => {
     if (isOpen) cancelRef.current?.focus()
   }, [isOpen])
-
-  function handleAnnotationChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
-    const cleaned = stripEmoji(e.target.value)
-    setAnnotation(cleaned.slice(0, 140))
-  }
 
   async function handleSend() {
     setShareLoading(true)
@@ -167,7 +164,6 @@ export default function SharePreviewModal({
 
   // Scale factor: preview card width (320px) / canvas width (1080px)
   const previewFontSize    = (dynamicFontSize(quote.length) * 0.296).toFixed(1)
-  const displayAnnotation  = annotation.trim()
 
   // Approximate date stamp for the line/mirror-variant preview (mm/dd/yyyy).
   // The real card uses the record's timestamp; preview uses today.
@@ -200,35 +196,59 @@ export default function SharePreviewModal({
 
         {/* ── Preview card (4:5 aspect ratio) ── */}
         {isCouncil ? (
-          /* Council variant — legacy layout, unchanged */
+          /* Council variant — redesigned to match the server PNG: faint
+             boardroom hero, top wordmark+date, centred row of participating-
+             persona thumbnails, "The Council", synthesis, bold stamp.
+             Approximation of the server-rendered PNG. */
           <div
-            className="w-full bg-vellum rounded-sm overflow-hidden mb-4 flex flex-col items-center px-6 pt-5 pb-4"
+            className="relative w-full bg-vellum rounded-sm overflow-hidden mb-4"
             style={{ aspectRatio: '4/5' }}
             aria-hidden="true"
           >
-            <p className="font-lora text-[9px] uppercase tracking-[0.22em] text-bronze text-center mb-2">
-              THE COUNCIL&apos;S READING
-            </p>
+            {/* Faint boardroom hero — resize-to-cover, very low opacity */}
+            <img
+              src="/personas/boardroom.webp"
+              alt=""
+              className="pointer-events-none absolute inset-0 w-full h-full object-cover opacity-[0.10]"
+            />
 
-            {/* Quote — scaled dynamic font */}
-            <p
-              className="font-cormorant italic text-ink text-center leading-[1.4] flex-1 overflow-hidden"
-              style={{ fontSize: `${previewFontSize}px` }}
-            >
-              {quote}
-            </p>
+            <div className="relative z-10 flex flex-col items-center h-full px-6 pt-4 pb-3">
+              {/* "The Wise Room" + date — pinned top */}
+              <p className="font-cormorant italic text-[10px] text-bronze text-center">The Wise Room</p>
+              <p className="font-lora text-[7px] text-bronze/70 text-center mt-0.5">{previewDate}</p>
 
-            {/* Annotation preview */}
-            {displayAnnotation && (
-              <p className="font-lora text-[9px] text-bronze text-center mt-2 italic">
-                &ldquo;{displayAnnotation}&rdquo;
+              {/* Participating-persona thumbnail row (omitted when none supplied —
+                  e.g. the council ritual screen, which degrades to bg-only) */}
+              {councilPortraits && councilPortraits.length > 0 && (
+                <div className="flex items-center gap-[6px] mt-3 mb-2">
+                  {councilPortraits.slice(0, 4).map((src, i) => (
+                    <div
+                      key={i}
+                      className="w-[40px] h-[40px] rounded-full overflow-hidden flex-shrink-0 bg-edge"
+                    >
+                      <img src={src} alt="" className="w-full h-full object-cover" />
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* "The Council" */}
+              <p className="font-cormorant text-[11px] font-medium text-ink text-center mt-2 mb-1">
+                The Council
               </p>
-            )}
 
-            {/* Mini footer */}
-            <div className="mt-3 pt-2 border-t border-bronze/20 w-full text-center flex-shrink-0">
-              <p className="font-cormorant italic text-[9px] text-bronze">The Wise Room</p>
-              <p className="font-lora text-[7px] text-bronze/60 mt-0.5">thewiseroom.app</p>
+              {/* Synthesis — centred in the leftover band */}
+              <p
+                className="font-cormorant italic text-ink text-center leading-[1.4] flex-1 flex items-center justify-center overflow-hidden"
+                style={{ fontSize: `${previewFontSize}px` }}
+              >
+                {quote}
+              </p>
+
+              {/* Bold "thewiseroom.app" stamp */}
+              <p className="font-lora text-[9px] font-bold text-bronze text-center mt-2">
+                thewiseroom.app
+              </p>
             </div>
           </div>
         ) : (
@@ -284,35 +304,10 @@ export default function SharePreviewModal({
           </div>
         )}
 
-        {/* ── Annotation input ──
-            Council cards still render an annotation; the redesigned reflection
-            card does not, so the input only appears for the council variant. */}
-        {isCouncil ? (
-          <>
-            <textarea
-              value={annotation}
-              onChange={handleAnnotationChange}
-              placeholder="Add your thought…"
-              maxLength={140}
-              rows={1}
-              disabled={shareLoading}
-              className="w-full font-lora text-[13px] text-ink bg-transparent border border-edge rounded-sm px-3 py-2 resize-none overflow-hidden placeholder:text-sepia/60 focus:outline-none focus:border-bronze/50 disabled:opacity-50"
-              style={{ minHeight: '38px', maxHeight: '60px' }}
-              onInput={(e) => {
-                const el = e.currentTarget
-                el.style.height = 'auto'
-                el.style.height = `${Math.min(el.scrollHeight, 60)}px`
-              }}
-            />
-
-            {/* Character counter */}
-            <p className="font-lora text-[11px] text-sepia text-right mt-1 mb-4">
-              {annotation.length}/140
-            </p>
-          </>
-        ) : (
-          <div className="mb-4" />
-        )}
+        {/* Spacer where the (removed) annotation input used to live. The
+            redesigned share cards — line, mirror, and council — no longer
+            render a caption, so no variant takes annotation input. */}
+        <div className="mb-4" />
 
         {/* ── Buttons ── */}
         <div className="flex gap-3">
