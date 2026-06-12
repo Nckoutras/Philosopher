@@ -158,7 +158,6 @@ export default function TodayPage() {
             user={user}
             dailyQuestion={question.question_text}
             onReflect={handleReflect}
-            onStartFresh={() => router.push('/app/onboarding/themes')}
           />
         )}
 
