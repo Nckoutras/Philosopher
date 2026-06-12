@@ -60,7 +60,7 @@ export default function BottomTabBar() {
     // source of truth) rather than padding inside it. (tabs)/layout.tsx pads the scroll
     // area to match so nothing is covered. BodyScrollLock keeps `fixed` safe here.
     <nav
-      className="fixed left-4 right-4 z-50 bg-paper/80 backdrop-blur-md border border-bronze/30 rounded-2xl shadow-card overflow-hidden"
+      className="fixed left-4 right-4 z-50 bg-paper/80 backdrop-blur-md border border-bronze/30 rounded-full shadow-card overflow-hidden"
       style={{ bottom: 'calc(env(safe-area-inset-bottom) + 12px)' }}
       aria-label="Main navigation"
     >
