@@ -1,6 +1,15 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { usePathname } from 'next/navigation'
+
+// Same API base the app already uses (lib/api.ts / auth/page.tsx re-derive this
+// exact expression; the constant there is not exported). NEXT_PUBLIC_API_URL
+// already ENDS in /api/v1 in every environment, so the beacon path below appends
+// only `/_diag_viewport` to land the request line as `/api/v1/_diag_viewport`.
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_URL ??
+  'https://philosopher-api-z9l9.onrender.com/api/v1'
 
 /**
  * DIAGNOSTIC-ONLY overlay — lives on branch `diag/viewport-hud` and is NEVER
@@ -23,6 +32,9 @@ import { useEffect, useState } from 'react'
  */
 export default function ViewportDebugHUD() {
   const [lines, setLines] = useState<string[]>([])
+  const pathname = usePathname()
+  const pathnameRef = useRef(pathname)
+  pathnameRef.current = pathname
 
   useEffect(() => {
     const fmt = (n: number | undefined | null) =>
@@ -66,6 +78,60 @@ export default function ViewportDebugHUD() {
       window.removeEventListener('resize', onEvent)
       window.visualViewport?.removeEventListener('scroll', onEvent)
       window.visualViewport?.removeEventListener('resize', onEvent)
+    }
+  }, [])
+
+  // Self-reporting beacon: the founder cannot screenshot the HUD, so we fire the
+  // same measurements at the production API every 3s (plus on mount and on
+  // visualViewport events, throttled to >=500ms apart). There is NO such endpoint;
+  // the request 404s and that is fine — Render's access log records the full query
+  // string, which IS the data channel. Fire-and-forget; errors swallowed.
+  useEffect(() => {
+    const lastBeacon = { t: 0 }
+    const ri = (n: number | undefined | null) =>
+      n === undefined || n === null || Number.isNaN(n) ? '' : String(Math.round(n))
+
+    const beacon = (force: boolean) => {
+      const now = Date.now()
+      if (!force && now - lastBeacon.t < 500) return
+      lastBeacon.t = now
+
+      const vv = window.visualViewport
+      const tabBar = document.querySelector(
+        'nav[aria-label="Main navigation"]',
+      ) as HTMLElement | null
+      const shell = tabBar?.parentElement ?? null
+      const shellRect = shell?.getBoundingClientRect()
+      const barRect = tabBar?.getBoundingClientRect()
+      const sheetOpen = !!document.querySelector('[role="dialog"][aria-modal="true"]')
+
+      const params = new URLSearchParams({
+        sy: ri(window.scrollY),
+        det: ri(document.documentElement.scrollTop),
+        bst: ri(document.body.scrollTop),
+        vvo: ri(vv?.offsetTop),
+        vvh: ri(vv?.height),
+        vvs: ri(vv?.scale),
+        ih: ri(window.innerHeight),
+        sh: ri(shellRect?.height),
+        tbt: ri(barRect?.top),
+        tbb: ri(barRect?.bottom),
+        route: pathnameRef.current ?? '',
+        sheet: sheetOpen ? '1' : '0',
+      })
+      fetch(`${API_BASE}/_diag_viewport?${params.toString()}`).catch(() => {})
+    }
+
+    beacon(true)
+    const intervalId = window.setInterval(() => beacon(true), 3000)
+    const onVV = () => beacon(false)
+    window.visualViewport?.addEventListener('scroll', onVV)
+    window.visualViewport?.addEventListener('resize', onVV)
+
+    return () => {
+      window.clearInterval(intervalId)
+      window.visualViewport?.removeEventListener('scroll', onVV)
+      window.visualViewport?.removeEventListener('resize', onVV)
     }
   }, [])
 
