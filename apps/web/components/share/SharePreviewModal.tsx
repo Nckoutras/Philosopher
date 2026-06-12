@@ -8,7 +8,7 @@ import { dynamicFontSize, stripEmoji } from '@/lib/shareUtils'
 interface SharePreviewModalProps {
   isOpen: boolean
   onClose: () => void
-  kind?: 'line' | 'council'
+  kind?: 'line' | 'council' | 'mirror'
   // 'line' variant
   savedLineId?: string
   personaName?: string
@@ -16,7 +16,9 @@ interface SharePreviewModalProps {
   conversationId?: string
   // 'council' variant
   councilSessionId?: string
-  // both variants
+  // 'mirror' variant (personaName = host name, portraitUrl = host portrait)
+  mirrorId?: string
+  // all variants
   quote: string
   onShareComplete?: () => void
 }
@@ -30,6 +32,7 @@ export default function SharePreviewModal({
   portraitUrl,
   conversationId,
   councilSessionId,
+  mirrorId,
   quote,
   onShareComplete,
 }: SharePreviewModalProps) {
@@ -39,6 +42,7 @@ export default function SharePreviewModal({
   const [shareError, setShareError]     = useState<string | null>(null)
 
   const isCouncil = kind === 'council'
+  const isMirror  = kind === 'mirror'
 
   // Reset state on each open
   useEffect(() => {
@@ -88,21 +92,30 @@ export default function SharePreviewModal({
     setShareLoading(true)
     setShareError(null)
 
-    const shortShareText = isCouncil
-      ? `The Council's reading:\nthewiseroom.app`
-      : `${personaName} told me:\nthewiseroom.app`
-    const fullShareText = isCouncil
-      ? `The Council's reading:\n\n${quote}\n\nthewiseroom.app`
-      : `${personaName} told me:\n\n${quote}\n\nthewiseroom.app`
+    const lead = isCouncil
+      ? `The Council's reading:`
+      : isMirror
+      ? `The mirror reflected:`
+      : `${personaName} told me:`
+    const shortShareText = `${lead}\nthewiseroom.app`
+    const fullShareText  = `${lead}\n\n${quote}\n\nthewiseroom.app`
     const origin = typeof window !== 'undefined' ? window.location.origin : ''
     const url    = isCouncil
       ? `${origin}/app/council`
+      : isMirror
+      ? `${origin}/app/mirror`
       : `${origin}/app/chat/conv/${conversationId}`
-    const filename = isCouncil ? 'council-reading.png' : 'reflection.png'
+    const filename = isCouncil
+      ? 'council-reading.png'
+      : isMirror
+      ? 'mirror-reflection.png'
+      : 'reflection.png'
 
     try {
       const blob = isCouncil
         ? await api.shareCouncil(councilSessionId!, annotation.trim() || undefined)
+        : isMirror
+        ? await api.shareMirror(mirrorId!)
         : await api.createShareScreenshot(savedLineId!, annotation.trim() || undefined)
 
       const file = new File([blob], filename, { type: 'image/png' })
@@ -156,10 +169,17 @@ export default function SharePreviewModal({
   const previewFontSize    = (dynamicFontSize(quote.length) * 0.296).toFixed(1)
   const displayAnnotation  = annotation.trim()
 
-  // Approximate date stamp for the line-variant preview (mm/dd/yyyy).
-  // The real card uses the saved line's saved_at; preview uses today.
+  // Approximate date stamp for the line/mirror-variant preview (mm/dd/yyyy).
+  // The real card uses the record's timestamp; preview uses today.
   const now = new Date()
   const previewDate = `${String(now.getMonth() + 1).padStart(2, '0')}/${String(now.getDate()).padStart(2, '0')}/${now.getFullYear()}`
+
+  // Line + mirror share the reflection layout; mirror swaps the hero + intro.
+  const heroSrc     = isMirror ? '/personas/mirror.png' : '/personas/wise-room-hero.webp'
+  const heroOpacity = isMirror ? 'opacity-[0.10]' : 'opacity-[0.12]'
+  const introLine   = isMirror
+    ? (personaName ? `${personaName} reflects` : 'The mirror reflects')
+    : `${personaName} told me`
 
   return (
     <div
@@ -212,19 +232,19 @@ export default function SharePreviewModal({
             </div>
           </div>
         ) : (
-          /* Line variant — redesigned: faint hero bg, top wordmark+date,
-             larger portrait, intro, auto-centred reflection, bold stamp.
-             Approximation of the server-rendered PNG. */
+          /* Line + mirror variant — redesigned: faint ritual hero bg, top
+             wordmark+date, larger portrait, intro, auto-centred reflection,
+             bold stamp. Approximation of the server-rendered PNG. */
           <div
             className="relative w-full bg-vellum rounded-sm overflow-hidden mb-4"
             style={{ aspectRatio: '4/5' }}
             aria-hidden="true"
           >
-            {/* Faint chesterfield hero — resize-to-cover, very low opacity */}
+            {/* Faint ritual hero — resize-to-cover, very low opacity */}
             <img
-              src="/personas/wise-room-hero.webp"
+              src={heroSrc}
               alt=""
-              className="pointer-events-none absolute inset-0 w-full h-full object-cover opacity-[0.12]"
+              className={`pointer-events-none absolute inset-0 w-full h-full object-cover ${heroOpacity}`}
             />
 
             <div className="relative z-10 flex flex-col items-center h-full px-6 pt-4 pb-3">
@@ -243,9 +263,9 @@ export default function SharePreviewModal({
                 )}
               </div>
 
-              {/* "{Persona} told me" */}
+              {/* Intro — "{Persona} told me" / "{Host} reflects" */}
               <p className="font-cormorant text-[11px] font-medium text-ink text-center mb-1">
-                {personaName} told me
+                {introLine}
               </p>
 
               {/* Reflection — centred in the leftover band */}

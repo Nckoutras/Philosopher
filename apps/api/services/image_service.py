@@ -26,7 +26,7 @@ from PIL import Image, ImageDraw, ImageFont
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
-from models import CouncilCase, CouncilSession, SavedLine, Message, Persona
+from models import CouncilCase, CouncilResponse, CouncilSession, Mirror, SavedLine, Message, Persona
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +34,10 @@ STATIC_DIR = Path(__file__).parent.parent / "static"
 FONTS_DIR = STATIC_DIR / "fonts"
 PERSONAS_DIR = STATIC_DIR / "personas"
 SHARE_DIR = STATIC_DIR / "share"
+RITUALS_DIR = STATIC_DIR / "rituals"
 HERO_PATH = SHARE_DIR / "wise-room-hero.webp"
+MIRROR_HERO_PATH  = RITUALS_DIR / "mirror.webp"
+COUNCIL_HERO_PATH = RITUALS_DIR / "boardroom.webp"
 
 CANVAS_WIDTH  = 1080
 CANVAS_HEIGHT = 1350
@@ -106,6 +109,18 @@ REFLECT_QUOTE_LINE_RATIO = 1.38
 REFLECT_STAMP_BASELINE_Y = 1296
 REFLECT_STAMP_FONT_SIZE  = 30
 REFLECT_STAMP_TEXT       = "thewiseroom.app"
+
+# Ritual share cards (Mirror / Council) reuse the reflection layout with a
+# photographic ritual hero behind everything. Those backgrounds are busier than
+# the chesterfield texture, so they start fainter (founder tunes from preview).
+REFLECT_HERO_OPACITY_RITUAL = 0.10
+
+# Council card: a centred row of the participating personas' portraits replaces
+# the single host portrait. Sized + vertically centred to occupy the same band
+# as the single portrait (top 176 → bottom 462, centre y ≈ 319).
+REFLECT_THUMB_DIAMETER = 140
+REFLECT_THUMB_GAP      = 26
+REFLECT_THUMB_CENTER_Y = REFLECT_PORTRAIT_TOP + REFLECT_PORTRAIT_DIAMETER // 2  # 319
 
 
 def dynamic_font_size(char_count: int) -> float:
@@ -206,15 +221,82 @@ async def generate_council_share_image(
     if not session or not session.synthesis:
         raise ValueError("Council session not found or has no synthesis")
 
-    clean_annotation = _strip_emoji(annotation) if annotation else None
-    return _render_share_canvas(
+    # Participating personas (in seat order), de-duplicated, capped at 4.
+    resp_result = await db.execute(
+        select(CouncilResponse.persona_slug)
+        .where(CouncilResponse.session_id == session_id)
+        .order_by(CouncilResponse.position)
+    )
+    slugs: list[str] = []
+    for slug in resp_result.scalars().all():
+        if slug not in slugs:
+            slugs.append(slug)
+    slugs = slugs[:4]
+
+    thumbnails: list[Path] = []
+    if slugs:
+        p_result = await db.execute(select(Persona).where(Persona.slug.in_(slugs)))
+        by_slug = {p.slug: p for p in p_result.scalars().all()}
+        for slug in slugs:
+            path = _resolve_portrait_path(by_slug.get(slug))
+            if path:
+                thumbnails.append(path)
+
+    # `annotation` is accepted for API compatibility but, like the line card, the
+    # redesigned ritual card no longer renders it.
+    return _render_reflection_canvas(
         quote=session.synthesis,
-        attribution="— THE COUNCIL",
         portrait_path=None,
         persona_initial=None,
-        intro_text=None,
-        annotation=clean_annotation or None,
+        intro_text="The Council",
         saved_at=session.created_at,
+        hero_opacity=REFLECT_HERO_OPACITY_RITUAL,
+        hero_path=COUNCIL_HERO_PATH,
+        thumbnails=thumbnails or None,
+    )
+
+
+async def generate_mirror_share_image(
+    *,
+    db: AsyncSession,
+    mirror_id: str,
+    user_id: str,
+) -> bytes:
+    """
+    Load a mirror, verify ownership, and compose a share card from its closing
+    reflection (payload.thread) over a faint mirror hero. Returns raw PNG bytes.
+    Raises ValueError if the mirror is not found, not owned, or has no thread.
+    """
+    result = await db.execute(
+        select(Mirror).where(Mirror.id == mirror_id, Mirror.user_id == user_id)
+    )
+    mirror = result.scalar_one_or_none()
+    if mirror is None:
+        raise ValueError("Mirror not found")
+
+    thread = (mirror.payload or {}).get("thread")
+    if not thread:
+        raise ValueError("Mirror has no reflection to share")
+
+    # Host persona (portrait + name) — optional; the mirror may be host-less.
+    persona: Persona | None = None
+    if mirror.host_persona_id:
+        persona_result = await db.execute(
+            select(Persona).where(Persona.id == mirror.host_persona_id)
+        )
+        persona = persona_result.scalar_one_or_none()
+
+    portrait_path = _resolve_portrait_path(persona)
+    intro_text = f"{persona.name} reflects" if persona else "The mirror reflects"
+
+    return _render_reflection_canvas(
+        quote=thread,
+        portrait_path=portrait_path,
+        persona_initial=(persona.name[0].upper() if persona else None),
+        intro_text=intro_text,
+        saved_at=mirror.created_at,
+        hero_opacity=REFLECT_HERO_OPACITY_RITUAL,
+        hero_path=MIRROR_HERO_PATH,
     )
 
 
@@ -233,6 +315,10 @@ def _render_share_canvas(
     annotation: str | None = None,
     saved_at: datetime | None = None,
 ) -> bytes:
+    # DEPRECATED (PR-29c): the legacy portrait-top layout. No longer called —
+    # both the line card and the Council/Mirror ritual cards now render through
+    # _render_reflection_canvas. Retained (with _format_date) for reference;
+    # safe to delete in a cleanup PR.
     quote_font_size = round(dynamic_font_size(len(quote)))
     quote_line_h    = round(quote_font_size * 1.4)
     quote_max_lines = max(4, round(8 * (38 / quote_font_size)))
@@ -356,19 +442,21 @@ def _format_date_us(dt: datetime) -> str:
     return dt.strftime("%m/%d/%Y")
 
 
-def _load_hero_cover(opacity: float) -> Image.Image | None:
+def _load_hero_cover(opacity: float, path: Path = HERO_PATH) -> Image.Image | None:
     """
-    Load the chesterfield hero, resize-to-cover the full canvas (center-crop),
-    and knock its alpha down to `opacity` so it reads as a very faint texture.
-    Returns None if the asset is missing (card renders on plain Vellum).
+    Load a hero asset, resize-to-cover the full canvas (center-crop), and knock
+    its alpha down to `opacity` so it reads as a very faint texture. `path`
+    defaults to the chesterfield hero (line card); Mirror/Council pass their own
+    ritual heroes. Returns None if the asset is missing (card renders on plain
+    Vellum).
     """
-    if not HERO_PATH.exists():
-        logger.warning(f"Hero background missing: {HERO_PATH}. Rendering on plain Vellum.")
+    if not path.exists():
+        logger.warning(f"Hero background missing: {path}. Rendering on plain Vellum.")
         return None
     try:
-        img = Image.open(HERO_PATH).convert("RGBA")
+        img = Image.open(path).convert("RGBA")
     except Exception as e:
-        logger.warning(f"Could not open hero {HERO_PATH}: {e}. Rendering on plain Vellum.")
+        logger.warning(f"Could not open hero {path}: {e}. Rendering on plain Vellum.")
         return None
 
     target_ratio = CANVAS_WIDTH / CANVAS_HEIGHT
@@ -445,16 +533,23 @@ def _render_reflection_canvas(
     intro_text: str,
     saved_at: datetime | None,
     hero_opacity: float = REFLECT_HERO_OPACITY,
+    hero_path: Path = HERO_PATH,
+    thumbnails: list[Path] | None = None,
 ) -> bytes:
     """
-    Redesigned reflection share card (1080×1350). Faint chesterfield hero
-    behind everything; "The Wise Room" + date pinned top; 10%-larger portrait;
-    "{Persona} told me"; the reflection auto-fit and vertically centred in the
-    leftover band; bold "thewiseroom.app" stamp at the bottom.
+    Redesigned reflection share card (1080×1350). Faint hero behind everything;
+    "The Wise Room" + date pinned top; 10%-larger portrait; intro line; the
+    reflection auto-fit and vertically centred in the leftover band; bold
+    "thewiseroom.app" stamp at the bottom.
+
+    Ritual cards reuse this layout: `hero_path` swaps the chesterfield for a
+    ritual hero, and `thumbnails` (Council) replaces the single portrait with a
+    centred row of participating-persona portraits. Both default to the original
+    behaviour, so the line-card call site stays byte-stable.
     """
     # Base canvas (Vellum) + faint hero composited over it.
     canvas = Image.new("RGBA", (CANVAS_WIDTH, CANVAS_HEIGHT), BG_COLOR + (255,))
-    hero = _load_hero_cover(hero_opacity)
+    hero = _load_hero_cover(hero_opacity, hero_path)
     if hero is not None:
         canvas = Image.alpha_composite(canvas, hero)
     draw = ImageDraw.Draw(canvas)
@@ -484,8 +579,11 @@ def _render_reflection_canvas(
             anchor="ms",
         )
 
-    # 4. Portrait — 10% larger than the legacy card
-    if portrait_path:
+    # 4. Portrait — a single 10%-larger portrait, or (Council) a centred row of
+    #    the participating personas' thumbnails in the same vertical band.
+    if thumbnails:
+        _draw_thumbnail_row(canvas, draw, thumbnails)
+    elif portrait_path:
         _draw_circular_portrait(
             canvas, draw, portrait_path,
             diameter=REFLECT_PORTRAIT_DIAMETER, top=REFLECT_PORTRAIT_TOP,
@@ -573,6 +671,66 @@ def _draw_circular_portrait(
     portrait_rgba = Image.new("RGBA", (diameter, diameter), (0, 0, 0, 0))
     portrait_rgba.paste(portrait, (0, 0), mask)
     canvas.paste(portrait_rgba, (left, top), portrait_rgba)
+
+
+def _paste_circular(
+    canvas: Image.Image,
+    draw: ImageDraw.ImageDraw,
+    portrait_path: Path,
+    left: int,
+    top: int,
+    diameter: int,
+) -> None:
+    """Circular-crop a portrait and paste it at an arbitrary (left, top).
+    Falls back to a filled bronze circle if the asset can't be opened."""
+    try:
+        portrait = Image.open(portrait_path).convert("RGBA").resize(
+            (diameter, diameter), Image.LANCZOS
+        )
+    except Exception as e:
+        logger.warning(f"Could not open thumbnail {portrait_path}: {e}. Using bronze disc.")
+        draw.ellipse([(left, top), (left + diameter, top + diameter)], fill=BRONZE_COLOR)
+        return
+
+    mask = Image.new("L", (diameter, diameter), 0)
+    ImageDraw.Draw(mask).ellipse([(0, 0), (diameter - 1, diameter - 1)], fill=255)
+    rgba = Image.new("RGBA", (diameter, diameter), (0, 0, 0, 0))
+    rgba.paste(portrait, (0, 0), mask)
+    canvas.paste(rgba, (left, top), rgba)
+
+
+def _draw_thumbnail_row(
+    canvas: Image.Image,
+    draw: ImageDraw.ImageDraw,
+    paths: list[Path],
+    *,
+    diameter: int = REFLECT_THUMB_DIAMETER,
+    gap: int = REFLECT_THUMB_GAP,
+    center_y: int = REFLECT_THUMB_CENTER_Y,
+) -> None:
+    """Draw a centred horizontal row of circular thumbnails (Council card)."""
+    n = len(paths)
+    if n == 0:
+        return
+    row_w   = n * diameter + (n - 1) * gap
+    start_x = (CANVAS_WIDTH - row_w) // 2
+    top     = center_y - diameter // 2
+    for i, path in enumerate(paths):
+        left = start_x + i * (diameter + gap)
+        _paste_circular(canvas, draw, path, left, top, diameter)
+
+
+def _resolve_portrait_path(persona: Persona | None) -> Path | None:
+    """Map a persona's stored portrait_url ('/personas/<file>') to a bundled
+    static file, or None if absent/missing (caller renders a fallback)."""
+    if persona is None or not persona.portrait_url:
+        return None
+    filename = persona.portrait_url.lstrip("/").removeprefix("personas/")
+    candidate = PERSONAS_DIR / filename
+    if candidate.exists():
+        return candidate
+    logger.warning(f"Portrait file not found for {persona.slug}: {candidate}.")
+    return None
 
 
 def _draw_initial_avatar(

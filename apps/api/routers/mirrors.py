@@ -1,15 +1,23 @@
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import JSONResponse, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from auth import get_current_user, get_current_user_plan
 from db.session import get_db
+import services.rate_limit_service as rate_limit_service
 from models import Mirror, MirrorSave, Persona, User
 from schemas import MirrorOut, RingTrueRequest, MirrorHostOut, MirrorHostsResponse, SetMirrorHostRequest
+from services.image_service import generate_mirror_share_image
 
 router = APIRouter(prefix="/mirrors", tags=["mirrors"])
+
+# Free-tier share cap — the SAME 90-day rolling Redis counter the line and
+# council share endpoints use (key: share_screenshot:{user_id}).
+FREE_SHARE_LIMIT  = 3
+SHARE_WINDOW_SECS = 90 * 24 * 60 * 60
 
 
 def _mirror_out(mirror: Mirror, persona: Persona | None) -> MirrorOut:
@@ -159,3 +167,41 @@ async def unsave_mirror(
         await db.commit()
 
     return {"saved": False}
+
+
+@router.post("/{mirror_id}/share")
+async def share_mirror(
+    mirror_id: str,
+    db: AsyncSession = Depends(get_db),
+    auth: tuple = Depends(get_current_user_plan),
+) -> Response:
+    """
+    Generate a share image for a mirror's closing reflection.
+    Returns raw image/png bytes.
+    Free tier: max 3 per 90-day rolling window (shared counter with line and
+    council shares). Pro/premium: unlimited.
+    """
+    user, plan = auth
+
+    if plan not in ("pro", "premium"):
+        allowed = await rate_limit_service.check_and_increment(
+            key=f"share_screenshot:{user.id}",
+            max_count=FREE_SHARE_LIMIT,
+            window_seconds=SHARE_WINDOW_SECS,
+        )
+        if not allowed:
+            return JSONResponse(
+                status_code=429,
+                content={"error_code": "share_limit_reached"},
+            )
+
+    try:
+        png_bytes = await generate_mirror_share_image(
+            db=db,
+            mirror_id=mirror_id,
+            user_id=user.id,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+    return Response(content=png_bytes, media_type="image/png")

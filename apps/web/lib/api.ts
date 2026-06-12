@@ -775,6 +775,22 @@ class ApiClient {
     return res.blob()
   }
 
+  async shareMirror(mirrorId: string): Promise<Blob> {
+    const res = await fetch(`${API_BASE}/mirrors/${mirrorId}/share`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(this.token ? { Authorization: `Bearer ${this.token}` } : {}),
+      },
+      body: JSON.stringify({}),
+    })
+    if (!res.ok) {
+      if (res.status === 429) throw new ShareLimitError()
+      throw new Error(`Mirror share failed: ${res.status}`)
+    }
+    return res.blob()
+  }
+
   // ── Memory ────────────────────────────────────────────────────────────────
 
   async getMemory(): Promise<MemoryEntry[]> {
