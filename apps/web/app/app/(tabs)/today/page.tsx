@@ -387,14 +387,14 @@ export default function TodayPage() {
           <SundayLetterCard isPro={isPro} />
         )}
 
-        {/* ── D1a: Start fresh button ── */}
+        {/* ── D1a: Living in the Wise Room guide button ── */}
         {!isFirstDay && (
           <button
             type="button"
-            onClick={() => router.push('/app/explore')}
+            onClick={() => router.push('/app/guide')}
             className="w-full py-[14px] rounded-md border border-[0.5px] border-ink font-cormorant text-[17px] font-medium text-ink"
           >
-            Explore minds
+            Living in the Wise Room
           </button>
         )}
       </div>
