@@ -4,18 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useStore } from '@/lib/store'
 import { BronzeDivider } from '@/components/ui/BronzeDivider'
-
-// Canonical lowercase slugs (match backend Pydantic enum)
-const THEME_OPTIONS: { slug: string; label: string }[] = [
-  { slug: 'separation', label: 'Separation' },
-  { slug: 'anxiety', label: 'Anxiety' },
-  { slug: 'fear', label: 'Fear' },
-  { slug: 'grief', label: 'Grief' },
-  { slug: 'acceptance', label: 'Acceptance' },
-  { slug: 'work', label: 'Work' },
-  { slug: 'relationships', label: 'Relationships' },
-  { slug: 'purpose', label: 'Purpose' },
-]
+import { THEME_OPTIONS } from '@/lib/themes'
 
 const MAX_OTHER_LENGTH = 500
 
