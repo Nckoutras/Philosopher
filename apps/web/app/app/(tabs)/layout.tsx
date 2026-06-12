@@ -1,6 +1,7 @@
 import BottomTabBar from '@/components/layout/BottomTabBar'
 import BodyScrollLock from '@/components/layout/BodyScrollLock'
 import SubscriptionBootstrap from '@/components/layout/SubscriptionBootstrap'
+import ViewportDebugHUD from '@/components/layout/ViewportDebugHUD'
 
 export default function TabsLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -9,6 +10,7 @@ export default function TabsLayout({ children }: { children: React.ReactNode }) 
       <SubscriptionBootstrap />
       <div className="flex-1 overflow-y-auto overscroll-contain">{children}</div>
       <BottomTabBar />
+      <ViewportDebugHUD />
     </div>
   )
 }
