@@ -223,6 +223,15 @@ Reflections card disappeared after PR4t merge. Investigation revealed: PR4t didn
 Reflections, and the card was conditionally hidden because all user's saved_lines had
 `deleted_at IS NOT NULL` from a soft-delete mass action on May 22 evening. No bug existed.
 
+### P-07 — One Claude Code session per repository at a time
+
+Two concurrent CC sessions share one git working tree and switch branches under each other.
+On 2026-06-12 this caused a commit to land on the wrong branch (docs/v17-smoke-closures
+received the mirror_saves work) and required a stash/branch -f/reset recovery. Rule: never
+run two CC sessions against the same repo simultaneously. Close or finish one before starting
+work in another. Before every commit/push, verify the current branch with
+`git rev-parse --abbrev-ref HEAD`.
+
 ---
 
 ## Known tech debt
