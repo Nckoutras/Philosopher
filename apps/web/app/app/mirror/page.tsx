@@ -3,10 +3,11 @@
 import { Fragment, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
-import { Bookmark, Check, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Bookmark, Check, ChevronLeft, ChevronRight, Share2 } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import { api } from '@/lib/api'
 import type { Mirror, MirrorHost, Persona } from '@/lib/api'
+import SharePreviewModal from '@/components/share/SharePreviewModal'
 import styles from '../council/council.module.css'
 
 // ──────────────────────────────────────────────
@@ -89,6 +90,7 @@ export default function MirrorPage() {
   const [selectedHost, setSelectedHost] = useState<string | null>(null)
   const [savedHostName, setSavedHostName] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
+  const [shareModalOpen, setShareModalOpen] = useState(false)
 
   // ── Animation state ──
   const [animPhase, setAnimPhase] = useState<'idle' | 'intro' | 'revealing' | 'done'>('idle')
@@ -472,7 +474,7 @@ export default function MirrorPage() {
               {/* Humility + ring-true — appear when all words are revealed */}
               {animPhase === 'done' && (
                 <>
-                  <div className="flex justify-center mt-[24px]">
+                  <div className="flex justify-center gap-[10px] mt-[24px]">
                     <button
                       type="button"
                       onClick={handleSave}
@@ -481,6 +483,15 @@ export default function MirrorPage() {
                     >
                       <Bookmark size={14} strokeWidth={1.5} fill={saved ? 'currentColor' : 'none'} />
                       {saved ? 'Saved' : 'Save'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShareModalOpen(true)}
+                      disabled={!mirror?.payload?.thread}
+                      className="flex items-center gap-[6px] font-lora text-[13px] text-sepia border-[0.5px] border-edge rounded-full px-[16px] py-[8px] disabled:opacity-40"
+                    >
+                      <Share2 size={14} strokeWidth={1.5} />
+                      Share
                     </button>
                   </div>
                   <p className="font-cormorant italic text-[17px] text-sepia text-center my-[28px]">
@@ -622,6 +633,17 @@ export default function MirrorPage() {
           </div>
         </div>
       )}
+
+      {/* Share modal */}
+      <SharePreviewModal
+        isOpen={shareModalOpen}
+        onClose={() => setShareModalOpen(false)}
+        kind="mirror"
+        mirrorId={mirror?.id ?? ''}
+        personaName={mirror?.host_persona_name ?? undefined}
+        portraitUrl={persona?.portrait_url ?? undefined}
+        quote={mirror?.payload?.thread ?? ''}
+      />
     </main>
   )
 }
