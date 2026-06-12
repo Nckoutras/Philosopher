@@ -532,12 +532,11 @@ export default function MirrorPage() {
 
       {/* Picker sheet */}
       {pickerOpen && (
-        // Top-anchored full-height container. body has zoom:1.15, but modern engines
-        // already adjust svh viewport units under standardized CSS zoom, so a plain 100svh
-        // lands the panel's bottom on-screen; the earlier `100svh/1.15` double-compensated
-        // and cut off the Done button. Mirrors the shared BottomSheet fix. Backdrop + panel
-        // are absolute inside it.
-        <div className="fixed top-0 left-0 right-0 z-50 h-[100svh]">
+        // Top-anchored container at compensated height: body has zoom:1.15, which would
+        // otherwise push a fixed bottom-0 panel ~15% below the visible viewport (cutting
+        // off the Done button). 100svh/1.15 mirrors the shared BottomSheet fix so the
+        // panel's bottom lands on-screen. Backdrop + panel are absolute inside it.
+        <div className="fixed top-0 left-0 right-0 z-50 h-[calc(100svh/1.15)]">
           <div
             className="absolute inset-0 bg-ink/40"
             onClick={() => setPickerOpen(false)}
