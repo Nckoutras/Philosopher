@@ -712,6 +712,14 @@ class ApiClient {
     return this.request(`/council/${sessionId}/save`, { method: 'DELETE' })
   }
 
+  async saveMirror(mirrorId: string): Promise<void> {
+    return this.request(`/mirrors/${mirrorId}/save`, { method: 'POST' })
+  }
+
+  async unsaveMirror(mirrorId: string): Promise<void> {
+    return this.request(`/mirrors/${mirrorId}/save`, { method: 'DELETE' })
+  }
+
   async shareCouncil(sessionId: string, annotation?: string): Promise<Blob> {
     const body: Record<string, string> = {}
     if (annotation) body.annotation = annotation
