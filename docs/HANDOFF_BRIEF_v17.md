@@ -2,13 +2,15 @@
 
 **For:** The next Claude (chat) and Claude Code session
 **From:** Nikos Koutras (founder) + Claude Code
-**Date updated:** 2026-06-03
+**Date updated:** 2026-06-12
 **Prior version:** `docs/HANDOFF_BRIEF_v16.md` (2026-06-03)
 **Generated:** 2026-06-03 (v17 rotation)
 
 **Block trigger for v17 rotation:** PR3a sweep largely executed — 5 of 7 items closed, daily_questions updated, backfill-titles done. State materially different from v16 on bug and data fronts.
 
 **v17 summary (2026-06-03):** PR3a items A, #2, #5, #6, #8 ✅ CLOSED. Memory bugs 🔴 still open. App icon ⏸ DEFERRED. daily_questions updated to 50 phenomenology themes. backfill-titles executed (queued=0). OTP lockout root cause documented. Pro test account created.
+
+**2026-06-12 update:** P0-SMOKE-01/03a/03b ✅ CLOSED (PR #273 — bottom-anchored tab bar + sheet safe-area; `/1.15` double-compensation dropped; TD-30 superseded). Conversation deletion ✅ DONE. P3-SMOKE-08 ✅ CLOSED (PR-A #274 consolidated "What brings you here?" Today card; PR-B no-op — matched-mind journey already in #217; PR-C #275 "Living in the Wise Room" `/app/guide`). P2-SMOKE-10/11 🟡 IN PROGRESS (Option B additive — `mirror_saves` + unified Reflections feed). TD-32 (zoom removal) logged. Current main: `57e1ef4d`.
 
 **Status:**
 - Block A ✅ FULLY CLOSED (5/5)
@@ -42,6 +44,35 @@
 - Oregon region migration ✅ CONFIRMED LIVE — bvzeuwzqgnqcghvqghtb (us-west-2)
 
 > **v17 conflict resolution rule:** Where v17 conflicts with v16 or earlier, v17 wins. Production reality always wins over docs.
+
+---
+
+## 2026-06-12 Session Delta — P0-SMOKE tab/sheet batch + P3-SMOKE-08
+
+> Appended as v17. Where this conflicts with earlier sections, this section wins.
+
+**Code merged to main (current main SHA: `57e1ef4d`):**
+
+- **PR #273 (`d5b16ccb`) — bottom-anchored tab bar + sheet safe-area; `100svh/1.15` double-compensation dropped. Closes P0-SMOKE-01 / 03a / 03b.**
+  - `components/layout/BottomTabBar.tsx` — tab bar rebuilt as a bottom-anchored frosted pill (fixed floating element out of flow).
+  - `app/app/(tabs)/layout.tsx` — `h-[calc(100svh/1.15)]` → `h-[100svh]`; reserves the pill's footprint via `paddingBottom: calc(4rem + env(safe-area-inset-bottom) + 12px + 8px)`.
+  - `components/ui/BottomSheet.tsx` — `/1.15` divisor + `maxHeight` calc removed; now owns `env(safe-area-inset-bottom)` (single source of safe-area truth for all sheets).
+  - `app/app/mirror/page.tsx` — host-picker `/1.15` divisor removed.
+  - `components/rituals/RitualScheduleSheet.tsx` — touched in the same pass.
+  - **Finding:** modern engines already adjust `svh` under `body { zoom: 1.15 }`; the manual `/1.15` was double-compensation pulling the bottom edge ~13% short. **TD-30 superseded** — the divisors were not load-bearing. Zoom-hack removal now stands alone as TD-32.
+
+- **Conversation deletion → DONE.**
+
+- **P3-SMOKE-08 → CLOSED (three phases):**
+  - **PR-A (`bfcd4d3b` / #274, `feat/today-consolidated-card`):** `components/today/TodaysTopicCard.tsx` redesigned into the consolidated "What brings you here?" card — theme pills (8 shared slugs) + free-text; "Initiate reflection" (primary) → `/app/onboarding/need`; "Quick start" (outlined) → topic → `PersonaPickerSheet` → chat. `THEME_OPTIONS` extracted to `apps/web/lib/themes.ts` (single source of truth; `onboarding/themes/page.tsx` imports it — route file kept). Today → `/app/onboarding/themes` nav removed.
+  - **PR-B — NO-OP (finding):** the single matched-mind journey (need → top-1 mind, seeded chat, "See all minds") **was already shipped in PR #217 (`ca1fac53`)**. The backlog **B4 "3-match screen" premise was stale** — nothing to build. Recorded so future sessions don't re-plan against B4.
+  - **PR-C (`57e1ef4d` / #275, `feat/wise-room-guide`):** new `apps/web/app/app/guide/page.tsx` "Living in the Wise Room" explainer. Today bottom button "Explore minds" → **"Living in the Wise Room"** (→ `/app/guide`). Explore still reachable via Library tab + matches "See all minds".
+
+- **P2-SMOKE-10 / 11 → IN PROGRESS.** Approved architecture: **Option B additive** — `mirror_saves` table mirroring `council_saves`; unified Reflections feed endpoint; share cards with faded ritual hero backgrounds; Council card gains a 4-persona thumbnail row. Branch `feat/mirror-saves` in flight.
+
+**Netlify operational notes:**
+- Drawer disabled.
+- Preview password / SSO protection intentionally disabled (preview deploys openly reachable for smoke testing).
 
 ---
 
@@ -93,11 +124,13 @@ See `HANDOFF_BRIEF_v16.md` for full v16 session detail: The Council (PRs #182–
 
 ---
 
-## Top of mind / Next (2026-06-03 — after v17 session)
+## Top of mind / Next (2026-06-12 — after P0-SMOKE / P3-SMOKE-08 session)
 
-### PR3a is largely done. One item remains before cold beta.
+### Tab/sheet positioning batch and the Today/guide consolidation are done. PR3a memory bugs still lead.
 
-**Priority order as of end of v17 session:**
+**Priority order as of end of 2026-06-12 session:**
+
+0. **Finish P2-SMOKE-10/11 (in flight, branch `feat/mirror-saves`):** Option B additive — `mirror_saves` table, unified Reflections feed endpoint, hero-bg share cards, 4-persona Council thumbnail row. Additive only; do not rewrite existing save paths.
 
 1. **PR3a memory bugs — 🔴 not started (highest priority):**
    - Fresh-chat missing opening message/thumbnail
@@ -165,6 +198,18 @@ ANTHROPIC_API_KEY disappeared between May 25-27. `render.yaml` needs `sync: fals
 ---
 
 ## Changelog v16 → v17
+
+### PR #273 (`d5b16ccb`) — 2026-06-12
+
+Bottom-anchored frosted tab bar; `BottomSheet` owns `env(safe-area-inset-bottom)`; `100svh/1.15` divisor removed from `(tabs)/layout.tsx`, `BottomSheet.tsx`, `mirror/page.tsx` (double-compensation finding — TD-30 superseded). Also touched `RitualScheduleSheet.tsx`. Closes P0-SMOKE-01/03a/03b.
+
+### PR #274 (`bfcd4d3b`) — 2026-06-12
+
+Consolidated "What brings you here?" Today card (`TodaysTopicCard.tsx`): pills + free text, Initiate reflection → `need` flow, Quick start → picker. `THEME_OPTIONS` → `apps/web/lib/themes.ts` single source of truth. P3-SMOKE-08 phase 1.
+
+### PR #275 (`57e1ef4d`) — 2026-06-12
+
+`/app/guide` "Living in the Wise Room" explainer; Today button "Explore minds" → "Living in the Wise Room". P3-SMOKE-08 phase 3. (Phase 2 was a no-op — matched-mind journey already in #217.)
 
 ### PR #210 (`eda60f21`)
 
@@ -298,6 +343,9 @@ Still apply. See `HANDOFF_BRIEF_v16.md §4`.
 
 | PR | Description | Date | Status |
 |---|---|---|---|
+| #275 57e1ef4d | feat(today): "Living in the Wise Room" `/app/guide` explainer + button rewire (P3-SMOKE-08 phase 3) | 2026-06-12 | ✅ merged |
+| #274 bfcd4d3b | feat(today): consolidated "What brings you here?" card + `THEME_OPTIONS`→`lib/themes.ts` (P3-SMOKE-08 phase 1) | 2026-06-12 | ✅ merged |
+| #273 d5b16ccb | fix(web): bottom-anchored tab bar + sheet safe-area; drop `svh/1.15` double-compensation (P0-SMOKE-01/03a/03b) | 2026-06-12 | ✅ merged |
 | #210 eda60f21 | fix: ConversationCard title, today first-day picker, cross-persona chat start (3 fixes, squash) | 2026-06-03 | ✅ merged |
 | c9bb3d39 | polish(rituals): half-sphere YvY SVG icon + Letter whole-card tap (+ accidental icon files) | 2026-06-03 | ✅ merged |
 | c50779b5 | hotfix: remove oversized photo app-icon (icon mark deferred) | 2026-06-03 | ✅ merged |
@@ -318,8 +366,15 @@ All v16 paths apply. Changes in v17:
 
 ### Frontend (apps/web/)
 
+- `lib/themes.ts` — NEW (PR #274): `THEME_OPTIONS` single source of truth (mirrors backend Pydantic enum); consumed by `TodaysTopicCard` and `onboarding/themes/page.tsx`.
+- `app/app/guide/page.tsx` — NEW (PR #275): "Living in the Wise Room" explainer screen.
+- `components/today/TodaysTopicCard.tsx` — UPDATED (PR #274): consolidated "What brings you here?" card (pills + free text; Initiate reflection → `need`; Quick start → picker).
+- `components/layout/BottomTabBar.tsx` — UPDATED (PR #273): bottom-anchored frosted floating pill (fixed, out of flow).
+- `app/app/(tabs)/layout.tsx` — UPDATED (PR #273): `100svh` (no `/1.15`); reserves tab-bar footprint via `paddingBottom`.
+- `components/ui/BottomSheet.tsx` — UPDATED (PR #273): owns `env(safe-area-inset-bottom)`; `/1.15` divisor + `maxHeight` calc removed.
+- `app/app/mirror/page.tsx` — UPDATED (PR #273): host-picker `/1.15` divisor removed.
+- `app/app/(tabs)/today/page.tsx` — UPDATED (PR #274 removed Today → `/app/onboarding/themes` nav; "Explore minds" button relabeled to "Living in the Wise Room" → `/app/guide` in PR #275). Earlier (PR #210): first-day Reflect opens PersonaPickerSheet.
 - `app/app/(tabs)/rituals/page.tsx` — UPDATED: half-sphere SVG (YvY card); whole-card tap (Letter card); `Contrast` + `ChevronRight` removed from imports.
-- `app/app/(tabs)/today/page.tsx` — UPDATED (PR #210): first-day Reflect opens PersonaPickerSheet.
 - `components/library/ConversationCard.tsx` — UPDATED (PR #210): `title ?? last_message_snippet`.
 - `components/personas/PersonaPickerSheet.tsx` — UPDATED (PR #210): `onClose()` before async create.
 
@@ -406,6 +461,14 @@ See `HANDOFF_BRIEF_v16.md §13`.
 ### 13.21 — Branching from stale local main creates empty PRs (v17)
 
 The `pr3a` branch was accidentally built from a stale local commit (`569631c4`) predating the `Pr3a (#210)` merge. The branch appeared to have 3 meaningful commits ahead of main, but all three were already in `origin/main`. Always run `git fetch origin && git reset --hard origin/main` before branching for a new PR (P-01). This session resolved it by: deleting the stale branch, pulling origin/main, creating a fresh branch `polish/rituals-app-icon`.
+
+### 13.23 — The `100svh/1.15` divisor was double-compensation, not a fix (v17, 2026-06-12)
+
+The chain of tab-bar/sheet positioning fixes (#260–#264) layered a manual `/1.15` divisor onto viewport-unit heights to "compensate" for `body { zoom: 1.15 }`. PR #273 found this was wrong: modern engines already adjust `svh` under `zoom`, so the divisor *double*-compensated and pushed bottom edges ~13% short. Removing it (plain `100svh`) and re-architecting the tab bar as a bottom-anchored floating pill that reserves its own footprint fixed the class of bug. Lesson: when a hack needs escalating "compensation" across more sites each PR, suspect the compensation itself is the bug. TD-30 (which assumed the divisors were load-bearing) is superseded; the real cleanup is removing `zoom: 1.15` entirely (TD-32, post-cold-beta).
+
+### 13.24 — Verify a backlog item still describes reality before planning against it (v17, 2026-06-12)
+
+P3-SMOKE-08 phase B was specified as a "B4 3-match screen" build. Investigation showed the single matched-mind journey had already shipped in PR #217 — the B4 premise was stale. Phase B became a no-op with a recorded finding instead of duplicate work. Lesson: re-confirm the current production behavior (per CLAUDE.md Rule 3 / Pre-Work Investigation) before dispatching a build brief against an older backlog item.
 
 ### 13.22 — Photo PNG is not an app icon
 

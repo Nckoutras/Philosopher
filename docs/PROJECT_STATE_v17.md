@@ -4,11 +4,46 @@
 >
 > **v17 = v16 baseline (2026-06-03) + 2026-06-03 session delta (PR #210: ConversationCard title fix, today first-day picker opens PersonaPickerSheet, cross-persona Ask-another-mind fix; rituals micro-polish: half-sphere YvY SVG icon, Letter whole-card tap; app icon landed accidentally + hotfixed, mark deferred; daily_questions: 50 phenomenology themes active, old 30 deactivated; backfill-titles executed queued=0; OTP lockout root cause documented; Pro test account created).**
 >
-> **Generated:** 2026-06-03 (v17 rotation) · **Last updated:** 2026-06-03
+> **Generated:** 2026-06-03 (v17 rotation) · **Last updated:** 2026-06-12 (P0-SMOKE tab/sheet batch #273; P3-SMOKE-08 Today/guide consolidation #274/#275; P2-SMOKE-10/11 in progress)
 
 > **v17 conflict resolution rule:** Where v17 conflicts with v16 or earlier, v17 wins. Production reality always wins over docs.
 
 > **⚠️ LIVE DATABASE: Supabase project `bvzeuwzqgnqcghvqghtb` (Oregon, us-west-2) is the only live database. The old project `plecolxlzshkfvybszgs` (eu-west-1 / Ireland) is legacy / inactive — scheduled deletion ~2026-06-09; do not write to it. All Render services must point to Oregon.**
+
+---
+
+## 2026-06-12 Session Delta — P0-SMOKE tab/sheet batch + P3-SMOKE-08 Today/guide consolidation
+
+> Appended as v17. Where this conflicts with earlier sections, this section wins.
+
+**Code merged to main (current main SHA: `57e1ef4d`):**
+
+- **PR #273 (`d5b16ccb`) — bottom-anchored tab bar + sheet safe-area; svh `/1.15` double-compensation dropped. Closes P0-SMOKE-01 / 03a / 03b.**
+  - Tab bar rebuilt as a bottom-anchored frosted pill, now a fixed floating element out of flow (`components/layout/BottomTabBar.tsx`); the `(tabs)` shell reserves its footprint via `paddingBottom: calc(4rem + env(safe-area-inset-bottom) + 12px + 8px)`.
+  - `BottomSheet` now owns `env(safe-area-inset-bottom)` as the single source of safe-area truth for all sheets (`components/ui/BottomSheet.tsx`).
+  - The manual `100svh / 1.15` divisor was removed from the `(tabs)` shell (`app/app/(tabs)/layout.tsx`), `BottomSheet`, and the Mirror host picker (`app/app/mirror/page.tsx`). Root-cause finding: modern engines already adjust `svh` viewport units under the global `body { zoom: 1.15 }`, so the manual `/1.15` was a **double-compensation** that pulled the bottom edge ~13% short. Full `100svh` now lands the bottom edge correctly. **This supersedes TD-30** (see backlog): the coupling premise was wrong — the divisors were not load-bearing and are now all removed while `zoom: 1.15` itself still ships.
+  - Files: `(tabs)/layout.tsx`, `mirror/page.tsx`, `BottomTabBar.tsx`, `RitualScheduleSheet.tsx`, `BottomSheet.tsx`.
+- **Conversation deletion → DONE.** (P0-SMOKE deletion item closed.)
+
+- **P3-SMOKE-08 → CLOSED. Three phases:**
+  - **PR-A (`bfcd4d3b` / #274, branch `feat/today-consolidated-card`):** `TodaysTopicCard` redesigned into the consolidated "What brings you here?" entry surface — eyebrow renamed from "What's on your mind?", multi-select theme pills (8 shared slugs) + "or describe in your own words" free-text divider. **"Initiate reflection"** (primary, disabled until a pill or text is present) writes the onboarding sessionStorage contract and routes to `/app/onboarding/need`; **"Quick start"** (outlined) preserves the prior topic → `PersonaPickerSheet` → chat behavior. `THEME_OPTIONS` extracted to `apps/web/lib/themes.ts` as the single source of truth (mirrors the backend Pydantic enum); `onboarding/themes/page.tsx` now imports it (import-only, no behavior change — **the route file still exists**). The Today → `/app/onboarding/themes` navigation was removed (that route is no longer reachable from Today).
+  - **PR-B — NO-OP with finding.** The single matched-mind journey (need → top-1 most-suitable accessible mind, Mind-of-the-Day style, seeded chat, "See all minds") **was already shipped in PR #217 (`ca1fac53`).** The backlog's "B4 3-match screen" premise was **stale** — there is no 3-match screen to build. Recorded explicitly so future sessions do not re-plan against B4.
+  - **PR-C (`57e1ef4d` / #275, branch `feat/wise-room-guide`):** new `/app/guide` "Living in the Wise Room" explainer screen. Today bottom button relabeled "Explore minds" → **"Living in the Wise Room"** (routes to `/app/guide`). Explore remains reachable via the Library tab and via the matches "See all minds" link.
+
+- **P2-SMOKE-10 / 11 → IN PROGRESS.** Architecture approved: **Option B additive.** A new `mirror_saves` table mirroring `council_saves`; a unified Reflections feed endpoint; share cards with faded ritual hero backgrounds; the Council card gains a 4-persona thumbnail row. Additive only (no rewrite of existing save paths). Not yet built — branch `feat/mirror-saves` in flight.
+
+**Netlify operational notes (record as facts, not state):**
+
+- **Drawer disabled** on Netlify.
+- **Preview password / SSO protection intentionally disabled** (so preview deploys are openly reachable for smoke testing).
+
+**Key superseded facts (v17):**
+
+- **Tab bar / bottom sheet positioning** — was `100svh/1.15`-compensated full-viewport overlays (P0-SMOKE-01/03a/03b open) → **CLOSED. PR #273: bottom-anchored floating pill + sheet-owned safe-area; all `/1.15` divisors removed (double-compensation finding).**
+- **TodaysTopicCard "What's on your mind?"** → **REPLACED with consolidated "What brings you here?" card (PR #274): pills + free text, Initiate reflection → need flow, Quick start → picker.**
+- **Backlog B4 "3-match screen"** — was assumed unbuilt → **STALE / NO-OP. Single matched-mind journey shipped in PR #217. Do not re-plan against B4.**
+- **Today bottom button "Explore minds"** → **relabeled "Living in the Wise Room" → `/app/guide` (PR #275).**
+- **TD-30 (`/1.15` coupling across three sites)** → **SUPERSEDED. Divisors were double-compensation, now all removed (PR #273); `body { zoom: 1.15 }` removal tracked as a separate post-cold-beta backlog item.**
 
 ---
 
@@ -100,7 +135,7 @@ Unchanged from v15. Netlify (canonical), Render (API + worker, paid tier), Supab
 ## 2. Production status
 
 - Live URL: **https://thinkalike.netlify.app** (canonical)
-- Last production deploy: **2026-06-03** — PR #210 (ConversationCard title fix, today first-day picker, cross-persona fix); rituals micro-polish (half-sphere YvY SVG, Letter whole-card tap); app icon hotfix removal. Current main: `c50779b5`.
+- Last production deploy: **2026-06-12** — PR #273 (bottom-anchored tab bar + sheet safe-area, `/1.15` double-compensation dropped), PR #274 (Today consolidated "What brings you here?" card), PR #275 ("Living in the Wise Room" `/app/guide` + Today button rewire). Current main: `57e1ef4d`. Prior deploy 2026-06-03 — PR #210 + rituals micro-polish + app-icon hotfix removal (`c50779b5`).
 - **Has paying users:** No
 - **Has free trial users:** No (cold beta with 3-5 fresh users still pending)
 
@@ -379,6 +414,16 @@ No new CLAUDE.md violations.
 - [ ] **TD-17** — Weekly Reading full implementation (post cold-beta)
 - [ ] **TD-21** — passive_deletes audit
 - [ ] **branding** — "The Wise Room" vs "Great Minds" still unresolved across codebase (FROM_EMAIL, FRONTEND_URL, copy); separate thread in progress
+
+### In progress (2026-06-12)
+
+- [ ] **🟡 P2-SMOKE-10 / 11 — unified Reflections feed + Mirror saves** — Option B additive (approved): new `mirror_saves` table mirroring `council_saves`; unified Reflections feed endpoint; share cards with faded ritual hero backgrounds; Council card gains 4-persona thumbnail row. Branch `feat/mirror-saves`. Not yet built.
+
+### Closed items (2026-06-12) — P0-SMOKE tab/sheet batch + P3-SMOKE-08
+
+- [x] **CLOSED 2026-06-12** — P0-SMOKE-01 / 03a / 03b: tab bar + bottom-sheet positioning. PR #273: bottom-anchored frosted pill, sheet-owned `env(safe-area-inset-bottom)`, all `100svh/1.15` divisors removed (double-compensation finding). Supersedes TD-30.
+- [x] **CLOSED 2026-06-12** — Conversation deletion.
+- [x] **CLOSED 2026-06-12** — P3-SMOKE-08 (all three phases): PR-A consolidated "What brings you here?" Today card + `THEME_OPTIONS` → `lib/themes.ts` (#274); PR-B NO-OP — matched-mind journey already shipped in #217, B4 3-match premise stale; PR-C "Living in the Wise Room" `/app/guide` + Today button rewire (#275).
 
 ### Closed items (2026-06-03) — PR3a micro-polish session
 
