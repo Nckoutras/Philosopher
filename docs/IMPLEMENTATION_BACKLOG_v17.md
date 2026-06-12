@@ -3,7 +3,7 @@
 > **Purpose:** Source of truth for implementation work for The Wise Room / Philosopher v1 launch.
 > **v17 = v16 baseline (2026-06-03) + 2026-06-03 session delta (PR #210: 3 bug fixes; rituals micro-polish: half-sphere YvY SVG, Letter whole-card tap; app icon deferred; daily_questions: 50 phenomenology themes active, old 30 deactivated; backfill-titles executed queued=0; OTP lockout root cause documented; Pro test account created).**
 >
-> **Generated:** 2026-06-03 (v17 rotation) · **Last updated:** 2026-06-09 (TD-30, TD-31 added)
+> **Generated:** 2026-06-03 (v17 rotation) · **Last updated:** 2026-06-12 (P0-SMOKE tab/sheet batch #273 closed; P3-SMOKE-08 closed #274/#275; TD-30 superseded; TD-32 zoom-removal added; P2-SMOKE-10/11 in progress)
 >
 > **How to read this file:**
 > - This v17 file supersedes v16 and all prior backlog files.
@@ -24,6 +24,37 @@
 > - **P4** = technical debt / infrastructure cleanup
 >
 > **Status key:** 🔴 not started · 🟡 in progress / partial · 🟢 done · ⏸ deferred
+
+---
+
+## 2026-06-12 Consolidation Summary — P0-SMOKE tab/sheet batch + P3-SMOKE-08
+
+> Appended as v17. Where this conflicts with earlier sections, this section wins.
+
+**Code shipped (merged to main; current main SHA `57e1ef4d`):**
+
+- **PR #273 (`d5b16ccb`) — bottom-anchored tab bar + sheet safe-area; `100svh/1.15` double-compensation dropped. Closes P0-SMOKE-01 / 03a / 03b.**
+  - Tab bar rebuilt as a bottom-anchored frosted pill (fixed floating element out of flow); `(tabs)` shell reserves its footprint with `paddingBottom: calc(4rem + env(safe-area-inset-bottom) + 12px + 8px)`.
+  - `BottomSheet` owns `env(safe-area-inset-bottom)` as the single source of safe-area truth.
+  - `100svh/1.15` divisor removed from `(tabs)/layout.tsx`, `BottomSheet.tsx`, and `mirror/page.tsx`. Finding: modern engines already adjust `svh` under `body { zoom: 1.15 }`, so the manual `/1.15` was a double-compensation pulling the bottom edge ~13% short. **This supersedes TD-30** (see §3).
+  - Files: `(tabs)/layout.tsx`, `mirror/page.tsx`, `BottomTabBar.tsx`, `RitualScheduleSheet.tsx`, `BottomSheet.tsx`.
+- **Conversation deletion → 🟢 DONE.**
+
+- **P3-SMOKE-08 → 🟢 CLOSED (three phases):**
+
+| Phase | PR / branch | Outcome |
+|---|---|---|
+| **PR-A** | `bfcd4d3b` / #274 — `feat/today-consolidated-card` | `TodaysTopicCard` → consolidated "What brings you here?" card: theme pills + free text; "Initiate reflection" (primary) → onboarding `need` flow; "Quick start" (outlined) → topic → `PersonaPickerSheet` → chat. `THEME_OPTIONS` extracted to `apps/web/lib/themes.ts` (single source of truth, mirrors backend Pydantic enum); `onboarding/themes/page.tsx` imports it (route file kept). Today → `/app/onboarding/themes` nav removed (no longer reachable from Today). |
+| **PR-B** | NO-OP (finding) | Single matched-mind journey (need → top-1 mind, Mind-of-the-Day style, seeded chat, "See all minds") **already shipped in PR #217 (`ca1fac53`)**. Backlog **B4 "3-match screen" premise is STALE** — nothing to build. Recorded so future sessions don't re-plan against B4. |
+| **PR-C** | `57e1ef4d` / #275 — `feat/wise-room-guide` | New `/app/guide` "Living in the Wise Room" explainer screen. Today bottom button "Explore minds" → **"Living in the Wise Room"** (→ `/app/guide`). Explore still reachable via Library tab + matches "See all minds". |
+
+- **P2-SMOKE-10 / 11 → 🟡 IN PROGRESS.** Approved architecture: **Option B additive** — new `mirror_saves` table mirroring `council_saves`; unified Reflections feed endpoint; share cards with faded ritual hero backgrounds; Council card gains a 4-persona thumbnail row. Additive only. Branch `feat/mirror-saves` in flight; not yet built.
+
+**Netlify operational notes:**
+- Drawer disabled.
+- Preview password / SSO protection intentionally disabled (preview deploys openly reachable for smoke testing).
+
+**New tech debt logged:** TD-32 (zoom removal — drop `body { zoom: 1.15 }`, adopt `html { font-size: 115% }` + px audit + full device walkthrough; one dedicated PR, post-cold-beta). See §3.
 
 ---
 
@@ -118,6 +149,10 @@ All 9 personas voice-tightened; check_brevity live; Socrates elenchus upgraded. 
 23.11. ~~**backfill-titles executed**~~ ✅ DONE (queued=0, 2026-06-03)
 23.12. **PR3a memory bugs** — 🔴 not started. Fresh-chat missing opening message/thumbnail; home "Continuing" 404s.
 23.13. **PR3a item B — app-icon mark** — ⏸ DEFERRED. Photo icon removed. Icon mark design TBD.
+23.14. ~~**P0-SMOKE-01/03a/03b — tab bar + bottom-sheet positioning**~~ ✅ DONE (PR #273, 2026-06-12; bottom-anchored pill + sheet safe-area, `/1.15` double-compensation dropped, TD-30 superseded)
+23.15. ~~**Conversation deletion**~~ ✅ DONE (2026-06-12)
+23.16. ~~**P3-SMOKE-08 — Today consolidated card + matched-mind + Wise Room guide**~~ ✅ DONE (PR-A #274, PR-B no-op vs #217, PR-C #275, 2026-06-12)
+23.17. **P2-SMOKE-10/11 — unified Reflections feed + Mirror saves** — 🟡 IN PROGRESS. Option B additive (`mirror_saves` table + unified feed endpoint + hero-bg share cards + 4-persona Council thumbnail row). Branch `feat/mirror-saves`.
 24. **source_chunks re-ingest** into Oregon (TD-22; status unconfirmed post-switch)
 25. **Post-Oregon smoke test** — login, chat, Mirror, Council, share, library, RAG retrieval
 26. **Mobile 12-point nav smoke test**
@@ -238,15 +273,19 @@ Sandbox complete. Live wiring: live keys + live price IDs + separate live-mode w
 
 Photo icon (`appbutton.png`) tried and removed. A purpose-built icon mark is required. Design TBD. Next attempt: wire `apps/web/app/icon.png` and `apps/web/app/apple-icon.png` once mark is ready.
 
-### TD-30 — `zoom: 1.15` / `100svh/1.15` compensation coupled across three sites (P4)
+### TD-30 — `zoom: 1.15` / `100svh/1.15` compensation coupled across three sites (🟢 SUPERSEDED by PR #273, 2026-06-12)
 
-`apps/web/app/globals.css` sets `body { zoom: 1.15 }`. CSS `zoom` magnifies `position: fixed` descendants and their viewport-unit sizing, so any full-viewport or bottom-anchored fixed overlay must divide its height by 1.15 or it renders ~15% below the visible viewport (bottom content / submit buttons cut off). Three sites now carry this divisor:
+**Resolved / premise corrected.** TD-30 assumed the `/1.15` divisor was load-bearing compensation for `body { zoom: 1.15 }`. PR #273 (`d5b16ccb`) found the opposite: modern engines already adjust `svh` viewport units under `zoom: 1.15`, so the manual `/1.15` was a **double-compensation** that pulled the bottom edge ~13% short. All three divisors were removed (NOT in lockstep with a zoom removal — they were simply wrong):
 
-1. `app/app/(tabs)/layout.tsx` — tabs shell `h-[calc(100svh/1.15)]`
-2. `components/ui/BottomSheet.tsx` — container `h-[calc(100svh/1.15)]` + `maxHeight: calc(<prop> / 1.15)` (#263, 2026-06-09)
-3. `app/app/mirror/page.tsx` — "Whose eyes?" host picker container `h-[calc(100svh/1.15)]` (2026-06-09)
+1. `app/app/(tabs)/layout.tsx` — `h-[calc(100svh/1.15)]` → `h-[100svh]`; tab-bar footprint now reserved via `paddingBottom` on scrolled content.
+2. `components/ui/BottomSheet.tsx` — `h-[calc(100svh/1.15)]` → `h-[100svh]`, `maxHeight: calc(<prop>/1.15)` → `maxHeight: <prop>`; now owns `env(safe-area-inset-bottom)`.
+3. `app/app/mirror/page.tsx` — host-picker container `h-[calc(100svh/1.15)]` → `h-[100svh]`.
 
-These are coupled: when `zoom: 1.15` is eventually removed (durable fix = drop the global zoom hack and size the app shell responsively), **all three `/1.15` divisors and BottomSheet's `maxHeight` calc must be removed together**, or those overlays become 15% too short. Until then, any new full-viewport/bottom-anchored fixed overlay must apply the same `/1.15` compensation.
+`body { zoom: 1.15 }` itself still ships. The forward-looking removal of the zoom hack is now tracked separately as **TD-32** (no longer coupled to any `/1.15` divisor — there are none left).
+
+### TD-32 — Remove `body { zoom: 1.15 }` global hack (P4, post-cold-beta)
+
+`apps/web/app/globals.css` sets `body { zoom: 1.15 }` to enlarge the whole UI ~15%. `zoom` is non-standard and magnifies `position: fixed` descendants and viewport-unit sizing, which has already caused a string of positioning fixes (#261–#264, #273). Durable fix: **drop `body { zoom: 1.15 }` and adopt `html { font-size: 115% }`** (rem-based scaling that does not distort fixed/overlay geometry), then **audit hardcoded `px` values** that were implicitly scaled by zoom, and do a **full device walkthrough** (iOS Safari + Android Chrome) to confirm no layout regresses. One dedicated PR. NOTE: as of PR #273 there are no `/1.15` divisors left to remove alongside it (TD-30 superseded) — this is now a clean, self-contained swap. Defer until after cold beta.
 
 ### TD-31 — Cache You-vs-You "taking shape" forming reflection (P2)
 
@@ -404,6 +443,7 @@ Full text in prior backlog files. Key rules: P-01 through P-06 in CLAUDE.md.
 
 - [ ] **OPS-001 — nkoutr@ote.gr current_period_end re-sync**
 - [ ] **TD-29 — App-icon mark design** — purpose-built icon mark required before wiring `icon.png`/`apple-icon.png`
+- [ ] **🟡 P2-SMOKE-10/11 — unified Reflections feed + Mirror saves (IN PROGRESS)** — Option B additive: `mirror_saves` table mirroring `council_saves`; unified Reflections feed endpoint; share cards with faded ritual hero backgrounds; Council card gains 4-persona thumbnail row. Branch `feat/mirror-saves`. Subsumes the Council/Reflection share-card redesign items below where they overlap.
 - [ ] **Per-verdict → reflections save** (TD-27) — investigation brief first
 - [ ] **Council share card redesign** (TD-26)
 - [ ] **Reflection share card redesign**
@@ -483,7 +523,8 @@ Full text in prior backlog files. Key rules: P-01 through P-06 in CLAUDE.md.
 - [ ] **TD-06** — `safety_events.message_id` always NULL
 - [ ] **TD-07** — gh CLI install on founder's Windows
 - [ ] **TD-14** — BASE_URL legacy cleanup in config.py
-- [ ] **TD-30 — `zoom:1.15` / `100svh/1.15` coupling** across tabs shell, BottomSheet (#263), Mirror picker; remove all divisors + BottomSheet maxHeight calc together when the global zoom hack is dropped
+- [x] ~~**TD-30 — `zoom:1.15` / `100svh/1.15` coupling**~~ — 🟢 SUPERSEDED by PR #273 (2026-06-12). The `/1.15` divisors were double-compensation, not load-bearing; all three removed.
+- [ ] **TD-32 — Remove `body { zoom: 1.15 }` global hack** — swap to `html { font-size: 115% }` + px audit + full device walkthrough; one dedicated PR, post-cold-beta. No `/1.15` divisors remain to remove alongside it.
 - [ ] **openapi.json → .gitignore**
 - [ ] **Legal pages `target="_blank"` rel hardening**
 - [ ] **Stale branch cleanup**
