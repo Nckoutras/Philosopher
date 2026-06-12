@@ -25,12 +25,11 @@ export default function BottomSheet({ open, onClose, children, maxHeight = '75sv
   return (
     <AnimatePresence>
       {open && (
-        // Height is divided by 1.15 to compensate for the global `body { zoom: 1.15 }`
-        // hack (globals.css), which magnifies fixed descendants and would otherwise push
-        // this overlay's bottom edge ~15% below the visible viewport. Mirrors the tabs
-        // shell's `100svh/1.15` math. Anchored top/left/right (not inset-0) so the
-        // compensated height lands the bottom edge at the true visible viewport bottom.
-        <div className="fixed top-0 left-0 right-0 z-[60] h-[calc(100svh/1.15)]">
+        // Anchored top/left/right (not inset-0) at full 100svh. Modern engines already
+        // adjust svh viewport units under the global `body { zoom: 1.15 }` (globals.css),
+        // so the earlier manual `/1.15` double-compensated and pulled the bottom edge ~13%
+        // short of the visible viewport. Full 100svh now lands the bottom edge correctly.
+        <div className="fixed top-0 left-0 right-0 z-[60] h-[100svh]">
           <motion.div
             className="absolute inset-0 bg-[rgba(31,27,20,0.5)]"
             initial={{ opacity: 0 }}
@@ -44,7 +43,11 @@ export default function BottomSheet({ open, onClose, children, maxHeight = '75sv
             role="dialog"
             aria-modal="true"
             className="absolute inset-x-0 bottom-0 bg-paper rounded-t-xl flex flex-col"
-            style={{ maxHeight: `calc(${maxHeight} / 1.15)` }}
+            // Single source of safe-area truth for all sheets: the panel insets its own
+            // bottom by the home-indicator/browser zone so a pinned footer (or the last
+            // scrolled item in footer-less sheets) clears it. Consumers must NOT add
+            // env(safe-area-inset-bottom) again in their footer — that double-compensates.
+            style={{ maxHeight, paddingBottom: 'env(safe-area-inset-bottom)' }}
             initial={{ y: '100%' }}
             animate={{ y: 0 }}
             exit={{ y: '100%' }}

@@ -52,37 +52,47 @@ export default function BottomTabBar() {
   }, [router])
 
   return (
+    // Floating frosted pill (Design System v5, Instagram-style). Fixed to the visible
+    // viewport bottom directly rather than computed from the shell height — the top-down
+    // height-computed shell could not reliably place the bar across
+    // zoom/svh/browser-chrome/banner variations. Inset from the edges and lifted off the
+    // bottom so it reads as floating; the safe-area is an OFFSET below the pill (single
+    // source of truth) rather than padding inside it. (tabs)/layout.tsx pads the scroll
+    // area to match so nothing is covered. BodyScrollLock keeps `fixed` safe here.
     <nav
-      className="w-full h-16 bg-paper border-t border-[0.5px] border-edge flex items-stretch flex-shrink-0"
+      className="fixed left-4 right-4 z-50 bg-paper/80 backdrop-blur-md border border-bronze/30 rounded-full shadow-card overflow-hidden"
+      style={{ bottom: 'calc(env(safe-area-inset-bottom) + 12px)' }}
       aria-label="Main navigation"
     >
-      {TABS.map((tab) => {
-        const Icon = tab.icon
-        const isActive = tab.activePattern.test(pathname)
+      <div className="h-16 flex items-stretch">
+        {TABS.map((tab) => {
+          const Icon = tab.icon
+          const isActive = tab.activePattern.test(pathname)
 
-        return (
-          <Link
-            key={tab.label}
-            href={tab.href}
-            aria-label={tab.label}
-            aria-current={isActive ? 'page' : undefined}
-            className={[
-              'flex-1 flex flex-col items-center justify-center gap-[3px] transition-[color,opacity] active:opacity-50 select-none [touch-action:manipulation] [-webkit-tap-highlight-color:transparent]',
-              isActive ? 'text-ink' : 'text-sepia',
-            ].join(' ')}
-          >
-            <Icon size={20} strokeWidth={1.5} />
-            <span
+          return (
+            <Link
+              key={tab.label}
+              href={tab.href}
+              aria-label={tab.label}
+              aria-current={isActive ? 'page' : undefined}
               className={[
-                'font-lora text-[10px] leading-none',
-                isActive ? 'font-medium' : '',
+                'flex-1 flex flex-col items-center justify-center gap-[3px] transition-[color,opacity,transform] active:opacity-50 active:scale-95 select-none [touch-action:manipulation] [-webkit-tap-highlight-color:transparent]',
+                isActive ? 'text-ink' : 'text-sepia',
               ].join(' ')}
             >
-              {tab.label}
-            </span>
-          </Link>
-        )
-      })}
+              <Icon size={20} strokeWidth={1.5} />
+              <span
+                className={[
+                  'font-lora text-[10px] leading-none',
+                  isActive ? 'font-medium' : '',
+                ].join(' ')}
+              >
+                {tab.label}
+              </span>
+            </Link>
+          )
+        })}
+      </div>
     </nav>
   )
 }

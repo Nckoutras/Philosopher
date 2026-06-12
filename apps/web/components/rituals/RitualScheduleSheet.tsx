@@ -171,10 +171,9 @@ export default function RitualScheduleSheet({ open, onClose, userEmail }: Props)
       </div>
 
       {/* ── Submit ── */}
-      <div
-        className="px-6 pt-4 border-t border-[0.5px] border-edge flex-shrink-0"
-        style={{ paddingBottom: 'max(24px, env(safe-area-inset-bottom))' }}
-      >
+      {/* Plain 24px — BottomSheet's panel now owns the env(safe-area-inset-bottom)
+          inset, so adding it here too would double-compensate. */}
+      <div className="px-6 pt-4 pb-6 border-t border-[0.5px] border-edge flex-shrink-0">
         <button
           type="button"
           onClick={handleSubmit}
