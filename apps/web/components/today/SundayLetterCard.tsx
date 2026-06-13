@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
-import { Lock } from 'lucide-react'
+import { Lock, X } from 'lucide-react'
 import { api } from '@/lib/api'
 import type { WeeklyLetter } from '@/lib/api'
 import BottomSheet from '@/components/ui/BottomSheet'
@@ -16,6 +16,7 @@ export default function SundayLetterCard({ isPro }: Props) {
   const router = useRouter()
   const [unread, setUnread] = useState<WeeklyLetter | null>(null)
   const [sheetOpen, setSheetOpen] = useState(false)
+  const [dismissed, setDismissed] = useState(false)
 
   useEffect(() => {
     if (!isPro) return
@@ -41,8 +42,11 @@ export default function SundayLetterCard({ isPro }: Props) {
 
   const isUnread = isPro && unread !== null
 
+  if (dismissed) return null
+
   return (
     <>
+      <div className="relative">
       <button
         type="button"
         onClick={handleClick}
@@ -78,8 +82,25 @@ export default function SundayLetterCard({ isPro }: Props) {
         )}
       </button>
 
+      {isPro && !isUnread && (
+        <button
+          type="button"
+          onClick={() => setDismissed(true)}
+          aria-label="Dismiss"
+          className="absolute top-[12px] right-[12px] p-1 text-sepia"
+        >
+          <X size={16} strokeWidth={1.5} />
+        </button>
+      )}
+      </div>
+
       <BottomSheet open={sheetOpen} onClose={() => setSheetOpen(false)} maxHeight="60svh">
-        <div className="px-6 py-6">
+        {/* The floating tab bar (BottomTabBar, backdrop-blur) paints over the sheet on
+            iOS regardless of z-index, so clear its footprint here. Mirrors (tabs)/layout's
+            scroll reservation MINUS the safe-area term — the BottomSheet panel already
+            insets env(safe-area-inset-bottom) (single source of truth, d5b16ccb), so
+            re-adding it would double-compensate. 4rem pill + 12px lift + 8px breathing. */}
+        <div className="px-6 pt-6 pb-[calc(4rem+12px+8px)]">
           <p className="font-lora text-[11px] uppercase tracking-[0.18em] text-sepia">Rituals</p>
           <h2 className="font-cormorant text-[22px] font-medium text-ink mt-[4px]">The Sunday Letter</h2>
           <p className="font-lora text-[15px] text-charcoal leading-[1.7] mt-[12px]">
