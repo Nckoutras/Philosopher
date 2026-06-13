@@ -101,7 +101,7 @@ export default function RitualScheduleSheet({ open, onClose, userEmail }: Props)
       </div>
 
       {/* ── Form body ── */}
-      <div className="overflow-y-auto flex-1 px-6 py-5 flex flex-col gap-[18px]">
+      <div className="overflow-y-auto flex-1 min-h-0 px-6 py-5 flex flex-col gap-[18px]">
 
         {/* Datetime picker (C1: local time, not UTC) */}
         <div>
