@@ -79,7 +79,7 @@ export default function PersonaPickerSheet({
           type="button"
           onClick={onClose}
           aria-label="Close"
-          className="font-lora text-[20px] text-sepia leading-none"
+          className="p-2 font-lora text-[22px] text-sepia leading-none"
         >
           ×
         </button>

@@ -59,7 +59,7 @@ export default function PaywallModal({ open, details, onClose }: Props) {
         <button
           onClick={onClose}
           aria-label="Close"
-          className="absolute top-4 right-4 font-lora text-[18px] text-sepia hover:text-ink transition-colors leading-none"
+          className="absolute top-3 right-3 p-2 font-lora text-[22px] text-sepia hover:text-ink transition-colors leading-none"
         >
           ×
         </button>
