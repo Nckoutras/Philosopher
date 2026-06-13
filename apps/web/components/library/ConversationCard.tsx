@@ -76,7 +76,7 @@ export default function ConversationCard({ conversation, portraitUrl }: Props) {
 
       {/* Middle content */}
       <div className="flex-1 min-w-0">
-        <p className="font-cormorant text-[17px] font-medium text-ink leading-tight truncate">
+        <p className="font-cormorant text-[20px] font-medium text-ink leading-tight truncate">
           {persona.name}
         </p>
         <p className="font-lora text-[13px] text-charcoal leading-tight mt-[2px]">
