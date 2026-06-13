@@ -6,7 +6,7 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from db.session import get_db
+from db.session import get_db, AsyncSessionLocal
 from models import User, Subscription
 from config import config
 
@@ -57,6 +57,31 @@ async def get_current_user_plan(
 ) -> tuple[User, str]:
     from services.tier_service import get_user_tier
     tier = await get_user_tier(db, user.id)
+    return user, tier
+
+
+async def get_user_plan_streaming(
+    credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
+) -> tuple[User, str]:
+    """No-pin auth for SSE streaming endpoints (§5 pool-leak fix).
+
+    Unlike get_current_user_plan — which depends on get_db, a yield-dependency
+    whose session is released only AFTER the StreamingResponse body is fully
+    sent, pinning a pooled session for the entire multi-second token stream —
+    this opens and CLOSES its own short-lived session before the stream begins.
+    The returned User is detached but its loaded scalar attributes (id,
+    full_name, is_admin) stay readable. Scoped to streaming routes only; do NOT
+    use elsewhere.
+    """
+    from services.tier_service import get_user_tier
+
+    payload = decode_token(credentials.credentials)
+    async with AsyncSessionLocal() as db:
+        result = await db.execute(select(User).where(User.id == payload["sub"]))
+        user = result.scalar_one_or_none()
+        if not user:
+            raise HTTPException(status_code=401, detail="User not found")
+        tier = await get_user_tier(db, user.id)
     return user, tier
 
 

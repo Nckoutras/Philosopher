@@ -260,7 +260,7 @@ class ConversationService:
     # ── Stream response ───────────────────────────────────────────────────────
     async def stream_response(
         self,
-        db: AsyncSession,
+        session_factory,
         conversation_id: str,
         user_id: str,
         user_text: str,
@@ -270,135 +270,161 @@ class ConversationService:
         arq_queue=None,
         seeded_opening: bool = False,
     ) -> AsyncGenerator[str, None]:
+        # §5 pool-leak fix: this generator takes a session FACTORY, not a
+        # request-scoped session. DB work happens in short-lived sessions in
+        # Phase A (pre-stream) and Phase C (post-stream); the LLM token stream
+        # (Phase B) holds NO pooled session. Values needed after a session
+        # closes are snapshotted into plain locals so no detached ORM attribute
+        # is ever lazy-loaded.
         start = time.monotonic()
 
-        # Load conversation + persona
-        result = await db.execute(
-            select(Conversation).where(Conversation.id == conversation_id)
-        )
-        conv = result.scalar_one_or_none()
-        if not conv:
-            raise ValueError("Conversation not found")
-        persona_result = await db.execute(select(Persona).where(Persona.id == conv.persona_id))
-        persona_db = persona_result.scalar_one()
-        persona = get_persona(persona_db.slug)
+        # ══ PHASE A — PRE-STREAM DB (short-lived session) ════════════════════
+        async with session_factory() as db:
+            # Load conversation + persona
+            result = await db.execute(
+                select(Conversation).where(Conversation.id == conversation_id)
+            )
+            conv = result.scalar_one_or_none()
+            if not conv:
+                raise ValueError("Conversation not found")
+            persona_result = await db.execute(select(Persona).where(Persona.id == conv.persona_id))
+            persona_db = persona_result.scalar_one()
+            persona = get_persona(persona_db.slug)
 
-        # ── 1. PRE-GENERATION SAFETY ─────────────────────────────────────────
-        safety_in = await safety_service.check_input(user_text, user_id)
-        if safety_in.should_log:
-            await self._log_safety_event(db, user_id, conversation_id, None, safety_in, "pre_generation")
-        if safety_in.should_suppress_persona:
-            # Save user message first
-            user_msg = await self._save_message(db, conv, user_id, "user", user_text, safety_level=safety_in.level)
-            safe_text = prompt_builder.build_safety_response(level=safety_in.level)
-            await self._save_message(db, conv, user_id, "assistant", safe_text, safety_level=safety_in.level, persona_override=True)
-            await db.commit()
-            analytics_service.track("safety_event_pre", user_id, {"risk_level": safety_in.level, "category": safety_in.category})
-            yield f"data: {json.dumps({'type': 'safety', 'level': safety_in.level})}\n\n"
-            for chunk in self._chunk_text(safe_text):
-                yield f"data: {json.dumps({'type': 'chunk', 'data': chunk})}\n\n"
-            yield f"data: {json.dumps({'type': 'done'})}\n\n"
-            return
+            # ── 1. PRE-GENERATION SAFETY ─────────────────────────────────────
+            safety_in = await safety_service.check_input(user_text, user_id)
+            if safety_in.should_log:
+                await self._log_safety_event(db, user_id, conversation_id, None, safety_in, "pre_generation")
+            if safety_in.should_suppress_persona:
+                # Save user message first
+                user_msg = await self._save_message(db, conv, user_id, "user", user_text, safety_level=safety_in.level)
+                safe_text = prompt_builder.build_safety_response(level=safety_in.level)
+                await self._save_message(db, conv, user_id, "assistant", safe_text, safety_level=safety_in.level, persona_override=True)
+                await db.commit()
+                analytics_service.track("safety_event_pre", user_id, {"risk_level": safety_in.level, "category": safety_in.category})
+                yield f"data: {json.dumps({'type': 'safety', 'level': safety_in.level})}\n\n"
+                for chunk in self._chunk_text(safe_text):
+                    yield f"data: {json.dumps({'type': 'chunk', 'data': chunk})}\n\n"
+                yield f"data: {json.dumps({'type': 'done'})}\n\n"
+                return
 
-        # ── 2. RECALL MEMORY ─────────────────────────────────────────────────
-        memories = []
-        try:
-            memories = await memory_service.recall(db, user_id, user_text, top_k=6)
-        except Exception as e:
-            logger.warning(f"Memory recall failed: {e}")
-            await db.rollback()
-
-        # ── 3. RETRIEVE PASSAGES ─────────────────────────────────────────────
-        passages = []
-        try:
-            passages = await retrieval_service.retrieve(db, user_text, persona)
-        except Exception as e:
-            logger.warning(f"Retrieval failed: {e}")
-            await db.rollback()
-
-        # ── 3.5. PHENOMENOLOGY BRIDGE LOOKUP (Phase 4) ───────────────────────
-        # If a modern term in the user's message maps to a phenomenological
-        # essence, the persona will see the timeless translation in its
-        # system prompt and engage with that — without naming the modern
-        # term back. Feature-flagged; fail-open on any error.
-        phenomenology_bridge = None
-        if PHENOMENOLOGY_BRIDGE_ENABLED:
+            # ── 2. RECALL MEMORY ─────────────────────────────────────────────
+            memories = []
             try:
-                phenomenology_bridge = phenomenology_bridge_service.lookup(
-                    user_message=user_text,
-                    persona_slug=persona.slug,
-                )
+                memories = await memory_service.recall(db, user_id, user_text, top_k=6)
             except Exception as e:
-                logger.warning(
-                    f"Phenomenology bridge lookup failed for "
-                    f"persona={persona.slug}: {e}. Proceeding without bridge."
+                logger.warning(f"Memory recall failed: {e}")
+                await db.rollback()
+
+            # ── 3. RETRIEVE PASSAGES ─────────────────────────────────────────
+            passages = []
+            try:
+                passages = await retrieval_service.retrieve(db, user_text, persona)
+            except Exception as e:
+                logger.warning(f"Retrieval failed: {e}")
+                await db.rollback()
+
+            # ── 3.5. PHENOMENOLOGY BRIDGE LOOKUP (Phase 4) ───────────────────
+            # If a modern term in the user's message maps to a phenomenological
+            # essence, the persona will see the timeless translation in its
+            # system prompt and engage with that — without naming the modern
+            # term back. Feature-flagged; fail-open on any error.
+            phenomenology_bridge = None
+            if PHENOMENOLOGY_BRIDGE_ENABLED:
+                try:
+                    phenomenology_bridge = phenomenology_bridge_service.lookup(
+                        user_message=user_text,
+                        persona_slug=persona.slug,
+                    )
+                except Exception as e:
+                    logger.warning(
+                        f"Phenomenology bridge lookup failed for "
+                        f"persona={persona.slug}: {e}. Proceeding without bridge."
+                    )
+                    # phenomenology_bridge stays None
+
+            # ── 4. BUILD SYSTEM PROMPT ───────────────────────────────────────
+            system_prompt = prompt_builder.build_system(
+                persona=persona,
+                memories=memories,
+                passages=passages,
+                phenomenology_bridge=phenomenology_bridge,
+            )
+
+            # ── 5. BUILD MESSAGE HISTORY ─────────────────────────────────────
+            history_result = await db.execute(
+                select(Message)
+                .where(
+                    Message.conversation_id == conversation_id,
+                    # CONCLUSION EXCLUSION: distilled conclusion rows must NEVER enter
+                    # the LLM context window. message_kind is NOT NULL (default
+                    # 'standard'), so this filter is byte-equivalent to the prior
+                    # behaviour for all existing/standard/go_deeper rows.
+                    Message.message_kind != 'conclusion',
                 )
-                # phenomenology_bridge stays None
-
-        # ── 4. BUILD SYSTEM PROMPT ───────────────────────────────────────────
-        system_prompt = prompt_builder.build_system(
-            persona=persona,
-            memories=memories,
-            passages=passages,
-            phenomenology_bridge=phenomenology_bridge,
-        )
-
-        # ── 5. BUILD MESSAGE HISTORY ─────────────────────────────────────────
-        history_result = await db.execute(
-            select(Message)
-            .where(
-                Message.conversation_id == conversation_id,
-                # CONCLUSION EXCLUSION: distilled conclusion rows must NEVER enter
-                # the LLM context window. message_kind is NOT NULL (default
-                # 'standard'), so this filter is byte-equivalent to the prior
-                # behaviour for all existing/standard/go_deeper rows.
-                Message.message_kind != 'conclusion',
+                .order_by(Message.created_at.asc())
+                .limit(MEMORY_WINDOW_PRO if user_plan in ("pro", "premium") else MEMORY_WINDOW_FREE)
             )
-            .order_by(Message.created_at.asc())
-            .limit(MEMORY_WINDOW_PRO if user_plan in ("pro", "premium") else MEMORY_WINDOW_FREE)
-        )
-        history = history_result.scalars().all()
-        # Cross-mind awareness: label assistant turns spoken by a brought-in
-        # persona so the home persona recognises them as another mind's words.
-        # When none exist, history is built byte-identically to before.
-        _foreign = [m for m in history if m.role == "assistant" and m.persona_id is not None]
-        if _foreign:
-            _pid_set = {conv.persona_id} | {m.persona_id for m in _foreign}
-            _name_rows = await db.execute(
-                select(Persona.id, Persona.name).where(Persona.id.in_(_pid_set))
-            )
-            _id_to_name = {r.id: r.name for r in _name_rows.all()}
-            lm_messages = self._build_lm_messages(
-                history, conv.persona_id, conv.persona_id, _id_to_name
-            )
-            system_prompt = system_prompt + "\n\n" + CROSS_MIND_NOTE
-        else:
-            lm_messages = [
-                {"role": m.role, "content": m.content}
-                for m in history
-                if m.role in ("user", "assistant")
-            ]
-        # W3 fix: Anthropic API requires messages to start with a user turn.
-        # opening_invocation and cross-persona bootstrap both save an initial
-        # assistant message with no preceding user message in the DB. Strip any
-        # leading assistant turns so the API call is always user-first.
-        while lm_messages and lm_messages[0]["role"] == "assistant":
-            lm_messages.pop(0)
-        lm_messages.append({"role": "user", "content": user_text})
+            history = history_result.scalars().all()
+            # Cross-mind awareness: label assistant turns spoken by a brought-in
+            # persona so the home persona recognises them as another mind's words.
+            # When none exist, history is built byte-identically to before.
+            _foreign = [m for m in history if m.role == "assistant" and m.persona_id is not None]
+            if _foreign:
+                _pid_set = {conv.persona_id} | {m.persona_id for m in _foreign}
+                _name_rows = await db.execute(
+                    select(Persona.id, Persona.name).where(Persona.id.in_(_pid_set))
+                )
+                _id_to_name = {r.id: r.name for r in _name_rows.all()}
+                lm_messages = self._build_lm_messages(
+                    history, conv.persona_id, conv.persona_id, _id_to_name
+                )
+                system_prompt = system_prompt + "\n\n" + CROSS_MIND_NOTE
+            else:
+                lm_messages = [
+                    {"role": m.role, "content": m.content}
+                    for m in history
+                    if m.role in ("user", "assistant")
+                ]
+            # W3 fix: Anthropic API requires messages to start with a user turn.
+            # opening_invocation and cross-persona bootstrap both save an initial
+            # assistant message with no preceding user message in the DB. Strip any
+            # leading assistant turns so the API call is always user-first.
+            while lm_messages and lm_messages[0]["role"] == "assistant":
+                lm_messages.pop(0)
+            lm_messages.append({"role": "user", "content": user_text})
 
-        # Seeded opening: the seeker handed the persona a topic to begin from
-        # (no opening_invocation exists on these conversations). For this first
-        # turn only, steer the persona to lead with its own position and close
-        # with an invitation — not a question. Gated to an empty prior history
-        # so it never affects later turns.
-        if seeded_opening and len(history) == 0:
-            system_prompt = system_prompt + "\n\n" + SEEDED_OPENING_DIRECTIVE
+            # Seeded opening: the seeker handed the persona a topic to begin from
+            # (no opening_invocation exists on these conversations). For this first
+            # turn only, steer the persona to lead with its own position and close
+            # with an invitation — not a question. Gated to an empty prior history
+            # so it never affects later turns.
+            history_len = len(history)
+            if seeded_opening and history_len == 0:
+                system_prompt = system_prompt + "\n\n" + SEEDED_OPENING_DIRECTIVE
 
-        # ── 6. SAVE USER MESSAGE ─────────────────────────────────────────────
-        user_msg = await self._save_message(db, conv, user_id, "user", user_text, safety_level=safety_in.level)
-        await db.flush()
+            # ── 6. SAVE USER MESSAGE ─────────────────────────────────────────
+            # Commit (not just flush) so the user turn is durably persisted
+            # before the session is released for the token-stream phase.
+            user_msg = await self._save_message(db, conv, user_id, "user", user_text, safety_level=safety_in.level)
+            await db.commit()
 
-        # ── 7. STREAM FROM LLM (real-time) ──────────────────────────────────
+            # Snapshot every value Phase B / Phase C / analytics need, while the
+            # session is still open. After this block the only detached access
+            # is conv.id (a loaded PK scalar) inside _save_message — safe, no
+            # lazy load. Re-loading conv in Phase C is intentionally avoided so
+            # the DB execute sequence stays identical to the prior behaviour.
+            user_msg_created_at = user_msg.created_at
+            retrieval_ids = [str(p.id) for p in passages]
+            retrieval_hit = len(passages) > 0
+            memory_hit = len(memories) > 0
+            conv_message_count = conv.message_count
+            conv_title = conv.title
+            conv_ritual_id = conv.ritual_id
+            conv_persona_id = conv.persona_id
+        # ── Phase A session closed — pool freed for the token stream ─────────
+
+        # ══ PHASE B — TOKEN STREAM (no pooled session held) ══════════════════
         # Chunks are yielded to the client as they arrive. Retries apply only
         # when no chunks have been sent yet (connection-phase failures).
         model = MODEL_PRO if user_plan in ("pro", "premium") else MODEL_FREE
@@ -440,6 +466,8 @@ class ConversationService:
                 await asyncio.sleep(2**attempt)
 
         if not _llm_success:
+            # User message already committed in Phase A; nothing further to
+            # persist on LLM failure — just surface the error and end.
             persona_voice_text = get_error_voice(persona, "llm_unavailable")
             error_event = {
                 "type": "error",
@@ -450,16 +478,16 @@ class ConversationService:
                 f"LLM stream failed for persona={persona.slug}: {_last_llm_error}"
             )
             yield f"data: {json.dumps(error_event)}\n\n"
-            await db.commit()
             return
 
-        # ── 8. POST-GENERATION SAFETY ────────────────────────────────────────
+        # ══ PHASE C1 — POST-GEN SAFETY + POSTPROCESSING (no session held) ════
         # SAFETY OVERRIDE BYPASS — non-negotiable invariant (Decision D).
         # Already-streamed persona content is replaced client-side by safety
         # response. Postprocessing MUST NOT touch safety override content.
+        # No pooled session is held here: the correction path may itself stream
+        # from the LLM, which must never pin a DB connection (§5).
         safety_out = await safety_service.check_output(full_response)
         if safety_out.should_suppress_persona:
-            await self._log_safety_event(db, user_id, conversation_id, None, safety_out, "post_generation")
             logger.warning(
                 "post_gen_safety_override",
                 extra={
@@ -476,11 +504,11 @@ class ConversationService:
                 yield f"data: {json.dumps({'type': 'chunk', 'data': chunk})}\n\n"
             full_response = safe_text
         elif POSTPROCESSING_ENABLED:
-            # ── 8b. POSTPROCESSING — inline check + streaming correction ─────
+            # ── POSTPROCESSING — inline check + streaming correction ─────────
             # Initial chunks already yielded above. If they fail the forbidden-
             # lexicon check, stream a correction in real-time via `correction`
             # event. Frontend fades original and shows the new stream.
-            conv_position = "first_message" if len(history) <= 1 else "mid_session"
+            conv_position = "first_message" if history_len <= 1 else "mid_session"
             _fb  = check_universal_forbidden(full_response)
             _brv = check_brevity(full_response, persona, conv_position)
             _triggered = [c for c in (_fb,) if c.action == CheckAction.REGENERATE]  # brevity no longer forces a regenerate/correction; it stays a prompt-level nudge
@@ -551,68 +579,83 @@ class ConversationService:
 
         latency_ms = int((time.monotonic() - start) * 1000)
 
-        # ── 9. SAVE ASSISTANT MESSAGE ────────────────────────────────────────
-        assistant_msg = await self._save_message(
-            db, conv, user_id, "assistant", full_response,
-            retrieval_ids=[str(p.id) for p in passages],
-            safety_level=max(safety_in.level, safety_out.level, key=lambda l: ["none","low","medium","high","critical"].index(l)),
-            persona_override=safety_out.should_suppress_persona,
-            latency_ms=latency_ms,
-        )
+        # ══ PHASE C2 — PERSIST ASSISTANT MSG + METADATA (fresh session) ══════
+        # All gate/metadata inputs were snapshotted in Phase A. conv.message_count
+        # is the pre-update value (the UPDATE below is a SQL expression and does
+        # not refresh the in-memory attribute), so these match the prior
+        # single-session behaviour exactly.
+        async with session_factory() as db:
+            # ── POST-GEN SAFETY EVENT LOG (deferred from C1 — needs a session) ─
+            if safety_out.should_suppress_persona:
+                await self._log_safety_event(db, user_id, conversation_id, None, safety_out, "post_generation")
 
-        # ── 10. UPDATE CONVERSATION METADATA ────────────────────────────────
-        new_message_count = (conv.message_count or 0) + 2
-        await db.execute(
-            update(Conversation)
-            .where(Conversation.id == conversation_id)
-            .values(
-                message_count=Conversation.message_count + 2,
-                last_message_at=user_msg.created_at,
+            # ── SAVE ASSISTANT MESSAGE ───────────────────────────────────────
+            # `conv` is detached from the Phase A session; _save_message reads
+            # only conv.id (a loaded PK scalar — safe, no lazy load).
+            assistant_msg = await self._save_message(
+                db, conv, user_id, "assistant", full_response,
+                retrieval_ids=retrieval_ids,
+                safety_level=max(safety_in.level, safety_out.level, key=lambda l: ["none","low","medium","high","critical"].index(l)),
+                persona_override=safety_out.should_suppress_persona,
+                latency_ms=latency_ms,
             )
-        )
 
-        # ── 10b. INCREMENT DAILY USAGE ───────────────────────────────────────
-        # Skip for admins, ritual conversations, and safety-suppressed responses.
-        if not is_admin and conv.ritual_id is None and not safety_out.should_suppress_persona:
-            today = date.today()
-            usage_result = await db.execute(
-                select(DailyUsage).where(
-                    DailyUsage.user_id == user_id,
-                    DailyUsage.persona_id == conv.persona_id,
-                    DailyUsage.usage_date == today,
+            # ── UPDATE CONVERSATION METADATA ─────────────────────────────────
+            new_message_count = (conv_message_count or 0) + 2
+            prior_pairs = (conv_message_count or 0) // 2
+            await db.execute(
+                update(Conversation)
+                .where(Conversation.id == conversation_id)
+                .values(
+                    message_count=Conversation.message_count + 2,
+                    last_message_at=user_msg_created_at,
                 )
             )
-            usage = usage_result.scalar_one_or_none()
-            if usage:
-                usage.message_count += 1
-            else:
-                db.add(DailyUsage(
-                    user_id=user_id,
-                    persona_id=conv.persona_id,
-                    usage_date=today,
-                    message_count=1,
-                ))
 
-        await db.commit()
+            # ── INCREMENT DAILY USAGE ────────────────────────────────────────
+            # Skip for admins, ritual conversations, and safety-suppressed responses.
+            if not is_admin and conv_ritual_id is None and not safety_out.should_suppress_persona:
+                today = date.today()
+                usage_result = await db.execute(
+                    select(DailyUsage).where(
+                        DailyUsage.user_id == user_id,
+                        DailyUsage.persona_id == conv_persona_id,
+                        DailyUsage.usage_date == today,
+                    )
+                )
+                usage = usage_result.scalar_one_or_none()
+                if usage:
+                    usage.message_count += 1
+                else:
+                    db.add(DailyUsage(
+                        user_id=user_id,
+                        persona_id=conv_persona_id,
+                        usage_date=today,
+                        message_count=1,
+                    ))
+
+            await db.commit()
+            assistant_msg_id = assistant_msg.id
+        # ── Phase C2 session closed — fire side-effects with no session held ─
 
         if (
             arq_queue is not None
             and new_message_count >= 2
-            and conv.title is None
+            and conv_title is None
         ):
             await arq_queue.enqueue_job(
-                "generate_conversation_title", str(conv.id)
+                "generate_conversation_title", str(conversation_id)
             )
 
         if arq_queue is not None and not safety_out.should_suppress_persona:
             await arq_queue.enqueue_job(
                 "extract_memory_task",
                 str(user_id),
-                str(conv.id),
-                str(conv.persona_id),
+                str(conversation_id),
+                str(conv_persona_id),
                 user_text,
                 full_response,
-                (conv.message_count or 0) // 2,
+                prior_pairs,
             )
 
         # Gravity-gated conclusion: assess (and maybe distill) only at cadence,
@@ -626,20 +669,20 @@ class ConversationService:
             and (new_message_count - CONCLUSION_MIN_DEPTH) % CONCLUSION_CADENCE == 0
         ):
             await arq_queue.enqueue_job(
-                "assess_conclusion_task", str(conv.id), str(user_id)
+                "assess_conclusion_task", str(conversation_id), str(user_id)
             )
 
-        # ── 11. ANALYTICS ────────────────────────────────────────────────────
+        # ── ANALYTICS ────────────────────────────────────────────────────────
         analytics_service.track("message_sent", user_id, {
             "persona_slug": persona.slug,
             "conversation_id": conversation_id,
             "safety_level": safety_in.level,
-            "retrieval_hit": len(passages) > 0,
-            "memory_hit": len(memories) > 0,
+            "retrieval_hit": retrieval_hit,
+            "memory_hit": memory_hit,
             "latency_ms": latency_ms,
         })
 
-        yield f"data: {json.dumps({'type': 'done', 'message_id': assistant_msg.id})}\n\n"
+        yield f"data: {json.dumps({'type': 'done', 'message_id': assistant_msg_id})}\n\n"
 
     # ── Stream another mind ───────────────────────────────────────────────────
     async def stream_another_mind(

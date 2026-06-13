@@ -5,14 +5,14 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
-from db.session import get_db
+from db.session import get_db, AsyncSessionLocal
 from models import User, Conversation, Message, Persona, SavedLine
 from schemas import (
     ConversationCreate, ConversationOut, CrossPersonaRequest,
     MessageCreate, MessageOut, PersonaOut, LLMErrorResponse,
     AnotherMindCreate,
 )
-from auth import get_current_user, get_current_user_plan
+from auth import get_current_user, get_current_user_plan, get_user_plan_streaming
 from services.conversation_service import conversation_service
 from services.tier_service import get_user_tier
 from services.persona_voice import get_error_voice
@@ -235,41 +235,49 @@ async def send_message(
     conversation_id: str,
     request: Request,
     body: MessageCreate,
-    db: AsyncSession = Depends(get_db),
-    auth: tuple = Depends(get_current_user_plan),
+    auth: tuple = Depends(get_user_plan_streaming),
 ):
-    """SSE streaming endpoint. Returns text/event-stream."""
+    """SSE streaming endpoint. Returns text/event-stream.
+
+    §5 pool-leak fix: auth + preflight run in short-lived sessions that close
+    BEFORE the stream starts, and the generator manages its own sessions via
+    the factory. No pooled DB session is held across the multi-second token
+    stream. (get_db is intentionally NOT a dependency here.)
+    """
     user, plan = auth
 
-    result = await db.execute(
-        select(Conversation).where(Conversation.id == conversation_id, Conversation.user_id == user.id)
-    )
-    conv = result.scalar_one_or_none()
-    if not conv:
-        raise HTTPException(status_code=404, detail="Conversation not found")
-
-    persona_result = await db.execute(select(Persona).where(Persona.id == conv.persona_id))
-    persona = persona_result.scalar_one()
-
-    rate_limit_result = None
-    if not user.is_admin and conv.ritual_id is None:
-        user_tier = await get_user_tier(db, user.id)
-        rate_limit_result = await rate_limit_service.check_rate_limit(
-            db, UUID(user.id), UUID(conv.persona_id), user_tier=user_tier
+    # Preflight (conv lookup + rate-limit) in a short-lived session opened and
+    # CLOSED here — never held across the token stream.
+    async with AsyncSessionLocal() as db:
+        result = await db.execute(
+            select(Conversation).where(Conversation.id == conversation_id, Conversation.user_id == user.id)
         )
-        if not rate_limit_result.allowed:
-            return JSONResponse(
-                status_code=429,
-                content=LLMErrorResponse(
-                    error_code="rate_limited",
-                    persona_voice=get_error_voice(persona, "rate_limited"),
-                ).model_dump(),
-                headers={
-                    "X-RateLimit-Limit": str(rate_limit_result.limit),
-                    "X-RateLimit-Remaining": "0",
-                    "X-RateLimit-Reset": rate_limit_result.reset_at.isoformat(),
-                },
+        conv = result.scalar_one_or_none()
+        if not conv:
+            raise HTTPException(status_code=404, detail="Conversation not found")
+
+        persona_result = await db.execute(select(Persona).where(Persona.id == conv.persona_id))
+        persona = persona_result.scalar_one()
+
+        rate_limit_result = None
+        if not user.is_admin and conv.ritual_id is None:
+            user_tier = await get_user_tier(db, user.id)
+            rate_limit_result = await rate_limit_service.check_rate_limit(
+                db, UUID(user.id), UUID(conv.persona_id), user_tier=user_tier
             )
+            if not rate_limit_result.allowed:
+                return JSONResponse(
+                    status_code=429,
+                    content=LLMErrorResponse(
+                        error_code="rate_limited",
+                        persona_voice=get_error_voice(persona, "rate_limited"),
+                    ).model_dump(),
+                    headers={
+                        "X-RateLimit-Limit": str(rate_limit_result.limit),
+                        "X-RateLimit-Remaining": "0",
+                        "X-RateLimit-Reset": rate_limit_result.reset_at.isoformat(),
+                    },
+                )
 
     response_headers = {
         "Cache-Control": "no-cache",
@@ -286,7 +294,7 @@ async def send_message(
 
     return StreamingResponse(
         conversation_service.stream_response(
-            db=db,
+            session_factory=AsyncSessionLocal,
             conversation_id=conversation_id,
             user_id=user.id,
             user_text=body.content,

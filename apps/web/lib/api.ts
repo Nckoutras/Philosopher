@@ -593,7 +593,7 @@ class ApiClient {
 
   // SSE stream — returns the raw Response for manual reading.
   // userPlan is used to determine upgradeTarget on 429 ('free' → 'pro', 'pro' → 'premium').
-  async streamMessage(conversationId: string, content: string, userPlan: string = 'free', seededOpening: boolean = false): Promise<Response> {
+  async streamMessage(conversationId: string, content: string, userPlan: string = 'free', seededOpening: boolean = false, signal?: AbortSignal): Promise<Response> {
     const res = await fetch(`${API_BASE}/conversations/${conversationId}/messages`, {
       method: 'POST',
       headers: {
@@ -601,6 +601,7 @@ class ApiClient {
         ...(this.token ? { Authorization: `Bearer ${this.token}` } : {}),
       },
       body: JSON.stringify({ content, seeded_opening: seededOpening }),
+      signal,
     })
     if (!res.ok) {
       if (res.status === 429) {
@@ -622,7 +623,7 @@ class ApiClient {
     return res
   }
 
-  async streamAnotherMind(conversationId: string, personaSlug: string, userPlan: string = 'free'): Promise<Response> {
+  async streamAnotherMind(conversationId: string, personaSlug: string, userPlan: string = 'free', signal?: AbortSignal): Promise<Response> {
     const res = await fetch(`${API_BASE}/conversations/${conversationId}/another-mind`, {
       method: 'POST',
       headers: {
@@ -630,6 +631,7 @@ class ApiClient {
         ...(this.token ? { Authorization: `Bearer ${this.token}` } : {}),
       },
       body: JSON.stringify({ target_persona_slug: personaSlug }),
+      signal,
     })
     if (!res.ok) {
       if (res.status === 403) {
@@ -654,7 +656,7 @@ class ApiClient {
     return res
   }
 
-  async streamGoDeeper(conversationId: string, userPlan: string = 'free'): Promise<Response> {
+  async streamGoDeeper(conversationId: string, userPlan: string = 'free', signal?: AbortSignal): Promise<Response> {
     const res = await fetch(`${API_BASE}/conversations/${conversationId}/go-deeper`, {
       method: 'POST',
       headers: {
@@ -662,6 +664,7 @@ class ApiClient {
         ...(this.token ? { Authorization: `Bearer ${this.token}` } : {}),
       },
       body: JSON.stringify({}),
+      signal,
     })
     if (!res.ok) {
       if (res.status === 403) {

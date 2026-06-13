@@ -1,4 +1,4 @@
-import { useCallback } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { api, Message, RateLimitError, SSEEvent, SSEEventStart } from '@/lib/api'
 import { useStore } from '@/lib/store'
@@ -20,8 +20,20 @@ export function useStream() {
     setStreamingBroughtIn,
   } = useStore()
 
+  // Tracks the in-flight SSE stream so it can be aborted on unmount (navigate
+  // away) or when a new send supersedes it. Aborting cancels the fetch + reader
+  // and lets the server detect the disconnect, releasing its DB session (§5).
+  const controllerRef = useRef<AbortController | null>(null)
+
+  useEffect(() => () => controllerRef.current?.abort(), [])
+
   const send = useCallback(async (content: string, seededOpening: boolean = false) => {
     if (!activeConversationId) return
+
+    // Abort any prior in-flight stream before starting a new one.
+    controllerRef.current?.abort()
+    const controller = new AbortController()
+    controllerRef.current = controller
 
     // Clear prior safety and error states before starting
     setSafetyActive(false)
@@ -41,7 +53,7 @@ export function useStream() {
 
     try {
       const currentPlan = useStore.getState().plan
-      const res = await api.streamMessage(activeConversationId, content, currentPlan, seededOpening)
+      const res = await api.streamMessage(activeConversationId, content, currentPlan, seededOpening, controller.signal)
       const reader = res.body!.getReader()
       const decoder = new TextDecoder()
       let buffer = ''
@@ -126,10 +138,14 @@ export function useStream() {
 
       // RF-01: surface the error event to store for UI consumers
       if (pendingStreamError) {
+        await reader.cancel().catch(() => {})
         setStreamError(pendingStreamError)
         resetStreaming()
       }
     } catch (err: unknown) {
+      // Intentional abort (unmount / superseded by a newer send): the newer
+      // flow owns the streaming state, so do not reset it or toast here.
+      if (err instanceof DOMException && err.name === 'AbortError') return
       resetStreaming()
       if (err instanceof RateLimitError) {
         // RF-02: show paywall modal instead of toast
@@ -149,13 +165,17 @@ export function useStream() {
   const sendAnotherMind = useCallback(async (personaSlug: string) => {
     if (!activeConversationId) return
 
+    controllerRef.current?.abort()
+    const controller = new AbortController()
+    controllerRef.current = controller
+
     setSafetyActive(false)
     setStreamError(null)
     setStreaming(true)
 
     try {
       const currentPlan = useStore.getState().plan
-      const res = await api.streamAnotherMind(activeConversationId, personaSlug, currentPlan)
+      const res = await api.streamAnotherMind(activeConversationId, personaSlug, currentPlan, controller.signal)
       const reader = res.body!.getReader()
       const decoder = new TextDecoder()
       let buffer = ''
@@ -221,10 +241,12 @@ export function useStream() {
       }
 
       if (pendingStreamError) {
+        await reader.cancel().catch(() => {})
         setStreamError(pendingStreamError)
         resetStreaming()
       }
     } catch (err: unknown) {
+      if (err instanceof DOMException && err.name === 'AbortError') return
       resetStreaming()
       if (err instanceof RateLimitError) {
         setShowPaywall(true, {
@@ -245,13 +267,17 @@ export function useStream() {
   const sendGoDeeper = useCallback(async () => {
     if (!activeConversationId) return
 
+    controllerRef.current?.abort()
+    const controller = new AbortController()
+    controllerRef.current = controller
+
     setSafetyActive(false)
     setStreamError(null)
     setStreaming(true)
 
     try {
       const currentPlan = useStore.getState().plan
-      const res = await api.streamGoDeeper(activeConversationId, currentPlan)
+      const res = await api.streamGoDeeper(activeConversationId, currentPlan, controller.signal)
       const reader = res.body!.getReader()
       const decoder = new TextDecoder()
       let buffer = ''
@@ -322,10 +348,12 @@ export function useStream() {
       }
 
       if (pendingStreamError) {
+        await reader.cancel().catch(() => {})
         setStreamError(pendingStreamError)
         resetStreaming()
       }
     } catch (err: unknown) {
+      if (err instanceof DOMException && err.name === 'AbortError') return
       resetStreaming()
       if (err instanceof RateLimitError) {
         setShowPaywall(true, {
