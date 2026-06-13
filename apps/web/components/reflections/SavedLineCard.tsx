@@ -26,6 +26,9 @@ export default function SavedLineCard({ item, portraitUrl, onClick, onAskAnother
         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onClick() }}
         className="w-full text-left bg-paper border border-[0.5px] border-edge rounded-md shadow-card px-[18px] py-[16px] cursor-pointer"
       >
+        <p className="font-lora text-[10px] uppercase tracking-[0.18em] text-sepia mb-[8px]">
+          FROM YOUR CONVERSATIONS
+        </p>
         <p className="font-cormorant text-[17px] font-normal italic text-ink leading-[1.45]">
           {item.message_content}
         </p>
