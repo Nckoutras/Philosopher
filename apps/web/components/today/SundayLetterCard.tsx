@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
-import { Lock } from 'lucide-react'
+import { Lock, X } from 'lucide-react'
 import { api } from '@/lib/api'
 import type { WeeklyLetter } from '@/lib/api'
 import BottomSheet from '@/components/ui/BottomSheet'
@@ -16,6 +16,7 @@ export default function SundayLetterCard({ isPro }: Props) {
   const router = useRouter()
   const [unread, setUnread] = useState<WeeklyLetter | null>(null)
   const [sheetOpen, setSheetOpen] = useState(false)
+  const [dismissed, setDismissed] = useState(false)
 
   useEffect(() => {
     if (!isPro) return
@@ -41,8 +42,11 @@ export default function SundayLetterCard({ isPro }: Props) {
 
   const isUnread = isPro && unread !== null
 
+  if (dismissed) return null
+
   return (
     <>
+      <div className="relative">
       <button
         type="button"
         onClick={handleClick}
@@ -77,6 +81,18 @@ export default function SundayLetterCard({ isPro }: Props) {
           <div className="absolute top-[12px] right-[12px] w-[8px] h-[8px] rounded-full bg-bronze" />
         )}
       </button>
+
+      {isPro && !isUnread && (
+        <button
+          type="button"
+          onClick={() => setDismissed(true)}
+          aria-label="Dismiss"
+          className="absolute top-[12px] right-[12px] p-1 text-sepia"
+        >
+          <X size={16} strokeWidth={1.5} />
+        </button>
+      )}
+      </div>
 
       <BottomSheet open={sheetOpen} onClose={() => setSheetOpen(false)} maxHeight="60svh">
         <div className="px-6 py-6">
