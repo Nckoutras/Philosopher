@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Image from 'next/image'
 import { formatDistanceToNow } from 'date-fns'
 import type { ReflectionFeedCouncil } from '@/lib/api'
 import SharePreviewModal from '@/components/share/SharePreviewModal'
@@ -23,9 +24,12 @@ export default function CouncilVerdictCard({ item, portraitBySlug }: Props) {
 
   return (
     <>
-      <div className="w-full text-left bg-paper border border-[0.5px] border-edge rounded-md shadow-card px-[18px] py-[16px]">
+      <div className="relative overflow-hidden w-full text-left bg-paper border border-[0.5px] border-edge rounded-md shadow-card px-[18px] py-[16px]">
+        <Image src="/personas/boardroom.webp" alt="" aria-hidden fill sizes="100vw"
+          className="object-cover opacity-[0.10] pointer-events-none" />
+        <div className="relative">
         <p className="font-lora text-[10px] uppercase tracking-[0.18em] text-sepia mb-[8px]">
-          The Council
+          COUNCIL VERDICT
         </p>
         <p className="font-cormorant text-[19px] font-normal italic text-ink leading-[1.45]">
           {item.synthesis}
@@ -68,6 +72,7 @@ export default function CouncilVerdictCard({ item, portraitBySlug }: Props) {
           >
             Share
           </button>
+        </div>
         </div>
       </div>
 
