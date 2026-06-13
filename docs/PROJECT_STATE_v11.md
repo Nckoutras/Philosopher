@@ -355,14 +355,33 @@ PR4r (in flight 2026-05-24) reverts the hydration guard while keeping the api im
 
 ---
 
-## Open bugs (2026-05-25 smoke test update)
+## Open bugs (2026-06-13 update)
 
+- P0: Chat freeze / nav hang — send_message path FIXED + MERGED (PR #283,
+  §5 DB-session pin: A1 no-pin auth dep, A2 route drops Depends(get_db) +
+  session factory, A3 three-phase generator, + frontend AbortController).
+  another-mind / go-deeper paths STILL hold the pinned session — follow-up
+  PR needed. See IMPLEMENTATION_BACKLOG_v11.md P0-FREEZE.
+- P0: Letter to my Future Self submit button STILL not visible. min-h-0
+  partial fix merged in PR #282 (necessary but incomplete); second cause
+  unidentified. REOPENED. See IMPLEMENTATION_BACKLOG_v11.md P0-SMOKE-03a.
+- P0: Conversation delete — see §19 / earlier history (CLOSED PR4s #108;
+  re-verify if it resurfaces).
 - P0: Bottom tab bar position regression on certain navigations.
   See IMPLEMENTATION_BACKLOG_v11.md P0-SMOKE-01.
-- P0: Letter to my Future Self submit button not visible.
-  See IMPLEMENTATION_BACKLOG_v11.md P0-SMOKE-03a.
 - P0: Letter screen tab bar drag + position issue.
   See IMPLEMENTATION_BACKLOG_v11.md P0-SMOKE-03b.
+
+### Two feature branches now MERGED (2026-06-13)
+
+- **PR #282 (feat/ui-polish-batch, commit 9760ea7a)** — 4 cosmetic commits:
+  letter submit `min-h-0` (partial, REOPENED), Sunday card dismiss X
+  (REJECTED → revert, P2-NEW), Sunday explainer clipping localized padding
+  (still clipped, P2-REOPEN), Browse/Library list-title align to 20px
+  (3rd surface still differs, P2-REOPEN).
+- **PR #283 (fix/chat-freeze-investigation, commit 3f2ea116)** — §5
+  send_message DB-session fix (A1/A2/A3) + frontend abort. another-mind /
+  go-deeper deferred to follow-up.
 
 ## 14. Known bugs (active)
 
