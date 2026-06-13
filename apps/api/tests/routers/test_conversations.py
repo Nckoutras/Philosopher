@@ -120,7 +120,11 @@ async def _fake_stream(*args, **kwargs):
 @pytest.fixture
 def client():
     from main import app
-    from auth import get_current_user_plan
+    # §5 pool-leak fix: the send_message route now authenticates via the
+    # no-pin get_user_plan_streaming dependency and runs its preflight inside
+    # `async with AsyncSessionLocal()` rather than Depends(get_db). Override the
+    # new dependency and patch the preflight session factory to the mock db.
+    from auth import get_current_user_plan, get_user_plan_streaming
     from db.session import get_db
 
     db_holder = [None]
@@ -134,6 +138,16 @@ def client():
 
     app.dependency_overrides[get_db] = override_get_db
     app.dependency_overrides[get_current_user_plan] = override_plan
+    app.dependency_overrides[get_user_plan_streaming] = override_plan
+
+    def _fake_session_factory():
+        cm = MagicMock()
+        cm.__aenter__ = AsyncMock(return_value=db_holder[0])
+        cm.__aexit__ = AsyncMock(return_value=False)
+        return cm
+
+    session_patch = patch("routers.conversations.AsyncSessionLocal", _fake_session_factory)
+    session_patch.start()
 
     tc = TestClient(app, raise_server_exceptions=True)
     tc._db = db_holder
@@ -141,6 +155,7 @@ def client():
 
     yield tc
 
+    session_patch.stop()
     app.dependency_overrides.clear()
 
 

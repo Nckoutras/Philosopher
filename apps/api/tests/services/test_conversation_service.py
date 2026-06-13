@@ -90,6 +90,19 @@ async def _drain(gen):
     return chunks
 
 
+def _factory(db):
+    """Wrap a mock session as a `session_factory` for stream_response (§5 fix).
+
+    stream_response now takes a factory and opens `async with session_factory()`
+    once per DB phase. This returns the SAME mock db for every phase, so the
+    existing ordered execute() side_effects continue to apply end-to-end.
+    """
+    cm = MagicMock()
+    cm.__aenter__ = AsyncMock(return_value=db)
+    cm.__aexit__ = AsyncMock(return_value=False)
+    return MagicMock(return_value=cm)
+
+
 # ── Helper: run stream_response with all heavy dependencies patched ───────────
 
 async def _run_stream(user_plan: str):
@@ -144,7 +157,7 @@ async def _run_stream(user_plan: str):
         service._log_safety_event = AsyncMock()
 
         gen = service.stream_response(
-            db=db,
+            session_factory=_factory(db),
             conversation_id=CONV_ID,
             user_id=USER_ID,
             user_text="What is virtue?",
@@ -201,7 +214,7 @@ async def test_free_user_uses_haiku():
         service._log_safety_event = AsyncMock()
 
         await _drain(service.stream_response(
-            db=db,
+            session_factory=_factory(db),
             conversation_id=CONV_ID,
             user_id=USER_ID,
             user_text="What is virtue?",
@@ -257,7 +270,7 @@ async def test_pro_user_uses_sonnet():
         service._log_safety_event = AsyncMock()
 
         await _drain(service.stream_response(
-            db=db,
+            session_factory=_factory(db),
             conversation_id=CONV_ID,
             user_id=USER_ID,
             user_text="What is virtue?",
@@ -313,7 +326,7 @@ async def test_premium_user_uses_sonnet():
         service._log_safety_event = AsyncMock()
 
         await _drain(service.stream_response(
-            db=db,
+            session_factory=_factory(db),
             conversation_id=CONV_ID,
             user_id=USER_ID,
             user_text="What is virtue?",
@@ -414,7 +427,7 @@ async def _run_stream_capture_limit(user_plan: str) -> dict:
         service._log_safety_event = AsyncMock()
 
         await _drain(service.stream_response(
-            db=db,
+            session_factory=_factory(db),
             conversation_id=CONV_ID,
             user_id=USER_ID,
             user_text="What is virtue?",
@@ -579,7 +592,7 @@ async def _run_stream_for_usage(db, conv, is_admin: bool = False):
         service._log_safety_event = AsyncMock()
 
         await _drain(service.stream_response(
-            db=db,
+            session_factory=_factory(db),
             conversation_id=CONV_ID,
             user_id=USER_ID,
             user_text="What is virtue?",
@@ -730,7 +743,7 @@ async def _run_stream_for_auto_title(db, arq_queue=None):
         service._log_safety_event = AsyncMock()
 
         await _drain(service.stream_response(
-            db=db,
+            session_factory=_factory(db),
             conversation_id=CONV_ID,
             user_id=USER_ID,
             user_text="What is virtue?",
@@ -951,7 +964,7 @@ async def _run_retry(behaviors: list, *, persona_config=None, db=None, arq_queue
         service._log_safety_event = AsyncMock()
 
         chunks = await _drain(service.stream_response(
-            db=db,
+            session_factory=_factory(db),
             conversation_id=CONV_ID,
             user_id=USER_ID,
             user_text="What is virtue?",
@@ -1252,7 +1265,7 @@ async def _run_stream_for_memory(db, arq_queue=None, safety_out_suppressed=False
         service._log_safety_event = AsyncMock()
 
         await _drain(service.stream_response(
-            db=db,
+            session_factory=_factory(db),
             conversation_id=CONV_ID,
             user_id=USER_ID,
             user_text="What is virtue?",
@@ -1344,7 +1357,7 @@ async def test_memory_extraction_not_enqueued_when_pre_safety_suppressed():
         service._log_safety_event = AsyncMock()
 
         await _drain(service.stream_response(
-            db=db,
+            session_factory=_factory(db),
             conversation_id=CONV_ID,
             user_id=USER_ID,
             user_text="harmful content",
