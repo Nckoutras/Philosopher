@@ -479,9 +479,9 @@ export default function MirrorPage() {
                       type="button"
                       onClick={handleSave}
                       disabled={!mirror}
-                      className="flex items-center gap-[6px] font-lora text-[13px] text-sepia border-[0.5px] border-edge rounded-full px-[16px] py-[8px] disabled:opacity-40"
+                      className="flex items-center gap-[6px] font-lora text-[15px] text-vellum bg-ink rounded-full px-[20px] py-[11px] disabled:opacity-40"
                     >
-                      <Bookmark size={14} strokeWidth={1.5} fill={saved ? 'currentColor' : 'none'} />
+                      <Bookmark size={16} strokeWidth={1.5} fill={saved ? 'currentColor' : 'none'} />
                       {saved ? 'Saved' : 'Save'}
                     </button>
                     <button
