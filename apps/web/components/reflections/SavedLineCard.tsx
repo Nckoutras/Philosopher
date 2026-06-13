@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Image from 'next/image'
 import { formatDistanceToNow } from 'date-fns'
 import type { SavedLineRead } from '@/lib/api'
 import SharePreviewModal from '@/components/share/SharePreviewModal'
@@ -24,8 +25,11 @@ export default function SavedLineCard({ item, portraitUrl, onClick, onAskAnother
         tabIndex={0}
         onClick={onClick}
         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onClick() }}
-        className="w-full text-left bg-paper border border-[0.5px] border-edge rounded-md shadow-card px-[18px] py-[16px] cursor-pointer"
+        className="relative overflow-hidden w-full text-left bg-paper border border-[0.5px] border-edge rounded-md shadow-card px-[18px] py-[16px] cursor-pointer"
       >
+        <Image src="/personas/wise-room-hero.webp" alt="" aria-hidden fill sizes="100vw"
+          className="object-cover opacity-[0.12] pointer-events-none" />
+        <div className="relative">
         <p className="font-lora text-[10px] uppercase tracking-[0.18em] text-sepia mb-[8px]">
           FROM YOUR CONVERSATIONS
         </p>
@@ -83,6 +87,7 @@ export default function SavedLineCard({ item, portraitUrl, onClick, onAskAnother
             </button>
           </div>
         )}
+        </div>
       </div>
 
       {/* Sibling to role="button" — E2 accessibility: modal must not be a descendant
