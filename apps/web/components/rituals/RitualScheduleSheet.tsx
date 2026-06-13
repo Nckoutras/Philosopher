@@ -94,7 +94,7 @@ export default function RitualScheduleSheet({ open, onClose, userEmail }: Props)
           type="button"
           onClick={onClose}
           aria-label="Close"
-          className="font-lora text-[20px] text-sepia leading-none ml-4 flex-shrink-0"
+          className="p-2 font-lora text-[22px] text-sepia leading-none ml-4 flex-shrink-0"
         >
           ×
         </button>
