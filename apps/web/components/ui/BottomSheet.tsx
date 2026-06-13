@@ -25,11 +25,10 @@ export default function BottomSheet({ open, onClose, children, maxHeight = '75sv
   return (
     <AnimatePresence>
       {open && (
-        // Anchored top/left/right (not inset-0) at full 100svh. Modern engines already
-        // adjust svh viewport units under the global `body { zoom: 1.15 }` (globals.css),
-        // so the earlier manual `/1.15` double-compensated and pulled the bottom edge ~13%
-        // short of the visible viewport. Full 100svh now lands the bottom edge correctly.
-        <div className="fixed top-0 left-0 right-0 z-[60] h-[100svh]">
+        // Anchored to the viewport BOTTOM: under body zoom:1.15, h-[100svh] can render
+        // taller than the visible viewport on iOS. Bottom-anchoring spills the overshoot
+        // off the top (harmless) and keeps the panel's pinned footer at the real bottom.
+        <div className="fixed bottom-0 left-0 right-0 z-[60] h-[100svh]">
           <motion.div
             className="absolute inset-0 bg-[rgba(31,27,20,0.5)]"
             initial={{ opacity: 0 }}
