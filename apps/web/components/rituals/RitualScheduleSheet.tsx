@@ -171,9 +171,11 @@ export default function RitualScheduleSheet({ open, onClose, userEmail }: Props)
       </div>
 
       {/* ── Submit ── */}
-      {/* Plain 24px — BottomSheet's panel now owns the env(safe-area-inset-bottom)
-          inset, so adding it here too would double-compensate. */}
-      <div className="px-6 pt-4 pb-6 border-t border-[0.5px] border-edge flex-shrink-0">
+      {/* Clears the floating tab bar footprint (4rem pill + 12px lift + 8px breathing)
+          so the submit button isn't overpainted by the bar's backdrop-filter on iOS.
+          Excludes safe-area on purpose — the BottomSheet panel already insets
+          env(safe-area-inset-bottom) as the single source of truth. */}
+      <div className="px-6 pt-4 pb-[calc(4rem+12px+8px)] border-t border-[0.5px] border-edge flex-shrink-0">
         <button
           type="button"
           onClick={handleSubmit}
