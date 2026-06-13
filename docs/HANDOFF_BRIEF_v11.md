@@ -292,38 +292,42 @@ Asset processing pipeline:
 
 ---
 
-## 5. Next session entry point (2026-05-25 onward)
+## 5. Next session entry point (2026-06-13 onward)
 
-Production restored. Cold-beta path mostly unblocked from code
-side — remaining blockers are external (brand, Resend, ΚΑΔ).
+PRIORITY ORDER (monetization-first). Updated 2026-06-13 after PR #282
+(UI polish batch) and PR #283 (chat freeze §5 fix) both merged to main.
 
-Smoke test 2026-05-25 surfaced 4 P0 bugs requiring immediate
-attention. UI/UX edge-case work moved back in queue.
+1. **P0-FREEZE follow-up** — the send_message §5 DB-session fix shipped in
+   PR #283 (A1 no-pin auth dep / A2 route drops Depends(get_db) + session
+   factory / A3 three-phase generator + frontend AbortController). Apply the
+   SAME A1/A2/A3 + abort pattern to `stream_another_mind` and
+   `stream_go_deeper`, which still hold `Depends(get_db)` for the full
+   stream and can still exhaust the pool. (Frontend abort signal already
+   wired for both — backend only.)
+2. **Disambiguate the no-chat slowness** (Scenario A vs B): fresh app open,
+   navigate tabs WITHOUT chatting — slow or not? Scenario A (post-chat
+   pinned sessions) is covered by #283 for send_message; Scenario B (cold
+   fresh open, no chat) is a separate cause (likely Render cold start /
+   heavy per-tab fetch), NOT covered by the §5 fix. See P0-FREEZE open
+   question.
+3. **P0-SMOKE-03a Letter submit** — REOPENED. min-h-0 (merged in #282) was
+   correct but incomplete; submit still not visible on preview. Fresh
+   reproduction-first investigation (P-06), evidence before fix.
+4. **P0-SMOKE-01 / 03b — Bottom tab bar position + Letter-screen drag** —
+   likely shared root cause (floating-pill tab bar). Still untouched.
+5. **Cosmetic batch (P2):** revert the rejected Sunday card X (#282 commit
+   85100371; P2-NEW), enlarge all OTHER close-X buttons (16→20-24px),
+   re-fix Sunday explainer clipping (localized padding from #282 didn't
+   hold — P2-REOPEN), audit ALL list-title font surfaces incl. the 3rd
+   "past conversations" surface (#282 covered only Browse + Library —
+   P2-REOPEN).
 
-### Updated first-move options (post 2026-05-25 smoke test)
+Note (conversation delete): CLOSED earlier via PR4s (#108); re-verify only
+if it resurfaces. Note (branch merges): #282 + #283 already merged — no
+merge step pending.
 
-1. P0 BUG BATCH — Investigate + hotfix the three P0 bugs discovered
-   in smoke testing:
-   - P0-SMOKE-01: Bottom tab bar position regression
-   - P0-SMOKE-03a: Letter submit button missing
-   - P0-SMOKE-03b: Letter screen tab bar drag
-
-   P0-SMOKE-01 and 03b likely share root cause. Recommended sequence:
-   1) Tab bar position bugs (likely one fix for both)
-   2) Letter submit button (likely separate)
-
-2. P1 BUG BATCH — Voice/UX issues that aren't blocking but degrade
-   experience:
-   - Go deeper disable on first turn + Socrates voice
-   - Council weekly limit + admin bypass
-   - Mirror calendar week locking
-   - Mirror revisit UX clarification
-
-3. UI/UX edge-case screens (404 / 500 / offline / retry / maintenance)
-   — original plan, lower priority now that P0 bugs surfaced
-
-4. Strategic design — Today tab consolidation redesign (P3-SMOKE-08)
-   needs mockup pass before any implementation
+Also codified P-06 in CLAUDE.md (reproduce/prove root cause with evidence
+before proposing a fix); keep applying it.
 
 ---
 
@@ -581,14 +585,18 @@ v11 baseline regen triggered by volume of changes in May 21-24 sessions. Next ba
 
 ### Next session entry point
 
-1. Confirm PR4r merged to main
-2. Smoke test: login → Today → verify returning user state (conversations load, not first-day Welcome)
-3. **P-03 check**: after confirming, proceed to Stripe sandbox test
-4. End-to-end Stripe sandbox test
-5. Backfill-titles admin execution
-6. Mobile 12-point nav smoke test (real iOS Safari)
-7. Cold beta with 3–5 fresh users
-8. Block B consolidated polish PR
+**See §5 "Next session entry point (2026-06-13 onward)" above — it is
+authoritative.** The sequence below predates the 2026-06-13 merges
+(PR #282, PR #283) and PR4r (long since merged); kept only for the
+launch-readiness tail items.
+
+Launch-readiness tail (after the §5 P0 work):
+1. End-to-end Stripe sandbox test (test card → webhook → entitlement →
+   portal → cancel)
+2. Backfill-titles admin execution
+3. Mobile 12-point nav smoke test (real iOS Safari)
+4. Cold beta with 3–5 fresh users
+5. Block B consolidated polish PR
 
 ---
 

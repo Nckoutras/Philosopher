@@ -87,6 +87,55 @@ Ten new items added since v9. See §3 below.
 
 ### 2.1 Code-side P0
 
+### P0-FREEZE — App unresponsive / navigation hangs (2026-06-13)
+
+STATUS: send_message path FIXED + MERGED (PR #283, commit 3f2ea116,
+2026-06-13). another-mind / go-deeper paths STILL OPEN (follow-up PR).
+
+Root cause CONFIRMED via Network tab: the send_message SSE endpoint held
+its request-scoped DB session (`Depends(get_db)`) checked-out for the
+ENTIRE token stream. FastAPI releases a yield-dependency session only after
+the StreamingResponse generator is exhausted; auth + route shared that one
+session. Pool (pool_size=10, +10 overflow, 30s timeout) exhausted after a
+few concurrent/abandoned streams → every subsequent DB-touching request +
+client navigation blocked 30s then errored.
+
+Fix shipped in PR #283 (send_message path ONLY):
+- A1: `get_user_plan_streaming` — no-pin auth dependency that opens and
+  closes its own short-lived session before the stream begins (replaces
+  `Depends(get_db)` on the streaming route).
+- A2: send_message route drops `Depends(get_db)`; runs preflight (conv load
+  + rate-limit) in its own `AsyncSessionLocal()` that closes before
+  streaming; passes a session FACTORY (not a session) to the generator.
+- A3: `stream_response` restructured into three phases — Phase A (pre-stream
+  DB: loads, safety, retrieval, prompt build, SAVE USER MSG, commit) →
+  Phase B (token stream, NO pooled session held) → Phase C (fresh session:
+  save assistant msg, message_count/last_message_at, DailyUsage, commit;
+  then arq title/memory/conclusion hooks + analytics post-commit). Values
+  crossing a session boundary are snapshotted in Phase A; conv is NOT
+  re-loaded in Phase C, so the DB execute sequence is unchanged.
+- Part B (frontend, merged): optional AbortSignal threaded through
+  streamMessage / streamAnotherMind / streamGoDeeper; `useStream` holds an
+  AbortController ref — aborts prior in-flight stream before a new send,
+  cancels the reader on the error break, aborts on unmount. AbortError
+  swallowed (superseding flow / unmount owns the state).
+
+REMAINING (follow-up PR, same A1/A2/A3 + abort pattern):
+- `stream_another_mind` and `stream_go_deeper` backend routes still hold
+  `Depends(get_db)` for the full stream. The frontend abort signal is
+  already wired for them (additive, harmless); only the backend §5 fix
+  remains. These can still exhaust the pool until fixed.
+
+OPEN QUESTION (next session) — disambiguate the no-chat slowness: founder
+also reports slowness WITHOUT sending messages. Two scenarios:
+- Scenario A: slowness AFTER a prior chat (pinned sessions from the §5 leak)
+  — covered by PR #283 for send_message; partially covered until the
+  another-mind/go-deeper follow-up lands.
+- Scenario B: slow from a cold fresh open with NO chat — separate cause,
+  likely Render free-tier cold start or heavy per-tab fetch, NOT covered by
+  the §5 fix.
+- Test: fresh app open, navigate tabs without chatting — slow or not?
+
 ### P0-NEW — Conversation deletion failing (2026-05-24, found in post-restore smoke test)
 
 STATUS: CLOSED 2026-05-24 by PR4s (#108). Re-verified working 2026-05-25.
@@ -132,10 +181,27 @@ Investigation needed:
 Component: apps/web/components/layout/BottomTabBar.tsx
 Page parent: apps/web/app/app/(tabs)/layout.tsx
 
-### P0-SMOKE-03a — Letter to my Future Self submit button not visible (2026-05-25)
+### P0-SMOKE-03a — Letter to my Future Self submit button not visible (2026-05-25; REOPENED 2026-06-13)
 
 Submit button does not appear on the Letter to my Future Self screen.
 Users cannot submit their letter. Feature is broken.
+
+STATUS 2026-06-13: PARTIAL — `min-h-0` fix applied to the
+RitualScheduleSheet scroll body (merged in PR #282, commit 0d5da789).
+The diagnosis was correct (a `flex-1` body without `min-h-0` could not
+shrink below content height, overflowing 90svh and pushing the pinned
+`flex-shrink-0` submit footer below the viewport). But founder reports the
+submit button is STILL not visible on preview after #282 — the fix was
+necessary but incomplete. A second cause is unidentified.
+
+REOPENED — fresh reproduction-first investigation needed (P-06):
+- Is the footer INSIDE the `overflow-y-auto` scroll body (scrolls away)
+  vs a sibling of it?
+- Is BottomSheet `maxHeight: 90svh` actually applied, or is it resolving
+  to `height: auto`?
+- Is `canSubmit` gating VISIBILITY (button absent) vs `disabled`
+  (button present but greyed)?
+- Reproduce + capture evidence BEFORE proposing the next fix.
 
 Investigation:
 - Check letter form component rendering
@@ -144,6 +210,7 @@ Investigation:
 - Check mobile vs desktop viewport differences
 
 Component path: apps/web/components/rituals/LetterForm.tsx (or similar)
+RitualScheduleSheet panel (flex flex-col, maxHeight:90svh, pinned footer)
 
 ### P0-SMOKE-03b — Letter screen: tab bar position + drag interaction (2026-05-25)
 
@@ -264,15 +331,50 @@ Design call needed before implementation.
 Component: apps/api/services/image_service.py (Pillow generation)
 + template assets
 
-### P2-SMOKE-09 — Sunday Letter card: missing close button (2026-05-25)
+### P2-SMOKE-09 — Sunday Letter card: missing close button (2026-05-25; SHIPPED then REJECTED — REVERT)
 
 The card that explains "Sunday letter is coming on Sunday" lacks a
 close ("X") button in top-right corner. User cannot dismiss the card.
 
-Add standard close button (top-right X icon, dismisses to
-non-displayed state for current session OR forever — design call).
+STATUS 2026-06-13: SHIPPED in PR #282 (commit 85100371) as a
+session-level dismiss X gated to the explainer state (isPro && !isUnread).
+Founder REJECTED on review — the dismiss X on the resting Sunday card
+(envelope) has no purpose. TO BE REVERTED.
+
+### P2-NEW — Revert Sunday card X + enlarge all other close-X buttons (2026-06-13)
+
+1. Revert the Sunday card dismiss X (PR #282, commit 85100371). No purpose
+   on the resting envelope card.
+2. SEPARATE need: enlarge ALL other close-X buttons in sheets/modals.
+   They are currently `size={16}` — too small a tap target. Bump to
+   size 20–24 + larger hit area. This is the X that DOES have a purpose
+   (dismissing actual sheets/modals), distinct from the rejected Sunday-card X.
 
 Component: apps/web/components/today/SundayLetterCard.tsx (or similar)
+
+### P2-REOPEN — Sunday explainer clipping + list-title font align (2026-06-13)
+
+Both partially shipped in PR #282 but founder reports BOTH still wrong on
+the real deploy.
+
+1. Sunday explainer clipping: PR #282 took the LOCALIZED padding fallback
+   (commit 46f5892e) — pad the explainer content to clear the floating tab
+   bar's footprint (4rem pill + 12px lift + 8px breathing) rather than a
+   global z-index raise. Rationale (preserved): the tab bar is a fixed
+   floating pill with `backdrop-filter`, which creates its own stacking
+   context that on iOS Safari paints above sibling sheet content REGARDLESS
+   of z-index (sheet is z-[60], tab bar z-50). Raising z further is
+   unreliable and would be a shared-component change risking all four
+   BottomSheet consumers under P-04.
+   STILL CLIPPED on actual deploy. Re-investigate — the localized padding
+   didn't hold. May need the sheet to render properly above the tab bar, or
+   the tab bar to HIDE when a sheet is open.
+
+2. List-title font align: PR #282 (commit e5782679) aligned Browse Minds
+   persona name (was 18px) + Library conversation title (was 17px) both to
+   text-[20px]. Founder reports sizes STILL differ — likely a THIRD
+   list-title surface ("past conversations") not covered by #282. Audit ALL
+   list-title surfaces and align them, not just the two in #282.
 
 ### P2-SMOKE-10 — Save Mirror verdict to Reflections + share card (2026-05-25)
 
@@ -706,7 +808,10 @@ These rules exist because of the May 21-24 regression chain:
 - [x] **PR4n Share v2** — DONE (#102, 2026-05-23)
 - [x] **PR4o Rituals tab + page** — DONE (#103, 2026-05-23)
 - [x] ~~**Landing page waitlist test**~~ — superseded (Stripe wired directly)
-- [ ] **P0-NEW — Conversation deletion failing** (post-restore smoke test 2026-05-24; see §2.1 for investigation approach)
+- [x] **P0-FREEZE — chat freeze / nav hang (send_message path)** — DONE (PR #283, 2026-06-13; §5 DB-session pin fix A1/A2/A3 + frontend abort)
+- [ ] **P0-FREEZE follow-up — another-mind / go-deeper §5 fix** (same A1/A2/A3 pattern; still hold Depends(get_db) for full stream)
+- [ ] **P0-SMOKE-03a — Letter submit button still missing** (min-h-0 partial in #282; REOPENED — second cause unidentified)
+- [x] ~~**P0-NEW — Conversation deletion failing**~~ — CLOSED 2026-05-24 (PR4s #108)
 - [ ] **PR4r merge** (in flight — revert hydration guard, keep api import fix)
 - [ ] **bugfixes-3 — auth race fix** (TD-10; P1, preview smoke test required before any attempt)
 - [ ] **End-to-end Stripe sandbox test**
