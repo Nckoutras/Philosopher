@@ -189,7 +189,7 @@ export default function TodayPage() {
               <p className="font-lora text-[12px] font-medium uppercase tracking-[0.18em] text-charcoal mb-[4px]">
                 Continuing.
               </p>
-              <p className="font-cormorant text-[17px] font-semibold text-ink leading-tight">
+              <p className="font-cormorant text-[20px] font-medium text-ink leading-tight">
                 {lastConv.persona_name}
               </p>
               {lastConv.last_message_snippet && (
