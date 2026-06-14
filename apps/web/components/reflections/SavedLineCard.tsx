@@ -25,16 +25,16 @@ export default function SavedLineCard({ item, portraitUrl, onClick, onAskAnother
         tabIndex={0}
         onClick={onClick}
         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onClick() }}
-        className="relative overflow-hidden w-full text-left bg-paper border border-bronze/40 rounded-md shadow-card px-[18px] py-[16px] cursor-pointer"
+        className="relative overflow-hidden w-full text-left bg-paper border border-bronze rounded-md shadow-card px-[18px] py-[16px] cursor-pointer"
       >
         <Image src="/personas/wise-room-hero.webp" alt="" aria-hidden fill sizes="100vw"
           className="object-cover opacity-[0.12] pointer-events-none" />
         <div className="relative">
         <div className="flex items-center justify-between mb-[8px]">
-          <p className="font-lora text-[10px] uppercase tracking-[0.18em] text-bronze font-semibold">
+          <p className="font-lora text-[11px] uppercase tracking-[0.18em] text-bronze-dark font-bold">
             FROM YOUR CONVERSATIONS
           </p>
-          <span className="font-lora text-[10px] text-sepia flex-shrink-0 ml-[8px]">
+          <span className="font-lora text-[10px] text-bronze-dark font-semibold flex-shrink-0 ml-[8px]">
             {formatDistanceToNow(new Date(item.saved_at), { addSuffix: true })}
           </span>
         </div>
