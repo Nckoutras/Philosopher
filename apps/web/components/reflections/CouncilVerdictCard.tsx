@@ -24,43 +24,33 @@ export default function CouncilVerdictCard({ item, portraitBySlug }: Props) {
 
   return (
     <>
-      <div className="relative overflow-hidden w-full text-left bg-paper border border-[0.5px] border-edge rounded-md shadow-card px-[18px] py-[16px]">
+      <div className="relative overflow-hidden w-full text-left bg-paper border border-bronze/40 rounded-md shadow-card px-[18px] py-[16px]">
         <Image src="/personas/boardroom.webp" alt="" aria-hidden fill sizes="100vw"
           className="object-cover opacity-[0.10] pointer-events-none" />
         <div className="relative">
-        <p className="font-lora text-[10px] uppercase tracking-[0.18em] text-sepia mb-[8px]">
-          COUNCIL VERDICT
-        </p>
-        <p className="font-cormorant text-[19px] font-normal italic text-ink leading-[1.45]">
-          {item.synthesis}
-        </p>
-        <div className="mt-[10px] flex items-center gap-[6px]">
-          <div className="flex items-center -space-x-[4px]">
-            {item.persona_slugs.map((slug) => {
-              const portrait = portraitBySlug[slug]
-              return portrait ? (
-                <img
-                  key={slug}
-                  src={portrait}
-                  alt={slug}
-                  width={22}
-                  height={22}
-                  className="object-cover rounded-[2px] border border-[0.5px] border-paper flex-shrink-0"
-                />
-              ) : (
-                <div
-                  key={slug}
-                  className="w-[22px] h-[22px] bg-edge rounded-[2px] border border-[0.5px] border-paper flex-shrink-0"
-                  aria-hidden="true"
-                />
-              )
-            })}
-          </div>
-          <span className="font-lora text-[11px] text-sepia ml-[2px]">
+        {/* #4 round thumbnails, top-left */}
+        <div className="flex items-center -space-x-[6px] mb-[10px]">
+          {item.persona_slugs.map((slug) => {
+            const portrait = portraitBySlug[slug]
+            return portrait ? (
+              <img key={slug} src={portrait} alt={slug} width={28} height={28}
+                className="object-cover rounded-full border border-paper flex-shrink-0" />
+            ) : (
+              <div key={slug} className="w-[28px] h-[28px] bg-edge rounded-full border border-paper flex-shrink-0" aria-hidden="true" />
+            )
+          })}
+        </div>
+        <div className="flex items-center justify-between mb-[8px]">
+          <p className="font-lora text-[10px] uppercase tracking-[0.18em] text-bronze font-semibold">
+            COUNCIL VERDICT
+          </p>
+          <span className="font-lora text-[10px] text-sepia flex-shrink-0 ml-[8px]">
             {formatDistanceToNow(new Date(item.saved_at), { addSuffix: true })}
           </span>
         </div>
-
+        <p className="font-cormorant text-[19px] font-normal italic text-ink leading-[1.45]">
+          {item.synthesis}
+        </p>
         <div className="mt-[10px] flex items-center gap-[8px] flex-wrap">
           <button
             type="button"
