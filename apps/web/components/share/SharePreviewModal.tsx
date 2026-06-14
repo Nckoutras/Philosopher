@@ -1,8 +1,9 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import toast from 'react-hot-toast'
 import { api, ShareLimitError } from '@/lib/api'
+import { useStore } from '@/lib/store'
 import { dynamicFontSize } from '@/lib/shareUtils'
 
 interface SharePreviewModalProps {
@@ -42,17 +43,45 @@ export default function SharePreviewModal({
   const [annotation, setAnnotation]     = useState('')
   const [shareLoading, setShareLoading] = useState(false)
   const [shareError, setShareError]     = useState<string | null>(null)
+  const [preparedBlob, setPreparedBlob] = useState<Blob | null>(null)
+  const [preparing, setPreparing]       = useState(false)
+  const plan  = useStore((s) => s.plan)
+  const isPro = plan === 'pro' || plan === 'premium'
 
   const isCouncil = kind === 'council'
   const isMirror  = kind === 'mirror'
 
-  // Reset state on each open
+  const generateBlob = useCallback((): Promise<Blob> => {
+    if (kind === 'council') return api.shareCouncil(councilSessionId!)
+    if (kind === 'mirror')  return api.shareMirror(mirrorId!)
+    return api.createShareScreenshot(savedLineId!)
+  }, [kind, councilSessionId, mirrorId, savedLineId])
+
+  // Reset on open; pre-generate the image for pro/premium so the Send tap opens
+  // the native share sheet synchronously (iOS needs navigator.share inside the
+  // gesture). Free users keep generate-on-send (pre-gen would spend a 3/90 credit).
   useEffect(() => {
-    if (isOpen) {
-      setAnnotation('')
-      setShareError(null)
+    if (!isOpen) {
+      setPreparedBlob(null)
+      setPreparing(false)
+      return
     }
-  }, [isOpen])
+    setAnnotation('')
+    setShareError(null)
+    setPreparedBlob(null)
+    if (!isPro) return
+    let cancelled = false
+    setPreparing(true)
+    generateBlob()
+      .then((b) => { if (!cancelled) setPreparedBlob(b) })
+      .catch((err) => {
+        if (!cancelled && !(err instanceof ShareLimitError)) {
+          setShareError('Could not prepare image. Tap Send to retry.')
+        }
+      })
+      .finally(() => { if (!cancelled) setPreparing(false) })
+    return () => { cancelled = true }
+  }, [isOpen, isPro, generateBlob])
 
   // Keyboard (Escape + Tab trap) handlers
   useEffect(() => {
@@ -108,8 +137,6 @@ export default function SharePreviewModal({
       ? 'mirror-reflection.png'
       : 'reflection.png'
 
-    // Shared download path: desktop (no file-share support) AND any non-cancel
-    // share-sheet failure (see Phase 2).
     const downloadFallback = (b: Blob) => {
       const blobUrl = URL.createObjectURL(b)
       const a = document.createElement('a')
@@ -121,40 +148,35 @@ export default function SharePreviewModal({
       toast('Image saved — share it from your downloads')
     }
 
-    // ── Phase 1: generate the image (the ONLY place "could not generate" is valid) ──
-    let blob: Blob
-    try {
-      blob = isCouncil
-        ? await api.shareCouncil(councilSessionId!, annotation.trim() || undefined)
-        : isMirror
-        ? await api.shareMirror(mirrorId!)
-        : await api.createShareScreenshot(savedLineId!, annotation.trim() || undefined)
-    } catch (err) {
-      if (err instanceof ShareLimitError) {
-        onClose()
-        toast((t) => (
-          <span>
-            Free share limit reached (3/90 days).{' '}
-            <a
-              href="/app/upgrade"
-              onClick={() => toast.dismiss(t.id)}
-              style={{ textDecoration: 'underline' }}
-            >
-              Upgrade
-            </a>
-          </span>
-        ))
-      } else {
-        setShareError('Could not generate image. Please try again.')
+    // If a pre-generated blob is ready (pro/premium), there is NO await before
+    // navigator.share below → iOS keeps the activation and the sheet opens.
+    let blob = preparedBlob
+    if (!blob) {
+      try {
+        blob = await generateBlob()
+      } catch (err) {
+        if (err instanceof ShareLimitError) {
+          onClose()
+          toast((t) => (
+            <span>
+              Free share limit reached (3/90 days).{' '}
+              <a
+                href="/app/upgrade"
+                onClick={() => toast.dismiss(t.id)}
+                style={{ textDecoration: 'underline' }}
+              >
+                Upgrade
+              </a>
+            </span>
+          ))
+        } else {
+          setShareError('Could not generate image. Please try again.')
+        }
+        setShareLoading(false)
+        return
       }
-      setShareLoading(false)
-      return
     }
 
-    // ── Phase 2: share the already-generated image ──
-    // Image exists. A share-sheet failure must NOT read as "could not generate".
-    // iOS rejects navigator.share when user activation expired during the Phase-1
-    // await (NotAllowedError) → fall back to download so the user still gets it.
     try {
       const file = new File([blob], filename, { type: 'image/png' })
       if (typeof navigator !== 'undefined' && navigator.canShare?.({ files: [file] })) {
@@ -166,7 +188,7 @@ export default function SharePreviewModal({
       onShareComplete?.()
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') {
-        onClose() // deliberate user cancel — silent, no fallback
+        onClose()
       } else {
         downloadFallback(blob)
         onClose()
@@ -340,10 +362,10 @@ export default function SharePreviewModal({
           <button
             type="button"
             onClick={handleSend}
-            disabled={shareLoading}
+            disabled={shareLoading || preparing}
             className="flex-1 font-lora text-[13px] text-vellum bg-bronze rounded-sm py-2.5 px-4 flex items-center justify-center disabled:opacity-70"
           >
-            {shareLoading ? (
+            {(shareLoading || preparing) ? (
               <span
                 className="inline-block w-3.5 h-3.5 border-[0.8px] border-vellum/30 border-t-vellum rounded-full animate-spin-slow"
                 aria-label="Generating…"
