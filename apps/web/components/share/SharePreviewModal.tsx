@@ -108,30 +108,27 @@ export default function SharePreviewModal({
       ? 'mirror-reflection.png'
       : 'reflection.png'
 
+    // Shared download path: desktop (no file-share support) AND any non-cancel
+    // share-sheet failure (see Phase 2).
+    const downloadFallback = (b: Blob) => {
+      const blobUrl = URL.createObjectURL(b)
+      const a = document.createElement('a')
+      a.href = blobUrl
+      a.download = filename
+      a.click()
+      URL.revokeObjectURL(blobUrl)
+      void navigator.clipboard?.writeText(`${fullShareText}\n${url}`).catch(() => {})
+      toast('Image saved — share it from your downloads')
+    }
+
+    // ── Phase 1: generate the image (the ONLY place "could not generate" is valid) ──
+    let blob: Blob
     try {
-      const blob = isCouncil
+      blob = isCouncil
         ? await api.shareCouncil(councilSessionId!, annotation.trim() || undefined)
         : isMirror
         ? await api.shareMirror(mirrorId!)
         : await api.createShareScreenshot(savedLineId!, annotation.trim() || undefined)
-
-      const file = new File([blob], filename, { type: 'image/png' })
-
-      if (typeof navigator !== 'undefined' && navigator.canShare?.({ files: [file] })) {
-        await navigator.share({ files: [file], text: shortShareText })
-      } else {
-        const blobUrl = URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = blobUrl
-        a.download = filename
-        a.click()
-        URL.revokeObjectURL(blobUrl)
-        await navigator.clipboard.writeText(fullShareText + '\n' + url).catch(() => {})
-        toast('Image saved — share it from your downloads')
-      }
-
-      onClose()
-      onShareComplete?.()
     } catch (err) {
       if (err instanceof ShareLimitError) {
         onClose()
@@ -147,14 +144,34 @@ export default function SharePreviewModal({
             </a>
           </span>
         ))
-        return
+      } else {
+        setShareError('Could not generate image. Please try again.')
       }
-      // navigator.share cancelled by user — not an error
+      setShareLoading(false)
+      return
+    }
+
+    // ── Phase 2: share the already-generated image ──
+    // Image exists. A share-sheet failure must NOT read as "could not generate".
+    // iOS rejects navigator.share when user activation expired during the Phase-1
+    // await (NotAllowedError) → fall back to download so the user still gets it.
+    try {
+      const file = new File([blob], filename, { type: 'image/png' })
+      if (typeof navigator !== 'undefined' && navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file], text: shortShareText })
+      } else {
+        downloadFallback(blob)
+      }
+      onClose()
+      onShareComplete?.()
+    } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') {
+        onClose() // deliberate user cancel — silent, no fallback
+      } else {
+        downloadFallback(blob)
         onClose()
-        return
+        onShareComplete?.()
       }
-      setShareError('Could not generate image. Please try again.')
     } finally {
       setShareLoading(false)
     }
