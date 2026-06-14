@@ -25,14 +25,19 @@ export default function SavedLineCard({ item, portraitUrl, onClick, onAskAnother
         tabIndex={0}
         onClick={onClick}
         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onClick() }}
-        className="relative overflow-hidden w-full text-left bg-paper border border-[0.5px] border-edge rounded-md shadow-card px-[18px] py-[16px] cursor-pointer"
+        className="relative overflow-hidden w-full text-left bg-paper border border-bronze/40 rounded-md shadow-card px-[18px] py-[16px] cursor-pointer"
       >
         <Image src="/personas/wise-room-hero.webp" alt="" aria-hidden fill sizes="100vw"
           className="object-cover opacity-[0.12] pointer-events-none" />
         <div className="relative">
-        <p className="font-lora text-[10px] uppercase tracking-[0.18em] text-sepia mb-[8px]">
-          FROM YOUR CONVERSATIONS
-        </p>
+        <div className="flex items-center justify-between mb-[8px]">
+          <p className="font-lora text-[10px] uppercase tracking-[0.18em] text-bronze font-semibold">
+            FROM YOUR CONVERSATIONS
+          </p>
+          <span className="font-lora text-[10px] text-sepia flex-shrink-0 ml-[8px]">
+            {formatDistanceToNow(new Date(item.saved_at), { addSuffix: true })}
+          </span>
+        </div>
         <p className="font-cormorant text-[17px] font-normal italic text-ink leading-[1.45]">
           {item.message_content}
         </p>
@@ -49,7 +54,7 @@ export default function SavedLineCard({ item, portraitUrl, onClick, onAskAnother
             <div className="w-[28px] h-[28px] bg-edge rounded-[2px] flex-shrink-0" aria-hidden="true" />
           )}
           <span className="font-lora text-[11px] text-sepia">
-            {item.persona_display_name} · {formatDistanceToNow(new Date(item.saved_at), { addSuffix: true })}
+            {item.persona_display_name}
           </span>
         </div>
 
