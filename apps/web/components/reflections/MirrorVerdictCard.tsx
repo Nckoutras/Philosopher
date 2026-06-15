@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Image from 'next/image'
-import { formatDistanceToNow } from 'date-fns'
+import { formatItemDate } from '@/lib/formatItemDate'
 import type { ReflectionFeedMirror } from '@/lib/api'
 import SharePreviewModal from '@/components/share/SharePreviewModal'
 
@@ -29,7 +29,7 @@ export default function MirrorVerdictCard({ item, portraitUrl }: Props) {
             FROM THE MIRROR
           </p>
           <span className="font-lora text-[10px] text-bronze-dark font-semibold flex-shrink-0 ml-[8px]">
-            {formatDistanceToNow(new Date(item.saved_at), { addSuffix: true })}
+            {formatItemDate(item.saved_at)}
           </span>
         </div>
         <p className="font-cormorant text-[19px] font-normal italic text-ink leading-[1.45]">

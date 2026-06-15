@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
 import { ChevronRight } from 'lucide-react'
-import { formatDistanceToNow } from 'date-fns'
+import { formatItemDate } from '@/lib/formatItemDate'
 import toast from 'react-hot-toast'
 import { useStore } from '@/lib/store'
 import { api } from '@/lib/api'
@@ -238,7 +238,7 @@ export default function TodayPage() {
                   &ldquo;{recentLine.content}&rdquo;
                 </p>
                 <p className="font-lora text-[13px] text-charcoal mt-[6px]">
-                  {recentLine.persona_name} · {formatDistanceToNow(new Date(recentLine.saved_at), { addSuffix: true })}
+                  {recentLine.persona_name} · {formatItemDate(recentLine.saved_at)}
                 </p>
               </div>
             </div>
