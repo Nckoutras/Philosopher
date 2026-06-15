@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import toast from 'react-hot-toast'
-import { api, type Persona } from '@/lib/api'
+import { api, type Persona, type Conversation } from '@/lib/api'
 import BottomSheet from '@/components/ui/BottomSheet'
 
 interface Props {
@@ -11,6 +11,7 @@ interface Props {
   excludeSlug?: string
   savedLineId?: string
   sourceContent?: string
+  revisitLetterId?: string
   onClose: () => void
   onCreated?: (conversationId: string) => void
   onSelect?: (slug: string) => void
@@ -21,6 +22,7 @@ export default function PersonaPickerSheet({
   excludeSlug,
   savedLineId,
   sourceContent,
+  revisitLetterId,
   onClose,
   onCreated,
   onSelect,
@@ -56,15 +58,20 @@ export default function PersonaPickerSheet({
     // pushed route. Closing first lets back() settle before the post-await push.
     onClose()
     try {
-      const conv = await api.createCrossPersonaConversation(savedLineId!, slug)
-      if (sourceContent) {
-        localStorage.setItem(`cross_persona_draft_${conv.id}`, sourceContent)
+      let conv: Conversation
+      if (revisitLetterId) {
+        conv = await api.createReadingRevisit(revisitLetterId, slug)
+      } else {
+        conv = await api.createCrossPersonaConversation(savedLineId!, slug)
+        if (sourceContent) {
+          localStorage.setItem(`cross_persona_draft_${conv.id}`, sourceContent)
+        }
       }
       onCreated!(conv.id)
     } catch (err) {
       toast.error('Could not open conversation. Try again.')
       // eslint-disable-next-line no-console
-      console.error('createCrossPersonaConversation failed:', err)
+      console.error('persona picker create failed:', err)
     }
   }
 

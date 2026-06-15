@@ -7,6 +7,7 @@ import { ChevronLeft } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import { api } from '@/lib/api'
 import type { WeeklyLetter, Persona } from '@/lib/api'
+import PersonaPickerSheet from '@/components/personas/PersonaPickerSheet'
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
@@ -41,6 +42,7 @@ export default function LetterReadPage() {
   const [letter, setLetter] = useState<WeeklyLetter | null>(null)
   const [personas, setPersonas] = useState<Persona[]>([])
   const [startingConv, setStartingConv] = useState(false)
+  const [pickerOpen, setPickerOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
@@ -233,7 +235,23 @@ export default function LetterReadPage() {
             </button>
           </div>
         )}
+
+        {/* Revisit this letter with a chosen mind — opens the persona picker */}
+        <button
+          type="button"
+          onClick={() => setPickerOpen(true)}
+          className="mt-[24px] font-cormorant text-[16px] text-bronze"
+        >
+          Revisit this letter with a mind →
+        </button>
       </div>
+
+      <PersonaPickerSheet
+        open={pickerOpen}
+        revisitLetterId={id}
+        onClose={() => setPickerOpen(false)}
+        onCreated={(convId) => router.push(`/app/chat/conv/${convId}`)}
+      />
     </main>
   )
 }
