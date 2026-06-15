@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Response
 from fastapi.responses import JSONResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -84,3 +84,28 @@ async def get_weekly_letter(
         persona = p_result.scalar_one_or_none()
 
     return _to_out(letter, persona)
+
+
+@router.delete("/{letter_id}", status_code=204)
+async def delete_weekly_letter(
+    letter_id: str,
+    db: AsyncSession = Depends(get_db),
+    auth: tuple = Depends(get_current_user_plan),
+):
+    user, plan = auth
+    if plan not in ("pro", "premium"):
+        return JSONResponse(status_code=403, content={"error_code": "upgrade_required"})
+
+    result = await db.execute(
+        select(WeeklyLetter).where(
+            WeeklyLetter.id == letter_id,
+            WeeklyLetter.user_id == user.id,
+        )
+    )
+    letter = result.scalar_one_or_none()
+    if letter is None:
+        return JSONResponse(status_code=404, content={"error_code": "not_found"})
+
+    await db.delete(letter)
+    await db.commit()
+    return Response(status_code=204)

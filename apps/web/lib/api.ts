@@ -936,6 +936,10 @@ class ApiClient {
   async getWeeklyLetter(id: string): Promise<WeeklyLetter> {
     return this.request<WeeklyLetter>(`/weekly-letters/${id}`)
   }
+
+  async deleteWeeklyLetter(id: string): Promise<void> {
+    await this.request(`/weekly-letters/${id}`, { method: 'DELETE' })
+  }
 }
 
 export const api = new ApiClient()
