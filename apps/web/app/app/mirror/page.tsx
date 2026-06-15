@@ -419,10 +419,10 @@ export default function MirrorPage() {
                         )}
                         <div>
                           <div>
-                            <p className="font-lora text-[10.5px] font-semibold uppercase tracking-[0.16em] text-charcoal mb-[6px]">
+                            <p className="font-lora text-[10.5px] font-bold uppercase tracking-[0.16em] text-charcoal mb-[6px]">
                               What you said
                             </p>
-                            <p className="font-lora italic text-[14px] text-sepia leading-[1.55]">
+                            <p className="font-lora italic text-[14px] text-sepia leading-[1.55] font-medium">
                               {saidW.map((word, wi) => (
                                 <Fragment key={wi}>
                                   {wi > 0 && ' '}
@@ -432,10 +432,10 @@ export default function MirrorPage() {
                             </p>
                           </div>
                           <div className="border-l-[3px] border-bronze pl-[16px] mt-[12px]">
-                            <p className="font-lora text-[10.5px] font-semibold uppercase tracking-[0.16em] text-bronze-dark mb-[6px]">
+                            <p className="font-lora text-[10.5px] font-bold uppercase tracking-[0.16em] text-bronze-dark mb-[6px]">
                               What it may mean
                             </p>
-                            <p className="font-cormorant text-[22px] text-ink leading-snug">
+                            <p className="font-cormorant text-[22px] text-ink leading-snug font-semibold">
                               {meantW.map((word, wi) => (
                                 <Fragment key={wi}>
                                   {wi > 0 && ' '}
