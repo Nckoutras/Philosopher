@@ -8,6 +8,14 @@ import { api } from '@/lib/api'
 import type { WeeklyLetter } from '@/lib/api'
 import BottomSheet from '@/components/ui/BottomSheet'
 
+function nextSundayLabel(): string {
+  const M = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+  const d = new Date()
+  const add = d.getDay() === 0 ? 0 : 7 - d.getDay()
+  const sun = new Date(d); sun.setDate(d.getDate() + add)
+  return `${M[sun.getMonth()]} ${sun.getDate()}`
+}
+
 interface Props {
   isPro: boolean
 }
@@ -15,6 +23,7 @@ interface Props {
 export default function SundayLetterCard({ isPro }: Props) {
   const router = useRouter()
   const [unread, setUnread] = useState<WeeklyLetter | null>(null)
+  const [hasReading, setHasReading] = useState(false)
   const [sheetOpen, setSheetOpen] = useState(false)
 
   useEffect(() => {
@@ -23,6 +32,7 @@ export default function SundayLetterCard({ isPro }: Props) {
       .then((letters) => {
         const found = letters.find((l) => l.status === 'generated' && l.read_at === null)
         setUnread(found ?? null)
+        setHasReading(letters.some((l) => l.status === 'generated'))
       })
       .catch(() => {})
   }, [isPro])
@@ -63,7 +73,7 @@ export default function SundayLetterCard({ isPro }: Props) {
             ? 'A letter from the mind you spent the week with.'
             : isUnread
             ? 'A new letter is waiting.'
-            : 'Your letter arrives Sunday.'}
+            : `Your letter arrives Sunday, ${nextSundayLabel()}.`}
         </p>
 
         {!isPro && (
@@ -87,16 +97,33 @@ export default function SundayLetterCard({ isPro }: Props) {
         <div className="px-6 pt-6 pb-[calc(4rem+12px+8px)]">
           <p className="font-lora text-[11px] uppercase tracking-[0.18em] text-sepia">Rituals</p>
           <h2 className="font-cormorant text-[22px] font-medium text-ink mt-[4px]">The Sunday Letter</h2>
-          <p className="font-lora text-[15px] text-charcoal leading-[1.7] mt-[12px]">
-            Each Sunday, the mind you spent the most time with that week writes to you — a letter, not a summary. The more you reflect this week, the more there is to write about. Your next letter arrives Sunday.
-          </p>
-          <button
-            type="button"
-            onClick={() => { setSheetOpen(false); router.push('/app/explore') }}
-            className="mt-[20px] font-cormorant text-[15px] text-bronze"
-          >
-            Choose a mind →
-          </button>
+          {hasReading ? (
+            <>
+              <p className="font-lora text-[15px] text-charcoal leading-[1.7] mt-[12px]">
+                Your next letter arrives this Sunday, {nextSundayLabel()}.
+              </p>
+              <button
+                type="button"
+                onClick={() => { setSheetOpen(false); router.push('/app/letters') }}
+                className="mt-[20px] font-cormorant text-[15px] text-bronze"
+              >
+                View your readings →
+              </button>
+            </>
+          ) : (
+            <>
+              <p className="font-lora text-[15px] text-charcoal leading-[1.7] mt-[12px]">
+                Each Sunday, the mind you spent the most time with that week writes to you — a letter, not a summary. The more you reflect this week, the more there is to write about. Your next letter arrives Sunday, {nextSundayLabel()}.
+              </p>
+              <button
+                type="button"
+                onClick={() => { setSheetOpen(false); router.push('/app/explore') }}
+                className="mt-[20px] font-cormorant text-[15px] text-bronze"
+              >
+                Choose a mind →
+              </button>
+            </>
+          )}
         </div>
       </BottomSheet>
     </>
