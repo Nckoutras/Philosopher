@@ -262,12 +262,12 @@ class DisclaimerCurrentOut(BaseModel):
 
 # ── Preferences ───────────────────────────────────────────────────────────────
 
-THEME_VALUES = ("separation", "anxiety", "fear", "grief", "acceptance", "work", "relationships", "purpose")
+THEME_VALUES = ("separation", "anxiety", "fear", "grief", "acceptance", "work", "relationships", "purpose", "dilemma", "controversy", "doubt", "freedom")
 NEED_MOST_VALUES = ("comfort", "challenge", "interpretation", "practical_steadiness")
 
 
 class PreferenceUpsertRequest(BaseModel):
-    themes: list[Literal["separation", "anxiety", "fear", "grief", "acceptance", "work", "relationships", "purpose"]] = Field(default_factory=list, max_length=8)
+    themes: list[Literal["separation", "anxiety", "fear", "grief", "acceptance", "work", "relationships", "purpose", "dilemma", "controversy", "doubt", "freedom"]] = Field(default_factory=list, max_length=12)
     other_text: str | None = Field(default=None, max_length=500)
     need_most: Literal["comfort", "challenge", "interpretation", "practical_steadiness"]
 
