@@ -9,7 +9,7 @@ import { dynamicFontSize } from '@/lib/shareUtils'
 interface SharePreviewModalProps {
   isOpen: boolean
   onClose: () => void
-  kind?: 'line' | 'council' | 'mirror'
+  kind?: 'line' | 'council' | 'mirror' | 'letter'
   // 'line' variant
   savedLineId?: string
   personaName?: string
@@ -20,6 +20,9 @@ interface SharePreviewModalProps {
   councilPortraits?: string[]   // participating-persona portrait URLs (preview thumbnails)
   // 'mirror' variant (personaName = host name, portraitUrl = host portrait)
   mirrorId?: string
+  // 'letter' variant
+  weeklyLetterId?: string
+  letterTitle?: string
   // all variants
   quote: string
   onShareComplete?: () => void
@@ -36,6 +39,8 @@ export default function SharePreviewModal({
   councilSessionId,
   councilPortraits,
   mirrorId,
+  weeklyLetterId,
+  letterTitle,
   quote,
   onShareComplete,
 }: SharePreviewModalProps) {
@@ -50,12 +55,14 @@ export default function SharePreviewModal({
 
   const isCouncil = kind === 'council'
   const isMirror  = kind === 'mirror'
+  const isLetter  = kind === 'letter'
 
   const generateBlob = useCallback((): Promise<Blob> => {
     if (kind === 'council') return api.shareCouncil(councilSessionId!)
     if (kind === 'mirror')  return api.shareMirror(mirrorId!)
+    if (kind === 'letter')  return api.shareWeeklyLetter(weeklyLetterId!)
     return api.createShareScreenshot(savedLineId!)
-  }, [kind, councilSessionId, mirrorId, savedLineId])
+  }, [kind, councilSessionId, mirrorId, weeklyLetterId, savedLineId])
 
   // Reset on open; pre-generate the image for pro/premium so the Send tap opens
   // the native share sheet synchronously (iOS needs navigator.share inside the
@@ -137,6 +144,8 @@ export default function SharePreviewModal({
       ? `The Council's reading:`
       : isMirror
       ? `The mirror reflected:`
+      : isLetter
+      ? `My Sunday Letter:`
       : `${personaName} told me:`
     const shortShareText = `${lead}\nthewiseroom.app`
     const fullShareText  = `${lead}\n\n${quote}\n\nthewiseroom.app`
@@ -145,11 +154,15 @@ export default function SharePreviewModal({
       ? `${origin}/app/council`
       : isMirror
       ? `${origin}/app/mirror`
+      : isLetter
+      ? `${origin}/app/letters`
       : `${origin}/app/chat/conv/${conversationId}`
     const filename = isCouncil
       ? 'council-reading.png'
       : isMirror
       ? 'mirror-reflection.png'
+      : isLetter
+      ? 'sunday-letter.png'
       : 'reflection.png'
 
     const downloadFallback = (b: Blob) => {
@@ -225,9 +238,11 @@ export default function SharePreviewModal({
   const previewDate = `${String(now.getMonth() + 1).padStart(2, '0')}/${String(now.getDate()).padStart(2, '0')}/${now.getFullYear()}`
 
   // Line + mirror share the reflection layout; mirror swaps the hero + intro.
-  const heroSrc     = isMirror ? '/personas/mirror.png' : '/personas/wise-room-hero.webp'
-  const heroOpacity = isMirror ? 'opacity-[0.10]' : 'opacity-[0.12]'
-  const introLine   = isMirror
+  const heroSrc     = isLetter ? '/personas/sundayletter.png' : isMirror ? '/personas/mirror.png' : '/personas/wise-room-hero.webp'
+  const heroOpacity = (isMirror || isLetter) ? 'opacity-[0.10]' : 'opacity-[0.12]'
+  const introLine   = isLetter
+    ? (letterTitle || 'The Sunday Letter')
+    : isMirror
     ? (personaName ? `${personaName} reflects` : 'The mirror reflects')
     : `${personaName} told me`
 

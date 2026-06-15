@@ -8,6 +8,7 @@ import { useStore } from '@/lib/store'
 import { api } from '@/lib/api'
 import type { WeeklyLetter, Persona } from '@/lib/api'
 import PersonaPickerSheet from '@/components/personas/PersonaPickerSheet'
+import SharePreviewModal from '@/components/share/SharePreviewModal'
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
@@ -43,6 +44,7 @@ export default function LetterReadPage() {
   const [personas, setPersonas] = useState<Persona[]>([])
   const [startingConv, setStartingConv] = useState(false)
   const [pickerOpen, setPickerOpen] = useState(false)
+  const [shareOpen, setShareOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
@@ -134,6 +136,8 @@ export default function LetterReadPage() {
   const suggestedPersona = payload.suggested_persona_slug
     ? personas.find((p) => p.slug === payload.suggested_persona_slug) ?? null
     : null
+
+  const voicePersona = personas.find((p) => p.slug === letter.voice_persona_slug) ?? null
 
   return (
     <main
@@ -244,6 +248,16 @@ export default function LetterReadPage() {
         >
           Revisit this letter with a mind →
         </button>
+
+        {payload.pull_quote && (
+          <button
+            type="button"
+            onClick={() => setShareOpen(true)}
+            className="block mt-[12px] font-cormorant text-[16px] text-bronze"
+          >
+            Share this letter →
+          </button>
+        )}
       </div>
 
       <PersonaPickerSheet
@@ -252,6 +266,19 @@ export default function LetterReadPage() {
         onClose={() => setPickerOpen(false)}
         onCreated={(convId) => router.push(`/app/chat/conv/${convId}`)}
       />
+
+      {payload.pull_quote && (
+        <SharePreviewModal
+          isOpen={shareOpen}
+          onClose={() => setShareOpen(false)}
+          kind="letter"
+          weeklyLetterId={id}
+          letterTitle={payload.title ?? undefined}
+          personaName={letter.voice_persona_name ?? undefined}
+          portraitUrl={voicePersona?.portrait_url}
+          quote={payload.pull_quote}
+        />
+      )}
     </main>
   )
 }
