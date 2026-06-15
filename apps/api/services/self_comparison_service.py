@@ -109,7 +109,7 @@ class SelfComparisonService:
         )
         return result.scalar_one() > 0
 
-    async def stream(self, db: AsyncSession, user_id: str, prompt: str) -> AsyncGenerator[str, None]:
+    async def stream(self, db: AsyncSession, user_id: str, prompt: str, *, bypass_gate: bool = False) -> AsyncGenerator[str, None]:
         # 1. Safety gate on the prompt
         safety_in = await safety_service.check_input(prompt, user_id)
         if safety_in.should_suppress_persona:
@@ -120,7 +120,7 @@ class SelfComparisonService:
             return
 
         # 2. Require unlocked self-model
-        model = await self_model_service.build(db, user_id)
+        model = await self_model_service.build(db, user_id, bypass_gate=bypass_gate)
         if not model["unlocked"]:
             yield f"data: {json.dumps({'type': 'error', 'error_code': 'not_unlocked'})}\n\n"
             return

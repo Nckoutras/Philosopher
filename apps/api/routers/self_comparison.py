@@ -32,7 +32,7 @@ async def get_self_comparison_status(
     auth: tuple = Depends(get_current_user_plan),
 ):
     user, plan = auth
-    data = await self_model_service.build(db, user.id)
+    data = await self_model_service.build(db, user.id, bypass_gate=user.is_admin)
     data["plan"] = plan
     if data.get("unlocked"):
         data["weekly_remaining"] = await self_comparison_service.weekly_remaining(db, user.id, plan)
@@ -51,7 +51,7 @@ async def create_self_comparison(
     auth: tuple = Depends(get_current_user_plan),
 ):
     user, plan = auth
-    if plan not in ("pro", "premium"):
+    if plan not in ("pro", "premium") and not user.is_admin:
         return JSONResponse(status_code=403, content={"error_code": "upgrade_required"})
 
     prompt = (body.prompt or "").strip()
@@ -68,7 +68,7 @@ async def create_self_comparison(
             )
 
     return StreamingResponse(
-        self_comparison_service.stream(db=db, user_id=user.id, prompt=prompt),
+        self_comparison_service.stream(db=db, user_id=user.id, prompt=prompt, bypass_gate=user.is_admin),
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
