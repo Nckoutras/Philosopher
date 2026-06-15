@@ -70,14 +70,14 @@ ATTR_BASELINE_Y     = FOOTER_TOP_Y + 78   # 1208
 ATTR_FONT_SIZE      = 22
 
 WORDMARK_BASELINE_Y = FOOTER_TOP_Y + 118  # 1248
-WORDMARK_FONT_SIZE  = 24
+WORDMARK_FONT_SIZE  = 30
 
 URL_BASELINE_Y      = FOOTER_TOP_Y + 150  # 1280
 URL_FONT_SIZE       = 18
 URL_TEXT            = "thewiseroom.app"
 
 DATE_BASELINE_Y     = FOOTER_TOP_Y + 170  # 1300
-DATE_FONT_SIZE      = 12
+DATE_FONT_SIZE      = 16
 
 
 # ── Reflection card (redesigned PR4ah) ───────────────────────────────────────
@@ -87,10 +87,10 @@ DATE_FONT_SIZE      = 12
 REFLECT_HERO_OPACITY     = 0.12          # tunable — founder picks from samples
 
 REFLECT_WORDMARK_BASELINE_Y = 88
-REFLECT_WORDMARK_FONT_SIZE  = 30
+REFLECT_WORDMARK_FONT_SIZE  = 36
 
 REFLECT_DATE_BASELINE_Y  = 128
-REFLECT_DATE_FONT_SIZE   = 18
+REFLECT_DATE_FONT_SIZE   = 22
 
 REFLECT_PORTRAIT_DIAMETER = round(PORTRAIT_DIAMETER * 1.1)  # 260 → 286 (10% larger)
 REFLECT_PORTRAIT_TOP      = 176
@@ -424,7 +424,7 @@ def _render_share_canvas(
             (PORTRAIT_CENTER_X, DATE_BASELINE_Y),
             date_str,
             font=font_lora_date,
-            fill=BRONZE_50_COLOR,
+            fill=BRONZE_60_COLOR,
             anchor="ms",
         )
 
