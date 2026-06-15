@@ -275,8 +275,8 @@ export default function CouncilPage() {
           const jitter = Math.random() * 20 - 10
           a.nextWordDelay = WORD_STAGGER + jitter + (sentenceEnds(justRevealed) ? SENTENCE_PAUSE : 0)
 
-          // Scroll every 4th word
-          if (next % 4 === 0) scrollPendingRef.current = true
+          // Scroll roughly every 1-2 lines (every 24th word)
+          if (next % 24 === 0) scrollPendingRef.current = true
 
           const slice = words.slice(0, next)
           setPhase((prev) => {
@@ -336,7 +336,7 @@ export default function CouncilPage() {
           const jitter = Math.random() * 20 - 10
           a.nextWordDelay = WORD_STAGGER + jitter + (sentenceEnds(justRevealed) ? SENTENCE_PAUSE : 0)
 
-          if (next % 4 === 0) scrollPendingRef.current = true
+          if (next % 24 === 0) scrollPendingRef.current = true
 
           const slice = words.slice(0, next)
           setPhase((prev) => {
