@@ -796,7 +796,7 @@ function BenchPortrait({ member }: { member: BenchItem }) {
 
 function VerdictBlock({ verdict }: { verdict: VerdictCard }) {
   return (
-    <div className="flex flex-col gap-[12px]">
+    <div className="flex flex-col gap-[12px] bg-paper/90 border-[0.5px] border-edge rounded-[14px] px-[16px] py-[14px]">
       <div className="flex items-center gap-[12px]">
         <div className="w-[60px] h-[60px] rounded-full overflow-hidden flex-shrink-0 bg-linen">
           {verdict.portraitUrl ? (
