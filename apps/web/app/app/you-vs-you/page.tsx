@@ -170,11 +170,14 @@ export default function YouVsYouPage() {
                 <WiseMark size={22} />
                 <p className="font-lora text-[11px] uppercase tracking-[0.2em] text-bronze-dark">What&rsquo;s beginning to take shape</p>
               </div>
-              <div className="flex flex-col gap-[8px]">
+              <ul className="flex flex-col gap-[8px] text-left">
                 {status.forming_preview.map((line, i) => (
-                  <p key={i} className="font-cormorant italic text-[16px] text-charcoal leading-snug">{line}</p>
+                  <li key={i} className="flex gap-[8px] font-cormorant italic text-[16px] text-charcoal leading-snug">
+                    <span className="text-bronze not-italic flex-shrink-0" aria-hidden="true">&bull;</span>
+                    <span>{line}</span>
+                  </li>
                 ))}
-              </div>
+              </ul>
             </div>
           )}
         </div>

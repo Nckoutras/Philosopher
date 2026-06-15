@@ -51,10 +51,9 @@ class SelfComparisonService:
         reflection for the "what's beginning to take shape" block.
 
         Block-scoped: does NOT touch memory extraction or RAG — it only rewrites how
-        these already-stored signals are surfaced in this one preview. Returns a
-        single-element list (one paragraph, so the existing frontend renders it as one
-        line) or [] on failure, in which case the block hides rather than show raw,
-        third-person ("user") text. Uses the default memory-tier model (fast/cheap)
+        these already-stored signals are surfaced in this one preview. Returns up to 3
+        short bullet observations (or [] on failure), in which case the block hides
+        rather than show raw, third-person ("user") text. Uses the default memory-tier model (fast/cheap)
         since this fires on each forming-state status load.
         """
         cleaned = [s.strip() for s in signals if s and s.strip()]
@@ -70,8 +69,13 @@ class SelfComparisonService:
         except Exception as exc:
             logger.warning(f"Forming reflection synthesis failed: {exc}")
             return []
-        text = raw.strip().strip('"').strip()
-        return [text] if text else []
+        text = raw.strip()
+        bullets = [
+            ln.strip().lstrip("-•*").strip().strip('"').strip()
+            for ln in text.splitlines()
+        ]
+        bullets = [b for b in bullets if b][:3]
+        return bullets
 
     async def weekly_remaining(self, db: AsyncSession, user_id: str, plan: str) -> int:
         result = await db.execute(
