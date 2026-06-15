@@ -49,6 +49,16 @@ function itemKey(item: ReflectionFeedItem): string {
   return `council:${item.save_id}`
 }
 
+function matchesQuery(item: ReflectionFeedItem, q: string): boolean {
+  if (item.kind === 'line') {
+    return item.message_content.toLowerCase().includes(q) || item.persona_display_name.toLowerCase().includes(q)
+  }
+  if (item.kind === 'mirror_verdict') {
+    return item.thread.toLowerCase().includes(q) || (item.host_persona_name?.toLowerCase().includes(q) ?? false)
+  }
+  return item.synthesis.toLowerCase().includes(q)
+}
+
 export default function ReflectionsPage() {
   const router = useRouter()
   const token = useStore((s) => s.token)
@@ -58,6 +68,7 @@ export default function ReflectionsPage() {
   const loadReflectionsFeed = useStore((s) => s.loadReflectionsFeed)
 
   const [activeFilter, setActiveFilter] = useState<FilterOption>('all')
+  const [query, setQuery] = useState('')
   const [selectedPersonaSlug, setSelectedPersonaSlug] = useState<string | null>(null)
   const [portraitBySlug, setPortraitBySlug] = useState<Record<string, string>>({})
   const [pickerLine, setPickerLine] = useState<Extract<ReflectionFeedItem, { kind: 'line' }> | null>(null)
@@ -139,7 +150,9 @@ export default function ReflectionsPage() {
       ? feedItems.filter((i) => i.kind === 'line' && i.persona_slug === selectedPersonaSlug)
       : feedItems
 
-  const grouped = groupItems(filtered)
+  const q = query.trim().toLowerCase()
+  const searched = q ? filtered.filter((i) => matchesQuery(i, q)) : filtered
+  const grouped = groupItems(searched)
 
   function handleFilterChange(filter: FilterOption, personaSlug?: string) {
     setActiveFilter(filter)
@@ -191,10 +204,25 @@ export default function ReflectionsPage() {
               onChange={handleFilterChange}
             />
           )}
+          {feedItems.length > 0 && (
+            <div className="px-[16px] pb-[8px]">
+              <input
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search your reflections"
+                className="w-full bg-white border-[0.5px] border-edge rounded-[10px] px-[14px] py-[10px] font-lora text-[14px] text-ink placeholder:text-sepia/60 focus:outline-none focus:border-bronze/50"
+              />
+            </div>
+          )}
           {feedItems.length === 0 ? (
             <EmptyReflections
               onStartConversation={() => router.push('/app/library')}
             />
+          ) : grouped.length === 0 ? (
+            <p className="px-[24px] py-[24px] font-lora text-[14px] text-sepia italic">
+              No reflections match &ldquo;{query.trim()}&rdquo;.
+            </p>
           ) : (
             <div className="flex-1 overflow-y-auto px-[16px] pb-[80px]">
               {grouped.map(({ label, items }, groupIdx) => (
