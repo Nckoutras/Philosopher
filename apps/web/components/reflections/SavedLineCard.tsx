@@ -46,12 +46,12 @@ export default function SavedLineCard({ item, portraitUrl, onClick, onAskAnother
             <img
               src={portraitUrl}
               alt={item.persona_display_name}
-              width={28}
-              height={28}
+              width={31}
+              height={31}
               className="object-cover rounded-[2px] flex-shrink-0"
             />
           ) : (
-            <div className="w-[28px] h-[28px] bg-edge rounded-[2px] flex-shrink-0" aria-hidden="true" />
+            <div className="w-[31px] h-[31px] bg-edge rounded-[2px] flex-shrink-0" aria-hidden="true" />
           )}
           <span className="font-lora text-[11px] text-sepia">
             {item.persona_display_name}
