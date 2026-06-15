@@ -18,7 +18,7 @@ FORMING_PREVIEW_SIZE = 4  # recent signals surfaced while still "forming"
 
 class SelfModelService:
 
-    async def build(self, db: AsyncSession, user_id: str) -> dict:
+    async def build(self, db: AsyncSession, user_id: str, *, bypass_gate: bool = False) -> dict:
         result = await db.execute(
             select(MemoryEntry)
             .where(MemoryEntry.user_id == user_id, MemoryEntry.is_active == True)
@@ -27,12 +27,18 @@ class SelfModelService:
         entries = result.scalars().all()
         total = len(entries)
 
-        if total < MIN_TOTAL_ENTRIES:
+        # An empty self-model can never be windowed (no signals to split), so it
+        # always stays "forming" — even for admins bypassing the gate.
+        if total == 0:
             return self._forming(entries, total)
 
-        span = entries[-1].created_at - entries[0].created_at
-        if span < timedelta(days=MIN_SPAN_DAYS):
-            return self._forming(entries, total)
+        if not bypass_gate:
+            if total < MIN_TOTAL_ENTRIES:
+                return self._forming(entries, total)
+
+            span = entries[-1].created_at - entries[0].created_at
+            if span < timedelta(days=MIN_SPAN_DAYS):
+                return self._forming(entries, total)
 
         then_entries = entries[:WINDOW_SIZE]
         now_entries = entries[-WINDOW_SIZE:]
