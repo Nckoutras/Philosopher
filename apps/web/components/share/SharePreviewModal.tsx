@@ -253,8 +253,8 @@ export default function SharePreviewModal({
 
             <div className="relative z-10 flex flex-col items-center h-full px-6 pt-4 pb-3">
               {/* "The Wise Room" + date — pinned top */}
-              <p className="font-cormorant italic text-[10px] text-bronze text-center">The Wise Room</p>
-              <p className="font-lora text-[7px] text-bronze/70 text-center mt-0.5">{previewDate}</p>
+              <p className="font-cormorant italic text-[12px] text-bronze text-center">The Wise Room</p>
+              <p className="font-lora text-[9px] text-bronze text-center mt-0.5">{previewDate}</p>
 
               {/* Participating-persona thumbnail row (omitted when none supplied —
                   e.g. the council ritual screen, which degrades to bg-only) */}
@@ -308,8 +308,8 @@ export default function SharePreviewModal({
 
             <div className="relative z-10 flex flex-col items-center h-full px-6 pt-4 pb-3">
               {/* "The Wise Room" + date — pinned top */}
-              <p className="font-cormorant italic text-[10px] text-bronze text-center">The Wise Room</p>
-              <p className="font-lora text-[7px] text-bronze/70 text-center mt-0.5">{previewDate}</p>
+              <p className="font-cormorant italic text-[12px] text-bronze text-center">The Wise Room</p>
+              <p className="font-lora text-[9px] text-bronze text-center mt-0.5">{previewDate}</p>
 
               {/* Portrait — 10% larger (52 → 57px) */}
               <div className="w-[57px] h-[57px] rounded-full overflow-hidden flex-shrink-0 mt-3 mb-2 bg-edge flex items-center justify-center">
