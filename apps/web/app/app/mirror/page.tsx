@@ -195,7 +195,7 @@ export default function MirrorPage() {
         const justRevealed = flatWords[revealed]
         const jitter = Math.random() * 20 - 10
         a.nextWordDelay = WORD_STAGGER + jitter + (sentenceEnds(justRevealed) ? SENTENCE_PAUSE : 0)
-        if (next % 4 === 0) scrollPendingRef.current = true
+        if (next % 24 === 0) scrollPendingRef.current = true
         setTotalRevealed(next)
       } else if (revealed >= flatWords.length) {
         a.phase = 'done'
