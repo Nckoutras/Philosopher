@@ -10,4 +10,8 @@ export const THEME_OPTIONS: { slug: string; label: string }[] = [
   { slug: 'work', label: 'Work' },
   { slug: 'relationships', label: 'Relationships' },
   { slug: 'purpose', label: 'Purpose' },
+  { slug: 'dilemma', label: 'Dilemma' },
+  { slug: 'controversy', label: 'Controversy' },
+  { slug: 'doubt', label: 'Doubt' },
+  { slug: 'freedom', label: 'Freedom' },
 ]

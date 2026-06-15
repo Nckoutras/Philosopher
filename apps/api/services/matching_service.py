@@ -21,6 +21,7 @@ PERSONA_AFFINITIES: dict[str, dict[str, dict[str, int]]] = {
         "themes": {
             "separation": 1, "anxiety": 2, "fear": 2, "grief": 2,
             "acceptance": 3, "work": 3, "relationships": 1, "purpose": 3,
+            "dilemma": 2, "controversy": 1, "doubt": 1, "freedom": 2,
         },
         "needs": {
             "comfort": 1, "challenge": 2, "interpretation": 1, "practical_steadiness": 3,
@@ -30,6 +31,7 @@ PERSONA_AFFINITIES: dict[str, dict[str, dict[str, int]]] = {
         "themes": {
             "separation": 1, "anxiety": 1, "fear": 2, "grief": 1,
             "acceptance": 3, "work": 2, "relationships": 2, "purpose": 3,
+            "dilemma": 2, "controversy": 3, "doubt": 3, "freedom": 2,
         },
         "needs": {
             "comfort": 0, "challenge": 3, "interpretation": 2, "practical_steadiness": 1,
@@ -39,6 +41,7 @@ PERSONA_AFFINITIES: dict[str, dict[str, dict[str, int]]] = {
         "themes": {
             "separation": 2, "anxiety": 2, "fear": 2, "grief": 2,
             "acceptance": 2, "work": 2, "relationships": 3, "purpose": 3,
+            "dilemma": 3, "controversy": 3, "doubt": 2, "freedom": 3,
         },
         "needs": {
             "comfort": 2, "challenge": 2, "interpretation": 3, "practical_steadiness": 1,
@@ -48,6 +51,7 @@ PERSONA_AFFINITIES: dict[str, dict[str, dict[str, int]]] = {
         "themes": {
             "separation": 2, "anxiety": 2, "fear": 3, "grief": 2,
             "acceptance": 3, "work": 2, "relationships": 1, "purpose": 2,
+            "dilemma": 2, "controversy": 1, "doubt": 1, "freedom": 3,
         },
         "needs": {
             "comfort": 1, "challenge": 2, "interpretation": 1, "practical_steadiness": 3,
@@ -57,6 +61,7 @@ PERSONA_AFFINITIES: dict[str, dict[str, dict[str, int]]] = {
         "themes": {
             "separation": 2, "anxiety": 3, "fear": 3, "grief": 2,
             "acceptance": 1, "work": 1, "relationships": 3, "purpose": 1,
+            "dilemma": 3, "controversy": 2, "doubt": 2, "freedom": 1,
         },
         "needs": {
             "comfort": 2, "challenge": 1, "interpretation": 3, "practical_steadiness": 1,
@@ -66,6 +71,7 @@ PERSONA_AFFINITIES: dict[str, dict[str, dict[str, int]]] = {
         "themes": {
             "separation": 2, "anxiety": 2, "fear": 2, "grief": 2,
             "acceptance": 2, "work": 2, "relationships": 3, "purpose": 3,
+            "dilemma": 2, "controversy": 2, "doubt": 2, "freedom": 2,
         },
         "needs": {
             "comfort": 1, "challenge": 2, "interpretation": 3, "practical_steadiness": 1,
@@ -75,6 +81,7 @@ PERSONA_AFFINITIES: dict[str, dict[str, dict[str, int]]] = {
         "themes": {
             "separation": 1, "anxiety": 3, "fear": 2, "grief": 2,
             "acceptance": 3, "work": 2, "relationships": 2, "purpose": 2,
+            "dilemma": 2, "controversy": 1, "doubt": 2, "freedom": 2,
         },
         "needs": {
             "comfort": 3, "challenge": 1, "interpretation": 2, "practical_steadiness": 2,
@@ -84,6 +91,7 @@ PERSONA_AFFINITIES: dict[str, dict[str, dict[str, int]]] = {
         "themes": {
             "separation": 2, "anxiety": 2, "fear": 2, "grief": 2,
             "acceptance": 2, "work": 1, "relationships": 3, "purpose": 2,
+            "dilemma": 1, "controversy": 3, "doubt": 2, "freedom": 3,
         },
         "needs": {
             "comfort": 2, "challenge": 2, "interpretation": 2, "practical_steadiness": 1,
@@ -93,6 +101,7 @@ PERSONA_AFFINITIES: dict[str, dict[str, dict[str, int]]] = {
         "themes": {
             "separation": 1, "anxiety": 2, "fear": 2, "grief": 1,
             "acceptance": 2, "work": 3, "relationships": 2, "purpose": 3,
+            "dilemma": 3, "controversy": 3, "doubt": 1, "freedom": 1,
         },
         "needs": {
             "comfort": 0, "challenge": 3, "interpretation": 2, "practical_steadiness": 3,
@@ -110,6 +119,10 @@ THEME_LABELS: dict[str, str] = {
     "work": "work",
     "relationships": "relationships",
     "purpose": "purpose",
+    "dilemma": "dilemma",
+    "controversy": "controversy",
+    "doubt": "doubt",
+    "freedom": "freedom",
 }
 
 NEED_LABELS: dict[str, str] = {
