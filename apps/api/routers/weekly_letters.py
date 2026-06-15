@@ -1,14 +1,21 @@
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, Response
+from fastapi import APIRouter, Depends, HTTPException, Response
 from fastapi.responses import JSONResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from auth import get_current_user_plan
 from db.session import get_db
+import services.rate_limit_service as rate_limit_service
 from models import WeeklyLetter, Persona
 from schemas import WeeklyLetterOut
+from services.image_service import generate_letter_share_image
+
+# Free-tier share cap — the SAME 90-day rolling Redis counter the mirror, line,
+# and council share endpoints use (key: share_screenshot:{user_id}).
+FREE_SHARE_LIMIT  = 3
+SHARE_WINDOW_SECS = 90 * 24 * 60 * 60
 
 router = APIRouter(prefix="/weekly-letters", tags=["weekly-letters"])
 
@@ -109,3 +116,41 @@ async def delete_weekly_letter(
     await db.delete(letter)
     await db.commit()
     return Response(status_code=204)
+
+
+@router.post("/{letter_id}/share")
+async def share_weekly_letter(
+    letter_id: str,
+    db: AsyncSession = Depends(get_db),
+    auth: tuple = Depends(get_current_user_plan),
+) -> Response:
+    """
+    Generate a share image (wax-seal card) for a Sunday Letter's pull_quote.
+    Returns raw image/png bytes.
+    Free tier: max 3 per 90-day rolling window (shared counter with mirror, line,
+    and council shares). Pro/premium: unlimited.
+    """
+    user, plan = auth
+
+    if plan not in ("pro", "premium"):
+        allowed = await rate_limit_service.check_and_increment(
+            key=f"share_screenshot:{user.id}",
+            max_count=FREE_SHARE_LIMIT,
+            window_seconds=SHARE_WINDOW_SECS,
+        )
+        if not allowed:
+            return JSONResponse(
+                status_code=429,
+                content={"error_code": "share_limit_reached"},
+            )
+
+    try:
+        png_bytes = await generate_letter_share_image(
+            db=db,
+            weekly_letter_id=letter_id,
+            user_id=user.id,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+    return Response(content=png_bytes, media_type="image/png")
