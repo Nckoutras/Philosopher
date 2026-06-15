@@ -59,7 +59,10 @@ export default function SharePreviewModal({
 
   // Reset on open; pre-generate the image for pro/premium so the Send tap opens
   // the native share sheet synchronously (iOS needs navigator.share inside the
-  // gesture). Free users keep generate-on-send (pre-gen would spend a 3/90 credit).
+  // gesture). Retry on failure (e.g. a council synthesis row that just committed,
+  // or a transient error) so a blob is ready before Send enables — never let the
+  // user tap into an await, which would strip the iOS user-activation.
+  // Free users keep generate-on-send (pre-gen would spend a 3/90 credit).
   useEffect(() => {
     if (!isOpen) {
       setPreparedBlob(null)
@@ -72,14 +75,26 @@ export default function SharePreviewModal({
     if (!isPro) return
     let cancelled = false
     setPreparing(true)
-    generateBlob()
-      .then((b) => { if (!cancelled) setPreparedBlob(b) })
-      .catch((err) => {
-        if (!cancelled && !(err instanceof ShareLimitError)) {
-          setShareError('Could not prepare image. Tap Send to retry.')
+
+    ;(async () => {
+      const MAX_ATTEMPTS = 3
+      for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+        try {
+          const b = await generateBlob()
+          if (!cancelled) { setPreparedBlob(b); setShareError(null) }
+          return
+        } catch (err) {
+          if (err instanceof ShareLimitError) return // limit is handled on Send
+          if (cancelled) return
+          if (attempt < MAX_ATTEMPTS - 1) {
+            await new Promise((r) => setTimeout(r, 600 * (attempt + 1)))
+          } else {
+            setShareError('Could not prepare image. Tap Send to retry.')
+          }
         }
-      })
-      .finally(() => { if (!cancelled) setPreparing(false) })
+      }
+    })().finally(() => { if (!cancelled) setPreparing(false) })
+
     return () => { cancelled = true }
   }, [isOpen, isPro, generateBlob])
 
