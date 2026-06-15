@@ -801,6 +801,22 @@ class ApiClient {
     return res.blob()
   }
 
+  async shareWeeklyLetter(letterId: string): Promise<Blob> {
+    const res = await fetch(`${API_BASE}/weekly-letters/${letterId}/share`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(this.token ? { Authorization: `Bearer ${this.token}` } : {}),
+      },
+      body: JSON.stringify({}),
+    })
+    if (!res.ok) {
+      if (res.status === 429) throw new ShareLimitError()
+      throw new Error(`Letter share failed: ${res.status}`)
+    }
+    return res.blob()
+  }
+
   // ── Memory ────────────────────────────────────────────────────────────────
 
   async getMemory(): Promise<MemoryEntry[]> {

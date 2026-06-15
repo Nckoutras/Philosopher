@@ -26,7 +26,7 @@ from PIL import Image, ImageDraw, ImageFont
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
-from models import CouncilCase, CouncilResponse, CouncilSession, Mirror, SavedLine, Message, Persona
+from models import CouncilCase, CouncilResponse, CouncilSession, Mirror, SavedLine, Message, Persona, WeeklyLetter
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +38,7 @@ RITUALS_DIR = STATIC_DIR / "rituals"
 HERO_PATH = SHARE_DIR / "wise-room-hero.webp"
 MIRROR_HERO_PATH  = RITUALS_DIR / "mirror.webp"
 COUNCIL_HERO_PATH = RITUALS_DIR / "boardroom.webp"
+LETTER_HERO_PATH  = RITUALS_DIR / "sundayletter.png"
 
 CANVAS_WIDTH  = 1080
 CANVAS_HEIGHT = 1350
@@ -297,6 +298,55 @@ async def generate_mirror_share_image(
         saved_at=mirror.created_at,
         hero_opacity=REFLECT_HERO_OPACITY_RITUAL,
         hero_path=MIRROR_HERO_PATH,
+    )
+
+
+async def generate_letter_share_image(
+    *,
+    db: AsyncSession,
+    weekly_letter_id: str,
+    user_id: str,
+) -> bytes:
+    """
+    Load a Sunday Letter, verify ownership, and compose a share card from its
+    pull_quote over a faint wax-seal hero. Returns raw PNG bytes.
+    Raises ValueError if the letter is not found, not owned, not generated, or
+    has no pull_quote.
+    """
+    result = await db.execute(
+        select(WeeklyLetter).where(
+            WeeklyLetter.id == weekly_letter_id,
+            WeeklyLetter.user_id == user_id,
+        )
+    )
+    letter = result.scalar_one_or_none()
+    if letter is None or letter.status != "generated":
+        raise ValueError("Letter not found")
+
+    pull_quote = (letter.payload or {}).get("pull_quote")
+    if not pull_quote:
+        raise ValueError("Letter has no quote to share")
+
+    title = (letter.payload or {}).get("title") or "The Sunday Letter"
+
+    # Voice persona (portrait + name) — optional; the letter may be voice-less.
+    persona: Persona | None = None
+    if letter.voice_persona_id:
+        persona_result = await db.execute(
+            select(Persona).where(Persona.id == letter.voice_persona_id)
+        )
+        persona = persona_result.scalar_one_or_none()
+
+    portrait_path = _resolve_portrait_path(persona)
+
+    return _render_reflection_canvas(
+        quote=pull_quote,
+        portrait_path=portrait_path,
+        persona_initial=(persona.name[0].upper() if persona else None),
+        intro_text=title,
+        saved_at=letter.created_at,
+        hero_opacity=REFLECT_HERO_OPACITY_RITUAL,
+        hero_path=LETTER_HERO_PATH,
     )
 
 
