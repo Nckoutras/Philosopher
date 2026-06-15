@@ -111,6 +111,11 @@ class CrossPersonaRequest(BaseModel):
     target_persona_slug: str
 
 
+class ReadingRevisitCreate(BaseModel):
+    weekly_letter_id: str
+    target_persona_slug: str
+
+
 # ── Messages ──────────────────────────────────────────────────────────────────
 
 class MessageCreate(BaseModel):

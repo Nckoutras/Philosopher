@@ -11,7 +11,7 @@ import anthropic
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import func, select, update
 
-from models import Conversation, DailyUsage, Message, Persona, SafetyEvent, SavedLine, User
+from models import Conversation, DailyUsage, Message, Persona, SafetyEvent, SavedLine, User, WeeklyLetter
 from personas import get_persona, is_persona_accessible
 from services.safety_service import safety_service
 from services.memory_service import memory_service
@@ -102,6 +102,19 @@ SEEDED_OPENING_DIRECTIVE = (
     "itch, rather than a flat thesis. Remain unmistakably yourself; simply do not open on a "
     "question. Your normal questioning resumes on the next turn.\n\n"
     "Stay within your usual length and register. One clean opening move: a position, then a door."
+)
+
+REVISIT_OPENING = (
+    "REVISIT — this is your first turn. You have just read the weekly letter below, written "
+    "about this person based on their week of reflection. Do NOT summarise the letter back to "
+    "them. Instead, deliver your own sharp, candid read on who this person is and what they are "
+    "doing — as only you would see it. A clear-eyed jolt in service of their clarity, not a "
+    "comfort. Be blunt and specific; name the pattern you see. This is honest provocation, never "
+    "contempt: do not demean them, do not attack their worth, never use clinical or diagnostic "
+    "language. Stay unmistakably in your own voice and register, within your usual length. Do NOT "
+    "open or close with a question. End with a SINGLE genuine invitation to take it further — an "
+    "open door, not an interrogation (in the spirit of: \"I'd be interested to hear how that "
+    "lands for you\"). Respond in the same language as the letter."
 )
 
 DEEPEN_ESCALATION = {
@@ -255,6 +268,98 @@ class ConversationService:
         )
         db.add(conv)
         await db.flush()
+        return conv
+
+    # ── Create reading-revisit conversation ───────────────────────────────────
+    async def create_reading_revisit(
+        self,
+        db: AsyncSession,
+        user_id: str,
+        weekly_letter_id: str,
+        target_persona_slug: str,
+        user_plan: str = "free",
+    ) -> Conversation:
+        """Create a conversation whose FIRST assistant message is the chosen
+        persona's sharp, candid read on the user — generated (non-stream) from
+        the weekly letter's content. Mirrors create()'s opening-message shape.
+        """
+        # Load weekly letter + verify ownership and generated state
+        wl_result = await db.execute(
+            select(WeeklyLetter).where(
+                WeeklyLetter.id == weekly_letter_id,
+                WeeklyLetter.user_id == user_id,
+            )
+        )
+        letter = wl_result.scalar_one_or_none()
+        if not letter or letter.status != "generated":
+            raise ValueError("Weekly letter not found")
+
+        # Resolve + access-gate the target persona (config drives both)
+        persona_config = get_persona(target_persona_slug)
+        if not persona_config:
+            raise ValueError(f"Unknown persona: {target_persona_slug}")
+        if not is_persona_accessible(persona_config, user_plan):
+            raise PermissionError(f"Persona {target_persona_slug} requires plan upgrade")
+
+        # Persona DB record (for FK)
+        persona_result = await db.execute(select(Persona).where(Persona.slug == target_persona_slug))
+        persona_db = persona_result.scalar_one_or_none()
+        if not persona_db:
+            raise ValueError(f"Persona {target_persona_slug} not in database")
+
+        conv = Conversation(user_id=user_id, persona_id=persona_db.id)
+        db.add(conv)
+        await db.flush()
+
+        # Assemble the reading from payload fields IN ORDER, skipping empties.
+        # status/suggested_persona_slug are intentionally ignored.
+        payload = letter.payload or {}
+        assembled_reading = "\n\n".join(
+            str(payload[k]).strip()
+            for k in ("title", "opening", "references", "pull_quote", "forward_gesture")
+            if payload.get(k)
+        )
+
+        # build_system FIRST (its safety/HARD-RULES layer must stay) — APPEND only.
+        # build_system takes the PersonaConfig, never the DB row.
+        system_prompt = prompt_builder.build_system(
+            persona=persona_config, memories=[], passages=[]
+        ) + "\n\n" + REVISIT_OPENING
+
+        # One non-stream completion. The user turn carrying the reading is NOT persisted.
+        text = await llm_client.complete(
+            system=system_prompt,
+            user=f"<letter>\n{assembled_reading}\n</letter>",
+            model=MODEL_PRO,
+            max_tokens=1024,
+        )
+
+        # ── SECOND SAFETY LAYER (post-generation) ────────────────────────────
+        # This is the app's sharpest dynamically-generated content, so it MUST
+        # pass the same post-gen gate as the streaming path. On suppression we
+        # replace the text with the app-voice safe line, log the event, and mark
+        # the row persona_override — byte-for-byte the stream_response handling.
+        safety_out = await safety_service.check_output(text)
+        if safety_out.should_suppress_persona:
+            logger.warning(
+                "post_gen_safety_override",
+                extra={
+                    "persona_slug": persona_config.slug,
+                    "safety_level": safety_out.level,
+                    "conversation_id": str(conv.id),
+                    "user_id": str(user_id),
+                    "exposed_content_first_100": text[:100],
+                },
+            )
+            await self._log_safety_event(db, user_id, conv.id, None, safety_out, "post_generation")
+            text = prompt_builder.build_safety_response(level=safety_out.level)
+
+        await self._save_message(
+            db, conv, user_id, "assistant", text,
+            safety_level=safety_out.level,
+            persona_override=safety_out.should_suppress_persona,
+        )
+        await db.commit()
         return conv
 
     # ── Stream response ───────────────────────────────────────────────────────
