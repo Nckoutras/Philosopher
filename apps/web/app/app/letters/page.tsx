@@ -2,11 +2,14 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import toast from 'react-hot-toast'
 import { useStore } from '@/lib/store'
 import { api } from '@/lib/api'
 import type { WeeklyLetter } from '@/lib/api'
 import AppHeader from '@/components/layout/AppHeader'
 import SubPageNav from '@/components/layout/SubPageNav'
+import SwipeableRow from '@/components/ui/SwipeableRow'
+import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal'
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
@@ -28,6 +31,11 @@ export default function LettersPage() {
   const subscription = useStore((s) => s.subscription)
   const isPro = subscription?.status === 'active' && subscription?.plan !== 'free'
   const [letters, setLetters] = useState<WeeklyLetter[] | null>(null)
+  const [query, setQuery] = useState('')
+  const [revealedId, setRevealedId] = useState<string | null>(null)
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
+  const [deleteLoading, setDeleteLoading] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
 
   useEffect(() => {
     if (token === null) {
@@ -44,6 +52,38 @@ export default function LettersPage() {
   }, [token, isPro, router])
 
   const visible = letters?.filter((l) => l.status !== 'suppressed') ?? []
+  const q = query.trim().toLowerCase()
+  const searched = q
+    ? visible.filter(
+        (l) =>
+          l.status === 'generated' &&
+          ((l.payload?.title ?? '').toLowerCase().includes(q) ||
+            (l.voice_persona_name ?? '').toLowerCase().includes(q) ||
+            formatWeekSpan(l.period_start, l.period_end).toLowerCase().includes(q)),
+      )
+    : visible
+
+  async function handleDeleteConfirm() {
+    if (!pendingDeleteId) return
+    setDeleteLoading(true)
+    setDeleteError(null)
+    try {
+      await api.deleteWeeklyLetter(pendingDeleteId)
+      setLetters((prev) => (prev ? prev.filter((l) => l.id !== pendingDeleteId) : prev))
+      toast.success('Deleted')
+      setPendingDeleteId(null)
+    } catch {
+      setDeleteError('Could not delete. Please try again.')
+    } finally {
+      setDeleteLoading(false)
+    }
+  }
+
+  function handleDeleteClose() {
+    if (deleteLoading) return
+    setPendingDeleteId(null)
+    setDeleteError(null)
+  }
 
   return (
     <main className="min-h-screen [min-height:100svh] bg-vellum pb-[80px]">
@@ -52,14 +92,22 @@ export default function LettersPage() {
       <div className="px-[24px] pt-[22px] pb-[16px] flex items-center gap-[12px]">
         <SubPageNav fallbackHref="/app/rituals" />
         <div>
-          <p className="font-lora text-[11px] uppercase tracking-[0.18em] text-sepia">
-            Rituals
-          </p>
-          <h1 className="font-cormorant text-[26px] font-medium text-ink leading-tight">
-            The Sunday Letter
-          </h1>
+          <p className="font-lora text-[11px] uppercase tracking-[0.18em] text-sepia">Rituals</p>
+          <h1 className="font-cormorant text-[26px] font-medium text-ink leading-tight">The Sunday Letter</h1>
         </div>
       </div>
+
+      {letters !== null && visible.length > 0 && (
+        <div className="px-[16px] pb-[12px]">
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search your letters"
+            className="w-full bg-white border-[0.5px] border-edge rounded-[10px] px-[14px] py-[10px] font-lora text-[14px] text-ink placeholder:text-sepia/60 focus:outline-none focus:border-bronze/50"
+          />
+        </div>
+      )}
 
       <div className="px-[16px] flex flex-col gap-[12px]">
         {letters === null ? (
@@ -77,51 +125,55 @@ export default function LettersPage() {
           </>
         ) : visible.length === 0 ? (
           <div className="bg-paper border border-[0.5px] border-edge rounded-md shadow-card px-[16px] py-[24px] text-center">
-            <p className="font-cormorant text-[19px] font-normal text-ink">
-              Your first letter arrives Sunday.
-            </p>
+            <p className="font-cormorant text-[19px] font-normal text-ink">Your first letter arrives Sunday.</p>
             <p className="font-lora text-[15px] text-charcoal mt-[6px] leading-[1.6]">
               After an active week, the mind you spent the most time with writes to you.
             </p>
           </div>
+        ) : searched.length === 0 ? (
+          <p className="px-[8px] py-[16px] font-lora text-[14px] text-sepia italic">
+            No letters match &ldquo;{query.trim()}&rdquo;.
+          </p>
         ) : (
-          visible.map((l) => {
+          searched.map((l) => {
             if (l.status === 'generated') {
               return (
-                <button
+                <SwipeableRow
                   key={l.id}
-                  type="button"
-                  onClick={() => router.push(`/app/letters/${l.id}`)}
-                  className="w-full text-left bg-paper border border-[0.5px] border-edge rounded-md shadow-card px-[16px] py-[14px]"
+                  isRevealed={revealedId === l.id}
+                  onReveal={() => setRevealedId(l.id)}
+                  onCollapse={() => setRevealedId(null)}
+                  onDeleteRequest={() => { setRevealedId(null); setPendingDeleteId(l.id) }}
                 >
-                  <div className="flex items-start justify-between gap-[8px]">
-                    <div className="flex-1 min-w-0">
-                      <p className="font-lora text-[11px] uppercase tracking-[0.14em] text-sepia">
-                        {formatWeekSpan(l.period_start, l.period_end)}
-                      </p>
-                      <p className="font-cormorant text-[19px] font-medium text-ink leading-tight mt-[4px]">
-                        {l.payload?.title ?? 'A letter for you'}
-                      </p>
-                      {l.voice_persona_name && (
-                        <p className="font-lora text-[13px] text-charcoal mt-[4px]">
-                          in the voice of {l.voice_persona_name}
+                  <button
+                    type="button"
+                    onClick={() => router.push(`/app/letters/${l.id}`)}
+                    className="w-full text-left bg-paper border border-[0.5px] border-edge rounded-md shadow-card px-[16px] py-[14px]"
+                  >
+                    <div className="flex items-start justify-between gap-[8px]">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-lora text-[11px] uppercase tracking-[0.14em] text-sepia">
+                          {formatWeekSpan(l.period_start, l.period_end)}
                         </p>
+                        <p className="font-cormorant text-[19px] font-medium text-ink leading-tight mt-[4px]">
+                          {l.payload?.title ?? 'A letter for you'}
+                        </p>
+                        {l.voice_persona_name && (
+                          <p className="font-lora text-[13px] text-charcoal mt-[4px]">
+                            in the voice of {l.voice_persona_name}
+                          </p>
+                        )}
+                      </div>
+                      {l.read_at === null && (
+                        <div className="w-[8px] h-[8px] rounded-full bg-bronze flex-shrink-0 mt-[6px]" />
                       )}
                     </div>
-                    {l.read_at === null && (
-                      <div className="w-[8px] h-[8px] rounded-full bg-bronze flex-shrink-0 mt-[6px]" />
-                    )}
-                  </div>
-                </button>
+                  </button>
+                </SwipeableRow>
               )
             }
-
-            // status === 'empty'
             return (
-              <div
-                key={l.id}
-                className="bg-paper border border-[0.5px] border-edge rounded-md shadow-card px-[16px] py-[14px] opacity-60"
-              >
+              <div key={l.id} className="bg-paper border border-[0.5px] border-edge rounded-md shadow-card px-[16px] py-[14px] opacity-60">
                 <p className="font-lora text-[11px] uppercase tracking-[0.14em] text-sepia">
                   {formatWeekSpan(l.period_start, l.period_end)}
                 </p>
@@ -133,6 +185,16 @@ export default function LettersPage() {
           })
         )}
       </div>
+
+      <DeleteConfirmModal
+        open={pendingDeleteId !== null}
+        title="Delete this letter?"
+        body="This can't be undone."
+        loading={deleteLoading}
+        error={deleteError}
+        onConfirm={handleDeleteConfirm}
+        onClose={handleDeleteClose}
+      />
     </main>
   )
 }
