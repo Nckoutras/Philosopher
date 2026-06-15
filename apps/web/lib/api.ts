@@ -572,6 +572,13 @@ class ApiClient {
     })
   }
 
+  async createReadingRevisit(letterId: string, targetPersonaSlug: string): Promise<Conversation> {
+    return this.request<Conversation>('/conversations/reading-revisit', {
+      method: 'POST',
+      body: JSON.stringify({ weekly_letter_id: letterId, target_persona_slug: targetPersonaSlug }),
+    })
+  }
+
   async createShareScreenshot(savedLineId: string, annotation?: string): Promise<Blob> {
     const body: Record<string, string> = { saved_line_id: savedLineId }
     if (annotation) body.annotation = annotation

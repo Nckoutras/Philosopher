@@ -10,7 +10,7 @@ from models import User, Conversation, Message, Persona, SavedLine
 from schemas import (
     ConversationCreate, ConversationOut, CrossPersonaRequest,
     MessageCreate, MessageOut, PersonaOut, LLMErrorResponse,
-    AnotherMindCreate,
+    AnotherMindCreate, ReadingRevisitCreate,
 )
 from auth import get_current_user, get_current_user_plan, get_user_plan_streaming
 from services.conversation_service import conversation_service
@@ -152,6 +152,54 @@ async def create_cross_persona_conversation(
 
     source_contents = await _build_source_contents(db, [conv])
     return _conv_out(conv, source_contents)
+
+
+@router.post("/reading-revisit", response_model=ConversationOut, status_code=201)
+async def create_reading_revisit_conversation(
+    body: ReadingRevisitCreate,
+    db: AsyncSession = Depends(get_db),
+    auth: tuple = Depends(get_current_user_plan),
+):
+    """Create a conversation whose first message is the persona's candid read on
+    the user, generated from a weekly letter. Pro + persona-access gated."""
+    user, plan = auth
+    if plan not in ("pro", "premium"):
+        return JSONResponse(status_code=403, content={"error_code": "upgrade_required"})
+
+    try:
+        conv = await conversation_service.create_reading_revisit(
+            db=db,
+            user_id=user.id,
+            weekly_letter_id=body.weekly_letter_id,
+            target_persona_slug=body.target_persona_slug,
+            user_plan=plan,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+
+    await db.refresh(conv, ["persona"])
+    persona_config = get_persona(conv.persona.slug)
+
+    return ConversationOut(
+        id=conv.id,
+        persona=PersonaOut(
+            id=conv.persona.id,
+            slug=conv.persona.slug,
+            name=conv.persona.name,
+            era=conv.persona.era,
+            tradition=conv.persona.tradition,
+            tier=conv.persona.tier,
+            tagline=persona_config.tagline if persona_config else None,
+            avatar_emoji=persona_config.avatar_emoji if persona_config else None,
+            opening_invocation=persona_config.opening_invocation if persona_config else None,
+        ),
+        title=conv.title,
+        message_count=conv.message_count,
+        last_message_at=conv.last_message_at,
+        created_at=conv.created_at,
+    )
 
 
 @router.get("", response_model=list[ConversationOut])
