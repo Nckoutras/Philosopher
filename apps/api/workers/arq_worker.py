@@ -22,12 +22,14 @@ Example: {"content": "You often describe ambition as a burden rather than a desi
 
 LETTER_PROMPT = """You are {persona_name}{persona_tradition_clause}. Once a week you write a personal letter to someone whose inner life you've been quietly witnessing through their own words. This is NOT a reflection or a confrontation — it is a letter: warm, epistolary, written in your voice, addressed directly to them.
 
+You may also receive a record of letters you wrote to this person in earlier weeks. If so, this is your ongoing correspondence: pick up the thread, notice what keeps returning, and mark honestly what has shifted. If there is none, simply begin.
+
 You will receive the person's messages from the week, each tagged with a day.
 
 Write a letter that does the following:
-1. Opens with a greeting — "Dear {user_first_name}" — and sets a tone that is intimate but not presumptuous.
-2. Draws on 2-3 specific things they said or seemed to be grappling with, and holds them up not as evidence but as texture — this is what you noticed, what stayed with you.
-3. Offers one forward gesture: a question, a thought, a direction that feels like a natural next step from where they ended the week. Not advice. An opening.
+1. Opens with "Dear {user_first_name}" and ONE short paragraph — intimate, not presumptuous. Do not summarize their week back to them; they lived it.
+2. Does not recount what they said — interprets it. Take 2-3 things they said or grappled with and go beneath them: name the pattern, the tension, the thing they were really reaching for. Hold their words as texture, but the work here is insight, not transcript.
+3. Ends on a forward gesture that is a provocation, not a question: a single sharp thought or challenge that opens a line of thinking for the week ahead — something that lingers and pulls them forward. Never a question. Never advice. Never an assigned task.
 4. Closes warmly, briefly — as a letter ends, not a therapy session.
 
 Return JSON only, no preamble, in exactly this shape:
@@ -41,19 +43,21 @@ Return JSON only, no preamble, in exactly this shape:
 
 Where:
 - "title": a 4-8 word title for the letter (e.g. "On the week you held still")
-- "opening": 1-2 paragraphs of the opening greeting and first reflection
-- "references": 1 paragraph citing 2-3 specifics from their week — in your voice, not a transcript
+- "opening": ONE short paragraph — the greeting and the single thing that stayed with you. Not a week-summary.
+- "references": 1 paragraph of interpretation — what 2-3 of their specifics reveal or point to, in your voice. Do NOT recount or quote at length; go beneath the words.
 - "pull_quote": one sentence from the letter worth keeping — a line with staying power
-- "forward_gesture": 1-2 sentences — a question or opening, not advice
+- "forward_gesture": 1-2 sentences — a teaser or challenge that sets a direction of thought. Not a question, not advice, not a task.
 - "suggested_persona_slug": choose ONE slug from this list of other minds they have not yet spoken with this week: {other_persona_slugs}
 
 If the week holds nothing meaningful to letter about, return exactly: {{"status": "empty"}}
 
 Rules:
+- If prior letters are provided, build genuine continuity — name a recurring pattern or a real change. Never fabricate progress and never flatter; claim a shift only if their own words support it.
+- Do not recount the week back to them — interpret, don't echo. They already know what they said; tell them what it might mean.
 - Speak in the second person ("you"), never describe them in the third person.
 - Your letter carries your philosophical tradition and voice — it is not generic.
 - Warmth and care, not distance. A letter from someone who has been paying attention.
-- Never diagnose, never prescribe. Witness and open."""
+- End on a thought that moves, not a question that asks. Never diagnose, never prescribe."""
 
 MIRROR_PROMPT = """You are {persona_name}{persona_tradition_clause}. Once a week you hold up a mirror to a person — not to summarize their week, but to show them the deeper meaning beneath their own words, seen through your distinct way of understanding.
 
@@ -620,6 +624,28 @@ async def generate_weekly_letter_task(ctx, user_id: str, voice_persona_slug: str
             other_slugs = [r[0] for r in other_personas_result.all()]
             other_persona_slugs_str = ", ".join(other_slugs) if other_slugs else "none"
 
+            # This persona's own prior letters to this user — for continuity
+            prior_result = await db.execute(
+                select(WeeklyLetter)
+                .where(
+                    WeeklyLetter.user_id == user_id,
+                    WeeklyLetter.voice_persona_id == voice_persona_id,
+                    WeeklyLetter.status == "generated",
+                    WeeklyLetter.period_start < period_start,
+                )
+                .order_by(WeeklyLetter.period_start.desc())
+                .limit(3)
+            )
+            prior_letters = prior_result.scalars().all()
+            if prior_letters:
+                prior_text = "\n".join(
+                    f"[{p.period_start:%b %d}] {(p.payload or {}).get('title','')} — {(p.payload or {}).get('pull_quote','')}"
+                    for p in reversed(prior_letters)
+                )
+                prior_block = f"<prior_letters>\n{prior_text}\n</prior_letters>\n\n"
+            else:
+                prior_block = ""
+
             week_text = "\n".join(
                 f"[{m.created_at:%a %b %d}] {m.content}" for m in messages
             )
@@ -635,7 +661,7 @@ async def generate_weekly_letter_task(ctx, user_id: str, voice_persona_slug: str
 
             raw = await llm_client.complete(
                 system=system,
-                user=f"<week>\n{week_text}\n</week>",
+                user=f"{prior_block}<week>\n{week_text}\n</week>",
                 model=config.ANTHROPIC_MODEL,
                 max_tokens=1024,
             )
