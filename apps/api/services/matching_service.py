@@ -107,6 +107,26 @@ PERSONA_AFFINITIES: dict[str, dict[str, dict[str, int]]] = {
             "comfort": 0, "challenge": 3, "interpretation": 2, "practical_steadiness": 3,
         },
     },
+    "george_orwell": {
+        "themes": {
+            "separation": 1, "anxiety": 1, "fear": 2, "grief": 1,
+            "acceptance": 1, "work": 2, "relationships": 1, "purpose": 2,
+            "dilemma": 2, "controversy": 3, "doubt": 2, "freedom": 2,
+        },
+        "needs": {
+            "comfort": 0, "challenge": 3, "interpretation": 1, "practical_steadiness": 1,
+        },
+    },
+    "miyamoto_musashi": {
+        "themes": {
+            "separation": 1, "anxiety": 2, "fear": 3, "grief": 1,
+            "acceptance": 1, "work": 3, "relationships": 1, "purpose": 2,
+            "dilemma": 2, "controversy": 1, "doubt": 2, "freedom": 1,
+        },
+        "needs": {
+            "comfort": 0, "challenge": 3, "interpretation": 1, "practical_steadiness": 3,
+        },
+    },
 }
 
 # Display labels for reason generation

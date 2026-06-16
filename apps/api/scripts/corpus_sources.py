@@ -170,7 +170,11 @@ CORPUS_SOURCES: dict[str, list[CorpusSource]] = {
 }
 
 # Copyright-blocked personas — never ingest these (Decision #7)
-EXCLUDED_PERSONAS: set[str] = {"carl_jung", "simone_de_beauvoir"}
+# george_orwell: major works + many essays remain under US copyright (publication-based,
+# up to ~95 yrs); voice-engineered only, no source chunks. (miyamoto_musashi is NOT excluded —
+# his originals are public domain; he is simply absent from CORPUS_SOURCES until a rights-clean
+# English translation is sourced.)
+EXCLUDED_PERSONAS: set[str] = {"carl_jung", "simone_de_beauvoir", "george_orwell"}
 
 # Canonical set of slugs covered by this corpus config
 KNOWN_CORPUS_SLUGS: set[str] = set(CORPUS_SOURCES.keys())

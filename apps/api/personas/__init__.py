@@ -8,6 +8,8 @@ from .sigmund_freud import SIGMUND_FREUD
 from .lao_tzu import LAO_TZU
 from .niccolo_machiavelli import NICCOLO_MACHIAVELLI
 from .oscar_wilde import OSCAR_WILDE
+from .george_orwell import GEORGE_ORWELL
+from .miyamoto_musashi import MIYAMOTO_MUSASHI
 
 # Registry: slug → config
 PERSONA_REGISTRY: dict[str, PersonaConfig] = {
@@ -20,6 +22,8 @@ PERSONA_REGISTRY: dict[str, PersonaConfig] = {
     LAO_TZU.slug: LAO_TZU,
     NICCOLO_MACHIAVELLI.slug: NICCOLO_MACHIAVELLI,
     OSCAR_WILDE.slug: OSCAR_WILDE,
+    GEORGE_ORWELL.slug: GEORGE_ORWELL,
+    MIYAMOTO_MUSASHI.slug: MIYAMOTO_MUSASHI,
 }
 
 
