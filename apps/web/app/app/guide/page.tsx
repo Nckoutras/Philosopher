@@ -5,15 +5,15 @@ import SubPageNav from '@/components/layout/SubPageNav'
 import { BronzeDivider } from '@/components/ui/BronzeDivider'
 
 const MINDS = [
-  { src: '/personas/socrates.jpg', name: 'Socrates' },
-  { src: '/personas/marcus_aurelius.jpg', name: 'Marcus Aurelius' },
+  { src: '/personas/socrates.webp', name: 'Socrates' },
+  { src: '/personas/marcus_aurelius.webp', name: 'Marcus Aurelius' },
   { src: '/personas/epictetus.webp', name: 'Epictetus' },
   { src: '/personas/sigmund_freud.webp', name: 'Sigmund Freud' },
-  { src: '/personas/carl_jung.png', name: 'Carl Jung' },
+  { src: '/personas/carl_jung.webp', name: 'Carl Jung' },
   { src: '/personas/simone_de_beauvoir.webp', name: 'Simone de Beauvoir' },
-  { src: '/personas/lao_tzu.png', name: 'Lao Tzu' },
-  { src: '/personas/machiavelli.png', name: 'Machiavelli' },
-  { src: '/personas/oscar_wilde.png', name: 'Oscar Wilde' },
+  { src: '/personas/lao_tzu.webp', name: 'Lao Tzu' },
+  { src: '/personas/machiavelli.webp', name: 'Machiavelli' },
+  { src: '/personas/oscar_wilde.webp', name: 'Oscar Wilde' },
 ]
 
 const RITUALS = [
