@@ -234,6 +234,57 @@ work in another. Before every commit/push, verify the current branch with
 
 ---
 
+## Persona & migration conventions
+
+Codified 2026-06-16 after the Orwell + Musashi addition (#316) and the portrait WebP
+standardization (#315). These apply to all future persona and data-migration work.
+
+### C-01 — Data migrations must be self-contained (no app-code import)
+
+A DB migration must NOT import application code (e.g. `from personas import ...` or call
+`config.to_dict()` at runtime). Runtime app code drifts; a migration must reproduce the same
+result forever. Freeze any config payload as an **immutable inline literal snapshot** inside the
+migration file.
+
+The `027_add_orwell_musashi` pattern is canonical: the `config` jsonb for each persona is a
+hand-inlined dict literal, verified identical to `PersonaConfig.to_dict()` at authoring time and
+then frozen in the migration. The migration runs the same whether or not the persona module
+later changes or is deleted. DOWN deletes the inserted rows by slug only.
+
+### C-02 — Portrait asset format standard = WebP; both stores stay in sync
+
+Persona portraits are **WebP, 1024px, quality 82** (not PNG/JPG). Every persona portrait must
+exist in **both** asset stores and stay in sync:
+- `apps/web/public/personas/<slug>.webp` (frontend)
+- `apps/api/static/personas/<slug>.webp` (API static)
+
+`portrait_url` in the DB is `/personas/<slug>.webp`. When changing a portrait, update both files
+and (if the extension changes) add a data migration to repoint `portrait_url` — see
+`026_personas_portrait_webp`.
+
+### C-03 — Adding a persona checklist
+
+When adding a new persona, do ALL of the following:
+1. **PersonaConfig module** — `apps/api/personas/<slug>.py` (build from the design-YAML brain
+   file; verbatim fields where the YAML defines them, authored voice fields in the existing
+   persona-module style).
+2. **Register** in `apps/api/personas/__init__.py` `PERSONA_REGISTRY`.
+3. **Brain YAML** — `apps/api/philosopher_brain/personas/<name>.yaml`.
+4. **Matching** — add `PERSONA_AFFINITIES` weights in `services/matching_service.py` for **ALL
+   12 themes + 4 needs** (no partial maps). Decide `EXCLUDED_SLUGS` membership (default: matchable).
+5. **Copyright / RAG** — if the persona's source texts are under copyright, add the slug to
+   `EXCLUDED_PERSONAS` in `scripts/corpus_sources.py` (voice-engineered only, zero chunks). If
+   public-domain but no rights-clean source is ready yet, leave it out of `CORPUS_SOURCES`
+   (deferred — not excluded). `retrieval_sources=[]` until chunks exist.
+6. **Portrait** — `.webp` (per C-02) in **both** stores.
+7. **Migration** — self-contained (per C-01): insert the row with `tier`, `is_active`, `config`
+   (frozen literal snapshot), `bio = about_en` verbatim from the brain YAML, `portrait_url`.
+8. **Error voice** — if a persona-specific `llm_unavailable` voice is desired, include an
+   `error_messages` map in the config; otherwise `get_error_voice` falls back to the generic
+   message (`services/persona_voice.py`).
+
+---
+
 ## Known tech debt
 
 ### Dual tier resolution (added PR4j-paywall-audit, 2026-05-23)
