@@ -105,9 +105,9 @@ export default function SundayLetterCard({ isPro }: Props) {
               <button
                 type="button"
                 onClick={() => { setSheetOpen(false); router.push('/app/letters') }}
-                className="mt-[20px] font-cormorant text-[15px] text-bronze"
+                className="mt-[20px] w-full h-[48px] rounded-sm font-cormorant text-[17px] font-medium bg-ink text-vellum transition-colors"
               >
-                View your readings →
+                View your readings
               </button>
             </>
           ) : (
@@ -118,9 +118,9 @@ export default function SundayLetterCard({ isPro }: Props) {
               <button
                 type="button"
                 onClick={() => { setSheetOpen(false); router.push('/app/explore') }}
-                className="mt-[20px] font-cormorant text-[15px] text-bronze"
+                className="mt-[20px] w-full h-[48px] rounded-sm font-cormorant text-[17px] font-medium bg-ink text-vellum transition-colors"
               >
-                Choose a mind →
+                Choose a mind
               </button>
             </>
           )}

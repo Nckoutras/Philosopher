@@ -244,18 +244,18 @@ export default function LetterReadPage() {
         <button
           type="button"
           onClick={() => setPickerOpen(true)}
-          className="mt-[24px] font-cormorant text-[16px] text-bronze"
+          className="mt-[24px] w-full h-[48px] rounded-sm font-cormorant text-[17px] font-medium bg-ink text-vellum transition-colors"
         >
-          Revisit this letter with a mind →
+          Revisit this letter with a mind
         </button>
 
         {payload.pull_quote && (
           <button
             type="button"
             onClick={() => setShareOpen(true)}
-            className="block mt-[12px] font-cormorant text-[16px] text-bronze"
+            className="mt-[12px] w-full h-[48px] rounded-sm border border-[0.5px] border-ink font-cormorant text-[17px] font-medium text-ink transition-colors"
           >
-            Share this letter →
+            Share this letter
           </button>
         )}
       </div>
