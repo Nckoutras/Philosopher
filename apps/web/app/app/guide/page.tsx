@@ -1,21 +1,22 @@
 'use client'
 
 import Image from 'next/image'
+import Link from 'next/link'
 import SubPageNav from '@/components/layout/SubPageNav'
 import { BronzeDivider } from '@/components/ui/BronzeDivider'
 
 const MINDS = [
-  { src: '/personas/socrates.webp', name: 'Socrates' },
-  { src: '/personas/marcus_aurelius.webp', name: 'Marcus Aurelius' },
-  { src: '/personas/epictetus.webp', name: 'Epictetus' },
-  { src: '/personas/sigmund_freud.webp', name: 'Sigmund Freud' },
-  { src: '/personas/carl_jung.webp', name: 'Carl Jung' },
-  { src: '/personas/simone_de_beauvoir.webp', name: 'Simone de Beauvoir' },
-  { src: '/personas/lao_tzu.webp', name: 'Lao Tzu' },
-  { src: '/personas/machiavelli.webp', name: 'Machiavelli' },
-  { src: '/personas/oscar_wilde.webp', name: 'Oscar Wilde' },
-  { src: '/personas/george_orwell.webp', name: 'George Orwell' },
-  { src: '/personas/miyamoto_musashi.webp', name: 'Miyamoto Musashi' },
+  { slug: 'socrates', src: '/personas/socrates.webp', name: 'Socrates' },
+  { slug: 'marcus_aurelius', src: '/personas/marcus_aurelius.webp', name: 'Marcus Aurelius' },
+  { slug: 'epictetus', src: '/personas/epictetus.webp', name: 'Epictetus' },
+  { slug: 'sigmund_freud', src: '/personas/sigmund_freud.webp', name: 'Sigmund Freud' },
+  { slug: 'carl_jung', src: '/personas/carl_jung.webp', name: 'Carl Jung' },
+  { slug: 'simone_de_beauvoir', src: '/personas/simone_de_beauvoir.webp', name: 'Simone de Beauvoir' },
+  { slug: 'lao_tzu', src: '/personas/lao_tzu.webp', name: 'Lao Tzu' },
+  { slug: 'niccolo_machiavelli', src: '/personas/machiavelli.webp', name: 'Machiavelli' },
+  { slug: 'oscar_wilde', src: '/personas/oscar_wilde.webp', name: 'Oscar Wilde' },
+  { slug: 'george_orwell', src: '/personas/george_orwell.webp', name: 'George Orwell' },
+  { slug: 'miyamoto_musashi', src: '/personas/miyamoto_musashi.webp', name: 'Miyamoto Musashi' },
 ]
 
 const RITUALS = [
@@ -50,7 +51,7 @@ export default function GuidePage() {
 
           <div className="mt-6 rounded-[16px] overflow-hidden shadow-card">
             <Image src="/personas/wise-room-hero.webp" alt="The Wise Room" width={760} height={300}
-              className="w-full h-[150px] object-cover" priority />
+              className="w-full h-[190px] object-cover object-bottom" priority />
           </div>
 
           <div className="flex justify-center my-7"><BronzeDivider width={64} /></div>
@@ -58,12 +59,12 @@ export default function GuidePage() {
             <h2 className="font-cormorant text-[20px] font-medium text-ink leading-tight">The minds.</h2>
             <div className="grid grid-cols-3 gap-3">
               {MINDS.map((m) => (
-                <div key={m.name} className="flex flex-col items-center gap-1.5">
+                <Link key={m.name} href={`/app/persona/${m.slug}`} className="flex flex-col items-center gap-1.5">
                   <div className="w-[88px] h-[88px] rounded-full overflow-hidden bg-linen shadow-card">
                     <Image src={m.src} alt={m.name} width={88} height={88} className="object-cover w-full h-full" />
                   </div>
                   <span className="font-lora text-[10px] text-sepia text-center leading-tight">{m.name}</span>
-                </div>
+                </Link>
               ))}
             </div>
             <p className="font-lora text-[15px] text-charcoal leading-[1.65]">
