@@ -14,13 +14,15 @@ const MINDS = [
   { src: '/personas/lao_tzu.webp', name: 'Lao Tzu' },
   { src: '/personas/machiavelli.webp', name: 'Machiavelli' },
   { src: '/personas/oscar_wilde.webp', name: 'Oscar Wilde' },
+  { src: '/personas/george_orwell.webp', name: 'George Orwell' },
+  { src: '/personas/miyamoto_musashi.webp', name: 'Miyamoto Musashi' },
 ]
 
 const RITUALS = [
   { src: '/personas/mirror.png', name: 'The Mirror' },
   { src: '/personas/boardroom.webp', name: 'The Council' },
   { src: '/personas/youvsyou.webp', name: 'You vs You' },
-  { src: '/personas/messagetomyfutureself.png', name: 'A Letter' },
+  { src: '/personas/messagetomyfutureself.png', name: 'Message to Your Future Self' },
 ]
 
 export default function GuidePage() {
@@ -42,7 +44,7 @@ export default function GuidePage() {
               Explore The Wise Room
             </h1>
             <p className="font-lora text-[15px] italic text-charcoal leading-[1.65]">
-              A room where the great minds listen — and remember.
+              Reflect with great thinkers — and meet who you were, and who you&rsquo;re becoming.
             </p>
           </header>
 
@@ -65,7 +67,7 @@ export default function GuidePage() {
               ))}
             </div>
             <p className="font-lora text-[15px] text-charcoal leading-[1.65]">
-              Nine thinkers, each with their own voice, temperament, and way of
+              Eleven thinkers, each with their own voice, temperament, and way of
               seeing. Socrates will question you. Marcus will steady you. Choose
               who you need — or let the room choose for you.
             </p>
@@ -75,8 +77,9 @@ export default function GuidePage() {
           <section className="space-y-2">
             <h2 className="font-cormorant text-[20px] font-medium text-ink leading-tight">The conversations.</h2>
             <p className="font-lora text-[15px] text-charcoal leading-[1.65]">
-              Bring what&rsquo;s on your mind. Speak plainly; they will not. When a
-              line strikes you, save it — it becomes part of your reflections.
+              Bring what&rsquo;s on your mind. Speak plainly; they will not — they
+              listen closely, then press back, until you see an angle you&rsquo;d
+              missed: in the matter, and in yourself.
             </p>
           </section>
 
@@ -106,7 +109,7 @@ export default function GuidePage() {
             <p className="font-lora text-[15px] text-charcoal leading-[1.65]">
               Beyond conversation, the room has its practices. <span className="italic">The Mirror</span> reads
               your week back to you. <span className="italic">The Council</span> convenes four minds on one
-              matter. <span className="italic">A Letter</span> travels to your future self.
+              matter. <span className="italic">A Message to Your Future Self</span> carries your words forward in time.
             </p>
           </section>
 
