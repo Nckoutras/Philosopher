@@ -51,16 +51,16 @@ export default function GuidePage() {
 
           <div className="mt-6 rounded-[16px] overflow-hidden shadow-card">
             <Image src="/personas/wise-room-hero.webp" alt="The Wise Room" width={760} height={300}
-              className="w-full h-[190px] object-cover object-bottom" priority />
+              className="w-full h-[240px] object-cover object-bottom" priority />
           </div>
 
           <div className="flex justify-center my-7"><BronzeDivider width={64} /></div>
           <section className="space-y-3">
             <h2 className="font-cormorant text-[20px] font-medium text-ink leading-tight">The minds.</h2>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-3 gap-4">
               {MINDS.map((m) => (
-                <Link key={m.name} href={`/app/persona/${m.slug}`} className="flex flex-col items-center gap-1.5">
-                  <div className="w-[88px] h-[88px] rounded-full overflow-hidden bg-linen shadow-card">
+                <Link key={m.name} href={`/app/persona/${m.slug}`} className="flex flex-col items-center gap-1.5 transition-transform duration-150 active:scale-95">
+                  <div className="w-full aspect-square rounded-full overflow-hidden bg-linen shadow-card">
                     <Image src={m.src} alt={m.name} width={88} height={88} className="object-cover w-full h-full" />
                   </div>
                   <span className="font-lora text-[10px] text-sepia text-center leading-tight">{m.name}</span>
