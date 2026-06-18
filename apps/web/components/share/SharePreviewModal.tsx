@@ -392,7 +392,7 @@ export default function SharePreviewModal({
           <button
             type="button"
             onClick={handleSend}
-            disabled={shareLoading || preparing}
+            disabled={shareLoading || preparing || (isPro && !preparedBlob && !shareError)}
             className="flex-1 font-lora text-[13px] text-vellum bg-bronze rounded-sm py-2.5 px-4 flex items-center justify-center disabled:opacity-70"
           >
             {(shareLoading || preparing) ? (
