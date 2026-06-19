@@ -206,6 +206,7 @@ class WeeklyLetter(Base):
     period_start: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     period_end: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     status: Mapped[str] = mapped_column(String(20), nullable=False)
+    kind: Mapped[str] = mapped_column(String(20), nullable=False, server_default=text("'weekly'"))
     payload: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     email_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -213,7 +214,8 @@ class WeeklyLetter(Base):
 
     __table_args__ = (
         CheckConstraint("status IN ('generated', 'empty', 'suppressed')", name="ck_weekly_letters_status"),
-        Index("uq_weekly_letters_user_period", "user_id", "period_start", unique=True),
+        CheckConstraint("kind IN ('weekly', 'monthly')", name="ck_weekly_letters_kind"),
+        Index("uq_weekly_letters_user_period", "user_id", "period_start", "kind", unique=True),
         Index("ix_weekly_letters_user_id", "user_id"),
     )
 

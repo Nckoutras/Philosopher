@@ -166,6 +166,56 @@ async def trigger_weekly_letter_generate(
     return {"enqueued": True, "voice_persona_slug": voice_persona_slug}
 
 
+@router.post("/generate-monthly-letter")
+async def trigger_monthly_letter_generate(
+    request: Request,
+    admin: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Trigger immediate monthly 'season' letter generation for the current admin.
+
+    Picks the voice persona by most-conversed-this-CALENDAR-MONTH (mirrors the
+    last-of-month cron). The task gates on MONTHLY_MIN_MESSAGES, so a thin month
+    yields an 'empty' letter and no email.
+    """
+    from datetime import datetime, timezone
+    from fastapi import HTTPException
+
+    arq_queue = getattr(request.app.state, "arq_queue", None)
+    if arq_queue is None:
+        raise HTTPException(status_code=503, detail="ARQ queue not available")
+
+    now = datetime.now(timezone.utc)
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    result = await db.execute(
+        select(
+            Conversation.persona_id,
+            func.count(Message.id).label("msg_count"),
+        )
+        .join(Message, Message.conversation_id == Conversation.id)
+        .where(
+            Conversation.user_id == admin.id,
+            Message.role == "user",
+            Message.created_at >= month_start,
+        )
+        .group_by(Conversation.persona_id)
+        .order_by(func.count(Message.id).desc(), Conversation.persona_id.asc())
+        .limit(1)
+    )
+    row = result.first()
+
+    voice_persona_slug = None
+    if row:
+        p_result = await db.execute(select(Persona.slug).where(Persona.id == str(row.persona_id)))
+        voice_persona_slug = p_result.scalar_one_or_none()
+
+    if voice_persona_slug is None:
+        voice_persona_slug = "marcus_aurelius"  # safe fallback; task gates on MONTHLY_MIN_MESSAGES
+
+    await arq_queue.enqueue_job("generate_monthly_letter_task", str(admin.id), voice_persona_slug)
+    return {"enqueued": True, "voice_persona_slug": voice_persona_slug}
+
+
 @router.patch("/personas/{persona_id}")
 async def update_persona_config(
     persona_id: str,

@@ -303,6 +303,77 @@ def setup_cron(arq_queue):
         except Exception as e:
             logger.error(f"Cron weekly letters failed: {e}", exc_info=True)
 
+    @scheduler.scheduled_job(CronTrigger(day="last", hour=17, minute=0), id="monthly_letter")
+    async def dispatch_monthly_letters():
+        """Last day of month 17:00 UTC — enqueue a monthly 'season' letter for users
+        with >= MONTHLY_MIN_MESSAGES user messages this calendar month, voiced by the
+        persona they conversed with most that month. CronTrigger(day='last') fires on
+        the final calendar day of the month."""
+        logger.info("Cron: dispatching monthly letters")
+        try:
+            from db.session import AsyncSessionLocal
+            from models import Message, Conversation, Persona
+            from sqlalchemy import select, func
+            from datetime import datetime, timezone
+            from collections import defaultdict
+            from workers.arq_worker import MONTHLY_MIN_MESSAGES
+
+            now = datetime.now(timezone.utc)
+            month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            async with AsyncSessionLocal() as db:
+                result = await db.execute(
+                    select(
+                        Conversation.user_id,
+                        Conversation.persona_id,
+                        func.count(Message.id).label("msg_count"),
+                    )
+                    .join(Message, Message.conversation_id == Conversation.id)
+                    .where(
+                        Message.role == "user",
+                        Message.created_at >= month_start,
+                    )
+                    .group_by(Conversation.user_id, Conversation.persona_id)
+                    .order_by(
+                        Conversation.user_id,
+                        func.count(Message.id).desc(),
+                        Conversation.persona_id.asc(),  # deterministic tie-break
+                    )
+                )
+                rows = result.all()
+
+            user_persona_counts: dict = defaultdict(list)
+            for row in rows:
+                user_persona_counts[str(row.user_id)].append((str(row.persona_id), row.msg_count))
+
+            targets: list[tuple[str, str]] = []  # [(user_id, persona_id)]
+            for uid, entries in user_persona_counts.items():
+                total = sum(c for _, c in entries)
+                if total >= MONTHLY_MIN_MESSAGES:
+                    top_persona_id = entries[0][0]  # ordered desc by count, asc by id
+                    targets.append((uid, top_persona_id))
+
+            if not targets:
+                logger.info("Cron: no monthly-letter-eligible users")
+                return
+
+            async with AsyncSessionLocal() as db:
+                persona_ids = list({pid for _, pid in targets})
+                slug_result = await db.execute(
+                    select(Persona.id, Persona.slug).where(Persona.id.in_(persona_ids))
+                )
+                id_to_slug = {str(r.id): r.slug for r in slug_result.all()}
+
+            dispatched = 0
+            for uid, pid in targets:
+                slug = id_to_slug.get(pid)
+                if slug:
+                    await arq_queue.enqueue_job("generate_monthly_letter_task", uid, slug)
+                    dispatched += 1
+
+            logger.info(f"Cron: enqueued {dispatched} monthly letters")
+        except Exception as e:
+            logger.error(f"Cron monthly letters failed: {e}", exc_info=True)
+
     @scheduler.scheduled_job(IntervalTrigger(hours=1), id="preview_mirror")
     async def dispatch_preview_mirrors():
         """Hourly — give a one-time preview mirror to users with >=3 active chats in 72h who have no mirror yet."""
@@ -339,7 +410,7 @@ def setup_cron(arq_queue):
             logger.error(f"Cron preview mirrors failed: {e}", exc_info=True)
 
     scheduler.start()
-    logger.info("Cron scheduler started with 7 jobs")
+    logger.info("Cron scheduler started with 8 jobs")
 
 
 def shutdown_cron():
