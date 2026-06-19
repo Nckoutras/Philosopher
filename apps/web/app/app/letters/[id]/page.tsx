@@ -9,6 +9,7 @@ import { api } from '@/lib/api'
 import type { WeeklyLetter, Persona } from '@/lib/api'
 import PersonaPickerSheet from '@/components/personas/PersonaPickerSheet'
 import SharePreviewModal from '@/components/share/SharePreviewModal'
+import SeasonFinaleView from '@/components/letters/SeasonFinaleView'
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
@@ -155,6 +156,18 @@ export default function LetterReadPage() {
         </button>
       </div>
 
+      {letter.kind === 'monthly' ? (
+        <SeasonFinaleView
+          payload={payload}
+          voicePersona={voicePersona}
+          suggestedPersona={suggestedPersona}
+          periodStart={letter.period_start}
+          startingConv={startingConv}
+          onStartConversation={handleStartConversation}
+          onRevisit={() => setPickerOpen(true)}
+          onShare={() => setShareOpen(true)}
+        />
+      ) : (
       <div className="px-[24px] pb-[40px]">
         {/* Week span */}
         <p className="font-lora text-[12px] uppercase tracking-[0.14em] text-sepia mb-[8px]">
@@ -259,6 +272,7 @@ export default function LetterReadPage() {
           </button>
         )}
       </div>
+      )}
 
       <PersonaPickerSheet
         open={pickerOpen}
