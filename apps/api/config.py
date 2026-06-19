@@ -52,6 +52,12 @@ class Settings(BaseSettings):
     # Frontend base URL — used for OAuth redirects, email links, Stripe return URLs
     FRONTEND_URL: str = "http://localhost:3000"
 
+    # API (backend) base URL — used to build absolute links BACK to the API in
+    # outbound email (e.g. the weekly-letter unsubscribe link). MUST be set on
+    # Render to the public backend URL (e.g. https://philosopher-api-z9l9.onrender.com).
+    # If left at localhost, the weekly-letter email is NOT sent (see arq_worker).
+    API_BASE_URL: str = "http://localhost:8000"
+
     # Google OAuth (dormant until GOOGLE_OAUTH_ENABLED=true + credentials set on Render)
     GOOGLE_CLIENT_ID: str = ""
     GOOGLE_CLIENT_SECRET: str = ""
