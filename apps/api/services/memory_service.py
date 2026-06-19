@@ -34,6 +34,34 @@ Write a single observation that names WHAT keeps returning. Rules:
 
 Example: "The question of whether to leave your job has come up again — it surfaced weeks ago in a different conversation, and here it is once more." """
 
+# ── Shift detection (Insight Slice 2) ──────────────────────────────────────────
+# One classify+phrase call: given a just-raised memory and the prior memories that
+# echo it, decide whether the person's STANCE has changed ('shift') or merely
+# recurred ('pattern'), and phrase the observation in one shot. STRONGLY biased to
+# 'pattern' — LLMs over-detect narrative change; 'shift' is reserved for genuine
+# directional movement of the position. Shifts are hedged to a certainty ladder.
+SHIFT_CLASSIFY_PROMPT = """You compare something a person raised just now against closely-related things they said earlier, in OTHER conversations, and decide whether their STANCE on the theme has actually changed.
+
+Return JSON only — no markdown, no preamble — exactly: {"insight_type": "pattern" | "shift", "content": "..."}
+
+Classification (default to "pattern"):
+- "pattern" is the DEFAULT. Choose it whenever the theme simply recurs and the person's position is essentially unchanged. Different wording, new examples, fresh emphasis, or a more detailed retelling of the SAME stance is still "pattern".
+- "shift" ONLY when there is genuine DIRECTIONAL change in the stance itself — the position moved or reversed (e.g. from wanting to leave → wanting to stay; from certainty → doubt; from resisting → accepting). Rephrasing or paraphrase variation is NOT a shift. When in doubt, it is a pattern.
+
+Write "content" as a single observation, at most 2 sentences, addressed to the person as "you". Plain, grounded, observational. No therapy-speak, no diagnosis, never "you always"/"you never", no preamble, no quotation marks.
+
+For "pattern": name the recurring theme concretely — a familiar thread returning.
+
+For "shift": HEDGE the claim to how clearly the change shows in the material. Match the language to your confidence, and never state a tentative shift as a certain fact:
+- low confidence    → "Something may be beginning to shift — ..."
+- medium confidence → "It seems as though ..."
+- high confidence   → "It's quite likely that ..." or "What you once called X, you now seem to name Y."
+
+No-verbatim rule (both types): never quote the person and never paraphrase their sentences one-to-one. Reuse their key concept-words as anchors, but reframe — name it one level above the instance. If find-and-replace on their words could produce your line, rewrite it. Make no claim the material does not support.
+
+Example pattern: {"insight_type": "pattern", "content": "The question of whether to leave your job has come up again — it surfaced weeks ago in a different conversation, and here it is once more."}
+Example shift: {"insight_type": "shift", "content": "It seems as though the certainty you once had about leaving has loosened; where you spoke of escape, you now weigh what staying might be worth."}"""
+
 MEMORY_EXTRACTION_PROMPT = """You are a memory extraction system for a philosophical companion app.
 
 Given a conversation exchange (user message + assistant response), extract memorable observations about the user.
@@ -166,16 +194,15 @@ class MemoryService:
             if not new_entries:
                 return
 
-            # ── DEDUP / THROTTLE ──────────────────────────────────────────────
-            # Skip if a non-dismissed 'pattern' insight was minted for this user
-            # within the throttle window (spacing + idempotency vs at-least-once
-            # delivery), and never mint more than one 'pattern' insight per
-            # conversation.
+            # ── DEDUP / THROTTLE (type-agnostic) ──────────────────────────────
+            # Gate on ANY non-dismissed insight (not just 'pattern'): a pattern
+            # and a shift must never both fire within the throttle window or
+            # within the same conversation. Spacing + idempotency vs ARQ's
+            # at-least-once delivery; max one insight of any type per conversation.
             cutoff = datetime.now(timezone.utc) - timedelta(hours=RECURRENCE_THROTTLE_HOURS)
             recent = await db.execute(
                 select(Insight.id).where(
                     Insight.user_id == user_id,
-                    Insight.insight_type == "pattern",
                     Insight.is_dismissed == False,
                     Insight.created_at >= cutoff,
                 ).limit(1)
@@ -188,7 +215,6 @@ class MemoryService:
                 select(Insight.id).where(
                     Insight.user_id == user_id,
                     Insight.conversation_id == conversation_id,
-                    Insight.insight_type == "pattern",
                 ).limit(1)
             )
             if per_conv.scalar_one_or_none() is not None:
@@ -238,17 +264,50 @@ class MemoryService:
                 logger.info("Recurrence: none above threshold for conv=%s", conversation_id)
                 return
 
-            # ── PHRASING ──────────────────────────────────────────────────────
+            # ── CLASSIFY + PHRASE ─────────────────────────────────────────────
+            # One call decides pattern vs shift and produces the phrasing. On any
+            # ambiguity / empty / parse failure we fall back to the slice-1 plain
+            # recurrence phrasing as a 'pattern' — never lose the insight, never
+            # surface an unvalidated 'shift'.
             prior_text = "\n".join(f"- {m.content}" for m in prior_matches[:5])
-            raw = await llm_client.complete(
-                system=RECURRENCE_PROMPT,
-                user=(
-                    f"Raised now:\n- {recurring_entry.content}\n\n"
-                    f"Echoed earlier (other conversations):\n{prior_text}"
-                ),
-                max_tokens=80,
+            user_prompt = (
+                f"Raised now:\n- {recurring_entry.content}\n\n"
+                f"Echoed earlier (other conversations):\n{prior_text}"
             )
-            content = (raw or "").strip()
+
+            raw = await llm_client.complete(
+                system=SHIFT_CLASSIFY_PROMPT,
+                user=user_prompt,
+                max_tokens=160,
+            )
+
+            insight_type = "pattern"
+            content = None
+            try:
+                parsed = (raw or "").strip()
+                if parsed.startswith("```"):
+                    parsed = parsed.split("\n", 1)[1] if "\n" in parsed else ""
+                if parsed.endswith("```"):
+                    parsed = parsed[:-3].rstrip()
+                data = json.loads(parsed)
+                candidate_type = data.get("insight_type")
+                candidate_content = (data.get("content") or "").strip()
+                if candidate_type in ("pattern", "shift") and candidate_content:
+                    insight_type = candidate_type
+                    content = candidate_content
+            except Exception:
+                content = None  # fall through to plain-phrasing fallback
+
+            if content is None:
+                # Safe fallback: slice-1 plain recurrence phrasing, always 'pattern'.
+                fallback = await llm_client.complete(
+                    system=RECURRENCE_PROMPT,
+                    user=user_prompt,
+                    max_tokens=80,
+                )
+                insight_type = "pattern"
+                content = (fallback or "").strip()
+
             if len(content) >= 2 and content[0] in "\"'" and content[-1] in "\"'":
                 content = content[1:-1].strip()
             if not content:
@@ -260,12 +319,12 @@ class MemoryService:
                 conversation_id=conversation_id,
                 persona_id=persona_id,
                 content=content,
-                insight_type="pattern",
+                insight_type=insight_type,
             ))
             await db.commit()
             logger.info(
-                "Recurrence insight written user=%s conv=%s (%s prior matches)",
-                user_id, conversation_id, len(prior_matches),
+                "Insight written type=%s user=%s conv=%s (%s prior matches)",
+                insight_type, user_id, conversation_id, len(prior_matches),
             )
         except Exception as e:
             logger.error("detect_recurrence failed for conv=%s: %s", conversation_id, e, exc_info=True)

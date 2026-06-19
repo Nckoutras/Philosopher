@@ -188,9 +188,15 @@ export default function ExistingConversationPage() {
     prevAssistantCountRef.current = count
   }, [messages, isReady, refreshInsight])
 
-  function handleInsightReflect() {
-    // Open the Mirror normally — no theme seeding (later slice).
-    router.push('/app/mirror')
+  function handleInsightPrimary() {
+    // Branch on insight type (Slice 2): a 'shift' goes to You-vs-You (which
+    // enforces its own Pro gate); everything else reflects in the Mirror. No
+    // theme seeding either way — later slice.
+    if (insight?.insight_type === 'shift') {
+      router.push('/app/you-vs-you')
+    } else {
+      router.push('/app/mirror')
+    }
   }
 
   async function handleInsightDismiss() {
@@ -292,9 +298,10 @@ export default function ExistingConversationPage() {
           onBringAnotherMind={handleBringAnotherMind}
           onGoDeeper={() => sendGoDeeper()}
           insightContent={insight?.content ?? null}
+          insightType={insight?.insight_type ?? null}
           insightExpanded={insightExpanded}
           onInsightTap={() => setInsightExpanded(true)}
-          onInsightReflect={handleInsightReflect}
+          onInsightPrimary={handleInsightPrimary}
           onInsightDismiss={handleInsightDismiss}
         />
         {safetyActive ? (
