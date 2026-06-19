@@ -23,6 +23,10 @@ interface SharePreviewModalProps {
   // 'letter' variant
   weeklyLetterId?: string
   letterTitle?: string
+  // Monthly 'season' letter only: show the real generated PNG as the preview
+  // (falls back to the HTML preview until the blob is ready). Does not affect
+  // the weekly/line/council/mirror previews.
+  seasonImagePreview?: boolean
   // all variants
   quote: string
   onShareComplete?: () => void
@@ -41,6 +45,7 @@ export default function SharePreviewModal({
   mirrorId,
   weeklyLetterId,
   letterTitle,
+  seasonImagePreview = false,
   quote,
   onShareComplete,
 }: SharePreviewModalProps) {
@@ -50,6 +55,7 @@ export default function SharePreviewModal({
   const [shareError, setShareError]     = useState<string | null>(null)
   const [preparedBlob, setPreparedBlob] = useState<Blob | null>(null)
   const [preparing, setPreparing]       = useState(false)
+  const [previewUrl, setPreviewUrl]     = useState<string | null>(null)
   const plan  = useStore((s) => s.plan)
   const isPro = plan === 'pro' || plan === 'premium'
 
@@ -104,6 +110,19 @@ export default function SharePreviewModal({
 
     return () => { cancelled = true }
   }, [isOpen, isPro, generateBlob])
+
+  // Monthly 'season' letter: turn the prepared PNG into an object URL so the
+  // preview can show the real card. Scoped to seasonImagePreview; revoked on
+  // change/unmount.
+  useEffect(() => {
+    if (!seasonImagePreview || !preparedBlob) {
+      setPreviewUrl(null)
+      return
+    }
+    const url = URL.createObjectURL(preparedBlob)
+    setPreviewUrl(url)
+    return () => URL.revokeObjectURL(url)
+  }, [seasonImagePreview, preparedBlob])
 
   // Keyboard (Escape + Tab trap) handlers
   useEffect(() => {
@@ -264,7 +283,17 @@ export default function SharePreviewModal({
       <div className="relative z-10 w-full max-w-[360px] bg-paper rounded-lg p-5 shadow-[0_8px_32px_rgba(31,27,20,0.18)] max-h-[85svh] overflow-y-auto">
 
         {/* ── Preview card (4:5 aspect ratio) ── */}
-        {isCouncil ? (
+        {seasonImagePreview && previewUrl ? (
+          /* Monthly 'season' letter — show the actual generated PNG. Falls back
+             to the HTML preview below until the blob is ready. */
+          <div
+            className="relative w-full bg-vellum rounded-sm overflow-hidden mb-4"
+            style={{ aspectRatio: '4/5' }}
+            aria-hidden="true"
+          >
+            <img src={previewUrl} alt="" className="w-full h-full object-cover" />
+          </div>
+        ) : isCouncil ? (
           /* Council variant — redesigned to match the server PNG: faint
              boardroom hero, top wordmark+date, centred row of participating-
              persona thumbnails, "The Council", synthesis, bold stamp.
