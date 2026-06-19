@@ -66,15 +66,18 @@ async def delete_memory(
 
 @insights_router.get("", response_model=list[InsightOut])
 async def get_insights(
+    conversation_id: str | None = None,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    result = await db.execute(
+    query = (
         select(Insight)
         .where(Insight.user_id == user.id, Insight.is_dismissed == False)
-        .order_by(Insight.created_at.desc())
-        .limit(20)
     )
+    if conversation_id is not None:
+        query = query.where(Insight.conversation_id == conversation_id)
+    query = query.order_by(Insight.created_at.desc()).limit(20)
+    result = await db.execute(query)
     return [InsightOut.model_validate(i) for i in result.scalars().all()]
 
 

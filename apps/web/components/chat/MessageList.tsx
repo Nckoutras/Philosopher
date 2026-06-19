@@ -5,6 +5,7 @@ import { api, type Message } from '@/lib/api'
 import { useStore } from '@/lib/store'
 import MessageBubble from './MessageBubble'
 import QuickActionsRow from './QuickActionsRow'
+import InsightCard from './InsightCard'
 
 interface Props {
   messages: Message[]
@@ -12,9 +13,15 @@ interface Props {
   onUpgradeConfirm: () => void
   onBringAnotherMind: () => void
   onGoDeeper: () => void
+  // Recurrence insight (Slice 1): surfaced on the LAST assistant message only.
+  insightContent?: string | null
+  insightExpanded?: boolean
+  onInsightTap?: () => void
+  onInsightReflect?: () => void
+  onInsightDismiss?: () => void
 }
 
-export default function MessageList({ messages, onSaveLine, onUpgradeConfirm, onBringAnotherMind, onGoDeeper }: Props) {
+export default function MessageList({ messages, onSaveLine, onUpgradeConfirm, onBringAnotherMind, onGoDeeper, insightContent, insightExpanded = false, onInsightTap, onInsightReflect, onInsightDismiss }: Props) {
   const savedMessageIds = useStore((s) => s.savedMessageIds)
   const activePersonaName = useStore((s) => s.activePersonaName)
 
@@ -22,6 +29,9 @@ export default function MessageList({ messages, onSaveLine, onUpgradeConfirm, on
     (m): m is Message & { role: 'user' | 'assistant' } =>
       m.role === 'user' || m.role === 'assistant',
   )
+
+  // The insight chip/card anchors to the most recent assistant message.
+  const lastAssistantId = [...visible].reverse().find((m) => m.role === 'assistant')?.id ?? null
 
   const [personaNames, setPersonaNames] = useState<Record<string, string>>({})
   const hasBroughtIn = visible.some((m) => m.role === 'assistant' && !!m.persona_slug)
@@ -61,6 +71,15 @@ export default function MessageList({ messages, onSaveLine, onUpgradeConfirm, on
                 onUpgradeConfirm={onUpgradeConfirm}
                 onBringAnotherMind={onBringAnotherMind}
                 onGoDeeper={onGoDeeper}
+                showInsightChip={msg.id === lastAssistantId && !!insightContent && !insightExpanded}
+                onInsightTap={onInsightTap}
+              />
+            )}
+            {msg.id === lastAssistantId && !!insightContent && insightExpanded && (
+              <InsightCard
+                content={insightContent}
+                onReflect={onInsightReflect ?? (() => {})}
+                onDismiss={onInsightDismiss ?? (() => {})}
               />
             )}
             {broughtIn && activePersonaName && (

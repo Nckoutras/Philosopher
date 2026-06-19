@@ -123,6 +123,16 @@ async def extract_memory_task(
             )
             await db.commit()
             logger.info(f"Memory task: stored {len(entries)} entries for user={user_id}")
+
+            # Recurrence detection (Insight Slice 1): same session, after commit.
+            # Self-contained try/except inside — never raises into this task.
+            await memory_service.detect_recurrence(
+                db=db,
+                user_id=user_id,
+                conversation_id=conversation_id,
+                persona_id=persona_id,
+                new_entries=entries,
+            )
         except Exception as e:
             logger.error(f"Memory task failed: {e}", exc_info=True)
 
