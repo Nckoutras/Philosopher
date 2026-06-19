@@ -25,6 +25,11 @@ function formatWeekSpan(start: string, end: string): string {
   return `${sm} ${sd} – ${em} ${ed}, ${yr}`
 }
 
+// Monthly letters: "Month Year" (period_start is the 1st of the month, UTC).
+function formatSeasonLabel(start: string): string {
+  return new Date(start).toLocaleDateString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' })
+}
+
 export default function LettersPage() {
   const router = useRouter()
   const token = useStore((s) => s.token)
@@ -152,9 +157,20 @@ export default function LettersPage() {
                   >
                     <div className="flex items-start justify-between gap-[8px]">
                       <div className="flex-1 min-w-0">
-                        <p className="font-lora text-[11px] uppercase tracking-[0.14em] text-sepia">
-                          {formatWeekSpan(l.period_start, l.period_end)}
-                        </p>
+                        {l.kind === 'monthly' ? (
+                          <div className="flex items-center gap-[8px]">
+                            <span className="font-lora text-[10px] uppercase tracking-[0.16em] text-bronze border border-[0.5px] border-bronze rounded-[3px] px-[6px] py-[1px]">
+                              Season
+                            </span>
+                            <span className="font-lora text-[11px] uppercase tracking-[0.14em] text-sepia">
+                              {formatSeasonLabel(l.period_start)}
+                            </span>
+                          </div>
+                        ) : (
+                          <p className="font-lora text-[11px] uppercase tracking-[0.14em] text-sepia">
+                            {formatWeekSpan(l.period_start, l.period_end)}
+                          </p>
+                        )}
                         <p className="font-cormorant text-[19px] font-medium text-ink leading-tight mt-[4px]">
                           {l.payload?.title ?? 'A letter for you'}
                         </p>
