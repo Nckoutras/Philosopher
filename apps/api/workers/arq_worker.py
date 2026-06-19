@@ -1,3 +1,4 @@
+import html
 import json
 import logging
 from arq import create_pool
@@ -25,6 +26,8 @@ LETTER_PROMPT = """You are {persona_name}{persona_tradition_clause}. Once a week
 You may also receive a record of letters you wrote to this person in earlier weeks. If so, this is your ongoing correspondence: pick up the thread, notice what keeps returning, and mark honestly what has shifted. If there is none, simply begin.
 
 You will receive the person's messages from the week, each tagged with a day.
+
+You may also receive a short list of what the Room has already noticed this week — recurring threads and shifts surfaced from their reflections. Treat these as the spine: let them anchor WHICH themes you name. The messages remain the texture; the noticings are orientation only — never quote or restate them.
 
 Write a letter that does the following:
 1. Opens with "Dear {user_first_name}" and ONE short paragraph — intimate, not presumptuous. Do not summarize their week back to them; they lived it.
@@ -57,7 +60,8 @@ Rules:
 - Speak in the second person ("you"), never describe them in the third person.
 - Your letter carries your philosophical tradition and voice — it is not generic.
 - Warmth and care, not distance. A letter from someone who has been paying attention.
-- End on a thought that moves, not a question that asks. Never diagnose, never prescribe."""
+- End on a thought that moves, not a question that asks. Never diagnose, never prescribe.
+- Never quote the person and never paraphrase their sentences one-to-one. Reuse their key concept-words as anchors, but distill one level above the instance, and make no claim their own words do not support."""
 
 MIRROR_PROMPT = """You are {persona_name}{persona_tradition_clause}. Once a week you hold up a mirror to a person — not to summarize their week, but to show them the deeper meaning beneath their own words, seen through your distinct way of understanding.
 
@@ -545,11 +549,101 @@ async def generate_weekly_mirror_task(ctx, user_id: str, persona_slug: str, kind
             logger.error(f"Mirror task failed: {e}", exc_info=True)
 
 
+def _render_weekly_letter_email(
+    title: str,
+    opening: str,
+    references: str,
+    pull_quote: str,
+    forward_gesture: str,
+    read_url: str,
+    unsubscribe_url: str,
+) -> str:
+    """Minimal, text-forward HTML for the weekly-letter email. All dynamic text
+    is HTML-escaped; single newlines become <br>."""
+    def para(s: str) -> str:
+        return html.escape(s).replace("\n", "<br>")
+
+    blocks = [f'<h1 style="font-size:22px;font-weight:normal;margin:0 0 20px">{html.escape(title)}</h1>']
+    if opening:
+        blocks.append(f'<p style="margin:0 0 16px">{para(opening)}</p>')
+    if references:
+        blocks.append(f'<p style="margin:0 0 16px">{para(references)}</p>')
+    if pull_quote:
+        blocks.append(
+            f'<blockquote style="margin:20px 0;padding-left:14px;border-left:2px solid #B89968;'
+            f'font-style:italic;color:#5A5246">{para(pull_quote)}</blockquote>'
+        )
+    if forward_gesture:
+        blocks.append(f'<p style="margin:0 0 16px">{para(forward_gesture)}</p>')
+    body = "\n".join(blocks)
+
+    return f"""<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head>
+<body style="margin:0;padding:32px 24px;background:#FAF4E6;color:#1F1B14;font-family:Georgia,serif;line-height:1.55">
+<div style="max-width:560px;margin:0 auto">
+{body}
+<p style="margin:28px 0 0"><a href="{html.escape(read_url)}" style="color:#8A7340">Read it in the app →</a></p>
+<hr style="border:none;border-top:1px solid #D4C8B0;margin:32px 0 12px">
+<p style="font-size:12px;color:#8A7E6A;margin:0">
+You're receiving the weekly reading from Philosopher.
+<a href="{html.escape(unsubscribe_url)}" style="color:#8A7E6A">Unsubscribe</a>.
+</p>
+</div></body></html>"""
+
+
+async def _maybe_send_weekly_letter_email(db, user, letter, payload, persona) -> None:
+    """Best-effort weekly-letter email. NEVER raises — the letter is already
+    saved, so a send failure (or missing config) must not break generation."""
+    from datetime import datetime, timezone
+    from services.email_service import send_email
+    from services.unsubscribe_token import make_token
+
+    try:
+        # Guard: if API_BASE_URL is still localhost, the unsubscribe link would be
+        # broken for a real recipient — refuse to send and warn instead.
+        if "localhost" in config.API_BASE_URL or "127.0.0.1" in config.API_BASE_URL:
+            logger.warning(
+                "Weekly email skipped (API_BASE_URL not configured for prod) user=%s",
+                getattr(user, "id", "?"),
+            )
+            return
+        if user is None or not user.email:
+            return
+        if user.weekly_email_opt_out:
+            logger.info("Weekly email skipped (opted out) user=%s", user.id)
+            return
+        if letter.email_sent_at is not None:
+            return
+
+        persona_name = persona.name if persona else "the Wise Room"
+        title = (payload.get("title") or "").strip() or f"A letter from {persona_name}"
+        read_url = f"{config.FRONTEND_URL}/app/letters/{letter.id}"
+        unsubscribe_url = (
+            f"{config.API_BASE_URL}/api/v1/unsubscribe/weekly"
+            f"?u={user.id}&t={make_token(user.id)}"
+        )
+        body_html = _render_weekly_letter_email(
+            title=title,
+            opening=payload.get("opening") or "",
+            references=payload.get("references") or "",
+            pull_quote=payload.get("pull_quote") or "",
+            forward_gesture=payload.get("forward_gesture") or "",
+            read_url=read_url,
+            unsubscribe_url=unsubscribe_url,
+        )
+        send_email(to=user.email, subject=title, html=body_html)
+        letter.email_sent_at = datetime.now(timezone.utc)
+        await db.commit()
+        logger.info("Weekly email sent user=%s letter=%s", user.id, letter.id)
+    except Exception as e:
+        logger.error("Weekly email failed user=%s: %s", getattr(user, "id", "?"), e, exc_info=True)
+
+
 async def generate_weekly_letter_task(ctx, user_id: str, voice_persona_slug: str):
     """Generates a weekly epistolary letter in the voice of the user's most-conversed persona."""
     from datetime import datetime, timedelta, timezone
     from db.session import AsyncSessionLocal
-    from models import WeeklyLetter, Persona, User, Message, Conversation
+    from models import WeeklyLetter, Persona, User, Message, Conversation, Insight
     from sqlalchemy import select
     from services.llm_client import llm_client
 
@@ -656,6 +750,29 @@ async def generate_weekly_letter_task(ctx, user_id: str, voice_persona_slug: str
             else:
                 prior_block = ""
 
+            # Insight spine (Slice 3a): non-dismissed insights surfaced during the
+            # window anchor the themes; raw messages remain the texture. Empty
+            # spine → raw-only input, exactly as before.
+            spine_result = await db.execute(
+                select(Insight)
+                .where(
+                    Insight.user_id == user_id,
+                    Insight.is_dismissed == False,
+                    Insight.created_at >= period_start,
+                    Insight.created_at <= period_end,
+                )
+                .order_by(Insight.created_at.asc())
+                .limit(10)
+            )
+            spine = spine_result.scalars().all()
+            if spine:
+                spine_text = "\n".join(
+                    f"- [{s.insight_type or 'note'}] {s.content}" for s in spine
+                )
+                room_block = f"<what_the_room_noticed>\n{spine_text}\n</what_the_room_noticed>\n\n"
+            else:
+                room_block = ""
+
             week_text = "\n".join(
                 f"[{m.created_at:%a %b %d}] {m.content}" for m in messages
             )
@@ -671,7 +788,7 @@ async def generate_weekly_letter_task(ctx, user_id: str, voice_persona_slug: str
 
             raw = await llm_client.complete(
                 system=system,
-                user=f"{prior_block}<week>\n{week_text}\n</week>",
+                user=f"{prior_block}{room_block}<week>\n{week_text}\n</week>",
                 model=config.ANTHROPIC_MODEL,
                 max_tokens=1024,
             )
@@ -714,16 +831,21 @@ async def generate_weekly_letter_task(ctx, user_id: str, voice_persona_slug: str
                 "forward_gesture": data.get("forward_gesture"),
                 "suggested_persona_slug": suggested_slug,
             }
-            db.add(WeeklyLetter(
+            letter = WeeklyLetter(
                 user_id=user_id,
                 voice_persona_id=voice_persona_id,
                 period_start=period_start,
                 period_end=period_end,
                 status="generated",
                 payload=payload,
-            ))
+            )
+            db.add(letter)
             await db.commit()
             logger.info(f"WeeklyLetter generated for user={user_id}, persona={voice_persona_slug}")
+
+            # Email delivery (best-effort; never breaks generation, never emails
+            # 'empty'/'suppressed' — those branches returned above).
+            await _maybe_send_weekly_letter_email(db, user, letter, payload, persona)
         except Exception as e:
             logger.error(f"WeeklyLetter task failed: {e}", exc_info=True)
 
