@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Zap, Users, Bookmark } from 'lucide-react'
+import { Zap, Users, Bookmark, Sparkle } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import SaveLineInlineUpgrade from './SaveLineInlineUpgrade'
 
@@ -12,9 +12,11 @@ interface Props {
   onUpgradeConfirm: () => void
   onBringAnotherMind: () => void
   onGoDeeper: () => void
+  showInsightChip?: boolean
+  onInsightTap?: () => void
 }
 
-export default function QuickActionsRow({ messageId: _messageId, saved, onSave, onUpgradeConfirm, onBringAnotherMind, onGoDeeper }: Props) {
+export default function QuickActionsRow({ messageId: _messageId, saved, onSave, onUpgradeConfirm, onBringAnotherMind, onGoDeeper, showInsightChip = false, onInsightTap }: Props) {
   const [showUpgrade, setShowUpgrade] = useState(false)
   const freeSaveCount = useStore((s) => s.freeSaveCount)
   const freeTierLimit = useStore((s) => s.freeTierLimit)
@@ -82,6 +84,17 @@ export default function QuickActionsRow({ messageId: _messageId, saved, onSave, 
         />
         <span className="hidden min-[360px]:inline">{saved ? 'Saved' : 'Save line'}</span>
       </button>
+      {showInsightChip && (
+        <button
+          type="button"
+          onClick={onInsightTap}
+          className="bg-paper text-ink border-[0.5px] border-bronze px-[10px] py-[6px] font-lora text-[13px] rounded-sm inline-flex items-center gap-[5px] shadow-[0_0_8px_rgba(184,153,104,0.45)]"
+          aria-label="View insight"
+        >
+          <Sparkle size={11} strokeWidth={1.5} className="text-bronze" />
+          <span>Insight</span>
+        </button>
+      )}
     </div>
   )
 }

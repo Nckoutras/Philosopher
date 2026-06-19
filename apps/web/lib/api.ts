@@ -829,8 +829,9 @@ class ApiClient {
 
   // ── Insights ──────────────────────────────────────────────────────────────
 
-  async getInsights(): Promise<Insight[]> {
-    return this.request<Insight[]>('/insights')
+  async getInsights(conversationId?: string): Promise<Insight[]> {
+    const qs = conversationId ? `?conversation_id=${encodeURIComponent(conversationId)}` : ''
+    return this.request<Insight[]>(`/insights${qs}`)
   }
 
   async dismissInsight(id: string): Promise<void> {
