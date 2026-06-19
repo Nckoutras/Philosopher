@@ -364,6 +364,7 @@ export interface WeeklyLetter {
   period_start: string
   period_end: string
   status: 'generated' | 'empty' | 'suppressed'
+  kind?: string
   payload: WeeklyLetterPayload | null
   read_at: string | null
   voice_persona_slug: string | null
