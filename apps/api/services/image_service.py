@@ -39,6 +39,7 @@ HERO_PATH = SHARE_DIR / "wise-room-hero.webp"
 MIRROR_HERO_PATH  = RITUALS_DIR / "mirror.webp"
 COUNCIL_HERO_PATH = RITUALS_DIR / "boardroom.webp"
 LETTER_HERO_PATH  = RITUALS_DIR / "sundayletter.png"
+SEASON_HERO_PATH  = RITUALS_DIR / "seasonletter.png"   # pre-composed 1080×1350 monthly card base
 
 CANVAS_WIDTH  = 1080
 CANVAS_HEIGHT = 1350
@@ -79,6 +80,29 @@ URL_TEXT            = "thewiseroom.app"
 
 DATE_BASELINE_Y     = FOOTER_TOP_Y + 170  # 1300
 DATE_FONT_SIZE      = 16
+
+
+# ── Season (monthly) share card ───────────────────────────────────────────────
+# Text drawn into the lower Vellum zone of the pre-composed seasonletter.png
+# (the framed brand photo occupies the upper ~58%; text zone starts ~y810).
+# All centered on x=540. Positions are tunable; the quote line-count is bounded
+# at render time so it can never cross into the footer band.
+SEASON_TEXT_MAX_WIDTH     = 840
+SEASON_EYEBROW_FONT_SIZE  = 22
+SEASON_EYEBROW_BASELINE_Y = 856
+SEASON_TITLE_FONT_SIZE    = 50
+SEASON_TITLE_TOP_Y        = 892
+SEASON_TITLE_LINE_H       = 60
+SEASON_TITLE_MAX_LINES    = 2
+SEASON_DIVIDER_WIDTH      = 120
+SEASON_DIVIDER_GAP        = 26
+SEASON_QUOTE_FONT_SIZE    = 32
+SEASON_QUOTE_LINE_H       = 46
+SEASON_QUOTE_MAX_LINES    = 6
+SEASON_QUOTE_FLOOR_Y      = 1212   # quote must end above this (footer band below)
+SEASON_FOOTER_WORDMARK_Y  = 1252
+SEASON_FOOTER_URL_Y       = 1286
+SEASON_FOOTER_DATE_Y      = 1314
 
 
 # ── Reflection card (redesigned PR4ah) ───────────────────────────────────────
@@ -329,6 +353,16 @@ async def generate_letter_share_image(
 
     title = (letter.payload or {}).get("title") or "The Sunday Letter"
 
+    # Monthly 'season' letters get a distinct full-strength branded card built on
+    # the pre-composed seasonletter.png (no ghosted hero, no persona portrait).
+    if letter.kind == "monthly":
+        return _render_season_card(
+            title=(letter.payload or {}).get("title") or "A Season",
+            quote=pull_quote,
+            period_label=letter.period_start.strftime("%B %Y"),
+            created_at=letter.created_at,
+        )
+
     # Voice persona (portrait + name) — optional; the letter may be voice-less.
     persona: Persona | None = None
     if letter.voice_persona_id:
@@ -348,6 +382,86 @@ async def generate_letter_share_image(
         hero_opacity=REFLECT_HERO_OPACITY_RITUAL,
         hero_path=LETTER_HERO_PATH,
     )
+
+
+def _letterspace(s: str, sp: str = " ") -> str:
+    """Light tracking for the eyebrow caps (Pillow has no native letter-spacing):
+    join characters with a thin space."""
+    return sp.join(list(s))
+
+
+def _render_season_card(
+    *,
+    title: str,
+    quote: str,
+    period_label: str,
+    created_at: datetime,
+) -> bytes:
+    """Monthly 'season' share card (1080×1350). Draws the season eyebrow, title,
+    a bronze divider, the keepsake quote, and the branding footer into the lower
+    Vellum zone of the pre-composed, FULL-STRENGTH seasonletter.png base (the
+    framed brand photo is already part of that asset). No ghosting, no portrait.
+    Falls back to plain Vellum if the asset is missing so it never 500s."""
+    if SEASON_HERO_PATH.exists():
+        try:
+            canvas = Image.open(SEASON_HERO_PATH).convert("RGBA")
+            if canvas.size != (CANVAS_WIDTH, CANVAS_HEIGHT):
+                canvas = canvas.resize((CANVAS_WIDTH, CANVAS_HEIGHT), Image.LANCZOS)
+        except Exception as e:
+            logger.warning(f"Could not open season hero {SEASON_HERO_PATH}: {e}. Plain Vellum.")
+            canvas = Image.new("RGBA", (CANVAS_WIDTH, CANVAS_HEIGHT), BG_COLOR + (255,))
+    else:
+        logger.warning(f"Season hero missing: {SEASON_HERO_PATH}. Plain Vellum.")
+        canvas = Image.new("RGBA", (CANVAS_WIDTH, CANVAS_HEIGHT), BG_COLOR + (255,))
+
+    draw = ImageDraw.Draw(canvas)
+    cx = PORTRAIT_CENTER_X  # 540
+
+    font_eyebrow = _load_font("Lora-Regular.ttf", SEASON_EYEBROW_FONT_SIZE)
+    font_title   = _load_font("CormorantGaramond-Medium.ttf", SEASON_TITLE_FONT_SIZE)
+    font_quote   = _load_font("CormorantGaramond-Italic.ttf", SEASON_QUOTE_FONT_SIZE)
+    font_word    = _load_font("CormorantGaramond-Italic.ttf", WORDMARK_FONT_SIZE)
+    font_url     = _load_font("Lora-Regular.ttf", URL_FONT_SIZE)
+    font_date    = _load_font("Lora-Regular.ttf", DATE_FONT_SIZE)
+
+    # Eyebrow — "SEASON · MONTH YEAR", lightly tracked, bronze
+    draw.text(
+        (cx, SEASON_EYEBROW_BASELINE_Y),
+        _letterspace(f"Season · {period_label}".upper()),
+        font=font_eyebrow, fill=BRONZE_COLOR, anchor="ms",
+    )
+
+    # Title — Cormorant Medium, ink, wrapped & centered
+    y = SEASON_TITLE_TOP_Y
+    for line in _wrap_text(title, font_title, SEASON_TEXT_MAX_WIDTH, SEASON_TITLE_MAX_LINES):
+        draw.text((cx, y), line, font=font_title, fill=INK_COLOR, anchor="mt")
+        y += SEASON_TITLE_LINE_H
+
+    # Bronze divider
+    y += SEASON_DIVIDER_GAP
+    draw.line(
+        [(cx - SEASON_DIVIDER_WIDTH // 2, y), (cx + SEASON_DIVIDER_WIDTH // 2, y)],
+        fill=BRONZE_COLOR, width=1,
+    )
+    y += SEASON_DIVIDER_GAP
+
+    # Keepsake quote — Cormorant Italic, ink, wrapped; line count bounded so it
+    # can never run into the footer band.
+    remaining = SEASON_QUOTE_FLOOR_Y - y
+    max_quote_lines = max(1, min(SEASON_QUOTE_MAX_LINES, remaining // SEASON_QUOTE_LINE_H))
+    for line in _wrap_text(quote, font_quote, SEASON_TEXT_MAX_WIDTH, max_quote_lines):
+        draw.text((cx, y), line, font=font_quote, fill=INK_COLOR, anchor="mt")
+        y += SEASON_QUOTE_LINE_H
+
+    # Branding footer — wordmark / url / date (bronze, centered)
+    draw.text((cx, SEASON_FOOTER_WORDMARK_Y), "The Wise Room", font=font_word, fill=BRONZE_COLOR, anchor="ms")
+    draw.text((cx, SEASON_FOOTER_URL_Y), URL_TEXT, font=font_url, fill=BRONZE_COLOR, anchor="ms")
+    draw.text((cx, SEASON_FOOTER_DATE_Y), _format_date(created_at), font=font_date, fill=BRONZE_COLOR, anchor="ms")
+
+    out = canvas.convert("RGB")
+    buf = BytesIO()
+    out.save(buf, format="PNG", optimize=False)
+    return buf.getvalue()
 
 
 def _format_date(dt: datetime) -> str:

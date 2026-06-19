@@ -288,6 +288,7 @@ export default function LetterReadPage() {
           kind="letter"
           weeklyLetterId={id}
           letterTitle={payload.title ?? undefined}
+          seasonImagePreview={letter.kind === 'monthly'}
           personaName={letter.voice_persona_name ?? undefined}
           portraitUrl={voicePersona?.portrait_url}
           quote={payload.pull_quote}
