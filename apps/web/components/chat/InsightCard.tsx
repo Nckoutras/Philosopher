@@ -7,6 +7,10 @@ interface Props {
   insightType: string | null
   onPrimary: () => void
   onDismiss: () => void
+  // 'chat' (default): left-indented vellum card inside the chat thread.
+  // 'today': standing card on the (vellum) Today page — bg-paper for contrast,
+  // no chat indent. App-voice identity (bronze border + eyebrow) is shared.
+  variant?: 'chat' | 'today'
 }
 
 // App-voice insight card per DESIGN_SYSTEM_v4 §3.25 (+ Slice-1 brief copy).
@@ -15,10 +19,14 @@ interface Props {
 // the card reads as distinct; bronze border + eyebrow carry the app-voice identity.
 // The primary action branches on insight type (Slice 2): a 'shift' sends the user
 // to You-vs-You; everything else reflects in the Mirror.
-export default function InsightCard({ content, insightType, onPrimary, onDismiss }: Props) {
+export default function InsightCard({ content, insightType, onPrimary, onDismiss, variant = 'chat' }: Props) {
   const primaryLabel = insightType === 'shift' ? 'See how this changed' : 'Reflect in the Mirror'
+  const containerClass =
+    variant === 'today'
+      ? 'bg-paper border-[0.5px] border-bronze rounded-md pt-[18px] px-[18px] pb-[14px] shadow-card'
+      : 'ml-[32px] mt-[6px] bg-vellum border-[0.5px] border-bronze rounded-md pt-[18px] px-[18px] pb-[14px]'
   return (
-    <div className="ml-[32px] mt-[6px] bg-vellum border-[0.5px] border-bronze rounded-md pt-[18px] px-[18px] pb-[14px]">
+    <div className={containerClass}>
       <p className="font-lora text-[9px] text-sepia uppercase tracking-[0.18em]">
         The Wise Room · Insight
       </p>
@@ -47,7 +55,7 @@ export default function InsightCard({ content, insightType, onPrimary, onDismiss
           onClick={onDismiss}
           className="flex-1 bg-transparent text-charcoal border-[0.5px] border-edge font-lora text-[13px] py-[9px] rounded-sm"
         >
-          Dismiss
+          {"Doesn't ring true"}
         </button>
       </div>
     </div>
