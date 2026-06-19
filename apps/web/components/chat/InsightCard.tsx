@@ -4,7 +4,8 @@ import { Bookmark } from 'lucide-react'
 
 interface Props {
   content: string
-  onReflect: () => void
+  insightType: string | null
+  onPrimary: () => void
   onDismiss: () => void
 }
 
@@ -12,7 +13,10 @@ interface Props {
 // NOT a persona reply: no glow, no animation. Left-aligned to persona bubbles.
 // bg-vellum (#EFE3CC) — deliberately darker than the bg-paper chat surface so
 // the card reads as distinct; bronze border + eyebrow carry the app-voice identity.
-export default function InsightCard({ content, onReflect, onDismiss }: Props) {
+// The primary action branches on insight type (Slice 2): a 'shift' sends the user
+// to You-vs-You; everything else reflects in the Mirror.
+export default function InsightCard({ content, insightType, onPrimary, onDismiss }: Props) {
+  const primaryLabel = insightType === 'shift' ? 'See how this changed' : 'Reflect in the Mirror'
   return (
     <div className="ml-[32px] mt-[6px] bg-vellum border-[0.5px] border-bronze rounded-md pt-[18px] px-[18px] pb-[14px]">
       <p className="font-lora text-[9px] text-sepia uppercase tracking-[0.18em]">
@@ -32,11 +36,11 @@ export default function InsightCard({ content, onReflect, onDismiss }: Props) {
       <div className="flex gap-[8px] pt-[12px] mt-[14px] border-t-[0.5px] border-edge">
         <button
           type="button"
-          onClick={onReflect}
+          onClick={onPrimary}
           className="flex-1 bg-ink text-paper font-lora text-[13px] py-[9px] rounded-sm inline-flex items-center justify-center gap-[6px]"
         >
           <Bookmark size={12} strokeWidth={1.5} />
-          Reflect in the Mirror
+          {primaryLabel}
         </button>
         <button
           type="button"

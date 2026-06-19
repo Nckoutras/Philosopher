@@ -13,15 +13,16 @@ interface Props {
   onUpgradeConfirm: () => void
   onBringAnotherMind: () => void
   onGoDeeper: () => void
-  // Recurrence insight (Slice 1): surfaced on the LAST assistant message only.
+  // Recurrence/shift insight (Slice 1–2): surfaced on the LAST assistant message only.
   insightContent?: string | null
+  insightType?: string | null
   insightExpanded?: boolean
   onInsightTap?: () => void
-  onInsightReflect?: () => void
+  onInsightPrimary?: () => void
   onInsightDismiss?: () => void
 }
 
-export default function MessageList({ messages, onSaveLine, onUpgradeConfirm, onBringAnotherMind, onGoDeeper, insightContent, insightExpanded = false, onInsightTap, onInsightReflect, onInsightDismiss }: Props) {
+export default function MessageList({ messages, onSaveLine, onUpgradeConfirm, onBringAnotherMind, onGoDeeper, insightContent, insightType, insightExpanded = false, onInsightTap, onInsightPrimary, onInsightDismiss }: Props) {
   const savedMessageIds = useStore((s) => s.savedMessageIds)
   const activePersonaName = useStore((s) => s.activePersonaName)
 
@@ -78,7 +79,8 @@ export default function MessageList({ messages, onSaveLine, onUpgradeConfirm, on
             {msg.id === lastAssistantId && !!insightContent && insightExpanded && (
               <InsightCard
                 content={insightContent}
-                onReflect={onInsightReflect ?? (() => {})}
+                insightType={insightType ?? null}
+                onPrimary={onInsightPrimary ?? (() => {})}
                 onDismiss={onInsightDismiss ?? (() => {})}
               />
             )}
