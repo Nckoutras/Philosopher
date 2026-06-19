@@ -26,6 +26,7 @@ def _to_out(letter: WeeklyLetter, persona: Persona | None) -> WeeklyLetterOut:
         period_start=letter.period_start,
         period_end=letter.period_end,
         status=letter.status,
+        kind=letter.kind,
         payload=letter.payload,
         read_at=letter.read_at,
         voice_persona_slug=persona.slug if persona else None,

@@ -514,6 +514,7 @@ class WeeklyLetterOut(BaseModel):
     period_start: datetime
     period_end: datetime
     status: str
+    kind: str = "weekly"
     payload: dict | None = None
     read_at: datetime | None = None
     voice_persona_slug: str | None = None
