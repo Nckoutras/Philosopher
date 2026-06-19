@@ -63,6 +63,49 @@ Rules:
 - End on a thought that moves, not a question that asks. Never diagnose, never prescribe.
 - Never quote the person and never paraphrase their sentences one-to-one. Reuse their key concept-words as anchors, but distill one level above the instance, and make no claim their own words do not support."""
 
+# Minimum user messages in the month for a monthly "season" letter to be worth
+# writing. Higher than the weekly floor (5): a thin month yields a hollow season
+# letter, so thin users simply get none that month (graceful degradation). Tunable.
+MONTHLY_MIN_MESSAGES = 15
+
+MONTHLY_PROMPT = """You are {persona_name}{persona_tradition_clause}. Once a month you write a "season letter" — a longer reckoning than the weekly note, looking back across the whole month at what the person has been living through, in your voice, addressed directly to them.
+
+You may receive a record of earlier season letters you wrote to this person. If so, this is an ongoing correspondence across seasons: pick up the thread. If there is none, simply begin.
+
+You will receive the person's messages from the month, each tagged with a day, and a short list of what the Room noticed this month — recurring threads ('pattern') and changes of stance ('shift'). Let the noticings anchor WHICH themes you name; the messages are the texture. Never quote or restate the noticings.
+
+Write a season letter with four beats:
+1. THE THROUGH-LINE — open with "Dear {user_first_name}" and name what RECURRED across the month: the question or tension they kept circling. Anchor this on the 'pattern' noticings. One short paragraph.
+2. WHAT CHANGED — name how their stance MOVED over the month (then → now): a position that shifted, softened, hardened, or reframed. Anchor this on the 'shift' noticings. If nothing genuinely changed, say honestly that the season was one of holding rather than turning — do not invent movement.
+3. ONE LINE WORTH KEEPING — a single sentence from the letter with staying power: the season distilled.
+4. THE FORWARD GESTURE — close on a lingering provocation that opens the next season: a single sharp thought that pulls them forward. Never a literal question. Never advice. Never a task.
+
+Return JSON only, no preamble, in exactly this shape:
+{{"status": "generated",
+  "title": "...",
+  "opening": "...",
+  "references": "...",
+  "pull_quote": "...",
+  "forward_gesture": "...",
+  "suggested_persona_slug": "..."}}
+
+Where:
+- "title": a sharp season name, at most 6 words (e.g. "The month you stopped bracing"). Not "Monthly summary".
+- "opening": beat 1 — the greeting and the through-line. One short paragraph.
+- "references": beats 1-2 developed — the through-line and what changed (then -> now), in your voice. Interpretation, not recap.
+- "pull_quote": beat 3 — the one line worth keeping.
+- "forward_gesture": beat 4 — 1-2 sentences, a provocation that opens the next season. Not a question, not advice, not a task.
+- "suggested_persona_slug": choose ONE slug from this list of other minds: {other_persona_slugs}
+
+If the month holds nothing meaningful to letter about, return exactly: {{"status": "empty"}}
+
+Rules:
+- If prior season letters are provided, build genuine continuity — name a real recurring thread or a real change across seasons. Never fabricate progress, never flatter.
+- Do not recount the month back to them — interpret, don't echo. Speak in the second person ("you"), never the third.
+- Your letter carries your philosophical tradition and voice — it is not generic. Warmth and care, not distance.
+- End on a thought that moves, not a question that asks. Never diagnose, never prescribe.
+- Never quote the person and never paraphrase their sentences one-to-one. Reuse their key concept-words as anchors, but distill one level above the instance, and make no claim their own words do not support."""
+
 MIRROR_PROMPT = """You are {persona_name}{persona_tradition_clause}. Once a week you hold up a mirror to a person — not to summarize their week, but to show them the deeper meaning beneath their own words, seen through your distinct way of understanding.
 
 You will receive the person's messages from the week, each tagged with a day.
@@ -557,9 +600,11 @@ def _render_weekly_letter_email(
     forward_gesture: str,
     read_url: str,
     unsubscribe_url: str,
+    reading_label: str = "weekly",
 ) -> str:
-    """Minimal, text-forward HTML for the weekly-letter email. All dynamic text
-    is HTML-escaped; single newlines become <br>."""
+    """Minimal, text-forward HTML for the weekly/monthly-letter email. All dynamic
+    text is HTML-escaped; single newlines become <br>. reading_label defaults to
+    'weekly' so the weekly call is byte-identical."""
     def para(s: str) -> str:
         return html.escape(s).replace("\n", "<br>")
 
@@ -585,15 +630,18 @@ def _render_weekly_letter_email(
 <p style="margin:28px 0 0"><a href="{html.escape(read_url)}" style="color:#8A7340">Read it in the app →</a></p>
 <hr style="border:none;border-top:1px solid #D4C8B0;margin:32px 0 12px">
 <p style="font-size:12px;color:#8A7E6A;margin:0">
-You're receiving the weekly reading from Philosopher.
+You're receiving the {html.escape(reading_label)} reading from Philosopher.
 <a href="{html.escape(unsubscribe_url)}" style="color:#8A7E6A">Unsubscribe</a>.
 </p>
 </div></body></html>"""
 
 
-async def _maybe_send_weekly_letter_email(db, user, letter, payload, persona) -> None:
-    """Best-effort weekly-letter email. NEVER raises — the letter is already
-    saved, so a send failure (or missing config) must not break generation."""
+async def _maybe_send_weekly_letter_email(db, user, letter, payload, persona, reading_label: str = "weekly") -> None:
+    """Best-effort weekly/monthly-letter email. NEVER raises — the letter is
+    already saved, so a send failure (or missing config) must not break
+    generation. reading_label defaults to 'weekly' so the weekly call is
+    unchanged; both kinds share the one weekly_email_opt_out preference and the
+    one /unsubscribe/weekly endpoint (v1)."""
     from datetime import datetime, timezone
     from services.email_service import send_email
     from services.unsubscribe_token import make_token
@@ -603,14 +651,14 @@ async def _maybe_send_weekly_letter_email(db, user, letter, payload, persona) ->
         # broken for a real recipient — refuse to send and warn instead.
         if "localhost" in config.API_BASE_URL or "127.0.0.1" in config.API_BASE_URL:
             logger.warning(
-                "Weekly email skipped (API_BASE_URL not configured for prod) user=%s",
-                getattr(user, "id", "?"),
+                "%s email skipped (API_BASE_URL not configured for prod) user=%s",
+                reading_label, getattr(user, "id", "?"),
             )
             return
         if user is None or not user.email:
             return
         if user.weekly_email_opt_out:
-            logger.info("Weekly email skipped (opted out) user=%s", user.id)
+            logger.info("%s email skipped (opted out) user=%s", reading_label, user.id)
             return
         if letter.email_sent_at is not None:
             return
@@ -630,13 +678,14 @@ async def _maybe_send_weekly_letter_email(db, user, letter, payload, persona) ->
             forward_gesture=payload.get("forward_gesture") or "",
             read_url=read_url,
             unsubscribe_url=unsubscribe_url,
+            reading_label=reading_label,
         )
         send_email(to=user.email, subject=title, html=body_html)
         letter.email_sent_at = datetime.now(timezone.utc)
         await db.commit()
-        logger.info("Weekly email sent user=%s letter=%s", user.id, letter.id)
+        logger.info("%s email sent user=%s letter=%s", reading_label, user.id, letter.id)
     except Exception as e:
-        logger.error("Weekly email failed user=%s: %s", getattr(user, "id", "?"), e, exc_info=True)
+        logger.error("%s email failed user=%s: %s", reading_label, getattr(user, "id", "?"), e, exc_info=True)
 
 
 async def generate_weekly_letter_task(ctx, user_id: str, voice_persona_slug: str):
@@ -659,11 +708,14 @@ async def generate_weekly_letter_task(ctx, user_id: str, voice_persona_slug: str
             persona = persona_result.scalar_one_or_none()
             voice_persona_id = persona.id if persona else None
 
-            # Dedup: skip if a letter already exists for this user+period
+            # Dedup: skip if a WEEKLY letter already exists for this user+period.
+            # kind-scoped so a monthly letter sharing this period_start (when the
+            # 1st of a month is a Sunday) cannot suppress the weekly one.
             existing = await db.execute(
                 select(WeeklyLetter.id).where(
                     WeeklyLetter.user_id == user_id,
                     WeeklyLetter.period_start == period_start,
+                    WeeklyLetter.kind == "weekly",
                 )
             )
             if existing.scalar_one_or_none() is not None:
@@ -728,13 +780,15 @@ async def generate_weekly_letter_task(ctx, user_id: str, voice_persona_slug: str
             other_slugs = [r[0] for r in other_personas_result.all()]
             other_persona_slugs_str = ", ".join(other_slugs) if other_slugs else "none"
 
-            # This persona's own prior letters to this user — for continuity
+            # This persona's own prior WEEKLY letters to this user — for continuity.
+            # kind-scoped so monthly letters never leak into weekly continuity.
             prior_result = await db.execute(
                 select(WeeklyLetter)
                 .where(
                     WeeklyLetter.user_id == user_id,
                     WeeklyLetter.voice_persona_id == voice_persona_id,
                     WeeklyLetter.status == "generated",
+                    WeeklyLetter.kind == "weekly",
                     WeeklyLetter.period_start < period_start,
                 )
                 .order_by(WeeklyLetter.period_start.desc())
@@ -850,6 +904,225 @@ async def generate_weekly_letter_task(ctx, user_id: str, voice_persona_slug: str
             logger.error(f"WeeklyLetter task failed: {e}", exc_info=True)
 
 
+async def generate_monthly_letter_task(ctx, user_id: str, voice_persona_slug: str):
+    """Generates a monthly 'season' letter (kind='monthly') over the current
+    calendar month, reusing the weekly engine's spine + render/email helpers.
+    Mirrors generate_weekly_letter_task's flow; never raises."""
+    import calendar
+    from datetime import datetime, timezone
+    from db.session import AsyncSessionLocal
+    from models import WeeklyLetter, Persona, User, Message, Conversation, Insight
+    from sqlalchemy import select
+    from services.llm_client import llm_client
+
+    async with AsyncSessionLocal() as db:
+        try:
+            # Period = the current calendar month [1st 00:00, last-day 23:59:59].
+            now = datetime.now(timezone.utc)
+            period_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            last_day = calendar.monthrange(now.year, now.month)[1]
+            period_end = now.replace(day=last_day, hour=23, minute=59, second=59, microsecond=0)
+
+            persona_result = await db.execute(
+                select(Persona).where(Persona.slug == voice_persona_slug)
+            )
+            persona = persona_result.scalar_one_or_none()
+            voice_persona_id = persona.id if persona else None
+
+            # Dedup: skip if a MONTHLY letter already exists for this user+month
+            # (kind-scoped; cannot collide with a weekly letter sharing period_start).
+            existing = await db.execute(
+                select(WeeklyLetter.id).where(
+                    WeeklyLetter.user_id == user_id,
+                    WeeklyLetter.period_start == period_start,
+                    WeeklyLetter.kind == "monthly",
+                )
+            )
+            if existing.scalar_one_or_none() is not None:
+                logger.info(f"MonthlyLetter already exists for user={user_id} period={period_start}, skipping")
+                return
+
+            user_result = await db.execute(select(User).where(User.id == user_id))
+            user = user_result.scalar_one_or_none()
+            user_first_name = "friend"
+            if user and user.full_name:
+                first = user.full_name.strip().split()[0]
+                if first:
+                    user_first_name = first
+
+            # User messages across the month
+            msgs_result = await db.execute(
+                select(Message)
+                .join(Conversation, Conversation.id == Message.conversation_id)
+                .where(
+                    Conversation.user_id == user_id,
+                    Message.role == "user",
+                    Message.created_at >= period_start,
+                    Message.created_at <= period_end,
+                )
+                .order_by(Message.created_at.asc())
+            )
+            messages = msgs_result.scalars().all()
+
+            # Safety gate
+            if any(m.safety_level in ("high", "critical") for m in messages):
+                db.add(WeeklyLetter(
+                    user_id=user_id,
+                    voice_persona_id=voice_persona_id,
+                    period_start=period_start,
+                    period_end=period_end,
+                    status="suppressed",
+                    kind="monthly",
+                ))
+                await db.commit()
+                logger.info(f"MonthlyLetter suppressed for user={user_id} (safety gate)")
+                return
+
+            # Quiet-month gate — higher floor than weekly: a thin month yields a
+            # hollow season letter, so thin users simply get none (graceful).
+            if len(messages) < MONTHLY_MIN_MESSAGES:
+                db.add(WeeklyLetter(
+                    user_id=user_id,
+                    voice_persona_id=voice_persona_id,
+                    period_start=period_start,
+                    period_end=period_end,
+                    status="empty",
+                    kind="monthly",
+                ))
+                await db.commit()
+                logger.info(f"MonthlyLetter empty for user={user_id} (fewer than {MONTHLY_MIN_MESSAGES} messages)")
+                return
+
+            # Other active persona slugs for the suggestion field
+            other_personas_result = await db.execute(
+                select(Persona.slug)
+                .where(Persona.is_active == True, Persona.slug != voice_persona_slug)
+                .order_by(Persona.slug)
+            )
+            other_slugs = [r[0] for r in other_personas_result.all()]
+            other_persona_slugs_str = ", ".join(other_slugs) if other_slugs else "none"
+
+            # This persona's prior MONTHLY letters — for cross-season continuity.
+            prior_result = await db.execute(
+                select(WeeklyLetter)
+                .where(
+                    WeeklyLetter.user_id == user_id,
+                    WeeklyLetter.voice_persona_id == voice_persona_id,
+                    WeeklyLetter.status == "generated",
+                    WeeklyLetter.kind == "monthly",
+                    WeeklyLetter.period_start < period_start,
+                )
+                .order_by(WeeklyLetter.period_start.desc())
+                .limit(3)
+            )
+            prior_letters = prior_result.scalars().all()
+            if prior_letters:
+                prior_text = "\n".join(
+                    f"[{p.period_start:%b %Y}] {(p.payload or {}).get('title','')} — {(p.payload or {}).get('pull_quote','')}"
+                    for p in reversed(prior_letters)
+                )
+                prior_block = f"<prior_season_letters>\n{prior_text}\n</prior_season_letters>\n\n"
+            else:
+                prior_block = ""
+
+            # Insight spine over the month (non-dismissed). Empty → raw-only.
+            spine_result = await db.execute(
+                select(Insight)
+                .where(
+                    Insight.user_id == user_id,
+                    Insight.is_dismissed == False,
+                    Insight.created_at >= period_start,
+                    Insight.created_at <= period_end,
+                )
+                .order_by(Insight.created_at.asc())
+                .limit(20)
+            )
+            spine = spine_result.scalars().all()
+            if spine:
+                spine_text = "\n".join(
+                    f"- [{s.insight_type or 'note'}] {s.content}" for s in spine
+                )
+                room_block = f"<what_the_room_noticed>\n{spine_text}\n</what_the_room_noticed>\n\n"
+            else:
+                room_block = ""
+
+            month_text = "\n".join(
+                f"[{m.created_at:%a %b %d}] {m.content}" for m in messages
+            )
+            persona_tradition_clause = (
+                (", " + persona.tradition) if persona and persona.tradition else ""
+            )
+            system = MONTHLY_PROMPT.format(
+                persona_name=persona.name if persona else "A thoughtful observer",
+                persona_tradition_clause=persona_tradition_clause,
+                user_first_name=user_first_name,
+                other_persona_slugs=other_persona_slugs_str,
+            )
+
+            raw = await llm_client.complete(
+                system=system,
+                user=f"{prior_block}{room_block}<month>\n{month_text}\n</month>",
+                model=config.ANTHROPIC_MODEL,
+                max_tokens=1536,  # longer than weekly (1024): a truncated reply fails json.loads → no letter at all
+            )
+            text = raw.strip()
+            if text.startswith("```"):
+                text = text.split("\n", 1)[1] if "\n" in text else ""
+            if text.endswith("```"):
+                text = text[:-3].rstrip()
+            data = json.loads(text)
+
+            if data.get("status") != "generated":
+                db.add(WeeklyLetter(
+                    user_id=user_id,
+                    voice_persona_id=voice_persona_id,
+                    period_start=period_start,
+                    period_end=period_end,
+                    status="empty",
+                    kind="monthly",
+                ))
+                await db.commit()
+                logger.info(f"MonthlyLetter empty for user={user_id} (LLM returned non-generated)")
+                return
+
+            raw_suggestion = data.get("suggested_persona_slug")
+            valid_suggestion_result = await db.execute(
+                select(Persona.slug).where(
+                    Persona.slug == raw_suggestion,
+                    Persona.is_active == True,
+                    Persona.slug != voice_persona_slug,
+                )
+            )
+            suggested_slug = valid_suggestion_result.scalar_one_or_none()
+
+            payload = {
+                "title": data.get("title"),
+                "opening": data.get("opening"),
+                "references": data.get("references"),
+                "pull_quote": data.get("pull_quote"),
+                "forward_gesture": data.get("forward_gesture"),
+                "suggested_persona_slug": suggested_slug,
+            }
+            letter = WeeklyLetter(
+                user_id=user_id,
+                voice_persona_id=voice_persona_id,
+                period_start=period_start,
+                period_end=period_end,
+                status="generated",
+                kind="monthly",
+                payload=payload,
+            )
+            db.add(letter)
+            await db.commit()
+            logger.info(f"MonthlyLetter generated for user={user_id}, persona={voice_persona_slug}")
+
+            # Email delivery (best-effort; reuses the weekly helper with the
+            # monthly label; never emails 'empty'/'suppressed' — returned above).
+            await _maybe_send_weekly_letter_email(db, user, letter, payload, persona, reading_label="monthly")
+        except Exception as e:
+            logger.error(f"MonthlyLetter task failed: {e}", exc_info=True)
+
+
 # ── Worker settings ───────────────────────────────────────────────────────────
 
 class WorkerSettings:
@@ -861,6 +1134,7 @@ class WorkerSettings:
         send_ritual_reminder_task,
         generate_weekly_mirror_task,
         generate_weekly_letter_task,
+        generate_monthly_letter_task,
     ]
     redis_settings = RedisSettings.from_dsn(config.REDIS_URL)
     max_jobs = 10
