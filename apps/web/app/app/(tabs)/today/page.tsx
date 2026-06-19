@@ -9,7 +9,7 @@ import { formatItemDate } from '@/lib/formatItemDate'
 import toast from 'react-hot-toast'
 import { useStore } from '@/lib/store'
 import { api } from '@/lib/api'
-import type { DailyQuestion, LastConversation, RecentSavedLine } from '@/lib/api'
+import type { DailyQuestion, LastConversation, RecentSavedLine, Insight } from '@/lib/api'
 import SharePreviewModal from '@/components/share/SharePreviewModal'
 import { getGreetingWithName } from '@/lib/useTimeGreeting'
 import PersonaPickerSheet from '@/components/personas/PersonaPickerSheet'
@@ -17,6 +17,11 @@ import TodaysTopicCard from '@/components/today/TodaysTopicCard'
 import NamePromptCard from '@/components/today/NamePromptCard'
 import AppHeader from '@/components/layout/AppHeader'
 import SundayLetterCard from '@/components/today/SundayLetterCard'
+import InsightCard from '@/components/chat/InsightCard'
+
+// A standing Today insight older than this is treated as stale and not shown,
+// so an un-acted insight doesn't linger on the Today screen indefinitely.
+const TODAY_INSIGHT_MAX_AGE_DAYS = 14
 
 function formatDateEyebrow(date: Date): string {
   const weekday = date.toLocaleDateString('en-US', { weekday: 'long' }).toUpperCase()
@@ -53,6 +58,7 @@ export default function TodayPage() {
   const [question, setQuestion] = useState<DailyQuestion | null>(null)
   const [lastConv, setLastConv] = useState<LastConversation | null>(null)
   const [recentLine, setRecentLine] = useState<RecentSavedLine | null>(null)
+  const [insight, setInsight] = useState<Insight | null>(null)
   const [loading, setLoading] = useState(true)
   const [pickerOpen, setPickerOpen] = useState(false)
   const [shareModalOpen, setShareModalOpen] = useState(false)
@@ -82,14 +88,23 @@ export default function TodayPage() {
 
     async function load() {
       try {
-        const [qRes, convRes, lineRes] = await Promise.allSettled([
+        const [qRes, convRes, lineRes, insightsRes] = await Promise.allSettled([
           api.getTodayQuestion(),
           api.getLastConversation(),
           api.getRecentSavedLine(),
+          api.getInsights(),
         ])
         if (qRes.status === 'fulfilled') setQuestion(qRes.value)
         if (convRes.status === 'fulfilled') setLastConv(convRes.value)
         if (lineRes.status === 'fulfilled') setRecentLine(lineRes.value)
+        if (insightsRes.status === 'fulfilled') {
+          const cutoff = Date.now() - TODAY_INSIGHT_MAX_AGE_DAYS * 24 * 60 * 60 * 1000
+          // List is non-dismissed, created_at desc → first within the window is the most recent.
+          const recent = insightsRes.value.find(
+            (i) => !i.is_dismissed && new Date(i.created_at).getTime() >= cutoff,
+          )
+          setInsight(recent ?? null)
+        }
       } finally {
         setLoading(false)
       }
@@ -124,6 +139,22 @@ export default function TodayPage() {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault()
       router.push('/app/reflections')
+    }
+  }
+
+  function handleInsightPrimary() {
+    if (!insight) return
+    router.push(insight.insight_type === 'shift' ? '/app/you-vs-you' : '/app/mirror')
+  }
+
+  async function handleInsightDismiss() {
+    const current = insight
+    if (!current) return
+    setInsight(null)
+    try {
+      await api.dismissInsight(current.id)
+    } catch {
+      // Server is_dismissed is the durable no-resurface control; ignore failure.
     }
   }
 
@@ -200,6 +231,17 @@ export default function TodayPage() {
             </div>
             <ChevronRight size={16} strokeWidth={1.5} className="text-sepia flex-shrink-0 self-center" />
           </button>
+        )}
+
+        {/* ── Slice 3b: standing insight card (passive, app-voice; absent when none) ── */}
+        {insight && (
+          <InsightCard
+            variant="today"
+            content={insight.content}
+            insightType={insight.insight_type}
+            onPrimary={handleInsightPrimary}
+            onDismiss={handleInsightDismiss}
+          />
         )}
 
         {/* ── D1a: Your reflections card ── */}
