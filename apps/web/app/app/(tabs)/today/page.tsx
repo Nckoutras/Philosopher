@@ -200,6 +200,7 @@ export default function TodayPage() {
             variant="today"
             content={insight.content}
             insightType={insight.insight_type}
+            sourceCount={insight.source_count}
             onPrimary={handleInsightPrimary}
             onDismiss={handleInsightDismiss}
           />

@@ -16,13 +16,14 @@ interface Props {
   // Recurrence/shift insight (Slice 1–2): surfaced on the LAST assistant message only.
   insightContent?: string | null
   insightType?: string | null
+  insightSourceCount?: number | null
   insightExpanded?: boolean
   onInsightTap?: () => void
   onInsightPrimary?: () => void
   onInsightDismiss?: () => void
 }
 
-export default function MessageList({ messages, onSaveLine, onUpgradeConfirm, onBringAnotherMind, onGoDeeper, insightContent, insightType, insightExpanded = false, onInsightTap, onInsightPrimary, onInsightDismiss }: Props) {
+export default function MessageList({ messages, onSaveLine, onUpgradeConfirm, onBringAnotherMind, onGoDeeper, insightContent, insightType, insightSourceCount, insightExpanded = false, onInsightTap, onInsightPrimary, onInsightDismiss }: Props) {
   const savedMessageIds = useStore((s) => s.savedMessageIds)
   const activePersonaName = useStore((s) => s.activePersonaName)
 
@@ -80,6 +81,7 @@ export default function MessageList({ messages, onSaveLine, onUpgradeConfirm, on
               <InsightCard
                 content={insightContent}
                 insightType={insightType ?? null}
+                sourceCount={insightSourceCount ?? null}
                 onPrimary={onInsightPrimary ?? (() => {})}
                 onDismiss={onInsightDismiss ?? (() => {})}
               />

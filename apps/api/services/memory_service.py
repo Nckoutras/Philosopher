@@ -237,7 +237,7 @@ class MemoryService:
                 vec_literal = "[" + ",".join(repr(float(x)) for x in entry.embedding) + "]"
                 result = await db.execute(
                     text("""
-                        SELECT content,
+                        SELECT content, conversation_id,
                                1 - (embedding <=> CAST(:query_vec AS vector)) AS score
                         FROM memory_entries
                         WHERE user_id = :user_id
@@ -263,6 +263,10 @@ class MemoryService:
             if recurring_entry is None:
                 logger.info("Recurrence: none above threshold for conv=%s", conversation_id)
                 return
+
+            # Distinct conversations the theme was noticed across: the distinct
+            # prior conversations that cleared the similarity bar, plus this one.
+            source_count = len({m.conversation_id for m in prior_matches}) + 1
 
             # ── CLASSIFY + PHRASE ─────────────────────────────────────────────
             # One call decides pattern vs shift and produces the phrasing. On any
@@ -320,6 +324,7 @@ class MemoryService:
                 persona_id=persona_id,
                 content=content,
                 insight_type=insight_type,
+                source_count=source_count,
             ))
             await db.commit()
             logger.info(

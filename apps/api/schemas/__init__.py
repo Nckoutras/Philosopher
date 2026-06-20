@@ -174,6 +174,7 @@ class InsightOut(BaseModel):
     id: str
     content: str
     insight_type: Optional[str]
+    source_count: Optional[int]
     is_dismissed: bool
     created_at: datetime
 
