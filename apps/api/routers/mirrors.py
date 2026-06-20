@@ -51,7 +51,14 @@ async def get_latest_mirror(
     user, plan = auth
     stmt = (
         select(Mirror)
-        .where(Mirror.user_id == user.id, Mirror.status == "generated")
+        # Insight-seeded mirrors are reached only via the ?insightId= reflect flow
+        # — never as the weekly reader's "latest". (Free is already preview-only
+        # below; this clause covers paid, which has no kind filter.)
+        .where(
+            Mirror.user_id == user.id,
+            Mirror.status == "generated",
+            Mirror.kind != "insight",
+        )
         .order_by(Mirror.created_at.desc())
         .limit(1)
     )
