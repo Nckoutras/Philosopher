@@ -7,7 +7,10 @@ interface Props {
   // line renders only when this is present and >= 2 (older insights are null).
   sourceCount?: number | null
   onPrimary: () => void
-  onDismiss: () => void
+  // 'Doubt this' navigates to Counterview (does NOT remove the insight).
+  onDoubt: () => void
+  // 'Discard this' removes the insight (the dismiss action).
+  onDiscard: () => void
   // 'chat' (default): left-indented vellum card inside the chat thread.
   // 'today': standing card on the (vellum) Today page — bg-paper for contrast,
   // no chat indent. App-voice identity (bronze border + eyebrow) is shared.
@@ -20,7 +23,7 @@ interface Props {
 // the card reads as distinct; bronze border + eyebrow carry the app-voice identity.
 // The primary action branches on insight type (Slice 2): a 'shift' sends the user
 // to You-vs-You; everything else reflects in the Mirror.
-export default function InsightCard({ content, insightType, sourceCount, onPrimary, onDismiss, variant = 'chat' }: Props) {
+export default function InsightCard({ content, insightType, sourceCount, onPrimary, onDoubt, onDiscard, variant = 'chat' }: Props) {
   const showProvenance = sourceCount != null && sourceCount >= 2
   const primaryLabel = insightType === 'shift' ? 'See how this changed' : 'Reflect in the Mirror'
   const containerClass =
@@ -61,21 +64,33 @@ export default function InsightCard({ content, insightType, sourceCount, onPrima
         </p>
       </div>
 
-      <div className="flex gap-[8px] pt-[12px] mt-[14px] border-t-[0.5px] border-edge">
+      <div className="flex flex-col gap-[8px] pt-[12px] mt-[14px] border-t-[0.5px] border-edge">
+        {/* Row 1: primary action, full width. */}
         <button
           type="button"
           onClick={onPrimary}
-          className="flex-1 bg-ink text-paper font-lora text-[13px] py-[9px] rounded-sm inline-flex items-center justify-center text-center leading-tight"
+          className="w-full bg-ink text-paper font-lora text-[13px] py-[9px] rounded-sm inline-flex items-center justify-center text-center leading-tight"
         >
           {primaryLabel}
         </button>
-        <button
-          type="button"
-          onClick={onDismiss}
-          className="flex-1 bg-transparent text-charcoal border-[0.5px] border-edge font-lora text-[13px] py-[9px] rounded-sm"
-        >
-          {"Doesn't ring true"}
-        </button>
+        {/* Row 2: 'Doubt this' (bordered) sits above 'Discard this', which is the
+            quietest action (light edge + sepia) so it doesn't invite removal. */}
+        <div className="flex gap-[8px]">
+          <button
+            type="button"
+            onClick={onDoubt}
+            className="flex-1 bg-transparent text-ink border-[0.5px] border-ink font-lora text-[13px] py-[9px] rounded-sm"
+          >
+            Doubt this
+          </button>
+          <button
+            type="button"
+            onClick={onDiscard}
+            className="flex-1 bg-transparent text-sepia border-[0.5px] border-edge font-lora text-[13px] py-[9px] rounded-sm"
+          >
+            Discard this
+          </button>
+        </div>
       </div>
     </div>
   )

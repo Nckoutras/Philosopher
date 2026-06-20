@@ -147,7 +147,14 @@ export default function TodayPage() {
     router.push(insight.insight_type === 'shift' ? '/app/you-vs-you' : '/app/mirror')
   }
 
-  async function handleInsightDismiss() {
+  function handleInsightDoubt() {
+    const current = insight
+    if (!current) return
+    // Counterview is a stub for now; navigate (do NOT dismiss the insight).
+    router.push(`/app/counterview?insightId=${current.id}`)
+  }
+
+  async function handleInsightDiscard() {
     const current = insight
     if (!current) return
     setInsight(null)
@@ -202,7 +209,8 @@ export default function TodayPage() {
             insightType={insight.insight_type}
             sourceCount={insight.source_count}
             onPrimary={handleInsightPrimary}
-            onDismiss={handleInsightDismiss}
+            onDoubt={handleInsightDoubt}
+            onDiscard={handleInsightDiscard}
           />
         )}
 
