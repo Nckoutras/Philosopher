@@ -164,6 +164,7 @@ class Insight(Base):
     persona_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), ForeignKey("personas.id"))
     content: Mapped[str] = mapped_column(Text, nullable=False)
     insight_type: Mapped[str | None] = mapped_column(String(50))  # pattern | shift | question | challenge
+    source_count: Mapped[int | None] = mapped_column(Integer)  # distinct conversations a recurring theme was noticed across
     is_dismissed: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 

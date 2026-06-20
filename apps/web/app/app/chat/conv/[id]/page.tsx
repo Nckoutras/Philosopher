@@ -299,6 +299,7 @@ export default function ExistingConversationPage() {
           onGoDeeper={() => sendGoDeeper()}
           insightContent={insight?.content ?? null}
           insightType={insight?.insight_type ?? null}
+          insightSourceCount={insight?.source_count ?? null}
           insightExpanded={insightExpanded}
           onInsightTap={() => setInsightExpanded(true)}
           onInsightPrimary={handleInsightPrimary}

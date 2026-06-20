@@ -3,6 +3,9 @@
 interface Props {
   content: string
   insightType: string | null
+  // Distinct conversations a recurring theme was noticed across. The provenance
+  // line renders only when this is present and >= 2 (older insights are null).
+  sourceCount?: number | null
   onPrimary: () => void
   onDismiss: () => void
   // 'chat' (default): left-indented vellum card inside the chat thread.
@@ -17,7 +20,8 @@ interface Props {
 // the card reads as distinct; bronze border + eyebrow carry the app-voice identity.
 // The primary action branches on insight type (Slice 2): a 'shift' sends the user
 // to You-vs-You; everything else reflects in the Mirror.
-export default function InsightCard({ content, insightType, onPrimary, onDismiss, variant = 'chat' }: Props) {
+export default function InsightCard({ content, insightType, sourceCount, onPrimary, onDismiss, variant = 'chat' }: Props) {
+  const showProvenance = sourceCount != null && sourceCount >= 2
   const primaryLabel = insightType === 'shift' ? 'See how this changed' : 'Reflect in the Mirror'
   const containerClass =
     variant === 'today'
@@ -28,6 +32,11 @@ export default function InsightCard({ content, insightType, onPrimary, onDismiss
       <p className="font-lora text-[9px] text-sepia uppercase tracking-[0.18em]">
         The Wise Room · Insight
       </p>
+      {showProvenance && (
+        <p className="font-lora text-[10px] text-sepia mt-[3px]">
+          Noticed across {sourceCount} of your conversations
+        </p>
+      )}
 
       <div className="flex gap-[10px] items-start mt-[10px]">
         {/* Today carries the brand seal (44px medallion); the chat card keeps
