@@ -3,8 +3,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from db.session import get_db
 from models import User, MemoryEntry, Insight
-from schemas import MemoryEntryOut, MemoryEntryUpdate, InsightOut
+from schemas import MemoryEntryOut, MemoryEntryUpdate, InsightOut, MirrorOut
 from auth import get_current_user
+from services.insight_mirror_service import generate_insight_mirror
+# Reuse the mirrors router's serializer + persona loader so the insight-mirror
+# response stays a 1:1 match with /mirrors (one source of truth, no drift).
+from routers.mirrors import _mirror_out, _load_persona
 
 memory_router = APIRouter(prefix="/memory", tags=["memory"])
 insights_router = APIRouter(prefix="/insights", tags=["insights"])
@@ -94,3 +98,22 @@ async def dismiss_insight(
     if not insight:
         raise HTTPException(status_code=404)
     insight.is_dismissed = True
+
+
+@insights_router.post("/{insight_id}/reflect", response_model=MirrorOut)
+async def reflect_insight(
+    insight_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Generate (or return the existing) insight-seeded mirror for this insight.
+    Synchronous — the caller waits for generation. Status 'empty'/'suppressed'
+    is returned as a clean 200 (with null payload) for the frontend to handle,
+    not an error."""
+    try:
+        mirror = await generate_insight_mirror(db, user.id, insight_id)
+    except ValueError:
+        raise HTTPException(status_code=404)
+
+    persona = await _load_persona(db, mirror.host_persona_id)
+    return _mirror_out(mirror, persona)
