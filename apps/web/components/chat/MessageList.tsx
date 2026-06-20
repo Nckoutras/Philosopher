@@ -20,10 +20,11 @@ interface Props {
   insightExpanded?: boolean
   onInsightTap?: () => void
   onInsightPrimary?: () => void
-  onInsightDismiss?: () => void
+  onInsightDoubt?: () => void
+  onInsightDiscard?: () => void
 }
 
-export default function MessageList({ messages, onSaveLine, onUpgradeConfirm, onBringAnotherMind, onGoDeeper, insightContent, insightType, insightSourceCount, insightExpanded = false, onInsightTap, onInsightPrimary, onInsightDismiss }: Props) {
+export default function MessageList({ messages, onSaveLine, onUpgradeConfirm, onBringAnotherMind, onGoDeeper, insightContent, insightType, insightSourceCount, insightExpanded = false, onInsightTap, onInsightPrimary, onInsightDoubt, onInsightDiscard }: Props) {
   const savedMessageIds = useStore((s) => s.savedMessageIds)
   const activePersonaName = useStore((s) => s.activePersonaName)
 
@@ -83,7 +84,8 @@ export default function MessageList({ messages, onSaveLine, onUpgradeConfirm, on
                 insightType={insightType ?? null}
                 sourceCount={insightSourceCount ?? null}
                 onPrimary={onInsightPrimary ?? (() => {})}
-                onDismiss={onInsightDismiss ?? (() => {})}
+                onDoubt={onInsightDoubt ?? (() => {})}
+                onDiscard={onInsightDiscard ?? (() => {})}
               />
             )}
             {broughtIn && activePersonaName && (

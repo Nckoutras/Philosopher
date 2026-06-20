@@ -199,7 +199,14 @@ export default function ExistingConversationPage() {
     }
   }
 
-  async function handleInsightDismiss() {
+  function handleInsightDoubt() {
+    const current = insight
+    if (!current) return
+    // Counterview is a stub for now; navigate (do NOT dismiss the insight).
+    router.push(`/app/counterview?insightId=${current.id}`)
+  }
+
+  async function handleInsightDiscard() {
     const current = insight
     if (!current) return
     sessionDismissedInsightIds.add(current.id)
@@ -303,7 +310,8 @@ export default function ExistingConversationPage() {
           insightExpanded={insightExpanded}
           onInsightTap={() => setInsightExpanded(true)}
           onInsightPrimary={handleInsightPrimary}
-          onInsightDismiss={handleInsightDismiss}
+          onInsightDoubt={handleInsightDoubt}
+          onInsightDiscard={handleInsightDiscard}
         />
         {safetyActive ? (
           <>
