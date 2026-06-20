@@ -192,6 +192,19 @@ export default function TodayPage() {
           />
         )}
 
+        {/* ── Slice 3b: standing insight card (passive, app-voice; absent when none) ──
+            Top billing: when an insight exists it sits above the Continue card;
+            with none, Continue stays at the top. */}
+        {insight && (
+          <InsightCard
+            variant="today"
+            content={insight.content}
+            insightType={insight.insight_type}
+            onPrimary={handleInsightPrimary}
+            onDismiss={handleInsightDismiss}
+          />
+        )}
+
         {/* ── D1a: Continue card (returning user) ── */}
         {!isFirstDay && lastConv && (
           <button
@@ -231,17 +244,6 @@ export default function TodayPage() {
             </div>
             <ChevronRight size={16} strokeWidth={1.5} className="text-sepia flex-shrink-0 self-center" />
           </button>
-        )}
-
-        {/* ── Slice 3b: standing insight card (passive, app-voice; absent when none) ── */}
-        {insight && (
-          <InsightCard
-            variant="today"
-            content={insight.content}
-            insightType={insight.insight_type}
-            onPrimary={handleInsightPrimary}
-            onDismiss={handleInsightDismiss}
-          />
         )}
 
         {/* ── D1a: Your reflections card ── */}

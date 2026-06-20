@@ -1,7 +1,5 @@
 'use client'
 
-import { Bookmark } from 'lucide-react'
-
 interface Props {
   content: string
   insightType: string | null
@@ -32,10 +30,23 @@ export default function InsightCard({ content, insightType, onPrimary, onDismiss
       </p>
 
       <div className="flex gap-[10px] items-start mt-[10px]">
-        <span
-          aria-hidden
-          className="mt-[6px] shrink-0 w-[9px] h-[9px] bg-bronze rotate-45"
-        />
+        {/* Today carries the brand seal (44px medallion); the chat card keeps
+            the compact bronze diamond so it stays light inside the thread. */}
+        {variant === 'today' ? (
+          <img
+            src="/insight_seal.png"
+            alt=""
+            aria-hidden
+            width={44}
+            height={44}
+            className="shrink-0 w-[44px] h-[44px] rounded-md object-cover"
+          />
+        ) : (
+          <span
+            aria-hidden
+            className="mt-[6px] shrink-0 w-[9px] h-[9px] bg-bronze rotate-45"
+          />
+        )}
         <p className="font-cormorant text-[17px] italic leading-[1.4] text-ink">
           {content}
         </p>
@@ -45,9 +56,8 @@ export default function InsightCard({ content, insightType, onPrimary, onDismiss
         <button
           type="button"
           onClick={onPrimary}
-          className="flex-1 bg-ink text-paper font-lora text-[13px] py-[9px] rounded-sm inline-flex items-center justify-center gap-[6px]"
+          className="flex-1 bg-ink text-paper font-lora text-[13px] py-[9px] rounded-sm inline-flex items-center justify-center text-center leading-tight"
         >
-          <Bookmark size={12} strokeWidth={1.5} />
           {primaryLabel}
         </button>
         <button
