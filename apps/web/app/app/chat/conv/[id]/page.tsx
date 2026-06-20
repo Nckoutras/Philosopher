@@ -189,13 +189,15 @@ export default function ExistingConversationPage() {
   }, [messages, isReady, refreshInsight])
 
   function handleInsightPrimary() {
+    const current = insight
+    if (!current) return
     // Branch on insight type (Slice 2): a 'shift' goes to You-vs-You (which
-    // enforces its own Pro gate); everything else reflects in the Mirror. No
-    // theme seeding either way — later slice.
-    if (insight?.insight_type === 'shift') {
+    // enforces its own Pro gate); everything else reflects in the Mirror — now
+    // seeded by this insight (the reader POSTs /insights/{id}/reflect).
+    if (current.insight_type === 'shift') {
       router.push('/app/you-vs-you')
     } else {
-      router.push('/app/mirror')
+      router.push(`/app/mirror?insightId=${current.id}`)
     }
   }
 
