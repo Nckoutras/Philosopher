@@ -144,7 +144,11 @@ export default function TodayPage() {
 
   function handleInsightPrimary() {
     if (!insight) return
-    router.push(insight.insight_type === 'shift' ? '/app/you-vs-you' : '/app/mirror')
+    router.push(
+      insight.insight_type === 'shift'
+        ? '/app/you-vs-you'
+        : `/app/mirror?insightId=${insight.id}`,
+    )
   }
 
   function handleInsightDoubt() {

@@ -840,6 +840,13 @@ class ApiClient {
     return this.request(`/insights/${id}/dismiss`, { method: 'PATCH' })
   }
 
+  // Generate (or return the existing) insight-seeded mirror for this insight.
+  // Synchronous on the server — the POST takes a few seconds. status may be
+  // 'empty'/'suppressed' (null payload), which the reader handles gracefully.
+  async reflectInsight(id: string): Promise<Mirror> {
+    return this.request<Mirror>(`/insights/${id}/reflect`, { method: 'POST' })
+  }
+
   // ── Billing ───────────────────────────────────────────────────────────────
 
   async getSubscription(): Promise<Subscription> {

@@ -80,6 +80,10 @@ export default function MirrorPage() {
   const token = useStore((s) => s.token)
 
   const [loading, setLoading] = useState(true)
+  // Insight-seeded reflect (?insightId=) vs the weekly mirror. Set inside the
+  // load effect (client-only) — never in a useState initializer, which would
+  // diverge between SSR (false) and hydration.
+  const [isInsight, setIsInsight] = useState(false)
   const [mirror, setMirror] = useState<Mirror | null>(null)
   const [persona, setPersona] = useState<Persona | null>(null)
   const [ringTrue, setRingTrue] = useState<'yes' | 'partly' | 'no' | null>(null)
@@ -122,8 +126,12 @@ export default function MirrorPage() {
 
     async function load() {
       try {
+        // Suspense-safe (no useSearchParams): the effect is client-only.
+        const insightId = new URLSearchParams(window.location.search).get('insightId')
+        setIsInsight(!!insightId)
+
         const [mirrorRes, personasRes] = await Promise.allSettled([
-          api.getLatestMirror(),
+          insightId ? api.reflectInsight(insightId) : api.getLatestMirror(),
           api.getPersonas(),
         ])
 
@@ -140,7 +148,11 @@ export default function MirrorPage() {
           setRingTrueSubmitted(true)
         }
 
-        if (m) {
+        // Only the reveal animation runs on a generated mirror. An insight
+        // mirror can come back empty/suppressed (null payload) — that renders a
+        // gentle fallback instead. (getLatestMirror only ever returns generated
+        // or null, so the weekly path is unchanged.)
+        if (m && m.status === 'generated') {
           const { segs, flatWords } = buildSegs(m)
           segsRef.current = segs
           flatWordsRef.current = flatWords
@@ -270,6 +282,20 @@ export default function MirrorPage() {
     } catch { /* optimistic; ignore */ }
   }
 
+  // ── Insight-seeded generation: a brief wait while the POST runs ──
+  if (loading && isInsight) {
+    return (
+      <main className="min-h-screen [min-height:100svh] flex flex-col items-center justify-center bg-vellum px-[24px] text-center">
+        <p className="font-lora text-[11px] uppercase tracking-[0.24em] text-bronze-dark mb-[10px]">
+          The Mirror
+        </p>
+        <p className="font-cormorant italic text-[20px] text-sepia">
+          Holding up the mirror&hellip;
+        </p>
+      </main>
+    )
+  }
+
   // ── Loading skeleton ──
   if (loading) {
     return (
@@ -295,6 +321,35 @@ export default function MirrorPage() {
             <div className="h-[20px] w-3/6 bg-linen rounded animate-pulse mt-[12px]" />
             <div className="h-[20px] bg-linen rounded animate-pulse" />
           </div>
+        </div>
+      </main>
+    )
+  }
+
+  // ── Insight mirror with nothing to show (empty/suppressed → null payload) ──
+  // A gentle, neutral fallback — the same copy for empty and suppressed, never
+  // exposing safety detection. No reveal animation, no save/ring-true/share.
+  // (Unreachable for the weekly path: getLatestMirror only returns generated.)
+  if (mirror && mirror.status !== 'generated') {
+    return (
+      <main className="min-h-screen [min-height:100svh] flex flex-col bg-vellum px-[24px] pb-[60px]">
+        <div className="pt-[22px]">
+          <button
+            type="button"
+            onClick={() => router.back()}
+            aria-label="Back"
+            className="flex items-center justify-center w-[32px] h-[32px] -ml-[4px]"
+          >
+            <ChevronLeft size={20} strokeWidth={1.5} className="text-sepia" />
+          </button>
+        </div>
+        <div className="flex-1 flex flex-col items-center justify-center text-center gap-[14px]">
+          <p className="font-lora text-[11px] uppercase tracking-[0.24em] text-bronze-dark">
+            The Mirror
+          </p>
+          <p className="font-cormorant text-[24px] text-ink leading-snug max-w-[300px]">
+            There wasn&rsquo;t enough there to hold up to the light just yet.
+          </p>
         </div>
       </main>
     )
