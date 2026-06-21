@@ -397,9 +397,11 @@ export default function MirrorPage() {
           <h1 className="font-cormorant text-[44px] font-medium text-ink leading-tight">
             What the mirror reflects
           </h1>
-          <p className="font-lora italic text-[14.5px] leading-relaxed text-charcoal mt-[14px] max-w-[300px]">
-            Once a week, the mind you chose reads your own words back to you &mdash; not what you said, but what it meant.
-          </p>
+          {!isInsight && (
+            <p className="font-lora italic text-[14.5px] leading-relaxed text-charcoal mt-[14px] max-w-[300px]">
+              Once a week, the mind you chose reads your own words back to you &mdash; not what you said, but what it meant.
+            </p>
+          )}
 
           {mirror?.host_persona_name && (
             <div className="flex items-center gap-[16px] mt-[24px]">
@@ -424,9 +426,11 @@ export default function MirrorPage() {
                   {mirror.host_persona_name}
                   <ChevronRight size={16} strokeWidth={1.5} className="text-bronze" />
                 </p>
-                <p className="font-lora text-[12px] text-sepia">
-                  {formatWeekSpan(mirror.period_start, mirror.period_end)}
-                </p>
+                {!isInsight && (
+                  <p className="font-lora text-[12px] text-sepia">
+                    {formatWeekSpan(mirror.period_start, mirror.period_end)}
+                  </p>
+                )}
               </button>
             </div>
           )}
