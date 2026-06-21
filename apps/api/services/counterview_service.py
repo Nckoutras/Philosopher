@@ -239,3 +239,163 @@ async def _write_counterview(
         raise
     await db.refresh(counterview)
     return counterview
+
+
+# ── Go deeper ──────────────────────────────────────────────────────────────────
+
+# Each persona's voice, reused in the deeper prompt (carried over verbatim from
+# COUNTERVIEW_PROMPT so the deeper line stays in the same register as the first).
+PERSONA_VOICE = {
+    "miyamoto_musashi": "Miyamoto Musashi — the discipline of action; you see drift dressed as patience, fear dressed as care, the price of not moving.",
+    "niccolo_machiavelli": "Niccolo Machiavelli — the reading of motive and power; you see the convenient story, the hidden self-interest, the resolve that is missing.",
+}
+
+# A deeper line gets a little more room than the first cut.
+DEEPER_MAX_WORDS = 25
+
+# {voice} is filled per-persona via .replace() (NOT .format() — the JSON example
+# below contains literal braces that would break str.format).
+DEEPER_PROMPT = """You are {voice}
+
+A person holds a position. You already made one cut against it. Press ONE layer deeper: a second, sharper line that exposes what your first cut implied — the contradiction underneath, the cost they still aren't counting. 25 words MAXIMUM.
+
+Hard rules:
+- Anchor STRICTLY to what the person wrote. Invent nothing, no new facts.
+- Attack the position, never the person. No insults, nothing below the belt.
+- Do not repeat your first line — go further.
+- Plain modern language. No quotes, never name yourself.
+
+Return JSON only: {"status":"generated","verdict":"..."}  or  {"status":"empty"} if there is nothing more honest to add."""
+
+# Appended to the system prompt for the single tightening retry.
+DEEPER_TIGHTEN = "\n\nYour previous attempt exceeded 25 words. Rewrite to 25 words maximum. Cut every non-essential word — keep the deeper angle and the same JSON shape."
+
+
+async def generate_deeper(
+    db: AsyncSession,
+    user_id: str,
+    counterview_id: str,
+    persona_slug: str,
+) -> Counterview:
+    """Press one layer deeper for a single persona: add a second, sharper response
+    (round = prior max + 1) to an existing generated counterview.
+
+    Raises ValueError("counterview not found") if the counterview is not the
+    user's, ValueError("invalid persona") for an unknown slug. Every other failure
+    (nothing to deepen, LLM/parse error, safety trip, cap reached) returns the
+    counterview unchanged — never a 500.
+    """
+    cv = (
+        await db.execute(
+            select(Counterview).where(
+                Counterview.id == counterview_id,
+                Counterview.user_id == user_id,
+            )
+        )
+    ).scalar_one_or_none()
+    if cv is None:
+        raise ValueError("counterview not found")
+    if cv.status != "generated":
+        return cv  # nothing to deepen (empty/suppressed)
+
+    if persona_slug not in {slug for slug, _ in COUNTERVIEW_PERSONAS}:
+        raise ValueError("invalid persona")
+
+    rows = (
+        await db.execute(
+            select(CounterviewResponse)
+            .where(
+                CounterviewResponse.counterview_id == cv.id,
+                CounterviewResponse.persona_slug == persona_slug,
+            )
+            .order_by(CounterviewResponse.round.asc())
+        )
+    ).scalars().all()
+    if not rows:
+        return cv
+    max_round = max(r.round for r in rows)
+    if max_round >= 1:
+        return cv  # cap: one deepening per persona
+
+    base = next((r for r in rows if r.round == 0), rows[0])
+    prior_verdict = base.verdict
+    position = base.position
+
+    # ── Generate the deeper line (+ one tightening retry on over-length) ──────
+    line = None
+    try:
+        line = await _call_deeper_llm(cv.anchor_text, persona_slug, prior_verdict)
+        if line is not None and _word_count(line) > DEEPER_MAX_WORDS:
+            retry = await _call_deeper_llm(
+                cv.anchor_text, persona_slug, prior_verdict, tighten=True
+            )
+            if retry is not None:
+                line = retry
+    except Exception as e:
+        logger.warning(
+            "Counterview deeper failed cv=%s persona=%s: %s",
+            counterview_id, persona_slug, e,
+        )
+        line = None
+
+    if line is None:
+        return cv  # nothing more honest to add / generation failed
+
+    # ── Post-generation safety: a flagged deeper line is simply not added ──────
+    out = await safety_service.check_output(line)
+    if out.should_suppress_persona:
+        return cv
+
+    db.add(CounterviewResponse(
+        counterview_id=cv.id,
+        persona_slug=persona_slug,
+        round=max_round + 1,
+        position=position,
+        verdict=line,
+    ))
+    try:
+        await db.commit()
+    except IntegrityError:
+        # A concurrent deeper for this (counterview, persona, round) won the race
+        # (uq_counterview_response). Roll back and return the counterview as-is.
+        await db.rollback()
+        return cv
+    await db.refresh(cv)
+    return cv
+
+
+async def _call_deeper_llm(
+    anchor_text: str | None,
+    persona_slug: str,
+    prior_verdict: str,
+    *,
+    tighten: bool = False,
+):
+    """One LLM call for a single persona's deeper line → the verdict string, or
+    None if the model returned non-'generated' / unparseable / empty."""
+    voice = PERSONA_VOICE[persona_slug]
+    system = DEEPER_PROMPT.replace("{voice}", voice) + (DEEPER_TIGHTEN if tighten else "")
+    user = f'<position>\n{anchor_text}\n</position>\nYour first cut: "{prior_verdict}"'
+    raw = await llm_client.complete(
+        system=system,
+        user=user,
+        model=config.ANTHROPIC_MODEL,
+        max_tokens=200,
+    )
+    return _extract_deeper(raw)
+
+
+def _extract_deeper(raw: str):
+    text = raw.strip()
+    if text.startswith("```"):
+        text = text.split("\n", 1)[1] if "\n" in text else ""
+    if text.endswith("```"):
+        text = text[:-3].rstrip()
+    try:
+        data = json.loads(text)
+    except (json.JSONDecodeError, ValueError):
+        return None
+    if not isinstance(data, dict) or data.get("status") != "generated":
+        return None
+    verdict = (data.get("verdict") or "").strip()
+    return verdict or None

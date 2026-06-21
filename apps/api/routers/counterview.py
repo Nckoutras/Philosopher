@@ -5,8 +5,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from auth import get_current_user
 from db.session import get_db
 from models import Counterview, CounterviewResponse, Persona, User
-from schemas import CounterviewCreate, CounterviewOut, CounterviewResponseOut
-from services.counterview_service import generate_counterview
+from schemas import CounterviewCreate, CounterviewDeeperRequest, CounterviewOut, CounterviewResponseOut
+from services.counterview_service import generate_counterview, generate_deeper
 
 router = APIRouter(prefix="/counterview", tags=["counterview"])
 
@@ -22,7 +22,7 @@ async def _serialize_counterview(db: AsyncSession, cv: Counterview) -> Countervi
         await db.execute(
             select(CounterviewResponse)
             .where(CounterviewResponse.counterview_id == cv.id)
-            .order_by(CounterviewResponse.position.asc())
+            .order_by(CounterviewResponse.position.asc(), CounterviewResponse.round.asc())
         )
     ).scalars().all()
 
@@ -91,5 +91,24 @@ async def get_counterview(
         )
     ).scalar_one_or_none()
     if cv is None:
+        raise HTTPException(status_code=404)
+    return await _serialize_counterview(db, cv)
+
+
+@router.post("/{counterview_id}/deeper", response_model=CounterviewOut)
+async def deeper_counterview(
+    counterview_id: str,
+    body: CounterviewDeeperRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Press one layer deeper for a single persona. Returns the full counterview
+    (now carrying the persona's round-1 response). A no-op (cap reached, nothing
+    to add, safety trip) returns the counterview unchanged with a clean 200."""
+    try:
+        cv = await generate_deeper(db, user.id, counterview_id, body.persona_slug)
+    except ValueError as e:
+        if "invalid persona" in str(e):
+            raise HTTPException(status_code=400)
         raise HTTPException(status_code=404)
     return await _serialize_counterview(db, cv)
