@@ -26,7 +26,7 @@ from PIL import Image, ImageDraw, ImageFont
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
-from models import CouncilCase, CouncilResponse, CouncilSession, Mirror, SavedLine, Message, Persona, WeeklyLetter
+from models import CouncilCase, CouncilResponse, CouncilSession, Counterview, CounterviewResponse, Mirror, SavedLine, Message, Persona, WeeklyLetter
 
 logger = logging.getLogger(__name__)
 
@@ -970,3 +970,220 @@ def _wrap_text(
             lines[-1] = last + ellipsis
 
     return lines
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Counterview share card (4:5). Two full-bleed portraits split down the middle,
+# names overlaid, and a paper "case against" box holding the anchor + the two
+# verdicts. All constants tunable — coordinates verified against a sample render.
+# ─────────────────────────────────────────────────────────────────────────────
+
+CV_W, CV_H          = 1080, 1350
+CV_MARGIN_X         = 72
+CV_GAP              = 56
+CV_PANEL_W          = (CV_W - 2 * CV_MARGIN_X - CV_GAP) // 2                                  # 440
+CV_PANEL_TOP, CV_PANEL_BOT = 132, 612
+CV_PANEL_L = (CV_MARGIN_X, CV_PANEL_TOP, CV_MARGIN_X + CV_PANEL_W, CV_PANEL_BOT)              # (72,132,512,612)
+CV_PANEL_R = (CV_W - CV_MARGIN_X - CV_PANEL_W, CV_PANEL_TOP, CV_W - CV_MARGIN_X, CV_PANEL_BOT)  # (568,132,1008,612)
+CV_PANEL_RADIUS     = 10
+CV_BRACKET_INSET    = 12
+CV_BRACKET_ARM      = 32
+CV_CROP_BIAS_Y      = 0.32
+CV_NAME_Y           = 640
+CV_BOX              = (48, 728, 1032, 1302)
+CV_HAIRLINE_Y       = 905
+CV_VBAND_TOP, CV_VBAND_BOT = 922, 1252
+PAPER_COLOR = (250, 244, 230)
+SEPIA_COLOR = (138, 126, 106)
+CREAM_COLOR = (245, 236, 216)          # still used by the missing-portrait fallback panel
+BRONZE_DARK_COLOR = (138, 115, 64)
+
+
+def _cover_paste(canvas: Image.Image, img: Image.Image, box, bias_y: float = CV_CROP_BIAS_Y, radius: int = 0) -> None:
+    """object-cover: scale the image to fill `box` (preserving aspect), center
+    horizontally, bias the vertical crop toward the top (bias_y), then paste.
+    `radius` > 0 rounds the pasted corners via an alpha mask."""
+    x0, y0, x1, y1 = box
+    bw, bh = x1 - x0, y1 - y0
+    iw, ih = img.size
+    scale = max(bw / iw, bh / ih)
+    new_w = max(bw, int(iw * scale + 0.999))
+    new_h = max(bh, int(ih * scale + 0.999))
+    resized = img.resize((new_w, new_h), Image.LANCZOS)
+    left = (new_w - bw) // 2
+    top = int((new_h - bh) * bias_y)
+    top = max(0, min(top, new_h - bh))
+    cropped = resized.crop((left, top, left + bw, top + bh))
+    if radius > 0:
+        mask = Image.new("L", (bw, bh), 0)
+        ImageDraw.Draw(mask).rounded_rectangle([0, 0, bw - 1, bh - 1], radius=radius, fill=255)
+        canvas.paste(cropped, (x0, y0), mask)
+    else:
+        canvas.paste(cropped, (x0, y0))
+
+
+def _cv_panel_fallback(canvas: Image.Image, draw: ImageDraw.ImageDraw, box, initial: str) -> None:
+    """When a portrait is missing, fill the panel with cream and draw the
+    persona's initial centered — mirrors _draw_initial_avatar in spirit."""
+    x0, y0, x1, y1 = box
+    draw.rectangle(box, fill=CREAM_COLOR)
+    try:
+        font = _load_font("CormorantGaramond-Medium.ttf", 200)
+    except RuntimeError:
+        return
+    draw.text(((x0 + x1) // 2, (y0 + y1) // 2), initial, font=font, fill=BRONZE_DARK_COLOR, anchor="mm")
+
+
+def _cv_diamond(draw: ImageDraw.ImageDraw, cx: int, cy: int, r: int, fill) -> None:
+    """A small filled diamond (rotated square) centered at (cx, cy)."""
+    draw.polygon([(cx, cy - r), (cx + r, cy), (cx, cy + r), (cx - r, cy)], fill=fill)
+
+
+def _render_counterview_card(
+    *,
+    left_portrait: Path | None,
+    right_portrait: Path | None,
+    left_name: str,
+    right_name: str,
+    left_verdict: str,
+    right_verdict: str,
+    anchor_text: str | None,
+    saved_at: datetime | None,
+) -> bytes:
+    """Pure render (no DB). Composes the 1080×1350 counterview share card."""
+    canvas = Image.new("RGBA", (CV_W, CV_H), BG_COLOR + (255,))
+    draw = ImageDraw.Draw(canvas)
+    cx = CV_W // 2
+    panels = ((CV_PANEL_L, left_portrait, left_name), (CV_PANEL_R, right_portrait, right_name))
+
+    # 1. top eyebrow + diamond (vellum → bronze-dark)
+    f = _load_font("Lora-Regular.ttf", 24)
+    draw.text((cx, 84), _letterspace("THE WISE ROOM", " "), font=f, fill=BRONZE_DARK_COLOR, anchor="ms")
+    _cv_diamond(draw, cx, 104, 5, BRONZE_COLOR)
+
+    # 2. two separate rounded portrait panels (cover-cropped)
+    for box, portrait, name in panels:
+        if portrait:
+            try:
+                _cover_paste(canvas, Image.open(portrait).convert("RGB"), box, radius=CV_PANEL_RADIUS)
+            except Exception as e:
+                logger.warning(f"CV portrait failed {portrait}: {e}.")
+                _cv_panel_fallback(canvas, draw, box, (name[:1] or "?").upper())
+        else:
+            _cv_panel_fallback(canvas, draw, box, (name[:1] or "?").upper())
+
+    # 3. paper case box
+    draw.rounded_rectangle(CV_BOX, radius=18, fill=PAPER_COLOR)
+
+    # 4. overlay: panel frames + brackets, box inset border, dividers
+    overlay = Image.new("RGBA", (CV_W, CV_H), (0, 0, 0, 0))
+    od = ImageDraw.Draw(overlay)
+    b = BRONZE_COLOR
+    for box, _p, _n in panels:
+        x0, y0, x1, y1 = box
+        od.rounded_rectangle(box, radius=CV_PANEL_RADIUS, outline=b + (140,), width=2)
+        i, a = CV_BRACKET_INSET, CV_BRACKET_ARM
+        for (bx, by, dx, dy) in ((x0 + i, y0 + i, 1, 1), (x1 - i, y0 + i, -1, 1), (x0 + i, y1 - i, 1, -1), (x1 - i, y1 - i, -1, -1)):
+            od.line([(bx, by), (bx + dx * a, by)], fill=b + (230,), width=3)
+            od.line([(bx, by), (bx, by + dy * a)], fill=b + (230,), width=3)
+    od.rounded_rectangle((CV_BOX[0] + 12, CV_BOX[1] + 12, CV_BOX[2] - 12, CV_BOX[3] - 12), radius=12, outline=b + (89,), width=1)
+    od.line([(CV_BOX[0] + 60, CV_HAIRLINE_Y), (CV_BOX[2] - 60, CV_HAIRLINE_Y)], fill=b + (102,), width=1)
+    od.line([(cx, CV_VBAND_TOP), (cx, CV_VBAND_BOT)], fill=b + (64,), width=1)
+    canvas = Image.alpha_composite(canvas, overlay)
+    draw = ImageDraw.Draw(canvas)
+
+    # 5. names BELOW each panel (vellum → INK) + diamond rule
+    fn = _load_font("CormorantGaramond-Medium.ttf", 40)
+    for box, _p, name in panels:
+        pcx = (box[0] + box[2]) // 2
+        lines = _wrap_all_lines(name, fn, box[2] - box[0])[:2]
+        ny = CV_NAME_Y
+        for line in lines:
+            draw.text((pcx, ny), line, font=fn, fill=INK_COLOR, anchor="mt")
+            ny += 46
+        ry = ny + 8
+        draw.line([(pcx - 30, ry), (pcx - 8, ry)], fill=b, width=1)
+        draw.line([(pcx + 8, ry), (pcx + 30, ry)], fill=b, width=1)
+        _cv_diamond(draw, pcx, ry, 4, b)
+
+    # 6. THE CASE AGAINST
+    draw.text((cx, CV_BOX[1] + 46), _letterspace("THE CASE AGAINST", " "), font=_load_font("Lora-Regular.ttf", 22), fill=BRONZE_DARK_COLOR, anchor="ms")
+    # 7. anchor italic sepia
+    if anchor_text:
+        fa = _load_font("CormorantGaramond-Italic.ttf", 30)
+        ay = CV_BOX[1] + 92
+        for line in _wrap_all_lines(anchor_text, fa, CV_BOX[2] - CV_BOX[0] - 120)[:2]:
+            draw.text((cx, ay), line, font=fa, fill=SEPIA_COLOR, anchor="mt")
+            ay += 40
+    # 8. two verdict columns (auto-fit, ink)
+    band_h = CV_VBAND_BOT - CV_VBAND_TOP
+    for verdict, col_cx in ((left_verdict, 294), (right_verdict, 786)):
+        if not verdict:
+            continue
+        fv, lines, lh = _fit_reflection(verdict, band_h, 430, lambda s: _load_font("CormorantGaramond-Medium.ttf", s))
+        sy = CV_VBAND_TOP + max(0, (band_h - len(lines) * lh) // 2)
+        for j, line in enumerate(lines):
+            draw.text((col_cx, sy + j * lh), line, font=fv, fill=INK_COLOR, anchor="mt")
+    # 9. brand
+    draw.text((cx, CV_BOX[3] - 34), _letterspace(URL_TEXT, " "), font=_load_font("Lora-Regular.ttf", 24), fill=BRONZE_COLOR, anchor="ms", stroke_width=1, stroke_fill=BRONZE_COLOR)
+
+    out = canvas.convert("RGB")
+    buf = BytesIO()
+    out.save(buf, format="PNG")
+    return buf.getvalue()
+
+
+async def generate_counterview_share_image(
+    *,
+    db: AsyncSession,
+    counterview_id: str,
+    user_id: str,
+) -> bytes:
+    """Load a generated counterview, verify ownership, and compose its share card.
+    Raises ValueError if not found/owned or not in a shareable ('generated') state."""
+    cv = (
+        await db.execute(
+            select(Counterview).where(
+                Counterview.id == counterview_id,
+                Counterview.user_id == user_id,
+                Counterview.status == "generated",
+            )
+        )
+    ).scalar_one_or_none()
+    if cv is None:
+        raise ValueError("Counterview not found or not shareable")
+
+    responses = (
+        await db.execute(
+            select(CounterviewResponse)
+            .where(
+                CounterviewResponse.counterview_id == counterview_id,
+                CounterviewResponse.round == 0,
+            )
+            .order_by(CounterviewResponse.position.asc())
+        )
+    ).scalars().all()
+    if len(responses) < 2:
+        raise ValueError("Counterview has no case to share")
+
+    left, right = responses[0], responses[1]
+    slugs = [left.persona_slug, right.persona_slug]
+    by_slug = {
+        p.slug: p
+        for p in (await db.execute(select(Persona).where(Persona.slug.in_(slugs)))).scalars().all()
+    }
+
+    def _name(slug: str) -> str:
+        p = by_slug.get(slug)
+        return p.name if p else slug
+
+    return _render_counterview_card(
+        left_portrait=_resolve_portrait_path(by_slug.get(left.persona_slug)),
+        right_portrait=_resolve_portrait_path(by_slug.get(right.persona_slug)),
+        left_name=_name(left.persona_slug),
+        right_name=_name(right.persona_slug),
+        left_verdict=left.verdict,
+        right_verdict=right.verdict,
+        anchor_text=cv.anchor_text,
+        saved_at=cv.created_at,
+    )
