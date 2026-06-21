@@ -32,8 +32,8 @@ export default function InsightCard({ content, insightType, sourceCount, onPrima
       : 'ml-[32px] mt-[6px] bg-vellum border-[0.5px] border-bronze rounded-md pt-[18px] px-[18px] pb-[14px]'
   return (
     <div className={containerClass}>
-      <p className="font-lora text-[9px] text-sepia uppercase tracking-[0.18em]">
-        The Wise Room · Insight
+      <p className="font-lora text-[12px] font-medium text-charcoal uppercase tracking-[0.18em]">
+        Insight
       </p>
       {showProvenance && (
         <p className="font-lora text-[10px] text-sepia mt-[3px]">

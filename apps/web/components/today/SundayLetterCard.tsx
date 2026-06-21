@@ -73,6 +73,8 @@ export default function SundayLetterCard({ isPro }: Props) {
             ? 'A letter from the mind you spent the week with.'
             : isUnread
             ? 'A new letter is waiting.'
+            : hasReading
+            ? 'Your letters are in your readings.'
             : `Your letter arrives Sunday, ${nextSundayLabel()}.`}
         </p>
 

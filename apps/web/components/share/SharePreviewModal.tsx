@@ -271,7 +271,7 @@ export default function SharePreviewModal({
 
   // Line + mirror share the reflection layout; mirror swaps the hero + intro.
   const heroSrc     = isLetter ? '/personas/sundayletter.png' : isMirror ? '/personas/mirror.png' : '/personas/wise-room-hero.webp'
-  const heroOpacity = (isMirror || isLetter) ? 'opacity-[0.10]' : 'opacity-[0.12]'
+  const heroOpacity = (isMirror || isLetter) ? 'opacity-[0.10]' : 'opacity-[0.06]'
   const introLine   = isLetter
     ? (letterTitle || 'The Sunday Letter')
     : isMirror
