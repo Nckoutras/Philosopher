@@ -351,6 +351,25 @@ export interface MirrorHost {
   portrait_url: string | null
 }
 
+// ── Counterview ───────────────────────────────────────────────────────────────
+
+export interface CounterviewResponse {
+  persona_slug: string
+  persona_name: string
+  persona_portrait_url: string | null
+  position: number
+  round: number
+  verdict: string
+}
+
+export interface Counterview {
+  id: string
+  source: string
+  anchor_text: string | null
+  status: 'generated' | 'empty' | 'suppressed'
+  responses: CounterviewResponse[]
+}
+
 export interface WeeklyLetterPayload {
   title: string | null
   opening: string | null
@@ -845,6 +864,19 @@ class ApiClient {
   // 'empty'/'suppressed' (null payload), which the reader handles gracefully.
   async reflectInsight(id: string): Promise<Mirror> {
     return this.request<Mirror>(`/insights/${id}/reflect`, { method: 'POST' })
+  }
+
+  // ── Counterview ─────────────────────────────────────────────────────────────
+
+  // Generate (or return the existing) insight-seeded counterview for this insight.
+  // Synchronous on the server — the POST takes a few seconds. status may be
+  // 'empty'/'suppressed' (no responses), which the reader handles gracefully.
+  async counterviewFromInsight(id: string): Promise<Counterview> {
+    return this.request<Counterview>(`/insights/${id}/counterview`, { method: 'POST' })
+  }
+
+  async getCounterview(id: string): Promise<Counterview> {
+    return this.request<Counterview>(`/counterview/${id}`)
   }
 
   // ── Billing ───────────────────────────────────────────────────────────────
