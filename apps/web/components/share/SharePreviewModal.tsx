@@ -9,7 +9,7 @@ import { dynamicFontSize } from '@/lib/shareUtils'
 interface SharePreviewModalProps {
   isOpen: boolean
   onClose: () => void
-  kind?: 'line' | 'council' | 'mirror' | 'letter'
+  kind?: 'line' | 'council' | 'mirror' | 'letter' | 'counterview'
   // 'line' variant
   savedLineId?: string
   personaName?: string
@@ -18,6 +18,9 @@ interface SharePreviewModalProps {
   // 'council' variant
   councilSessionId?: string
   councilPortraits?: string[]   // participating-persona portrait URLs (preview thumbnails)
+  // 'counterview' variant
+  counterviewId?: string
+  counterviewPortraits?: string[]   // the two personas' portrait URLs (preview thumbnails)
   // 'mirror' variant (personaName = host name, portraitUrl = host portrait)
   mirrorId?: string
   // 'letter' variant
@@ -42,6 +45,8 @@ export default function SharePreviewModal({
   conversationId,
   councilSessionId,
   councilPortraits,
+  counterviewId,
+  counterviewPortraits,
   mirrorId,
   weeklyLetterId,
   letterTitle,
@@ -62,13 +67,15 @@ export default function SharePreviewModal({
   const isCouncil = kind === 'council'
   const isMirror  = kind === 'mirror'
   const isLetter  = kind === 'letter'
+  const isCounterview = kind === 'counterview'
 
   const generateBlob = useCallback((): Promise<Blob> => {
     if (kind === 'council') return api.shareCouncil(councilSessionId!)
     if (kind === 'mirror')  return api.shareMirror(mirrorId!)
     if (kind === 'letter')  return api.shareWeeklyLetter(weeklyLetterId!)
+    if (kind === 'counterview') return api.shareCounterview(counterviewId!)
     return api.createShareScreenshot(savedLineId!)
-  }, [kind, councilSessionId, mirrorId, weeklyLetterId, savedLineId])
+  }, [kind, councilSessionId, mirrorId, weeklyLetterId, counterviewId, savedLineId])
 
   // Reset on open; pre-generate the image for pro/premium so the Send tap opens
   // the native share sheet synchronously (iOS needs navigator.share inside the
@@ -115,14 +122,14 @@ export default function SharePreviewModal({
   // preview can show the real card. Scoped to seasonImagePreview; revoked on
   // change/unmount.
   useEffect(() => {
-    if (!seasonImagePreview || !preparedBlob) {
+    if (!(seasonImagePreview || isCounterview) || !preparedBlob) {
       setPreviewUrl(null)
       return
     }
     const url = URL.createObjectURL(preparedBlob)
     setPreviewUrl(url)
     return () => URL.revokeObjectURL(url)
-  }, [seasonImagePreview, preparedBlob])
+  }, [seasonImagePreview, isCounterview, preparedBlob])
 
   // Keyboard (Escape + Tab trap) handlers
   useEffect(() => {
@@ -165,6 +172,8 @@ export default function SharePreviewModal({
       ? `The mirror reflected:`
       : isLetter
       ? `My Sunday Letter:`
+      : isCounterview
+      ? `The case against:`
       : `${personaName} told me:`
     const shortShareText = `${lead}\nthewiseroom.app`
     const fullShareText  = `${lead}\n\n${quote}\n\nthewiseroom.app`
@@ -175,6 +184,8 @@ export default function SharePreviewModal({
       ? `${origin}/app/mirror`
       : isLetter
       ? `${origin}/app/letters`
+      : isCounterview
+      ? `${origin}/app/counterview`
       : `${origin}/app/chat/conv/${conversationId}`
     const filename = isCouncil
       ? 'council-reading.png'
@@ -182,6 +193,8 @@ export default function SharePreviewModal({
       ? 'mirror-reflection.png'
       : isLetter
       ? 'sunday-letter.png'
+      : isCounterview
+      ? 'counterview.png'
       : 'reflection.png'
 
     const downloadFallback = (b: Blob) => {
@@ -283,9 +296,9 @@ export default function SharePreviewModal({
       <div className="relative z-10 w-full max-w-[360px] bg-paper rounded-lg p-5 shadow-[0_8px_32px_rgba(31,27,20,0.18)] max-h-[85svh] overflow-y-auto">
 
         {/* ── Preview card (4:5 aspect ratio) ── */}
-        {seasonImagePreview && previewUrl ? (
-          /* Monthly 'season' letter — show the actual generated PNG. Falls back
-             to the HTML preview below until the blob is ready. */
+        {(seasonImagePreview || isCounterview) && previewUrl ? (
+          /* Monthly 'season' letter & counterview — show the actual generated
+             PNG. Falls back to the HTML preview below until the blob is ready. */
           <div
             className="relative w-full bg-vellum rounded-sm overflow-hidden mb-4"
             style={{ aspectRatio: '4/5' }}
@@ -347,6 +360,36 @@ export default function SharePreviewModal({
               <p className="font-lora text-[9px] font-bold text-bronze text-center mt-2">
                 thewiseroom.app
               </p>
+            </div>
+          </div>
+        ) : isCounterview ? (
+          /* Counterview variant — HTML fallback shown until the real PNG is
+             ready (free users always see this; pro pre-gen swaps to the PNG
+             via the first branch). Approximation of the server-rendered card. */
+          <div
+            className="relative w-full bg-vellum rounded-sm overflow-hidden mb-4"
+            style={{ aspectRatio: '4/5' }}
+            aria-hidden="true"
+          >
+            <div className="relative z-10 flex flex-col items-center h-full px-6 pt-5 pb-4">
+              <p className="font-cormorant italic text-[12px] text-bronze text-center">The Wise Room</p>
+              {counterviewPortraits && counterviewPortraits.length > 0 && (
+                <div className="flex items-center gap-[10px] mt-4 mb-3">
+                  {counterviewPortraits.slice(0, 2).map((src, i) => (
+                    <div key={i} className="w-[64px] h-[80px] rounded-sm overflow-hidden bg-edge">
+                      <img src={src} alt="" className="w-full h-full object-cover" />
+                    </div>
+                  ))}
+                </div>
+              )}
+              <p className="font-lora text-[9px] tracking-[0.18em] text-bronze-dark font-bold text-center mt-2">THE CASE AGAINST</p>
+              <p
+                className="font-cormorant italic text-ink text-center leading-[1.4] flex-1 flex items-center justify-center overflow-hidden"
+                style={{ fontSize: `${previewFontSize}px` }}
+              >
+                {quote}
+              </p>
+              <p className="font-lora text-[9px] font-bold text-bronze text-center mt-2">thewiseroom.app</p>
             </div>
           </div>
         ) : (

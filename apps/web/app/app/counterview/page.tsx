@@ -3,11 +3,12 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
-import { MessageCircle, Loader2, Bookmark, BookmarkCheck } from 'lucide-react'
+import { MessageCircle, Loader2, Bookmark, BookmarkCheck, Share2 } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import { api } from '@/lib/api'
 import type { Counterview } from '@/lib/api'
 import SubPageNav from '@/components/layout/SubPageNav'
+import SharePreviewModal from '@/components/share/SharePreviewModal'
 
 // The Counterview reader (DS v5). Reached from an insight card's "Doubt this":
 // the insight id rides in the query string (?insightId=…). Insight-path only for
@@ -35,6 +36,7 @@ export default function CounterviewPage() {
   // Save toggle — initial state hydrates from the loaded counterview's is_saved.
   const [saved, setSaved] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [shareOpen, setShareOpen] = useState(false)
 
   useEffect(() => {
     if (token === null) {
@@ -239,6 +241,7 @@ export default function CounterviewPage() {
   )
 
   return (
+    <>
     <main className="min-h-screen [min-height:100svh] flex flex-col bg-vellum px-[24px] pb-[60px]">
       <SubPageNav fallbackHref="/app/today" />
 
@@ -331,8 +334,8 @@ export default function CounterviewPage() {
         ))}
       </div>
 
-      {/* Save toggle — Share joins it in 6b */}
-      <div className={`mt-[20px] flex justify-center ${reveal(phase >= 4)}`}>
+      {/* Save + Share */}
+      <div className={`mt-[20px] flex justify-center gap-3 ${reveal(phase >= 4)}`}>
         <button
           onClick={handleSave}
           disabled={saving}
@@ -340,6 +343,12 @@ export default function CounterviewPage() {
         >
           {saved ? <BookmarkCheck size={16} strokeWidth={1.5} /> : <Bookmark size={16} strokeWidth={1.5} />}
           {saved ? 'Saved' : 'Save'}
+        </button>
+        <button
+          onClick={() => setShareOpen(true)}
+          className="px-[18px] min-h-[44px] flex items-center gap-[7px] border-[0.5px] border-charcoal rounded-[6px] font-cormorant text-[15px] text-charcoal"
+        >
+          <Share2 size={16} strokeWidth={1.5} /> Share
         </button>
       </div>
 
@@ -360,5 +369,17 @@ export default function CounterviewPage() {
         </div>
       )}
     </main>
+
+    {counterview && (
+      <SharePreviewModal
+        isOpen={shareOpen}
+        onClose={() => setShareOpen(false)}
+        kind="counterview"
+        counterviewId={counterview.id}
+        counterviewPortraits={baseRows.map((r) => r.persona_portrait_url).filter(Boolean) as string[]}
+        quote={counterview.anchor_text ?? 'the case against this'}
+      />
+    )}
+    </>
   )
 }
