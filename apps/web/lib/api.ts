@@ -248,10 +248,28 @@ export interface ReflectionFeedCouncil {
   saved_at: string
 }
 
+export interface ReflectionFeedCounterviewVerdict {
+  persona_slug: string
+  persona_name: string
+  verdict: string
+  position: number
+}
+
+export interface ReflectionFeedCounterview {
+  kind: 'counterview_verdict'
+  save_id: string
+  counterview_id: string
+  source: string
+  anchor_text: string | null
+  verdicts: ReflectionFeedCounterviewVerdict[]
+  saved_at: string
+}
+
 export type ReflectionFeedItem =
   | ReflectionFeedLine
   | ReflectionFeedMirror
   | ReflectionFeedCouncil
+  | ReflectionFeedCounterview
 
 export interface ReflectionsFeedResponse {
   items: ReflectionFeedItem[]
@@ -368,6 +386,7 @@ export interface Counterview {
   anchor_text: string | null
   status: 'generated' | 'empty' | 'suppressed'
   responses: CounterviewResponse[]
+  is_saved: boolean
 }
 
 export interface WeeklyLetterPayload {
@@ -777,6 +796,14 @@ class ApiClient {
 
   async unsaveCouncil(sessionId: string): Promise<void> {
     return this.request(`/council/${sessionId}/save`, { method: 'DELETE' })
+  }
+
+  async saveCounterview(id: string): Promise<void> {
+    return this.request(`/counterview/${id}/save`, { method: 'POST' })
+  }
+
+  async unsaveCounterview(id: string): Promise<void> {
+    return this.request(`/counterview/${id}/save`, { method: 'DELETE' })
   }
 
   async saveMirror(mirrorId: string): Promise<void> {

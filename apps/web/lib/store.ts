@@ -103,6 +103,7 @@ interface AppStore {
   removeFeedLine: (savedLineId: string, messageId: string) => void
   removeFeedMirror: (mirrorId: string) => void
   removeFeedCouncil: (sessionId: string) => void
+  removeFeedCounterview: (counterviewId: string) => void
 }
 
 export const useStore = create<AppStore>()(
@@ -293,6 +294,12 @@ export const useStore = create<AppStore>()(
         set((s) => ({
           feedItems: s.feedItems.filter(
             (i) => !(i.kind === 'council_verdict' && i.session_id === sessionId),
+          ),
+        })),
+      removeFeedCounterview: (counterviewId) =>
+        set((s) => ({
+          feedItems: s.feedItems.filter(
+            (i) => !(i.kind === 'counterview_verdict' && i.counterview_id === counterviewId),
           ),
         })),
     }),

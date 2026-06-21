@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
-import { MessageCircle, Loader2 } from 'lucide-react'
+import { MessageCircle, Loader2, Bookmark, BookmarkCheck } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import { api } from '@/lib/api'
 import type { Counterview } from '@/lib/api'
@@ -32,6 +32,9 @@ export default function CounterviewPage() {
   // have nothing more to add (so we stop offering the tap).
   const [deepeningSlug, setDeepeningSlug] = useState<string | null>(null)
   const [exhausted, setExhausted] = useState<Set<string>>(new Set())
+  // Save toggle — initial state hydrates from the loaded counterview's is_saved.
+  const [saved, setSaved] = useState(false)
+  const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     if (token === null) {
@@ -104,6 +107,26 @@ export default function CounterviewPage() {
       setExhausted((prev) => new Set(prev).add(slug)) // 400/404 → don't loop the tap
     } finally {
       setDeepeningSlug(null)
+    }
+  }
+
+  // Hydrate the Save toggle from the loaded counterview (correct state on reload).
+  useEffect(() => {
+    if (counterview) setSaved(counterview.is_saved)
+  }, [counterview])
+
+  // Optimistic save/unsave — revert the toggle if the request fails.
+  const handleSave = async () => {
+    if (!counterview || saving) return
+    const next = !saved
+    setSaving(true)
+    setSaved(next)
+    try {
+      next ? await api.saveCounterview(counterview.id) : await api.unsaveCounterview(counterview.id)
+    } catch {
+      setSaved(!next)
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -306,6 +329,18 @@ export default function CounterviewPage() {
             </div>
           </div>
         ))}
+      </div>
+
+      {/* Save toggle — Share joins it in 6b */}
+      <div className={`mt-[20px] flex justify-center ${reveal(phase >= 4)}`}>
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="px-[18px] min-h-[44px] flex items-center gap-[7px] border-[0.5px] border-charcoal rounded-[6px] font-cormorant text-[15px] text-charcoal disabled:opacity-50"
+        >
+          {saved ? <BookmarkCheck size={16} strokeWidth={1.5} /> : <Bookmark size={16} strokeWidth={1.5} />}
+          {saved ? 'Saved' : 'Save'}
+        </button>
       </div>
 
       {/* The anchor — the insight (or belief) this case was made against */}
