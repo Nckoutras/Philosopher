@@ -17,13 +17,13 @@ COUNTERVIEW_PERSONAS = [("miyamoto_musashi", 0), ("niccolo_machiavelli", 1)]
 
 # Per-line ceiling. Verdicts over this trigger ONE tightening retry (we never cut
 # a line mid-sentence — a marginally-long retry is kept).
-MAX_WORDS = 15
+MAX_WORDS = 10
 
 COUNTERVIEW_PROMPT = """You are giving the CASE AGAINST a position a person holds. Two distinct minds answer, each in one sharp line.
 
 You receive the person's stated position, in their own words. Do not agree, soften, or reassure. Show — briefly and without cruelty — where it is weak: a contradiction, a blind spot, a cost they are not counting, an angle they have not considered.
 
-Two voices, each ONE line, 15 words MAXIMUM:
+Two voices, each ONE line, 10 words MAXIMUM:
 - Miyamoto Musashi — the discipline of action. He sees drift dressed as patience, fear dressed as care, the price of not moving.
 - Niccolo Machiavelli — the reading of motive and power. He sees the convenient story, the hidden self-interest, the resolve that is missing.
 
@@ -34,7 +34,8 @@ Hard rules:
 - Attack the position, the contradiction, the blind spot — NEVER the person. No insults, no contempt, nothing below the belt.
 - If the position genuinely holds, do not fake an objection — name its cost, or the thing it quietly ignores.
 - Plain, modern language. No archaic phrasing, no quotes, never name yourself. One clean cut.
-- 15 words max per line. Shorter is stronger.
+- 10 words max per line. Shorter is stronger.
+- ONE idea, ONE blade. No em-dash or semicolon stitching two thoughts together — a single clean cut, not a compound sentence.
 
 Return JSON only, no preamble, exactly:
 {"status":"generated","verdicts":[{"persona":"miyamoto_musashi","verdict":"..."},{"persona":"niccolo_machiavelli","verdict":"..."}]}
@@ -42,7 +43,7 @@ Return JSON only, no preamble, exactly:
 If there is genuinely nothing to push against, return exactly: {"status":"empty"}"""
 
 # Appended to the system prompt for the single tightening retry.
-TIGHTEN_DIRECTIVE = "\n\nYour previous attempt exceeded 15 words on at least one line. Rewrite BOTH lines to 15 words maximum each. Cut every non-essential word — keep the same meaning, the same two distinct angles, the same JSON shape."
+TIGHTEN_DIRECTIVE = "\n\nYour previous attempt exceeded 10 words on at least one line. Rewrite BOTH lines to 10 words maximum each. Cut every non-essential word — keep the same meaning, the same two distinct angles, the same JSON shape."
 
 
 async def generate_counterview(
@@ -251,13 +252,13 @@ PERSONA_VOICE = {
 }
 
 # A deeper line gets a little more room than the first cut.
-DEEPER_MAX_WORDS = 25
+DEEPER_MAX_WORDS = 18
 
 # {voice} is filled per-persona via .replace() (NOT .format() — the JSON example
 # below contains literal braces that would break str.format).
 DEEPER_PROMPT = """You are {voice}
 
-A person holds a position. You already made one cut against it. Press ONE layer deeper: a second, sharper line that exposes what your first cut implied — the contradiction underneath, the cost they still aren't counting. 25 words MAXIMUM.
+A person holds a position. You already made one cut against it. Press ONE layer deeper: a second, sharper line that exposes what your first cut implied — the contradiction underneath, the cost they still aren't counting. 18 words MAXIMUM.
 
 Hard rules:
 - Anchor STRICTLY to what the person wrote. Invent nothing, no new facts.
@@ -268,7 +269,7 @@ Hard rules:
 Return JSON only: {"status":"generated","verdict":"..."}  or  {"status":"empty"} if there is nothing more honest to add."""
 
 # Appended to the system prompt for the single tightening retry.
-DEEPER_TIGHTEN = "\n\nYour previous attempt exceeded 25 words. Rewrite to 25 words maximum. Cut every non-essential word — keep the deeper angle and the same JSON shape."
+DEEPER_TIGHTEN = "\n\nYour previous attempt exceeded 18 words. Rewrite to 18 words maximum. Cut every non-essential word — keep the deeper angle and the same JSON shape."
 
 
 async def generate_deeper(
