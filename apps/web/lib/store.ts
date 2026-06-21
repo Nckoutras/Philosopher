@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { User, Conversation, Message, Subscription, SavedLineRead, ReflectionFeedItem } from './api'
+import type { User, Conversation, Message, Subscription, SavedLineRead, ReflectionFeedItem, Insight } from './api'
 import { api } from './api'
 
 export interface PaywallDetails {
@@ -25,6 +25,12 @@ interface AppStore {
   subscription: Subscription | null
   setSubscription: (sub: Subscription) => void
   get plan(): string
+
+  // Insight discoverability glow
+  activeInsights: Insight[]                       // transient (refetched)
+  seenInsightIds: string[]                        // persisted
+  setActiveInsights: (list: Insight[]) => void
+  markInsightsSeenForConversation: (conversationId: string) => void
 
   // Active conversation + persona display data
   activeConversationId: string | null
@@ -125,6 +131,16 @@ export const useStore = create<AppStore>()(
         const sub = get().subscription
         return sub && ['active', 'trialing'].includes(sub.status) ? sub.plan : 'free'
       },
+
+      // Insight discoverability glow
+      activeInsights: [],
+      seenInsightIds: [],
+      setActiveInsights: (list) => set({ activeInsights: list }),
+      markInsightsSeenForConversation: (conversationId) => set((s) => {
+        const ids = s.activeInsights.filter(i => i.conversation_id === conversationId).map(i => i.id)
+        if (ids.length === 0) return {} as Partial<AppStore>
+        return { seenInsightIds: Array.from(new Set([...s.seenInsightIds, ...ids])) }
+      }),
 
       // Active conversation + persona display data
       activeConversationId: null,
@@ -305,7 +321,7 @@ export const useStore = create<AppStore>()(
     }),
     {
       name: 'philosopher-store',
-      partialize: (s) => ({ user: s.user, token: s.token, subscription: s.subscription }),
+      partialize: (s) => ({ user: s.user, token: s.token, subscription: s.subscription, seenInsightIds: s.seenInsightIds }),
       onRehydrateStorage: () => (state) => {
         state?.setHasHydrated(true)
       },
