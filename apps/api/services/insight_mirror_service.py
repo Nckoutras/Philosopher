@@ -7,7 +7,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from config import config
-from models import Conversation, Insight, Message, Mirror, Persona
+from models import Insight, Message, Mirror, Persona, User
 from services.llm_client import llm_client
 
 logger = logging.getLogger(__name__)
@@ -77,16 +77,18 @@ async def generate_insight_mirror(
     if existing is not None:
         return existing
 
-    # ── Source conversation + host persona ────────────────────────────────────
-    conversation = None
-    if insight.conversation_id is not None:
-        conversation = (
-            await db.execute(
-                select(Conversation).where(Conversation.id == insight.conversation_id)
-            )
-        ).scalar_one_or_none()
-
-    host_persona_id = insight.persona_id or (conversation.persona_id if conversation else None)
+    # ── Host persona ──────────────────────────────────────────────────────────
+    # Host the insight mirror through the user's chosen weekly mirror host (the
+    # persona behind their weekly reflection), NOT the source conversation's
+    # persona — so insight reflections stay consistent with the weekly mirror.
+    user = (
+        await db.execute(select(User).where(User.id == user_id))
+    ).scalar_one_or_none()
+    host_slug = (user.mirror_host_slug if user else None) or "carl_jung"
+    host_persona = (
+        await db.execute(select(Persona).where(Persona.slug == host_slug))
+    ).scalar_one_or_none()
+    host_persona_id = host_persona.id if host_persona else None
 
     # User messages of the source conversation, oldest-first.
     messages = []
