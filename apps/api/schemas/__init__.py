@@ -479,6 +479,29 @@ class SetMirrorHostRequest(BaseModel):
     host_slug: str
 
 
+# ── Counterview ───────────────────────────────────────────────────────────────
+
+class CounterviewCreate(BaseModel):
+    belief: str
+
+
+class CounterviewResponseOut(BaseModel):
+    persona_slug: str
+    persona_name: str
+    persona_portrait_url: str | None = None
+    position: int
+    round: int
+    verdict: str
+
+
+class CounterviewOut(BaseModel):
+    id: str
+    source: str
+    anchor_text: str | None = None
+    status: str
+    responses: list[CounterviewResponseOut]
+
+
 # ── Home / Today ───────────────────────────────────────────────────────────────
 
 class DailyQuestionOut(BaseModel):
