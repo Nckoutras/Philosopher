@@ -485,6 +485,10 @@ class CounterviewCreate(BaseModel):
     belief: str
 
 
+class CounterviewDeeperRequest(BaseModel):
+    persona_slug: str
+
+
 class CounterviewResponseOut(BaseModel):
     persona_slug: str
     persona_name: str
