@@ -109,7 +109,7 @@ SEASON_FOOTER_DATE_Y      = 1314
 # Top→bottom: faint hero bg · "The Wise Room" · date · portrait · "{Persona}
 # told me" · auto-fit reflection (vertically centred in the leftover band) ·
 # bold "thewiseroom.app" stamp. Council uses the legacy layout above.
-REFLECT_HERO_OPACITY     = 0.12          # tunable — founder picks from samples
+REFLECT_HERO_OPACITY     = 0.06          # tunable — founder picks from samples
 
 REFLECT_WORDMARK_BASELINE_Y = 88
 REFLECT_WORDMARK_FONT_SIZE  = 36
