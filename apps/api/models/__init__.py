@@ -540,6 +540,42 @@ class CouncilSave(Base):
     )
 
 
+class Counterview(Base):
+    __tablename__ = "counterviews"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=gen_uuid)
+    user_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    source: Mapped[str] = mapped_column(String(20), nullable=False, default="direct")  # direct | insight
+    insight_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), ForeignKey("insights.id", ondelete="SET NULL"), nullable=True)
+    anchor_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(String(20), nullable=False)  # generated | empty | suppressed
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+    __table_args__ = (
+        CheckConstraint("source IN ('direct', 'insight')", name="ck_counterviews_source"),
+        CheckConstraint("status IN ('generated', 'empty', 'suppressed')", name="ck_counterviews_status"),
+        Index("ix_counterviews_user_created", "user_id", text("created_at DESC")),
+        Index("uq_counterviews_insight", "insight_id", unique=True, postgresql_where=text("insight_id IS NOT NULL")),
+    )
+
+
+class CounterviewResponse(Base):
+    __tablename__ = "counterview_responses"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=gen_uuid)
+    counterview_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("counterviews.id", ondelete="CASCADE"), nullable=False)
+    persona_slug: Mapped[str] = mapped_column(String(100), nullable=False)
+    round: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    position: Mapped[int] = mapped_column(Integer, nullable=False)
+    verdict: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+    __table_args__ = (
+        Index("ix_counterview_responses_cv", "counterview_id"),
+        UniqueConstraint("counterview_id", "persona_slug", "round", name="uq_counterview_response"),
+    )
+
+
 class MirrorSave(Base):
     __tablename__ = "mirror_saves"
 

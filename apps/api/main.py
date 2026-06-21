@@ -25,6 +25,7 @@ from routers.share import router as share_router
 from routers.scheduled_emails import router as scheduled_emails_router
 from routers.mirrors import router as mirrors_router
 from routers.council import router as council_router
+from routers.counterview import router as counterview_router
 from routers.self_comparison import router as self_comparison_router
 from routers.weekly_letters import router as weekly_letters_router
 from routers.unsubscribe import router as unsubscribe_router
@@ -101,6 +102,7 @@ app.include_router(share_router,              prefix=PREFIX)
 app.include_router(scheduled_emails_router,   prefix=PREFIX)
 app.include_router(mirrors_router,            prefix=PREFIX)
 app.include_router(council_router,            prefix=PREFIX)
+app.include_router(counterview_router,        prefix=PREFIX)
 app.include_router(self_comparison_router,    prefix=PREFIX)
 app.include_router(weekly_letters_router,     prefix=PREFIX)
 app.include_router(unsubscribe_router,         prefix=PREFIX)
