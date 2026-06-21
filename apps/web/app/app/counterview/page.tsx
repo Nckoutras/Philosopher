@@ -18,6 +18,10 @@ export default function CounterviewPage() {
 
   const [loading, setLoading] = useState(true)
   const [counterview, setCounterview] = useState<Counterview | null>(null)
+  // Staged line-level reveal of the generated result:
+  // 0 nothing · 1 portraits+names · 2 Musashi verdict · 3 Machiavelli verdict ·
+  // 4 the anchor. prefers-reduced-motion jumps straight to 4 (everything shown).
+  const [phase, setPhase] = useState(0)
 
   useEffect(() => {
     if (token === null) {
@@ -41,6 +45,26 @@ export default function CounterviewPage() {
     load()
   }, [token, router])
 
+  const responses = counterview?.responses ?? []
+  const generated = counterview?.status === 'generated' && responses.length > 0
+
+  // Drive the staged reveal once a generated result is in. Pure setTimeout phases
+  // (no rAF, no word-by-word). prefers-reduced-motion skips straight to the end.
+  useEffect(() => {
+    if (!generated) return
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      setPhase(4)
+      return
+    }
+    const timers = [
+      setTimeout(() => setPhase(1), 150),
+      setTimeout(() => setPhase(2), 800),
+      setTimeout(() => setPhase(3), 1600),
+      setTimeout(() => setPhase(4), 2300),
+    ]
+    return () => timers.forEach(clearTimeout)
+  }, [counterview?.id, generated])
+
   // ── Generating: a quiet wait while the POST runs ──
   if (loading) {
     return (
@@ -54,9 +78,6 @@ export default function CounterviewPage() {
       </main>
     )
   }
-
-  const responses = counterview?.responses ?? []
-  const generated = counterview?.status === 'generated' && responses.length > 0
 
   // ── Nothing to show (empty/suppressed/no responses) ──
   // A gentle, neutral fallback — the same copy for empty and suppressed, never
@@ -77,6 +98,11 @@ export default function CounterviewPage() {
     )
   }
 
+  // Reveal helper: hidden (faint, nudged down) → settled. An element becomes
+  // visible when its phase threshold is crossed.
+  const reveal = (shown: boolean) =>
+    `transition-all duration-700 ease-out ${shown ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-[8px]'}`
+
   // Two voices, in their authored order (position 0 left, 1 right).
   const ordered = [...responses].sort((a, b) => a.position - b.position)
 
@@ -95,9 +121,9 @@ export default function CounterviewPage() {
 
       {/* The two verdicts, side by side */}
       <div className="flex gap-[14px] mt-[28px]">
-        {ordered.map((r) => (
+        {ordered.map((r, i) => (
           <div key={r.persona_slug} className="flex-1 flex flex-col items-center text-center gap-[12px]">
-            <div className="w-[64px] h-[64px] rounded-full overflow-hidden flex-shrink-0 bg-linen border border-bronze flex items-center justify-center">
+            <div className={`w-[64px] h-[64px] rounded-full overflow-hidden flex-shrink-0 bg-linen border border-bronze flex items-center justify-center ${reveal(phase >= 1)}`}>
               {r.persona_portrait_url ? (
                 <Image
                   src={r.persona_portrait_url}
@@ -112,10 +138,10 @@ export default function CounterviewPage() {
                 </span>
               )}
             </div>
-            <p className="font-cormorant text-[22px] font-medium text-ink leading-tight">
+            <p className={`font-cormorant text-[22px] font-medium text-ink leading-tight ${reveal(phase >= 1)}`}>
               {r.persona_name}
             </p>
-            <div className="w-full bg-paper border-[0.5px] border-edge rounded-[16px] shadow-card px-[16px] py-[18px]">
+            <div className={`w-full bg-paper border-[0.5px] border-edge rounded-[16px] shadow-card px-[16px] py-[18px] ${reveal(phase >= 2 + i)}`}>
               <p className="font-cormorant text-[19px] text-ink leading-snug">
                 {r.verdict}
               </p>
@@ -126,7 +152,7 @@ export default function CounterviewPage() {
 
       {/* The anchor — the insight this case was made against */}
       {counterview?.anchor_text && (
-        <div className="mt-[36px]">
+        <div className={`mt-[36px] ${reveal(phase >= 4)}`}>
           <p className="font-lora text-[11px] uppercase tracking-[0.24em] text-bronze-dark mb-[8px]">
             Your insight
           </p>
