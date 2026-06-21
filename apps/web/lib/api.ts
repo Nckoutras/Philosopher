@@ -879,6 +879,15 @@ class ApiClient {
     return this.request<Counterview>(`/counterview/${id}`)
   }
 
+  // Voluntary path: generate a counterview against a belief the user types.
+  // Synchronous on the server — status may be 'empty'/'suppressed' (no responses).
+  async createCounterview(belief: string): Promise<Counterview> {
+    return this.request<Counterview>('/counterview', {
+      method: 'POST',
+      body: JSON.stringify({ belief }),
+    })
+  }
+
   // ── Billing ───────────────────────────────────────────────────────────────
 
   async getSubscription(): Promise<Subscription> {

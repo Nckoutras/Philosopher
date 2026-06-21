@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
-import { Lock } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import AppHeader from '@/components/layout/AppHeader'
 import RitualScheduleSheet from '@/components/rituals/RitualScheduleSheet'
@@ -135,8 +134,12 @@ export default function RitualsPage() {
           </div>
         </button>
 
-        {/* ── The Counterview — LOCKED ── */}
-        <div className="bg-paper border border-[0.5px] border-edge rounded-md px-[16px] py-[14px] opacity-50 flex items-start gap-[14px]">
+        {/* ── The Counterview — ACTIVE ── */}
+        <button
+          type="button"
+          onClick={() => router.push('/app/counterview')}
+          className="w-full text-left bg-paper border border-[0.5px] border-edge rounded-md shadow-card px-[16px] py-[14px] flex items-start gap-[14px]"
+        >
           <div className="w-[56px] h-[56px] flex items-center justify-center flex-shrink-0 text-ink">
             <Image src="/personas/thecounterview.png" alt="" width={56} height={56} className="w-full h-full object-cover rounded-[8px]" />
           </div>
@@ -147,15 +150,8 @@ export default function RitualsPage() {
             <p className="font-lora text-[15px] text-charcoal leading-[1.5] mt-[6px]">
               The strongest case against what you believe.
             </p>
-            <p className="font-lora text-[12px] text-charcoal leading-[1.5] mt-[6px]">
-              Available after 5 conversations or 30 messages with any philosopher.
-            </p>
-            <div className="flex items-center gap-[6px] mt-[12px]">
-              <span className="font-lora text-[11px] text-charcoal">Coming soon</span>
-              <Lock size={13} strokeWidth={1.5} className="text-sepia" />
-            </div>
           </div>
-        </div>
+        </button>
 
 
       </div>
