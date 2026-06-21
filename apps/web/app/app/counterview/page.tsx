@@ -246,27 +246,27 @@ export default function CounterviewPage() {
       <SubPageNav fallbackHref="/app/today" />
 
       {/* Centered, ornamented header */}
-      <div className="text-center pt-[10px]">
-        <p className="font-lora text-[12px] uppercase tracking-[0.28em] text-bronze-dark">
+      <div className="text-center pt-[4px]">
+        <p className="font-lora text-[11px] uppercase tracking-[0.24em] text-bronze-dark">
           The Wise Room
         </p>
-        <div className="my-[10px]">
+        <div className="my-[6px]">
           <DiamondRule />
         </div>
-        <h1 className="font-cormorant text-[44px] font-medium text-ink leading-tight">
+        <h1 className="font-cormorant text-[30px] font-medium text-ink leading-tight">
           Counterview
         </h1>
-        <div className="mt-[10px]">
+        <div className="mt-[6px]">
           <DiamondRule />
         </div>
       </div>
 
       {/* The two verdicts — framed portrait card + verdict box per persona */}
-      <div className="flex gap-[14px] mt-[26px]">
+      <div className="flex gap-[10px] mt-[12px]">
         {baseRows.map((r, i) => (
           <div key={r.persona_slug} className="flex-1 flex flex-col">
             {/* Portrait card — framed, tall, name overlay + corner brackets */}
-            <div className={`relative aspect-[3/5] rounded-[6px] overflow-hidden bg-linen ${reveal(phase >= 1)}`}>
+            <div className={`relative aspect-[1/2] rounded-[6px] overflow-hidden bg-linen ${reveal(phase >= 1)}`}>
               {r.persona_portrait_url ? (
                 <Image
                   src={r.persona_portrait_url}
