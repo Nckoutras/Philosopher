@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
-import { MessageCircle } from 'lucide-react'
+import { MessageCircle, Loader2 } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import { api } from '@/lib/api'
 import type { Counterview } from '@/lib/api'
@@ -28,6 +28,10 @@ export default function CounterviewPage() {
   // so voluntary entry never flashes the generating copy before the form.
   const [mode, setMode] = useState<'unresolved' | 'insight' | 'input'>('unresolved')
   const [belief, setBelief] = useState('')
+  // Go-deeper: which persona is mid-request (one at a time), and which personas
+  // have nothing more to add (so we stop offering the tap).
+  const [deepeningSlug, setDeepeningSlug] = useState<string | null>(null)
+  const [exhausted, setExhausted] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     if (token === null) {
@@ -82,6 +86,25 @@ export default function CounterviewPage() {
     const cv = await api.createCounterview(b).catch(() => null)
     setCounterview(cv)
     setLoading(false)
+  }
+
+  // Press one persona one layer deeper. Backend caps at a single round-1 per
+  // persona; the returned counterview carries the new line (or is unchanged on a
+  // no-op). Either way we stop offering the tap once it can add nothing more.
+  const handleDeeper = async (slug: string) => {
+    if (!counterview || deepeningSlug) return
+    setDeepeningSlug(slug)
+    try {
+      const updated = await api.deeperCounterview(counterview.id, slug)
+      setCounterview(updated)
+      // No round-1 came back for this slug (empty/safety no-op) → don't re-offer.
+      const gotDeeper = updated.responses.some((r) => r.persona_slug === slug && r.round === 1)
+      if (!gotDeeper) setExhausted((prev) => new Set(prev).add(slug))
+    } catch {
+      setExhausted((prev) => new Set(prev).add(slug)) // 400/404 → don't loop the tap
+    } finally {
+      setDeepeningSlug(null)
+    }
   }
 
   // ── Initial resolve (before we know insight vs input): a blank vellum beat,
@@ -174,11 +197,13 @@ export default function CounterviewPage() {
   const reveal = (shown: boolean) =>
     `transition-all duration-700 ease-out ${shown ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-[8px]'}`
 
-  // Two voices, in their authored order (position 0 left, 1 right). Round-0 only
-  // for now — go-deeper round-1 stacking lands in a later slice.
-  const ordered = responses
+  // Two voices, in their authored order (position 0 left, 1 right). Round-0 drives
+  // the columns; the deeper (round-1) line is looked up and stacked underneath.
+  const baseRows = responses
     .filter((r) => r.round === 0)
     .sort((a, b) => a.position - b.position)
+  const deeperFor = (slug: string) =>
+    responses.find((r) => r.persona_slug === slug && r.round === 1)
 
   // Small ornamental rule (hairline · diamond · hairline). Reused in the header
   // and inside the portrait name overlay.
@@ -212,7 +237,7 @@ export default function CounterviewPage() {
 
       {/* The two verdicts — framed portrait card + verdict box per persona */}
       <div className="flex gap-[14px] mt-[26px]">
-        {ordered.map((r, i) => (
+        {baseRows.map((r, i) => (
           <div key={r.persona_slug} className="flex-1 flex flex-col">
             {/* Portrait card — framed, tall, name overlay + corner brackets */}
             <div className={`relative aspect-[3/5] rounded-[6px] overflow-hidden bg-linen ${reveal(phase >= 1)}`}>
@@ -249,7 +274,34 @@ export default function CounterviewPage() {
                 <p className="font-cormorant text-[17px] text-ink leading-snug pr-[22px]">
                   {r.verdict}
                 </p>
-                <MessageCircle size={15} strokeWidth={1.5} className="absolute top-[12px] right-[12px] text-bronze" />
+                {(() => {
+                  const deeper = deeperFor(r.persona_slug)
+                  const isLoading = deepeningSlug === r.persona_slug
+                  // Already shown a deeper line, or nothing more to add → no tap.
+                  if (deeper || exhausted.has(r.persona_slug)) return null
+                  return (
+                    <button
+                      onClick={() => handleDeeper(r.persona_slug)}
+                      disabled={deepeningSlug !== null}
+                      aria-label="Go deeper"
+                      className="absolute top-[10px] right-[10px] p-[2px] disabled:opacity-40"
+                    >
+                      {isLoading ? (
+                        <Loader2 size={15} strokeWidth={1.5} className="text-bronze animate-spin" />
+                      ) : (
+                        <MessageCircle size={15} strokeWidth={1.5} className="text-bronze" />
+                      )}
+                    </button>
+                  )
+                })()}
+                {/* The second cut — stacked under the first when it exists */}
+                {deeperFor(r.persona_slug) && (
+                  <div className="mt-[12px] pt-[12px] border-t border-bronze/20">
+                    <p className="font-cormorant text-[16px] italic text-charcoal leading-snug">
+                      {deeperFor(r.persona_slug)!.verdict}
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           </div>
