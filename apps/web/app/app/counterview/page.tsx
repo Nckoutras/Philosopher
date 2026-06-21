@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
+import { MessageCircle } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import { api } from '@/lib/api'
 import type { Counterview } from '@/lib/api'
@@ -173,62 +174,102 @@ export default function CounterviewPage() {
   const reveal = (shown: boolean) =>
     `transition-all duration-700 ease-out ${shown ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-[8px]'}`
 
-  // Two voices, in their authored order (position 0 left, 1 right).
-  const ordered = [...responses].sort((a, b) => a.position - b.position)
+  // Two voices, in their authored order (position 0 left, 1 right). Round-0 only
+  // for now — go-deeper round-1 stacking lands in a later slice.
+  const ordered = responses
+    .filter((r) => r.round === 0)
+    .sort((a, b) => a.position - b.position)
+
+  // Small ornamental rule (hairline · diamond · hairline). Reused in the header
+  // and inside the portrait name overlay.
+  const DiamondRule = ({ w = '40px' }: { w?: string }) => (
+    <div className="flex items-center justify-center gap-[8px]">
+      <span className="h-px bg-bronze/40" style={{ width: w }} />
+      <span className="w-[6px] h-[6px] rotate-45 bg-bronze" />
+      <span className="h-px bg-bronze/40" style={{ width: w }} />
+    </div>
+  )
 
   return (
     <main className="min-h-screen [min-height:100svh] flex flex-col bg-vellum px-[24px] pb-[60px]">
       <SubPageNav fallbackHref="/app/today" />
 
-      <div className="mt-[8px]">
-        <p className="font-lora text-[11px] uppercase tracking-[0.24em] text-bronze-dark mb-[6px]">
+      {/* Centered, ornamented header */}
+      <div className="text-center pt-[10px]">
+        <p className="font-lora text-[12px] uppercase tracking-[0.28em] text-bronze-dark">
           The Wise Room
         </p>
-        <h1 className="font-cormorant text-[34px] font-medium text-ink leading-tight">
+        <div className="my-[10px]">
+          <DiamondRule />
+        </div>
+        <h1 className="font-cormorant text-[44px] font-medium text-ink leading-tight">
           Counterview
         </h1>
+        <div className="mt-[10px]">
+          <DiamondRule />
+        </div>
       </div>
 
-      {/* The two verdicts, side by side */}
-      <div className="flex gap-[14px] mt-[28px]">
+      {/* The two verdicts — framed portrait card + verdict box per persona */}
+      <div className="flex gap-[14px] mt-[26px]">
         {ordered.map((r, i) => (
-          <div key={r.persona_slug} className="flex-1 flex flex-col items-center text-center gap-[12px]">
-            <div className={`w-[64px] h-[64px] rounded-full overflow-hidden flex-shrink-0 bg-linen border border-bronze flex items-center justify-center ${reveal(phase >= 1)}`}>
+          <div key={r.persona_slug} className="flex-1 flex flex-col">
+            {/* Portrait card — framed, tall, name overlay + corner brackets */}
+            <div className={`relative aspect-[3/5] rounded-[6px] overflow-hidden bg-linen ${reveal(phase >= 1)}`}>
               {r.persona_portrait_url ? (
                 <Image
                   src={r.persona_portrait_url}
                   alt={r.persona_name}
-                  width={64}
-                  height={64}
-                  className="object-cover w-full h-full"
+                  fill
+                  className="object-cover"
                 />
               ) : (
-                <span className="font-cormorant text-[26px] font-medium text-charcoal">
+                <div className="w-full h-full flex items-center justify-center font-cormorant text-[40px] text-charcoal">
                   {r.persona_name.charAt(0)}
-                </span>
+                </div>
               )}
+              <div className="absolute inset-x-0 bottom-0 h-[42%] bg-gradient-to-t from-black/60 to-transparent" />
+              <div className="absolute inset-x-0 bottom-[12px] px-[6px] text-center">
+                <p className="font-cormorant text-[20px] text-[#F5ECD8] leading-tight">
+                  {r.persona_name}
+                </p>
+                <div className="mt-[5px]">
+                  <DiamondRule w="18px" />
+                </div>
+              </div>
+              {/* corner brackets */}
+              <span className="absolute top-[6px] left-[6px] w-[13px] h-[13px] border-t border-l border-[#D9B98A]/80" />
+              <span className="absolute top-[6px] right-[6px] w-[13px] h-[13px] border-t border-r border-[#D9B98A]/80" />
+              <span className="absolute bottom-[6px] left-[6px] w-[13px] h-[13px] border-b border-l border-[#D9B98A]/80" />
+              <span className="absolute bottom-[6px] right-[6px] w-[13px] h-[13px] border-b border-r border-[#D9B98A]/80" />
             </div>
-            <p className={`font-cormorant text-[22px] font-medium text-ink leading-tight ${reveal(phase >= 1)}`}>
-              {r.persona_name}
-            </p>
-            <div className={`w-full bg-paper border-[0.5px] border-edge rounded-[16px] shadow-card px-[16px] py-[18px] ${reveal(phase >= 2 + i)}`}>
-              <p className="font-cormorant text-[19px] text-ink leading-snug">
-                {r.verdict}
-              </p>
+            {/* Verdict box — inset double frame + speech bubble */}
+            <div className={`mt-[12px] bg-paper rounded-[10px] border-[0.5px] border-edge shadow-card p-[5px] ${reveal(phase >= 2 + i)}`}>
+              <div className="relative border-[0.5px] border-bronze/30 rounded-[7px] px-[14px] py-[14px]">
+                <p className="font-cormorant text-[17px] text-ink leading-snug pr-[22px]">
+                  {r.verdict}
+                </p>
+                <MessageCircle size={15} strokeWidth={1.5} className="absolute top-[12px] right-[12px] text-bronze" />
+              </div>
             </div>
           </div>
         ))}
       </div>
 
-      {/* The anchor — the insight this case was made against */}
+      {/* The anchor — the insight (or belief) this case was made against */}
       {counterview?.anchor_text && (
-        <div className={`mt-[36px] ${reveal(phase >= 4)}`}>
-          <p className="font-lora text-[11px] uppercase tracking-[0.24em] text-bronze-dark mb-[8px]">
-            {counterview.source === 'insight' ? 'Your insight' : 'Your belief'}
-          </p>
-          <p className="font-cormorant text-[20px] text-sepia leading-snug">
-            {counterview.anchor_text}
-          </p>
+        <div className={`mt-[28px] ${reveal(phase >= 4)}`}>
+          <div className="flex items-center gap-[7px] mb-[8px]">
+            <span className="w-[5px] h-[5px] rotate-45 bg-bronze" />
+            <p className="font-lora text-[11px] uppercase tracking-[0.24em] text-bronze-dark">
+              {counterview.source === 'insight' ? 'Your insight' : 'Your belief'}
+            </p>
+          </div>
+          <div className="bg-paper/60 border-[0.5px] border-edge rounded-[10px] px-[16px] py-[14px]">
+            <p className="font-cormorant text-[19px] text-charcoal leading-snug">
+              {counterview.anchor_text}
+            </p>
+          </div>
         </div>
       )}
     </main>
