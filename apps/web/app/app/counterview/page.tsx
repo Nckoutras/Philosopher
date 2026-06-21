@@ -22,6 +22,11 @@ export default function CounterviewPage() {
   // 0 nothing · 1 portraits+names · 2 Musashi verdict · 3 Machiavelli verdict ·
   // 4 the anchor. prefers-reduced-motion jumps straight to 4 (everything shown).
   const [phase, setPhase] = useState(0)
+  // Insight path (?insightId=) auto-generates; input path lets the user type a
+  // belief and submit. Starts 'unresolved' until the load effect reads the URL —
+  // so voluntary entry never flashes the generating copy before the form.
+  const [mode, setMode] = useState<'unresolved' | 'insight' | 'input'>('unresolved')
+  const [belief, setBelief] = useState('')
 
   useEffect(() => {
     if (token === null) {
@@ -33,8 +38,12 @@ export default function CounterviewPage() {
       try {
         // Suspense-safe (no useSearchParams): the effect is client-only.
         const insightId = new URLSearchParams(window.location.search).get('insightId')
-        // No insight id → straight to the gentle fallback (voluntary input is later).
-        if (!insightId) return
+        // No insight id → the voluntary input form (no fetch yet).
+        if (!insightId) {
+          setMode('input')
+          return
+        }
+        setMode('insight')
         const cv = await api.counterviewFromInsight(insightId).catch(() => null)
         setCounterview(cv)
       } finally {
@@ -65,7 +74,23 @@ export default function CounterviewPage() {
     return () => timers.forEach(clearTimeout)
   }, [counterview?.id, generated])
 
-  // ── Generating: a quiet wait while the POST runs ──
+  async function handleSubmit() {
+    const b = belief.trim()
+    if (!b) return
+    setLoading(true)
+    const cv = await api.createCounterview(b).catch(() => null)
+    setCounterview(cv)
+    setLoading(false)
+  }
+
+  // ── Initial resolve (before we know insight vs input): a blank vellum beat,
+  // never the generating copy — avoids flashing "Putting it to the test…" on
+  // voluntary entry, where there is no fetch.
+  if (loading && mode === 'unresolved') {
+    return <main className="min-h-screen [min-height:100svh] bg-vellum" />
+  }
+
+  // ── Generating: a quiet wait while the POST runs (insight fetch or submit) ──
   if (loading) {
     return (
       <main className="min-h-screen [min-height:100svh] flex flex-col items-center justify-center bg-vellum px-[24px] text-center">
@@ -75,6 +100,51 @@ export default function CounterviewPage() {
         <p className="font-cormorant italic text-[20px] text-sepia">
           Putting it to the test&hellip;
         </p>
+      </main>
+    )
+  }
+
+  // ── Voluntary input: the user types a belief to test ──
+  if (mode === 'input' && !counterview) {
+    return (
+      <main className="min-h-screen [min-height:100svh] flex flex-col bg-vellum px-[24px] pb-[60px]">
+        <SubPageNav fallbackHref="/app/rituals" />
+
+        <div className="mt-[8px]">
+          <p className="font-lora text-[11px] uppercase tracking-[0.24em] text-bronze-dark mb-[6px]">
+            The Wise Room
+          </p>
+          <h1 className="font-cormorant text-[34px] font-medium text-ink leading-tight">
+            Counterview
+          </h1>
+        </div>
+
+        <div className="mt-[28px]">
+          <p className="font-cormorant text-[24px] text-ink leading-snug">
+            What do you hold to be true?
+          </p>
+          <p className="font-lora text-[14px] text-sepia leading-[1.6] mt-[8px]">
+            Write it plainly. The sharper the conviction, the better the test.
+          </p>
+        </div>
+
+        <textarea
+          value={belief}
+          onChange={(e) => setBelief(e.target.value)}
+          maxLength={1000}
+          rows={5}
+          placeholder="I believe&hellip;"
+          className="mt-[20px] w-full bg-paper border-[0.5px] border-edge rounded-[16px] shadow-card px-[16px] py-[14px] font-lora text-[16px] text-ink leading-[1.6] resize-none focus:outline-none focus:border-bronze placeholder:text-sepia/60"
+        />
+
+        <button
+          type="button"
+          onClick={handleSubmit}
+          disabled={!belief.trim()}
+          className="mt-[20px] w-full py-[14px] rounded-[14px] bg-bronze text-vellum font-cormorant text-[18px] font-medium disabled:opacity-40"
+        >
+          Make the case
+        </button>
       </main>
     )
   }
@@ -154,7 +224,7 @@ export default function CounterviewPage() {
       {counterview?.anchor_text && (
         <div className={`mt-[36px] ${reveal(phase >= 4)}`}>
           <p className="font-lora text-[11px] uppercase tracking-[0.24em] text-bronze-dark mb-[8px]">
-            Your insight
+            {counterview.source === 'insight' ? 'Your insight' : 'Your belief'}
           </p>
           <p className="font-cormorant text-[20px] text-sepia leading-snug">
             {counterview.anchor_text}
