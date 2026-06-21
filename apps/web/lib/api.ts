@@ -888,6 +888,16 @@ class ApiClient {
     })
   }
 
+  // Press one layer deeper for a single persona. Returns the full counterview,
+  // now carrying that persona's round-1 response (a no-op — cap reached, nothing
+  // to add, safety trip — returns it unchanged with a clean 200).
+  async deeperCounterview(counterviewId: string, personaSlug: string): Promise<Counterview> {
+    return this.request<Counterview>(`/counterview/${counterviewId}/deeper`, {
+      method: 'POST',
+      body: JSON.stringify({ persona_slug: personaSlug }),
+    })
+  }
+
   // ── Billing ───────────────────────────────────────────────────────────────
 
   async getSubscription(): Promise<Subscription> {
