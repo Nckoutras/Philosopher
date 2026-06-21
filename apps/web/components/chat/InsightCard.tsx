@@ -51,7 +51,7 @@ export default function InsightCard({ content, insightType, sourceCount, onPrima
             aria-hidden
             width={44}
             height={44}
-            className="shrink-0 w-[44px] h-[44px] rounded-md object-cover"
+            className="shrink-0 w-[44px] h-[44px] rounded-md object-cover shadow-[0_0_18px_4px_rgba(184,153,104,0.45),0_0_0_1px_rgba(138,115,64,0.55)]"
           />
         ) : (
           <span
