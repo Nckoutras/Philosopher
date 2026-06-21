@@ -12,6 +12,9 @@ from models import (
     CouncilResponse,
     CouncilSave,
     CouncilSession,
+    Counterview,
+    CounterviewResponse,
+    CounterviewSave,
     Mirror,
     MirrorSave,
     Persona,
@@ -101,11 +104,69 @@ class ReflectionsFeedService:
             "saved_at": r.saved_at,
         } for r in rows]
 
+    async def _counterview_verdicts(self, db: AsyncSession, user_id: str) -> list[dict]:
+        result = await db.execute(
+            select(
+                CounterviewSave.id.label("save_id"),
+                CounterviewSave.counterview_id,
+                CounterviewSave.saved_at,
+                Counterview.source,
+                Counterview.anchor_text,
+            )
+            .join(Counterview, CounterviewSave.counterview_id == Counterview.id)
+            .where(
+                CounterviewSave.user_id == user_id,
+                CounterviewSave.deleted_at.is_(None),
+                Counterview.status == "generated",
+            )
+        )
+        rows = result.all()
+        if not rows:
+            return []
+
+        # The round-0 verdicts for those counterviews, with each persona's display
+        # name, ordered by position (left → right).
+        cv_ids = [r.counterview_id for r in rows]
+        verdicts_result = await db.execute(
+            select(
+                CounterviewResponse.counterview_id,
+                CounterviewResponse.persona_slug,
+                CounterviewResponse.verdict,
+                CounterviewResponse.position,
+                Persona.name.label("persona_name"),
+            )
+            .join(Persona, Persona.slug == CounterviewResponse.persona_slug)
+            .where(
+                CounterviewResponse.counterview_id.in_(cv_ids),
+                CounterviewResponse.round == 0,
+            )
+            .order_by(CounterviewResponse.position.asc())
+        )
+        verdicts_by_cv: dict[str, list[dict]] = {}
+        for v in verdicts_result.all():
+            verdicts_by_cv.setdefault(v.counterview_id, []).append({
+                "persona_slug": v.persona_slug,
+                "persona_name": v.persona_name,
+                "verdict": v.verdict,
+                "position": v.position,
+            })
+
+        return [{
+            "kind": "counterview_verdict",
+            "save_id": r.save_id,
+            "counterview_id": r.counterview_id,
+            "source": r.source,
+            "anchor_text": r.anchor_text,
+            "verdicts": verdicts_by_cv.get(r.counterview_id, []),
+            "saved_at": r.saved_at,
+        } for r in rows]
+
     async def get_feed(self, db: AsyncSession, user_id: str) -> list[dict]:
         lines = await self._lines(db, user_id)
         mirrors = await self._mirror_verdicts(db, user_id)
         councils = await self._council_verdicts(db, user_id)
-        merged = lines + mirrors + councils
+        counterviews = await self._counterview_verdicts(db, user_id)
+        merged = lines + mirrors + councils + counterviews
         merged.sort(key=lambda item: item["saved_at"], reverse=True)
         return merged
 
