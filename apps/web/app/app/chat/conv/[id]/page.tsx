@@ -8,6 +8,7 @@ import { useStream } from '@/lib/useStream'
 import { api, SaveLimitError, DuplicateSaveError, type Insight } from '@/lib/api'
 import toast from 'react-hot-toast'
 import { renderSavedToast } from '@/components/chat/savedToast'
+import { renderDiscardUndoToast } from '@/components/chat/discardToast'
 import ChatHeader from '@/components/chat/ChatHeader'
 import MessageList from '@/components/chat/MessageList'
 import StreamingBubble from '@/components/chat/StreamingBubble'
@@ -208,18 +209,23 @@ export default function ExistingConversationPage() {
     router.push(`/app/counterview?insightId=${current.id}`)
   }
 
-  async function handleInsightDiscard() {
+  function handleInsightDiscard() {
     const current = insight
     if (!current) return
+    // Optimistically remove the chip and suppress repoll for the window, but
+    // delay the durable dismiss by 5s so Undo can cancel it. If the window
+    // elapses, the PATCH commits (server is_dismissed is the durable control).
     sessionDismissedInsightIds.add(current.id)
     setInsight(null)
     setInsightExpanded(false)
-    try {
-      await api.dismissInsight(current.id)
-    } catch {
-      // Server-side is_dismissed is the durable control; a failed PATCH just
-      // means it may reappear next session. Session set already cleared it now.
-    }
+    const timer = setTimeout(() => {
+      api.dismissInsight(current.id).catch(() => {})
+    }, 5000)
+    renderDiscardUndoToast(() => {
+      clearTimeout(timer)
+      sessionDismissedInsightIds.delete(current.id)
+      setInsight(current)
+    })
   }
 
   async function handleSaveLine(messageId: string) {
