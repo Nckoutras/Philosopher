@@ -10,6 +10,7 @@ import type { ReflectionFeedItem } from '@/lib/api'
 import SavedLineCard from '@/components/reflections/SavedLineCard'
 import MirrorVerdictCard from '@/components/reflections/MirrorVerdictCard'
 import CouncilVerdictCard from '@/components/reflections/CouncilVerdictCard'
+import CounterviewVerdictCard from '@/components/reflections/CounterviewVerdictCard'
 import DateGrouper from '@/components/reflections/DateGrouper'
 import FilterPills, { type FilterOption } from '@/components/reflections/FilterPills'
 import EmptyReflections from '@/components/reflections/EmptyReflections'
@@ -25,6 +26,7 @@ type PendingDelete =
   | { kind: 'line'; id: string; messageId: string }
   | { kind: 'mirror_verdict'; mirrorId: string }
   | { kind: 'council_verdict'; sessionId: string }
+  | { kind: 'counterview_verdict'; counterviewId: string }
 
 function groupLabel(savedAt: string): 'This week' | 'Earlier' {
   const days = differenceInCalendarDays(new Date(), new Date(savedAt))
@@ -46,6 +48,7 @@ function groupItems(items: ReflectionFeedItem[]): Array<{ label: 'This week' | '
 function itemKey(item: ReflectionFeedItem): string {
   if (item.kind === 'line') return `line:${item.id}`
   if (item.kind === 'mirror_verdict') return `mirror:${item.save_id}`
+  if (item.kind === 'counterview_verdict') return `counterview:${item.save_id}`
   return `council:${item.save_id}`
 }
 
@@ -55,6 +58,10 @@ function matchesQuery(item: ReflectionFeedItem, q: string): boolean {
   }
   if (item.kind === 'mirror_verdict') {
     return item.thread.toLowerCase().includes(q) || (item.host_persona_name?.toLowerCase().includes(q) ?? false)
+  }
+  if (item.kind === 'counterview_verdict') {
+    return (item.anchor_text?.toLowerCase().includes(q) ?? false)
+      || item.verdicts.some((v) => v.verdict.toLowerCase().includes(q) || v.persona_name.toLowerCase().includes(q))
   }
   return item.synthesis.toLowerCase().includes(q)
 }
@@ -115,6 +122,9 @@ export default function ReflectionsPage() {
       } else if (pendingDelete.kind === 'mirror_verdict') {
         await api.unsaveMirror(pendingDelete.mirrorId)
         useStore.getState().removeFeedMirror(pendingDelete.mirrorId)
+      } else if (pendingDelete.kind === 'counterview_verdict') {
+        await api.unsaveCounterview(pendingDelete.counterviewId)
+        useStore.getState().removeFeedCounterview(pendingDelete.counterviewId)
       } else {
         await api.unsaveCouncil(pendingDelete.sessionId)
         useStore.getState().removeFeedCouncil(pendingDelete.sessionId)
@@ -242,8 +252,10 @@ export default function ReflectionsPage() {
                               setPendingDelete({ kind: 'line', id: item.id, messageId: item.message_id })
                             } else if (item.kind === 'mirror_verdict') {
                               setPendingDelete({ kind: 'mirror_verdict', mirrorId: item.mirror_id })
-                            } else {
+                            } else if (item.kind === 'council_verdict') {
                               setPendingDelete({ kind: 'council_verdict', sessionId: item.session_id })
+                            } else {
+                              setPendingDelete({ kind: 'counterview_verdict', counterviewId: item.counterview_id })
                             }
                           }}
                           showHint={isFirstReflectionsRender && groupIdx === 0 && itemIdx === 0}
@@ -260,8 +272,10 @@ export default function ReflectionsPage() {
                               item={item}
                               portraitUrl={item.host_persona_slug ? (portraitBySlug[item.host_persona_slug] ?? '') : ''}
                             />
-                          ) : (
+                          ) : item.kind === 'council_verdict' ? (
                             <CouncilVerdictCard item={item} portraitBySlug={portraitBySlug} />
+                          ) : (
+                            <CounterviewVerdictCard item={item} portraitBySlug={portraitBySlug} />
                           )}
                         </SwipeableRow>
                       </div>
