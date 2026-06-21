@@ -833,6 +833,22 @@ class ApiClient {
     return res.blob()
   }
 
+  async shareCounterview(id: string): Promise<Blob> {
+    const res = await fetch(`${API_BASE}/share/counterview`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(this.token ? { Authorization: `Bearer ${this.token}` } : {}),
+      },
+      body: JSON.stringify({ counterview_id: id }),
+    })
+    if (!res.ok) {
+      if (res.status === 429) throw new ShareLimitError()
+      throw new Error(`Counterview share failed: ${res.status}`)
+    }
+    return res.blob()
+  }
+
   async shareMirror(mirrorId: string): Promise<Blob> {
     const res = await fetch(`${API_BASE}/mirrors/${mirrorId}/share`, {
       method: 'POST',
