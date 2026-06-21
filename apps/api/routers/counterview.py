@@ -1,10 +1,12 @@
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from auth import get_current_user
 from db.session import get_db
-from models import Counterview, CounterviewResponse, Persona, User
+from models import Counterview, CounterviewResponse, CounterviewSave, Persona, User
 from schemas import CounterviewCreate, CounterviewDeeperRequest, CounterviewOut, CounterviewResponseOut
 from services.counterview_service import generate_counterview, generate_deeper
 
@@ -13,11 +15,12 @@ router = APIRouter(prefix="/counterview", tags=["counterview"])
 BELIEF_MAX_CHARS = 1000
 
 
-async def _serialize_counterview(db: AsyncSession, cv: Counterview) -> CounterviewOut:
+async def _serialize_counterview(db: AsyncSession, cv: Counterview, user_id: str) -> CounterviewOut:
     """Serialize a counterview + its responses, resolving each persona's display
     name and portrait from the DB (the same source as the mirror reader). A
     'suppressed'/'empty' counterview simply has no responses — never expose that
-    safety detection happened."""
+    safety detection happened. `is_saved` reflects an active (not soft-deleted)
+    save by this user — the Save button's initial state on reload."""
     responses = (
         await db.execute(
             select(CounterviewResponse)
@@ -46,12 +49,23 @@ async def _serialize_counterview(db: AsyncSession, cv: Counterview) -> Countervi
         for r in responses
     ]
 
+    is_saved = (
+        await db.execute(
+            select(CounterviewSave.id).where(
+                CounterviewSave.user_id == user_id,
+                CounterviewSave.counterview_id == cv.id,
+                CounterviewSave.deleted_at.is_(None),
+            )
+        )
+    ).first() is not None
+
     return CounterviewOut(
         id=cv.id,
         source=cv.source,
         anchor_text=cv.anchor_text,
         status=cv.status,
         responses=out_responses,
+        is_saved=is_saved,
     )
 
 
@@ -73,7 +87,7 @@ async def create_counterview(
     cv = await generate_counterview(
         db, user.id, belief=belief, insight_id=None, source="direct"
     )
-    return await _serialize_counterview(db, cv)
+    return await _serialize_counterview(db, cv, user.id)
 
 
 @router.get("/{counterview_id}", response_model=CounterviewOut)
@@ -92,7 +106,7 @@ async def get_counterview(
     ).scalar_one_or_none()
     if cv is None:
         raise HTTPException(status_code=404)
-    return await _serialize_counterview(db, cv)
+    return await _serialize_counterview(db, cv, user.id)
 
 
 @router.post("/{counterview_id}/deeper", response_model=CounterviewOut)
@@ -111,4 +125,59 @@ async def deeper_counterview(
         if "invalid persona" in str(e):
             raise HTTPException(status_code=400)
         raise HTTPException(status_code=404)
-    return await _serialize_counterview(db, cv)
+    return await _serialize_counterview(db, cv, user.id)
+
+
+@router.post("/{counterview_id}/save")
+async def save_counterview(
+    counterview_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    # Verify the counterview belongs to this user
+    result = await db.execute(
+        select(Counterview).where(
+            Counterview.id == counterview_id,
+            Counterview.user_id == user.id,
+        )
+    )
+    if result.scalar_one_or_none() is None:
+        raise HTTPException(status_code=404)
+
+    # Upsert: re-save if soft-deleted, insert if absent, no-op if active
+    existing = await db.execute(
+        select(CounterviewSave).where(
+            CounterviewSave.user_id == user.id,
+            CounterviewSave.counterview_id == counterview_id,
+        )
+    )
+    row = existing.scalar_one_or_none()
+
+    if row is None:
+        db.add(CounterviewSave(user_id=user.id, counterview_id=counterview_id))
+    elif row.deleted_at is not None:
+        row.deleted_at = None
+
+    await db.commit()
+    return {"saved": True}
+
+
+@router.delete("/{counterview_id}/save")
+async def unsave_counterview(
+    counterview_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    result = await db.execute(
+        select(CounterviewSave).where(
+            CounterviewSave.user_id == user.id,
+            CounterviewSave.counterview_id == counterview_id,
+            CounterviewSave.deleted_at.is_(None),
+        )
+    )
+    row = result.scalar_one_or_none()
+    if row is not None:
+        row.deleted_at = datetime.now(timezone.utc)
+        await db.commit()
+
+    return {"saved": False}

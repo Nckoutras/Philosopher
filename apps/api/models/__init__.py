@@ -576,6 +576,21 @@ class CounterviewResponse(Base):
     )
 
 
+class CounterviewSave(Base):
+    __tablename__ = "counterview_saves"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=gen_uuid)
+    user_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    counterview_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("counterviews.id", ondelete="CASCADE"), nullable=False)
+    saved_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "counterview_id", name="uq_counterview_saves_user_cv"),
+        Index("ix_counterview_saves_user", "user_id"),
+    )
+
+
 class MirrorSave(Base):
     __tablename__ = "mirror_saves"
 

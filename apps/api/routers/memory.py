@@ -137,4 +137,4 @@ async def counterview_insight(
         cv = await generate_counterview(db, user.id, insight_id=insight_id, source="insight")
     except ValueError:
         raise HTTPException(status_code=404)
-    return await _serialize_counterview(db, cv)
+    return await _serialize_counterview(db, cv, user.id)

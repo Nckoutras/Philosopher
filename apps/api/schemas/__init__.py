@@ -504,6 +504,7 @@ class CounterviewOut(BaseModel):
     anchor_text: str | None = None
     status: str
     responses: list[CounterviewResponseOut]
+    is_saved: bool = False
 
 
 # ── Home / Today ───────────────────────────────────────────────────────────────
@@ -611,8 +612,32 @@ class ReflectionFeedCouncil(BaseModel):
     saved_at: datetime
 
 
+class ReflectionFeedCounterviewVerdict(BaseModel):
+    """One persona's round-0 line within a saved Counterview."""
+    persona_slug: str
+    persona_name: str
+    verdict: str
+    position: int
+
+
+class ReflectionFeedCounterview(BaseModel):
+    """A saved Counterview — the anchor plus each persona's round-0 verdict."""
+    kind: Literal["counterview_verdict"] = "counterview_verdict"
+    save_id: str
+    counterview_id: str
+    source: str
+    anchor_text: Optional[str] = None
+    verdicts: list[ReflectionFeedCounterviewVerdict]
+    saved_at: datetime
+
+
 ReflectionFeedItem = Annotated[
-    Union[ReflectionFeedLine, ReflectionFeedMirror, ReflectionFeedCouncil],
+    Union[
+        ReflectionFeedLine,
+        ReflectionFeedMirror,
+        ReflectionFeedCouncil,
+        ReflectionFeedCounterview,
+    ],
     Field(discriminator="kind"),
 ]
 
