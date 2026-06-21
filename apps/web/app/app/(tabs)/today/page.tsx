@@ -18,6 +18,7 @@ import NamePromptCard from '@/components/today/NamePromptCard'
 import AppHeader from '@/components/layout/AppHeader'
 import SundayLetterCard from '@/components/today/SundayLetterCard'
 import InsightCard from '@/components/chat/InsightCard'
+import { renderDiscardUndoToast } from '@/components/chat/discardToast'
 
 // A standing Today insight older than this is treated as stale and not shown,
 // so an un-acted insight doesn't linger on the Today screen indefinitely.
@@ -158,15 +159,20 @@ export default function TodayPage() {
     router.push(`/app/counterview?insightId=${current.id}`)
   }
 
-  async function handleInsightDiscard() {
+  function handleInsightDiscard() {
     const current = insight
     if (!current) return
+    // Optimistically remove the card, but delay the durable dismiss by 5s so
+    // Undo can cancel it. If the window elapses, the PATCH commits (server
+    // is_dismissed is the durable no-resurface control).
     setInsight(null)
-    try {
-      await api.dismissInsight(current.id)
-    } catch {
-      // Server is_dismissed is the durable no-resurface control; ignore failure.
-    }
+    const timer = setTimeout(() => {
+      api.dismissInsight(current.id).catch(() => {})
+    }, 5000)
+    renderDiscardUndoToast(() => {
+      clearTimeout(timer)
+      setInsight(current)
+    })
   }
 
   if (loading) {
