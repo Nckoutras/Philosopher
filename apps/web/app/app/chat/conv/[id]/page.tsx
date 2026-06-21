@@ -51,6 +51,7 @@ export default function ExistingConversationPage() {
   const setStreamError = useStore((s) => s.setStreamError)
   const loadSavedLines = useStore((s) => s.loadSavedLines)
   const activePersonaSlug = useStore((s) => s.activePersonaSlug)
+  const markInsightsSeenForConversation = useStore((s) => s.markInsightsSeenForConversation)
 
   const [loadError, setLoadError] = useState<string | null>(null)
   const [inputDraft, setInputDraft] = useState<string | undefined>(undefined)
@@ -163,6 +164,11 @@ export default function ExistingConversationPage() {
     setInsightExpanded(false)
     prevAssistantCountRef.current = null
   }, [params.id])
+
+  // Opening the source conversation clears its discoverability glow.
+  useEffect(() => {
+    if (params.id) markInsightsSeenForConversation(params.id)
+  }, [params.id, markInsightsSeenForConversation])
 
   // Fetch on conversation load.
   useEffect(() => {

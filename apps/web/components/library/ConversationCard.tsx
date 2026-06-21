@@ -4,6 +4,7 @@ import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { ChevronRight } from 'lucide-react'
 import type { Conversation } from '@/lib/api'
+import { useStore } from '@/lib/store'
 
 function formatDatePart(dateString: string | null): string {
   if (!dateString) return ''
@@ -50,6 +51,12 @@ export default function ConversationCard({ conversation, portraitUrl }: Props) {
   const metaLine = buildMetaLine(conversation)
   const avatarUrl = portraitUrl || persona.portrait_url || ''
 
+  const activeInsights = useStore((s) => s.activeInsights)
+  const seenInsightIds = useStore((s) => s.seenInsightIds)
+  const hasUnseenInsight = activeInsights.some(
+    (i) => i.conversation_id === conversation.id && !seenInsightIds.includes(i.id),
+  )
+
   return (
     <button
       type="button"
@@ -58,19 +65,24 @@ export default function ConversationCard({ conversation, portraitUrl }: Props) {
       aria-label={`Open conversation with ${persona.name}`}
     >
       {/* 36×36 persona avatar */}
-      <div className="w-14 h-14 flex-shrink-0 rounded-full overflow-hidden bg-linen flex items-center justify-center">
-        {avatarUrl ? (
-          <Image
-            src={avatarUrl}
-            alt={persona.name}
-            width={56}
-            height={56}
-            className="w-full h-full object-cover object-top"
-          />
-        ) : (
-          <span className="font-cormorant text-[17px] font-medium text-charcoal">
-            {persona.name.charAt(0)}
-          </span>
+      <div className="relative flex-shrink-0">
+        <div className="w-14 h-14 rounded-full overflow-hidden bg-linen flex items-center justify-center">
+          {avatarUrl ? (
+            <Image
+              src={avatarUrl}
+              alt={persona.name}
+              width={56}
+              height={56}
+              className="w-full h-full object-cover object-top"
+            />
+          ) : (
+            <span className="font-cormorant text-[17px] font-medium text-charcoal">
+              {persona.name.charAt(0)}
+            </span>
+          )}
+        </div>
+        {hasUnseenInsight && (
+          <span className="absolute -top-[2px] -right-[2px] w-[12px] h-[12px] rotate-45 bg-bronze rounded-[2px] ring-2 ring-paper shadow-[0_0_7px_rgba(184,153,104,0.7)]" aria-hidden="true" />
         )}
       </div>
 

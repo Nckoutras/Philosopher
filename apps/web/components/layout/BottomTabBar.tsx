@@ -5,6 +5,7 @@ import { useEffect } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { Home, Archive, User } from 'lucide-react'
 import { ReturningPathIcon } from '@/components/icons/RitualIcons'
+import { useStore } from '@/lib/store'
 
 const TABS = [
   {
@@ -36,6 +37,10 @@ const TABS = [
 export default function BottomTabBar() {
   const pathname = usePathname()
   const router = useRouter()
+
+  const activeInsights = useStore((s) => s.activeInsights)
+  const seenInsightIds = useStore((s) => s.seenInsightIds)
+  const hasUnseenInsight = activeInsights.some((i) => !seenInsightIds.includes(i.id))
 
   // Warm the sibling tab route chunks on idle so the first navigation to each
   // is instant rather than waiting on the on-tap chunk download. Non-visual;
@@ -80,7 +85,16 @@ export default function BottomTabBar() {
                 isActive ? 'text-ink' : 'text-sepia',
               ].join(' ')}
             >
-              <Icon size={20} strokeWidth={1.5} />
+              {tab.label === 'Library' ? (
+                <span className="relative">
+                  <Icon size={20} strokeWidth={1.5} />
+                  {hasUnseenInsight && (
+                    <span className="absolute -top-[2px] -right-[3px] w-[8px] h-[8px] rotate-45 bg-bronze rounded-[1px] ring-2 ring-paper shadow-[0_0_6px_rgba(184,153,104,0.75)]" aria-hidden="true" />
+                  )}
+                </span>
+              ) : (
+                <Icon size={20} strokeWidth={1.5} />
+              )}
               <span
                 className={[
                   'font-lora text-[10px] leading-none',

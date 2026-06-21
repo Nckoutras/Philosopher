@@ -166,6 +166,7 @@ export interface Insight {
   content: string
   insight_type: string | null
   source_count?: number | null
+  conversation_id: string | null
   is_dismissed: boolean
   created_at: string
 }
