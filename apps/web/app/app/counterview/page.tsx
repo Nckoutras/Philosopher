@@ -37,6 +37,10 @@ export default function CounterviewPage() {
   const [saved, setSaved] = useState(false)
   const [saving, setSaving] = useState(false)
   const [shareOpen, setShareOpen] = useState(false)
+  // Which of the two voices the shared verdict frame is showing (0 = baseRows[0],
+  // 1 = baseRows[1]). Tapping a portrait or the toggle sets it; no new fetch — both
+  // verdicts are already loaded in counterview.responses.
+  const [activeSpeaker, setActiveSpeaker] = useState(0)
 
   useEffect(() => {
     if (token === null) {
@@ -110,6 +114,20 @@ export default function CounterviewPage() {
     } finally {
       setDeepeningSlug(null)
     }
+  }
+
+  // Start over — wipe the result back to the voluntary input form. No endpoint:
+  // it just re-shows the existing form (mode 'input', no counterview), which then
+  // runs the existing createCounterview on submit.
+  const handleStartOver = () => {
+    setCounterview(null)
+    setMode('input')
+    setBelief('')
+    setActiveSpeaker(0)
+    setPhase(0)
+    setSaved(false)
+    setExhausted(new Set())
+    setDeepeningSlug(null)
   }
 
   // Hydrate the Save toggle from the loaded counterview (correct state on reload).
@@ -245,15 +263,12 @@ export default function CounterviewPage() {
     <main className="min-h-screen [min-height:100svh] flex flex-col bg-vellum px-[24px] pb-[60px]">
       <SubPageNav fallbackHref="/app/today" />
 
-      {/* Centered, ornamented header */}
-      <div className="text-center pt-[4px]">
+      {/* Compact, ornamented header */}
+      <div className="text-center pt-[2px]">
         <p className="font-lora text-[11px] uppercase tracking-[0.24em] text-bronze-dark">
           The Wise Room
         </p>
-        <div className="my-[6px]">
-          <DiamondRule />
-        </div>
-        <h1 className="font-cormorant text-[30px] font-medium text-ink leading-tight">
+        <h1 className="font-cormorant text-[22px] font-medium text-ink leading-tight mt-[2px]">
           Counterview
         </h1>
         <div className="mt-[6px]">
@@ -261,12 +276,18 @@ export default function CounterviewPage() {
         </div>
       </div>
 
-      {/* The two verdicts — framed portrait card + verdict box per persona */}
-      <div className="flex gap-[10px] mt-[12px]">
-        {baseRows.map((r, i) => (
-          <div key={r.persona_slug} className="flex-1 flex flex-col">
-            {/* Portrait card — framed, tall, name overlay + corner brackets */}
-            <div className={`relative aspect-[1/2] rounded-[6px] overflow-hidden bg-linen ${reveal(phase >= 1)}`}>
+      {/* The two voices — large portraits side by side, tap to choose the speaker */}
+      <div className="flex gap-[10px] mt-[14px]">
+        {baseRows.map((r, i) => {
+          const isActive = i === activeSpeaker
+          return (
+            <button
+              key={r.persona_slug}
+              type="button"
+              onClick={() => setActiveSpeaker(i)}
+              aria-pressed={isActive}
+              className={`relative flex-1 h-[290px] rounded-[6px] overflow-hidden bg-linen transition-all duration-300 ${reveal(phase >= 1)} ${isActive ? 'opacity-100 shadow-[inset_0_0_0_2px_#B89968]' : 'opacity-50'}`}
+            >
               {r.persona_portrait_url ? (
                 <Image
                   src={r.persona_portrait_url}
@@ -278,6 +299,12 @@ export default function CounterviewPage() {
                 <div className="w-full h-full flex items-center justify-center font-cormorant text-[40px] text-charcoal">
                   {r.persona_name.charAt(0)}
                 </div>
+              )}
+              {/* Speaking pill — only on the active voice */}
+              {isActive && (
+                <span className="absolute top-[8px] left-[8px] bg-bronze text-vellum font-lora text-[8px] uppercase tracking-[0.18em] px-[7px] py-[3px] rounded-full">
+                  Speaking
+                </span>
               )}
               <div className="absolute inset-x-0 bottom-0 h-[42%] bg-gradient-to-t from-black/60 to-transparent" />
               <div className="absolute inset-x-0 bottom-[12px] px-[6px] text-center">
@@ -293,81 +320,109 @@ export default function CounterviewPage() {
               <span className="absolute top-[6px] right-[6px] w-[13px] h-[13px] border-t border-r border-[#D9B98A]/80" />
               <span className="absolute bottom-[6px] left-[6px] w-[13px] h-[13px] border-b border-l border-[#D9B98A]/80" />
               <span className="absolute bottom-[6px] right-[6px] w-[13px] h-[13px] border-b border-r border-[#D9B98A]/80" />
-            </div>
-            {/* Verdict box — inset double frame + speech bubble */}
-            <div className={`mt-[12px] bg-paper rounded-[10px] border-[0.5px] border-edge shadow-card p-[5px] ${reveal(phase >= 2 + i)}`}>
-              <div className="relative border-[0.5px] border-bronze/30 rounded-[7px] px-[14px] py-[14px]">
-                <p className="font-cormorant text-[17px] text-ink leading-snug pr-[22px]">
-                  {r.verdict}
-                </p>
-                {(() => {
-                  const deeper = deeperFor(r.persona_slug)
-                  const isLoading = deepeningSlug === r.persona_slug
-                  // Already shown a deeper line, or nothing more to add → no tap.
-                  if (deeper || exhausted.has(r.persona_slug)) return null
-                  return (
-                    <button
-                      onClick={() => handleDeeper(r.persona_slug)}
-                      disabled={deepeningSlug !== null}
-                      aria-label="Go deeper"
-                      className="absolute top-[10px] right-[10px] p-[2px] disabled:opacity-40"
-                    >
-                      {isLoading ? (
-                        <Loader2 size={15} strokeWidth={1.5} className="text-bronze animate-spin" />
-                      ) : (
-                        <MessageCircle size={15} strokeWidth={1.5} className="text-bronze" />
-                      )}
-                    </button>
-                  )
-                })()}
-                {/* The second cut — stacked under the first when it exists */}
-                {deeperFor(r.persona_slug) && (
-                  <div className="mt-[12px] pt-[12px] border-t border-bronze/20">
-                    <p className="font-cormorant text-[16px] italic text-charcoal leading-snug">
-                      {deeperFor(r.persona_slug)!.verdict}
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Save + Share */}
-      <div className={`mt-[20px] flex justify-center gap-3 ${reveal(phase >= 4)}`}>
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="px-[18px] min-h-[44px] flex items-center gap-[7px] border-[0.5px] border-charcoal rounded-[6px] font-cormorant text-[15px] text-charcoal disabled:opacity-50"
-        >
-          {saved ? <BookmarkCheck size={16} strokeWidth={1.5} /> : <Bookmark size={16} strokeWidth={1.5} />}
-          {saved ? 'Saved' : 'Save'}
-        </button>
-        <button
-          onClick={() => setShareOpen(true)}
-          className="px-[18px] min-h-[44px] flex items-center gap-[7px] border-[0.5px] border-charcoal rounded-[6px] font-cormorant text-[15px] text-charcoal"
-        >
-          <Share2 size={16} strokeWidth={1.5} /> Share
-        </button>
+            </button>
+          )
+        })}
       </div>
 
       {/* The anchor — the insight (or belief) this case was made against */}
       {counterview?.anchor_text && (
-        <div className={`mt-[28px] ${reveal(phase >= 4)}`}>
-          <div className="flex items-center gap-[7px] mb-[8px]">
+        <div className={`mt-[16px] ${reveal(phase >= 4)}`}>
+          <div className="flex items-center gap-[7px] mb-[6px]">
             <span className="w-[5px] h-[5px] rotate-45 bg-bronze" />
             <p className="font-lora text-[11px] uppercase tracking-[0.24em] text-bronze-dark">
               {counterview.source === 'insight' ? 'Your insight' : 'Your belief'}
             </p>
           </div>
-          <div className="bg-paper/60 border-[0.5px] border-edge rounded-[10px] px-[16px] py-[14px]">
-            <p className="font-cormorant text-[19px] text-charcoal leading-snug">
+          <div className="bg-paper/60 border-[0.5px] border-edge rounded-[10px] px-[14px] py-[10px]">
+            <p className="font-cormorant text-[17px] text-charcoal leading-snug">
               {counterview.anchor_text}
             </p>
           </div>
         </div>
       )}
+
+      {/* One shared verdict frame — the speaker toggle switches the voice in place */}
+      <div className={`mt-[16px] bg-paper rounded-[10px] border-[0.5px] border-edge shadow-card p-3 ${reveal(phase >= 2)}`}>
+        {/* Speaker toggle — two halves, mirrors / is mirrored by the portrait tap */}
+        <div className="flex rounded-[8px] border-[0.5px] border-bronze/30 overflow-hidden mb-[12px]">
+          {baseRows.map((r, i) => {
+            const isActive = i === activeSpeaker
+            return (
+              <button
+                key={r.persona_slug}
+                type="button"
+                onClick={() => setActiveSpeaker(i)}
+                aria-pressed={isActive}
+                className={`flex-1 py-[8px] font-cormorant text-[15px] leading-none transition-colors ${isActive ? 'bg-bronze text-vellum' : 'bg-transparent text-charcoal'}`}
+              >
+                {r.persona_name}
+              </button>
+            )
+          })}
+        </div>
+
+        {(() => {
+          const active = baseRows[activeSpeaker] ?? baseRows[0]
+          if (!active) return null
+          const deeper = deeperFor(active.persona_slug)
+          const isLoading = deepeningSlug === active.persona_slug
+          const canDeepen = !deeper && !exhausted.has(active.persona_slug)
+          return (
+            <div className="relative px-[2px]">
+              <p className="font-cormorant italic text-[17px] text-ink leading-snug pr-[22px]">
+                {active.verdict}
+              </p>
+              {canDeepen && (
+                <button
+                  onClick={() => handleDeeper(active.persona_slug)}
+                  disabled={deepeningSlug !== null}
+                  aria-label="Go deeper"
+                  className="absolute top-[2px] right-[2px] p-[2px] disabled:opacity-40"
+                >
+                  {isLoading ? (
+                    <Loader2 size={15} strokeWidth={1.5} className="text-bronze animate-spin" />
+                  ) : (
+                    <MessageCircle size={15} strokeWidth={1.5} className="text-bronze" />
+                  )}
+                </button>
+              )}
+              {/* The second cut — stacked under the first when it exists */}
+              {deeper && (
+                <div className="mt-[12px] pt-[12px] border-t border-bronze/20">
+                  <p className="font-cormorant text-[16px] italic text-charcoal leading-snug">
+                    {deeper.verdict}
+                  </p>
+                </div>
+              )}
+            </div>
+          )
+        })()}
+      </div>
+
+      {/* Save · Start over · Share */}
+      <div className={`mt-[20px] flex gap-[10px] ${reveal(phase >= 4)}`}>
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="flex-1 min-h-[44px] flex items-center justify-center gap-[7px] border-[0.5px] border-charcoal rounded-[6px] font-cormorant text-[15px] text-charcoal disabled:opacity-50"
+        >
+          {saved ? <BookmarkCheck size={16} strokeWidth={1.5} /> : <Bookmark size={16} strokeWidth={1.5} />}
+          {saved ? 'Saved' : 'Save'}
+        </button>
+        <button
+          onClick={handleStartOver}
+          className="flex-[1.5] min-h-[48px] flex items-center justify-center border border-bronze-dark rounded-[6px] bg-bronze text-vellum font-cormorant text-[16px] font-medium"
+        >
+          Start over
+        </button>
+        <button
+          onClick={() => setShareOpen(true)}
+          className="flex-1 min-h-[44px] flex items-center justify-center gap-[7px] border-[0.5px] border-charcoal rounded-[6px] font-cormorant text-[15px] text-charcoal"
+        >
+          <Share2 size={16} strokeWidth={1.5} /> Share
+        </button>
+      </div>
     </main>
 
     {counterview && (
