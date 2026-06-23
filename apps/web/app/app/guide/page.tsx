@@ -4,6 +4,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import SubPageNav from '@/components/layout/SubPageNav'
 import { BronzeDivider } from '@/components/ui/BronzeDivider'
+import { RITUALS } from '@/lib/rituals'
 
 const MINDS = [
   { slug: 'socrates', src: '/personas/socrates.webp', name: 'Socrates' },
@@ -17,13 +18,6 @@ const MINDS = [
   { slug: 'oscar_wilde', src: '/personas/oscar_wilde.webp', name: 'Oscar Wilde' },
   { slug: 'george_orwell', src: '/personas/george_orwell.webp', name: 'George Orwell' },
   { slug: 'miyamoto_musashi', src: '/personas/miyamoto_musashi.webp', name: 'Miyamoto Musashi' },
-]
-
-const RITUALS = [
-  { src: '/personas/mirror.png', name: 'The Mirror' },
-  { src: '/personas/boardroom.webp', name: 'The Council' },
-  { src: '/personas/youvsyou.webp', name: 'You vs You' },
-  { src: '/personas/messagetomyfutureself.png', name: 'Message to Your Future Self' },
 ]
 
 export default function GuidePage() {
@@ -99,18 +93,18 @@ export default function GuidePage() {
             <h2 className="font-cormorant text-[20px] font-medium text-ink leading-tight">The rituals.</h2>
             <div className="grid grid-cols-2 gap-3">
               {RITUALS.map((r) => (
-                <div key={r.name} className="flex flex-col gap-1.5">
+                <Link key={r.slug} href={`/app/ritual/${r.slug}`} className="flex flex-col gap-1.5 transition-transform duration-150 active:scale-95">
                   <div className="rounded-[12px] overflow-hidden shadow-card">
                     <Image src={r.src} alt={r.name} width={360} height={180} className="w-full h-[88px] object-cover" />
                   </div>
                   <span className="font-lora text-[11px] text-sepia text-center leading-tight">{r.name}</span>
-                </div>
+                </Link>
               ))}
             </div>
             <p className="font-lora text-[15px] text-charcoal leading-[1.65]">
-              Beyond conversation, the room has its practices. <span className="italic">The Mirror</span> reads
-              your week back to you. <span className="italic">The Council</span> convenes four minds on one
-              matter. <span className="italic">A Message to Your Future Self</span> carries your words forward in time.
+              Beyond conversation, the room has its practices — <span className="italic">the Mirror</span>, <span className="italic">the Council</span>,
+              {' '}<span className="italic">You vs You</span>, <span className="italic">the Sunday Letter</span>, <span className="italic">the Counterview</span>, and <span className="italic">a Message to Your Future
+              Self</span>. Tap any one to see how it works.
             </p>
           </section>
 
