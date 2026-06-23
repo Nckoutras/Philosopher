@@ -390,6 +390,12 @@ export interface Counterview {
   is_saved: boolean
 }
 
+export interface CounterviewListItem {
+  id: string
+  anchor_text: string | null
+  created_at: string
+}
+
 export interface WeeklyLetterPayload {
   title: string | null
   opening: string | null
@@ -921,6 +927,11 @@ class ApiClient {
 
   async getCounterview(id: string): Promise<Counterview> {
     return this.request<Counterview>(`/counterview/${id}`)
+  }
+
+  // Slim, most-recent-first list of the user's generated counterviews (revisit list).
+  async listCounterviews(): Promise<CounterviewListItem[]> {
+    return this.request<CounterviewListItem[]>('/counterview')
   }
 
   // Voluntary path: generate a counterview against a belief the user types.

@@ -508,6 +508,13 @@ class CounterviewOut(BaseModel):
     is_saved: bool = False
 
 
+class CounterviewListItem(BaseModel):
+    # Slim row for the revisit list — no responses; reopen pulls full via GET /{id}.
+    id: str
+    anchor_text: str | None = None
+    created_at: datetime
+
+
 # ── Home / Today ───────────────────────────────────────────────────────────────
 
 class DailyQuestionOut(BaseModel):

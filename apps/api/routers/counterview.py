@@ -7,7 +7,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from auth import get_current_user
 from db.session import get_db
 from models import Counterview, CounterviewResponse, CounterviewSave, Persona, User
-from schemas import CounterviewCreate, CounterviewDeeperRequest, CounterviewOut, CounterviewResponseOut
+from schemas import (
+    CounterviewCreate,
+    CounterviewDeeperRequest,
+    CounterviewListItem,
+    CounterviewOut,
+    CounterviewResponseOut,
+)
 from services.counterview_service import generate_counterview, generate_deeper
 
 router = APIRouter(prefix="/counterview", tags=["counterview"])
@@ -100,6 +106,31 @@ async def create_counterview(
             await q.enqueue_job("counterview_belief_task", str(user.id), belief)
 
     return await _serialize_counterview(db, cv, user.id)
+
+
+@router.get("", response_model=list[CounterviewListItem])
+async def list_counterviews(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Slim, most-recent-first list of this user's generated counterviews for the
+    revisit list. Skips empty/suppressed; reopening pulls the full set via GET /{id}.
+    Distinct from POST "" (different method) and GET /{id} (different path)."""
+    rows = (
+        await db.execute(
+            select(Counterview.id, Counterview.anchor_text, Counterview.created_at)
+            .where(
+                Counterview.user_id == user.id,
+                Counterview.status == "generated",
+            )
+            .order_by(Counterview.created_at.desc())
+            .limit(10)
+        )
+    ).all()
+    return [
+        CounterviewListItem(id=str(r.id), anchor_text=r.anchor_text, created_at=r.created_at)
+        for r in rows
+    ]
 
 
 @router.get("/{counterview_id}", response_model=CounterviewOut)
