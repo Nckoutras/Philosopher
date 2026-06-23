@@ -6,7 +6,7 @@ import Image from 'next/image'
 import { MessageCircle, Loader2, Bookmark, BookmarkCheck, Share2 } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import { api } from '@/lib/api'
-import type { Counterview } from '@/lib/api'
+import type { Counterview, CounterviewListItem } from '@/lib/api'
 import SubPageNav from '@/components/layout/SubPageNav'
 import SharePreviewModal from '@/components/share/SharePreviewModal'
 
@@ -41,6 +41,9 @@ export default function CounterviewPage() {
   // 1 = baseRows[1]). Tapping a portrait or the toggle sets it; no new fetch — both
   // verdicts are already loaded in counterview.responses.
   const [activeSpeaker, setActiveSpeaker] = useState(0)
+  // Revisit list — the user's recent generated counterviews, shown under the input
+  // form. Loaded only on the voluntary (no-insightId) path; reopen pulls full via id.
+  const [past, setPast] = useState<CounterviewListItem[]>([])
 
   useEffect(() => {
     if (token === null) {
@@ -52,9 +55,11 @@ export default function CounterviewPage() {
       try {
         // Suspense-safe (no useSearchParams): the effect is client-only.
         const insightId = new URLSearchParams(window.location.search).get('insightId')
-        // No insight id → the voluntary input form (no fetch yet).
+        // No insight id → the voluntary input form (no fetch yet). Pull the revisit
+        // list in the background — failure is non-fatal, the form still shows.
         if (!insightId) {
           setMode('input')
+          api.listCounterviews().then(setPast).catch(() => {})
           return
         }
         setMode('insight')
@@ -94,6 +99,18 @@ export default function CounterviewPage() {
     setLoading(true)
     const cv = await api.createCounterview(b).catch(() => null)
     setCounterview(cv)
+    setLoading(false)
+  }
+
+  // Reopen a past counterview: pull the full set by id and show its result. mode
+  // stays 'input', but a now-truthy counterview falls through to the generated view.
+  async function openPast(id: string) {
+    setLoading(true)
+    const cv = await api.getCounterview(id).catch(() => null)
+    if (cv) {
+      setCounterview(cv)
+      setActiveSpeaker(0)
+    }
     setLoading(false)
   }
 
@@ -212,6 +229,24 @@ export default function CounterviewPage() {
         >
           Make the case
         </button>
+
+        {past.length > 0 && (
+          <section className="mt-[28px]">
+            <p className="font-lora text-[11px] uppercase tracking-[0.22em] text-bronze-dark mb-[10px]">Past counterviews</p>
+            <ul className="space-y-[8px]">
+              {past.map((p) => (
+                <li key={p.id}>
+                  <button
+                    onClick={() => openPast(p.id)}
+                    className="w-full text-left bg-paper/60 border-[0.5px] border-edge rounded-[8px] px-[12px] py-[9px] active:scale-[0.99] transition-transform"
+                  >
+                    <span className="font-cormorant text-[15px] text-ink leading-snug line-clamp-2">{p.anchor_text || 'Untitled'}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
       </main>
     )
   }
