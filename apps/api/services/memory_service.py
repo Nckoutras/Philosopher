@@ -211,15 +211,19 @@ class MemoryService:
                 logger.info("Recurrence skipped (throttle) user=%s", user_id)
                 return
 
-            per_conv = await db.execute(
-                select(Insight.id).where(
-                    Insight.user_id == user_id,
-                    Insight.conversation_id == conversation_id,
-                ).limit(1)
-            )
-            if per_conv.scalar_one_or_none() is not None:
-                logger.info("Recurrence skipped (one per conversation) conv=%s", conversation_id)
-                return
+            # Per-conversation dedup only applies to a real source conversation. For a
+            # NULL-conversation source (e.g. a voluntary counterview belief) it is a
+            # no-op anyway (== NULL never matches), so skip it and lean on the throttle.
+            if conversation_id is not None:
+                per_conv = await db.execute(
+                    select(Insight.id).where(
+                        Insight.user_id == user_id,
+                        Insight.conversation_id == conversation_id,
+                    ).limit(1)
+                )
+                if per_conv.scalar_one_or_none() is not None:
+                    logger.info("Recurrence skipped (one per conversation) conv=%s", conversation_id)
+                    return
 
             # ── DETECTION ─────────────────────────────────────────────────────
             # For each freshly-stored entry, cosine-search prior memories from
@@ -235,22 +239,32 @@ class MemoryService:
                 # space separators → an invalid literal that would be swallowed by
                 # the try/except and silently yield zero matches forever.
                 vec_literal = "[" + ",".join(repr(float(x)) for x in entry.embedding) + "]"
+                # Exclude the source's own context so an entry can never match itself.
+                # Chat path: exclude the whole source conversation. NULL-conversation
+                # source (voluntary belief): exclude only this entry by its own id —
+                # `conversation_id != NULL` would exclude every row (SQL 3-valued logic).
+                if conversation_id is not None:
+                    exclude_clause = "AND conversation_id != :conversation_id"
+                    exclude_param = {"conversation_id": conversation_id}
+                else:
+                    exclude_clause = "AND id != :self_id"
+                    exclude_param = {"self_id": entry.id}
                 result = await db.execute(
-                    text("""
+                    text(f"""
                         SELECT content, conversation_id,
                                1 - (embedding <=> CAST(:query_vec AS vector)) AS score
                         FROM memory_entries
                         WHERE user_id = :user_id
                           AND is_active = TRUE
                           AND embedding IS NOT NULL
-                          AND conversation_id != :conversation_id
+                          {exclude_clause}
                         ORDER BY embedding <=> CAST(:query_vec AS vector)
                         LIMIT 20
                     """),
                     {
                         "query_vec": vec_literal,
                         "user_id": user_id,
-                        "conversation_id": conversation_id,
+                        **exclude_param,
                     },
                 )
                 rows = result.fetchall()
