@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import { BronzeDivider } from '@/components/ui/BronzeDivider'
 import { useStore } from '@/lib/store'
 
@@ -24,10 +25,16 @@ export default function RootPage() {
   }
 
   return (
-    <main
-      className="relative [min-height:100svh] bg-ink bg-cover bg-center flex flex-col"
-      style={{ backgroundImage: "url('/personas/wise-room-hero.webp')" }}
-    >
+    <main className="relative [min-height:100svh] bg-ink flex flex-col">
+      <Image
+        src="/personas/wise-room-hero.webp"
+        alt=""
+        fill
+        priority
+        sizes="100vw"
+        className="absolute inset-0 object-cover object-center"
+      />
+
       {/* Subtle dark gradient at top for title legibility */}
       <div
         aria-hidden="true"
