@@ -1,5 +1,7 @@
 'use client'
 
+import { Sparkle } from 'lucide-react'
+
 interface Props {
   content: string
   insightType: string | null
@@ -54,10 +56,7 @@ export default function InsightCard({ content, insightType, sourceCount, onPrima
             className="shrink-0 w-[44px] h-[44px] rounded-md object-cover shadow-[0_0_18px_4px_rgba(184,153,104,0.45),0_0_0_1px_rgba(138,115,64,0.55)]"
           />
         ) : (
-          <span
-            aria-hidden
-            className="mt-[6px] shrink-0 w-[9px] h-[9px] bg-bronze rotate-45"
-          />
+          <Sparkle size={13} strokeWidth={1.5} className="mt-[5px] shrink-0 text-bronze fill-bronze drop-shadow-[0_0_5px_rgba(184,153,104,0.9)]" aria-hidden="true" />
         )}
         <p className="font-cormorant text-[17px] italic leading-[1.4] text-ink">
           {content}
