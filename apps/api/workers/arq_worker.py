@@ -184,6 +184,48 @@ async def extract_memory_task(
             logger.error(f"Memory task failed: {e}", exc_info=True)
 
 
+async def counterview_belief_task(ctx, user_id: str, belief: str):
+    """Feed a voluntary (typed) counterview belief into the self-model + recurrence
+    detector (Insight Slice 1). Mirrors extract_memory_task: write ONE memory_entry
+    for the belief (entry_type='counterview_belief', no conversation/persona), then
+    run recurrence detection on it. Self-contained try/except — never raises."""
+    from db.session import AsyncSessionLocal
+    from models import MemoryEntry
+    from services.embedding_client import embedding_client
+    from services.memory_service import memory_service
+
+    async with AsyncSessionLocal() as db:
+        try:
+            emb = await embedding_client.embed(belief)
+            entry = MemoryEntry(
+                user_id=user_id,
+                persona_id=None,
+                conversation_id=None,
+                entry_type="counterview_belief",
+                content=belief,
+                embedding=emb,
+                confidence=0.7,  # same default extract_and_store uses
+                source_turn=0,
+            )
+            db.add(entry)
+            await db.flush()  # flush so entry.id exists for the NULL-conversation exclusion
+
+            # NULL conversation_id: detect_recurrence excludes by the entry's own id
+            # and skips the per-conversation dedup (the 6h throttle still applies).
+            # Self-contained inside — never raises into this task.
+            await memory_service.detect_recurrence(
+                db=db,
+                user_id=user_id,
+                conversation_id=None,
+                persona_id=None,
+                new_entries=[entry],
+            )
+            await db.commit()
+            logger.info("Counterview belief task: stored belief + ran recurrence for user=%s", user_id)
+        except Exception as e:
+            logger.error(f"Counterview belief task failed: {e}", exc_info=True)
+
+
 async def generate_insight_task(ctx, user_id: str, conversation_id: str):
     """Generates an insight from recent memory entries."""
     from db.session import AsyncSessionLocal
@@ -1128,6 +1170,7 @@ async def generate_monthly_letter_task(ctx, user_id: str, voice_persona_slug: st
 class WorkerSettings:
     functions = [
         extract_memory_task,
+        counterview_belief_task,
         generate_insight_task,
         assess_conclusion_task,
         generate_conversation_title,

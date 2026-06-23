@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -72,6 +72,7 @@ async def _serialize_counterview(db: AsyncSession, cv: Counterview, user_id: str
 @router.post("", response_model=CounterviewOut)
 async def create_counterview(
     body: CounterviewCreate,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
@@ -87,6 +88,17 @@ async def create_counterview(
     cv = await generate_counterview(
         db, user.id, belief=belief, insight_id=None, source="direct"
     )
+
+    # Feed the voluntary belief into the self-model + recurrence detector (Slice 1).
+    # Direct path only, and only when a real counterview was generated (the belief was
+    # non-suppressed, substantive content). We enqueue the user's OWN belief text — the
+    # anchor, never a verdict. Fire-and-forget; the insight path never reaches here, so
+    # source='insight' is never re-detected (avoids looping off an existing insight).
+    if cv.status == "generated":
+        q = getattr(request.app.state, "arq_queue", None)
+        if q is not None:
+            await q.enqueue_job("counterview_belief_task", str(user.id), belief)
+
     return await _serialize_counterview(db, cv, user.id)
 
 

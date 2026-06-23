@@ -21,7 +21,13 @@ class SelfModelService:
     async def build(self, db: AsyncSession, user_id: str, *, bypass_gate: bool = False) -> dict:
         result = await db.execute(
             select(MemoryEntry)
-            .where(MemoryEntry.user_id == user_id, MemoryEntry.is_active == True)
+            .where(
+                MemoryEntry.user_id == user_id,
+                MemoryEntry.is_active == True,
+                # Voluntary counterview beliefs are their own surface (recurrence +
+                # letter spine); keep them out of the You-vs-You then/now windows.
+                MemoryEntry.entry_type != "counterview_belief",
+            )
             .order_by(MemoryEntry.created_at.asc())
         )
         entries = result.scalars().all()
