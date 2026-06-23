@@ -2,7 +2,7 @@
 
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
-import { ChevronRight } from 'lucide-react'
+import { ChevronRight, Sparkle } from 'lucide-react'
 import type { Conversation } from '@/lib/api'
 import { useStore } from '@/lib/store'
 
@@ -82,7 +82,7 @@ export default function ConversationCard({ conversation, portraitUrl }: Props) {
           )}
         </div>
         {hasUnseenInsight && (
-          <span className="absolute -top-[2px] -right-[2px] w-[12px] h-[12px] rotate-45 bg-bronze rounded-[2px] ring-2 ring-paper shadow-[0_0_7px_rgba(184,153,104,0.7)]" aria-hidden="true" />
+          <Sparkle size={14} strokeWidth={1.5} className="absolute -top-[3px] -right-[3px] text-bronze fill-bronze drop-shadow-[0_0_6px_rgba(184,153,104,0.9)]" aria-hidden="true" />
         )}
       </div>
 

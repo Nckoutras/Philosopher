@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useEffect } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
-import { Home, Archive, User } from 'lucide-react'
+import { Home, Archive, User, Sparkle } from 'lucide-react'
 import { ReturningPathIcon } from '@/components/icons/RitualIcons'
 import { useStore } from '@/lib/store'
 
@@ -89,7 +89,7 @@ export default function BottomTabBar() {
                 <span className="relative">
                   <Icon size={20} strokeWidth={1.5} />
                   {hasUnseenInsight && (
-                    <span className="absolute -top-[2px] -right-[3px] w-[8px] h-[8px] rotate-45 bg-bronze rounded-[1px] ring-2 ring-paper shadow-[0_0_6px_rgba(184,153,104,0.75)]" aria-hidden="true" />
+                    <Sparkle size={11} strokeWidth={1.5} className="absolute -top-[3px] -right-[5px] text-bronze fill-bronze drop-shadow-[0_0_5px_rgba(184,153,104,0.95)]" aria-hidden="true" />
                   )}
                 </span>
               ) : (
