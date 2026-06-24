@@ -31,7 +31,7 @@ export default function SafetyBubble() {
 
       {/* Safety bubble */}
       <div
-        className="max-w-[80%] bg-linen text-ink font-lora text-[16px] leading-relaxed rounded-lg px-4 py-3.5"
+        className="max-w-[80%] bg-linen text-ink font-lora text-[18px] leading-relaxed rounded-lg px-4 py-3.5"
         role="alert"
       >
         <p className="mb-3">

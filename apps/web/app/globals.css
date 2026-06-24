@@ -51,7 +51,7 @@ body {
   background: var(--vellum);
   color: var(--ink);
   font-family: var(--font-lora);
-  font-size: 15px;
+  font-size: 17px;
   line-height: 1.65;
   min-height: 100dvh;
   /* zoom: 1.15; */ /* test: dropped to isolate fixed-tabbar tap desync (iOS) */

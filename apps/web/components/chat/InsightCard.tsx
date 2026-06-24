@@ -58,7 +58,7 @@ export default function InsightCard({ content, insightType, sourceCount, onPrima
         ) : (
           <Sparkle size={13} strokeWidth={1.5} className="mt-[5px] shrink-0 text-bronze fill-bronze drop-shadow-[0_0_5px_rgba(184,153,104,0.9)]" aria-hidden="true" />
         )}
-        <p className="font-cormorant text-[17px] italic leading-[1.4] text-ink">
+        <p className="font-cormorant text-[19px] italic leading-[1.4] text-ink">
           {content}
         </p>
       </div>
