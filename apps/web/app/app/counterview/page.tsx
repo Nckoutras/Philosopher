@@ -405,7 +405,7 @@ export default function CounterviewPage() {
           const canDeepen = !deeper && !exhausted.has(active.persona_slug)
           return (
             <div className="relative px-[2px]">
-              <p className="font-cormorant italic text-[17px] text-ink leading-snug pr-[22px]">
+              <p className="font-cormorant italic text-[19px] text-ink leading-snug pr-[22px]">
                 {active.verdict}
               </p>
               {canDeepen && (
@@ -425,7 +425,7 @@ export default function CounterviewPage() {
               {/* The second cut — stacked under the first when it exists */}
               {deeper && (
                 <div className="mt-[12px] pt-[12px] border-t border-bronze/20">
-                  <p className="font-cormorant text-[16px] italic text-charcoal leading-snug">
+                  <p className="font-cormorant text-[18px] italic text-charcoal leading-snug">
                     {deeper.verdict}
                   </p>
                 </div>
