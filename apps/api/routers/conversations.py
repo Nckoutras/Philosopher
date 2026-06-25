@@ -10,7 +10,7 @@ from models import User, Conversation, Message, Persona, SavedLine
 from schemas import (
     ConversationCreate, ConversationOut, CrossPersonaRequest,
     MessageCreate, MessageOut, PersonaOut, LLMErrorResponse,
-    AnotherMindCreate, ReadingRevisitCreate,
+    AnotherMindCreate, ActiveMindSet, ReadingRevisitCreate,
 )
 from auth import get_current_user, get_current_user_plan, get_user_plan_streaming
 from services.conversation_service import conversation_service
@@ -60,18 +60,26 @@ async def _build_last_snippets(db: AsyncSession, convs: list[Conversation], max_
 
 
 def _conv_out(conv: Conversation, source_contents: dict[str, str], snippets: dict[str, str] | None = None) -> ConversationOut:
-    pc = get_persona(conv.persona.slug)
+    # Universal read rule: `persona` is the coalesced ACTIVE mind (sticky guest when
+    # set, else home) — so header, history thumbnails and resume all show who the
+    # conversation is *currently* with. `origin_persona_*` always points to the
+    # immutable home persona, for the "Return to [origin]" affordance.
+    active = conv.active_persona or conv.persona
+    pc = get_persona(active.slug)
     return ConversationOut(
         id=conv.id,
         persona=PersonaOut(
-            id=conv.persona.id,
-            slug=conv.persona.slug,
-            name=conv.persona.name,
-            era=conv.persona.era,
-            tradition=conv.persona.tradition,
-            tier=conv.persona.tier,
+            id=active.id,
+            slug=active.slug,
+            name=active.name,
+            era=active.era,
+            tradition=active.tradition,
+            tier=active.tier,
             tagline=pc.tagline if pc else None,
             avatar_emoji=pc.avatar_emoji if pc else None,
+            # Needed so the client can render the active mind's portrait
+            # immediately on a sticky switch (no refetch).
+            portrait_url=active.portrait_url,
         ),
         title=conv.title,
         message_count=conv.message_count,
@@ -83,6 +91,8 @@ def _conv_out(conv: Conversation, source_contents: dict[str, str], snippets: dic
             if conv.source_saved_line_id else None
         ),
         last_message_snippet=(snippets or {}).get(str(conv.id)),
+        origin_persona_slug=conv.persona.slug,
+        origin_persona_name=conv.persona.name,
     )
 
 
@@ -210,7 +220,7 @@ async def list_conversations(
 ):
     stmt = (
         select(Conversation)
-        .options(selectinload(Conversation.persona))
+        .options(selectinload(Conversation.persona), selectinload(Conversation.active_persona))
         .where(Conversation.user_id == user.id)
     )
     if q:
@@ -235,7 +245,7 @@ async def get_conversation(
     result = await db.execute(
         select(Conversation)
         .where(Conversation.id == conversation_id, Conversation.user_id == user.id)
-        .options(selectinload(Conversation.persona))
+        .options(selectinload(Conversation.persona), selectinload(Conversation.active_persona))
     )
     conv = result.scalar_one_or_none()
     if conv is None:
@@ -304,14 +314,17 @@ async def send_message(
         if not conv:
             raise HTTPException(status_code=404, detail="Conversation not found")
 
-        persona_result = await db.execute(select(Persona).where(Persona.id == conv.persona_id))
+        # Sticky guest: the responder (and thus whose quota this send consumes) is
+        # the active mind when set, else the home persona.
+        responder_persona_id = conv.active_persona_id or conv.persona_id
+        persona_result = await db.execute(select(Persona).where(Persona.id == responder_persona_id))
         persona = persona_result.scalar_one()
 
         rate_limit_result = None
         if not user.is_admin and conv.ritual_id is None:
             user_tier = await get_user_tier(db, user.id)
             rate_limit_result = await rate_limit_service.check_rate_limit(
-                db, UUID(user.id), UUID(conv.persona_id), user_tier=user_tier
+                db, UUID(user.id), UUID(responder_persona_id), user_tier=user_tier
             )
             if not rate_limit_result.allowed:
                 return JSONResponse(
@@ -442,6 +455,72 @@ async def another_mind(
     )
 
 
+@router.post("/{conversation_id}/active-mind", response_model=ConversationOut)
+async def set_active_mind(
+    conversation_id: str,
+    body: ActiveMindSet,
+    db: AsyncSession = Depends(get_db),
+    auth: tuple = Depends(get_current_user_plan),
+) -> ConversationOut:
+    """Make the chosen guest the sticky active mind (continue with [guest]).
+
+    Persists `active_persona_id`; the immutable home `persona_id` is never touched.
+    Reuses the exact tier gate another-mind uses. Setting the active mind to the
+    home persona is normalised to NULL (return to origin).
+    """
+    user, plan = auth
+    result = await db.execute(
+        select(Conversation)
+        .where(Conversation.id == conversation_id, Conversation.user_id == user.id)
+        .options(selectinload(Conversation.persona), selectinload(Conversation.active_persona))
+    )
+    conv = result.scalar_one_or_none()
+    if not conv:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+
+    target_config = get_persona(body.target_persona_slug)
+    if not target_config:
+        raise HTTPException(status_code=404, detail="Persona not found")
+    if not is_persona_accessible(target_config, plan):
+        return JSONResponse(status_code=403, content={"error_code": "upgrade_required"})
+
+    target_result = await db.execute(select(Persona).where(Persona.slug == body.target_persona_slug))
+    target = target_result.scalar_one_or_none()
+    if not target:
+        raise HTTPException(status_code=404, detail="Persona not found")
+
+    conv.active_persona_id = None if target.id == conv.persona_id else target.id
+    await db.commit()
+    await db.refresh(conv, attribute_names=["active_persona"])
+
+    source_contents = await _build_source_contents(db, [conv])
+    return _conv_out(conv, source_contents)
+
+
+@router.delete("/{conversation_id}/active-mind", response_model=ConversationOut)
+async def clear_active_mind(
+    conversation_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> ConversationOut:
+    """Return to origin: clear the sticky active mind back to the home persona."""
+    result = await db.execute(
+        select(Conversation)
+        .where(Conversation.id == conversation_id, Conversation.user_id == user.id)
+        .options(selectinload(Conversation.persona), selectinload(Conversation.active_persona))
+    )
+    conv = result.scalar_one_or_none()
+    if not conv:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+
+    conv.active_persona_id = None
+    await db.commit()
+    await db.refresh(conv, attribute_names=["active_persona"])
+
+    source_contents = await _build_source_contents(db, [conv])
+    return _conv_out(conv, source_contents)
+
+
 @router.post("/{conversation_id}/go-deeper")
 async def go_deeper(
     conversation_id: str,
@@ -459,7 +538,10 @@ async def go_deeper(
     if not conv:
         raise HTTPException(status_code=404, detail="Conversation not found")
 
-    home_persona_result = await db.execute(select(Persona).where(Persona.id == conv.persona_id))
+    # Go deeper is spoken by the current responder (sticky active guest when set,
+    # else home), so it checks/consumes that mind's quota — Gap 2.
+    responder_persona_id = conv.active_persona_id or conv.persona_id
+    home_persona_result = await db.execute(select(Persona).where(Persona.id == responder_persona_id))
     home_persona = home_persona_result.scalar_one()
     home_config = get_persona(home_persona.slug)
 
@@ -467,7 +549,7 @@ async def go_deeper(
     if not user.is_admin and conv.ritual_id is None:
         user_tier = await get_user_tier(db, user.id)
         rate_limit_result = await rate_limit_service.check_rate_limit(
-            db, UUID(user.id), UUID(conv.persona_id), user_tier=user_tier
+            db, UUID(user.id), UUID(responder_persona_id), user_tier=user_tier
         )
         if not rate_limit_result.allowed:
             return JSONResponse(

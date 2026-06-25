@@ -13,6 +13,11 @@ interface Props {
   onUpgradeConfirm: () => void
   onBringAnotherMind: () => void
   onGoDeeper: () => void
+  // Sticky guest: make a brought-in guest the active mind for subsequent turns.
+  // Optional — only the canonical /conv/[id] surface supports stickiness; the
+  // fresh-start /chat/[slug] page omits it (its identity keys on the home slug),
+  // so the chip is hidden there and another-mind stays one-shot.
+  onContinueWithGuest?: (slug: string, name: string) => void
   // Recurrence/shift insight (Slice 1–2): surfaced on the LAST assistant message only.
   insightContent?: string | null
   insightType?: string | null
@@ -24,9 +29,9 @@ interface Props {
   onInsightDiscard?: () => void
 }
 
-export default function MessageList({ messages, onSaveLine, onUpgradeConfirm, onBringAnotherMind, onGoDeeper, insightContent, insightType, insightSourceCount, insightExpanded = false, onInsightTap, onInsightPrimary, onInsightDoubt, onInsightDiscard }: Props) {
+export default function MessageList({ messages, onSaveLine, onUpgradeConfirm, onBringAnotherMind, onGoDeeper, onContinueWithGuest, insightContent, insightType, insightSourceCount, insightExpanded = false, onInsightTap, onInsightPrimary, onInsightDoubt, onInsightDiscard }: Props) {
   const savedMessageIds = useStore((s) => s.savedMessageIds)
-  const activePersonaName = useStore((s) => s.activePersonaName)
+  const activePersonaSlug = useStore((s) => s.activePersonaSlug)
 
   const visible = messages.filter(
     (m): m is Message & { role: 'user' | 'assistant' } =>
@@ -76,6 +81,8 @@ export default function MessageList({ messages, onSaveLine, onUpgradeConfirm, on
                 onGoDeeper={onGoDeeper}
                 showInsightChip={msg.id === lastAssistantId && !!insightContent && !insightExpanded}
                 onInsightTap={onInsightTap}
+                continueWithName={onContinueWithGuest && broughtIn && slug && slug !== activePersonaSlug ? (broughtInName ?? null) : null}
+                onContinueWith={onContinueWithGuest && broughtIn && slug ? () => onContinueWithGuest(slug, broughtInName ?? '') : undefined}
               />
             )}
             {msg.id === lastAssistantId && !!insightContent && insightExpanded && (
@@ -87,11 +94,6 @@ export default function MessageList({ messages, onSaveLine, onUpgradeConfirm, on
                 onDoubt={onInsightDoubt ?? (() => {})}
                 onDiscard={onInsightDiscard ?? (() => {})}
               />
-            )}
-            {broughtIn && activePersonaName && (
-              <p className="font-lora text-[10px] text-sepia uppercase tracking-[0.18em] text-center my-2">
-                Continuing with {activePersonaName}
-              </p>
             )}
           </div>
         )

@@ -131,6 +131,7 @@ export interface Persona {
 
 export interface Conversation {
   id: string
+  // `persona` is the coalesced ACTIVE mind (sticky guest when set, else home).
   persona: Persona
   title: string | null
   message_count: number
@@ -139,6 +140,9 @@ export interface Conversation {
   source_persona_slug: string | null
   source_context_content: string | null
   last_message_snippet: string | null
+  // Always the immutable home/origin persona. Stickied iff persona.slug differs.
+  origin_persona_slug: string | null
+  origin_persona_name: string | null
 }
 
 export interface Message {
@@ -595,6 +599,21 @@ class ApiClient {
 
   async getConversation(id: string): Promise<Conversation> {
     return this.request<Conversation>(`/conversations/${id}`)
+  }
+
+  // Sticky guest mind: make `personaSlug` the active mind for subsequent turns.
+  async setActiveMind(conversationId: string, personaSlug: string): Promise<Conversation> {
+    return this.request<Conversation>(`/conversations/${conversationId}/active-mind`, {
+      method: 'POST',
+      body: JSON.stringify({ target_persona_slug: personaSlug }),
+    })
+  }
+
+  // Return to origin: clear the sticky active mind back to the home persona.
+  async clearActiveMind(conversationId: string): Promise<Conversation> {
+    return this.request<Conversation>(`/conversations/${conversationId}/active-mind`, {
+      method: 'DELETE',
+    })
   }
 
   async createConversation(persona_slug: string, ritual_id?: string, skip_opening?: boolean): Promise<Conversation> {

@@ -51,11 +51,14 @@ export default function ExistingConversationPage() {
   const setStreamError = useStore((s) => s.setStreamError)
   const loadSavedLines = useStore((s) => s.loadSavedLines)
   const activePersonaSlug = useStore((s) => s.activePersonaSlug)
+  const setActivePersona = useStore((s) => s.setActivePersona)
   const markInsightsSeenForConversation = useStore((s) => s.markInsightsSeenForConversation)
 
   const [loadError, setLoadError] = useState<string | null>(null)
   const [inputDraft, setInputDraft] = useState<string | undefined>(undefined)
   const [pickerOpen, setPickerOpen] = useState(false)
+  // Immutable origin/home persona for this conversation (for "Return to [origin]").
+  const [origin, setOrigin] = useState<{ slug: string; name: string } | null>(null)
   const [insight, setInsight] = useState<Insight | null>(null)
   const [insightExpanded, setInsightExpanded] = useState(false)
   const { send, sendAnotherMind, sendGoDeeper } = useStream()
@@ -66,6 +69,28 @@ export default function ExistingConversationPage() {
 
   const handleBringAnotherMind = () => setPickerOpen(true)
   const isReady = activeConversationId === params.id
+
+  // Sticky guest: make the brought-in guest the active mind for next turns.
+  async function handleContinueWithGuest(slug: string, name: string) {
+    try {
+      const updated = await api.setActiveMind(params.id, slug)
+      setActivePersona(updated.persona.slug, updated.persona.name, updated.persona.portrait_url)
+    } catch {
+      toast.error('Could not switch. Please try again.')
+    }
+  }
+
+  // Return to origin: clear the sticky guest back to the home persona.
+  async function handleReturnToOrigin() {
+    try {
+      const updated = await api.clearActiveMind(params.id)
+      setActivePersona(updated.persona.slug, updated.persona.name, updated.persona.portrait_url)
+    } catch {
+      toast.error('Could not switch. Please try again.')
+    }
+  }
+
+  const isGuestActive = !!origin && activePersonaSlug !== null && activePersonaSlug !== origin.slug
 
   // Fetch this conversation's recurrence insight and pick the first that is
   // neither server-dismissed nor dismissed this session. A merely-seen (not
@@ -111,12 +136,19 @@ export default function ExistingConversationPage() {
 
         const personaFull = personas.find((p) => p.slug === conv.persona.slug)
 
+        // conv.persona is the coalesced ACTIVE mind (sticky guest survives reload);
+        // origin_persona_* is the immutable home for the "Return to [origin]" link.
         setActiveConversation(
           conv.id,
           conv.persona.slug,
           conv.persona.name,
           personaFull?.portrait_url ?? '',
           null,
+        )
+        setOrigin(
+          conv.origin_persona_slug && conv.origin_persona_name
+            ? { slug: conv.origin_persona_slug, name: conv.origin_persona_name }
+            : { slug: conv.persona.slug, name: conv.persona.name },
         )
 
         // Pre-fill input draft for cross-persona conversations (written by PersonaPickerSheet)
@@ -309,7 +341,13 @@ export default function ExistingConversationPage() {
   return (
     <main className="min-h-screen [min-height:100svh] flex flex-col bg-paper">
       <SubPageNav fallbackHref="/app/library" showHome={false} />
-      <ChatHeader personaName={personaName} portraitUrl={portraitUrl} />
+      <ChatHeader
+        personaName={personaName}
+        portraitUrl={portraitUrl}
+        originName={origin?.name ?? null}
+        isGuestActive={isGuestActive}
+        onReturnToOrigin={handleReturnToOrigin}
+      />
 
       <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3">
         <MessageList
@@ -318,6 +356,7 @@ export default function ExistingConversationPage() {
           onUpgradeConfirm={handleUpgradeConfirm}
           onBringAnotherMind={handleBringAnotherMind}
           onGoDeeper={() => sendGoDeeper()}
+          onContinueWithGuest={handleContinueWithGuest}
           insightContent={insight?.content ?? null}
           insightType={insight?.insight_type ?? null}
           insightSourceCount={insight?.source_count ?? null}

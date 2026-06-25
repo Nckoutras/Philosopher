@@ -46,6 +46,9 @@ interface AppStore {
     openingInvocation: string | null,
   ) => void
   clearActiveConversation: () => void
+  // Sticky guest mind: update only the active persona display fields (header +
+  // who-answers-next), without resetting the conversation/messages.
+  setActivePersona: (personaSlug: string, personaName: string, portraitUrl: string) => void
 
   // Messages for active conversation
   messages: Message[]
@@ -174,6 +177,12 @@ export const useStore = create<AppStore>()(
           correctionContent: '',
           streamingBroughtInName: null,
           streamError: null,
+        }),
+      setActivePersona: (personaSlug, personaName, portraitUrl) =>
+        set({
+          activePersonaSlug: personaSlug,
+          activePersonaName: personaName,
+          activePersonaPortraitUrl: portraitUrl,
         }),
 
       // Messages

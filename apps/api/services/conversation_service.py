@@ -392,7 +392,12 @@ class ConversationService:
             conv = result.scalar_one_or_none()
             if not conv:
                 raise ValueError("Conversation not found")
-            persona_result = await db.execute(select(Persona).where(Persona.id == conv.persona_id))
+            # Sticky guest: the responder is the active mind when set, else the
+            # immutable home persona. This same resolved id is snapshotted below
+            # as conv_persona_id so quota consumption and memory provenance follow
+            # whoever actually answered (acceptance: active guest's quota).
+            responder_persona_id = conv.active_persona_id or conv.persona_id
+            persona_result = await db.execute(select(Persona).where(Persona.id == responder_persona_id))
             persona_db = persona_result.scalar_one()
             persona = get_persona(persona_db.slug)
 
@@ -471,18 +476,23 @@ class ConversationService:
                 .limit(MEMORY_WINDOW_PRO if user_plan in ("pro", "premium") else MEMORY_WINDOW_FREE)
             )
             history = history_result.scalars().all()
-            # Cross-mind awareness: label assistant turns spoken by a brought-in
-            # persona so the home persona recognises them as another mind's words.
-            # When none exist, history is built byte-identically to before.
-            _foreign = [m for m in history if m.role == "assistant" and m.persona_id is not None]
+            # Cross-mind awareness: label every assistant turn NOT authored by the
+            # current responder so it reads as another mind's words. The responder
+            # is the sticky active guest when set, else home (persona_id None =>
+            # home). When the responder is home and no guest turns exist, this is
+            # byte-identical to the prior behaviour.
+            _foreign = [
+                m for m in history
+                if m.role == "assistant" and (m.persona_id or conv.persona_id) != responder_persona_id
+            ]
             if _foreign:
-                _pid_set = {conv.persona_id} | {m.persona_id for m in _foreign}
+                _pid_set = {conv.persona_id, responder_persona_id} | {m.persona_id for m in history if m.persona_id}
                 _name_rows = await db.execute(
                     select(Persona.id, Persona.name).where(Persona.id.in_(_pid_set))
                 )
                 _id_to_name = {r.id: r.name for r in _name_rows.all()}
                 lm_messages = self._build_lm_messages(
-                    history, conv.persona_id, conv.persona_id, _id_to_name
+                    history, conv.persona_id, responder_persona_id, _id_to_name
                 )
                 system_prompt = system_prompt + "\n\n" + CROSS_MIND_NOTE
             else:
@@ -526,7 +536,9 @@ class ConversationService:
             conv_message_count = conv.message_count
             conv_title = conv.title
             conv_ritual_id = conv.ritual_id
-            conv_persona_id = conv.persona_id
+            # Resolved responder (active guest or home) — drives DailyUsage quota
+            # consumption and memory-extraction provenance below (Gaps 1 & 3).
+            conv_persona_id = responder_persona_id
         # ── Phase A session closed — pool freed for the token stream ─────────
 
         # ══ PHASE B — TOKEN STREAM (no pooled session held) ══════════════════
@@ -990,8 +1002,9 @@ class ConversationService:
         if not conv:
             raise ValueError("Conversation not found")
 
-        # Resolve home persona (config + DB record)
-        home_result = await db.execute(select(Persona).where(Persona.id == conv.persona_id))
+        # Resolve responder (sticky active guest when set, else home persona).
+        responder_persona_id = conv.active_persona_id or conv.persona_id
+        home_result = await db.execute(select(Persona).where(Persona.id == responder_persona_id))
         target_db = home_result.scalar_one()
         persona = get_persona(target_db.slug)
 
