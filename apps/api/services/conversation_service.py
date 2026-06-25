@@ -128,6 +128,51 @@ DEEPEN_ESCALATION = {
 TURN_LIMIT   = {'free': 3, 'pro': 5, 'premium': 5}
 THREAD_LIMIT = {'free': 15, 'pro': 30, 'premium': 30}
 
+# Adaptive response length (§ adaptive-length brief). Match reply size to the
+# size of the user's message at the EXTREMES only — short input → shorter reply,
+# long/developed input → fuller reply — while leaving the typical (medium) case
+# untouched. Bands are drawn from the persona's existing standard_reply_words
+# (L, U); the long tier is capped at the existing ceiling U and never exceeds it
+# (a fuller "satisfying" reply is reserved for go-deeper). Caller gates this
+# behind distress and the first-message cap.
+ADAPTIVE_LENGTH_SHORT_MAX_WORDS = 15   # input ≤ this → short tier
+ADAPTIVE_LENGTH_LONG_MIN_WORDS = 50    # input ≥ this → long tier
+ADAPTIVE_LENGTH_SHORT_FRACTION = 0.34  # short reply upper = L + round(span * this)
+ADAPTIVE_LENGTH_LONG_FRACTION = 0.5    # long reply lower  = L + round(span * this)
+
+
+def _length_directive_for_input(user_text: str, persona) -> str | None:
+    """Return a system-prompt length directive sized to the user's input, or None.
+
+    None means "no directive" → the prompt is byte-identical to before. That is
+    the case for medium-sized input, or when the persona has no standard band.
+    Distress and first-message gating are the caller's responsibility (this only
+    looks at input size and the persona band).
+    """
+    spec = getattr(persona, "response_length_words", None)
+    if spec is None or spec.standard_reply_words is None:
+        return None
+
+    low, high = spec.standard_reply_words
+    span = high - low
+    word_count = len(user_text.split())
+
+    if word_count <= ADAPTIVE_LENGTH_SHORT_MAX_WORDS:
+        lo, hi = low, low + round(span * ADAPTIVE_LENGTH_SHORT_FRACTION)
+        return (
+            f"LENGTH FOR THIS REPLY: the person wrote only a line or two. Match them — "
+            f"answer briefly, about {lo}–{hi} words. Never exceed {high} words."
+        )
+    if word_count >= ADAPTIVE_LENGTH_LONG_MIN_WORDS:
+        lo, hi = low + round(span * ADAPTIVE_LENGTH_LONG_FRACTION), high
+        return (
+            f"LENGTH FOR THIS REPLY: the person wrote at length and developed their thought. "
+            f"You may answer more fully, about {lo}–{hi} words — but never exceed {high} "
+            f"words, and never pad to fill space."
+        )
+    # Medium input: no directive — typical behaviour is unchanged.
+    return None
+
 
 class ConversationService:
 
@@ -517,6 +562,18 @@ class ConversationService:
             history_len = len(history)
             if seeded_opening and history_len == 0:
                 system_prompt = system_prompt + "\n\n" + SEEDED_OPENING_DIRECTIVE
+
+            # Adaptive response length: size the reply to the user's input size.
+            # Gated AFTER safety so distress always wins — any non-"none" safety
+            # level (the surviving case is "low"/distress_signal; medium+ already
+            # returned a safety response above) suppresses the directive, keeping
+            # the grounded/short default. Skipped for the first message
+            # (history_len <= 1), whose own first_message cap governs, and for
+            # medium-sized input (helper returns None → prompt unchanged).
+            if history_len > 1 and safety_in.level == "none":
+                length_directive = _length_directive_for_input(user_text, persona)
+                if length_directive:
+                    system_prompt = system_prompt + "\n\n" + length_directive
 
             # ── 6. SAVE USER MESSAGE ─────────────────────────────────────────
             # Commit (not just flush) so the user turn is durably persisted
