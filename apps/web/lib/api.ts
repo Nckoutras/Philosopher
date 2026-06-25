@@ -578,6 +578,23 @@ class ApiClient {
     })
   }
 
+  async getPreferences(): Promise<PreferenceOut> {
+    return this.request<PreferenceOut>('/preferences', { method: 'GET' })
+  }
+
+  async saveProfile(payload: ProfilePayload): Promise<PreferenceOut> {
+    return this.request<PreferenceOut>('/preferences/profile', {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    })
+  }
+
+  async getProfileReflection(): Promise<ProfileReflectionOut> {
+    return this.request<ProfileReflectionOut>('/preferences/profile/reflection', {
+      method: 'POST',
+    })
+  }
+
   async getSelfComparisonStatus(): Promise<SelfComparisonStatus> {
     return this.request<SelfComparisonStatus>('/self-comparison/status')
   }
@@ -1139,13 +1156,31 @@ export interface PreferenceUpsertRequest {
   need_most: 'comfort' | 'challenge' | 'interpretation' | 'practical_steadiness'
 }
 
+export type ProfileValue =
+  | 'honesty' | 'freedom' | 'loyalty' | 'justice'
+  | 'growth' | 'security' | 'connection' | 'achievement'
+
+export type DisagreementStyle =
+  | 'stand_firm' | 'seek_the_middle' | 'avoid_conflict'
+  | 'probe_their_view' | 'heat_then_reflect'
+
+export interface ProfilePayload {
+  values: ProfileValue[]
+  disagreement_style: DisagreementStyle | null
+}
+
 export interface PreferenceOut {
   user_id: string
   themes: string[]
   other_text: string | null
   need_most: string
+  profile: ProfilePayload | null
   created_at: string
   updated_at: string
+}
+
+export interface ProfileReflectionOut {
+  bullets: string[]
 }
 
 export interface Match {

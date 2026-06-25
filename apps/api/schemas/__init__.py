@@ -321,15 +321,37 @@ class PreferenceUpsertRequest(BaseModel):
         return self
 
 
+class ProfileIn(BaseModel):
+    """Onboarding profile pills. Bounded enums only — no free text in v1."""
+    values: list[Literal["honesty", "freedom", "loyalty", "justice", "growth", "security", "connection", "achievement"]] = Field(default_factory=list, max_length=3)
+    disagreement_style: Literal["stand_firm", "seek_the_middle", "avoid_conflict", "probe_their_view", "heat_then_reflect"] | None = None
+
+    @field_validator("values")
+    @classmethod
+    def dedupe_values(cls, v: list[str]) -> list[str]:
+        seen = set()
+        result = []
+        for val in v:
+            if val not in seen:
+                seen.add(val)
+                result.append(val)
+        return result
+
+
 class PreferenceOut(BaseModel):
     themes: list[str]
     other_text: str | None
     need_most: str
+    profile: dict | None = None
     created_at: datetime
     updated_at: datetime
 
     class Config:
         from_attributes = True
+
+
+class ProfileReflectionOut(BaseModel):
+    bullets: list[str]
 
 
 # ── Matches ───────────────────────────────────────────────────────────────────
