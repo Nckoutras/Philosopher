@@ -1,6 +1,6 @@
 """Add conversations.deep_mode + daily_usage.go_deeper_count (go-deeper depth)
 
-Revision ID: 035_deep_mode_and_go_deeper_count
+Revision ID: 035_deep_mode_go_deeper
 Revises: 034_conversation_active_persona
 Create Date: 2026-06-25
 
@@ -18,7 +18,7 @@ Additive, schema-only. Two independent columns:
 import sqlalchemy as sa
 from alembic import op
 
-revision = '035_deep_mode_and_go_deeper_count'
+revision = '035_deep_mode_go_deeper'
 down_revision = '034_conversation_active_persona'
 branch_labels = None
 depends_on = None
