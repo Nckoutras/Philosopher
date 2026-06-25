@@ -1,15 +1,28 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+import logging
+
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from auth import get_current_user
 from db.session import get_db
 from models import User
-from schemas import PreferenceUpsertRequest, PreferenceOut, MatchOut
+from schemas import (
+    PreferenceUpsertRequest,
+    PreferenceOut,
+    MatchOut,
+    ProfileIn,
+    ProfileReflectionOut,
+)
 from services.preferences_service import (
     get_user_preferences,
     upsert_preferences,
+    set_profile,
 )
 from services.matching_service import compute_matches
+from services.profile_text import profile_to_statements
+from services.self_comparison_service import self_comparison_service
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/preferences", tags=["preferences"])
 
@@ -41,6 +54,48 @@ async def read_user_preferences(
     if record is None:
         raise HTTPException(status_code=404, detail="Preferences not set")
     return record
+
+
+@router.patch("/profile", response_model=PreferenceOut)
+async def update_profile(
+    body: ProfileIn,
+    request: Request,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Instant-save the onboarding profile pills onto the user's preferences row,
+    then enqueue the (async, embedded) memory seeding. Used by both the onboarding
+    profile step and the standalone /app/profile editor."""
+    record = await set_profile(user_id=user.id, profile=body.model_dump(), db=db)
+    if record is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Complete the questionnaire first.",
+        )
+
+    # Seed embedded memory_entries off the request path (fire-and-forget).
+    q = getattr(request.app.state, "arq_queue", None)
+    if q is not None:
+        try:
+            await q.enqueue_job("seed_profile_memory_task", str(user.id))
+        except Exception as e:
+            logger.warning(f"Failed to enqueue profile memory seed: {e}")
+
+    return record
+
+
+@router.post("/profile/reflection", response_model=ProfileReflectionOut)
+async def profile_reflection(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Instant reflection at the end of onboarding. Reuses forming_reflection() over
+    the SAME self-statements that seed memory (one shared helper). One cheap LLM call;
+    returns [] on failure so the frontend can skip the beat silently."""
+    prefs = await get_user_preferences(user_id=user.id, db=db)
+    statements = profile_to_statements(prefs.profile if prefs else None)
+    bullets = await self_comparison_service.forming_reflection(statements)
+    return ProfileReflectionOut(bullets=bullets)
 
 
 @router.get(

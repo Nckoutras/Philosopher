@@ -19,6 +19,8 @@ from services.memory_service import memory_service
 from services.retrieval_service import retrieval_service
 from services.llm_client import llm_client
 from services.prompt_builder import prompt_builder
+from services.preferences_service import get_user_preferences
+from services.profile_text import profile_to_display
 from services.analytics_service import analytics_service
 from services.persona_voice import get_error_voice
 import services.rate_limit_service as rate_limit_service
@@ -519,12 +521,24 @@ class ConversationService:
                     )
                     # phenomenology_bridge stays None
 
+            # ── 3.8. ONBOARDING PROFILE (guaranteed, NOT recall) ─────────────
+            # Self-reported pills surface in the system prompt on turn 1, regardless
+            # of message similarity — unlike memories (cosine-recalled). Fail-open.
+            profile_view = None
+            try:
+                pref = await get_user_preferences(user_id, db)
+                profile_view = profile_to_display(pref.profile if pref else None)
+            except Exception as e:
+                logger.warning(f"Profile load failed: {e}")
+                await db.rollback()
+
             # ── 4. BUILD SYSTEM PROMPT ───────────────────────────────────────
             system_prompt = prompt_builder.build_system(
                 persona=persona,
                 memories=memories,
                 passages=passages,
                 phenomenology_bridge=phenomenology_bridge,
+                profile=profile_view,
             )
 
             # ── 5. BUILD MESSAGE HISTORY ─────────────────────────────────────

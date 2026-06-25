@@ -329,6 +329,9 @@ class UserPreference(Base):
     themes: Mapped[list[str]] = mapped_column(ARRAY(Text), nullable=False, server_default=text("'{}'::text[]"))
     other_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     need_most: Mapped[str] = mapped_column(Text, nullable=False)
+    # Onboarding profile pills (tappable, no free text). Nullable: NULL means no
+    # profile set. e.g. {"values": ["honesty","freedom"], "disagreement_style": "probe_their_view"}
+    profile: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
 

@@ -5,7 +5,7 @@ Upserts user_preferences rows (one per user) and reads them back.
 Endpoints (routers/preferences.py) call into this module — no HTTP
 concerns here.
 """
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import func
@@ -56,5 +56,26 @@ async def get_user_preferences(
     """Return the user's preferences row, or None if not set yet."""
     result = await db.execute(
         select(UserPreference).where(UserPreference.user_id == user_id)
+    )
+    return result.scalar_one_or_none()
+
+
+async def set_profile(
+    user_id: str,
+    profile: dict,
+    db: AsyncSession,
+) -> UserPreference | None:
+    """Update only the `profile` JSONB on the user's preferences row.
+
+    Update-only (not an insert): the onboarding flow reaches the profile step after
+    the `need` step has already created the row, and the standalone editor is only
+    reachable post-onboarding — so the row always exists. Returns None if it does
+    not, letting the caller surface a clean 404 rather than fabricating a need_most.
+    """
+    result = await db.execute(
+        update(UserPreference)
+        .where(UserPreference.user_id == user_id)
+        .values(profile=profile, updated_at=func.now())
+        .returning(UserPreference)
     )
     return result.scalar_one_or_none()

@@ -64,7 +64,7 @@ export default function NeedPage() {
 
       sessionStorage.removeItem('onboarding_themes')
 
-      router.push('/app/onboarding/matches')
+      router.push('/app/onboarding/profile')
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Something went wrong'
       setError(message)

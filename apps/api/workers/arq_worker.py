@@ -230,6 +230,60 @@ async def counterview_belief_task(ctx, user_id: str, belief: str):
             logger.error(f"Counterview belief task failed: {e}", exc_info=True)
 
 
+async def seed_profile_memory_task(ctx, user_id: str):
+    """Seed embedded memory_entries from the onboarding profile so persona recall AND
+    the You-vs-You signal count pick it up for free. Mirrors counterview_belief_task.
+
+    Idempotent and ATOMIC: deactivating the prior 'onboarding_profile' rows AND
+    inserting the new (embedded) ones happen in ONE transaction with a single commit
+    at the end. So if embedding fails midway, the whole thing rolls back and the user
+    is never left with their old rows deactivated and no new ones (zero profile
+    memories). Self-contained try/except — never raises."""
+    from db.session import AsyncSessionLocal
+    from models import MemoryEntry, UserPreference
+    from sqlalchemy import select, update
+    from services.embedding_client import embedding_client
+    from services.profile_text import profile_to_statements
+
+    async with AsyncSessionLocal() as db:
+        try:
+            pref = (await db.execute(
+                select(UserPreference).where(UserPreference.user_id == user_id)
+            )).scalar_one_or_none()
+            statements = profile_to_statements(pref.profile if pref else None)
+            if not statements:
+                return  # nothing to seed; leave any existing rows untouched
+
+            # One transaction: deactivate old, then embed + insert new. No commit
+            # until all embeddings succeed, so a failure rolls the deactivation back.
+            await db.execute(
+                update(MemoryEntry)
+                .where(
+                    MemoryEntry.user_id == user_id,
+                    MemoryEntry.entry_type == "onboarding_profile",
+                    MemoryEntry.is_active == True,
+                )
+                .values(is_active=False)
+            )
+            for content in statements:
+                emb = await embedding_client.embed(content)
+                db.add(MemoryEntry(
+                    user_id=user_id,
+                    persona_id=None,
+                    conversation_id=None,
+                    entry_type="onboarding_profile",
+                    content=content,
+                    embedding=emb,
+                    confidence=0.8,  # self-reported; held a notch below explicit-stated 1.0
+                    source_turn=0,
+                ))
+            await db.commit()
+            logger.info("Profile memory seeded for user=%s (%d statements)", user_id, len(statements))
+        except Exception as e:
+            await db.rollback()
+            logger.error(f"Profile memory seed failed: {e}", exc_info=True)
+
+
 async def generate_insight_task(ctx, user_id: str, conversation_id: str):
     """Generates an insight from recent memory entries."""
     from db.session import AsyncSessionLocal
@@ -1194,6 +1248,7 @@ class WorkerSettings:
     functions = [
         extract_memory_task,
         counterview_belief_task,
+        seed_profile_memory_task,
         generate_insight_task,
         assess_conclusion_task,
         generate_conversation_title,
