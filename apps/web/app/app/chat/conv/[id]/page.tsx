@@ -110,6 +110,24 @@ export default function ExistingConversationPage() {
 
   const isGuestActive = !!origin && activePersonaSlug !== null && activePersonaSlug !== origin.slug
 
+  // Take to the Council: seed the matter from the last user message (the thing
+  // they most recently raised), capped at Council's 600-char matter limit.
+  const lastUserMessage = [...messages].reverse().find((m) => m.role === 'user')?.content ?? ''
+
+  // Visible to EVERYONE (upsell surface). Pro → seed sessionStorage (reusing the
+  // mirror→council pattern) + open the pre-filled Council. Free → the EXACT
+  // existing Council wall (/app/upgrade), same as rituals' Council entry.
+  function handleTakeToCouncil() {
+    if (!isPro) {
+      router.push('/app/upgrade')
+      return
+    }
+    if (!lastUserMessage.trim()) return
+    sessionStorage.setItem('council_prefill', lastUserMessage.slice(0, 600))
+    sessionStorage.setItem('council_source', 'chat')
+    router.push('/app/council')
+  }
+
   // Fetch this conversation's recurrence insight and pick the first that is
   // neither server-dismissed nor dismissed this session. A merely-seen (not
   // dismissed) insight may re-light on a later boundary — that's intended.
@@ -369,6 +387,8 @@ export default function ExistingConversationPage() {
         showDeepMode={isPro}
         deepMode={deepMode}
         onToggleDeepMode={handleToggleDeepMode}
+        onTakeToCouncil={handleTakeToCouncil}
+        councilEnabled={!!lastUserMessage.trim()}
       />
 
       <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3">

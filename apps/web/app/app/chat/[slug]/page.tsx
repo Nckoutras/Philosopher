@@ -38,12 +38,28 @@ export default function ChatPage() {
   const paywallDetails = useStore((s) => s.paywallDetails)
   const clearPaywall = useStore((s) => s.clearPaywall)
   const loadSavedLines = useStore((s) => s.loadSavedLines)
+  const plan = useStore((s) => s.plan)
+  const isPro = plan === 'pro' || plan === 'premium'
 
   const [createError, setCreateError] = useState<string | null>(null)
   const [pickerOpen, setPickerOpen] = useState(false)
   const { send, sendAnotherMind, sendGoDeeper } = useStream()
 
   const handleBringAnotherMind = () => setPickerOpen(true)
+
+  // Take to the Council (upsell surface, visible to everyone). Seed from the
+  // last user message; Pro → pre-filled Council, free → existing upgrade wall.
+  const lastUserMessage = [...messages].reverse().find((m) => m.role === 'user')?.content ?? ''
+  function handleTakeToCouncil() {
+    if (!isPro) {
+      router.push('/app/upgrade')
+      return
+    }
+    if (!lastUserMessage.trim()) return
+    sessionStorage.setItem('council_prefill', lastUserMessage.slice(0, 600))
+    sessionStorage.setItem('council_source', 'chat')
+    router.push('/app/council')
+  }
 
   // Scroll-to-bottom sentinel ref handled via inline ref callback on the sentinel div
   useEffect(() => {
@@ -183,7 +199,12 @@ export default function ChatPage() {
   return (
     <main className="min-h-screen [min-height:100svh] flex flex-col bg-paper">
       <SubPageNav fallbackHref="/app/library" showHome={false} />
-      <ChatHeader personaName={personaName} portraitUrl={portraitUrl} />
+      <ChatHeader
+        personaName={personaName}
+        portraitUrl={portraitUrl}
+        onTakeToCouncil={handleTakeToCouncil}
+        councilEnabled={!!lastUserMessage.trim()}
+      />
       <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3">
         {openingInvocation && <OpeningInvocation text={openingInvocation} />}
         <MessageList
