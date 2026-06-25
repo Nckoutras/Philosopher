@@ -10,6 +10,7 @@ import type { WeeklyLetter, Persona } from '@/lib/api'
 import PersonaPickerSheet from '@/components/personas/PersonaPickerSheet'
 import SharePreviewModal from '@/components/share/SharePreviewModal'
 import SeasonFinaleView from '@/components/letters/SeasonFinaleView'
+import WriteBackPanel from '@/components/letters/WriteBackPanel'
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
@@ -140,6 +141,17 @@ export default function LetterReadPage() {
 
   const voicePersona = personas.find((p) => p.slug === letter.voice_persona_slug) ?? null
 
+  // Quiet end-of-letter write-back window, shared by the weekly inline reader and
+  // the monthly SeasonFinaleView. The reading is Pro-gated (non-Pro is redirected
+  // to /app/upgrade above), so this surface is only ever reached by Pro readers.
+  const writeBack = (
+    <WriteBackPanel
+      letterId={id}
+      personaName={letter.voice_persona_name}
+      initialWriteBack={letter.write_back_text}
+    />
+  )
+
   return (
     <main
       className="min-h-screen [min-height:100svh] bg-vellum pb-[80px]"
@@ -166,6 +178,7 @@ export default function LetterReadPage() {
           onStartConversation={handleStartConversation}
           onRevisit={() => setPickerOpen(true)}
           onShare={() => setShareOpen(true)}
+          writeBackSlot={writeBack}
         />
       ) : (
       <div className="px-[24px] pb-[40px]">
@@ -211,6 +224,9 @@ export default function LetterReadPage() {
             {renderParagraphs(payload.forward_gesture, 'font-lora text-[16px] text-charcoal leading-[1.7]')}
           </div>
         )}
+
+        {/* Write back to the persona — quiet, end of letter */}
+        {writeBack}
 
         {/* Suggested next mind */}
         {suggestedPersona && (

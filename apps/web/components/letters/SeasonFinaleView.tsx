@@ -1,5 +1,6 @@
 'use client'
 
+import type { ReactNode } from 'react'
 import Image from 'next/image'
 import type { Persona, WeeklyLetterPayload } from '@/lib/api'
 
@@ -12,6 +13,9 @@ interface Props {
   onStartConversation: (slug: string) => void
   onRevisit: () => void
   onShare: () => void
+  // End-of-letter write-back window, built by the page (keeps this view
+  // presentational — the API call and state live in WriteBackPanel).
+  writeBackSlot?: ReactNode
 }
 
 // "Month Year" (e.g. "June 2026"). period_start is the 1st of the month, stored
@@ -45,6 +49,7 @@ export default function SeasonFinaleView({
   onStartConversation,
   onRevisit,
   onShare,
+  writeBackSlot,
 }: Props) {
   return (
     <>
@@ -105,8 +110,10 @@ export default function SeasonFinaleView({
         )}
       </div>
 
-      {/* ── Footer: suggested persona + revisit + share (wired to page handlers) ── */}
+      {/* ── Footer: write-back + suggested persona + revisit + share ── */}
       <div className="px-[24px] pt-[24px] pb-[40px]">
+        {writeBackSlot}
+
         {suggestedPersona && (
           <div className="bg-paper border border-[0.5px] border-edge rounded-md px-[16px] py-[14px]">
             <p className="font-lora text-[11px] uppercase tracking-[0.18em] text-sepia mb-[10px]">
