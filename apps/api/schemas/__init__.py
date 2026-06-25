@@ -101,6 +101,12 @@ class ConversationOut(BaseModel):
     source_persona_slug: Optional[str] = None
     source_context_content: Optional[str] = None
     last_message_snippet: Optional[str] = None
+    # `persona` above is the coalesced ACTIVE mind (sticky guest when set, else
+    # home). These two always point to the immutable home/origin persona so the
+    # client can render "Return to [origin]" and detect stickiness
+    # (persona.slug != origin_persona_slug).
+    origin_persona_slug: Optional[str] = None
+    origin_persona_name: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -140,6 +146,11 @@ class MessageOut(BaseModel):
 
 
 class AnotherMindCreate(BaseModel):
+    target_persona_slug: str
+
+
+class ActiveMindSet(BaseModel):
+    """Set the conversation's sticky active mind (continue with a guest)."""
     target_persona_slug: str
 
 

@@ -52,6 +52,8 @@ def _make_conv(ritual_id=None, persona_id=PERSONA_ID, user_id=USER_ID, conv_id=C
     c.id = conv_id
     c.user_id = user_id
     c.persona_id = persona_id
+    # No sticky guest by default ⇒ responder/quota coalesce to persona_id.
+    c.active_persona_id = None
     c.ritual_id = ritual_id
     return c
 
@@ -378,6 +380,9 @@ def _make_full_conv(user_id=USER_ID, conv_id=CONV_ID):
     c.created_at = datetime(2024, 1, 1, tzinfo=timezone.utc)
     c.source_persona_slug = None
     c.source_saved_line_id = None
+    # No sticky guest ⇒ _conv_out coalesces to the home persona, origin == persona.
+    c.active_persona_id = None
+    c.active_persona = None
 
     p = MagicMock()
     p.id = PERSONA_ID
@@ -386,6 +391,7 @@ def _make_full_conv(user_id=USER_ID, conv_id=CONV_ID):
     p.era = "2nd century AD"
     p.tradition = "Stoic"
     p.tier = "free"
+    p.portrait_url = "/personas/marcus-aurelius.webp"
     c.persona = p
 
     return c

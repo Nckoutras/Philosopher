@@ -23,6 +23,8 @@ def _mock_conv():
     c = MagicMock()
     c.id = CONV_ID
     c.persona_id = PERSONA_ID
+    # No sticky guest ⇒ responder/quota/memory coalesce to persona_id.
+    c.active_persona_id = None
     return c
 
 
@@ -522,6 +524,7 @@ def _make_db_for_usage(existing_usage=None, ritual_id=None):
     conv = MagicMock()
     conv.id = CONV_ID
     conv.persona_id = PERSONA_ID
+    conv.active_persona_id = None
     conv.ritual_id = ritual_id
 
     conv_result = MagicMock()
@@ -671,6 +674,7 @@ def _make_db_for_auto_title(message_count=0, title=None):
     conv = MagicMock()
     conv.id = CONV_ID
     conv.persona_id = PERSONA_ID
+    conv.active_persona_id = None
     conv.ritual_id = None
     conv.message_count = message_count
     conv.title = title
@@ -1188,6 +1192,7 @@ def _make_db_for_memory(message_count=0, ritual_id=None, safety_out_suppressed=F
     conv = MagicMock()
     conv.id = CONV_ID
     conv.persona_id = PERSONA_ID
+    conv.active_persona_id = None
     conv.ritual_id = ritual_id
     conv.message_count = message_count
     conv.title = "Existing Title"  # prevent auto-title interference
@@ -1316,6 +1321,7 @@ async def test_memory_extraction_not_enqueued_when_pre_safety_suppressed():
     conv = MagicMock()
     conv.id = CONV_ID
     conv.persona_id = PERSONA_ID
+    conv.active_persona_id = None
 
     conv_result = MagicMock()
     conv_result.scalar_one_or_none.return_value = conv

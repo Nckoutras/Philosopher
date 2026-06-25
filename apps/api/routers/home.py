@@ -49,8 +49,11 @@ async def get_last_conversation(
         response.status_code = 204
         return None
 
+    # Resume shows whoever the conversation is currently with: the sticky active
+    # mind when set, else the immutable home persona.
+    resume_persona_id = conv.active_persona_id or conv.persona_id
     persona_result = await db.execute(
-        select(Persona).where(Persona.id == conv.persona_id)
+        select(Persona).where(Persona.id == resume_persona_id)
     )
     persona = persona_result.scalar_one_or_none()
 
@@ -75,7 +78,7 @@ async def get_last_conversation(
 
     return LastConversationOut(
         conversation_id=conv.id,
-        persona_id=conv.persona_id,
+        persona_id=resume_persona_id,
         persona_slug=persona.slug if persona else "",
         persona_name=persona.name if persona else "",
         persona_tagline=tagline,

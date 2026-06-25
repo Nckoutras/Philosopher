@@ -74,7 +74,9 @@ class Persona(Base):
     portrait_url: Mapped[str] = mapped_column(Text, nullable=False, default="", server_default="")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
-    conversations: Mapped[list["Conversation"]] = relationship("Conversation", back_populates="persona")
+    conversations: Mapped[list["Conversation"]] = relationship(
+        "Conversation", back_populates="persona", foreign_keys="Conversation.persona_id",
+    )
     source_chunks: Mapped[list["SourceChunk"]] = relationship("SourceChunk", back_populates="persona")
 
 
@@ -86,6 +88,9 @@ class Conversation(Base):
     id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=gen_uuid)
     user_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     persona_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("personas.id"), nullable=False)
+    # Sticky guest mind: NULL ⇒ falls back to persona_id (the immutable origin/home
+    # mind). When set, this overrides who-answers-next / header / thumbnails / quota.
+    active_persona_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), ForeignKey("personas.id", ondelete="SET NULL"), nullable=True)
     title: Mapped[str | None] = mapped_column(String(500))
     ritual_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False))
     message_count: Mapped[int] = mapped_column(Integer, default=0)
@@ -96,7 +101,10 @@ class Conversation(Base):
     source_persona_slug: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
     user: Mapped["User"] = relationship("User", back_populates="conversations")
-    persona: Mapped["Persona"] = relationship("Persona", back_populates="conversations")
+    # Two FKs to personas now exist (persona_id + active_persona_id); foreign_keys
+    # disambiguates each relationship.
+    persona: Mapped["Persona"] = relationship("Persona", back_populates="conversations", foreign_keys=[persona_id])
+    active_persona: Mapped["Persona | None"] = relationship("Persona", foreign_keys=[active_persona_id])
     messages: Mapped[list["Message"]] = relationship(
         "Message",
         back_populates="conversation",
