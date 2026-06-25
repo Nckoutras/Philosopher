@@ -107,6 +107,8 @@ class ConversationOut(BaseModel):
     # (persona.slug != origin_persona_slug).
     origin_persona_slug: Optional[str] = None
     origin_persona_name: Optional[str] = None
+    # Pro sticky deep mode: when true (and the user is Pro), every reply is deep.
+    deep_mode: bool = False
 
     class Config:
         from_attributes = True

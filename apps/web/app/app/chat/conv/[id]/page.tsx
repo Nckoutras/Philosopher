@@ -52,6 +52,7 @@ export default function ExistingConversationPage() {
   const loadSavedLines = useStore((s) => s.loadSavedLines)
   const activePersonaSlug = useStore((s) => s.activePersonaSlug)
   const setActivePersona = useStore((s) => s.setActivePersona)
+  const plan = useStore((s) => s.plan)
   const markInsightsSeenForConversation = useStore((s) => s.markInsightsSeenForConversation)
 
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -59,6 +60,9 @@ export default function ExistingConversationPage() {
   const [pickerOpen, setPickerOpen] = useState(false)
   // Immutable origin/home persona for this conversation (for "Return to [origin]").
   const [origin, setOrigin] = useState<{ slug: string; name: string } | null>(null)
+  // Pro sticky deep mode: reflects conversations.deep_mode; survives reload.
+  const [deepMode, setDeepMode] = useState(false)
+  const isPro = plan === 'pro' || plan === 'premium'
   const [insight, setInsight] = useState<Insight | null>(null)
   const [insightExpanded, setInsightExpanded] = useState(false)
   const { send, sendAnotherMind, sendGoDeeper } = useStream()
@@ -87,6 +91,20 @@ export default function ExistingConversationPage() {
       setActivePersona(updated.persona.slug, updated.persona.name, updated.persona.portrait_url)
     } catch {
       toast.error('Could not switch. Please try again.')
+    }
+  }
+
+  // Pro sticky deep mode: toggle on/off. Pro-only (the toggle is not rendered for
+  // free users, and the endpoint + read site are Pro-gated regardless).
+  async function handleToggleDeepMode() {
+    const next = !deepMode
+    setDeepMode(next) // optimistic
+    try {
+      const updated = next ? await api.setDeepMode(params.id) : await api.clearDeepMode(params.id)
+      setDeepMode(updated.deep_mode)
+    } catch {
+      setDeepMode(!next) // revert
+      toast.error('Could not change deep mode. Please try again.')
     }
   }
 
@@ -150,6 +168,7 @@ export default function ExistingConversationPage() {
             ? { slug: conv.origin_persona_slug, name: conv.origin_persona_name }
             : { slug: conv.persona.slug, name: conv.persona.name },
         )
+        setDeepMode(conv.deep_mode)
 
         // Pre-fill input draft for cross-persona conversations (written by PersonaPickerSheet)
         const draft = localStorage.getItem(`cross_persona_draft_${params.id}`)
@@ -347,6 +366,9 @@ export default function ExistingConversationPage() {
         originName={origin?.name ?? null}
         isGuestActive={isGuestActive}
         onReturnToOrigin={handleReturnToOrigin}
+        showDeepMode={isPro}
+        deepMode={deepMode}
+        onToggleDeepMode={handleToggleDeepMode}
       />
 
       <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3">

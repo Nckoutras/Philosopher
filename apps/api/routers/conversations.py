@@ -93,6 +93,7 @@ def _conv_out(conv: Conversation, source_contents: dict[str, str], snippets: dic
         last_message_snippet=(snippets or {}).get(str(conv.id)),
         origin_persona_slug=conv.persona.slug,
         origin_persona_name=conv.persona.name,
+        deep_mode=conv.deep_mode,
     )
 
 
@@ -519,6 +520,48 @@ async def clear_active_mind(
 
     source_contents = await _build_source_contents(db, [conv])
     return _conv_out(conv, source_contents)
+
+
+async def _set_deep_mode(conversation_id: str, on: bool, db: AsyncSession, user: User) -> ConversationOut:
+    result = await db.execute(
+        select(Conversation)
+        .where(Conversation.id == conversation_id, Conversation.user_id == user.id)
+        .options(selectinload(Conversation.persona), selectinload(Conversation.active_persona))
+    )
+    conv = result.scalar_one_or_none()
+    if not conv:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+
+    conv.deep_mode = on
+    await db.commit()
+
+    source_contents = await _build_source_contents(db, [conv])
+    return _conv_out(conv, source_contents)
+
+
+@router.post("/{conversation_id}/deep-mode", response_model=ConversationOut)
+async def set_deep_mode(
+    conversation_id: str,
+    db: AsyncSession = Depends(get_db),
+    auth: tuple = Depends(get_current_user_plan),
+) -> ConversationOut:
+    """Turn sticky deep mode ON. Pro/premium only — free users never get sticky
+    depth (per-tap go-deeper only). The read site in stream_response is ALSO
+    Pro-gated, so the flag is inert if an account later downgrades."""
+    user, plan = auth
+    if plan not in ("pro", "premium"):
+        return JSONResponse(status_code=403, content={"error_code": "upgrade_required"})
+    return await _set_deep_mode(conversation_id, True, db, user)
+
+
+@router.delete("/{conversation_id}/deep-mode", response_model=ConversationOut)
+async def clear_deep_mode(
+    conversation_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> ConversationOut:
+    """Turn sticky deep mode OFF (back to normal replies)."""
+    return await _set_deep_mode(conversation_id, False, db, user)
 
 
 @router.post("/{conversation_id}/go-deeper")
