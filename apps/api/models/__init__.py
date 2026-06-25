@@ -91,6 +91,9 @@ class Conversation(Base):
     # Sticky guest mind: NULL ⇒ falls back to persona_id (the immutable origin/home
     # mind). When set, this overrides who-answers-next / header / thumbnails / quota.
     active_persona_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), ForeignKey("personas.id", ondelete="SET NULL"), nullable=True)
+    # Pro-only sticky "deep mode": when true AND the sender is Pro/premium, every
+    # normal reply is deep. SEPARATE from active_persona_id; inert for non-Pro.
+    deep_mode: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=text("false"))
     title: Mapped[str | None] = mapped_column(String(500))
     ritual_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False))
     message_count: Mapped[int] = mapped_column(Integer, default=0)
@@ -481,6 +484,9 @@ class DailyUsage(Base):
     persona_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("personas.id", ondelete="CASCADE"), nullable=False, primary_key=True)
     usage_date: Mapped[date] = mapped_column(Date(), nullable=False, primary_key=True)
     message_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    # Per-(user, persona, day) go-deeper count. Drives the free 3/day go-deeper
+    # limit (Pro/premium unlimited). Mirrors message_count.
+    go_deeper_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 

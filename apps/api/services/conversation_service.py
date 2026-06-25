@@ -4,6 +4,7 @@ import time
 import logging
 import os
 from datetime import date
+from uuid import UUID
 from typing import AsyncGenerator
 
 import anthropic
@@ -20,6 +21,7 @@ from services.llm_client import llm_client
 from services.prompt_builder import prompt_builder
 from services.analytics_service import analytics_service
 from services.persona_voice import get_error_voice
+import services.rate_limit_service as rate_limit_service
 from services.postprocessing_service import (
     POSTPROCESSING_ENABLED,
     check_universal_forbidden,
@@ -70,18 +72,35 @@ GUEST_ENTRANCE = (
     "you than to guess or perform."
 )
 
-DEEPEN_DIRECTIVE = (
-    "GOING DEEPER: The seeker has asked you to press harder. Drop all softness and warm-up. "
-    "This reply must land like a single shot of strong wisdom — concentrated, sharp, a clean "
-    "mental slap. Succinct above all: a few sentences at most. No verbalism, no empty eloquence, "
-    "no hedging, no rambling — every word earns its place.\n\n"
-    "Refuse the surface of what they just said. Name what they are circling but not saying — the "
-    "evasion, the flattering story, the question beneath the question. Then strike once: the harder "
-    "truth, or the harder question, that they are avoiding.\n\n"
-    "Speak with your full weight, unmistakably in your own voice, and let the blow carry the flavor "
-    "of your actual thought and work — the ideas and stance you are known for, never generic "
-    "philosophy. End on the edge, not on comfort."
-)
+# Go-deeper is the ONE place a reply breaks past the normal length ceiling (U)
+# into the persona's deeper "reflective" band. The directive is identical for
+# free and Pro — the free limit caps quantity (3/day), never depth.
+_DEEPEN_FALLBACK_WORDS = 90  # used only if a persona lacks reflective_reply_max_words
+
+
+def _deepen_directive(persona) -> str:
+    """Build the go-deeper system directive, sized to the persona's deeper band
+    (response_length_words.reflective_reply_max_words), which exceeds the normal
+    standard ceiling U. This is what makes go-deeper feel satisfying."""
+    spec = getattr(persona, "response_length_words", None)
+    target = None
+    if spec is not None:
+        target = spec.reflective_reply_max_words
+    target = target or _DEEPEN_FALLBACK_WORDS
+    return (
+        "GOING DEEPER: The seeker has asked you to take this further. This is the one reply "
+        "where you do NOT hold to your usual brevity — open up and develop the thought fully. "
+        f"You have real room here: up to about {target} words. Use it to go deep, not to pad — "
+        "every sentence must earn its place, but do not cut the reflection short.\n\n"
+        "Refuse the surface of what they just said. Name what they are circling but not saying — "
+        "the evasion, the flattering story, the question beneath the question — and then develop "
+        "it: trace where it comes from, what it costs them, what it would mean to face it. Bring "
+        "the psychological depth and the harder truth they came back for, worked through rather "
+        "than merely announced.\n\n"
+        "Speak with your full weight, unmistakably in your own voice, carrying the flavour of your "
+        "actual thought and work — the ideas and stance you are known for, never generic "
+        "philosophy. Land somewhere that gives them more to sit with, not less."
+    )
 
 SEEDED_OPENING_DIRECTIVE = (
     "OPENING A SEEDED REFLECTION: The seeker has handed you a topic to begin from, "
@@ -117,12 +136,14 @@ REVISIT_OPENING = (
     "lands for you\"). Respond in the same language as the letter."
 )
 
+# Repeat go-deepers on the SAME reply push to a NEW angle — they do NOT shorten.
+# (Depth is the whole point now; the prior "cut to one sentence" escalation was
+# removed so it stops fighting the deeper band.)
 DEEPEN_ESCALATION = {
-    2: " ESCALATION (second deepening of this SAME reply): cut harder still. Half the length "
-       "of your last reply — two sentences at most. Verdict only: no questions, no preamble, "
-       "no restating. One blade.",
-    3: " ESCALATION (third deepening): sharpest, shortest cut — one or two sentences, a final "
-       "verdict, then stop.",
+    2: " ESCALATION (second deepening of this SAME reply): do not repeat the angle you just "
+       "took — open a genuinely new layer. Go further beneath, not shorter.",
+    3: " ESCALATION (third deepening): reach the deepest layer you honestly can — the root, "
+       "stated plainly. Still developed, not clipped.",
 }
 
 TURN_LIMIT   = {'free': 3, 'pro': 5, 'premium': 5}
@@ -563,6 +584,21 @@ class ConversationService:
             if seeded_opening and history_len == 0:
                 system_prompt = system_prompt + "\n\n" + SEEDED_OPENING_DIRECTIVE
 
+            # Pro sticky DEEP MODE (read site). When the conversation's deep_mode
+            # flag is on AND the sender is Pro/premium, every normal reply is deep
+            # (the persona's reflective band, exceeding the normal ceiling U).
+            # Defense-in-depth: the Pro/premium check here means a stale deep_mode
+            # on a downgraded account is inert (no depth) even though the flag
+            # persists — independent of the Pro-gated set endpoint. Distress still
+            # wins: skipped unless safety level is "none". Deep mode REPLACES the
+            # adaptive-length directive (they are mutually exclusive for this turn).
+            deep_mode_active = (
+                conv.deep_mode
+                and user_plan in ("pro", "premium")
+                and safety_in.level == "none"
+            )
+            if deep_mode_active:
+                system_prompt = system_prompt + "\n\n" + _deepen_directive(persona)
             # Adaptive response length: size the reply to the user's input size.
             # Gated AFTER safety so distress always wins — any non-"none" safety
             # level (the surviving case is "low"/distress_signal; medium+ already
@@ -570,7 +606,7 @@ class ConversationService:
             # the grounded/short default. Skipped for the first message
             # (history_len <= 1), whose own first_message cap governs, and for
             # medium-sized input (helper returns None → prompt unchanged).
-            if history_len > 1 and safety_in.level == "none":
+            elif history_len > 1 and safety_in.level == "none":
                 length_directive = _length_directive_for_input(user_text, persona)
                 if length_directive:
                     system_prompt = system_prompt + "\n\n" + length_directive
@@ -1103,6 +1139,21 @@ class ConversationService:
             return
         level = turn_count + 1
 
+        # FREE DAILY GO-DEEPER LIMIT — the conversion gate (Pro/premium unlimited).
+        # Keyed on the conversation's HOME persona (conv.persona_id), NOT the
+        # resolved responder: otherwise a free user could reset the bucket by
+        # switching sticky guests (~3/persona × N personas/day). Keying on the
+        # immutable home makes the limit stable per conversation. Per (user, home
+        # persona, day); secondary to the per-conversation / per-turn caps above.
+        # Skipped for admins and ritual conversations, matching the message gate.
+        if not is_admin and conv.ritual_id is None:
+            gd_limit = await rate_limit_service.check_go_deeper_limit(
+                db, UUID(user_id), UUID(conv.persona_id), user_tier=tier
+            )
+            if not gd_limit.allowed:
+                yield f"data: {json.dumps({'type': 'limit', 'scope': 'daily', 'tier': tier})}\n\n"
+                return
+
         # Fetch the most recent user message — used for memory/retrieval queries
         # and as the final user turn the guest responds to.
         last_user_result = await db.execute(
@@ -1135,7 +1186,7 @@ class ConversationService:
             memories=memories,
             passages=passages,
         )
-        system_prompt = system_prompt + "\n\n" + DEEPEN_DIRECTIVE + DEEPEN_ESCALATION.get(level, "")
+        system_prompt = system_prompt + "\n\n" + _deepen_directive(persona) + DEEPEN_ESCALATION.get(level, "")
 
         # ── 4. BUILD MESSAGE HISTORY ─────────────────────────────────────────
         # Use same window limits as regular chat.
@@ -1257,6 +1308,33 @@ class ConversationService:
                 last_message_at=assistant_msg.created_at,
             )
         )
+
+        # Consume one daily go-deeper for the free-tier limit. Keyed on the HOME
+        # persona (conv.persona_id) — same bucket as the check above, so switching
+        # sticky guests cannot reset the limit. Reached only on a successful
+        # generation (a mid-stream failure returns earlier, before this), so a
+        # failed go-deeper never consumes the user's daily allowance. Skipped for
+        # admins and ritual conversations, matching the check.
+        if not is_admin and conv.ritual_id is None:
+            today = date.today()
+            gd_usage_result = await db.execute(
+                select(DailyUsage).where(
+                    DailyUsage.user_id == user_id,
+                    DailyUsage.persona_id == conv.persona_id,
+                    DailyUsage.usage_date == today,
+                )
+            )
+            gd_usage = gd_usage_result.scalar_one_or_none()
+            if gd_usage:
+                gd_usage.go_deeper_count += 1
+            else:
+                db.add(DailyUsage(
+                    user_id=user_id,
+                    persona_id=conv.persona_id,
+                    usage_date=today,
+                    go_deeper_count=1,
+                ))
+
         await db.commit()
 
         yield f"data: {json.dumps({'type': 'done', 'message_id': assistant_msg.id})}\n\n"

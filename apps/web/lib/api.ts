@@ -143,6 +143,8 @@ export interface Conversation {
   // Always the immutable home/origin persona. Stickied iff persona.slug differs.
   origin_persona_slug: string | null
   origin_persona_name: string | null
+  // Pro sticky deep mode: when true (and the user is Pro), every reply is deep.
+  deep_mode: boolean
 }
 
 export interface Message {
@@ -612,6 +614,19 @@ class ApiClient {
   // Return to origin: clear the sticky active mind back to the home persona.
   async clearActiveMind(conversationId: string): Promise<Conversation> {
     return this.request<Conversation>(`/conversations/${conversationId}/active-mind`, {
+      method: 'DELETE',
+    })
+  }
+
+  // Pro sticky deep mode: turn ON (Pro/premium only; 403 for free) / OFF.
+  async setDeepMode(conversationId: string): Promise<Conversation> {
+    return this.request<Conversation>(`/conversations/${conversationId}/deep-mode`, {
+      method: 'POST',
+    })
+  }
+
+  async clearDeepMode(conversationId: string): Promise<Conversation> {
+    return this.request<Conversation>(`/conversations/${conversationId}/deep-mode`, {
       method: 'DELETE',
     })
   }

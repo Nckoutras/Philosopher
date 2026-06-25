@@ -54,6 +54,7 @@ def _make_conv(ritual_id=None, persona_id=PERSONA_ID, user_id=USER_ID, conv_id=C
     c.persona_id = persona_id
     # No sticky guest by default ⇒ responder/quota coalesce to persona_id.
     c.active_persona_id = None
+    c.deep_mode = False
     c.ritual_id = ritual_id
     return c
 
@@ -383,6 +384,7 @@ def _make_full_conv(user_id=USER_ID, conv_id=CONV_ID):
     # No sticky guest ⇒ _conv_out coalesces to the home persona, origin == persona.
     c.active_persona_id = None
     c.active_persona = None
+    c.deep_mode = False
 
     p = MagicMock()
     p.id = PERSONA_ID

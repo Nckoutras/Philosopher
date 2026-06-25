@@ -48,6 +48,11 @@ async def check_and_increment(
 
 FREE_DAILY_LIMIT_PER_PERSONA = 5
 
+# Free users get a taste of depth: N go-deepers per persona per day, then a
+# gentle upgrade wall. Pro/premium are unlimited. Quantity only — the depth of
+# each free go-deeper is identical to Pro (see _deepen_directive).
+FREE_DAILY_GO_DEEPER_LIMIT_PER_PERSONA = 3
+
 
 @dataclass
 class RateLimitResult:
@@ -100,5 +105,48 @@ async def check_rate_limit(
         allowed=count < FREE_DAILY_LIMIT_PER_PERSONA,
         remaining=remaining,
         limit=FREE_DAILY_LIMIT_PER_PERSONA,
+        reset_at=next_utc_midnight(),
+    )
+
+
+async def check_go_deeper_limit(
+    db: AsyncSession,
+    user_id: UUID,
+    persona_id: UUID,
+    user_tier: str | None = None,
+) -> RateLimitResult:
+    """Check whether the (free) user may go deeper with this persona again today.
+
+    Mirrors check_rate_limit but reads daily_usage.go_deeper_count and the
+    go-deeper limit. Pro/premium are unlimited. Does NOT increment — the caller
+    bumps go_deeper_count on a successful generation.
+    """
+    if user_tier is None:
+        from services.tier_service import get_user_tier
+        user_tier = await get_user_tier(db, user_id)
+
+    if user_tier in ("pro", "premium"):
+        return RateLimitResult(
+            allowed=True,
+            remaining=-1,
+            limit=-1,
+            reset_at=next_utc_midnight(),
+        )
+
+    result = await db.execute(
+        select(DailyUsage).where(
+            DailyUsage.user_id == str(user_id),
+            DailyUsage.persona_id == str(persona_id),
+            DailyUsage.usage_date == date.today(),
+        )
+    )
+    usage = result.scalar_one_or_none()
+    count = usage.go_deeper_count if usage is not None else 0
+    remaining = max(0, FREE_DAILY_GO_DEEPER_LIMIT_PER_PERSONA - count)
+
+    return RateLimitResult(
+        allowed=count < FREE_DAILY_GO_DEEPER_LIMIT_PER_PERSONA,
+        remaining=remaining,
+        limit=FREE_DAILY_GO_DEEPER_LIMIT_PER_PERSONA,
         reset_at=next_utc_midnight(),
     )
