@@ -223,6 +223,11 @@ class WeeklyLetter(Base):
     kind: Mapped[str] = mapped_column(String(20), nullable=False, server_default=text("'weekly'"))
     payload: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Reader write-back: the person's own short response to this letter. One per
+    # letter (overwritten on re-submit), fed forward into the next letter via the
+    # existing prior-letters fetch. Mirrors the mirrors.ring_true_note pattern.
+    write_back_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    write_back_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     email_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
 

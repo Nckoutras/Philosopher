@@ -567,11 +567,18 @@ class WeeklyLetterOut(BaseModel):
     kind: str = "weekly"
     payload: dict | None = None
     read_at: datetime | None = None
+    write_back_text: str | None = None
+    write_back_at: datetime | None = None
     voice_persona_slug: str | None = None
     voice_persona_name: str | None = None
 
     class Config:
         from_attributes = True
+
+
+class WriteBackIn(BaseModel):
+    """A reader's short response to a letter. Overwrites any prior write-back."""
+    text: str = Field(min_length=1, max_length=2000)
 
 
 # ── Self Comparison ───────────────────────────────────────────────────────────

@@ -9,7 +9,7 @@ from auth import get_current_user_plan
 from db.session import get_db
 import services.rate_limit_service as rate_limit_service
 from models import WeeklyLetter, Persona
-from schemas import WeeklyLetterOut
+from schemas import WeeklyLetterOut, WriteBackIn
 from services.image_service import generate_letter_share_image
 
 # Free-tier share cap — the SAME 90-day rolling Redis counter the mirror, line,
@@ -29,6 +29,8 @@ def _to_out(letter: WeeklyLetter, persona: Persona | None) -> WeeklyLetterOut:
         kind=letter.kind,
         payload=letter.payload,
         read_at=letter.read_at,
+        write_back_text=letter.write_back_text,
+        write_back_at=letter.write_back_at,
         voice_persona_slug=persona.slug if persona else None,
         voice_persona_name=persona.name if persona else None,
     )
@@ -85,6 +87,49 @@ async def get_weekly_letter(
     if letter.read_at is None:
         letter.read_at = datetime.now(timezone.utc)
         await db.commit()
+
+    persona = None
+    if letter.voice_persona_id:
+        p_result = await db.execute(select(Persona).where(Persona.id == letter.voice_persona_id))
+        persona = p_result.scalar_one_or_none()
+
+    return _to_out(letter, persona)
+
+
+@router.patch("/{letter_id}/write-back", response_model=WeeklyLetterOut)
+async def write_back_to_letter(
+    letter_id: str,
+    body: WriteBackIn,
+    db: AsyncSession = Depends(get_db),
+    auth: tuple = Depends(get_current_user_plan),
+):
+    """
+    Capture the reader's short response to a Sunday/season letter. Pro-gated like
+    its sibling endpoints. One write-back per letter — re-submitting overwrites
+    the prior one. No live LLM reply in v1; the text is fed forward into the next
+    letter via the generators' existing prior-letters fetch.
+    """
+    user, plan = auth
+    if plan not in ("pro", "premium"):
+        return JSONResponse(status_code=403, content={"error_code": "upgrade_required"})
+
+    text = body.text.strip()
+    if not text:
+        return JSONResponse(status_code=422, content={"error_code": "empty_write_back"})
+
+    result = await db.execute(
+        select(WeeklyLetter).where(
+            WeeklyLetter.id == letter_id,
+            WeeklyLetter.user_id == user.id,
+        )
+    )
+    letter = result.scalar_one_or_none()
+    if letter is None:
+        return JSONResponse(status_code=404, content={"error_code": "not_found"})
+
+    letter.write_back_text = text
+    letter.write_back_at = datetime.now(timezone.utc)
+    await db.commit()
 
     persona = None
     if letter.voice_persona_id:

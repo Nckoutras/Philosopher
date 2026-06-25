@@ -419,6 +419,8 @@ export interface WeeklyLetter {
   kind?: string
   payload: WeeklyLetterPayload | null
   read_at: string | null
+  write_back_text: string | null
+  write_back_at: string | null
   voice_persona_slug: string | null
   voice_persona_name: string | null
 }
@@ -1112,6 +1114,13 @@ class ApiClient {
 
   async deleteWeeklyLetter(id: string): Promise<void> {
     await this.request(`/weekly-letters/${id}`, { method: 'DELETE' })
+  }
+
+  async writeBackToLetter(id: string, text: string): Promise<WeeklyLetter> {
+    return this.request<WeeklyLetter>(`/weekly-letters/${id}/write-back`, {
+      method: 'PATCH',
+      body: JSON.stringify({ text }),
+    })
   }
 }
 
