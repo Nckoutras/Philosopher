@@ -158,7 +158,7 @@ class ActiveMindSet(BaseModel):
 
 class CouncilCreate(BaseModel):
     matter: str
-    source: str = "direct"          # "direct" | "mirror"
+    source: str = "direct"          # "direct" | "mirror" | "chat"
     mirror_id: str | None = None
 
 

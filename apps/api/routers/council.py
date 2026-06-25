@@ -46,7 +46,7 @@ async def create_council(
     if len(matter) > MATTER_MAX_CHARS:
         return JSONResponse(status_code=400, content={"error_code": "matter_too_long"})
 
-    source = body.source if body.source in ("direct", "mirror") else "direct"
+    source = body.source if body.source in ("direct", "mirror", "chat") else "direct"
 
     # Weekly rate limit: 1 per source per week. Admins bypass (for testing).
     remaining = None
