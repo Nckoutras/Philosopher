@@ -1,7 +1,7 @@
 """Add write_back_text / write_back_at to weekly_letters (reader write-back)
 
 Revision ID: 036_weekly_letters_write_back
-Revises: 035_deep_mode_and_go_deeper_count
+Revises: 035_deep_mode_go_deeper
 Create Date: 2026-06-25
 
 Additive, schema-only. Lets a reader write a short response to a Sunday/season
@@ -16,7 +16,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision = '036_weekly_letters_write_back'
-down_revision = '035_deep_mode_and_go_deeper_count'
+down_revision = '035_deep_mode_go_deeper'
 branch_labels = None
 depends_on = None
 
