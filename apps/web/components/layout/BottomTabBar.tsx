@@ -9,7 +9,7 @@ import { useStore } from '@/lib/store'
 
 const TABS = [
   {
-    label: 'Today',
+    label: 'Home',
     icon: Home,
     href: '/app/today',
     activePattern: /^\/app\/today/,
