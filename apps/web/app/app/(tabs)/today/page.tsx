@@ -4,12 +4,13 @@ import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
-import { ChevronRight } from 'lucide-react'
+import { ChevronRight, MessageCircle, Archive, Sparkles } from 'lucide-react'
+import { ReturningPathIcon } from '@/components/icons/RitualIcons'
 import { formatItemDate } from '@/lib/formatItemDate'
 import toast from 'react-hot-toast'
 import { useStore } from '@/lib/store'
 import { api } from '@/lib/api'
-import type { DailyQuestion, LastConversation, RecentSavedLine, Insight } from '@/lib/api'
+import type { DailyQuestion, LastConversation, RecentSavedLine } from '@/lib/api'
 import SharePreviewModal from '@/components/share/SharePreviewModal'
 import { getGreetingWithName } from '@/lib/useTimeGreeting'
 import PersonaPickerSheet from '@/components/personas/PersonaPickerSheet'
@@ -17,12 +18,6 @@ import TodaysTopicCard from '@/components/today/TodaysTopicCard'
 import NamePromptCard from '@/components/today/NamePromptCard'
 import AppHeader from '@/components/layout/AppHeader'
 import SundayLetterCard from '@/components/today/SundayLetterCard'
-import InsightCard from '@/components/chat/InsightCard'
-import { renderDiscardUndoToast } from '@/components/chat/discardToast'
-
-// A standing Today insight older than this is treated as stale and not shown,
-// so an un-acted insight doesn't linger on the Today screen indefinitely.
-const TODAY_INSIGHT_MAX_AGE_DAYS = 14
 
 function formatDateEyebrow(date: Date): string {
   const weekday = date.toLocaleDateString('en-US', { weekday: 'long' }).toUpperCase()
@@ -49,6 +44,47 @@ function BronzeSparkle() {
   )
 }
 
+// A single category tile in the Home 2×2 grid. Typographic (DS v5 vellum/bronze):
+// icon + cormorant label + one-line lora descriptor. Square via aspect-square so the
+// four form a clean grid. `active` reflects the Discussion tile's expanded state.
+function HomeTile({
+  icon,
+  label,
+  desc,
+  active = false,
+  onClick,
+}: {
+  icon: React.ReactNode
+  label: string
+  desc: string
+  active?: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={[
+        'aspect-square w-full text-left rounded-md border border-[0.5px] px-[16px] py-[14px]',
+        'flex flex-col justify-between shadow-card transition-colors active:opacity-80',
+        '[touch-action:manipulation] [-webkit-tap-highlight-color:transparent]',
+        active ? 'bg-linen border-bronze text-ink' : 'bg-paper border-edge text-ink',
+      ].join(' ')}
+    >
+      <span className="text-bronze">{icon}</span>
+      <span className="block">
+        <span className="block font-cormorant text-[20px] font-medium text-ink leading-tight">
+          {label}
+        </span>
+        <span className="block font-lora text-[13px] text-charcoal leading-[1.4] mt-[4px]">
+          {desc}
+        </span>
+      </span>
+    </button>
+  )
+}
+
 export default function TodayPage() {
   const router = useRouter()
   const token = useStore((s) => s.token)
@@ -59,12 +95,13 @@ export default function TodayPage() {
   const [question, setQuestion] = useState<DailyQuestion | null>(null)
   const [lastConv, setLastConv] = useState<LastConversation | null>(null)
   const [recentLine, setRecentLine] = useState<RecentSavedLine | null>(null)
-  const [insight, setInsight] = useState<Insight | null>(null)
   const [loading, setLoading] = useState(true)
   const [pickerOpen, setPickerOpen] = useState(false)
   const [shareModalOpen, setShareModalOpen] = useState(false)
   const [topicPickerOpen, setTopicPickerOpen] = useState(false)
   const [pendingTopic, setPendingTopic] = useState('')
+  // Discussion tile expands the "What brings you here?" card inline below the grid.
+  const [showDiscussion, setShowDiscussion] = useState(false)
 
   const namePromptInitialized = useRef(false)
   const [showNamePrompt, setShowNamePrompt] = useState(false)
@@ -89,23 +126,14 @@ export default function TodayPage() {
 
     async function load() {
       try {
-        const [qRes, convRes, lineRes, insightsRes] = await Promise.allSettled([
+        const [qRes, convRes, lineRes] = await Promise.allSettled([
           api.getTodayQuestion(),
           api.getLastConversation(),
           api.getRecentSavedLine(),
-          api.getInsights(),
         ])
         if (qRes.status === 'fulfilled') setQuestion(qRes.value)
         if (convRes.status === 'fulfilled') setLastConv(convRes.value)
         if (lineRes.status === 'fulfilled') setRecentLine(lineRes.value)
-        if (insightsRes.status === 'fulfilled') {
-          const cutoff = Date.now() - TODAY_INSIGHT_MAX_AGE_DAYS * 24 * 60 * 60 * 1000
-          // List is non-dismissed, created_at desc → first within the window is the most recent.
-          const recent = insightsRes.value.find(
-            (i) => !i.is_dismissed && new Date(i.created_at).getTime() >= cutoff,
-          )
-          setInsight(recent ?? null)
-        }
       } finally {
         setLoading(false)
       }
@@ -143,38 +171,6 @@ export default function TodayPage() {
     }
   }
 
-  function handleInsightPrimary() {
-    if (!insight) return
-    router.push(
-      insight.insight_type === 'shift'
-        ? '/app/you-vs-you'
-        : `/app/mirror?insightId=${insight.id}`,
-    )
-  }
-
-  function handleInsightDoubt() {
-    const current = insight
-    if (!current) return
-    // Counterview is a stub for now; navigate (do NOT dismiss the insight).
-    router.push(`/app/counterview?insightId=${current.id}`)
-  }
-
-  function handleInsightDiscard() {
-    const current = insight
-    if (!current) return
-    // Optimistically remove the card, but delay the durable dismiss by 5s so
-    // Undo can cancel it. If the window elapses, the PATCH commits (server
-    // is_dismissed is the durable no-resurface control).
-    setInsight(null)
-    const timer = setTimeout(() => {
-      api.dismissInsight(current.id).catch(() => {})
-    }, 5000)
-    renderDiscardUndoToast(() => {
-      clearTimeout(timer)
-      setInsight(current)
-    })
-  }
-
   if (loading) {
     return (
       <main className="min-h-screen [min-height:100svh] bg-vellum" />
@@ -200,8 +196,37 @@ export default function TodayPage() {
           <NamePromptCard onDismiss={() => setShowNamePrompt(false)} />
         )}
 
-        {/* ── Today's topic card ── */}
-        {question && user && (
+        {/* ── Home: 2×2 category tile grid ── */}
+        <div className="grid grid-cols-2 gap-[12px]">
+          <HomeTile
+            icon={<MessageCircle size={22} strokeWidth={1.5} />}
+            label="Discussion"
+            desc="Bring what's on your mind."
+            active={showDiscussion}
+            onClick={() => setShowDiscussion((v) => !v)}
+          />
+          <HomeTile
+            icon={<Sparkles size={22} strokeWidth={1.5} />}
+            label="Insights"
+            desc="What the room has noticed."
+            onClick={() => router.push('/app/insights')}
+          />
+          <HomeTile
+            icon={<Archive size={22} strokeWidth={1.5} />}
+            label="Library"
+            desc="Your conversations and minds."
+            onClick={() => router.push('/app/library')}
+          />
+          <HomeTile
+            icon={<ReturningPathIcon size={22} strokeWidth={1.5} />}
+            label="Rituals"
+            desc="Your reflective practices."
+            onClick={() => router.push('/app/rituals')}
+          />
+        </div>
+
+        {/* ── Discussion tile: inline-expanded "What brings you here?" card ── */}
+        {showDiscussion && question && user && (
           <TodaysTopicCard
             user={user}
             dailyQuestion={question.question_text}
@@ -209,19 +234,9 @@ export default function TodayPage() {
           />
         )}
 
-        {/* ── Slice 3b: standing insight card (passive, app-voice; absent when none) ──
-            Top billing: when an insight exists it sits above the Continue card;
-            with none, Continue stays at the top. */}
-        {insight && (
-          <InsightCard
-            variant="today"
-            content={insight.content}
-            insightType={insight.insight_type}
-            sourceCount={insight.source_count}
-            onPrimary={handleInsightPrimary}
-            onDoubt={handleInsightDoubt}
-            onDiscard={handleInsightDiscard}
-          />
+        {/* ── 5th wide tile: The Sunday Letter (unchanged card) ── */}
+        {!isFirstDay && (
+          <SundayLetterCard isPro={isPro} />
         )}
 
         {/* ── D1a: Continue card (returning user) ── */}
@@ -446,11 +461,7 @@ export default function TodayPage() {
           </div>
         )}
 
-        {!isFirstDay && (
-          <SundayLetterCard isPro={isPro} />
-        )}
-
-        {/* ── D1a: Explore The Wise Room guide button ── */}
+        {/* ── D1a: Explore The Wise Room guide button (PR-B replaces with Explore tab) ── */}
         {!isFirstDay && (
           <button
             type="button"
