@@ -3,12 +3,13 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
-import { MessageCircle, Loader2, Bookmark, BookmarkCheck, Share2 } from 'lucide-react'
+import { MessageCircle, Loader2, Bookmark, BookmarkCheck, Share2, CornerDownLeft, Send } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import { api } from '@/lib/api'
 import type { Counterview, CounterviewListItem } from '@/lib/api'
 import SubPageNav from '@/components/layout/SubPageNav'
 import SharePreviewModal from '@/components/share/SharePreviewModal'
+import AutoGrowTextarea from '@/components/ui/AutoGrowTextarea'
 
 // The Counterview reader (DS v5). Reached from an insight card's "Doubt this":
 // the insight id rides in the query string (?insightId=…). Insight-path only for
@@ -44,6 +45,13 @@ export default function CounterviewPage() {
   // Revisit list — the user's recent generated counterviews, shown under the input
   // form. Loaded only on the voluntary (no-insightId) path; reopen pulls full via id.
   const [past, setPast] = useState<CounterviewListItem[]>([])
+  // In-place rebuttal: whether the input has replaced the verdict text (for the
+  // current speaker), the draft, and which persona is mid-send (drives the "…"
+  // wait). The send targets the current speaker; toggling speaker while a non-empty
+  // draft is open is blocked so typed text is never discarded by an accidental tap.
+  const [rebutting, setRebutting] = useState(false)
+  const [rebuttalText, setRebuttalText] = useState('')
+  const [respondingSlug, setRespondingSlug] = useState<string | null>(null)
 
   useEffect(() => {
     if (token === null) {
@@ -135,7 +143,8 @@ export default function CounterviewPage() {
 
   // Start over — wipe the result back to the voluntary input form. No endpoint:
   // it just re-shows the existing form (mode 'input', no counterview), which then
-  // runs the existing createCounterview on submit.
+  // runs the existing createCounterview on submit. (Distinct from "Push back",
+  // which rebuts the EXISTING counterview in place.)
   const handleStartOver = () => {
     setCounterview(null)
     setMode('input')
@@ -145,6 +154,54 @@ export default function CounterviewPage() {
     setSaved(false)
     setExhausted(new Set())
     setDeepeningSlug(null)
+    setRebutting(false)
+    setRebuttalText('')
+  }
+
+  // ── Rebut the current speaker IN PLACE ──────────────────────────────────────
+  // "Push back" swaps the verdict text for an input (portraits + toggle stay).
+  // Send → the current speaker replies in one tight line (cap-bounded by the
+  // backend's rebuttals_remaining); the input collapses and the frame returns
+  // with the new turn appended to that speaker's subordinate thread.
+  const handleStartRebut = () => {
+    if (!counterview || (counterview.rebuttals_remaining ?? 0) <= 0) return
+    setRebutting(true)
+  }
+
+  const handleCancelRebut = () => {
+    setRebutting(false)
+    setRebuttalText('')
+  }
+
+  const handleSendRebuttal = async () => {
+    const active = baseRows[activeSpeaker]
+    const text = rebuttalText.trim()
+    if (!counterview || !active || !text || respondingSlug) return
+    // Slug captured here, from the speaker the input belongs to — never ambiguous.
+    setRespondingSlug(active.persona_slug)
+    try {
+      const updated = await api.respondCounterview(counterview.id, active.persona_slug, text)
+      setCounterview(updated)
+      setRebutting(false)
+      setRebuttalText('')
+    } catch {
+      // Network / unexpected 409 (the UI hides Push back at 0 remaining) — keep the
+      // input open with the draft intact so the user can retry.
+    } finally {
+      setRespondingSlug(null)
+    }
+  }
+
+  // Choose the shown speaker (portrait tap or toggle). While an in-place rebuttal
+  // is open: a non-empty draft BLOCKS the switch (don't discard typed text); an
+  // empty draft cancels the input and allows the switch.
+  const selectSpeaker = (i: number) => {
+    if (i === activeSpeaker) return
+    if (rebutting) {
+      if (rebuttalText.trim()) return
+      setRebutting(false)
+    }
+    setActiveSpeaker(i)
   }
 
   // Hydrate the Save toggle from the loaded counterview (correct state on reload).
@@ -319,7 +376,7 @@ export default function CounterviewPage() {
             <button
               key={r.persona_slug}
               type="button"
-              onClick={() => setActiveSpeaker(i)}
+              onClick={() => selectSpeaker(i)}
               aria-pressed={isActive}
               className={`relative flex-1 h-[290px] rounded-[6px] overflow-hidden bg-linen transition-all duration-300 ${reveal(phase >= 1)} ${isActive ? 'opacity-100 shadow-[inset_0_0_0_2px_#B89968]' : 'opacity-50'}`}
             >
@@ -387,7 +444,7 @@ export default function CounterviewPage() {
               <button
                 key={r.persona_slug}
                 type="button"
-                onClick={() => setActiveSpeaker(i)}
+                onClick={() => selectSpeaker(i)}
                 aria-pressed={isActive}
                 className={`flex-1 py-[8px] font-cormorant text-[15px] leading-none transition-colors ${isActive ? 'bg-bronze text-vellum' : 'bg-transparent text-charcoal'}`}
               >
@@ -400,9 +457,62 @@ export default function CounterviewPage() {
         {(() => {
           const active = baseRows[activeSpeaker] ?? baseRows[0]
           if (!active) return null
-          const deeper = deeperFor(active.persona_slug)
-          const isLoading = deepeningSlug === active.persona_slug
-          const canDeepen = !deeper && !exhausted.has(active.persona_slug)
+
+          // ── Rebutting: the input replaces the verdict text in place ──────────
+          if (rebutting) {
+            const sending = respondingSlug !== null
+            return (
+              <div className="px-[2px]">
+                <AutoGrowTextarea
+                  value={rebuttalText}
+                  onChange={(e) => setRebuttalText(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault()
+                      handleSendRebuttal()
+                    }
+                  }}
+                  disabled={sending}
+                  minRows={2}
+                  maxHeight={140}
+                  placeholder={`Push back at ${active.persona_name}…`}
+                  ariaLabel="Your rebuttal"
+                  className="w-full bg-vellum border-[0.5px] border-bronze/40 rounded-[10px] px-[12px] py-[10px] font-lora text-[15px] text-ink leading-[1.55] focus:outline-none focus:border-bronze placeholder:text-sepia/60"
+                />
+                <div className="mt-[10px] flex gap-[8px] justify-end">
+                  <button
+                    onClick={handleCancelRebut}
+                    disabled={sending}
+                    className="px-[14px] py-[8px] font-lora text-[12px] uppercase tracking-[0.16em] text-sepia disabled:opacity-40"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSendRebuttal}
+                    disabled={sending || !rebuttalText.trim()}
+                    className="inline-flex items-center gap-[6px] px-[16px] py-[8px] rounded-[8px] bg-bronze text-vellum font-cormorant text-[15px] disabled:opacity-40"
+                  >
+                    {sending ? (
+                      <Loader2 size={14} strokeWidth={1.5} className="animate-spin" />
+                    ) : (
+                      <Send size={14} strokeWidth={1.5} className="rotate-[15deg]" />
+                    )}
+                    Send
+                  </button>
+                </div>
+              </div>
+            )
+          }
+
+          // ── Idle: verdict + go-deeper + the speaker's subordinate thread ─────
+          const slug = active.persona_slug
+          const deeper = deeperFor(slug)
+          const isLoading = deepeningSlug === slug
+          const canDeepen = !deeper && !exhausted.has(slug)
+          const speakerTurns = (counterview?.turns ?? [])
+            .filter((t) => t.persona_slug === slug)
+            .sort((a, b) => a.sequence - b.sequence)
+          const remaining = counterview?.rebuttals_remaining ?? 0
           return (
             <div className="relative px-[2px]">
               <p className="font-cormorant italic text-[19px] text-ink leading-snug pr-[22px]">
@@ -410,7 +520,7 @@ export default function CounterviewPage() {
               </p>
               {canDeepen && (
                 <button
-                  onClick={() => handleDeeper(active.persona_slug)}
+                  onClick={() => handleDeeper(slug)}
                   disabled={deepeningSlug !== null}
                   aria-label="Go deeper"
                   className="absolute top-[2px] right-[2px] p-[2px] disabled:opacity-40"
@@ -430,6 +540,40 @@ export default function CounterviewPage() {
                   </p>
                 </div>
               )}
+              {/* The rebuttal exchange with THIS speaker — subordinate to the verdict */}
+              {speakerTurns.length > 0 && (
+                <div className="mt-[14px] pt-[12px] border-t border-bronze/15 space-y-[12px]">
+                  {speakerTurns.map((t) => (
+                    <div key={t.sequence} className="border-l border-bronze/25 pl-[10px]">
+                      <p className="font-lora text-[12px] text-sepia leading-[1.5]">
+                        <span className="uppercase tracking-[0.14em] text-bronze-dark">You</span> · {t.user_text}
+                      </p>
+                      {t.status === 'generated' && t.persona_response ? (
+                        <p className="mt-[5px] font-cormorant italic text-[16px] text-charcoal leading-snug">
+                          {t.persona_response}
+                        </p>
+                      ) : (
+                        <p className="mt-[5px] font-cormorant italic text-[15px] text-sepia leading-snug">
+                          There&rsquo;s nothing more to add to that.
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+              {/* Push back (in place) — hidden once the rebuttal budget is spent */}
+              <div className="mt-[14px]">
+                {remaining > 0 ? (
+                  <button
+                    onClick={handleStartRebut}
+                    className="inline-flex items-center gap-[6px] font-lora text-[12px] uppercase tracking-[0.16em] text-bronze-dark"
+                  >
+                    <CornerDownLeft size={13} strokeWidth={1.5} /> Push back
+                  </button>
+                ) : (
+                  <p className="font-lora text-[12px] text-sepia italic">That&rsquo;s the case, fully made.</p>
+                )}
+              </div>
             </div>
           )
         })()}
