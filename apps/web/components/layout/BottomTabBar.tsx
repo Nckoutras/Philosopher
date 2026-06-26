@@ -3,8 +3,7 @@
 import Link from 'next/link'
 import { useEffect } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
-import { Home, Archive, User, Sparkle } from 'lucide-react'
-import { ReturningPathIcon } from '@/components/icons/RitualIcons'
+import { Home, Compass, Archive, User, Sparkle } from 'lucide-react'
 import { useStore } from '@/lib/store'
 
 const TABS = [
@@ -15,10 +14,10 @@ const TABS = [
     activePattern: /^\/app\/today/,
   },
   {
-    label: 'Rituals',
-    icon: ReturningPathIcon,
-    href: '/app/rituals',
-    activePattern: /^\/app\/rituals/,
+    label: 'Explore',
+    icon: Compass,
+    href: '/app/explore',
+    activePattern: /^\/app\/explore/,
   },
   {
     label: 'Library',

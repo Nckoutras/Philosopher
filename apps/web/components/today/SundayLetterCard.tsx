@@ -119,7 +119,7 @@ export default function SundayLetterCard({ isPro }: Props) {
               </p>
               <button
                 type="button"
-                onClick={() => { setSheetOpen(false); router.push('/app/explore') }}
+                onClick={() => { setSheetOpen(false); router.push('/app/library?mode=browse') }}
                 className="mt-[20px] w-full h-[48px] rounded-sm font-cormorant text-[17px] font-medium bg-ink text-vellum transition-colors"
               >
                 Choose a mind

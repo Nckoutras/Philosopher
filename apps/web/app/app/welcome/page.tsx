@@ -157,7 +157,7 @@ export default function WelcomePage() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => router.push('/app/explore')}
+                  onClick={() => router.push('/app/library?mode=browse')}
                   className="w-full h-[46px] rounded-sm font-cormorant text-[17px] font-medium border-[0.5px] border-edge bg-white text-ink transition-colors"
                 >
                   Explore Minds

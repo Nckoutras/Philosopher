@@ -20,7 +20,7 @@ describe('BottomTabBar', () => {
   it('renders all 4 tabs', () => {
     render(<BottomTabBar />)
     expect(screen.getByLabelText('Home')).toBeTruthy()
-    expect(screen.getByLabelText('Rituals')).toBeTruthy()
+    expect(screen.getByLabelText('Explore')).toBeTruthy()
     expect(screen.getByLabelText('Library')).toBeTruthy()
     expect(screen.getByLabelText('Account')).toBeTruthy()
   })
@@ -36,7 +36,7 @@ describe('BottomTabBar', () => {
     mockPathname = '/app/library'
     render(<BottomTabBar />)
     expect(screen.getByLabelText('Home').getAttribute('aria-current')).toBeNull()
-    expect(screen.getByLabelText('Rituals').getAttribute('aria-current')).toBeNull()
+    expect(screen.getByLabelText('Explore').getAttribute('aria-current')).toBeNull()
     expect(screen.getByLabelText('Account').getAttribute('aria-current')).toBeNull()
   })
 
@@ -47,10 +47,10 @@ describe('BottomTabBar', () => {
     expect(mockPush).toHaveBeenCalledWith('/app/library')
   })
 
-  it('navigates to /app/rituals when Rituals tab tapped', () => {
+  it('navigates to /app/explore when Explore tab tapped', () => {
     mockPathname = '/app/today'
     render(<BottomTabBar />)
-    fireEvent.click(screen.getByLabelText('Rituals'))
-    expect(mockPush).toHaveBeenCalledWith('/app/rituals')
+    fireEvent.click(screen.getByLabelText('Explore'))
+    expect(mockPush).toHaveBeenCalledWith('/app/explore')
   })
 })

@@ -2,7 +2,6 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
-import SubPageNav from '@/components/layout/SubPageNav'
 import { BronzeDivider } from '@/components/ui/BronzeDivider'
 import { RITUALS } from '@/lib/rituals'
 
@@ -20,13 +19,14 @@ const MINDS = [
   { slug: 'miyamoto_musashi', src: '/personas/miyamoto_musashi.webp', name: 'Miyamoto Musashi' },
 ]
 
-export default function GuidePage() {
+export default function ExplorePage() {
   return (
-    <main className="min-h-screen [min-height:100svh] bg-vellum">
-      <div className="px-7">
-        <SubPageNav fallbackHref="/app/today" showHome={false} />
-      </div>
-
+    <main
+      className="min-h-screen [min-height:100svh] bg-vellum"
+      // Top-level tab: no back chrome. Reserve the safe area the removed SubPageNav
+      // previously provided so content clears the status bar.
+      style={{ paddingTop: 'max(0.5rem, env(safe-area-inset-top))' }}
+    >
       <div className="px-7 pb-safe">
         <div className="w-full max-w-[380px] mx-auto pt-2 pb-12">
 
