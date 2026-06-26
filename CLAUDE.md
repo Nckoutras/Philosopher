@@ -283,6 +283,30 @@ When adding a new persona, do ALL of the following:
    `error_messages` map in the config; otherwise `get_error_voice` falls back to the generic
    message (`services/persona_voice.py`).
 
+### C-04 — Migration revision id ≤ 32 chars, and filename MUST equal the revision id
+
+Codified 2026-06-26 after the migration 035 incident (#371).
+
+`alembic_version.version_num` is **`VARCHAR(32)`**. A revision id longer than 32 characters
+crashes the deploy at the version-write step (Alembic tries to record a too-long string).
+Because Postgres DDL is transactional, the failed upgrade **rolls back cleanly to the prior
+head** — it is never half-applied — so the fix is a pure rename, not a data repair. But it is a
+production deploy crash that is entirely avoidable.
+
+Rules for every migration file:
+1. **Revision id ≤ 32 characters.** Count it before committing. Prefer terse ids
+   (`035_deep_mode_go_deeper`, 23 chars) over descriptive-but-long ones
+   (`035_deep_mode_and_go_deeper_count`, 33 chars — the id that broke the deploy).
+2. **Filename == revision id** (plus `.py`). The file is `035_deep_mode_go_deeper.py` and the
+   in-file `revision = '035_deep_mode_go_deeper'`. Keeping them identical makes the chain
+   greppable and prevents a rename touching one but not the other.
+3. When renaming a revision id to fix length, update **all three**: the filename, the in-file
+   `revision = …`, and the **next** migration's `down_revision = …`.
+
+**Source:** 2026-06-26 session. `035_deep_mode_and_go_deeper_count` (33 chars) crashed the
+Render deploy at the version-write; DB stayed cleanly at 034; #371 renamed it to
+`035_deep_mode_go_deeper`. No data repair was needed.
+
 ---
 
 ## Known tech debt
