@@ -525,6 +525,12 @@ class CounterviewDeeperRequest(BaseModel):
     persona_slug: str
 
 
+class CounterviewRespondRequest(BaseModel):
+    # A user rebuttal directed at the current speaker (persona_slug), who replies.
+    persona_slug: str
+    text: str
+
+
 class CounterviewResponseOut(BaseModel):
     persona_slug: str
     persona_name: str
@@ -534,12 +540,25 @@ class CounterviewResponseOut(BaseModel):
     verdict: str
 
 
+class CounterviewTurnOut(BaseModel):
+    # One rebuttal exchange. `persona_response` is null when status != 'generated'.
+    sequence: int
+    persona_slug: str
+    persona_name: str
+    persona_portrait_url: str | None = None
+    user_text: str
+    persona_response: str | None = None
+    status: str
+
+
 class CounterviewOut(BaseModel):
     id: str
     source: str
     anchor_text: str | None = None
     status: str
     responses: list[CounterviewResponseOut]
+    turns: list[CounterviewTurnOut] = []
+    rebuttals_remaining: int = 0
     is_saved: bool = False
 
 

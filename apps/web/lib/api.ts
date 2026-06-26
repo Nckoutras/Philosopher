@@ -387,12 +387,24 @@ export interface CounterviewResponse {
   verdict: string
 }
 
+export interface CounterviewTurn {
+  sequence: number
+  persona_slug: string
+  persona_name: string
+  persona_portrait_url: string | null
+  user_text: string
+  persona_response: string | null
+  status: 'generated' | 'empty' | 'suppressed'
+}
+
 export interface Counterview {
   id: string
   source: string
   anchor_text: string | null
   status: 'generated' | 'empty' | 'suppressed'
   responses: CounterviewResponse[]
+  turns: CounterviewTurn[]
+  rebuttals_remaining: number
   is_saved: boolean
 }
 
@@ -1003,6 +1015,20 @@ class ApiClient {
     return this.request<Counterview>(`/counterview/${counterviewId}/deeper`, {
       method: 'POST',
       body: JSON.stringify({ persona_slug: personaSlug }),
+    })
+  }
+
+  // Send a rebuttal directed at the current speaker; that persona replies in one
+  // tight line. Returns the full counterview with the new turn in `turns[]` and the
+  // updated `rebuttals_remaining`. Throws on 409 once the rebuttal cap is reached.
+  async respondCounterview(
+    counterviewId: string,
+    personaSlug: string,
+    text: string,
+  ): Promise<Counterview> {
+    return this.request<Counterview>(`/counterview/${counterviewId}/respond`, {
+      method: 'POST',
+      body: JSON.stringify({ persona_slug: personaSlug, text }),
     })
   }
 

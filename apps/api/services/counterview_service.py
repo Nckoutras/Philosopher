@@ -1,12 +1,12 @@
 import json
 import logging
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from config import config
-from models import Counterview, CounterviewResponse, Insight, Message
+from models import Counterview, CounterviewResponse, CounterviewTurn, Insight, Message
 from services.llm_client import llm_client
 from services.safety_service import safety_service
 
@@ -400,3 +400,235 @@ def _extract_deeper(raw: str):
         return None
     verdict = (data.get("verdict") or "").strip()
     return verdict or None
+
+
+# ── Rebuttal exchange ───────────────────────────────────────────────────────────
+
+# The bounded cap: at most this many GENERATED user rebuttals per counterview.
+# Counts status='generated' turns only — a safety-suppressed or failed turn does
+# not consume the budget. Enforced here (not at the DB).
+MAX_REBUTTALS = 3
+
+# Per-line ceiling for a rebuttal response — same tightness as a go-deeper line.
+RESPOND_MAX_WORDS = DEEPER_MAX_WORDS
+
+# {voice} is filled per-persona via .replace() (NOT .format() — the JSON example
+# below contains literal braces that would break str.format).
+RESPOND_PROMPT = """You are {voice}
+
+A person holds a position. You already made the case against it. Now they push back. Answer their pushback in ONE sharp line — hold your ground or sharpen it, never concede merely to be agreeable. 18 words MAXIMUM.
+
+Hard rules:
+- Anchor STRICTLY to what the person wrote — their position and their pushback. Invent no new facts.
+- Answer the pushback directly. Do not change the subject, and do not repeat an earlier line verbatim.
+- Attack the position, never the person. No insults, nothing below the belt.
+- Plain modern language. No quotes, never name yourself. One clean cut.
+
+Return JSON only: {"status":"generated","verdict":"..."}  or  {"status":"empty"} if there is nothing honest left to say."""
+
+# Appended to the system prompt for the single tightening retry.
+RESPOND_TIGHTEN = "\n\nYour previous attempt exceeded 18 words. Rewrite to 18 words maximum. Cut every non-essential word — keep the same answer and the same JSON shape."
+
+
+async def count_generated_rebuttals(db: AsyncSession, counterview_id: str) -> int:
+    """How many GENERATED rebuttal turns a counterview already has (drives the cap
+    + the rebuttals_remaining the serializer exposes)."""
+    return (
+        await db.execute(
+            select(func.count())
+            .select_from(CounterviewTurn)
+            .where(
+                CounterviewTurn.counterview_id == counterview_id,
+                CounterviewTurn.status == "generated",
+            )
+        )
+    ).scalar_one()
+
+
+async def respond_to_rebuttal(
+    db: AsyncSession,
+    user_id: str,
+    counterview_id: str,
+    persona_slug: str,
+    user_text: str,
+) -> Counterview:
+    """Record one user rebuttal and the CURRENT speaker's reply to it.
+
+    Only `persona_slug` answers (the persona the rebuttal targets) — one LLM call,
+    one safety check on the input, one on the output. The reply is <=18 words with
+    the same tighten-retry as go-deeper. Bounded: at most MAX_REBUTTALS *generated*
+    turns per counterview.
+
+    Raises ValueError("counterview not found") if the counterview is not the user's,
+    ValueError("invalid persona") for an unknown slug, ValueError("cap_reached") when
+    the generated-rebuttal cap is already met. A suppressed input, an empty/failed
+    generation, or a suppressed output each persists a turn with the matching status
+    (no reply) and returns the counterview — never a 500.
+    """
+    cv = (
+        await db.execute(
+            select(Counterview).where(
+                Counterview.id == counterview_id,
+                Counterview.user_id == user_id,
+            )
+        )
+    ).scalar_one_or_none()
+    if cv is None:
+        raise ValueError("counterview not found")
+    if cv.status != "generated":
+        return cv  # nothing to rebut (empty/suppressed)
+
+    if persona_slug not in {slug for slug, _ in COUNTERVIEW_PERSONAS}:
+        raise ValueError("invalid persona")
+
+    # ── Cap: count GENERATED turns only ───────────────────────────────────────
+    if await count_generated_rebuttals(db, counterview_id) >= MAX_REBUTTALS:
+        raise ValueError("cap_reached")
+
+    # ── Pre-generation safety gate on the user's rebuttal ─────────────────────
+    res = await safety_service.check_input(user_text, user_id)
+    if res.should_suppress_persona:
+        return await _write_turn(
+            db, counterview_id, persona_slug, user_text,
+            response=None, status="suppressed",
+        )
+
+    # ── Build the bounded context for this persona (verdict + deeper + prior
+    #    generated turns with this persona) and generate (+ one tighten retry) ──
+    history = await _rebuttal_context(db, cv, persona_slug)
+    line = None
+    try:
+        line = await _call_respond_llm(cv.anchor_text, persona_slug, history, user_text)
+        if line is not None and _word_count(line) > RESPOND_MAX_WORDS:
+            retry = await _call_respond_llm(
+                cv.anchor_text, persona_slug, history, user_text, tighten=True
+            )
+            if retry is not None:
+                line = retry
+    except Exception as e:
+        logger.warning(
+            "Counterview rebuttal failed cv=%s persona=%s: %s",
+            counterview_id, persona_slug, e,
+        )
+        line = None
+
+    if line is None:
+        return await _write_turn(
+            db, counterview_id, persona_slug, user_text, response=None, status="empty"
+        )
+
+    # ── Post-generation safety: a flagged reply is dropped (turn kept, no reply)
+    out = await safety_service.check_output(line)
+    if out.should_suppress_persona:
+        return await _write_turn(
+            db, counterview_id, persona_slug, user_text, response=None, status="suppressed"
+        )
+
+    return await _write_turn(
+        db, counterview_id, persona_slug, user_text, response=line, status="generated"
+    )
+
+
+async def _rebuttal_context(db: AsyncSession, cv: Counterview, persona_slug: str) -> str:
+    """A compact, bounded transcript for one persona: its verdict (round 0), its
+    deeper line (round 1) if any, and the prior GENERATED rebuttal turns with this
+    persona — so the reply stays coherent and does not repeat itself. Capped in
+    size by MAX_REBUTTALS, so it never balloons."""
+    rows = (
+        await db.execute(
+            select(CounterviewResponse)
+            .where(
+                CounterviewResponse.counterview_id == cv.id,
+                CounterviewResponse.persona_slug == persona_slug,
+            )
+            .order_by(CounterviewResponse.round.asc())
+        )
+    ).scalars().all()
+    lines: list[str] = ["Your case so far:"]
+    for r in rows:
+        lines.append(f"- {r.verdict}")
+
+    turns = (
+        await db.execute(
+            select(CounterviewTurn)
+            .where(
+                CounterviewTurn.counterview_id == cv.id,
+                CounterviewTurn.persona_slug == persona_slug,
+                CounterviewTurn.status == "generated",
+            )
+            .order_by(CounterviewTurn.sequence.asc())
+        )
+    ).scalars().all()
+    if turns:
+        lines.append("Earlier pushback and your replies:")
+        for t in turns:
+            lines.append(f'- They said: "{t.user_text}" — You answered: "{t.persona_response}"')
+    return "\n".join(lines)
+
+
+async def _call_respond_llm(
+    anchor_text: str | None,
+    persona_slug: str,
+    history: str,
+    user_text: str,
+    *,
+    tighten: bool = False,
+):
+    """One LLM call for the current speaker's reply to a rebuttal → the verdict
+    string, or None if the model returned non-'generated' / unparseable / empty."""
+    voice = PERSONA_VOICE[persona_slug]
+    system = RESPOND_PROMPT.replace("{voice}", voice) + (RESPOND_TIGHTEN if tighten else "")
+    user = (
+        f"<position>\n{anchor_text}\n</position>\n"
+        f"{history}\n"
+        f'They now push back: "{user_text}"'
+    )
+    raw = await llm_client.complete(
+        system=system,
+        user=user,
+        model=config.ANTHROPIC_MODEL,
+        max_tokens=200,
+    )
+    return _extract_deeper(raw)  # same {status, verdict} shape as a deeper line
+
+
+async def _write_turn(
+    db: AsyncSession,
+    counterview_id: str,
+    persona_slug: str,
+    user_text: str,
+    *,
+    response: str | None,
+    status: str,
+) -> Counterview:
+    """Insert one rebuttal turn at the next sequence ordinal. Race-safe against
+    uq_counterview_turn_seq (a concurrent rebuttal won the slot) — on IntegrityError
+    roll back and return the counterview unchanged. Returns the parent counterview."""
+    next_seq = (
+        await db.execute(
+            select(func.coalesce(func.max(CounterviewTurn.sequence), 0)).where(
+                CounterviewTurn.counterview_id == counterview_id
+            )
+        )
+    ).scalar_one() + 1
+
+    db.add(CounterviewTurn(
+        counterview_id=counterview_id,
+        sequence=next_seq,
+        persona_slug=persona_slug,
+        user_text=user_text,
+        persona_response=response,
+        status=status,
+    ))
+    cv = (
+        await db.execute(
+            select(Counterview).where(Counterview.id == counterview_id)
+        )
+    ).scalar_one()
+    try:
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        return cv
+    await db.refresh(cv)
+    return cv

@@ -613,6 +613,30 @@ class CounterviewSave(Base):
     )
 
 
+class CounterviewTurn(Base):
+    """A bounded user rebuttal + the current speaker's reply, on its own axis
+    (`sequence`) so the verdict/go-deeper round model is untouched. `persona_slug`
+    is the persona the rebuttal targets (= who answers). `persona_response` is NULL
+    unless `status == 'generated'`. The free 3-rebuttal cap counts status='generated'
+    rows only (enforced in the service)."""
+    __tablename__ = "counterview_turns"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=gen_uuid)
+    counterview_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("counterviews.id", ondelete="CASCADE"), nullable=False)
+    sequence: Mapped[int] = mapped_column(Integer, nullable=False)
+    persona_slug: Mapped[str] = mapped_column(String(100), nullable=False)
+    user_text: Mapped[str] = mapped_column(Text, nullable=False)
+    persona_response: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(String(20), nullable=False)  # generated | empty | suppressed
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+    __table_args__ = (
+        CheckConstraint("status IN ('generated', 'empty', 'suppressed')", name="ck_counterview_turns_status"),
+        UniqueConstraint("counterview_id", "sequence", name="uq_counterview_turn_seq"),
+        Index("ix_counterview_turns_cv", "counterview_id"),
+    )
+
+
 class MirrorSave(Base):
     __tablename__ = "mirror_saves"
 

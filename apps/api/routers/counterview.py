@@ -6,19 +6,27 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from auth import get_current_user
 from db.session import get_db
-from models import Counterview, CounterviewResponse, CounterviewSave, Persona, User
+from models import Counterview, CounterviewResponse, CounterviewSave, CounterviewTurn, Persona, User
 from schemas import (
     CounterviewCreate,
     CounterviewDeeperRequest,
     CounterviewListItem,
     CounterviewOut,
     CounterviewResponseOut,
+    CounterviewRespondRequest,
+    CounterviewTurnOut,
 )
-from services.counterview_service import generate_counterview, generate_deeper
+from services.counterview_service import (
+    MAX_REBUTTALS,
+    generate_counterview,
+    generate_deeper,
+    respond_to_rebuttal,
+)
 
 router = APIRouter(prefix="/counterview", tags=["counterview"])
 
 BELIEF_MAX_CHARS = 1000
+REBUTTAL_MAX_CHARS = 1000
 
 
 async def _serialize_counterview(db: AsyncSession, cv: Counterview, user_id: str) -> CounterviewOut:
@@ -35,8 +43,17 @@ async def _serialize_counterview(db: AsyncSession, cv: Counterview, user_id: str
         )
     ).scalars().all()
 
+    # The rebuttal exchange, in sequence order (independent of the verdict rounds).
+    turns = (
+        await db.execute(
+            select(CounterviewTurn)
+            .where(CounterviewTurn.counterview_id == cv.id)
+            .order_by(CounterviewTurn.sequence.asc())
+        )
+    ).scalars().all()
+
     personas: dict[str, Persona] = {}
-    slugs = {r.persona_slug for r in responses}
+    slugs = {r.persona_slug for r in responses} | {t.persona_slug for t in turns}
     if slugs:
         rows = (
             await db.execute(select(Persona).where(Persona.slug.in_(slugs)))
@@ -55,6 +72,23 @@ async def _serialize_counterview(db: AsyncSession, cv: Counterview, user_id: str
         for r in responses
     ]
 
+    out_turns = [
+        CounterviewTurnOut(
+            sequence=t.sequence,
+            persona_slug=t.persona_slug,
+            persona_name=personas[t.persona_slug].name if t.persona_slug in personas else t.persona_slug,
+            persona_portrait_url=(personas[t.persona_slug].portrait_url or None) if t.persona_slug in personas else None,
+            user_text=t.user_text,
+            persona_response=t.persona_response,
+            status=t.status,
+        )
+        for t in turns
+    ]
+
+    # Cap budget: status='generated' turns only (suppressed/empty don't consume it).
+    generated_turns = sum(1 for t in turns if t.status == "generated")
+    rebuttals_remaining = max(0, MAX_REBUTTALS - generated_turns)
+
     is_saved = (
         await db.execute(
             select(CounterviewSave.id).where(
@@ -71,6 +105,8 @@ async def _serialize_counterview(db: AsyncSession, cv: Counterview, user_id: str
         anchor_text=cv.anchor_text,
         status=cv.status,
         responses=out_responses,
+        turns=out_turns,
+        rebuttals_remaining=rebuttals_remaining,
         is_saved=is_saved,
     )
 
@@ -167,6 +203,36 @@ async def deeper_counterview(
     except ValueError as e:
         if "invalid persona" in str(e):
             raise HTTPException(status_code=400)
+        raise HTTPException(status_code=404)
+    return await _serialize_counterview(db, cv, user.id)
+
+
+@router.post("/{counterview_id}/respond", response_model=CounterviewOut)
+async def respond_counterview(
+    counterview_id: str,
+    body: CounterviewRespondRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """User rebuttal directed at the current speaker (persona_slug); that persona
+    replies in one tight (<=18-word) line. Bounded: at most MAX_REBUTTALS generated
+    rebuttals per counterview (409 once met). A suppressed input / empty generation /
+    suppressed output persists a turn with that status (no reply) and returns 200.
+    The returned counterview carries `turns[]` and the updated `rebuttals_remaining`."""
+    text = (body.text or "").strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="empty_rebuttal")
+    if len(text) > REBUTTAL_MAX_CHARS:
+        raise HTTPException(status_code=400, detail="rebuttal_too_long")
+
+    try:
+        cv = await respond_to_rebuttal(db, user.id, counterview_id, body.persona_slug, text)
+    except ValueError as e:
+        msg = str(e)
+        if "invalid persona" in msg:
+            raise HTTPException(status_code=400, detail="invalid_persona")
+        if "cap_reached" in msg:
+            raise HTTPException(status_code=409, detail="rebuttal_cap_reached")
         raise HTTPException(status_code=404)
     return await _serialize_counterview(db, cv, user.id)
 
