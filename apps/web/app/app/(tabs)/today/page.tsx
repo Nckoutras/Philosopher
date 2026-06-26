@@ -460,17 +460,6 @@ export default function TodayPage() {
             </button>
           </div>
         )}
-
-        {/* ── D1a: Explore The Wise Room guide button (PR-B replaces with Explore tab) ── */}
-        {!isFirstDay && (
-          <button
-            type="button"
-            onClick={() => router.push('/app/guide')}
-            className="w-full py-[14px] rounded-md border border-[0.5px] border-ink font-cormorant text-[17px] font-medium text-ink"
-          >
-            Explore The Wise Room
-          </button>
-        )}
       </div>
     </main>
   )

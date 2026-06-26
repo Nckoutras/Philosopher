@@ -60,7 +60,7 @@ export default function EmptyConversationHistory() {
       {/* CTA */}
       <button
         type="button"
-        onClick={() => router.push('/app/explore')}
+        onClick={() => router.push('/app/library?mode=browse')}
         className="w-full bg-ink text-vellum font-cormorant text-[17px] font-medium rounded-sm py-[14px] text-center"
       >
         Explore minds

@@ -37,9 +37,9 @@ describe('EmptyConversationHistory', () => {
     expect(screen.getByRole('button', { name: 'Explore minds' })).toBeTruthy()
   })
 
-  it('CTA navigates to /app/explore on click', () => {
+  it('CTA navigates to browse-minds on click', () => {
     render(<EmptyConversationHistory />)
     fireEvent.click(screen.getByRole('button', { name: 'Explore minds' }))
-    expect(mockPush).toHaveBeenCalledWith('/app/explore')
+    expect(mockPush).toHaveBeenCalledWith('/app/library?mode=browse')
   })
 })
