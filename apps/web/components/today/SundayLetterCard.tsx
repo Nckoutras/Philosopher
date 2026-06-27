@@ -8,12 +8,19 @@ import { api } from '@/lib/api'
 import type { WeeklyLetter } from '@/lib/api'
 import BottomSheet from '@/components/ui/BottomSheet'
 
+// The next weekly reading, computed in UTC against the cron (Sunday 18:00 UTC).
+// "Next" = the next Sunday 18:00 UTC strictly in the future: today's Sunday while
+// it's still before 18:00 UTC, otherwise the following Sunday. UTC (not local) so
+// it's stable across timezones and correct all day Sunday.
 function nextSundayLabel(): string {
   const M = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+  const CRON_HOUR_UTC = 18
   const d = new Date()
-  const add = d.getDay() === 0 ? 0 : 7 - d.getDay()
-  const sun = new Date(d); sun.setDate(d.getDate() + add)
-  return `${M[sun.getMonth()]} ${sun.getDate()}`
+  let add = (7 - d.getUTCDay()) % 7 // 0 if today is Sunday UTC, else days to the upcoming Sunday
+  if (add === 0 && d.getUTCHours() >= CRON_HOUR_UTC) add = 7 // past today's fire time → following Sunday
+  const sun = new Date(d)
+  sun.setUTCDate(d.getUTCDate() + add)
+  return `${M[sun.getUTCMonth()]} ${sun.getUTCDate()}`
 }
 
 interface Props {
@@ -56,7 +63,7 @@ export default function SundayLetterCard({ isPro }: Props) {
       <button
         type="button"
         onClick={handleClick}
-        className={`relative w-full text-center bg-paper border border-[0.5px] border-edge rounded-md shadow-card overflow-hidden min-h-[200px] px-[16px] pb-[18px] flex flex-col items-center justify-end${!isUnread ? ' opacity-60' : ''}`}
+        className={`relative w-full text-center bg-paper border border-[0.5px] border-edge rounded-md shadow-card overflow-hidden min-h-[200px] px-[16px] pb-[18px] flex flex-col items-center justify-end${!isUnread && !hasReading ? ' opacity-60' : ''}`}
       >
         <svg aria-hidden="true" className="absolute inset-0 w-full h-full pointer-events-none" preserveAspectRatio="none" viewBox="0 0 100 100">
           <line x1="0" y1="0" x2="50" y2="44" stroke="#B89968" strokeWidth="1" strokeOpacity="0.4" vectorEffect="non-scaling-stroke" />
@@ -77,6 +84,12 @@ export default function SundayLetterCard({ isPro }: Props) {
             ? 'Your letters are in your readings.'
             : `Your letter arrives Sunday, ${nextSundayLabel()}.`}
         </p>
+
+        {isPro && !isUnread && hasReading && (
+          <p className="relative font-lora text-[13px] text-sepia mt-[2px]">
+            next reading on {nextSundayLabel()}
+          </p>
+        )}
 
         {!isPro && (
           <div className="absolute top-[12px] right-[12px] flex items-center gap-[5px]">
