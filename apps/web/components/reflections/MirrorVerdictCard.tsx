@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Image from 'next/image'
+import { MirrorIcon } from '@/components/icons/RitualIcons'
 import { formatItemDate } from '@/lib/formatItemDate'
 import type { ReflectionFeedMirror } from '@/lib/api'
 import SharePreviewModal from '@/components/share/SharePreviewModal'
@@ -25,9 +26,12 @@ export default function MirrorVerdictCard({ item, portraitUrl }: Props) {
           className="object-cover opacity-[0.10] pointer-events-none" />
         <div className="relative">
         <div className="flex items-center justify-between mb-[8px]">
-          <p className="font-lora text-[11px] uppercase tracking-[0.18em] text-bronze-dark font-bold">
-            FROM THE MIRROR
-          </p>
+          <span className="flex items-center gap-[6px]">
+            <MirrorIcon size={13} strokeWidth={1.5} className="text-bronze-dark" />
+            <p className="font-lora text-[11px] uppercase tracking-[0.18em] text-bronze-dark font-bold">
+              FROM THE MIRROR
+            </p>
+          </span>
           <span className="font-lora text-[10px] text-bronze-dark font-semibold flex-shrink-0 ml-[8px]">
             {formatItemDate(item.saved_at)}
           </span>
