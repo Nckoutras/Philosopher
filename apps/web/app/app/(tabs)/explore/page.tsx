@@ -69,14 +69,17 @@ export default function ExplorePage() {
           </section>
 
           <div className="flex justify-center my-7"><BronzeDivider width={64} /></div>
-          <section className="space-y-2">
-            <h2 className="font-cormorant text-[20px] font-medium text-ink leading-tight">The conversations.</h2>
-            <p className="font-lora text-[15px] text-charcoal leading-[1.65]">
-              Bring what&rsquo;s on your mind. Speak plainly; they will not — they
-              listen closely, then press back, until you see an angle you&rsquo;d
-              missed: in the matter, and in yourself.
-            </p>
-          </section>
+          <Link href="/app/explore/conversations" className="block transition-transform duration-150 active:scale-[0.99]">
+            <section className="space-y-2">
+              <h2 className="font-cormorant text-[20px] font-medium text-ink leading-tight">The conversations.</h2>
+              <p className="font-lora text-[15px] text-charcoal leading-[1.65]">
+                Bring what&rsquo;s on your mind. Speak plainly; they will not — they
+                listen closely, then press back, until you see an angle you&rsquo;d
+                missed: in the matter, and in yourself.
+              </p>
+              <p className="font-lora text-[13px] text-bronze">See how the tools work &rarr;</p>
+            </section>
+          </Link>
 
           <div className="flex justify-center my-7"><BronzeDivider width={64} /></div>
           <section className="space-y-2">
