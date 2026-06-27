@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Image from 'next/image'
+import { Bookmark } from 'lucide-react'
 import { formatItemDate } from '@/lib/formatItemDate'
 import type { SavedLineRead } from '@/lib/api'
 import SharePreviewModal from '@/components/share/SharePreviewModal'
@@ -31,9 +32,12 @@ export default function SavedLineCard({ item, portraitUrl, onClick, onAskAnother
           className="object-cover opacity-[0.06] pointer-events-none" />
         <div className="relative">
         <div className="flex items-center justify-between mb-[8px]">
-          <p className="font-lora text-[11px] uppercase tracking-[0.18em] text-bronze-dark font-bold">
-            FROM YOUR CONVERSATIONS
-          </p>
+          <span className="flex items-center gap-[6px]">
+            <Bookmark size={13} strokeWidth={1.5} className="text-bronze-dark" aria-hidden="true" />
+            <p className="font-lora text-[11px] uppercase tracking-[0.18em] text-bronze-dark font-bold">
+              FROM YOUR CONVERSATIONS
+            </p>
+          </span>
           <span className="font-lora text-[10px] text-bronze-dark font-semibold flex-shrink-0 ml-[8px]">
             {formatItemDate(item.saved_at)}
           </span>
