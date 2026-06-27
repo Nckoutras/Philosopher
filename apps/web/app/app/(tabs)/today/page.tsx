@@ -39,8 +39,8 @@ function BronzeSparkle() {
 }
 
 // A single category tile in the Home 2×2 grid: full-bleed artwork with the
-// category word in white (cormorant) over a bottom scrim for legibility. Square
-// via aspect-square so the four form a clean grid.
+// category word centered in white (cormorant) over a soft radial scrim for
+// legibility. Square via aspect-square so the four form a clean grid.
 function ImageTile({
   src,
   label,
@@ -64,12 +64,12 @@ function ImageTile({
         sizes="(max-width: 768px) 50vw, 200px"
         className="object-cover"
       />
-      {/* bottom scrim so the white label stays legible over any artwork */}
+      {/* soft centered radial scrim so the white label stays legible over any artwork */}
       <span
         aria-hidden="true"
-        className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/65 to-transparent"
+        className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(0,0,0,0.45)_0%,transparent_70%)]"
       />
-      <span className="absolute inset-x-0 bottom-0 px-[16px] py-[14px] text-left font-cormorant text-[20px] font-medium text-white leading-tight">
+      <span className="absolute inset-0 flex items-center justify-center px-[12px] text-center font-cormorant text-[24px] font-medium text-white leading-tight">
         {label}
       </span>
     </button>
