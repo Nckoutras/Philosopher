@@ -2,8 +2,10 @@
 
 import { Suspense, useEffect, useCallback, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import Image from 'next/image'
+import { ChevronRight } from 'lucide-react'
 import { useStore } from '@/lib/store'
-import { api, type Persona } from '@/lib/api'
+import { api, type Persona, type LastConversation } from '@/lib/api'
 import PastConversationsView from '@/components/library/PastConversationsView'
 import BrowseMindsView from '@/components/library/BrowseMindsView'
 import AppHeader from '@/components/layout/AppHeader'
@@ -22,6 +24,7 @@ function LibraryContent() {
   const setError = useStore((s) => s.setConversationsError)
 
   const [personas, setPersonas] = useState<Persona[] | null>(null)
+  const [lastConv, setLastConv] = useState<LastConversation | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -41,6 +44,12 @@ function LibraryContent() {
         persona: { ...c.persona, portrait_url: bySlug[c.persona.slug]?.portrait_url ?? '' },
       }))
       setConversations(enriched)
+      // Non-critical: the "Continuing." card just won't render if this fails.
+      try {
+        setLastConv(await api.getLastConversation())
+      } catch {
+        setLastConv(null)
+      }
     } catch (err) {
       setError(err instanceof Error ? err : new Error('Could not load'))
     } finally {
@@ -99,6 +108,49 @@ function LibraryContent() {
           Browse Minds
         </button>
       </div>
+
+      {/* ── Continuing. card (returning user) — relocated from Home ── */}
+      {mode === 'past' && lastConv && (
+        <div className="px-[16px] pb-[12px]">
+          <button
+            type="button"
+            onClick={() => router.push(`/app/chat/conv/${lastConv.conversation_id}`)}
+            className="w-full text-left bg-paper border border-[0.5px] border-edge rounded-md px-[16px] py-[14px] flex items-start gap-[12px]"
+          >
+            <div className="flex-shrink-0">
+              {lastConv.persona_portrait_url ? (
+                <Image
+                  src={lastConv.persona_portrait_url}
+                  alt={lastConv.persona_name}
+                  width={64}
+                  height={64}
+                  className="rounded-[2px] object-cover"
+                />
+              ) : (
+                <div className="w-[64px] h-[64px] bg-linen rounded-[2px] flex items-center justify-center">
+                  <span className="font-cormorant text-[24px] font-medium text-charcoal">
+                    {lastConv.persona_name.charAt(0)}
+                  </span>
+                </div>
+              )}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-lora text-[12px] font-medium uppercase tracking-[0.18em] text-charcoal mb-[4px]">
+                Continuing.
+              </p>
+              <p className="font-cormorant text-[20px] font-medium text-ink leading-tight">
+                {lastConv.persona_name}
+              </p>
+              {lastConv.last_message_snippet && (
+                <p className="font-lora text-[13px] text-charcoal leading-snug mt-[6px] line-clamp-2">
+                  &ldquo;{lastConv.last_message_snippet}&rdquo;
+                </p>
+              )}
+            </div>
+            <ChevronRight size={16} strokeWidth={1.5} className="text-sepia flex-shrink-0 self-center" />
+          </button>
+        </div>
+      )}
 
       <div className="flex-1">
         {mode === 'browse' ? (
