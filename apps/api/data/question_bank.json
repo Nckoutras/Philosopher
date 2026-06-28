@@ -1,0 +1,1249 @@
+{
+  "schema_version": 1,
+  "note": "Clean initial bank: 2 verified categories. Remaining 10 categories to be regenerated (pills/tags) before import.",
+  "categories": [
+    "money",
+    "work_and_ambition"
+  ],
+  "count": 60,
+  "questions": [
+    {
+      "id": "work_and_ambition_001",
+      "category": "work_and_ambition",
+      "question": "Your manager praises your work publicly but gives the promotion to someone else. Your first instinct is to…",
+      "pills": [
+        "Ask what was missing",
+        "Quietly lose motivation",
+        "Work twice as hard",
+        "Start looking elsewhere"
+      ],
+      "theme_tags": [
+        "power",
+        "resentment",
+        "doubt"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "work_and_ambition_002",
+      "category": "work_and_ambition",
+      "question": "A colleague your age seems to be moving faster in their career. You tend to…",
+      "pills": [
+        "Study what they did",
+        "Feel secretly behind",
+        "Dismiss their success",
+        "Compete harder"
+      ],
+      "theme_tags": [
+        "envy",
+        "identity",
+        "desire"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "work_and_ambition_003",
+      "category": "work_and_ambition",
+      "question": "You are offered a bigger title with more pressure and less life outside work. You feel…",
+      "pills": [
+        "Hungry for it",
+        "Flattered but wary",
+        "Already exhausted",
+        "Afraid to refuse"
+      ],
+      "theme_tags": [
+        "desire",
+        "freedom",
+        "dilemma"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "work_and_ambition_004",
+      "category": "work_and_ambition",
+      "question": "You know your current job is no longer growing you, but it pays well and feels safe. You…",
+      "pills": [
+        "Stay and optimize",
+        "Plan a careful exit",
+        "Complain but remain",
+        "Leap before overthinking"
+      ],
+      "theme_tags": [
+        "fear",
+        "freedom",
+        "control"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "work_and_ambition_005",
+      "category": "work_and_ambition",
+      "question": "A less capable person speaks with more confidence than you and gets attention. You usually…",
+      "pills": [
+        "Speak up sharper",
+        "Withdraw in frustration",
+        "Question my presence",
+        "Let results speak"
+      ],
+      "theme_tags": [
+        "power",
+        "resentment",
+        "doubt"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "work_and_ambition_006",
+      "category": "work_and_ambition",
+      "question": "You finish something difficult and impressive. By the next morning, you are mostly thinking…",
+      "pills": [
+        "What comes next",
+        "What I missed",
+        "Who noticed",
+        "I can breathe"
+      ],
+      "theme_tags": [
+        "discipline",
+        "desire",
+        "doubt"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "work_and_ambition_007",
+      "category": "work_and_ambition",
+      "question": "Someone senior asks for your honest view, but the room clearly wants agreement. You…",
+      "pills": [
+        "Say the hard thing",
+        "Soften it carefully",
+        "Stay politically safe",
+        "Wait for private access"
+      ],
+      "theme_tags": [
+        "power",
+        "duty",
+        "dilemma"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading"
+      ]
+    },
+    {
+      "id": "work_and_ambition_008",
+      "category": "work_and_ambition",
+      "question": "A major project succeeds, but your contribution is barely mentioned. You…",
+      "pills": [
+        "Claim credit directly",
+        "Document it quietly",
+        "Feel deeply wronged",
+        "Tell myself it is fine"
+      ],
+      "theme_tags": [
+        "identity",
+        "resentment",
+        "power"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "work_and_ambition_009",
+      "category": "work_and_ambition",
+      "question": "Your workday ends, but one unfinished issue keeps pulling at your mind. You tend to…",
+      "pills": [
+        "Keep working late",
+        "Make tomorrow's plan",
+        "Pretend to switch off",
+        "Actually let it wait"
+      ],
+      "theme_tags": [
+        "control",
+        "discipline",
+        "freedom"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading"
+      ]
+    },
+    {
+      "id": "work_and_ambition_010",
+      "category": "work_and_ambition",
+      "question": "You are asked to lead something visible, but the odds of failure are real. Your reaction is…",
+      "pills": [
+        "I want the stage",
+        "I need certainty",
+        "Failure would haunt me",
+        "This is growth"
+      ],
+      "theme_tags": [
+        "fear",
+        "desire",
+        "identity"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "work_and_ambition_011",
+      "category": "work_and_ambition",
+      "question": "A younger colleague challenges your idea in front of others. You instinctively…",
+      "pills": [
+        "Engage the point",
+        "Feel disrespected",
+        "Reassert authority",
+        "Reconsider quietly"
+      ],
+      "theme_tags": [
+        "power",
+        "identity",
+        "doubt"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading"
+      ]
+    },
+    {
+      "id": "work_and_ambition_012",
+      "category": "work_and_ambition",
+      "question": "You notice you are staying partly because people know your name there. You feel…",
+      "pills": [
+        "Recognition matters",
+        "That scares me",
+        "It is practical",
+        "I need a reset"
+      ],
+      "theme_tags": [
+        "identity",
+        "desire",
+        "fear"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "work_and_ambition_013",
+      "category": "work_and_ambition",
+      "question": "Your boss gives vague praise but no concrete next step. You usually…",
+      "pills": [
+        "Push for specifics",
+        "Read between lines",
+        "Wait and observe",
+        "Feel dismissed"
+      ],
+      "theme_tags": [
+        "control",
+        "doubt",
+        "power"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading"
+      ]
+    },
+    {
+      "id": "work_and_ambition_014",
+      "category": "work_and_ambition",
+      "question": "A role opens that you want, but applying would make your ambition obvious. You…",
+      "pills": [
+        "Go openly",
+        "Move through allies",
+        "Downplay my interest",
+        "Talk myself out"
+      ],
+      "theme_tags": [
+        "desire",
+        "fear",
+        "power"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "work_and_ambition_015",
+      "category": "work_and_ambition",
+      "question": "You receive useful criticism delivered badly. What stays with you most?",
+      "pills": [
+        "The useful part",
+        "The disrespect",
+        "My own mistake",
+        "My next response"
+      ],
+      "theme_tags": [
+        "doubt",
+        "resentment",
+        "discipline"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading"
+      ]
+    },
+    {
+      "id": "work_and_ambition_016",
+      "category": "work_and_ambition",
+      "question": "You are succeeding, but the work no longer feels connected to who you are becoming. You…",
+      "pills": [
+        "Keep collecting wins",
+        "Search for meaning",
+        "Feel trapped by success",
+        "Redefine the path"
+      ],
+      "theme_tags": [
+        "meaning",
+        "identity",
+        "freedom"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "work_and_ambition_017",
+      "category": "work_and_ambition",
+      "question": "A colleague gets rewarded for political skill more than actual work. Your private reaction is…",
+      "pills": [
+        "Learn the game",
+        "Lose respect for it",
+        "Feel morally stuck",
+        "Refuse to play"
+      ],
+      "theme_tags": [
+        "power",
+        "resentment",
+        "dilemma"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "work_and_ambition_018",
+      "category": "work_and_ambition",
+      "question": "You imagine leaving your current job. The hardest thing to give up would be…",
+      "pills": [
+        "Status I earned",
+        "Financial safety",
+        "People depending on me",
+        "My familiar identity"
+      ],
+      "theme_tags": [
+        "fear",
+        "duty",
+        "identity"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "work_and_ambition_019",
+      "category": "work_and_ambition",
+      "question": "You have a quiet week with no major achievement. You tend to feel…",
+      "pills": [
+        "Rested and normal",
+        "Uneasy and behind",
+        "Guilty for slowing",
+        "Free to think bigger"
+      ],
+      "theme_tags": [
+        "guilt",
+        "discipline",
+        "freedom"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading"
+      ]
+    },
+    {
+      "id": "work_and_ambition_020",
+      "category": "work_and_ambition",
+      "question": "A senior person ignores your idea, then repeats something similar later. You…",
+      "pills": [
+        "Point it out calmly",
+        "Let the room notice",
+        "Store the grievance",
+        "Use it strategically"
+      ],
+      "theme_tags": [
+        "power",
+        "resentment",
+        "control"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "work_and_ambition_021",
+      "category": "work_and_ambition",
+      "question": "When you picture being truly successful, the image is mostly about…",
+      "pills": [
+        "Freedom over time",
+        "Being widely respected",
+        "Building something lasting",
+        "Needing less approval"
+      ],
+      "theme_tags": [
+        "desire",
+        "freedom",
+        "meaning"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "work_and_ambition_022",
+      "category": "work_and_ambition",
+      "question": "You are overloaded, but saying no may make you seem less committed. You…",
+      "pills": [
+        "Take it anyway",
+        "Negotiate priorities",
+        "Say no clearly",
+        "Comply, then resent"
+      ],
+      "theme_tags": [
+        "duty",
+        "control",
+        "resentment"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading"
+      ]
+    },
+    {
+      "id": "work_and_ambition_023",
+      "category": "work_and_ambition",
+      "question": "Someone asks what you really want next professionally. Your honest answer feels…",
+      "pills": [
+        "Very clear",
+        "Too ambitious to say",
+        "Embarrassingly unclear",
+        "Always shifting"
+      ],
+      "theme_tags": [
+        "desire",
+        "doubt",
+        "identity"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "work_and_ambition_024",
+      "category": "work_and_ambition",
+      "question": "Your team depends on you so much that stepping back would create problems. You feel…",
+      "pills": [
+        "Useful and needed",
+        "Proud but trapped",
+        "Annoyed by dependence",
+        "Responsible to stay"
+      ],
+      "theme_tags": [
+        "duty",
+        "power",
+        "freedom"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "work_and_ambition_025",
+      "category": "work_and_ambition",
+      "question": "You see someone less experienced negotiating harder for themselves. You think…",
+      "pills": [
+        "I should do that",
+        "They are overreaching",
+        "Nerve gets rewarded",
+        "I waited too long"
+      ],
+      "theme_tags": [
+        "envy",
+        "power",
+        "doubt"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "work_and_ambition_026",
+      "category": "work_and_ambition",
+      "question": "A prestigious opportunity appears, but the work itself sounds empty. You are pulled by…",
+      "pills": [
+        "The name value",
+        "The actual work",
+        "The future leverage",
+        "Fear of regret"
+      ],
+      "theme_tags": [
+        "desire",
+        "meaning",
+        "dilemma"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "work_and_ambition_027",
+      "category": "work_and_ambition",
+      "question": "You make a mistake at work and nobody notices. You usually…",
+      "pills": [
+        "Fix it quietly",
+        "Admit it upfront",
+        "Hope it disappears",
+        "Punish myself privately"
+      ],
+      "theme_tags": [
+        "guilt",
+        "duty",
+        "control"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading"
+      ]
+    },
+    {
+      "id": "work_and_ambition_028",
+      "category": "work_and_ambition",
+      "question": "In a meeting where everyone is performing confidence, your instinct is to…",
+      "pills": [
+        "Match the performance",
+        "Bring reality back",
+        "Stay silent and assess",
+        "Dislike the ritual"
+      ],
+      "theme_tags": [
+        "power",
+        "identity",
+        "dilemma"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading"
+      ]
+    },
+    {
+      "id": "work_and_ambition_029",
+      "category": "work_and_ambition",
+      "question": "If your career stopped advancing tomorrow but stayed comfortable, you would feel…",
+      "pills": [
+        "Quietly relieved",
+        "Deeply restless",
+        "Ashamed of settling",
+        "Ready to reinvent"
+      ],
+      "theme_tags": [
+        "desire",
+        "fear",
+        "identity"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "work_and_ambition_030",
+      "category": "work_and_ambition",
+      "question": "You realize your ambition is costing parts of life you value. You…",
+      "pills": [
+        "Accept the price",
+        "Renegotiate the price",
+        "Deny the tradeoff",
+        "Change the definition"
+      ],
+      "theme_tags": [
+        "freedom",
+        "desire",
+        "dilemma"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "money_001",
+      "category": "money",
+      "question": "A friend suggests an expensive dinner you can afford, but it feels wasteful. You…",
+      "pills": [
+        "Go and enjoy",
+        "Suggest simpler",
+        "Go but resent",
+        "Decline without explaining"
+      ],
+      "theme_tags": [
+        "freedom",
+        "guilt",
+        "dilemma"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading"
+      ]
+    },
+    {
+      "id": "money_002",
+      "category": "money",
+      "question": "You receive an unexpected bonus. Your first honest pull is to…",
+      "pills": [
+        "Save most",
+        "Upgrade something visible",
+        "Treat loved ones",
+        "Buy breathing room"
+      ],
+      "theme_tags": [
+        "fear",
+        "desire",
+        "duty"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "money_003",
+      "category": "money",
+      "question": "Someone close asks to borrow money again after not repaying last time. You…",
+      "pills": [
+        "Help anyway",
+        "Refuse clearly",
+        "Give less",
+        "Feel trapped and agree"
+      ],
+      "theme_tags": [
+        "guilt",
+        "duty",
+        "resentment"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "money_004",
+      "category": "money",
+      "question": "You see someone with a lifestyle far beyond yours. Your private reaction is…",
+      "pills": [
+        "I want that",
+        "Good for them",
+        "What is the catch",
+        "I feel behind"
+      ],
+      "theme_tags": [
+        "envy",
+        "desire",
+        "doubt"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "money_005",
+      "category": "money",
+      "question": "You are buying something expensive nobody else will notice. You feel…",
+      "pills": [
+        "Quietly satisfied",
+        "Slightly foolish",
+        "Deeply justified",
+        "Unsure until later"
+      ],
+      "theme_tags": [
+        "desire",
+        "doubt",
+        "identity"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading"
+      ]
+    },
+    {
+      "id": "money_006",
+      "category": "money",
+      "question": "You could spend more to save time, but the cheaper option is manageable. You usually…",
+      "pills": [
+        "Pay for time",
+        "Save the money",
+        "Overthink it",
+        "Choose comfort, feel guilty"
+      ],
+      "theme_tags": [
+        "freedom",
+        "guilt",
+        "control"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading"
+      ]
+    },
+    {
+      "id": "money_007",
+      "category": "money",
+      "question": "Someone gives you an expensive gift. Your first reaction is…",
+      "pills": [
+        "Touched and happy",
+        "Uncomfortable owing",
+        "Wonder what it means",
+        "Plan equal return"
+      ],
+      "theme_tags": [
+        "guilt",
+        "control",
+        "doubt"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading"
+      ]
+    },
+    {
+      "id": "money_008",
+      "category": "money",
+      "question": "You are invited to a weekend trip that stretches your budget. You…",
+      "pills": [
+        "Go for memory",
+        "Stay disciplined",
+        "Go and worry later",
+        "Decline, feel excluded"
+      ],
+      "theme_tags": [
+        "freedom",
+        "fear",
+        "loneliness"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "money_009",
+      "category": "money",
+      "question": "When you imagine having much more money, the biggest relief would be…",
+      "pills": [
+        "No daily worry",
+        "More choices",
+        "Helping family",
+        "Feeling respected"
+      ],
+      "theme_tags": [
+        "fear",
+        "freedom",
+        "duty"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "money_010",
+      "category": "money",
+      "question": "A purchase would make you look more successful than you feel. You are tempted by…",
+      "pills": [
+        "Confidence boost",
+        "Social signal",
+        "Private pleasure",
+        "Not tempted"
+      ],
+      "theme_tags": [
+        "identity",
+        "desire",
+        "power"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "money_011",
+      "category": "money",
+      "question": "You check your account after spending more than planned. You tend to…",
+      "pills": [
+        "Correct course fast",
+        "Avoid looking closely",
+        "Justify everything",
+        "Feel briefly ashamed"
+      ],
+      "theme_tags": [
+        "control",
+        "guilt",
+        "discipline"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading"
+      ]
+    },
+    {
+      "id": "money_012",
+      "category": "money",
+      "question": "A family member criticizes how you spend your money. Your instinct is to…",
+      "pills": [
+        "Defend choices",
+        "Feel judged",
+        "Ignore completely",
+        "Reconsider privately"
+      ],
+      "theme_tags": [
+        "parents",
+        "identity",
+        "doubt"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading"
+      ]
+    },
+    {
+      "id": "money_013",
+      "category": "money",
+      "question": "You could give to a cause you care about, but money feels tight. You…",
+      "pills": [
+        "Give something anyway",
+        "Wait until safer",
+        "Feel guilty and postpone",
+        "Help another way"
+      ],
+      "theme_tags": [
+        "guilt",
+        "duty",
+        "fear"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading"
+      ]
+    },
+    {
+      "id": "money_014",
+      "category": "money",
+      "question": "A higher-paying role seems less meaningful. You feel pulled toward…",
+      "pills": [
+        "The money",
+        "The meaning",
+        "Future safety",
+        "Cleaner conscience"
+      ],
+      "theme_tags": [
+        "meaning",
+        "desire",
+        "dilemma"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "money_015",
+      "category": "money",
+      "question": "A friend earns less and insists on splitting everything equally. You…",
+      "pills": [
+        "Accept without fuss",
+        "Offer to cover more",
+        "Feel awkward but agree",
+        "Avoid expensive plans"
+      ],
+      "theme_tags": [
+        "friendship",
+        "guilt",
+        "dilemma"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading"
+      ]
+    },
+    {
+      "id": "money_016",
+      "category": "money",
+      "question": "You pass something beautiful but overpriced that you genuinely want. You…",
+      "pills": [
+        "Buy it once",
+        "Walk away proud",
+        "Return three times",
+        "Buy, then regret"
+      ],
+      "theme_tags": [
+        "desire",
+        "discipline",
+        "doubt"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading"
+      ]
+    },
+    {
+      "id": "money_017",
+      "category": "money",
+      "question": "You hear someone bragging about money in a group. Your private response is…",
+      "pills": [
+        "I lose respect",
+        "I feel competitive",
+        "I feel smaller",
+        "I find it amusing"
+      ],
+      "theme_tags": [
+        "envy",
+        "power",
+        "identity"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading"
+      ]
+    },
+    {
+      "id": "money_018",
+      "category": "money",
+      "question": "You have enough saved, but not enough to feel truly safe. You tend to…",
+      "pills": [
+        "Keep tightening spending",
+        "Invest for growth",
+        "Enjoy life cautiously",
+        "Never feel safe"
+      ],
+      "theme_tags": [
+        "fear",
+        "control",
+        "freedom"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "money_019",
+      "category": "money",
+      "question": "Someone offers to pay for you, and they can easily afford it. You…",
+      "pills": [
+        "Accept with gratitude",
+        "Insist on paying",
+        "Feel indebted",
+        "Repay later"
+      ],
+      "theme_tags": [
+        "guilt",
+        "power",
+        "control"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading"
+      ]
+    },
+    {
+      "id": "money_020",
+      "category": "money",
+      "question": "You think about your childhood home and money. What feeling still lingers most?",
+      "pills": [
+        "Never enough",
+        "Money meant tension",
+        "We managed somehow",
+        "It shaped caution"
+      ],
+      "theme_tags": [
+        "parents",
+        "fear",
+        "identity"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "money_021",
+      "category": "money",
+      "question": "You could spend on a professional upgrade that may not pay off. You…",
+      "pills": [
+        "Bet on myself",
+        "Need clear returns",
+        "Delay until certain",
+        "Fear wasting money"
+      ],
+      "theme_tags": [
+        "desire",
+        "fear",
+        "control"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "money_022",
+      "category": "money",
+      "question": "A cheaper version works fine, but the better one feels like who you want to become. You…",
+      "pills": [
+        "Choose better",
+        "Stay practical",
+        "Buy status reluctantly",
+        "Question the desire"
+      ],
+      "theme_tags": [
+        "identity",
+        "desire",
+        "doubt"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "money_023",
+      "category": "money",
+      "question": "You notice you are more generous when others can see it. You feel…",
+      "pills": [
+        "Fine with that",
+        "Uncomfortable admitting it",
+        "Give privately next time",
+        "Mostly misunderstood"
+      ],
+      "theme_tags": [
+        "guilt",
+        "identity",
+        "power"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "money_024",
+      "category": "money",
+      "question": "You are deciding whether to pay for convenience you once considered unnecessary. You think…",
+      "pills": [
+        "I earned this",
+        "Waste starts here",
+        "My time is worth it",
+        "Stay humble"
+      ],
+      "theme_tags": [
+        "freedom",
+        "guilt",
+        "identity"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading"
+      ]
+    },
+    {
+      "id": "money_025",
+      "category": "money",
+      "question": "Someone you care about spends recklessly, then complains about money. You…",
+      "pills": [
+        "Offer practical help",
+        "Judge quietly",
+        "Avoid the topic",
+        "Say hard truth"
+      ],
+      "theme_tags": [
+        "duty",
+        "resentment",
+        "dilemma"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading"
+      ]
+    },
+    {
+      "id": "money_026",
+      "category": "money",
+      "question": "You imagine losing your income for a while. Your mind goes first to…",
+      "pills": [
+        "Protecting basics",
+        "How others see me",
+        "Who I could ask",
+        "How fast to recover"
+      ],
+      "theme_tags": [
+        "fear",
+        "identity",
+        "control"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "money_027",
+      "category": "money",
+      "question": "There is one category of spending you almost never regret. It is usually…",
+      "pills": [
+        "Experiences with people",
+        "Tools improving life",
+        "Beauty I live with",
+        "Security for later"
+      ],
+      "theme_tags": [
+        "meaning",
+        "friendship",
+        "freedom"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "money_028",
+      "category": "money",
+      "question": "There is one category of spending you almost always resist. It is usually…",
+      "pills": [
+        "Showing off",
+        "Short-lived pleasure",
+        "Fixing others' problems",
+        "Buying my way out"
+      ],
+      "theme_tags": [
+        "discipline",
+        "duty",
+        "doubt"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "money_029",
+      "category": "money",
+      "question": "You realize a purchase was mostly about proving something. Your reaction is…",
+      "pills": [
+        "Keep it anyway",
+        "Return it quickly",
+        "Feel exposed",
+        "Learn and move on"
+      ],
+      "theme_tags": [
+        "identity",
+        "guilt",
+        "doubt"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "money_030",
+      "category": "money",
+      "question": "If you had to choose, money should mainly buy you…",
+      "pills": [
+        "Safety from worry",
+        "Freedom of movement",
+        "Respect from others",
+        "Room for generosity"
+      ],
+      "theme_tags": [
+        "fear",
+        "freedom",
+        "desire"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    }
+  ]
+}

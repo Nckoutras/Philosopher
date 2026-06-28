@@ -65,17 +65,37 @@ async def set_profile(
     profile: dict,
     db: AsyncSession,
 ) -> UserPreference | None:
-    """Update only the `profile` JSONB on the user's preferences row.
+    """Shallow-MERGE the given keys into the user's `profile` JSONB (not a clobber).
+
+    The profile JSONB holds several independently-written sections — the onboarding
+    pills (`values`, `disagreement_style`) and the Self-Portrait quiz (`answers`).
+    A full overwrite here would let one writer wipe another's section (editing the
+    onboarding pills would erase quiz answers, and vice-versa). So we read the
+    existing profile and write {**existing, **incoming}: only the top-level keys the
+    caller actually passed are replaced; every other section is preserved. Callers
+    that need to extend a nested dict (e.g. one quiz answer) merge that sub-dict
+    themselves and pass the merged result in `profile`.
+
+    Read-modify-write (not an atomic SQL `||`) per the locked design: profile writes
+    are driven by a single client editing its own preferences, so concurrent writes
+    to the same row do not occur in practice. Revisit if that assumption changes.
 
     Update-only (not an insert): the onboarding flow reaches the profile step after
-    the `need` step has already created the row, and the standalone editor is only
-    reachable post-onboarding — so the row always exists. Returns None if it does
-    not, letting the caller surface a clean 404 rather than fabricating a need_most.
+    the `need` step has already created the row, and both editors are only reachable
+    post-onboarding — so the row always exists. Returns None if it does not, letting
+    the caller surface a clean 404 rather than fabricating a need_most.
     """
+    existing = (await db.execute(
+        select(UserPreference).where(UserPreference.user_id == user_id)
+    )).scalar_one_or_none()
+    if existing is None:
+        return None
+
+    merged = {**(existing.profile or {}), **profile}
     result = await db.execute(
         update(UserPreference)
         .where(UserPreference.user_id == user_id)
-        .values(profile=profile, updated_at=func.now())
+        .values(profile=merged, updated_at=func.now())
         .returning(UserPreference)
     )
     return result.scalar_one_or_none()

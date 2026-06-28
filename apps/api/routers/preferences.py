@@ -12,6 +12,7 @@ from schemas import (
     MatchOut,
     ProfileIn,
     ProfileReflectionOut,
+    SelfPortraitAnswerIn,
 )
 from services.preferences_service import (
     get_user_preferences,
@@ -21,6 +22,7 @@ from services.preferences_service import (
 from services.matching_service import compute_matches
 from services.profile_text import profile_to_statements
 from services.self_comparison_service import self_comparison_service
+from services.self_portrait import get_question
 
 logger = logging.getLogger(__name__)
 
@@ -96,6 +98,55 @@ async def profile_reflection(
     statements = profile_to_statements(prefs.profile if prefs else None)
     bullets = await self_comparison_service.forming_reflection(statements)
     return ProfileReflectionOut(bullets=bullets)
+
+
+@router.patch("/self-portrait", response_model=PreferenceOut)
+async def update_self_portrait(
+    body: SelfPortraitAnswerIn,
+    request: Request,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Persist one Self-Portrait quiz answer and (async) seed it into memory.
+
+    Validates the answer against the question bank, MERGES it into profile.answers
+    (preserving the onboarding pills and every other already-answered question), then
+    enqueues an incremental, embedded memory seed for just this question. The answer
+    reaches chat via memory recall and the Sunday/season letters — never the turn-1
+    <what_we_know> block."""
+    question = get_question(body.question_id)
+    if question is None:
+        raise HTTPException(status_code=400, detail="Unknown question_id.")
+    pills = question.get("pills") or []
+    if not (0 <= body.pill_index < len(pills)):
+        raise HTTPException(status_code=400, detail="pill_index out of range for this question.")
+
+    prefs = await get_user_preferences(user_id=user.id, db=db)
+    if prefs is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Complete the questionnaire first.",
+        )
+
+    # Merge this one answer into the existing answers sub-dict, then let set_profile
+    # shallow-merge {answers: ...} into the profile (preserving values / disagreement).
+    answers = {**((prefs.profile or {}).get("answers") or {}), body.question_id: body.pill_index}
+    record = await set_profile(user_id=user.id, profile={"answers": answers}, db=db)
+    if record is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Complete the questionnaire first.",
+        )
+
+    # Incremental seed off the request path (fire-and-forget); one embed per tap.
+    q = getattr(request.app.state, "arq_queue", None)
+    if q is not None:
+        try:
+            await q.enqueue_job("seed_self_portrait_memory_task", str(user.id), body.question_id)
+        except Exception as e:
+            logger.warning(f"Failed to enqueue self-portrait memory seed: {e}")
+
+    return record
 
 
 @router.get(

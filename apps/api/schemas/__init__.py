@@ -355,6 +355,14 @@ class ProfileReflectionOut(BaseModel):
     bullets: list[str]
 
 
+class SelfPortraitAnswerIn(BaseModel):
+    """One Self-Portrait quiz answer: a question id + the index of the chosen pill.
+    Existence of the id and the pill_index range are validated against the question
+    bank in the router (a bad value → 400), not here."""
+    question_id: str = Field(min_length=1)
+    pill_index: int = Field(ge=0)
+
+
 # ── Matches ───────────────────────────────────────────────────────────────────
 
 class MatchOut(BaseModel):
