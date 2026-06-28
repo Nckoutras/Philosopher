@@ -61,6 +61,7 @@ function ImageTile({
         src={src}
         alt=""
         fill
+        priority
         sizes="(max-width: 768px) 50vw, 200px"
         className="object-cover"
       />
