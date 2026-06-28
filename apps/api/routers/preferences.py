@@ -3,7 +3,7 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from auth import get_current_user
+from auth import get_current_user, get_current_user_plan
 from db.session import get_db
 from models import User
 from schemas import (
@@ -13,6 +13,7 @@ from schemas import (
     ProfileIn,
     ProfileReflectionOut,
     SelfPortraitAnswerIn,
+    SelfPortraitOut,
 )
 from services.preferences_service import (
     get_user_preferences,
@@ -22,7 +23,12 @@ from services.preferences_service import (
 from services.matching_service import compute_matches
 from services.profile_text import profile_to_statements
 from services.self_comparison_service import self_comparison_service
-from services.self_portrait import get_question
+from services.self_portrait import (
+    get_question,
+    is_free_question,
+    total_question_count,
+    visible_questions,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -100,11 +106,39 @@ async def profile_reflection(
     return ProfileReflectionOut(bullets=bullets)
 
 
+@router.get("/self-portrait", response_model=SelfPortraitOut)
+async def read_self_portrait(
+    auth: tuple = Depends(get_current_user_plan),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return the Self-Portrait questions this tier may see, the user's stored answers
+    (filtered to the visible set), the tier flag, and the Pro-locked count.
+
+    A fresh user with no preferences row still sees the questions (answers {}) — we do
+    NOT 404 here; the quiz is reachable before the onboarding questionnaire is done."""
+    user, plan = auth
+    is_pro = plan in ("pro", "premium")
+    qs = visible_questions(is_pro)
+
+    prefs = await get_user_preferences(user_id=user.id, db=db)
+    stored = ((prefs.profile if prefs else None) or {}).get("answers") or {}
+    visible_ids = {q["id"] for q in qs}
+    answers = {k: v for k, v in stored.items() if k in visible_ids}
+    locked_count = 0 if is_pro else (total_question_count() - len(qs))
+
+    return SelfPortraitOut(
+        questions=qs,
+        answers=answers,
+        is_pro=is_pro,
+        locked_count=locked_count,
+    )
+
+
 @router.patch("/self-portrait", response_model=PreferenceOut)
 async def update_self_portrait(
     body: SelfPortraitAnswerIn,
     request: Request,
-    user: User = Depends(get_current_user),
+    auth: tuple = Depends(get_current_user_plan),
     db: AsyncSession = Depends(get_db),
 ):
     """Persist one Self-Portrait quiz answer and (async) seed it into memory.
@@ -114,12 +148,16 @@ async def update_self_portrait(
     enqueues an incremental, embedded memory seed for just this question. The answer
     reaches chat via memory recall and the Sunday/season letters — never the turn-1
     <what_we_know> block."""
+    user, plan = auth
     question = get_question(body.question_id)
     if question is None:
         raise HTTPException(status_code=400, detail="Unknown question_id.")
     pills = question.get("pills") or []
     if not (0 <= body.pill_index < len(pills)):
         raise HTTPException(status_code=400, detail="pill_index out of range for this question.")
+
+    if plan not in ("pro", "premium") and not is_free_question(body.question_id):
+        raise HTTPException(status_code=403, detail="This question is part of Pro.")
 
     prefs = await get_user_preferences(user_id=user.id, db=db)
     if prefs is None:

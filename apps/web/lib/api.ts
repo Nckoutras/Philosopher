@@ -607,6 +607,19 @@ class ApiClient {
     })
   }
 
+  // ── Self-Portrait ───────────────────────────────────────────────────────────
+
+  async getSelfPortrait(): Promise<SelfPortraitData> {
+    return this.request<SelfPortraitData>('/preferences/self-portrait', { method: 'GET' })
+  }
+
+  async updateSelfPortrait(questionId: string, pillIndex: number): Promise<PreferenceOut> {
+    return this.request<PreferenceOut>('/preferences/self-portrait', {
+      method: 'PATCH',
+      body: JSON.stringify({ question_id: questionId, pill_index: pillIndex }),
+    })
+  }
+
   async getSelfComparisonStatus(): Promise<SelfComparisonStatus> {
     return this.request<SelfComparisonStatus>('/self-comparison/status')
   }
@@ -1207,6 +1220,20 @@ export interface PreferenceOut {
 
 export interface ProfileReflectionOut {
   bullets: string[]
+}
+
+export interface SelfPortraitQuestion {
+  id: string
+  category: string
+  question: string
+  pills: string[]
+}
+
+export interface SelfPortraitData {
+  questions: SelfPortraitQuestion[]
+  answers: Record<string, number>
+  is_pro: boolean
+  locked_count: number
 }
 
 export interface Match {

@@ -363,6 +363,25 @@ class SelfPortraitAnswerIn(BaseModel):
     pill_index: int = Field(ge=0)
 
 
+class SelfPortraitQuestionOut(BaseModel):
+    """One Self-Portrait question in its PUBLIC shape — the internal theme_tags and
+    feeds are stripped server-side (see services.self_portrait.visible_questions)."""
+    id: str
+    category: str
+    question: str
+    pills: list[str]
+
+
+class SelfPortraitOut(BaseModel):
+    """GET /preferences/self-portrait payload: the questions this tier may see, the
+    user's stored answers (filtered to the visible set), the tier flag, and how many
+    questions remain locked behind Pro (0 for Pro)."""
+    questions: list[SelfPortraitQuestionOut]
+    answers: dict[str, int]
+    is_pro: bool
+    locked_count: int
+
+
 # ── Matches ───────────────────────────────────────────────────────────────────
 
 class MatchOut(BaseModel):

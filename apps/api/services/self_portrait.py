@@ -78,6 +78,90 @@ def get_question(question_id: str) -> dict | None:
     return _BANK.get(question_id)
 
 
+def total_question_count() -> int:
+    """Total number of questions in the bank (used to compute the Pro-locked count
+    for the free tier without reaching into the private _BANK from outside)."""
+    return len(_BANK)
+
+
+# ── Free-tier gating ──────────────────────────────────────────────────────────
+#
+# The free tier sees a fixed, DETERMINISTIC slice of the bank; Pro sees everything.
+# The slice is computed once at import (the bank is immutable at runtime) so every
+# request and worker agrees on exactly which ids are free — the PATCH gate and the
+# GET visibility filter must never disagree.
+
+FREE_QUESTION_LIMIT = 15
+
+
+def _compute_free_question_ids() -> frozenset[str]:
+    """Deterministic interleave: group the bank by category (categories sorted;
+    questions sorted by id within each), then round-robin across categories taking
+    one each until FREE_QUESTION_LIMIT ids are collected. Round-robin (rather than
+    first-N-by-id) keeps the free slice spread across life areas instead of front-
+    loading whichever category sorts first. Stable for a given bank → frozen once."""
+    by_category: dict[str, list[str]] = {}
+    for qid, q in _BANK.items():
+        by_category.setdefault(q.get("category", ""), []).append(qid)
+    for ids in by_category.values():
+        ids.sort()
+
+    ordered_categories = sorted(by_category)
+    chosen: list[str] = []
+    round_idx = 0
+    # Stop once we've collected the limit OR no category has anything left to give.
+    while len(chosen) < FREE_QUESTION_LIMIT:
+        progressed = False
+        for cat in ordered_categories:
+            ids = by_category[cat]
+            if round_idx < len(ids):
+                chosen.append(ids[round_idx])
+                progressed = True
+                if len(chosen) >= FREE_QUESTION_LIMIT:
+                    break
+        if not progressed:
+            break
+        round_idx += 1
+    return frozenset(chosen)
+
+
+_FREE_QUESTION_IDS: frozenset[str] = _compute_free_question_ids()
+
+
+def free_question_ids() -> frozenset[str]:
+    """The fixed set of question ids visible to the free tier (cached at import)."""
+    return _FREE_QUESTION_IDS
+
+
+def is_free_question(question_id: str) -> bool:
+    """True iff this question is part of the free tier's visible slice."""
+    return question_id in _FREE_QUESTION_IDS
+
+
+def _public_question(q: dict) -> dict:
+    """Project a bank question to its PUBLIC shape — {id, category, question, pills}.
+    Strips the internal `theme_tags` and `feeds` (matching/seeding routing detail
+    that must never leave the API)."""
+    return {
+        "id": q["id"],
+        "category": q["category"],
+        "question": q["question"],
+        "pills": list(q.get("pills") or []),
+    }
+
+
+def visible_questions(is_pro: bool) -> list[dict]:
+    """Questions the given tier may see, in a stable order (category sorted, then id):
+    Pro → all questions; free → only the free slice. Returns the PUBLIC shape only."""
+    out = [
+        _public_question(q)
+        for q in _BANK.values()
+        if is_pro or is_free_question(q["id"])
+    ]
+    out.sort(key=lambda q: (q["category"], q["id"]))
+    return out
+
+
 def question_key(question_id: str) -> int:
     """Deterministic per-question key for self_portrait memory dedup.
 
