@@ -288,7 +288,7 @@ async def seed_profile_memory_task(ctx, user_id: str):
             logger.error(f"Profile memory seed failed: {e}", exc_info=True)
 
 
-async def seed_self_portrait_memory_task(ctx, user_id: str, question_id: str):
+async def seed_self_portrait_memory_task(ctx, user_id: str, question_id: str, previous_index: int | None = None):
     """Seed/refresh ONE embedded memory_entry for a single Self-Portrait answer, so
     persona recall and the Sunday/season letters pick it up. Mirrors
     seed_profile_memory_task's atomicity but is INCREMENTAL — only this question's row
@@ -299,12 +299,17 @@ async def seed_self_portrait_memory_task(ctx, user_id: str, question_id: str):
     `question_key` for the full rationale and why it is safe (no read path interprets
     source_turn for these rows). Re-answering deactivates this question's prior row in
     the SAME transaction as the new insert; a failed embed rolls both back. Never
-    raises."""
+    raises.
+
+    When `previous_index` is supplied and differs from the new answer, ALSO seed/refresh
+    a single self_portrait_shift row (latest movement per question only) describing the
+    re-answer — surfaced in the You-vs-You closing + chat recall, never as a windowed
+    signal. Standing row + shift row share one commit."""
     from db.session import AsyncSessionLocal
     from models import MemoryEntry, UserPreference
     from sqlalchemy import select, update
     from services.embedding_client import embedding_client
-    from services.self_portrait import answer_statement, question_key
+    from services.self_portrait import answer_statement, question_key, shift_statement
 
     async with AsyncSessionLocal() as db:
         try:
@@ -340,7 +345,37 @@ async def seed_self_portrait_memory_task(ctx, user_id: str, question_id: str):
                 confidence=0.8,  # self-reported; same notch below stated-1.0 as onboarding
                 source_turn=qkey,  # per-question dedup key (overload — see question_key)
             ))
-            await db.commit()
+
+            # Edit-as-change: if this was a re-answer, seed/refresh the latest movement.
+            current_index = answers[question_id]
+            if previous_index is not None and previous_index != current_index:
+                shift = shift_statement(question_id, previous_index, current_index)
+                if shift:
+                    # Latest movement per question only (bounded); full history still
+                    # lives in the deactivated self_portrait rows above.
+                    await db.execute(
+                        update(MemoryEntry)
+                        .where(
+                            MemoryEntry.user_id == user_id,
+                            MemoryEntry.entry_type == "self_portrait_shift",
+                            MemoryEntry.source_turn == qkey,
+                            MemoryEntry.is_active == True,
+                        )
+                        .values(is_active=False)
+                    )
+                    shift_emb = await embedding_client.embed(shift)
+                    db.add(MemoryEntry(
+                        user_id=user_id,
+                        persona_id=None,
+                        conversation_id=None,
+                        entry_type="self_portrait_shift",
+                        content=shift,
+                        embedding=shift_emb,
+                        confidence=0.8,
+                        source_turn=qkey,
+                    ))
+
+            await db.commit()  # one commit covers standing + shift
             logger.info("Self-portrait memory seeded for user=%s question=%s", user_id, question_id)
         except Exception as e:
             await db.rollback()

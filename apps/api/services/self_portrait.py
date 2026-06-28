@@ -193,6 +193,23 @@ def answer_statement(question_id: str, pill_index: int) -> str | None:
     return f"Asked “{q['question']}”, they answered: {pills[pill_index]}."
 
 
+def shift_statement(question_id: str, old_index: int, new_index: int) -> str | None:
+    """Resolve a re-answer into a short, content-agnostic movement statement (third
+    person, matching answer_statement's voice). Returns None if the question is unknown
+    or either index is out of the pills range — so callers seed nothing rather than a
+    malformed row. Templated from the question + the two chosen pill labels only."""
+    q = get_question(question_id)
+    if q is None:
+        return None
+    pills = q.get("pills") or []
+    if not (0 <= old_index < len(pills)) or not (0 <= new_index < len(pills)):
+        return None
+    return (
+        f"On the question “{q['question']}”, they used to answer "
+        f"“{pills[old_index]}” and now answer “{pills[new_index]}”."
+    )
+
+
 def answers_to_statements(answers: dict, *, limit: int = MAX_LETTER_STATEMENTS) -> list[str]:
     """Map a profile.answers dict ({question_id: pill_index}) to self-statements.
 

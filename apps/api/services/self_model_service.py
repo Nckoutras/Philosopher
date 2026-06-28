@@ -33,6 +33,10 @@ class SelfModelService:
                 # pollute the contrast nor falsely unlock You-vs-You. It is reinjected
                 # as a stable self-knowledge block in PR-1b.
                 MemoryEntry.entry_type != "self_portrait",
+                # self_portrait_shift rows are surfaced in the YvY closing + chat recall,
+                # never as windowed signals — keep them out of the then/now windows AND the
+                # unlock gate, same reasoning as self_portrait above.
+                MemoryEntry.entry_type != "self_portrait_shift",
             )
             .order_by(MemoryEntry.created_at.asc())
         )

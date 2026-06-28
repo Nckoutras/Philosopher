@@ -168,7 +168,10 @@ async def update_self_portrait(
 
     # Merge this one answer into the existing answers sub-dict, then let set_profile
     # shallow-merge {answers: ...} into the profile (preserving values / disagreement).
-    answers = {**((prefs.profile or {}).get("answers") or {}), body.question_id: body.pill_index}
+    # Capture the prior answer FIRST so the seed task can detect a re-answer (edit-as-change).
+    existing_answers = (prefs.profile or {}).get("answers") or {}
+    old_index = existing_answers.get(body.question_id)
+    answers = {**existing_answers, body.question_id: body.pill_index}
     record = await set_profile(user_id=user.id, profile={"answers": answers}, db=db)
     if record is None:
         raise HTTPException(
@@ -180,7 +183,7 @@ async def update_self_portrait(
     q = getattr(request.app.state, "arq_queue", None)
     if q is not None:
         try:
-            await q.enqueue_job("seed_self_portrait_memory_task", str(user.id), body.question_id)
+            await q.enqueue_job("seed_self_portrait_memory_task", str(user.id), body.question_id, old_index)
         except Exception as e:
             logger.warning(f"Failed to enqueue self-portrait memory seed: {e}")
 
