@@ -58,6 +58,11 @@ export default function ChatPage() {
     if (!lastUserMessage.trim()) return
     sessionStorage.setItem('council_prefill', lastUserMessage.slice(0, 600))
     sessionStorage.setItem('council_source', 'chat')
+    // Seed the conversation id only when it exists (null until first send); the
+    // council then distils the exchange. Absent → backend falls back to raw matter.
+    if (activeConversationId) {
+      sessionStorage.setItem('council_conversation_id', activeConversationId)
+    }
     router.push('/app/council')
   }
 

@@ -125,6 +125,7 @@ export default function ExistingConversationPage() {
     if (!lastUserMessage.trim()) return
     sessionStorage.setItem('council_prefill', lastUserMessage.slice(0, 600))
     sessionStorage.setItem('council_source', 'chat')
+    sessionStorage.setItem('council_conversation_id', params.id)
     router.push('/app/council')
   }
 

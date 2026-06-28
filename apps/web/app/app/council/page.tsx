@@ -95,6 +95,7 @@ export default function CouncilPage() {
   const [matter, setMatter] = useState('')
   const [source, setSource] = useState('direct')
   const [mirrorId, setMirrorId] = useState<string | null>(null)
+  const [conversationId, setConversationId] = useState<string | null>(null)
   const [phase, setPhase] = useState<VisualPhase>({ kind: 'idle' })
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
@@ -150,12 +151,15 @@ export default function CouncilPage() {
     const prefill = sessionStorage.getItem('council_prefill') ?? ''
     const src = sessionStorage.getItem('council_source') ?? 'direct'
     const mid = sessionStorage.getItem('council_mirror_id') ?? null
+    const cid = sessionStorage.getItem('council_conversation_id') ?? null
     sessionStorage.removeItem('council_prefill')
     sessionStorage.removeItem('council_source')
     sessionStorage.removeItem('council_mirror_id')
+    sessionStorage.removeItem('council_conversation_id')
     if (prefill) setMatter(prefill)
     setSource(src)
     setMirrorId(mid)
+    setConversationId(cid)
 
     return () => {
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current)
@@ -432,6 +436,7 @@ export default function CouncilPage() {
         matter: matter.trim(),
         source,
         mirror_id: mirrorId,
+        conversation_id: conversationId,
       })
 
       const reader = res.body!.getReader()
