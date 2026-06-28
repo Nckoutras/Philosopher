@@ -1,11 +1,21 @@
 {
   "schema_version": 1,
-  "note": "Clean initial bank: 2 verified categories. Remaining 10 categories to be regenerated (pills/tags) before import.",
+  "note": "Full Self-Portrait bank: 12 categories. work_and_ambition + money (original); family, relationships, friendship, fear, meaning, identity, conflict, solitude, desire, mortality (added).",
   "categories": [
+    "conflict",
+    "desire",
+    "family",
+    "fear",
+    "friendship",
+    "identity",
+    "meaning",
     "money",
+    "mortality",
+    "relationships",
+    "solitude",
     "work_and_ambition"
   ],
-  "count": 60,
+  "count": 360,
   "questions": [
     {
       "id": "work_and_ambition_001",
@@ -1238,6 +1248,6299 @@
         "fear",
         "freedom",
         "desire"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "family_001",
+      "category": "family",
+      "question": "A parent calls just as your life is finally going well. Your first feeling is…",
+      "pills": [
+        "Glad to share it",
+        "Bracing for judgment",
+        "Guilty I'm distant",
+        "Wary of the ask"
+      ],
+      "theme_tags": [
+        "parents",
+        "guilt",
+        "duty"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "family_002",
+      "category": "family",
+      "question": "You catch yourself reacting to someone exactly the way a parent did. You…",
+      "pills": [
+        "Notice and correct it",
+        "Deny the likeness",
+        "Feel quietly ashamed",
+        "Accept it as me"
+      ],
+      "theme_tags": [
+        "parents",
+        "identity",
+        "doubt"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "family_003",
+      "category": "family",
+      "question": "An aging parent needs more from you than you can easily give. You…",
+      "pills": [
+        "Step up fully",
+        "Set hard limits",
+        "Resent then comply",
+        "Share the load"
+      ],
+      "theme_tags": [
+        "parents",
+        "duty",
+        "aging"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "family_004",
+      "category": "family",
+      "question": "You think about something your family never gave you. What surfaces most?",
+      "pills": [
+        "A quiet grief",
+        "Drive to provide it myself",
+        "Blame that still lingers",
+        "I've made my peace"
+      ],
+      "theme_tags": [
+        "parents",
+        "grief",
+        "resentment"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "family_005",
+      "category": "family",
+      "question": "A sibling still seems to be the favorite. You…",
+      "pills": [
+        "Compete for standing",
+        "Withdraw from it",
+        "Name it openly",
+        "Pretend not to care"
+      ],
+      "theme_tags": [
+        "parents",
+        "envy",
+        "resentment"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "family_006",
+      "category": "family",
+      "question": "You're about to repeat a family pattern you swore you'd break. You…",
+      "pills": [
+        "Catch and stop it",
+        "Slide into it anyway",
+        "Hate that I see it",
+        "Forgive myself for it"
+      ],
+      "theme_tags": [
+        "parents",
+        "identity",
+        "control"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "family_007",
+      "category": "family",
+      "question": "A parent disapproves of a choice you're sure about. You…",
+      "pills": [
+        "Hold your ground",
+        "Still seek their blessing",
+        "Hide the choice",
+        "Argue to convince them"
+      ],
+      "theme_tags": [
+        "parents",
+        "freedom",
+        "doubt"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "family_008",
+      "category": "family",
+      "question": "Back in your childhood home, you slip into a younger self. You feel…",
+      "pills": [
+        "Comforted by it",
+        "Trapped by it",
+        "Embarrassed by it",
+        "Curious about it"
+      ],
+      "theme_tags": [
+        "parents",
+        "identity",
+        "freedom"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading"
+      ]
+    },
+    {
+      "id": "family_009",
+      "category": "family",
+      "question": "You're asked to forgive a family member who hasn't changed. You…",
+      "pills": [
+        "Forgive for my own sake",
+        "Refuse without change",
+        "Fake the peace",
+        "Keep distance, no drama"
+      ],
+      "theme_tags": [
+        "resentment",
+        "duty",
+        "dilemma"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "family_010",
+      "category": "family",
+      "question": "You realize you've sought a parent's approval your whole life. You…",
+      "pills": [
+        "Keep chasing it",
+        "Grieve and release it",
+        "Deny it still matters",
+        "Redirect it inward"
+      ],
+      "theme_tags": [
+        "parents",
+        "desire",
+        "identity"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "family_011",
+      "category": "family",
+      "question": "A family obligation collides with something you need for yourself. You…",
+      "pills": [
+        "Honor the obligation",
+        "Choose myself",
+        "Split the difference",
+        "Resent whichever I drop"
+      ],
+      "theme_tags": [
+        "duty",
+        "freedom",
+        "dilemma"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "family_012",
+      "category": "family",
+      "question": "Your parents are aging and time feels short. Your mind goes to…",
+      "pills": [
+        "Making memories now",
+        "Unfinished conversations",
+        "Practical arrangements",
+        "Avoiding the thought"
+      ],
+      "theme_tags": [
+        "parents",
+        "aging",
+        "death"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "family_013",
+      "category": "family",
+      "question": "You hold a belief your family raised you to reject. You…",
+      "pills": [
+        "State your own view",
+        "Stay quiet to keep peace",
+        "Feel like a traitor",
+        "Hold both uneasily"
+      ],
+      "theme_tags": [
+        "identity",
+        "freedom",
+        "guilt"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "family_014",
+      "category": "family",
+      "question": "A parent's old criticism still plays in your head. You…",
+      "pills": [
+        "Answer it back now",
+        "Still half-believe it",
+        "Work to outgrow it",
+        "Use it as fuel"
+      ],
+      "theme_tags": [
+        "parents",
+        "doubt",
+        "identity"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "family_015",
+      "category": "family",
+      "question": "You imagine your family speaking about you, years from now. You'd most want…",
+      "pills": [
+        "That I was there",
+        "That I stayed true",
+        "That I broke the cycle",
+        "That I was kind"
+      ],
+      "theme_tags": [
+        "death",
+        "meaning",
+        "identity"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "family_016",
+      "category": "family",
+      "question": "A parent shares a hardship they hid for years. You…",
+      "pills": [
+        "Feel newly close",
+        "Feel burdened by it",
+        "Wish I'd known sooner",
+        "Stay guarded still"
+      ],
+      "theme_tags": [
+        "parents",
+        "duty",
+        "identity"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "family_017",
+      "category": "family",
+      "question": "You give your family the version of your life they can accept. You…",
+      "pills": [
+        "Keep the peace",
+        "Resent the editing",
+        "Slowly tell more truth",
+        "Feel unseen by them"
+      ],
+      "theme_tags": [
+        "parents",
+        "identity",
+        "resentment"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "family_018",
+      "category": "family",
+      "question": "A parent's health declines and the roles reverse. You…",
+      "pills": [
+        "Take charge calmly",
+        "Feel the ground shift",
+        "Avoid the reality",
+        "Grow closer through it"
+      ],
+      "theme_tags": [
+        "parents",
+        "aging",
+        "death"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "family_019",
+      "category": "family",
+      "question": "You're nothing like your family and never were. You feel…",
+      "pills": [
+        "Free and apart",
+        "Quietly lonely",
+        "Proud of the difference",
+        "Still longing to belong"
+      ],
+      "theme_tags": [
+        "parents",
+        "identity",
+        "loneliness"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "family_020",
+      "category": "family",
+      "question": "A family member crosses a line, again. You…",
+      "pills": [
+        "Set a firm boundary",
+        "Let it slide once more",
+        "Cut contact",
+        "Explode then regret"
+      ],
+      "theme_tags": [
+        "parents",
+        "resentment",
+        "control"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "family_021",
+      "category": "family",
+      "question": "You're becoming your parent in ways you feared. You…",
+      "pills": [
+        "Make peace with it",
+        "Fight it daily",
+        "Mine it for what's good",
+        "Pretend it isn't so"
+      ],
+      "theme_tags": [
+        "parents",
+        "identity",
+        "fear"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "family_022",
+      "category": "family",
+      "question": "A holiday with family approaches. Your body feels…",
+      "pills": [
+        "Warm anticipation",
+        "Low dread",
+        "Braced for old roles",
+        "Numb obligation"
+      ],
+      "theme_tags": [
+        "parents",
+        "duty",
+        "resentment"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading"
+      ]
+    },
+    {
+      "id": "family_023",
+      "category": "family",
+      "question": "You could tell a parent how they hurt you. You…",
+      "pills": [
+        "Say it plainly",
+        "Protect them from it",
+        "Wait for the right time",
+        "Carry it silently"
+      ],
+      "theme_tags": [
+        "parents",
+        "duty",
+        "dilemma"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "family_024",
+      "category": "family",
+      "question": "Your family's expectations shaped a path you didn't choose. You…",
+      "pills": [
+        "Reclaim my own way",
+        "Stay the chosen course",
+        "Resent the steering",
+        "Blend both quietly"
+      ],
+      "theme_tags": [
+        "parents",
+        "freedom",
+        "resentment"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "family_025",
+      "category": "family",
+      "question": "A parent ages and you notice their fear. You…",
+      "pills": [
+        "Reassure them gently",
+        "Feel my own fear rise",
+        "Look away from it",
+        "Grow tender toward them"
+      ],
+      "theme_tags": [
+        "parents",
+        "aging",
+        "death"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "family_026",
+      "category": "family",
+      "question": "You owe your family more than you can repay. You feel…",
+      "pills": [
+        "Grateful and bound",
+        "Quietly trapped",
+        "Eager to give back",
+        "Resentful of the debt"
+      ],
+      "theme_tags": [
+        "parents",
+        "duty",
+        "guilt"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "family_027",
+      "category": "family",
+      "question": "An old family wound never got named. You…",
+      "pills": [
+        "Name it now",
+        "Let it stay buried",
+        "Grieve it alone",
+        "Forgive without words"
+      ],
+      "theme_tags": [
+        "parents",
+        "grief",
+        "resentment"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "family_028",
+      "category": "family",
+      "question": "Your parent loves you in a language you don't speak. You…",
+      "pills": [
+        "Translate it generously",
+        "Feel the gap",
+        "Teach them mine",
+        "Accept it as it is"
+      ],
+      "theme_tags": [
+        "parents",
+        "loneliness",
+        "duty"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "family_029",
+      "category": "family",
+      "question": "You imagine raising a child unlike how you were raised. You'd most protect…",
+      "pills": [
+        "Their freedom to choose",
+        "Their sense of safety",
+        "Their being truly seen",
+        "Their right to fail"
+      ],
+      "theme_tags": [
+        "parents",
+        "identity",
+        "freedom"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "family_030",
+      "category": "family",
+      "question": "Standing at a parent's door after long silence. You…",
+      "pills": [
+        "Knock and mean it",
+        "Hesitate, then leave",
+        "Knock out of duty",
+        "Wish it were easier"
+      ],
+      "theme_tags": [
+        "parents",
+        "duty",
+        "dilemma"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "relationships_001",
+      "category": "relationships",
+      "question": "Someone gets close enough to really see you. You…",
+      "pills": [
+        "Let them in",
+        "Pull back instinctively",
+        "Test them first",
+        "Show a curated self"
+      ],
+      "theme_tags": [
+        "fear",
+        "identity",
+        "loneliness"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "relationships_002",
+      "category": "relationships",
+      "question": "A partner asks for more closeness than you're giving. You…",
+      "pills": [
+        "Lean in",
+        "Feel crowded",
+        "Promise then retreat",
+        "Name your limit"
+      ],
+      "theme_tags": [
+        "fear",
+        "freedom",
+        "desire"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "relationships_003",
+      "category": "relationships",
+      "question": "You're more invested than the other person. You…",
+      "pills": [
+        "Match their pace",
+        "Pull back to protect myself",
+        "Pursue harder",
+        "Pretend I care less"
+      ],
+      "theme_tags": [
+        "desire",
+        "doubt",
+        "control"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "relationships_004",
+      "category": "relationships",
+      "question": "Conflict arrives in a close relationship. Your reflex is to…",
+      "pills": [
+        "Talk it through",
+        "Go cold and quiet",
+        "Win the argument",
+        "Smooth it over fast"
+      ],
+      "theme_tags": [
+        "power",
+        "control",
+        "fear"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "relationships_005",
+      "category": "relationships",
+      "question": "Someone you love disappoints you quietly. You…",
+      "pills": [
+        "Say what hurt",
+        "Withdraw affection",
+        "Lower my expectations",
+        "Excuse it for them"
+      ],
+      "theme_tags": [
+        "resentment",
+        "doubt",
+        "duty"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "relationships_006",
+      "category": "relationships",
+      "question": "You sense a relationship is ending before it's said. You…",
+      "pills": [
+        "Name it first",
+        "Cling tighter",
+        "Detach early",
+        "Wait and hope"
+      ],
+      "theme_tags": [
+        "fear",
+        "grief",
+        "control"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "relationships_007",
+      "category": "relationships",
+      "question": "Being truly known feels…",
+      "pills": [
+        "Like home",
+        "Like exposure",
+        "Worth the risk",
+        "Rare and fragile"
+      ],
+      "theme_tags": [
+        "identity",
+        "fear",
+        "loneliness"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "relationships_008",
+      "category": "relationships",
+      "question": "A partner wants to change something about you. You…",
+      "pills": [
+        "Consider it openly",
+        "Defend who I am",
+        "Resent the ask",
+        "Change to keep them"
+      ],
+      "theme_tags": [
+        "identity",
+        "resentment",
+        "desire"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "relationships_009",
+      "category": "relationships",
+      "question": "You keep choosing people who can't fully meet you. You…",
+      "pills": [
+        "See the pattern",
+        "Blame bad luck",
+        "Settle for it",
+        "Break the cycle"
+      ],
+      "theme_tags": [
+        "desire",
+        "doubt",
+        "loneliness"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "relationships_010",
+      "category": "relationships",
+      "question": "Someone offers steady, unexciting love. You…",
+      "pills": [
+        "Value the steadiness",
+        "Crave the spark instead",
+        "Distrust the calm",
+        "Grow into it"
+      ],
+      "theme_tags": [
+        "desire",
+        "fear",
+        "doubt"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "relationships_011",
+      "category": "relationships",
+      "question": "You hurt someone who loves you. You…",
+      "pills": [
+        "Own it fully",
+        "Defend myself",
+        "Withdraw in shame",
+        "Make it up quietly"
+      ],
+      "theme_tags": [
+        "guilt",
+        "duty",
+        "resentment"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "relationships_012",
+      "category": "relationships",
+      "question": "Intimacy is offered and you feel the urge to flee. You…",
+      "pills": [
+        "Stay anyway",
+        "Find a reason to leave",
+        "Name the fear",
+        "Sabotage it quietly"
+      ],
+      "theme_tags": [
+        "fear",
+        "freedom",
+        "desire"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "relationships_013",
+      "category": "relationships",
+      "question": "A relationship asks you to depend on someone. You…",
+      "pills": [
+        "Allow it",
+        "Keep an exit ready",
+        "Resent needing them",
+        "Lean in fully"
+      ],
+      "theme_tags": [
+        "control",
+        "fear",
+        "freedom"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "relationships_014",
+      "category": "relationships",
+      "question": "You compare your relationship to others'. You feel…",
+      "pills": [
+        "Content with mine",
+        "Quietly behind",
+        "Grateful on reflection",
+        "Restless for more"
+      ],
+      "theme_tags": [
+        "envy",
+        "desire",
+        "doubt"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "relationships_015",
+      "category": "relationships",
+      "question": "Someone needs space and you take it personally. You…",
+      "pills": [
+        "Give it freely",
+        "Read it as rejection",
+        "Demand reassurance",
+        "Pretend it's fine"
+      ],
+      "theme_tags": [
+        "fear",
+        "doubt",
+        "control"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "relationships_016",
+      "category": "relationships",
+      "question": "You could forgive a betrayal to keep the bond. You…",
+      "pills": [
+        "Forgive and rebuild",
+        "Refuse on principle",
+        "Stay but stay wary",
+        "Leave cleanly"
+      ],
+      "theme_tags": [
+        "resentment",
+        "duty",
+        "dilemma"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "relationships_017",
+      "category": "relationships",
+      "question": "Love and your freedom feel at odds. You lean toward…",
+      "pills": [
+        "The bond",
+        "My freedom",
+        "A careful balance",
+        "Whichever I'd regret losing"
+      ],
+      "theme_tags": [
+        "freedom",
+        "desire",
+        "dilemma"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "relationships_018",
+      "category": "relationships",
+      "question": "Someone mirrors back a flaw you hide. You…",
+      "pills": [
+        "Thank them for it",
+        "Defend and deflect",
+        "Withdraw to lick wounds",
+        "Sit with the truth"
+      ],
+      "theme_tags": [
+        "doubt",
+        "identity",
+        "resentment"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "relationships_019",
+      "category": "relationships",
+      "question": "You stay in something past its end because leaving is hard. You…",
+      "pills": [
+        "Finally leave",
+        "Keep waiting",
+        "Settle into the comfort",
+        "Resent the inertia"
+      ],
+      "theme_tags": [
+        "fear",
+        "freedom",
+        "resentment"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "relationships_020",
+      "category": "relationships",
+      "question": "Affection has to be earned in your world. You…",
+      "pills": [
+        "Question that belief",
+        "Keep earning it",
+        "Withhold it too",
+        "Long to just receive"
+      ],
+      "theme_tags": [
+        "desire",
+        "loneliness",
+        "duty"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "relationships_021",
+      "category": "relationships",
+      "question": "A close person succeeds beyond you. You…",
+      "pills": [
+        "Celebrate freely",
+        "Feel a private sting",
+        "Compete quietly",
+        "Pull away a little"
+      ],
+      "theme_tags": [
+        "envy",
+        "resentment",
+        "friendship"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "relationships_022",
+      "category": "relationships",
+      "question": "You're asked to be vulnerable first. You…",
+      "pills": [
+        "Go first willingly",
+        "Wait for them",
+        "Offer a safe version",
+        "Change the subject"
+      ],
+      "theme_tags": [
+        "fear",
+        "identity",
+        "control"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "relationships_023",
+      "category": "relationships",
+      "question": "Someone loves you more than you love them. You…",
+      "pills": [
+        "Tell the truth",
+        "Enjoy being chosen",
+        "Try to feel more",
+        "Drift away guiltily"
+      ],
+      "theme_tags": [
+        "guilt",
+        "desire",
+        "duty"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "relationships_024",
+      "category": "relationships",
+      "question": "Conflict gets resolved but something lingers. You…",
+      "pills": [
+        "Raise it again",
+        "Let it fade",
+        "Store it quietly",
+        "Decide it's minor"
+      ],
+      "theme_tags": [
+        "resentment",
+        "control",
+        "doubt"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "relationships_025",
+      "category": "relationships",
+      "question": "You imagine being alone for a long time. You feel…",
+      "pills": [
+        "Peaceful enough",
+        "Quietly afraid",
+        "Free, mostly",
+        "Incomplete"
+      ],
+      "theme_tags": [
+        "loneliness",
+        "freedom",
+        "fear"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "relationships_026",
+      "category": "relationships",
+      "question": "Someone wants commitment and you stall. You…",
+      "pills": [
+        "Commit openly",
+        "Buy more time",
+        "Name your fear",
+        "Quietly look elsewhere"
+      ],
+      "theme_tags": [
+        "fear",
+        "freedom",
+        "desire"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "relationships_027",
+      "category": "relationships",
+      "question": "You're loved for a role you play, not who you are. You…",
+      "pills": [
+        "Drop the role",
+        "Keep performing",
+        "Resent the trap",
+        "Slowly reveal myself"
+      ],
+      "theme_tags": [
+        "identity",
+        "loneliness",
+        "resentment"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "relationships_028",
+      "category": "relationships",
+      "question": "A relationship ends and you replay your part. You…",
+      "pills": [
+        "Learn from it",
+        "Blame them mostly",
+        "Blame myself mostly",
+        "Make peace slowly"
+      ],
+      "theme_tags": [
+        "grief",
+        "doubt",
+        "identity"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "relationships_029",
+      "category": "relationships",
+      "question": "Someone asks what you need from them. Your honest answer is…",
+      "pills": [
+        "Clear and easy to say",
+        "Hard to admit",
+        "Unknown to me",
+        "More than I'll ask for"
+      ],
+      "theme_tags": [
+        "desire",
+        "doubt",
+        "loneliness"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "relationships_030",
+      "category": "relationships",
+      "question": "If love asked you to risk being hurt again, you'd…",
+      "pills": [
+        "Risk it",
+        "Guard myself",
+        "Risk it slowly",
+        "Wait for certainty"
+      ],
+      "theme_tags": [
+        "fear",
+        "desire",
+        "freedom"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "friendship_001",
+      "category": "friendship",
+      "question": "A friend drifts and you're not sure why. You…",
+      "pills": [
+        "Reach out directly",
+        "Let it fade",
+        "Assume the worst",
+        "Wait for them"
+      ],
+      "theme_tags": [
+        "friendship",
+        "loneliness",
+        "doubt"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "friendship_002",
+      "category": "friendship",
+      "question": "A friend succeeds and part of you stings. You…",
+      "pills": [
+        "Celebrate anyway",
+        "Sit with the envy",
+        "Compete quietly",
+        "Distance myself"
+      ],
+      "theme_tags": [
+        "envy",
+        "friendship",
+        "resentment"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "friendship_003",
+      "category": "friendship",
+      "question": "You give more to a friendship than you get. You…",
+      "pills": [
+        "Keep giving",
+        "Pull back",
+        "Name the imbalance",
+        "Quietly resent it"
+      ],
+      "theme_tags": [
+        "friendship",
+        "resentment",
+        "duty"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "friendship_004",
+      "category": "friendship",
+      "question": "A friend needs you at an inconvenient time. You…",
+      "pills": [
+        "Show up fully",
+        "Help within limits",
+        "Resent then go",
+        "Make an excuse"
+      ],
+      "theme_tags": [
+        "friendship",
+        "duty",
+        "freedom"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "friendship_005",
+      "category": "friendship",
+      "question": "An old friend knows a self you've outgrown. You…",
+      "pills": [
+        "Treasure the history",
+        "Feel held back",
+        "Update them on me",
+        "Drift apart gently"
+      ],
+      "theme_tags": [
+        "friendship",
+        "identity",
+        "freedom"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "friendship_006",
+      "category": "friendship",
+      "question": "A friend betrays a confidence. You…",
+      "pills": [
+        "Confront them",
+        "Quietly demote them",
+        "Cut them off",
+        "Let it go this once"
+      ],
+      "theme_tags": [
+        "friendship",
+        "resentment",
+        "control"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "friendship_007",
+      "category": "friendship",
+      "question": "You realize a friendship runs shallow. You…",
+      "pills": [
+        "Deepen it or end it",
+        "Accept it as is",
+        "Mourn what's missing",
+        "Invest elsewhere"
+      ],
+      "theme_tags": [
+        "friendship",
+        "loneliness",
+        "doubt"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "friendship_008",
+      "category": "friendship",
+      "question": "You haven't made a new close friend in years. You feel…",
+      "pills": [
+        "Fine, I have enough",
+        "Quietly lonely",
+        "Too busy to mind",
+        "Worried about it"
+      ],
+      "theme_tags": [
+        "loneliness",
+        "friendship",
+        "identity"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "friendship_009",
+      "category": "friendship",
+      "question": "A friend gives advice you didn't ask for. You…",
+      "pills": [
+        "Weigh it openly",
+        "Bristle at it",
+        "Nod and ignore",
+        "Push back honestly"
+      ],
+      "theme_tags": [
+        "friendship",
+        "doubt",
+        "resentment"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading"
+      ]
+    },
+    {
+      "id": "friendship_010",
+      "category": "friendship",
+      "question": "A friend is going through what you can't fix. You…",
+      "pills": [
+        "Just stay present",
+        "Try to solve it",
+        "Pull back, overwhelmed",
+        "Distract them from it"
+      ],
+      "theme_tags": [
+        "friendship",
+        "duty",
+        "fear"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "friendship_011",
+      "category": "friendship",
+      "question": "You and a friend want the same thing. You…",
+      "pills": [
+        "Compete openly",
+        "Step aside for them",
+        "Resent the rivalry",
+        "Find a way to share"
+      ],
+      "theme_tags": [
+        "envy",
+        "friendship",
+        "dilemma"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "friendship_012",
+      "category": "friendship",
+      "question": "A friend changes in ways you don't like. You…",
+      "pills": [
+        "Say so honestly",
+        "Accept the new them",
+        "Drift away",
+        "Grieve the old them"
+      ],
+      "theme_tags": [
+        "friendship",
+        "identity",
+        "grief"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "friendship_013",
+      "category": "friendship",
+      "question": "You're the friend everyone leans on. You…",
+      "pills": [
+        "Carry it gladly",
+        "Quietly tire of it",
+        "Wish someone asked me",
+        "Set new limits"
+      ],
+      "theme_tags": [
+        "duty",
+        "loneliness",
+        "resentment"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "friendship_014",
+      "category": "friendship",
+      "question": "A friendship ends without a clear reason. You…",
+      "pills": [
+        "Reach for closure",
+        "Let it stay open",
+        "Blame myself",
+        "Move on cleanly"
+      ],
+      "theme_tags": [
+        "friendship",
+        "grief",
+        "doubt"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "friendship_015",
+      "category": "friendship",
+      "question": "A friend has more than you and never notices. You…",
+      "pills": [
+        "Feel fine about it",
+        "Feel quietly small",
+        "Bring it up lightly",
+        "Pull back a bit"
+      ],
+      "theme_tags": [
+        "envy",
+        "friendship",
+        "resentment"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "friendship_016",
+      "category": "friendship",
+      "question": "You could call an old friend but it's been too long. You…",
+      "pills": [
+        "Call anyway",
+        "Keep putting it off",
+        "Wait for them to",
+        "Let it stay past"
+      ],
+      "theme_tags": [
+        "friendship",
+        "loneliness",
+        "doubt"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "friendship_017",
+      "category": "friendship",
+      "question": "A friend asks for honesty that might wound. You…",
+      "pills": [
+        "Tell the truth",
+        "Soften it heavily",
+        "Dodge the question",
+        "Lie kindly"
+      ],
+      "theme_tags": [
+        "friendship",
+        "duty",
+        "dilemma"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "friendship_018",
+      "category": "friendship",
+      "question": "You feel like the lesser friend in the pair. You…",
+      "pills": [
+        "Accept the role",
+        "Resent it quietly",
+        "Step up my game",
+        "Find equal friends"
+      ],
+      "theme_tags": [
+        "friendship",
+        "doubt",
+        "envy"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "friendship_019",
+      "category": "friendship",
+      "question": "A friend keeps making the same mistake. You…",
+      "pills": [
+        "Say it once, clearly",
+        "Keep quiet",
+        "Pull back slowly",
+        "Rescue them again"
+      ],
+      "theme_tags": [
+        "friendship",
+        "duty",
+        "resentment"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "friendship_020",
+      "category": "friendship",
+      "question": "Someone wants to be closer than you do. You…",
+      "pills": [
+        "Set the pace kindly",
+        "Avoid them",
+        "Go along reluctantly",
+        "Be honest about it"
+      ],
+      "theme_tags": [
+        "friendship",
+        "freedom",
+        "guilt"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "friendship_021",
+      "category": "friendship",
+      "question": "A group leaves you slightly outside. You…",
+      "pills": [
+        "Step in anyway",
+        "Withdraw quietly",
+        "Tell myself I don't care",
+        "Build my own circle"
+      ],
+      "theme_tags": [
+        "loneliness",
+        "friendship",
+        "identity"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "friendship_022",
+      "category": "friendship",
+      "question": "A friend's loyalty is tested by gossip. You…",
+      "pills": [
+        "Defend them",
+        "Stay neutral",
+        "Believe the worst",
+        "Ask them directly"
+      ],
+      "theme_tags": [
+        "friendship",
+        "duty",
+        "doubt"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "friendship_023",
+      "category": "friendship",
+      "question": "You outgrew a friendship but feel guilty leaving. You…",
+      "pills": [
+        "Let it end",
+        "Keep it from duty",
+        "Drift without a word",
+        "Have the hard talk"
+      ],
+      "theme_tags": [
+        "friendship",
+        "guilt",
+        "freedom"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "friendship_024",
+      "category": "friendship",
+      "question": "A friend forgets something important to you. You…",
+      "pills": [
+        "Let it go",
+        "Feel quietly hurt",
+        "Mention it lightly",
+        "Keep score"
+      ],
+      "theme_tags": [
+        "friendship",
+        "resentment",
+        "doubt"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "friendship_025",
+      "category": "friendship",
+      "question": "You need help but hate to ask. You…",
+      "pills": [
+        "Ask anyway",
+        "Hint and hope",
+        "Handle it alone",
+        "Wait to be offered"
+      ],
+      "theme_tags": [
+        "loneliness",
+        "duty",
+        "control"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "friendship_026",
+      "category": "friendship",
+      "question": "A friend's path makes yours feel wrong. You…",
+      "pills": [
+        "Trust my own path",
+        "Doubt my choices",
+        "Copy theirs",
+        "Compete privately"
+      ],
+      "theme_tags": [
+        "envy",
+        "doubt",
+        "identity"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "friendship_027",
+      "category": "friendship",
+      "question": "An old grudge keeps a friendship cool. You…",
+      "pills": [
+        "Reach for repair",
+        "Hold the line",
+        "Let it quietly die",
+        "Pretend it's gone"
+      ],
+      "theme_tags": [
+        "friendship",
+        "resentment",
+        "dilemma"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "friendship_028",
+      "category": "friendship",
+      "question": "You realize you perform for your friends. You…",
+      "pills": [
+        "Risk being real",
+        "Keep the act",
+        "Test one with truth",
+        "Tire of the mask"
+      ],
+      "theme_tags": [
+        "identity",
+        "friendship",
+        "loneliness"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "friendship_029",
+      "category": "friendship",
+      "question": "A friend needs more honesty than comfort. You…",
+      "pills": [
+        "Give the honesty",
+        "Comfort instead",
+        "Balance both",
+        "Avoid the moment"
+      ],
+      "theme_tags": [
+        "friendship",
+        "duty",
+        "dilemma"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "friendship_030",
+      "category": "friendship",
+      "question": "If a friendship asked you to apologize first, you'd…",
+      "pills": [
+        "Apologize first",
+        "Wait for them",
+        "Apologize if I'm wrong",
+        "Let pride decide"
+      ],
+      "theme_tags": [
+        "friendship",
+        "guilt",
+        "power"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "fear_001",
+      "category": "fear",
+      "question": "A decision scares you precisely because it matters. You…",
+      "pills": [
+        "Move toward it",
+        "Freeze",
+        "Wait for certainty",
+        "Shrink the risk first"
+      ],
+      "theme_tags": [
+        "fear",
+        "control",
+        "doubt"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "fear_002",
+      "category": "fear",
+      "question": "You notice you've been avoiding something for weeks. You…",
+      "pills": [
+        "Face it today",
+        "Keep avoiding",
+        "Plan to soon",
+        "Pretend it's gone"
+      ],
+      "theme_tags": [
+        "fear",
+        "discipline",
+        "control"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "fear_003",
+      "category": "fear",
+      "question": "Fear says stay small and safe. You…",
+      "pills": [
+        "Push past it",
+        "Obey it",
+        "Negotiate with it",
+        "Resent it"
+      ],
+      "theme_tags": [
+        "fear",
+        "freedom",
+        "power"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "fear_004",
+      "category": "fear",
+      "question": "The worst case plays on loop in your mind. You…",
+      "pills": [
+        "Plan, then drop it",
+        "Spiral in it",
+        "Distract myself",
+        "Talk it down"
+      ],
+      "theme_tags": [
+        "fear",
+        "control",
+        "doubt"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "fear_005",
+      "category": "fear",
+      "question": "You're afraid of being seen as you are. You…",
+      "pills": [
+        "Show myself anyway",
+        "Hide carefully",
+        "Reveal a little",
+        "Wait to feel ready"
+      ],
+      "theme_tags": [
+        "fear",
+        "identity",
+        "loneliness"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "fear_006",
+      "category": "fear",
+      "question": "Courage would cost you comfort right now. You…",
+      "pills": [
+        "Pay the cost",
+        "Keep the comfort",
+        "Test a small step",
+        "Postpone the choice"
+      ],
+      "theme_tags": [
+        "fear",
+        "freedom",
+        "discipline"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "fear_007",
+      "category": "fear",
+      "question": "An old fear resurfaces in a new form. You…",
+      "pills": [
+        "Recognize it",
+        "Get caught again",
+        "Trace its root",
+        "Push through blind"
+      ],
+      "theme_tags": [
+        "fear",
+        "identity",
+        "doubt"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "fear_008",
+      "category": "fear",
+      "question": "Fear of failing keeps you from starting. You…",
+      "pills": [
+        "Start anyway",
+        "Wait to be ready",
+        "Start small",
+        "Talk yourself out"
+      ],
+      "theme_tags": [
+        "fear",
+        "discipline",
+        "doubt"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "fear_009",
+      "category": "fear",
+      "question": "Someone sees your fear and names it. You…",
+      "pills": [
+        "Admit it",
+        "Deny it",
+        "Feel relief",
+        "Get defensive"
+      ],
+      "theme_tags": [
+        "fear",
+        "identity",
+        "doubt"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading"
+      ]
+    },
+    {
+      "id": "fear_010",
+      "category": "fear",
+      "question": "You're safe but still anxious. You…",
+      "pills": [
+        "Sit with it",
+        "Hunt for the threat",
+        "Numb it",
+        "Question the feeling"
+      ],
+      "theme_tags": [
+        "fear",
+        "control",
+        "doubt"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "fear_011",
+      "category": "fear",
+      "question": "A risk could change your life or cost you dearly. You…",
+      "pills": [
+        "Take it",
+        "Refuse it",
+        "Hedge it",
+        "Agonize endlessly"
+      ],
+      "theme_tags": [
+        "fear",
+        "desire",
+        "dilemma"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "fear_012",
+      "category": "fear",
+      "question": "Fear dresses up as practicality. You…",
+      "pills": [
+        "See through it",
+        "Believe the disguise",
+        "Test which it is",
+        "Use it as cover"
+      ],
+      "theme_tags": [
+        "fear",
+        "doubt",
+        "control"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "fear_013",
+      "category": "fear",
+      "question": "You let a fear decide for you, again. You…",
+      "pills": [
+        "Take the wheel back",
+        "Accept its rule",
+        "Resent it later",
+        "Barely notice"
+      ],
+      "theme_tags": [
+        "fear",
+        "freedom",
+        "control"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "fear_014",
+      "category": "fear",
+      "question": "Fear of judgment shapes what you share. You…",
+      "pills": [
+        "Speak anyway",
+        "Self-censor",
+        "Test the water",
+        "Stay silent safely"
+      ],
+      "theme_tags": [
+        "fear",
+        "identity",
+        "freedom"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "fear_015",
+      "category": "fear",
+      "question": "The thing you fear hasn't happened yet. You…",
+      "pills": [
+        "Live now anyway",
+        "Brace constantly",
+        "Prepare and release",
+        "Avoid living fully"
+      ],
+      "theme_tags": [
+        "fear",
+        "control",
+        "freedom"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "fear_016",
+      "category": "fear",
+      "question": "You're more afraid of regret than of risk. You…",
+      "pills": [
+        "Act to avoid regret",
+        "Stay safe regardless",
+        "Weigh them coldly",
+        "Freeze between them"
+      ],
+      "theme_tags": [
+        "fear",
+        "desire",
+        "dilemma"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "fear_017",
+      "category": "fear",
+      "question": "Anxiety wants you to control everything. You…",
+      "pills": [
+        "Loosen the grip",
+        "Tighten it",
+        "Pick my battles",
+        "Exhaust myself trying"
+      ],
+      "theme_tags": [
+        "control",
+        "fear",
+        "discipline"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "fear_018",
+      "category": "fear",
+      "question": "You hide fear behind competence. You…",
+      "pills": [
+        "Let the mask slip",
+        "Keep it polished",
+        "Tell one person",
+        "Tire of holding it"
+      ],
+      "theme_tags": [
+        "fear",
+        "identity",
+        "control"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "fear_019",
+      "category": "fear",
+      "question": "Facing the fear would set you free. You…",
+      "pills": [
+        "Face it",
+        "Keep circling it",
+        "Face part of it",
+        "Stay where it's safe"
+      ],
+      "theme_tags": [
+        "fear",
+        "freedom",
+        "discipline"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "fear_020",
+      "category": "fear",
+      "question": "A small fear runs your daily choices. You…",
+      "pills": [
+        "Confront it",
+        "Accommodate it",
+        "Shrink its territory",
+        "Call it preference"
+      ],
+      "theme_tags": [
+        "fear",
+        "control",
+        "freedom"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "fear_021",
+      "category": "fear",
+      "question": "You're afraid the good thing won't last. You…",
+      "pills": [
+        "Enjoy it anyway",
+        "Guard against the loss",
+        "Sabotage it first",
+        "Hold it loosely"
+      ],
+      "theme_tags": [
+        "fear",
+        "desire",
+        "control"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "fear_022",
+      "category": "fear",
+      "question": "Someone braver than you makes a leap. You…",
+      "pills": [
+        "Feel inspired",
+        "Feel exposed",
+        "Find reasons not to",
+        "Quietly resolve to"
+      ],
+      "theme_tags": [
+        "fear",
+        "envy",
+        "doubt"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "fear_023",
+      "category": "fear",
+      "question": "Fear and excitement feel the same in your body. You…",
+      "pills": [
+        "Read it as excitement",
+        "Read it as danger",
+        "Pause to tell apart",
+        "Avoid the feeling"
+      ],
+      "theme_tags": [
+        "fear",
+        "desire",
+        "doubt"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading"
+      ]
+    },
+    {
+      "id": "fear_024",
+      "category": "fear",
+      "question": "You could ask for what you fear being refused. You…",
+      "pills": [
+        "Ask anyway",
+        "Stay silent",
+        "Hint instead",
+        "Decide it's not worth it"
+      ],
+      "theme_tags": [
+        "fear",
+        "desire",
+        "doubt"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "fear_025",
+      "category": "fear",
+      "question": "Avoiding the fear has quietly shrunk your life. You…",
+      "pills": [
+        "Expand it back",
+        "Accept the smallness",
+        "Test one edge",
+        "Blame circumstance"
+      ],
+      "theme_tags": [
+        "fear",
+        "freedom",
+        "resentment"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "fear_026",
+      "category": "fear",
+      "question": "Your fear protects you and also imprisons you. You…",
+      "pills": [
+        "Renegotiate the deal",
+        "Keep the protection",
+        "Test its limits",
+        "Resent the cage"
+      ],
+      "theme_tags": [
+        "fear",
+        "freedom",
+        "control"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "fear_027",
+      "category": "fear",
+      "question": "You're afraid to want too much. You…",
+      "pills": [
+        "Let myself want",
+        "Keep wants small",
+        "Hide the wanting",
+        "Question the fear"
+      ],
+      "theme_tags": [
+        "fear",
+        "desire",
+        "doubt"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "fear_028",
+      "category": "fear",
+      "question": "Naming the fear out loud would shrink it. You…",
+      "pills": [
+        "Name it",
+        "Keep it inside",
+        "Tell one person",
+        "Write it down only"
+      ],
+      "theme_tags": [
+        "fear",
+        "identity",
+        "control"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "fear_029",
+      "category": "fear",
+      "question": "Fear says you're not ready. You…",
+      "pills": [
+        "Begin unready",
+        "Wait for ready",
+        "Get ready fast",
+        "Believe it fully"
+      ],
+      "theme_tags": [
+        "fear",
+        "doubt",
+        "discipline"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "fear_030",
+      "category": "fear",
+      "question": "If facing one fear could change everything, you'd…",
+      "pills": [
+        "Face it now",
+        "Face it later",
+        "Face a piece of it",
+        "Let it be"
+      ],
+      "theme_tags": [
+        "fear",
+        "freedom",
+        "dilemma"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "meaning_001",
+      "category": "meaning",
+      "question": "A long stretch of life feels like going through motions. You…",
+      "pills": [
+        "Shake it up",
+        "Wait for it to pass",
+        "Question the path",
+        "Numb the feeling"
+      ],
+      "theme_tags": [
+        "meaning",
+        "doubt",
+        "freedom"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "meaning_002",
+      "category": "meaning",
+      "question": "You achieve a goal and feel oddly empty. You…",
+      "pills": [
+        "Ask what's missing",
+        "Set a bigger goal",
+        "Distract myself",
+        "Sit with the void"
+      ],
+      "theme_tags": [
+        "meaning",
+        "desire",
+        "doubt"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "meaning_003",
+      "category": "meaning",
+      "question": "Something gives your life meaning others don't get. You…",
+      "pills": [
+        "Protect it fiercely",
+        "Downplay it",
+        "Doubt it sometimes",
+        "Build around it"
+      ],
+      "theme_tags": [
+        "meaning",
+        "identity",
+        "freedom"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "meaning_004",
+      "category": "meaning",
+      "question": "You wonder if any of it matters. You…",
+      "pills": [
+        "Make my own meaning",
+        "Sink into the doubt",
+        "Stay busy past it",
+        "Seek a larger answer"
+      ],
+      "theme_tags": [
+        "meaning",
+        "doubt",
+        "death"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "meaning_005",
+      "category": "meaning",
+      "question": "A life of comfort without purpose is offered. You…",
+      "pills": [
+        "Refuse it",
+        "Take it gladly",
+        "Take it uneasily",
+        "Seek purpose within it"
+      ],
+      "theme_tags": [
+        "meaning",
+        "desire",
+        "freedom"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "meaning_006",
+      "category": "meaning",
+      "question": "You're chasing a goal you're no longer sure is yours. You…",
+      "pills": [
+        "Stop and reassess",
+        "Push to the finish",
+        "Resent the chase",
+        "Quietly redefine it"
+      ],
+      "theme_tags": [
+        "meaning",
+        "identity",
+        "doubt"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "meaning_007",
+      "category": "meaning",
+      "question": "Meaning, for you, lives mostly in…",
+      "pills": [
+        "The people I love",
+        "The work I make",
+        "The truth I seek",
+        "The good I do"
+      ],
+      "theme_tags": [
+        "meaning",
+        "identity",
+        "duty"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "meaning_008",
+      "category": "meaning",
+      "question": "You've outgrown what used to drive you. You…",
+      "pills": [
+        "Find new fuel",
+        "Coast on the old",
+        "Mourn the old fire",
+        "Resist the change"
+      ],
+      "theme_tags": [
+        "meaning",
+        "identity",
+        "grief"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "meaning_009",
+      "category": "meaning",
+      "question": "A quiet life and a remembered one — you'd choose…",
+      "pills": [
+        "The quiet life",
+        "The remembered one",
+        "A blend of both",
+        "Whichever feels true"
+      ],
+      "theme_tags": [
+        "meaning",
+        "desire",
+        "death"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "meaning_010",
+      "category": "meaning",
+      "question": "You sense you're meant for something you're not doing. You…",
+      "pills": [
+        "Move toward it",
+        "Dismiss the feeling",
+        "Resent the gap",
+        "Wait for a sign"
+      ],
+      "theme_tags": [
+        "meaning",
+        "desire",
+        "doubt"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "meaning_011",
+      "category": "meaning",
+      "question": "Suffering you went through could have meaning or none. You…",
+      "pills": [
+        "Make meaning of it",
+        "Leave it senseless",
+        "Still searching",
+        "Refuse to romanticize"
+      ],
+      "theme_tags": [
+        "meaning",
+        "grief",
+        "doubt"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "meaning_012",
+      "category": "meaning",
+      "question": "Success on others' terms leaves you cold. You…",
+      "pills": [
+        "Define my own",
+        "Keep their terms",
+        "Drift between both",
+        "Resent the script"
+      ],
+      "theme_tags": [
+        "meaning",
+        "freedom",
+        "identity"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "meaning_013",
+      "category": "meaning",
+      "question": "You ask what you'd do with one more guaranteed decade. You'd…",
+      "pills": [
+        "Go after a dream",
+        "Keep my life as is",
+        "Repair what's broken",
+        "Slow down and savor"
+      ],
+      "theme_tags": [
+        "meaning",
+        "desire",
+        "death"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "meaning_014",
+      "category": "meaning",
+      "question": "Routine has crowded out wonder. You…",
+      "pills": [
+        "Make room for it",
+        "Accept the trade",
+        "Miss it quietly",
+        "Break the routine"
+      ],
+      "theme_tags": [
+        "meaning",
+        "freedom",
+        "discipline"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "meaning_015",
+      "category": "meaning",
+      "question": "What you build won't outlast you. You…",
+      "pills": [
+        "Build it anyway",
+        "Lose heart over it",
+        "Build for now only",
+        "Seek something lasting"
+      ],
+      "theme_tags": [
+        "meaning",
+        "death",
+        "desire"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "meaning_016",
+      "category": "meaning",
+      "question": "You feel small against the size of things. You…",
+      "pills": [
+        "Find it freeing",
+        "Find it crushing",
+        "Look away from it",
+        "Make peace with it"
+      ],
+      "theme_tags": [
+        "meaning",
+        "fear",
+        "freedom"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "meaning_017",
+      "category": "meaning",
+      "question": "A calling would cost you security. You…",
+      "pills": [
+        "Follow it",
+        "Keep the security",
+        "Test it part-way",
+        "Resent the choice"
+      ],
+      "theme_tags": [
+        "meaning",
+        "fear",
+        "dilemma"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "meaning_018",
+      "category": "meaning",
+      "question": "You measure a day as well spent when…",
+      "pills": [
+        "I helped someone",
+        "I made something",
+        "I felt alive",
+        "I stayed disciplined"
+      ],
+      "theme_tags": [
+        "meaning",
+        "identity",
+        "discipline"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "meaning_019",
+      "category": "meaning",
+      "question": "A belief that framed your life has fallen away. You…",
+      "pills": [
+        "Build a new frame",
+        "Mourn the old one",
+        "Live without one",
+        "Keep searching"
+      ],
+      "theme_tags": [
+        "meaning",
+        "grief",
+        "doubt"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "meaning_020",
+      "category": "meaning",
+      "question": "You're tempted to fill emptiness with busyness. You…",
+      "pills": [
+        "Resist and feel it",
+        "Stay busy",
+        "Notice and pause",
+        "Mistake it for purpose"
+      ],
+      "theme_tags": [
+        "meaning",
+        "control",
+        "doubt"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "meaning_021",
+      "category": "meaning",
+      "question": "Doing good and being free pull against each other. You lean toward…",
+      "pills": [
+        "The good",
+        "My freedom",
+        "A careful both",
+        "What I can live with"
+      ],
+      "theme_tags": [
+        "meaning",
+        "duty",
+        "freedom"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "meaning_022",
+      "category": "meaning",
+      "question": "Your life would read as a story about…",
+      "pills": [
+        "Becoming myself",
+        "Caring for others",
+        "Building something",
+        "Surviving well"
+      ],
+      "theme_tags": [
+        "meaning",
+        "identity",
+        "duty"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "meaning_023",
+      "category": "meaning",
+      "question": "You glimpse what matters, then lose it in the noise. You…",
+      "pills": [
+        "Guard the glimpse",
+        "Let it slip",
+        "Chase it back",
+        "Write it down"
+      ],
+      "theme_tags": [
+        "meaning",
+        "control",
+        "doubt"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "meaning_024",
+      "category": "meaning",
+      "question": "A meaningful path looks harder than a hollow easy one. You…",
+      "pills": [
+        "Take the hard path",
+        "Take the easy one",
+        "Bargain for both",
+        "Stall at the fork"
+      ],
+      "theme_tags": [
+        "meaning",
+        "discipline",
+        "dilemma"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "meaning_025",
+      "category": "meaning",
+      "question": "You wonder whose life you're actually living. You…",
+      "pills": [
+        "Reclaim my own",
+        "Stay the course",
+        "Resent the borrowing",
+        "Slowly course-correct"
+      ],
+      "theme_tags": [
+        "meaning",
+        "identity",
+        "freedom"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "meaning_026",
+      "category": "meaning",
+      "question": "Joy and meaning don't always arrive together. You'd choose…",
+      "pills": [
+        "Meaning over joy",
+        "Joy over meaning",
+        "Refuse to choose",
+        "Whichever I lack"
+      ],
+      "theme_tags": [
+        "meaning",
+        "desire",
+        "dilemma"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "meaning_027",
+      "category": "meaning",
+      "question": "You've been waiting for life to start. You…",
+      "pills": [
+        "Start it now",
+        "Keep waiting",
+        "Notice the waiting",
+        "Redefine 'started'"
+      ],
+      "theme_tags": [
+        "meaning",
+        "fear",
+        "freedom"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "meaning_028",
+      "category": "meaning",
+      "question": "A purpose found you that you didn't seek. You…",
+      "pills": [
+        "Embrace it",
+        "Question it",
+        "Fear its weight",
+        "Grow into it"
+      ],
+      "theme_tags": [
+        "meaning",
+        "identity",
+        "fear"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "meaning_029",
+      "category": "meaning",
+      "question": "If your time were halved, your priorities would…",
+      "pills": [
+        "Shift sharply",
+        "Stay the same",
+        "Finally clarify",
+        "Frighten me"
+      ],
+      "theme_tags": [
+        "meaning",
+        "death",
+        "identity"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "meaning_030",
+      "category": "meaning",
+      "question": "What you most want to be remembered for is…",
+      "pills": [
+        "My love",
+        "My work",
+        "My integrity",
+        "My courage"
+      ],
+      "theme_tags": [
+        "meaning",
+        "death",
+        "identity"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "identity_001",
+      "category": "identity",
+      "question": "Who you are alone differs from who you are with others. You…",
+      "pills": [
+        "Bridge the gap",
+        "Keep them separate",
+        "Trust the private self",
+        "Doubt which is real"
+      ],
+      "theme_tags": [
+        "identity",
+        "loneliness",
+        "doubt"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "identity_002",
+      "category": "identity",
+      "question": "You've changed and old labels no longer fit. You…",
+      "pills": [
+        "Shed them",
+        "Cling to them",
+        "Let others catch up",
+        "Feel between selves"
+      ],
+      "theme_tags": [
+        "identity",
+        "freedom",
+        "doubt"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "identity_003",
+      "category": "identity",
+      "question": "Someone defines you by your past. You…",
+      "pills": [
+        "Correct them",
+        "Let it stand",
+        "Prove them wrong",
+        "Quietly resent it"
+      ],
+      "theme_tags": [
+        "identity",
+        "resentment",
+        "freedom"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "identity_004",
+      "category": "identity",
+      "question": "You perform a version of yourself most days. You…",
+      "pills": [
+        "Drop the act",
+        "Refine the act",
+        "Tire of it",
+        "Forget which is real"
+      ],
+      "theme_tags": [
+        "identity",
+        "loneliness",
+        "doubt"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "identity_005",
+      "category": "identity",
+      "question": "Your values and your actions don't fully match. You…",
+      "pills": [
+        "Close the gap",
+        "Justify the gap",
+        "Feel the hypocrisy",
+        "Lower the values"
+      ],
+      "theme_tags": [
+        "identity",
+        "guilt",
+        "discipline"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "identity_006",
+      "category": "identity",
+      "question": "You're praised for a trait you don't believe you have. You…",
+      "pills": [
+        "Accept it warily",
+        "Deflect it",
+        "Try to earn it",
+        "Feel like a fraud"
+      ],
+      "theme_tags": [
+        "identity",
+        "doubt",
+        "power"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "identity_007",
+      "category": "identity",
+      "question": "You could become someone new if the old self died. You…",
+      "pills": [
+        "Let it die",
+        "Hold the old self",
+        "Grieve and change",
+        "Fear losing me"
+      ],
+      "theme_tags": [
+        "identity",
+        "fear",
+        "freedom"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "identity_008",
+      "category": "identity",
+      "question": "A core belief about yourself gets challenged. You…",
+      "pills": [
+        "Examine it",
+        "Defend it hard",
+        "Feel destabilized",
+        "Update it slowly"
+      ],
+      "theme_tags": [
+        "identity",
+        "doubt",
+        "control"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "identity_009",
+      "category": "identity",
+      "question": "Who you are was shaped by what others expected. You…",
+      "pills": [
+        "Reclaim my own shape",
+        "Keep the given one",
+        "Resent the molding",
+        "Blend both"
+      ],
+      "theme_tags": [
+        "identity",
+        "freedom",
+        "resentment"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "identity_010",
+      "category": "identity",
+      "question": "You feel most like yourself when…",
+      "pills": [
+        "I'm creating",
+        "I'm with loved ones",
+        "I'm tested",
+        "I'm alone"
+      ],
+      "theme_tags": [
+        "identity",
+        "meaning",
+        "freedom"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "identity_011",
+      "category": "identity",
+      "question": "Shame whispers that the real you is unlovable. You…",
+      "pills": [
+        "Show myself anyway",
+        "Hide the real me",
+        "Argue with the shame",
+        "Believe it quietly"
+      ],
+      "theme_tags": [
+        "identity",
+        "fear",
+        "loneliness"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "identity_012",
+      "category": "identity",
+      "question": "You've been many selves across your life. You…",
+      "pills": [
+        "Honor them all",
+        "Disown some",
+        "Seek the through-line",
+        "Feel scattered"
+      ],
+      "theme_tags": [
+        "identity",
+        "doubt",
+        "meaning"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "identity_013",
+      "category": "identity",
+      "question": "Fitting in costs you a piece of yourself. You…",
+      "pills": [
+        "Pay it sometimes",
+        "Refuse to pay",
+        "Resent the cost",
+        "Lose track of me"
+      ],
+      "theme_tags": [
+        "identity",
+        "freedom",
+        "loneliness"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "identity_014",
+      "category": "identity",
+      "question": "You hide a part of yourself from nearly everyone. You…",
+      "pills": [
+        "Reveal it to one",
+        "Keep it sealed",
+        "Wish I could share it",
+        "Doubt it's safe"
+      ],
+      "theme_tags": [
+        "identity",
+        "loneliness",
+        "fear"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "identity_015",
+      "category": "identity",
+      "question": "Success changed how people see you. You…",
+      "pills": [
+        "Stay grounded",
+        "Enjoy the new image",
+        "Feel unseen still",
+        "Lose my old self"
+      ],
+      "theme_tags": [
+        "identity",
+        "power",
+        "loneliness"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "identity_016",
+      "category": "identity",
+      "question": "You're not sure what you believe anymore. You…",
+      "pills": [
+        "Rebuild from scratch",
+        "Borrow others' views",
+        "Sit in the not-knowing",
+        "Fake certainty"
+      ],
+      "theme_tags": [
+        "identity",
+        "doubt",
+        "freedom"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "identity_017",
+      "category": "identity",
+      "question": "An identity you leaned on is slipping. You…",
+      "pills": [
+        "Find new ground",
+        "Cling harder",
+        "Grieve it",
+        "Discover I'm more"
+      ],
+      "theme_tags": [
+        "identity",
+        "grief",
+        "fear"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "identity_018",
+      "category": "identity",
+      "question": "You judge yourself by a standard you never chose. You…",
+      "pills": [
+        "Choose my own",
+        "Keep the inherited one",
+        "Resent it",
+        "Question whose it is"
+      ],
+      "theme_tags": [
+        "identity",
+        "duty",
+        "freedom"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "identity_019",
+      "category": "identity",
+      "question": "People meet your mask and never the rest. You…",
+      "pills": [
+        "Lower the mask",
+        "Keep it up",
+        "Long to be seen",
+        "Decide it's safer"
+      ],
+      "theme_tags": [
+        "identity",
+        "loneliness",
+        "fear"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "identity_020",
+      "category": "identity",
+      "question": "You contradict yourself and it unsettles you. You…",
+      "pills": [
+        "Accept the contradiction",
+        "Force consistency",
+        "Pick a side",
+        "Hide the mess"
+      ],
+      "theme_tags": [
+        "identity",
+        "doubt",
+        "control"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "identity_021",
+      "category": "identity",
+      "question": "You could be more honest about who you are. You…",
+      "pills": [
+        "Risk the honesty",
+        "Stay guarded",
+        "Reveal it slowly",
+        "Fear the fallout"
+      ],
+      "theme_tags": [
+        "identity",
+        "fear",
+        "freedom"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "identity_022",
+      "category": "identity",
+      "question": "What you do for a living isn't who you are. You…",
+      "pills": [
+        "Hold that clearly",
+        "Blur the two",
+        "Wish work fit me",
+        "Resent the merge"
+      ],
+      "theme_tags": [
+        "identity",
+        "freedom",
+        "meaning"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "identity_023",
+      "category": "identity",
+      "question": "An old version of you would judge your path. You sense they'd be…",
+      "pills": [
+        "Proud",
+        "Disappointed",
+        "A mix",
+        "Defended by me"
+      ],
+      "theme_tags": [
+        "identity",
+        "doubt",
+        "meaning"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "identity_024",
+      "category": "identity",
+      "question": "You want to be seen but fear being known. You…",
+      "pills": [
+        "Risk being known",
+        "Settle for seen",
+        "Reveal in pieces",
+        "Stay hidden safely"
+      ],
+      "theme_tags": [
+        "identity",
+        "fear",
+        "loneliness"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "identity_025",
+      "category": "identity",
+      "question": "You shape yourself around the room you're in. You…",
+      "pills": [
+        "Stay myself regardless",
+        "Adapt and lose me",
+        "Adapt on purpose",
+        "Resent the bending"
+      ],
+      "theme_tags": [
+        "identity",
+        "freedom",
+        "control"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "identity_026",
+      "category": "identity",
+      "question": "A part of you you've disowned keeps surfacing. You…",
+      "pills": [
+        "Integrate it",
+        "Push it down",
+        "Study it",
+        "Fear it"
+      ],
+      "theme_tags": [
+        "identity",
+        "doubt",
+        "fear"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "identity_027",
+      "category": "identity",
+      "question": "You're freer than you let yourself act. You…",
+      "pills": [
+        "Claim the freedom",
+        "Stay in the cage",
+        "Test the bars",
+        "Blame the walls"
+      ],
+      "theme_tags": [
+        "identity",
+        "freedom",
+        "fear"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "identity_028",
+      "category": "identity",
+      "question": "Becoming yourself might disappoint people. You…",
+      "pills": [
+        "Disappoint them",
+        "Stay agreeable",
+        "Brace for it",
+        "Soften the blow"
+      ],
+      "theme_tags": [
+        "identity",
+        "freedom",
+        "guilt"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "identity_029",
+      "category": "identity",
+      "question": "You ask who you'd be with nothing to prove. You'd…",
+      "pills": [
+        "Finally relax",
+        "Lose my drive",
+        "Discover something new",
+        "Not recognize me"
+      ],
+      "theme_tags": [
+        "identity",
+        "desire",
+        "freedom"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "identity_030",
+      "category": "identity",
+      "question": "If you fully became yourself, you'd most fear losing…",
+      "pills": [
+        "Belonging",
+        "Security",
+        "Others' approval",
+        "The familiar me"
+      ],
+      "theme_tags": [
+        "identity",
+        "fear",
+        "loneliness"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "conflict_001",
+      "category": "conflict",
+      "question": "Someone treats you unfairly in the moment. You…",
+      "pills": [
+        "Name it on the spot",
+        "Swallow it",
+        "Plot a response",
+        "Walk away"
+      ],
+      "theme_tags": [
+        "power",
+        "resentment",
+        "control"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "conflict_002",
+      "category": "conflict",
+      "question": "Anger rises and you must choose how to use it. You…",
+      "pills": [
+        "Channel it clearly",
+        "Suppress it",
+        "Let it spill",
+        "Go cold instead"
+      ],
+      "theme_tags": [
+        "power",
+        "control",
+        "resentment"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "conflict_003",
+      "category": "conflict",
+      "question": "You're right but saying so will cost you. You…",
+      "pills": [
+        "Say it anyway",
+        "Let it go",
+        "Hint at it",
+        "Bank it for later"
+      ],
+      "theme_tags": [
+        "power",
+        "dilemma",
+        "control"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "conflict_004",
+      "category": "conflict",
+      "question": "Someone crosses a boundary you set. You…",
+      "pills": [
+        "Reassert it firmly",
+        "Let it slide",
+        "Escalate",
+        "Withdraw quietly"
+      ],
+      "theme_tags": [
+        "power",
+        "control",
+        "resentment"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "conflict_005",
+      "category": "conflict",
+      "question": "Conflict makes you want to flee. You…",
+      "pills": [
+        "Stay in it",
+        "Leave the room",
+        "Freeze",
+        "End it too fast"
+      ],
+      "theme_tags": [
+        "fear",
+        "control",
+        "power"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "conflict_006",
+      "category": "conflict",
+      "question": "You could win the argument or keep the peace. You…",
+      "pills": [
+        "Win it",
+        "Keep the peace",
+        "Find a third way",
+        "Resent the trade"
+      ],
+      "theme_tags": [
+        "power",
+        "dilemma",
+        "resentment"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "conflict_007",
+      "category": "conflict",
+      "question": "An apology is owed to you and never comes. You…",
+      "pills": [
+        "Ask for it",
+        "Let it go",
+        "Hold the grudge",
+        "Move on without it"
+      ],
+      "theme_tags": [
+        "resentment",
+        "power",
+        "dilemma"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "conflict_008",
+      "category": "conflict",
+      "question": "You hurt someone in a fight and you know it. You…",
+      "pills": [
+        "Apologize plainly",
+        "Defend my point",
+        "Withdraw in shame",
+        "Justify it later"
+      ],
+      "theme_tags": [
+        "guilt",
+        "power",
+        "duty"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "conflict_009",
+      "category": "conflict",
+      "question": "Power is uneven and you're the smaller party. You…",
+      "pills": [
+        "Push back anyway",
+        "Comply for now",
+        "Work around it",
+        "Resent in silence"
+      ],
+      "theme_tags": [
+        "power",
+        "resentment",
+        "control"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "conflict_010",
+      "category": "conflict",
+      "question": "Someone bulldozes you in a discussion. You…",
+      "pills": [
+        "Hold your ground",
+        "Give way",
+        "Go quiet and seethe",
+        "Match their force"
+      ],
+      "theme_tags": [
+        "power",
+        "control",
+        "resentment"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "conflict_011",
+      "category": "conflict",
+      "question": "You avoid a confrontation that needs to happen. You…",
+      "pills": [
+        "Have it now",
+        "Keep avoiding",
+        "Rehearse endlessly",
+        "Hope it resolves itself"
+      ],
+      "theme_tags": [
+        "fear",
+        "control",
+        "duty"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "conflict_012",
+      "category": "conflict",
+      "question": "Being disliked is the price of honesty here. You…",
+      "pills": [
+        "Pay it",
+        "Stay liked",
+        "Soften the truth",
+        "Stay silent"
+      ],
+      "theme_tags": [
+        "power",
+        "freedom",
+        "dilemma"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "conflict_013",
+      "category": "conflict",
+      "question": "You replay an argument hours later. You…",
+      "pills": [
+        "Let it go",
+        "Rewrite my lines",
+        "Stay angry",
+        "Plan a do-over"
+      ],
+      "theme_tags": [
+        "resentment",
+        "control",
+        "doubt"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "conflict_014",
+      "category": "conflict",
+      "question": "Someone weaponizes your weakness in a fight. You…",
+      "pills": [
+        "Stay composed",
+        "Strike back",
+        "Shut down",
+        "Name the low blow"
+      ],
+      "theme_tags": [
+        "power",
+        "resentment",
+        "control"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "conflict_015",
+      "category": "conflict",
+      "question": "You can forgive or stay armored. You…",
+      "pills": [
+        "Forgive and disarm",
+        "Stay armored",
+        "Forgive but watch",
+        "Refuse outright"
+      ],
+      "theme_tags": [
+        "resentment",
+        "duty",
+        "dilemma"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "conflict_016",
+      "category": "conflict",
+      "question": "Standing up for yourself feels selfish. You…",
+      "pills": [
+        "Stand anyway",
+        "Stand down",
+        "Stand quietly",
+        "Resent the guilt"
+      ],
+      "theme_tags": [
+        "power",
+        "guilt",
+        "freedom"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "conflict_017",
+      "category": "conflict",
+      "question": "A grudge has hardened over time. You…",
+      "pills": [
+        "Work to release it",
+        "Feed it",
+        "Bury it",
+        "Let it define them"
+      ],
+      "theme_tags": [
+        "resentment",
+        "control",
+        "duty"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "conflict_018",
+      "category": "conflict",
+      "question": "Someone in power treats you with daily disrespect. You…",
+      "pills": [
+        "Confront it",
+        "Endure it",
+        "Document it",
+        "Plan an exit"
+      ],
+      "theme_tags": [
+        "power",
+        "resentment",
+        "control"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "conflict_019",
+      "category": "conflict",
+      "question": "You can control the outcome or trust the process. You…",
+      "pills": [
+        "Grip control",
+        "Let it unfold",
+        "Control what I can",
+        "Resent the uncertainty"
+      ],
+      "theme_tags": [
+        "control",
+        "fear",
+        "freedom"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "conflict_020",
+      "category": "conflict",
+      "question": "Winning would cost the relationship. You…",
+      "pills": [
+        "Protect the bond",
+        "Win regardless",
+        "Seek a truce",
+        "Resent the choice"
+      ],
+      "theme_tags": [
+        "power",
+        "dilemma",
+        "resentment"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "conflict_021",
+      "category": "conflict",
+      "question": "Your anger is righteous but corrosive. You…",
+      "pills": [
+        "Let it go",
+        "Hold it as fuel",
+        "Let it eat me",
+        "Aim it usefully"
+      ],
+      "theme_tags": [
+        "resentment",
+        "control",
+        "power"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "conflict_022",
+      "category": "conflict",
+      "question": "Someone demands you back down. You…",
+      "pills": [
+        "Refuse",
+        "Comply",
+        "Negotiate",
+        "Comply then resent"
+      ],
+      "theme_tags": [
+        "power",
+        "freedom",
+        "resentment"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "conflict_023",
+      "category": "conflict",
+      "question": "You're tempted to retaliate quietly. You…",
+      "pills": [
+        "Resist it",
+        "Do it",
+        "Fantasize only",
+        "Confront instead"
+      ],
+      "theme_tags": [
+        "resentment",
+        "power",
+        "control"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "conflict_024",
+      "category": "conflict",
+      "question": "A fair fight turns personal. You…",
+      "pills": [
+        "Pull it back",
+        "Go personal too",
+        "Disengage",
+        "Name what happened"
+      ],
+      "theme_tags": [
+        "power",
+        "resentment",
+        "control"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "conflict_025",
+      "category": "conflict",
+      "question": "Conflict with someone you love frightens you. You…",
+      "pills": [
+        "Face it together",
+        "Avoid it",
+        "Smooth it over",
+        "End it fast"
+      ],
+      "theme_tags": [
+        "fear",
+        "duty",
+        "control"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "conflict_026",
+      "category": "conflict",
+      "question": "You hold power over someone in a dispute. You…",
+      "pills": [
+        "Use it fairly",
+        "Press the advantage",
+        "Set it aside",
+        "Feel uneasy with it"
+      ],
+      "theme_tags": [
+        "power",
+        "duty",
+        "control"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "conflict_027",
+      "category": "conflict",
+      "question": "Being assertive reads as aggressive to others. You…",
+      "pills": [
+        "Stay assertive",
+        "Soften myself",
+        "Resent the read",
+        "Adjust by room"
+      ],
+      "theme_tags": [
+        "power",
+        "identity",
+        "freedom"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "conflict_028",
+      "category": "conflict",
+      "question": "An old conflict could be repaired if you reached out. You…",
+      "pills": [
+        "Reach out",
+        "Wait for them",
+        "Let it lie",
+        "Decide it's not worth it"
+      ],
+      "theme_tags": [
+        "resentment",
+        "duty",
+        "dilemma"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "conflict_029",
+      "category": "conflict",
+      "question": "You can defend a boundary or keep someone close. You…",
+      "pills": [
+        "Defend the boundary",
+        "Keep them close",
+        "Hold both firmly",
+        "Resent the bind"
+      ],
+      "theme_tags": [
+        "power",
+        "freedom",
+        "dilemma"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "conflict_030",
+      "category": "conflict",
+      "question": "If standing your ground risked real loss, you'd…",
+      "pills": [
+        "Stand anyway",
+        "Yield to keep it",
+        "Stand partway",
+        "Weigh it endlessly"
+      ],
+      "theme_tags": [
+        "power",
+        "fear",
+        "dilemma"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "solitude_001",
+      "category": "solitude",
+      "question": "An evening alone stretches ahead. You feel…",
+      "pills": [
+        "Relieved",
+        "Restless",
+        "Free",
+        "Quietly lonely"
+      ],
+      "theme_tags": [
+        "loneliness",
+        "freedom",
+        "desire"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "solitude_002",
+      "category": "solitude",
+      "question": "You crave connection but also dread it. You…",
+      "pills": [
+        "Reach out anyway",
+        "Stay in",
+        "Reach out halfway",
+        "Resent the pull"
+      ],
+      "theme_tags": [
+        "loneliness",
+        "fear",
+        "desire"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "solitude_003",
+      "category": "solitude",
+      "question": "Being alone shows you who you are without an audience. You…",
+      "pills": [
+        "Welcome the view",
+        "Avoid the mirror",
+        "Study it",
+        "Distract from it"
+      ],
+      "theme_tags": [
+        "loneliness",
+        "identity",
+        "freedom"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "solitude_004",
+      "category": "solitude",
+      "question": "You're lonely in a room full of people. You…",
+      "pills": [
+        "Name it to myself",
+        "Perform harder",
+        "Leave early",
+        "Find one real person"
+      ],
+      "theme_tags": [
+        "loneliness",
+        "identity",
+        "fear"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "solitude_005",
+      "category": "solitude",
+      "question": "Solitude could restore you but you fill it with noise. You…",
+      "pills": [
+        "Choose the quiet",
+        "Keep the noise",
+        "Notice the avoidance",
+        "Fear the silence"
+      ],
+      "theme_tags": [
+        "loneliness",
+        "control",
+        "freedom"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "solitude_006",
+      "category": "solitude",
+      "question": "You've been independent so long that needing feels unsafe. You…",
+      "pills": [
+        "Let myself need",
+        "Stay self-sufficient",
+        "Need in secret",
+        "Resent needing"
+      ],
+      "theme_tags": [
+        "loneliness",
+        "fear",
+        "control"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "solitude_007",
+      "category": "solitude",
+      "question": "No one knows where you are right now. You feel…",
+      "pills": [
+        "Free",
+        "Unmoored",
+        "Peaceful",
+        "Forgotten"
+      ],
+      "theme_tags": [
+        "freedom",
+        "loneliness",
+        "identity"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "solitude_008",
+      "category": "solitude",
+      "question": "You'd rather be alone than poorly accompanied. You…",
+      "pills": [
+        "Choose solitude",
+        "Settle for company",
+        "Hold out for real",
+        "Doubt my standard"
+      ],
+      "theme_tags": [
+        "loneliness",
+        "freedom",
+        "desire"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "solitude_009",
+      "category": "solitude",
+      "question": "Silence brings up what you've outrun. You…",
+      "pills": [
+        "Let it surface",
+        "Drown it out",
+        "Sit with it",
+        "Stay busy"
+      ],
+      "theme_tags": [
+        "loneliness",
+        "fear",
+        "control"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "solitude_010",
+      "category": "solitude",
+      "question": "You long to be someone's first call. You…",
+      "pills": [
+        "Admit the longing",
+        "Deny it",
+        "Become that for others",
+        "Wait quietly"
+      ],
+      "theme_tags": [
+        "loneliness",
+        "desire",
+        "identity"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "solitude_011",
+      "category": "solitude",
+      "question": "Solitude is your strength and your hiding place. You…",
+      "pills": [
+        "Know the difference",
+        "Blur them",
+        "Hide more lately",
+        "Resent the need to"
+      ],
+      "theme_tags": [
+        "loneliness",
+        "freedom",
+        "fear"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "solitude_012",
+      "category": "solitude",
+      "question": "You could call someone but isolation feels easier. You…",
+      "pills": [
+        "Call anyway",
+        "Stay isolated",
+        "Text instead",
+        "Wait to be reached"
+      ],
+      "theme_tags": [
+        "loneliness",
+        "control",
+        "fear"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "solitude_013",
+      "category": "solitude",
+      "question": "Time alone clarifies what company muddies. You…",
+      "pills": [
+        "Seek it out",
+        "Avoid the clarity",
+        "Use it well",
+        "Fear what I'll find"
+      ],
+      "theme_tags": [
+        "loneliness",
+        "identity",
+        "meaning"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "solitude_014",
+      "category": "solitude",
+      "question": "You're afraid that alone is how you'll end up. You…",
+      "pills": [
+        "Make peace with it",
+        "Cling to people",
+        "Build real bonds",
+        "Numb the fear"
+      ],
+      "theme_tags": [
+        "loneliness",
+        "fear",
+        "desire"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "solitude_015",
+      "category": "solitude",
+      "question": "Your own company is enough some days, not others. You…",
+      "pills": [
+        "Accept the rhythm",
+        "Force it to be enough",
+        "Reach out on hard ones",
+        "Judge myself for it"
+      ],
+      "theme_tags": [
+        "loneliness",
+        "freedom",
+        "doubt"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "solitude_016",
+      "category": "solitude",
+      "question": "You hide loneliness behind being busy. You…",
+      "pills": [
+        "Admit it",
+        "Stay busy",
+        "Tell one person",
+        "Mistake it for fine"
+      ],
+      "theme_tags": [
+        "loneliness",
+        "control",
+        "identity"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "solitude_017",
+      "category": "solitude",
+      "question": "Solitude lets you hear your own voice again. You…",
+      "pills": [
+        "Listen closely",
+        "Tune it out",
+        "Trust it",
+        "Doubt it"
+      ],
+      "theme_tags": [
+        "loneliness",
+        "identity",
+        "meaning"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "solitude_018",
+      "category": "solitude",
+      "question": "You keep people at a comfortable distance. You…",
+      "pills": [
+        "Close the distance",
+        "Keep it",
+        "Resent the gap",
+        "Tell myself it's safer"
+      ],
+      "theme_tags": [
+        "loneliness",
+        "fear",
+        "control"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "solitude_019",
+      "category": "solitude",
+      "question": "Alone, you're free; together, you're held. You miss…",
+      "pills": [
+        "The freedom",
+        "The holding",
+        "Both, by turns",
+        "Whichever I lack"
+      ],
+      "theme_tags": [
+        "loneliness",
+        "freedom",
+        "desire"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "solitude_020",
+      "category": "solitude",
+      "question": "You wonder if anyone truly knows you. You…",
+      "pills": [
+        "Let someone in",
+        "Decide it's fine",
+        "Grieve quietly",
+        "Test one person"
+      ],
+      "theme_tags": [
+        "loneliness",
+        "identity",
+        "fear"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "solitude_021",
+      "category": "solitude",
+      "question": "Withdrawing feels safer than risking rejection. You…",
+      "pills": [
+        "Risk it anyway",
+        "Withdraw",
+        "Risk it small",
+        "Resent the choice"
+      ],
+      "theme_tags": [
+        "loneliness",
+        "fear",
+        "desire"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "solitude_022",
+      "category": "solitude",
+      "question": "You've made solitude a fortress. You…",
+      "pills": [
+        "Open a gate",
+        "Reinforce it",
+        "Wonder at the walls",
+        "Defend it fiercely"
+      ],
+      "theme_tags": [
+        "loneliness",
+        "freedom",
+        "control"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "solitude_023",
+      "category": "solitude",
+      "question": "A quiet weekend with no plans arrives. You…",
+      "pills": [
+        "Savor it",
+        "Scramble to fill it",
+        "Half-savor, half-dread",
+        "Feel oddly adrift"
+      ],
+      "theme_tags": [
+        "loneliness",
+        "freedom",
+        "desire"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading"
+      ]
+    },
+    {
+      "id": "solitude_024",
+      "category": "solitude",
+      "question": "You hold space for others but not yourself. You…",
+      "pills": [
+        "Turn it inward",
+        "Keep giving outward",
+        "Notice the imbalance",
+        "Resent it quietly"
+      ],
+      "theme_tags": [
+        "loneliness",
+        "duty",
+        "identity"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "solitude_025",
+      "category": "solitude",
+      "question": "Being unseen for a while unsettles you. You…",
+      "pills": [
+        "Make peace with it",
+        "Seek attention",
+        "Use the quiet",
+        "Fear disappearing"
+      ],
+      "theme_tags": [
+        "loneliness",
+        "identity",
+        "fear"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "solitude_026",
+      "category": "solitude",
+      "question": "You can be alone without being lonely, sometimes. You…",
+      "pills": [
+        "Cultivate that",
+        "Wait for it",
+        "Doubt it lasts",
+        "Chase company instead"
+      ],
+      "theme_tags": [
+        "loneliness",
+        "freedom",
+        "meaning"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "solitude_027",
+      "category": "solitude",
+      "question": "Reaching out first feels like too much risk. You…",
+      "pills": [
+        "Reach first anyway",
+        "Wait to be reached",
+        "Reach with a joke",
+        "Stay silent"
+      ],
+      "theme_tags": [
+        "loneliness",
+        "fear",
+        "desire"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "solitude_028",
+      "category": "solitude",
+      "question": "Your solitude has a flavor of grief lately. You…",
+      "pills": [
+        "Let myself feel it",
+        "Push past it",
+        "Name what's missing",
+        "Fill it fast"
+      ],
+      "theme_tags": [
+        "loneliness",
+        "grief",
+        "desire"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "solitude_029",
+      "category": "solitude",
+      "question": "You protect your alone time fiercely. You…",
+      "pills": [
+        "Guard it well",
+        "Give it away",
+        "Resent intrusions",
+        "Question the need"
+      ],
+      "theme_tags": [
+        "loneliness",
+        "freedom",
+        "control"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "solitude_030",
+      "category": "solitude",
+      "question": "If you let people closer, you'd most fear…",
+      "pills": [
+        "Being a burden",
+        "Being seen fully",
+        "Losing freedom",
+        "Being left anyway"
+      ],
+      "theme_tags": [
+        "loneliness",
+        "fear",
+        "freedom"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "desire_001",
+      "category": "desire",
+      "question": "You want something you're a little ashamed to want. You…",
+      "pills": [
+        "Own the wanting",
+        "Suppress it",
+        "Indulge in secret",
+        "Question the shame"
+      ],
+      "theme_tags": [
+        "desire",
+        "guilt",
+        "identity"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "desire_002",
+      "category": "desire",
+      "question": "A craving pulls against a goal you set. You…",
+      "pills": [
+        "Hold the goal",
+        "Give in",
+        "Negotiate a little",
+        "Resent the discipline"
+      ],
+      "theme_tags": [
+        "desire",
+        "discipline",
+        "control"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "desire_003",
+      "category": "desire",
+      "question": "You finally get what you wanted and want more. You…",
+      "pills": [
+        "Savor it first",
+        "Chase the next",
+        "Feel the treadmill",
+        "Question the wanting"
+      ],
+      "theme_tags": [
+        "desire",
+        "doubt",
+        "discipline"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "desire_004",
+      "category": "desire",
+      "question": "Pleasure now or a payoff later. You lean toward…",
+      "pills": [
+        "The payoff",
+        "The pleasure",
+        "A measured both",
+        "What I'd regret skipping"
+      ],
+      "theme_tags": [
+        "desire",
+        "discipline",
+        "dilemma"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "desire_005",
+      "category": "desire",
+      "question": "You deny yourself things you could enjoy. You…",
+      "pills": [
+        "Loosen up",
+        "Hold the restraint",
+        "Resent the rules",
+        "Question who set them"
+      ],
+      "theme_tags": [
+        "desire",
+        "discipline",
+        "freedom"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "desire_006",
+      "category": "desire",
+      "question": "A desire would disrupt your careful life. You…",
+      "pills": [
+        "Let it disrupt",
+        "Contain it",
+        "Indulge it small",
+        "Fear its pull"
+      ],
+      "theme_tags": [
+        "desire",
+        "control",
+        "freedom"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "desire_007",
+      "category": "desire",
+      "question": "You want to be wanted more than you admit. You…",
+      "pills": [
+        "Admit it",
+        "Deny it",
+        "Chase it quietly",
+        "Resent the need"
+      ],
+      "theme_tags": [
+        "desire",
+        "identity",
+        "loneliness"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "desire_008",
+      "category": "desire",
+      "question": "Temptation arrives when no one would know. You…",
+      "pills": [
+        "Hold my line",
+        "Give in",
+        "Tell myself just once",
+        "Examine the wanting"
+      ],
+      "theme_tags": [
+        "desire",
+        "guilt",
+        "discipline"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "desire_009",
+      "category": "desire",
+      "question": "Your wants and your values disagree. You…",
+      "pills": [
+        "Follow the values",
+        "Follow the want",
+        "Sit in the tension",
+        "Reshape the want"
+      ],
+      "theme_tags": [
+        "desire",
+        "guilt",
+        "dilemma"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "desire_010",
+      "category": "desire",
+      "question": "You numb a deeper want with a quick fix. You…",
+      "pills": [
+        "Name the real want",
+        "Keep the fix",
+        "Notice the pattern",
+        "Indulge guilt-free"
+      ],
+      "theme_tags": [
+        "desire",
+        "control",
+        "doubt"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "desire_011",
+      "category": "desire",
+      "question": "Letting yourself want fully feels dangerous. You…",
+      "pills": [
+        "Want anyway",
+        "Keep it small",
+        "Want in private",
+        "Question the danger"
+      ],
+      "theme_tags": [
+        "desire",
+        "fear",
+        "freedom"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "desire_012",
+      "category": "desire",
+      "question": "Discipline gives you freedom but costs you joy. You…",
+      "pills": [
+        "Keep the discipline",
+        "Choose the joy",
+        "Balance them",
+        "Resent the bargain"
+      ],
+      "theme_tags": [
+        "discipline",
+        "desire",
+        "freedom"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "desire_013",
+      "category": "desire",
+      "question": "You compare your wants to what you 'should' want. You…",
+      "pills": [
+        "Trust my own",
+        "Adopt the shoulds",
+        "Resent the pressure",
+        "Feel split"
+      ],
+      "theme_tags": [
+        "desire",
+        "identity",
+        "duty"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "desire_014",
+      "category": "desire",
+      "question": "A pleasure you love is quietly costing you. You…",
+      "pills": [
+        "Cut it back",
+        "Keep enjoying it",
+        "Hide the cost",
+        "Reckon with it"
+      ],
+      "theme_tags": [
+        "desire",
+        "discipline",
+        "doubt"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "desire_015",
+      "category": "desire",
+      "question": "You want rest but call it laziness. You…",
+      "pills": [
+        "Rest without guilt",
+        "Push through",
+        "Rest then feel bad",
+        "Question the verdict"
+      ],
+      "theme_tags": [
+        "desire",
+        "guilt",
+        "discipline"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "desire_016",
+      "category": "desire",
+      "question": "Wanting more than you have feels like ingratitude. You…",
+      "pills": [
+        "Allow the wanting",
+        "Force gratitude",
+        "Hide the want",
+        "Hold both"
+      ],
+      "theme_tags": [
+        "desire",
+        "guilt",
+        "freedom"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "desire_017",
+      "category": "desire",
+      "question": "A door to something you crave just opened. You…",
+      "pills": [
+        "Walk through",
+        "Hesitate",
+        "Walk through cautiously",
+        "Talk myself out"
+      ],
+      "theme_tags": [
+        "desire",
+        "fear",
+        "freedom"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "desire_018",
+      "category": "desire",
+      "question": "You suppress a want until it leaks out sideways. You…",
+      "pills": [
+        "Face it directly",
+        "Keep suppressing",
+        "Notice the leak",
+        "Indulge to silence it"
+      ],
+      "theme_tags": [
+        "desire",
+        "control",
+        "doubt"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "desire_019",
+      "category": "desire",
+      "question": "Indulgence and integrity pull at each other. You lean toward…",
+      "pills": [
+        "Integrity",
+        "Indulgence",
+        "A negotiated both",
+        "What I can live with"
+      ],
+      "theme_tags": [
+        "desire",
+        "discipline",
+        "dilemma"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "desire_020",
+      "category": "desire",
+      "question": "You want to be the kind of person who wants less. You…",
+      "pills": [
+        "Train toward it",
+        "Accept my wanting",
+        "Resent the wanting",
+        "Question the ideal"
+      ],
+      "theme_tags": [
+        "desire",
+        "discipline",
+        "identity"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "desire_021",
+      "category": "desire",
+      "question": "A guilty pleasure brings real joy. You…",
+      "pills": [
+        "Drop the guilt",
+        "Keep the guilt",
+        "Enjoy then atone",
+        "Examine the guilt"
+      ],
+      "theme_tags": [
+        "desire",
+        "guilt",
+        "freedom"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "desire_022",
+      "category": "desire",
+      "question": "You'd have to be selfish to get what you want. You…",
+      "pills": [
+        "Be selfish here",
+        "Defer to others",
+        "Take a smaller share",
+        "Resent the framing"
+      ],
+      "theme_tags": [
+        "desire",
+        "guilt",
+        "freedom"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "desire_023",
+      "category": "desire",
+      "question": "Your strongest desire, named honestly, is…",
+      "pills": [
+        "To be free",
+        "To be loved",
+        "To matter",
+        "To be at peace"
+      ],
+      "theme_tags": [
+        "desire",
+        "identity",
+        "meaning"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "desire_024",
+      "category": "desire",
+      "question": "You chase a want and lose yourself in it. You…",
+      "pills": [
+        "Pull back to center",
+        "Keep chasing",
+        "Notice the loss",
+        "Justify the chase"
+      ],
+      "theme_tags": [
+        "desire",
+        "control",
+        "identity"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "desire_025",
+      "category": "desire",
+      "question": "Restraint has become its own kind of trap. You…",
+      "pills": [
+        "Loosen it",
+        "Keep it tight",
+        "Test one indulgence",
+        "Resent the cage"
+      ],
+      "theme_tags": [
+        "discipline",
+        "freedom",
+        "desire"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "desire_026",
+      "category": "desire",
+      "question": "You want something that scares you to admit. You…",
+      "pills": [
+        "Say it out loud",
+        "Bury it",
+        "Write it down only",
+        "Test it carefully"
+      ],
+      "theme_tags": [
+        "desire",
+        "fear",
+        "identity"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "desire_027",
+      "category": "desire",
+      "question": "Delaying a want builds you or starves you. Lately it…",
+      "pills": [
+        "Builds me",
+        "Starves me",
+        "Does both",
+        "I can't tell"
+      ],
+      "theme_tags": [
+        "discipline",
+        "desire",
+        "doubt"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "desire_028",
+      "category": "desire",
+      "question": "You confuse what you want with what you're supposed to. You…",
+      "pills": [
+        "Untangle them",
+        "Live the supposed-to",
+        "Resent the muddle",
+        "Slowly clarify"
+      ],
+      "theme_tags": [
+        "desire",
+        "identity",
+        "duty"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "desire_029",
+      "category": "desire",
+      "question": "A craving spikes under stress. You…",
+      "pills": [
+        "Meet the stress instead",
+        "Feed the craving",
+        "Ride it out",
+        "Judge myself for it"
+      ],
+      "theme_tags": [
+        "desire",
+        "control",
+        "discipline"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "desire_030",
+      "category": "desire",
+      "question": "If you let yourself want fully, you'd most fear…",
+      "pills": [
+        "Losing control",
+        "Being judged",
+        "Never being satisfied",
+        "Hurting someone"
+      ],
+      "theme_tags": [
+        "desire",
+        "fear",
+        "guilt"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "mortality_001",
+      "category": "mortality",
+      "question": "You catch a clear sense that your time is finite. You…",
+      "pills": [
+        "Let it sharpen me",
+        "Push it away",
+        "Feel the fear",
+        "Live more boldly"
+      ],
+      "theme_tags": [
+        "death",
+        "fear",
+        "meaning"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "mortality_002",
+      "category": "mortality",
+      "question": "Your body shows its age in a new way. You…",
+      "pills": [
+        "Accept it",
+        "Fight it",
+        "Grieve it quietly",
+        "Reassess my life"
+      ],
+      "theme_tags": [
+        "aging",
+        "fear",
+        "identity"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "mortality_003",
+      "category": "mortality",
+      "question": "Someone close has died and it rearranged you. You…",
+      "pills": [
+        "Carry them forward",
+        "Avoid the grief",
+        "Let it change me",
+        "Search for meaning"
+      ],
+      "theme_tags": [
+        "grief",
+        "death",
+        "meaning"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "mortality_004",
+      "category": "mortality",
+      "question": "You imagine your last year of life. You'd spend it…",
+      "pills": [
+        "With loved ones",
+        "Finishing my work",
+        "Seeing the world",
+        "At peace, simply"
+      ],
+      "theme_tags": [
+        "death",
+        "meaning",
+        "desire"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "mortality_005",
+      "category": "mortality",
+      "question": "Aging means losing some things you valued. You…",
+      "pills": [
+        "Trade up for new ones",
+        "Mourn the losses",
+        "Deny the change",
+        "Find what deepens"
+      ],
+      "theme_tags": [
+        "aging",
+        "grief",
+        "meaning"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "mortality_006",
+      "category": "mortality",
+      "question": "The thought of not existing unsettles you. You…",
+      "pills": [
+        "Make peace with it",
+        "Avoid the thought",
+        "Let it humble me",
+        "Live against it"
+      ],
+      "theme_tags": [
+        "death",
+        "fear",
+        "freedom"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "mortality_007",
+      "category": "mortality",
+      "question": "You've been postponing life as if time is endless. You…",
+      "pills": [
+        "Stop postponing",
+        "Keep waiting",
+        "Feel the urgency",
+        "Pick one thing now"
+      ],
+      "theme_tags": [
+        "death",
+        "fear",
+        "freedom"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "mortality_008",
+      "category": "mortality",
+      "question": "A milestone birthday lands heavily. You…",
+      "pills": [
+        "Reflect and reset",
+        "Brush it off",
+        "Feel the weight",
+        "Take stock honestly"
+      ],
+      "theme_tags": [
+        "aging",
+        "meaning",
+        "identity"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading"
+      ]
+    },
+    {
+      "id": "mortality_009",
+      "category": "mortality",
+      "question": "You wonder what you'd regret on your last day. You…",
+      "pills": [
+        "Act on it now",
+        "Note it and wait",
+        "Avoid the question",
+        "Quietly change course"
+      ],
+      "theme_tags": [
+        "death",
+        "meaning",
+        "doubt"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "mortality_010",
+      "category": "mortality",
+      "question": "Death makes the small stuff smaller. You…",
+      "pills": [
+        "Let it clarify me",
+        "Resist the lens",
+        "Use it to choose",
+        "Forget it by tomorrow"
+      ],
+      "theme_tags": [
+        "death",
+        "meaning",
+        "freedom"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "mortality_011",
+      "category": "mortality",
+      "question": "You fear not death itself but dying with things unsaid. You…",
+      "pills": [
+        "Say them now",
+        "Keep waiting",
+        "Write them down",
+        "Hope for time"
+      ],
+      "theme_tags": [
+        "death",
+        "fear",
+        "duty"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "mortality_012",
+      "category": "mortality",
+      "question": "Your parents aging foreshadows your own. You…",
+      "pills": [
+        "Face it openly",
+        "Look away",
+        "Let it teach me",
+        "Feel the fear"
+      ],
+      "theme_tags": [
+        "aging",
+        "death",
+        "fear"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "mortality_013",
+      "category": "mortality",
+      "question": "You want to leave something behind. It would be…",
+      "pills": [
+        "People I shaped",
+        "Work that lasts",
+        "A way of being",
+        "I'd rather just live"
+      ],
+      "theme_tags": [
+        "death",
+        "meaning",
+        "identity"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "mortality_014",
+      "category": "mortality",
+      "question": "Time feels faster every year. You…",
+      "pills": [
+        "Slow down to meet it",
+        "Race against it",
+        "Mourn the speed",
+        "Savor deliberately"
+      ],
+      "theme_tags": [
+        "aging",
+        "death",
+        "meaning"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "mortality_015",
+      "category": "mortality",
+      "question": "You glimpse how short it all is and feel free. You…",
+      "pills": [
+        "Act on the freedom",
+        "Lose the feeling fast",
+        "Hold onto it",
+        "Fear it instead"
+      ],
+      "theme_tags": [
+        "death",
+        "freedom",
+        "meaning"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "mortality_016",
+      "category": "mortality",
+      "question": "Grief you carry has no clean ending. You…",
+      "pills": [
+        "Let it stay and soften",
+        "Wait for it to end",
+        "Carry it openly",
+        "Push it down"
+      ],
+      "theme_tags": [
+        "grief",
+        "death",
+        "meaning"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "mortality_017",
+      "category": "mortality",
+      "question": "You'd live differently if death felt real to you. You…",
+      "pills": [
+        "Make it real",
+        "Keep it abstract",
+        "Let it in slowly",
+        "Fear letting it in"
+      ],
+      "theme_tags": [
+        "death",
+        "fear",
+        "freedom"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "mortality_018",
+      "category": "mortality",
+      "question": "Aging asks you to redefine what you offer. You…",
+      "pills": [
+        "Redefine willingly",
+        "Cling to the old",
+        "Resent the shift",
+        "Find a deeper offer"
+      ],
+      "theme_tags": [
+        "aging",
+        "identity",
+        "meaning"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "mortality_019",
+      "category": "mortality",
+      "question": "A near-miss reminded you you're mortal. Since then you…",
+      "pills": [
+        "Live more fully",
+        "Went back to normal",
+        "Feel the fragility",
+        "Reordered priorities"
+      ],
+      "theme_tags": [
+        "death",
+        "fear",
+        "meaning"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "mortality_020",
+      "category": "mortality",
+      "question": "You hope to face the end with…",
+      "pills": [
+        "Acceptance",
+        "Defiance",
+        "Loved ones near",
+        "Few regrets"
+      ],
+      "theme_tags": [
+        "death",
+        "meaning",
+        "identity"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "mortality_021",
+      "category": "mortality",
+      "question": "Outliving people you love frightens you. You…",
+      "pills": [
+        "Cherish them now",
+        "Avoid the thought",
+        "Brace quietly",
+        "Love anyway"
+      ],
+      "theme_tags": [
+        "death",
+        "grief",
+        "fear"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "mortality_022",
+      "category": "mortality",
+      "question": "You measure a long life by depth, not length. You…",
+      "pills": [
+        "Live for depth",
+        "Chase length too",
+        "Doubt I'm deep enough",
+        "Reassess my time"
+      ],
+      "theme_tags": [
+        "death",
+        "meaning",
+        "aging"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "mortality_023",
+      "category": "mortality",
+      "question": "What dies with you that no one else carries? You…",
+      "pills": [
+        "Pass it on now",
+        "Let it go",
+        "Grieve that quietly",
+        "Write it down"
+      ],
+      "theme_tags": [
+        "death",
+        "meaning",
+        "grief"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "mortality_024",
+      "category": "mortality",
+      "question": "You avoid thinking about death entirely. You…",
+      "pills": [
+        "Let it in a little",
+        "Keep avoiding",
+        "Wonder what I'm dodging",
+        "Face it head-on"
+      ],
+      "theme_tags": [
+        "death",
+        "fear",
+        "control"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "mortality_025",
+      "category": "mortality",
+      "question": "Aging frees you from caring what people think. You…",
+      "pills": [
+        "Embrace the freedom",
+        "Still care",
+        "Welcome it slowly",
+        "Wish it came sooner"
+      ],
+      "theme_tags": [
+        "aging",
+        "freedom",
+        "identity"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "mortality_026",
+      "category": "mortality",
+      "question": "If you had a year, your regrets would be about…",
+      "pills": [
+        "Love withheld",
+        "Risks not taken",
+        "Truths not spoken",
+        "Time not savored"
+      ],
+      "theme_tags": [
+        "death",
+        "meaning",
+        "doubt"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "mortality_027",
+      "category": "mortality",
+      "question": "Mortality makes you want to forgive faster. You…",
+      "pills": [
+        "Forgive now",
+        "Hold the grudge",
+        "Reach out soon",
+        "Weigh it still"
+      ],
+      "theme_tags": [
+        "death",
+        "resentment",
+        "duty"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "mortality_028",
+      "category": "mortality",
+      "question": "You want your dying to teach those who watch. You'd show them…",
+      "pills": [
+        "How to let go",
+        "How to stay brave",
+        "How to love well",
+        "That I had no fear"
+      ],
+      "theme_tags": [
+        "death",
+        "meaning",
+        "identity"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "mortality_029",
+      "category": "mortality",
+      "question": "The legacy you fear leaving is…",
+      "pills": [
+        "Being forgotten",
+        "Unfinished business",
+        "Wounds I caused",
+        "A life half-lived"
+      ],
+      "theme_tags": [
+        "death",
+        "meaning",
+        "grief"
+      ],
+      "feeds": [
+        "persona_context",
+        "sunday_reading",
+        "you_vs_you"
+      ]
+    },
+    {
+      "id": "mortality_030",
+      "category": "mortality",
+      "question": "If today were closer to the end than the middle, you'd…",
+      "pills": [
+        "Change very little",
+        "Change almost everything",
+        "Finally say it",
+        "Finally rest"
+      ],
+      "theme_tags": [
+        "death",
+        "meaning",
+        "freedom"
       ],
       "feeds": [
         "persona_context",
