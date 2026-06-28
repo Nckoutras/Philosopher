@@ -27,6 +27,12 @@ class SelfModelService:
                 # Voluntary counterview beliefs are their own surface (recurrence +
                 # letter spine); keep them out of the You-vs-You then/now windows.
                 MemoryEntry.entry_type != "counterview_belief",
+                # self_portrait is atemporal self-knowledge (perpetual quiz answers);
+                # excluded from the temporal then/now windows AND the
+                # MIN_TOTAL_ENTRIES unlock gate, so answering questions can neither
+                # pollute the contrast nor falsely unlock You-vs-You. It is reinjected
+                # as a stable self-knowledge block in PR-1b.
+                MemoryEntry.entry_type != "self_portrait",
             )
             .order_by(MemoryEntry.created_at.asc())
         )
