@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useEffect } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
-import { Home, Compass, Archive, User, Sparkle } from 'lucide-react'
+import { Home, Compass, Aperture, User, Sparkle } from 'lucide-react'
 import { useStore } from '@/lib/store'
 
 const TABS = [
@@ -20,10 +20,10 @@ const TABS = [
     activePattern: /^\/app\/explore/,
   },
   {
-    label: 'Library',
-    icon: Archive,
-    href: '/app/library',
-    activePattern: /^\/app\/library/,
+    label: 'Portrait',
+    icon: Aperture,
+    href: '/app/self-portrait',
+    activePattern: /^\/app\/self-portrait/,
   },
   {
     label: 'Account',
@@ -84,7 +84,7 @@ export default function BottomTabBar() {
                 isActive ? 'text-ink' : 'text-sepia',
               ].join(' ')}
             >
-              {tab.label === 'Library' ? (
+              {tab.label === 'Home' ? (
                 <span className="relative">
                   <Icon size={20} strokeWidth={1.5} />
                   {hasUnseenInsight && (
