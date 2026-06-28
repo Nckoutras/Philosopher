@@ -8,11 +8,12 @@ import anthropic
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from models import SelfComparison, Message, Conversation
+from models import SelfComparison, Message, Conversation, UserPreference, MemoryEntry
 from services.llm_client import llm_client
 from services.prompt_builder import prompt_builder
 from services.safety_service import safety_service
 from services.self_model_service import self_model_service
+from services.self_portrait import answers_to_statements
 from services.self_comparison_prompts import SELF_SYSTEM_PROMPT, CLOSING_PROMPT, FORMING_REFLECTION_PROMPT
 
 logger = logging.getLogger(__name__)
@@ -113,6 +114,42 @@ class SelfComparisonService:
         )
         return result.scalar_one() > 0
 
+    async def _self_portrait_context(self, db: AsyncSession, user_id: str) -> tuple[str, str]:
+        """Build the (standing_block, shifts_block) Self-Portrait context for You-vs-You.
+
+        standing_block: how they currently describe themselves (quiet background for the
+        "now" self only). shifts_block: recent self-described answer-movements (for the
+        closing). Best-effort — ANY error returns ("", "") so YvY never breaks on it."""
+        try:
+            pref = (await db.execute(
+                select(UserPreference).where(UserPreference.user_id == user_id)
+            )).scalar_one_or_none()
+            answers = ((pref.profile if pref else None) or {}).get("answers") or {}
+            stmts = answers_to_statements(answers, limit=8)
+            standing_block = "" if not stmts else (
+                "Here is how they currently describe themselves in a brief self-knowledge "
+                "exercise — quiet background only, secondary to the period's signals above; "
+                "never recite it:\n"
+                + "\n".join(f"- {s}" for s in stmts)
+            )
+
+            shift_rows = (await db.execute(
+                select(MemoryEntry.content)
+                .where(
+                    MemoryEntry.user_id == user_id,
+                    MemoryEntry.entry_type == "self_portrait_shift",
+                    MemoryEntry.is_active == True,
+                )
+                .order_by(MemoryEntry.created_at.desc())
+                .limit(8)
+            )).scalars().all()
+            shifts_block = "\n".join(f"- {c}" for c in shift_rows) or ""
+
+            return (standing_block, shifts_block)
+        except Exception as exc:
+            logger.warning(f"Self-portrait context failed for user={user_id}: {exc}")
+            return ("", "")
+
     async def stream(self, db: AsyncSession, user_id: str, prompt: str, *, bypass_gate: bool = False) -> AsyncGenerator[str, None]:
         # 1. Safety gate on the prompt
         safety_in = await safety_service.check_input(prompt, user_id)
@@ -148,9 +185,16 @@ class SelfComparisonService:
         await db.flush()
 
         # 5. Stream the two selves
+        standing_block, shifts_block = await self._self_portrait_context(db, user_id)
         answers: dict[str, str] = {}
         for which, label, win in (("then", "earlier", then_w), ("now", "more recent", now_w)):
-            system = SELF_SYSTEM_PROMPT.format(which_label=label, signals=_format_signals(win["by_type"]))
+            system = SELF_SYSTEM_PROMPT.format(
+                which_label=label,
+                signals=_format_signals(win["by_type"]),
+                # Current self-report → the "now" self only; the earlier self stays
+                # window-pure so the then/now contrast is preserved.
+                self_portrait=(standing_block if which == "now" else ""),
+            )
             yield f"data: {json.dumps({'type': 'self', 'which': which, 'start': win['start'].isoformat(), 'end': win['end'].isoformat()})}\n\n"
             buf: list[str] = []
             chunks_yielded = False
@@ -197,6 +241,8 @@ class SelfComparisonService:
             f"Earlier-period messages:\n{_fmt('then')}\n\n"
             f"Recent-period messages:\n{_fmt('now')}"
         )
+        if shifts_block:
+            closing_user += f"\n\nSelf-described answer-movements over time:\n{shifts_block}"
 
         closing = {"observation": "", "question": "", "then_quote": None, "now_quote": None}
         try:
