@@ -202,8 +202,6 @@ export default function ChatPage() {
       <ChatHeader
         personaName={personaName}
         portraitUrl={portraitUrl}
-        onTakeToCouncil={handleTakeToCouncil}
-        councilEnabled={!!lastUserMessage.trim()}
       />
       <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3">
         {openingInvocation && <OpeningInvocation text={openingInvocation} />}
@@ -213,6 +211,7 @@ export default function ChatPage() {
           onUpgradeConfirm={handleUpgradeConfirm}
           onBringAnotherMind={handleBringAnotherMind}
           onGoDeeper={() => sendGoDeeper()}
+          onTakeToCouncil={handleTakeToCouncil}
         />
         {safetyActive ? (
           <>
