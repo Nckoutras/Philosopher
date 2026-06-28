@@ -27,9 +27,10 @@ interface Props {
   onInsightPrimary?: () => void
   onInsightDoubt?: () => void
   onInsightDiscard?: () => void
+  onTakeToCouncil?: () => void
 }
 
-export default function MessageList({ messages, onSaveLine, onUpgradeConfirm, onBringAnotherMind, onGoDeeper, onContinueWithGuest, insightContent, insightType, insightSourceCount, insightExpanded = false, onInsightTap, onInsightPrimary, onInsightDoubt, onInsightDiscard }: Props) {
+export default function MessageList({ messages, onSaveLine, onUpgradeConfirm, onBringAnotherMind, onGoDeeper, onContinueWithGuest, insightContent, insightType, insightSourceCount, insightExpanded = false, onInsightTap, onInsightPrimary, onInsightDoubt, onInsightDiscard, onTakeToCouncil }: Props) {
   const savedMessageIds = useStore((s) => s.savedMessageIds)
   const activePersonaSlug = useStore((s) => s.activePersonaSlug)
 
@@ -81,6 +82,8 @@ export default function MessageList({ messages, onSaveLine, onUpgradeConfirm, on
                 onGoDeeper={onGoDeeper}
                 showInsightChip={msg.id === lastAssistantId && !!insightContent && !insightExpanded}
                 onInsightTap={onInsightTap}
+                showCouncilChip={msg.id === lastAssistantId}
+                onTakeToCouncil={onTakeToCouncil}
                 continueWithName={onContinueWithGuest && broughtIn && slug && slug !== activePersonaSlug ? (broughtInName ?? null) : null}
                 onContinueWith={onContinueWithGuest && broughtIn && slug ? () => onContinueWithGuest(slug, broughtInName ?? '') : undefined}
               />

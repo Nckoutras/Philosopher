@@ -1,5 +1,3 @@
-import { Scale } from 'lucide-react'
-
 interface Props {
   personaName: string
   portraitUrl: string
@@ -13,11 +11,6 @@ interface Props {
   showDeepMode?: boolean
   deepMode?: boolean
   onToggleDeepMode?: () => void
-  // Take to the Council: visible to EVERYONE (upsell surface). Disabled until
-  // there is something to send (a user message). Tap routing is the caller's
-  // job: Pro → seeded Council; free → upgrade wall.
-  onTakeToCouncil?: () => void
-  councilEnabled?: boolean
 }
 
 export default function ChatHeader({
@@ -29,8 +22,6 @@ export default function ChatHeader({
   showDeepMode = false,
   deepMode = false,
   onToggleDeepMode,
-  onTakeToCouncil,
-  councilEnabled = false,
 }: Props) {
   return (
     <header className="sticky top-0 z-10 flex items-center gap-3 px-4 py-3 bg-vellum border-b border-edge">
@@ -59,17 +50,6 @@ export default function ChatHeader({
         )}
       </div>
       <div className="ml-auto flex items-center gap-[8px] flex-shrink-0">
-        {onTakeToCouncil && (
-          <button
-            type="button"
-            onClick={onTakeToCouncil}
-            disabled={!councilEnabled}
-            aria-label="Take this to the Council"
-            className="min-h-[36px] min-w-[36px] flex items-center justify-center rounded-full text-sepia active:opacity-50 disabled:opacity-30"
-          >
-            <Scale size={18} strokeWidth={1.5} />
-          </button>
-        )}
         {showDeepMode && onToggleDeepMode && (
           <button
             type="button"

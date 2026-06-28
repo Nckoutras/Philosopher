@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Zap, Users, Bookmark, Sparkle, ArrowRight } from 'lucide-react'
+import { Zap, Users, Bookmark, Sparkle, ArrowRight, Landmark } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import SaveLineInlineUpgrade from './SaveLineInlineUpgrade'
 
@@ -14,13 +14,15 @@ interface Props {
   onGoDeeper: () => void
   showInsightChip?: boolean
   onInsightTap?: () => void
+  showCouncilChip?: boolean
+  onTakeToCouncil?: () => void
   // Sticky guest: shown only on a brought-in message whose guest is not already
   // the active mind. Tapping makes that guest the active mind for next turns.
   continueWithName?: string | null
   onContinueWith?: () => void
 }
 
-export default function QuickActionsRow({ messageId: _messageId, saved, onSave, onUpgradeConfirm, onBringAnotherMind, onGoDeeper, showInsightChip = false, onInsightTap, continueWithName = null, onContinueWith }: Props) {
+export default function QuickActionsRow({ messageId: _messageId, saved, onSave, onUpgradeConfirm, onBringAnotherMind, onGoDeeper, showInsightChip = false, onInsightTap, showCouncilChip = false, onTakeToCouncil, continueWithName = null, onContinueWith }: Props) {
   const [showUpgrade, setShowUpgrade] = useState(false)
   const freeSaveCount = useStore((s) => s.freeSaveCount)
   const freeTierLimit = useStore((s) => s.freeTierLimit)
@@ -74,6 +76,17 @@ export default function QuickActionsRow({ messageId: _messageId, saved, onSave, 
         <Users size={11} strokeWidth={1.5} />
         <span className="hidden min-[360px]:inline">Bring another mind</span>
       </button>
+      {showCouncilChip && onTakeToCouncil && (
+        <button
+          type="button"
+          onClick={onTakeToCouncil}
+          className={chipBase}
+          aria-label="Ask the Council"
+        >
+          <Landmark size={11} strokeWidth={1.5} />
+          <span className="hidden min-[360px]:inline">Ask the Council</span>
+        </button>
+      )}
       <button
         type="button"
         onClick={handleSaveTap}
