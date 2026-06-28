@@ -3,6 +3,10 @@ import { persist } from 'zustand/middleware'
 import type { User, Conversation, Message, Subscription, SavedLineRead, ReflectionFeedItem, Insight } from './api'
 import { api } from './api'
 
+function computePlan(sub: Subscription | null): string {
+  return sub && ['active', 'trialing'].includes(sub.status) ? sub.plan : 'free'
+}
+
 export interface PaywallDetails {
   upgradeTarget: 'pro' | 'premium'
   reason?: 'daily' | 'go_deeper_depth'
@@ -24,7 +28,7 @@ interface AppStore {
   // Subscription
   subscription: Subscription | null
   setSubscription: (sub: Subscription) => void
-  get plan(): string
+  plan: string
 
   // Insight discoverability glow
   activeInsights: Insight[]                       // transient (refetched)
@@ -117,7 +121,7 @@ interface AppStore {
 
 export const useStore = create<AppStore>()(
   persist(
-    (set, get) => ({
+    (set) => ({
       // Auth
       user: null,
       token: null,
@@ -125,15 +129,12 @@ export const useStore = create<AppStore>()(
       setHasHydrated: (v) => set({ hasHydrated: v }),
       setAuth: (user, token) => set({ user, token }),
       setUser: (user) => set({ user }),
-      clearAuth: () => set({ user: null, token: null, subscription: null }),
+      clearAuth: () => set({ user: null, token: null, subscription: null, plan: 'free' }),
 
       // Subscription
       subscription: null,
-      setSubscription: (sub) => set({ subscription: sub }),
-      get plan() {
-        const sub = get().subscription
-        return sub && ['active', 'trialing'].includes(sub.status) ? sub.plan : 'free'
-      },
+      plan: 'free',
+      setSubscription: (sub) => set({ subscription: sub, plan: computePlan(sub) }),
 
       // Insight discoverability glow
       activeInsights: [],
@@ -332,6 +333,7 @@ export const useStore = create<AppStore>()(
       name: 'philosopher-store',
       partialize: (s) => ({ user: s.user, token: s.token, subscription: s.subscription, seenInsightIds: s.seenInsightIds }),
       onRehydrateStorage: () => (state) => {
+        if (state?.subscription) state.setSubscription(state.subscription)
         state?.setHasHydrated(true)
       },
     }
