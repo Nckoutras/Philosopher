@@ -15,6 +15,18 @@ COUNCIL_VERDICT_INSTRUCTION = (
     "  verbatim — paraphrase the idea in your own words instead. When unsure, paraphrase."
 )
 
+COUNCIL_DISTILL_PROMPT = (
+    "You distil a person's chat conversation into the matter a four-member council will deliberate.\n"
+    "Read the exchange and return ONE essence brief: at most two sentences, 50 words or fewer.\n"
+    "Write in NEUTRAL THIRD PERSON about the person — \"this person is wrestling with X and is\n"
+    "seeking a judgment on Y.\" State what they are struggling with and what verdict they are after.\n"
+    "\n"
+    "Hard limits:\n"
+    "- NOT a transcript or a summary of who said what. No \"they said\" / \"you said\" / quotation.\n"
+    "- Never name the personas or any speaker. Never give advice or a verdict yourself.\n"
+    "- Just the matter, framed for a panel to weigh. Output only the brief — no preamble."
+)
+
 COUNCIL_SYNTHESIS_PROMPT = (
     "You are the voice of the Council chamber itself — neutral, spare, never impersonating any member.\n"
     "You will receive the person's matter and the four verdicts already delivered.\n"

@@ -160,6 +160,7 @@ class CouncilCreate(BaseModel):
     matter: str
     source: str = "direct"          # "direct" | "mirror" | "chat"
     mirror_id: str | None = None
+    conversation_id: str | None = None   # chat source only; drives the essence brief
 
 
 # ── Memory ────────────────────────────────────────────────────────────────────

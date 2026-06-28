@@ -8,9 +8,13 @@ import anthropic
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import func, select
 
-from models import CouncilCase, CouncilSession, CouncilResponse
+from models import CouncilCase, CouncilSession, CouncilResponse, Message
 from personas import get_persona
-from services.council_prompts import COUNCIL_VERDICT_INSTRUCTION, COUNCIL_SYNTHESIS_PROMPT
+from services.council_prompts import (
+    COUNCIL_VERDICT_INSTRUCTION,
+    COUNCIL_SYNTHESIS_PROMPT,
+    COUNCIL_DISTILL_PROMPT,
+)
 from services.llm_client import llm_client
 from services.prompt_builder import prompt_builder
 from services.safety_service import safety_service
@@ -18,6 +22,7 @@ from services.safety_service import safety_service
 logger = logging.getLogger(__name__)
 
 MODEL_PRO = "claude-sonnet-4-6"
+MODEL_HAIKU = "claude-haiku-4-5-20251001"
 
 COUNCIL_MEMBERS = [
     "niccolo_machiavelli",
@@ -53,6 +58,48 @@ class CouncilService:
         count = result.scalar_one()
         return max(0, WEEKLY_LIMIT_PER_SOURCE - count)
 
+    async def _distill_brief(
+        self, db: AsyncSession, user_id: str, conversation_id: str
+    ) -> str | None:
+        """Distil a chat conversation into a 1–2 sentence essence brief for the
+        council members. Internal-only — never stored, never sent to the client.
+        Returns None on any failure or too-thin a conversation, so the caller
+        falls back to the raw matter and the council never breaks."""
+        try:
+            # Last ~12 messages of THIS user's conversation. Scoped by user_id AND
+            # conversation_id so a foreign conversation yields nothing. Mirrors the
+            # canonical history query's conclusion exclusion.
+            result = await db.execute(
+                select(Message)
+                .where(
+                    Message.user_id == user_id,
+                    Message.conversation_id == conversation_id,
+                    Message.message_kind != 'conclusion',
+                )
+                .order_by(Message.created_at.desc())
+                .limit(12)
+            )
+            recent = list(reversed(result.scalars().all()))
+
+            # Too thin to distil: a single turn is already captured by the raw
+            # matter (the last user message), so distilling adds nothing.
+            user_turns = sum(1 for m in recent if m.role == "user")
+            if user_turns < 2:
+                return None
+
+            transcript = "\n".join(f"{m.role}: {m.content}" for m in recent)
+            brief = await llm_client.complete(
+                system=COUNCIL_DISTILL_PROMPT,
+                user=transcript,
+                model=MODEL_HAIKU,
+                max_tokens=150,
+            )
+            brief = (brief or "").strip()
+            return brief or None
+        except Exception as exc:
+            logger.warning(f"Council distill failed for user={user_id}: {exc}")
+            return None
+
     async def stream_council(
         self,
         db: AsyncSession,
@@ -60,6 +107,7 @@ class CouncilService:
         matter: str,
         source: str = "direct",
         mirror_id: str | None = None,
+        conversation_id: str | None = None,
     ) -> AsyncGenerator[str, None]:
 
         # ── 1. PRE-RITUAL SAFETY GATE ────────────────────────────────────
@@ -71,6 +119,17 @@ class CouncilService:
                 yield f"data: {json.dumps({'type': 'chunk', 'data': chunk})}\n\n"
             yield f"data: {json.dumps({'type': 'done'})}\n\n"
             return
+
+        # ── 1b. ESSENCE BRIEF (chat only) ────────────────────────────────
+        # For chat-sourced councils with a conversation, distil the recent
+        # exchange into a neutral brief so the members deliberate the GIST,
+        # not just the last-message fragment. Internal-only: input_text below
+        # keeps the RAW matter, and the brief is never sent to the client.
+        # On any failure _distill_brief returns None → fall back to raw matter.
+        brief = None
+        if source == "chat" and conversation_id:
+            brief = await self._distill_brief(db, user_id, conversation_id)
+        effective_matter = brief or matter
 
         # ── 2. CREATE CASE + SESSION ──────────────────────────────────────
         case = CouncilCase(
@@ -114,7 +173,7 @@ class CouncilService:
                 + "\n\n"
                 + COUNCIL_VERDICT_INSTRUCTION.format(persona_name=persona.name)
             )
-            messages = [{"role": "user", "content": matter}]
+            messages = [{"role": "user", "content": effective_matter}]
 
             yield f"data: {json.dumps({'type': 'member', 'slug': slug, 'name': persona.name, 'position': i})}\n\n"
 
@@ -169,7 +228,7 @@ class CouncilService:
         yield f"data: {json.dumps({'type': 'synthesis_start'})}\n\n"
 
         verdicts_block = "\n\n".join(f"[{name}]: {text}" for name, text in verdicts)
-        synthesis_user_content = f"The matter:\n{matter}\n\nThe four verdicts:\n{verdicts_block}"
+        synthesis_user_content = f"The matter:\n{effective_matter}\n\nThe four verdicts:\n{verdicts_block}"
 
         synthesis_buf: list[str] = []
         try:
