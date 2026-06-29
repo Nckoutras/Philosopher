@@ -13,6 +13,21 @@ import NamePromptCard from '@/components/today/NamePromptCard'
 import AppHeader from '@/components/layout/AppHeader'
 import SundayLetterCard from '@/components/today/SundayLetterCard'
 
+// Real LQIPs for the four home tiles, minted from the actual public/personas
+// source files (16px wide, WebP). Shown as blurred placeholders so the tiles —
+// now de-prioritized (no eager preload) — don't pop in from an empty box.
+// Regenerate if a tile artwork changes.
+const TILE_BLUR: Record<string, string> = {
+  '/personas/discuss.webp':
+    'data:image/webp;base64,UklGRpQAAABXRUJQVlA4IIgAAAAQBACdASoQABgAPu1kqU2ppaQiMAgBMB2JQBOmUABGWiv18JrvFpD1oAD0SfdRW/Pt0D5ynJrCIeTr5cRJg1U8uoGg1MHrfYXOqImwYpQb/xLz63C4ss0Dr9eoeXuyg68gMFxapAqKQZHrBEP0a94YQZ52HPcnu4hywxVlix/Kpu+SJM6l8AAA',
+  '/personas/insights.webp':
+    'data:image/webp;base64,UklGRp4AAABXRUJQVlA4IJIAAABwBACdASoQABgAPu1iqU2ppaQiMAgBMB2JZACdMoACL1ltB44ok7c2IbiogAD8dQ3/HrpXu8xu/wsvL8U26ubZ/I0U1dbvDOHTF+EOnrcmCZl+V2nX40vabV3HNwBV1itXe3bff2NAVrCHLxH7mDYfiXAL/cTe5KAv589Z/i6HQLn2hPGIvI7k1YKIH3B8SEwAAA==',
+  '/personas/revisit.webp':
+    'data:image/webp;base64,UklGRnIAAABXRUJQVlA4IGYAAAAQBACdASoQABgAPu1iqU2ppaOiMAgBMB2JYwCdACFsBfhV+qpslKvzTAD+6a0RV2BfC8YHe14Jak6TOrG0C7+hL3q5cy8LrNzp9Vpkreua6MXvhgXr7uB9k6BrXAlHBE+3YuoKwAA=',
+  '/personas/rituals.webp':
+    'data:image/webp;base64,UklGRnIAAABXRUJQVlA4IGYAAAAQBACdASoQABgAPu1iqU2ppaOiMAgBMB2JYwCdACHhYT+YqW0ZarfHAAD+70o+xQZ/0C25feXFYKWmCvKhjXZQkC4odq6+1lmI8E2OpRDueZ+J9q4l2fahF2xzrzP8W0AUW5dAAAA=',
+}
+
 function formatDateEyebrow(date: Date): string {
   const weekday = date.toLocaleDateString('en-US', { weekday: 'long' }).toUpperCase()
   const month = date.toLocaleDateString('en-US', { month: 'long' }).toUpperCase()
@@ -61,8 +76,9 @@ function ImageTile({
         src={src}
         alt=""
         fill
-        priority
         sizes="(max-width: 768px) 50vw, 200px"
+        placeholder={TILE_BLUR[src] ? 'blur' : 'empty'}
+        blurDataURL={TILE_BLUR[src]}
         className="object-cover"
       />
       {/* soft centered radial scrim so the white label stays legible over any artwork */}

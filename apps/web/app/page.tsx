@@ -6,6 +6,12 @@ import Image from 'next/image'
 import { BronzeDivider } from '@/components/ui/BronzeDivider'
 import { useStore } from '@/lib/store'
 
+// Real LQIP for the hero, minted from public/personas/wise-room-hero.webp (16px
+// wide, WebP) — shown as a blurred placeholder so there's no empty-box pop-in
+// before Netlify's optimized variant arrives. Regenerate if the source changes.
+const HERO_BLUR =
+  'data:image/webp;base64,UklGRpgAAABXRUJQVlA4IIwAAAAwBACdASoQABwAPu1mqk2ppaQiMAgBMB2JQBOnKAAXGYXawc+mxK9PphAA/e2Ev9nL13S7n8juRMbgQ4qnR3O+yHrPfenaOStOdvaWJSTSDzTml8u796Z8P8aKT3u0JBLaYH7iD5tWWAtiHzFKC11PJfn2D1z3N+b23D+EH7G5gSS+mHzZ4gLkClRAAA=='
+
 export default function RootPage() {
   const router = useRouter()
   const token = useStore((s) => s.token)
@@ -32,6 +38,8 @@ export default function RootPage() {
         fill
         priority
         sizes="100vw"
+        placeholder="blur"
+        blurDataURL={HERO_BLUR}
         className="absolute inset-0 object-cover object-center"
       />
 
