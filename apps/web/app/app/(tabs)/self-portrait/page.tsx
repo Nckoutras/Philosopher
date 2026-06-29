@@ -2,10 +2,11 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { useStore } from '@/lib/store'
 import { api } from '@/lib/api'
-import type { SelfPortraitQuestion } from '@/lib/api'
+import type { SelfPortraitQuestion, SelfPortraitPortrait } from '@/lib/api'
 import { BronzeDivider } from '@/components/ui/BronzeDivider'
 
 // Human-readable category labels. Title-case fallback for any value not listed
@@ -83,6 +84,66 @@ function CategoryFilter({
   )
 }
 
+// Quiet segmented switch between the question flow and the portrait payoff. Lets
+// the user move between the two faces of the tab without a reload (#5c — fixes the
+// PR4 one-way latch where, once started, there was no route back to the portrait).
+function ViewSwitch({
+  view,
+  onChange,
+}: {
+  view: 'questions' | 'portrait'
+  onChange: (next: 'questions' | 'portrait') => void
+}) {
+  const tabs: { key: 'questions' | 'portrait'; label: string }[] = [
+    { key: 'questions', label: 'Questions' },
+    { key: 'portrait', label: 'Your portrait' },
+  ]
+  return (
+    <div className="flex justify-center">
+      <div className="inline-flex rounded-full border-[0.5px] border-bronze/40 bg-white p-[3px]">
+        {tabs.map((t) => {
+          const isActive = t.key === view
+          return (
+            <button
+              key={t.key}
+              type="button"
+              onClick={() => onChange(t.key)}
+              aria-pressed={isActive}
+              className={`px-4 py-1.5 rounded-full font-lora text-[12px] transition-colors ${
+                isActive ? 'bg-bronze text-ink' : 'text-sepia'
+              }`}
+            >
+              {t.label}
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+// Round persona avatar — reuses the PR2 saved-readings markup: portrait when
+// present, else the persona's initial, else a neutral circle.
+function PersonaAvatar({ portraitUrl, name }: { portraitUrl: string | null; name: string }) {
+  return (
+    <div className="w-[48px] h-[48px] rounded-full overflow-hidden flex-shrink-0 bg-linen border border-edge flex items-center justify-center">
+      {portraitUrl ? (
+        <Image
+          src={portraitUrl}
+          alt={name}
+          width={48}
+          height={48}
+          className="object-cover w-full h-full"
+        />
+      ) : name ? (
+        <span className="font-cormorant text-[20px] font-medium text-charcoal">
+          {name.charAt(0)}
+        </span>
+      ) : null}
+    </div>
+  )
+}
+
 // Perpetual self-knowledge quiz. A long, calm set of small questions; the user
 // answers as many or as few as they like, one at a time, returning whenever.
 // Mirrors profile/page.tsx in structure and DS-v5 pill styling. NO progress bar,
@@ -102,9 +163,13 @@ export default function SelfPortraitPage() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  // #8 entry shell: the question flow stays behind "Start the journey".
-  const [started, setStarted] = useState(false)
-  const [showPortrait, setShowPortrait] = useState(false)
+  // #8/#5c: which face of the tab is showing. 'entry' = the two calm doors on a
+  // fresh open (NOT persisted); 'questions' = the quiz flow; 'portrait' = payoff.
+  const [view, setView] = useState<'entry' | 'questions' | 'portrait'>('entry')
+  // Portrait payoff — lazily fetched only when the portrait view is opened.
+  const [portrait, setPortrait] = useState<SelfPortraitPortrait | null>(null)
+  const [portraitLoading, setPortraitLoading] = useState(false)
+
   // #6.2 / #7: independent category filters for the question flow and the
   // revisit list (same component, separate state so they don't cross-filter).
   const [questionCategory, setQuestionCategory] = useState('all')
@@ -135,6 +200,32 @@ export default function SelfPortraitPage() {
     }
     load()
   }, [token, router])
+
+  // Refetch the portrait on each entry to that view. Only surface the loading state
+  // when there's nothing on screen yet — a cached GET resolves ~instantly, so a
+  // prior portrait stays visible silently while a refetch runs (no flicker, no
+  // spinner over a 200ms response). Failure leaves any prior portrait in place; a
+  // first-time failure falls through to the calm "still forming" message below.
+  useEffect(() => {
+    if (view !== 'portrait') return
+    let active = true
+    if (portrait === null) setPortraitLoading(true)
+    api
+      .getSelfPortraitPortrait()
+      .then((data) => {
+        if (active) setPortrait(data)
+      })
+      .catch(() => {
+        // Keep any prior portrait; the render handles "no content" gracefully.
+      })
+      .finally(() => {
+        if (active) setPortraitLoading(false)
+      })
+    return () => {
+      active = false
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- refetch on each portrait entry
+  }, [view])
 
   // Categories present in the questions this tier can see (drives both filters).
   const categories = useMemo(
@@ -226,7 +317,7 @@ export default function SelfPortraitPage() {
             <h1 className="font-cormorant text-[28px] font-medium text-ink leading-tight">
               Self-Portrait
             </h1>
-            {!started && (
+            {view === 'entry' && (
               <p className="font-lora text-[15px] text-charcoal leading-[1.65]">
                 A long set of small questions about how you actually move through life. Answer
                 as many or as few as you like — even a handful sharpens how the room understands
@@ -236,41 +327,31 @@ export default function SelfPortraitPage() {
           </header>
 
           {/* #8 entry shell: two calm doors before the questions. */}
-          {!started && (
-            <section className="space-y-4">
-              <div className="flex flex-col gap-3">
-                <button
-                  type="button"
-                  onClick={() => setStarted(true)}
-                  className="w-full py-3 rounded-full font-cormorant text-[17px] font-medium bg-ink text-vellum transition-colors"
-                >
-                  Start the journey
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowPortrait((v) => !v)}
-                  aria-expanded={showPortrait}
-                  className="w-full py-3 rounded-full font-cormorant text-[16px] font-medium border-[0.5px] border-bronze/60 text-ink bg-white transition-colors"
-                >
-                  Your portrait
-                </button>
-              </div>
-
-              {/* INERT placeholder this PR — the real portrait payoff arrives in PR5.
-                  Copy stays qualitative: no threshold, no count. */}
-              {showPortrait && (
-                <div className="rounded-lg border-[0.5px] border-bronze/30 bg-white shadow-card px-5 py-5 text-center">
-                  <p className="font-lora text-[14px] text-charcoal leading-[1.65]">
-                    Your portrait is still forming. It appears here as you answer — a quiet
-                    reflection of how you tend to weigh things, drawn from your own words.
-                  </p>
-                </div>
-              )}
+          {view === 'entry' && (
+            <section className="flex flex-col gap-3">
+              <button
+                type="button"
+                onClick={() => setView('questions')}
+                className="w-full py-3 rounded-full font-cormorant text-[17px] font-medium bg-ink text-vellum transition-colors"
+              >
+                Start the journey
+              </button>
+              <button
+                type="button"
+                onClick={() => setView('portrait')}
+                className="w-full py-3 rounded-full font-cormorant text-[16px] font-medium border-[0.5px] border-bronze/60 text-ink bg-white transition-colors"
+              >
+                Your portrait
+              </button>
             </section>
           )}
 
-          {/* The question flow, picker, feedback and revisit live behind the gate. */}
-          {started && (
+          {/* Quiet switch between the two faces once past the entry screen. */}
+          {view !== 'entry' && <ViewSwitch view={view} onChange={setView} />}
+
+          {/* ── The question flow, picker, feedback and revisit (relocated from the
+              PR4 `started` gate, unchanged) ── */}
+          {view === 'questions' && (
             <>
               {error && (
                 <p className="font-lora text-[12px] text-safety text-center">{error}</p>
@@ -430,6 +511,96 @@ export default function SelfPortraitPage() {
                 </section>
               )}
             </>
+          )}
+
+          {/* ── Your portrait (#5c payoff) ── */}
+          {view === 'portrait' && (
+            <section className="space-y-5">
+              {portraitLoading && portrait === null ? (
+                // First open / generation in progress — make the wait feel like a moment.
+                <div className="rounded-lg border-[0.5px] border-bronze/30 bg-white shadow-card px-5 py-6 text-center">
+                  <p className="font-lora text-[14px] text-charcoal leading-[1.65]">
+                    Putting your portrait together&hellip;
+                  </p>
+                </div>
+              ) : portrait && portrait.state === 'ready' && portrait.summary ? (
+                <>
+                  <div className="rounded-lg border-[0.5px] border-bronze/30 bg-white shadow-card px-5 py-5">
+                    <div className="flex flex-col gap-[14px]">
+                      {portrait.summary
+                        .split(/\n\n|\n/)
+                        .filter(Boolean)
+                        .map((para, i) => (
+                          <p key={i} className="font-lora text-[15px] text-charcoal leading-[1.7]">
+                            {para}
+                          </p>
+                        ))}
+                    </div>
+                  </div>
+
+                  {portrait.best_fit.length > 0 && (
+                    <div className="space-y-3">
+                      <div className="flex justify-center">
+                        <BronzeDivider width={56} />
+                      </div>
+                      <h2 className="font-cormorant text-[18px] font-medium text-ink text-center">
+                        Minds you lean toward
+                      </h2>
+                      {portrait.best_fit.map((p) => (
+                        <div
+                          key={p.slug}
+                          className="rounded-lg border-[0.5px] border-bronze/30 bg-white shadow-card px-4 py-4 flex items-start gap-[14px]"
+                        >
+                          <PersonaAvatar portraitUrl={p.portrait_url} name={p.name} />
+                          <div className="flex-1 min-w-0">
+                            <p className="font-cormorant text-[19px] font-medium text-ink leading-tight">
+                              {p.name}
+                            </p>
+                            {p.bio && (
+                              <p className="font-lora text-[13px] text-charcoal mt-[3px] leading-[1.55]">
+                                {p.bio}
+                              </p>
+                            )}
+                            {p.why && (
+                              <p className="font-lora italic text-[13px] text-bronze mt-[6px] leading-[1.5]">
+                                {p.why}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              ) : portrait && portrait.preview.length > 0 ? (
+                // Forming (or ready without a cached summary yet): genuine observation lines.
+                <div className="rounded-lg border-[0.5px] border-bronze/30 bg-white shadow-card px-5 py-5 space-y-3 text-center">
+                  {portrait.preview.map((line, i) => (
+                    <p key={i} className="font-lora text-[14px] text-charcoal leading-[1.65]">
+                      {line}
+                    </p>
+                  ))}
+                </div>
+              ) : (
+                // No content yet, or the fetch failed — never an error or spinner trap.
+                <div className="rounded-lg border-[0.5px] border-bronze/30 bg-white shadow-card px-5 py-6 text-center">
+                  <p className="font-lora text-[14px] text-charcoal leading-[1.65]">
+                    Your portrait is still forming. It appears here as you answer — a quiet
+                    reflection of how you tend to weigh things, drawn from your own words.
+                  </p>
+                </div>
+              )}
+
+              {/* A different lens, not a primary CTA — quiet cross-link to You-vs-You. */}
+              <div className="text-center pt-1">
+                <Link
+                  href="/app/you-vs-you"
+                  className="font-lora text-[13px] text-sepia underline underline-offset-2"
+                >
+                  See how your thinking has shifted over time
+                </Link>
+              </div>
+            </section>
           )}
 
         </div>
