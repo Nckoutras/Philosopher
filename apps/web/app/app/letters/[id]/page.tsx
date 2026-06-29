@@ -226,6 +226,18 @@ export default function LetterReadPage() {
           </div>
         )}
 
+        {/* Practical takeaway — a quiet, concrete thing to carry this week. */}
+        {payload.practical_takeaway && (
+          <div className="border-t border-[0.5px] border-edge pt-[18px]">
+            <p className="font-lora text-[11px] uppercase tracking-[0.18em] text-bronze mb-[8px]">
+              To carry this week
+            </p>
+            <p className="font-lora text-[15px] text-charcoal leading-[1.7]">
+              {payload.practical_takeaway}
+            </p>
+          </div>
+        )}
+
         {/* Sign-off — closes the letter prose */}
         {letter.voice_persona_name && (
           <div className="mt-[28px] mb-[32px] font-cormorant italic text-bronze">
