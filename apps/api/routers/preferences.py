@@ -15,6 +15,7 @@ from schemas import (
     SelfPortraitAnswerIn,
     SelfPortraitOut,
     SelfPortraitPortraitOut,
+    BestFitOut,
 )
 from services.preferences_service import (
     get_user_preferences,
@@ -24,11 +25,13 @@ from services.preferences_service import (
 from services.matching_service import compute_matches
 from services.profile_text import profile_to_statements
 from services.self_comparison_service import self_comparison_service
+from services import self_portrait_summary
 from services.self_portrait import (
     answers_to_statements,
     get_question,
     is_free_question,
     portrait_state,
+    PORTRAIT_REGEN_DELTA,
     total_question_count,
     visible_questions,
 )
@@ -137,6 +140,25 @@ async def read_self_portrait(
     )
 
 
+def _portrait_from_cache(state: str, cache: dict) -> SelfPortraitPortraitOut:
+    """Build the ready payload from a valid cache entry. No preview — a served
+    summary never also carries forming lines."""
+    best_fit = [
+        BestFitOut(
+            slug=b["slug"],
+            name=b["name"],
+            portrait_url=b.get("portrait_url"),
+            bio=b.get("bio"),
+            why=b.get("why"),
+        )
+        for b in (cache.get("best_fit") or [])
+        if isinstance(b, dict) and b.get("slug") and b.get("name")
+    ]
+    return SelfPortraitPortraitOut(
+        state=state, preview=[], summary=cache.get("text"), best_fit=best_fit
+    )
+
+
 @router.get("/self-portrait/portrait", response_model=SelfPortraitPortraitOut)
 async def read_self_portrait_portrait(
     user: User = Depends(get_current_user),
@@ -146,24 +168,64 @@ async def read_self_portrait_portrait(
     the user's answers span enough life areas, then 'ready'. The payload NEVER
     carries a count/%/fraction — only `state` plus the surfaced content.
 
-    5a slice: returns `state` + (always-usable) forming-preview lines derived from
-    the user's OWN self-portrait answers via the existing forming_reflection path —
-    so the endpoint is never empty. The cached Sonnet summary and persona best-fit
-    arrive in 5b; until then `summary` is null and `best_fit` is empty, and the
-    preview carries the surface (regardless of state). No LLM summary, no cache
-    write, no best-fit here — `portrait_cache` (migration 039) is reserved storage.
+    Ready path (5b): serve the cached Sonnet summary + persona best-fit; regenerate
+    synchronously only when the cache is missing or >= PORTRAIT_REGEN_DELTA new
+    answers stale, then write `portrait_cache`. A valid/fresh cache is served WITHOUT
+    calling forming_reflection — a ready open never pays for both LLM paths. Summary
+    generation is best-effort: any failure falls back to a prior cache or the forming
+    preview and still returns 200 (a summary failure never 500s the portrait).
+
+    Forming path: `state` + observation lines from the user's OWN answers via the
+    cheap forming_reflection — describes HOW they answered, never a diagnosis.
     """
     prefs = await get_user_preferences(user_id=user.id, db=db)
     answers = ((prefs.profile if prefs else None) or {}).get("answers") or {}
-
     state = portrait_state(answers)
+    cache = (prefs.portrait_cache if prefs else None) or None
 
-    # Observation lines from the user's own answers — describes HOW they answered,
-    # never a diagnosis. Best-effort: forming_reflection returns [] on no answers or
-    # failure, and the block simply renders nothing.
+    if state == "ready":
+        watermark = (cache or {}).get("answer_count_watermark")
+        fresh = (
+            cache is not None
+            and isinstance(watermark, int)
+            and (len(answers) - watermark) < PORTRAIT_REGEN_DELTA
+            and isinstance(cache.get("text"), str)
+            and cache["text"].strip()
+        )
+        if fresh:
+            return _portrait_from_cache(state, cache)
+
+        # Missing or stale → regenerate (synchronous, best-effort) — UNLESS a recent
+        # failure is still within the retry cooldown, in which case skip the call so
+        # an LLM outage doesn't re-fire the ~2-4s generation on every open.
+        if not self_portrait_summary.in_failure_cooldown(cache):
+            generated = await self_portrait_summary.generate_portrait(
+                db=db,
+                user_id=user.id,
+                answers=answers,
+                need_most=(prefs.need_most if prefs else "") or "",
+            )
+            if generated is not None:
+                prefs.portrait_cache = generated
+                await db.commit()
+                return _portrait_from_cache(state, generated)
+
+            # Failure: stamp a `last_failed_at` marker (negative cache) so the next
+            # opens serve forming/stale without re-attempting until the cooldown
+            # elapses. Merged in, so any prior good summary survives; a later success
+            # replaces the dict and drops the marker (self-heal).
+            prefs.portrait_cache = self_portrait_summary.mark_failed(cache)
+            await db.commit()
+
+        # In cooldown OR just-failed: serve a prior valid summary if we have one,
+        # else fall through to the forming preview below.
+        if cache and isinstance(cache.get("text"), str) and cache["text"].strip():
+            return _portrait_from_cache(state, cache)
+
+    # Forming, OR ready with no usable cache and generation unavailable. This is the
+    # ONLY branch that calls forming_reflection — never alongside a served summary.
     statements = answers_to_statements(answers, limit=8)
     preview = (await self_comparison_service.forming_reflection(statements))[:2]
-
     return SelfPortraitPortraitOut(state=state, preview=preview, summary=None, best_fit=[])
 
 
