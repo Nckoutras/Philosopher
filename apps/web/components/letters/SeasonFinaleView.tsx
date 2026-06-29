@@ -113,6 +113,14 @@ export default function SeasonFinaleView({
           </div>
         )}
 
+        {/* Practical takeaway — a quiet, concrete thing to carry the season ahead. */}
+        {payload.practical_takeaway && (
+          <div className="border-t border-[0.5px] border-edge pt-[18px]">
+            <p className={MOVEMENT_LABEL}>To carry this season</p>
+            <p className={BODY}>{payload.practical_takeaway}</p>
+          </div>
+        )}
+
         {/* Sign-off — closes the letter prose */}
         {voicePersonaName && (
           <div className="mt-[12px] font-cormorant italic text-bronze">

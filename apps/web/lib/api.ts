@@ -420,6 +420,7 @@ export interface WeeklyLetterPayload {
   references: string | null
   pull_quote: string | null
   forward_gesture: string | null
+  practical_takeaway: string | null
   suggested_persona_slug: string | null
 }
 
