@@ -172,6 +172,7 @@ export default function LetterReadPage() {
         <SeasonFinaleView
           payload={payload}
           voicePersona={voicePersona}
+          voicePersonaName={letter.voice_persona_name}
           suggestedPersona={suggestedPersona}
           periodStart={letter.period_start}
           startingConv={startingConv}
@@ -222,6 +223,14 @@ export default function LetterReadPage() {
         {payload.forward_gesture && (
           <div className="flex flex-col gap-[14px] mb-[32px]">
             {renderParagraphs(payload.forward_gesture, 'font-lora text-[16px] text-charcoal leading-[1.7]')}
+          </div>
+        )}
+
+        {/* Sign-off — closes the letter prose */}
+        {letter.voice_persona_name && (
+          <div className="mt-[28px] mb-[32px] font-cormorant italic text-bronze">
+            <p className="text-[17px] leading-snug">Yours faithfully,</p>
+            <p className="text-[19px] leading-snug">{letter.voice_persona_name}</p>
           </div>
         )}
 

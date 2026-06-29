@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useEffect } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
-import { Home, Compass, Aperture, User, Sparkle } from 'lucide-react'
+import { Home, Compass, Frame, User, Sparkle } from 'lucide-react'
 import { useStore } from '@/lib/store'
 
 const TABS = [
@@ -21,7 +21,7 @@ const TABS = [
   },
   {
     label: 'Portrait',
-    icon: Aperture,
+    icon: Frame,
     href: '/app/self-portrait',
     activePattern: /^\/app\/self-portrait/,
   },

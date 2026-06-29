@@ -7,6 +7,9 @@ import type { Persona, WeeklyLetterPayload } from '@/lib/api'
 interface Props {
   payload: WeeklyLetterPayload
   voicePersona: Persona | null
+  // Always-present sign-off name (the persona lookup behind voicePersona can be
+  // null; this string field on the letter never is).
+  voicePersonaName: string | null
   suggestedPersona: Persona | null
   periodStart: string
   startingConv: boolean
@@ -43,6 +46,7 @@ export default function SeasonFinaleView({
   payload,
   // voicePersona is kept in Props for the contract / 4b-iii share card; not
   // destructured here so it can't be flagged as an unused variable.
+  voicePersonaName,
   suggestedPersona,
   periodStart,
   startingConv,
@@ -106,6 +110,14 @@ export default function SeasonFinaleView({
             <div className="flex flex-col gap-[14px]">
               {renderParagraphs(payload.forward_gesture, BODY)}
             </div>
+          </div>
+        )}
+
+        {/* Sign-off — closes the letter prose */}
+        {voicePersonaName && (
+          <div className="mt-[12px] font-cormorant italic text-bronze">
+            <p className="text-[17px] leading-snug">Yours faithfully,</p>
+            <p className="text-[19px] leading-snug">{voicePersonaName}</p>
           </div>
         )}
       </div>
