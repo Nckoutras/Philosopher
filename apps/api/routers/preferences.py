@@ -14,6 +14,7 @@ from schemas import (
     ProfileReflectionOut,
     SelfPortraitAnswerIn,
     SelfPortraitOut,
+    SelfPortraitPortraitOut,
 )
 from services.preferences_service import (
     get_user_preferences,
@@ -24,8 +25,10 @@ from services.matching_service import compute_matches
 from services.profile_text import profile_to_statements
 from services.self_comparison_service import self_comparison_service
 from services.self_portrait import (
+    answers_to_statements,
     get_question,
     is_free_question,
+    portrait_state,
     total_question_count,
     visible_questions,
 )
@@ -132,6 +135,36 @@ async def read_self_portrait(
         is_pro=is_pro,
         locked_count=locked_count,
     )
+
+
+@router.get("/self-portrait/portrait", response_model=SelfPortraitPortraitOut)
+async def read_self_portrait_portrait(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """The present-tense Self-Portrait payoff. Breadth-aware gate: 'forming' until
+    the user's answers span enough life areas, then 'ready'. The payload NEVER
+    carries a count/%/fraction — only `state` plus the surfaced content.
+
+    5a slice: returns `state` + (always-usable) forming-preview lines derived from
+    the user's OWN self-portrait answers via the existing forming_reflection path —
+    so the endpoint is never empty. The cached Sonnet summary and persona best-fit
+    arrive in 5b; until then `summary` is null and `best_fit` is empty, and the
+    preview carries the surface (regardless of state). No LLM summary, no cache
+    write, no best-fit here — `portrait_cache` (migration 039) is reserved storage.
+    """
+    prefs = await get_user_preferences(user_id=user.id, db=db)
+    answers = ((prefs.profile if prefs else None) or {}).get("answers") or {}
+
+    state = portrait_state(answers)
+
+    # Observation lines from the user's own answers — describes HOW they answered,
+    # never a diagnosis. Best-effort: forming_reflection returns [] on no answers or
+    # failure, and the block simply renders nothing.
+    statements = answers_to_statements(answers, limit=8)
+    preview = (await self_comparison_service.forming_reflection(statements))[:2]
+
+    return SelfPortraitPortraitOut(state=state, preview=preview, summary=None, best_fit=[])
 
 
 @router.patch("/self-portrait", response_model=PreferenceOut)

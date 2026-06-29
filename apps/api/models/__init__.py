@@ -332,6 +332,10 @@ class UserPreference(Base):
     # Onboarding profile pills (tappable, no free text). Nullable: NULL means no
     # profile set. e.g. {"values": ["honesty","freedom"], "disagreement_style": "probe_their_view"}
     profile: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    # Derived Self-Portrait payoff cache (server-generated, kept separate from the
+    # user-authored `profile`). NULL until first generated. Shape:
+    # {"text", "best_fit", "answer_count_watermark", "generated_at"}. Written in 5b.
+    portrait_cache: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
 
