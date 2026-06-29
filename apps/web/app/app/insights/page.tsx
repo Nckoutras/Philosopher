@@ -90,7 +90,7 @@ export default function InsightsPage() {
           Insights
         </p>
         <h1 className="font-cormorant text-[26px] font-medium text-ink leading-tight">
-          What the room has noticed.
+          What the room has witnessed.
         </h1>
       </header>
 
