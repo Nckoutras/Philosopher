@@ -613,6 +613,10 @@ class ApiClient {
     return this.request<SelfPortraitData>('/preferences/self-portrait', { method: 'GET' })
   }
 
+  async getSelfPortraitPortrait(): Promise<SelfPortraitPortrait> {
+    return this.request<SelfPortraitPortrait>('/preferences/self-portrait/portrait', { method: 'GET' })
+  }
+
   async updateSelfPortrait(questionId: string, pillIndex: number): Promise<PreferenceOut> {
     return this.request<PreferenceOut>('/preferences/self-portrait', {
       method: 'PATCH',
@@ -1234,6 +1238,26 @@ export interface SelfPortraitData {
   answers: Record<string, number>
   is_pro: boolean
   locked_count: number
+}
+
+// One best-fit persona for the portrait payoff. Populated in 5b; the fields are
+// reserved here so the type is stable.
+export interface SelfPortraitBestFit {
+  slug: string
+  name: string
+  portrait_url: string | null
+  bio: string | null
+  why: string | null
+}
+
+// GET /preferences/self-portrait/portrait. Breadth-aware: `state` flips to "ready"
+// once answers span enough life areas. NEVER carries a count/%/fraction. In 5a only
+// `state` + `preview` are populated; `summary`/`best_fit` arrive in 5b.
+export interface SelfPortraitPortrait {
+  state: 'forming' | 'ready'
+  preview: string[]
+  summary: string | null
+  best_fit: SelfPortraitBestFit[]
 }
 
 export interface Match {

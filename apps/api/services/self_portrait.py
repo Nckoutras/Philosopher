@@ -84,6 +84,38 @@ def total_question_count() -> int:
     return len(_BANK)
 
 
+# ── Self-Portrait payoff gate ───────────────────────────────────────────────
+# The portrait becomes "ready" once a user's answers span breadth across life
+# areas — NOT once they reach a raw count. Breadth is what makes a present-tense
+# portrait honest. The threshold is tunable; the COUNT is internal only and is
+# NEVER exposed to the client (the endpoint surfaces just "forming" | "ready").
+READY_CATEGORY_THRESHOLD = 10  # of the 12 categories
+
+# Cache regenerates only after this many NEW answers since the cached watermark, so
+# the Sonnet summary is minted rarely (never on every open). Used by 5b; the cache
+# shape is {text, best_fit, answer_count_watermark, generated_at}. Scaffold only in 5a.
+PORTRAIT_REGEN_DELTA = 8
+
+
+def answered_category_count(answers: dict) -> int:
+    """Number of DISTINCT bank categories the user has answered at least one
+    question in. Unknown ids are skipped (the bank may change under stored
+    answers), so this never counts a category that no longer exists."""
+    cats: set[str] = set()
+    for qid in answers or {}:
+        q = _BANK.get(qid)
+        if q is not None:
+            cats.add(q.get("category", ""))
+    return len(cats)
+
+
+def portrait_state(answers: dict) -> str:
+    """Breadth-aware gate: 'ready' once answers span >= READY_CATEGORY_THRESHOLD
+    of the 12 categories, else 'forming'. Returns only the state string — the
+    underlying count is never surfaced."""
+    return "ready" if answered_category_count(answers) >= READY_CATEGORY_THRESHOLD else "forming"
+
+
 # ── Free-tier gating ──────────────────────────────────────────────────────────
 #
 # The free tier sees a fixed, DETERMINISTIC slice of the bank; Pro sees everything.

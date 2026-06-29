@@ -382,6 +382,30 @@ class SelfPortraitOut(BaseModel):
     locked_count: int
 
 
+class BestFitOut(BaseModel):
+    """One best-fit persona for the Self-Portrait payoff. POPULATED IN 5b — the
+    fields are reserved here so the contract is stable; 5a never emits these."""
+    slug: str
+    name: str
+    portrait_url: str | None = None
+    bio: str | None = None
+    why: str | None = None
+
+
+class SelfPortraitPortraitOut(BaseModel):
+    """GET /preferences/self-portrait/portrait payload — the present-tense portrait.
+
+    Breadth-aware: `state` is 'forming' until the user's answers span enough life
+    areas, then 'ready'. The payload NEVER carries a count/%/fraction — only the
+    state plus the surfaced content. In 5a only `state` + `preview` are emitted;
+    `summary` and `best_fit` are reserved for 5b (the cached Sonnet summary +
+    persona best-fit) and stay null/empty until then."""
+    state: str  # "forming" | "ready"
+    preview: list[str] = []        # forming-style observation lines (always usable)
+    summary: str | None = None     # 5b: cached LLM summary
+    best_fit: list[BestFitOut] = []  # 5b: top 1-2 personas
+
+
 # ── Matches ───────────────────────────────────────────────────────────────────
 
 class MatchOut(BaseModel):
