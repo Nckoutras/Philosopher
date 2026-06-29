@@ -2,6 +2,7 @@ import BottomTabBar from '@/components/layout/BottomTabBar'
 import BodyScrollLock from '@/components/layout/BodyScrollLock'
 import SubscriptionBootstrap from '@/components/layout/SubscriptionBootstrap'
 import InsightBootstrap from '@/components/layout/InsightBootstrap'
+import LettersBootstrap from '@/components/layout/LettersBootstrap'
 
 export default function TabsLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -9,6 +10,7 @@ export default function TabsLayout({ children }: { children: React.ReactNode }) 
       <BodyScrollLock />
       <SubscriptionBootstrap />
       <InsightBootstrap />
+      <LettersBootstrap />
       <div
         className="flex-1 overflow-y-auto overscroll-contain"
         // Bar is now a fixed floating pill (out of flow); reserve its footprint so

@@ -36,6 +36,13 @@ interface AppStore {
   setActiveInsights: (list: Insight[]) => void
   markInsightsSeenForConversation: (conversationId: string) => void
 
+  // Unread Sunday/season letters — drives the "something new" star on Home.
+  // TRANSIENT (refetched by LettersBootstrap from read_at, the server truth); not
+  // persisted, so a downgrade or reload starts empty rather than lingering.
+  unreadLetterIds: string[]
+  setUnreadLetterIds: (ids: string[]) => void
+  markLetterRead: (id: string) => void
+
   // Active conversation + persona display data
   activeConversationId: string | null
   activePersonaSlug: string | null
@@ -145,6 +152,15 @@ export const useStore = create<AppStore>()(
         if (ids.length === 0) return {} as Partial<AppStore>
         return { seenInsightIds: Array.from(new Set([...s.seenInsightIds, ...ids])) }
       }),
+
+      // Unread letters — transient; LettersBootstrap fills it from read_at.
+      unreadLetterIds: [],
+      setUnreadLetterIds: (ids) => set({ unreadLetterIds: ids }),
+      markLetterRead: (id) => set((s) =>
+        s.unreadLetterIds.includes(id)
+          ? { unreadLetterIds: s.unreadLetterIds.filter((x) => x !== id) }
+          : ({} as Partial<AppStore>),
+      ),
 
       // Active conversation + persona display data
       activeConversationId: null,

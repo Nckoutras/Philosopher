@@ -49,9 +49,19 @@ module.exports = {
         sans: ['var(--font-lora)', 'Georgia', 'serif'],
         serif: ['var(--font-lora)', 'Georgia', 'serif'],
       },
+      keyframes: {
+        // "Something new" star — a calm, low-amplitude breath (NOT a notification
+        // badge). Gentle opacity + a barely-there scale, paired via motion-safe so
+        // prefers-reduced-motion users see it static.
+        'soft-pulse': {
+          '0%, 100%': { opacity: '1', transform: 'scale(1)' },
+          '50%': { opacity: '0.72', transform: 'scale(0.94)' },
+        },
+      },
       animation: {
         'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
         'spin-slow': 'spin 1.4s linear infinite',
+        'soft-pulse': 'soft-pulse 3.2s ease-in-out infinite',
       },
     },
   },

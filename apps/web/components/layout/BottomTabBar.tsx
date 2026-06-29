@@ -39,7 +39,10 @@ export default function BottomTabBar() {
 
   const activeInsights = useStore((s) => s.activeInsights)
   const seenInsightIds = useStore((s) => s.seenInsightIds)
+  const unreadLetterIds = useStore((s) => s.unreadLetterIds)
   const hasUnseenInsight = activeInsights.some((i) => !seenInsightIds.includes(i.id))
+  // Home star fires for an unseen insight OR a waiting Sunday/season letter.
+  const hasHomeNew = hasUnseenInsight || unreadLetterIds.length > 0
 
   // Warm the sibling tab route chunks on idle so the first navigation to each
   // is instant rather than waiting on the on-tap chunk download. Non-visual;
@@ -87,8 +90,8 @@ export default function BottomTabBar() {
               {tab.label === 'Home' ? (
                 <span className="relative">
                   <Icon size={20} strokeWidth={1.5} />
-                  {hasUnseenInsight && (
-                    <Sparkle size={11} strokeWidth={1.5} className="absolute -top-[3px] -right-[5px] text-bronze fill-bronze drop-shadow-[0_0_5px_rgba(184,153,104,0.95)]" aria-hidden="true" />
+                  {hasHomeNew && (
+                    <Sparkle size={11} strokeWidth={1.5} className="absolute -top-[3px] -right-[5px] text-bronze fill-bronze drop-shadow-[0_0_5px_rgba(184,153,104,0.95)] motion-safe:animate-soft-pulse" aria-hidden="true" />
                   )}
                 </span>
               ) : (

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
-import { Lock } from 'lucide-react'
+import { Lock, Sparkle } from 'lucide-react'
 import { api } from '@/lib/api'
 import type { WeeklyLetter } from '@/lib/api'
 import BottomSheet from '@/components/ui/BottomSheet'
@@ -99,7 +99,12 @@ export default function SundayLetterCard({ isPro }: Props) {
         )}
 
         {isUnread && (
-          <div className="absolute top-[12px] right-[12px] w-[8px] h-[8px] rounded-full bg-bronze" />
+          <Sparkle
+            size={13}
+            strokeWidth={1.5}
+            aria-hidden="true"
+            className="absolute top-[12px] right-[12px] text-bronze fill-bronze drop-shadow-[0_0_5px_rgba(184,153,104,0.95)] motion-safe:animate-soft-pulse"
+          />
         )}
       </button>
 
