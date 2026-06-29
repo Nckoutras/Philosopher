@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import toast from 'react-hot-toast'
 import { useStore } from '@/lib/store'
 import { api } from '@/lib/api'
-import type { WeeklyLetter } from '@/lib/api'
+import type { WeeklyLetter, Persona } from '@/lib/api'
 import AppHeader from '@/components/layout/AppHeader'
 import SubPageNav from '@/components/layout/SubPageNav'
 import SwipeableRow from '@/components/ui/SwipeableRow'
@@ -36,6 +37,7 @@ export default function LettersPage() {
   const subscription = useStore((s) => s.subscription)
   const isPro = subscription?.status === 'active' && subscription?.plan !== 'free'
   const [letters, setLetters] = useState<WeeklyLetter[] | null>(null)
+  const [personas, setPersonas] = useState<Persona[]>([])
   const [query, setQuery] = useState('')
   const [revealedId, setRevealedId] = useState<string | null>(null)
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
@@ -54,7 +56,15 @@ export default function LettersPage() {
     api.getWeeklyLetters()
       .then(setLetters)
       .catch(() => setLetters([]))
+    // Personas drive the per-card thumbnail (slug → portrait_url, resolved live
+    // so a future portrait change can't leave a stale URL on old letters). A
+    // failed fetch must not break the list — fall back to initial/placeholder.
+    api.getPersonas()
+      .then(setPersonas)
+      .catch(() => setPersonas([]))
   }, [token, isPro, router])
+
+  const portraitBySlug = new Map(personas.map((p) => [p.slug, p.portrait_url]))
 
   const visible = letters?.filter((l) => l.status !== 'suppressed') ?? []
   const q = query.trim().toLowerCase()
@@ -142,6 +152,9 @@ export default function LettersPage() {
         ) : (
           searched.map((l) => {
             if (l.status === 'generated') {
+              const portrait = l.voice_persona_slug
+                ? portraitBySlug.get(l.voice_persona_slug)
+                : undefined
               return (
                 <SwipeableRow
                   key={l.id}
@@ -155,7 +168,24 @@ export default function LettersPage() {
                     onClick={() => router.push(`/app/letters/${l.id}`)}
                     className="w-full text-left bg-paper border border-[0.5px] border-edge rounded-md shadow-card px-[16px] py-[14px]"
                   >
-                    <div className="flex items-start justify-between gap-[8px]">
+                    <div className="flex items-start gap-[12px]">
+                      {/* Persona thumbnail — portrait by slug, else initial, else neutral circle */}
+                      <div className="w-[40px] h-[40px] rounded-full overflow-hidden flex-shrink-0 bg-linen border border-edge flex items-center justify-center">
+                        {portrait ? (
+                          <Image
+                            src={portrait}
+                            alt={l.voice_persona_name ?? ''}
+                            width={40}
+                            height={40}
+                            className="object-cover w-full h-full"
+                          />
+                        ) : l.voice_persona_name ? (
+                          <span className="font-cormorant text-[18px] font-medium text-charcoal">
+                            {l.voice_persona_name.charAt(0)}
+                          </span>
+                        ) : null}
+                      </div>
+                      <div className="flex-1 min-w-0 flex items-start justify-between gap-[8px]">
                       <div className="flex-1 min-w-0">
                         {l.kind === 'monthly' ? (
                           <div className="flex items-center gap-[8px]">
@@ -183,6 +213,7 @@ export default function LettersPage() {
                       {l.read_at === null && (
                         <div className="w-[8px] h-[8px] rounded-full bg-bronze flex-shrink-0 mt-[6px]" />
                       )}
+                      </div>
                     </div>
                   </button>
                 </SwipeableRow>
