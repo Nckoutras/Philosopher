@@ -40,6 +40,7 @@ export default function LetterReadPage() {
   const token = useStore((s) => s.token)
   const subscription = useStore((s) => s.subscription)
   const isPro = subscription?.status === 'active' && subscription?.plan !== 'free'
+  const markLetterRead = useStore((s) => s.markLetterRead)
 
   const [loading, setLoading] = useState(true)
   const [letter, setLetter] = useState<WeeklyLetter | null>(null)
@@ -67,6 +68,9 @@ export default function LetterReadPage() {
         ])
         setLetter(letterRes.status === 'fulfilled' ? letterRes.value : null)
         setPersonas(personasRes.status === 'fulfilled' ? personasRes.value : [])
+        // Opening the detail marks it read server-side (read_at); clear the Home
+        // "something new" star immediately for this session too.
+        if (letterRes.status === 'fulfilled') markLetterRead(id)
       } finally {
         setLoading(false)
         setMounted(true)
@@ -74,7 +78,7 @@ export default function LetterReadPage() {
     }
 
     load()
-  }, [token, isPro, id, router])
+  }, [token, isPro, id, router, markLetterRead])
 
   async function handleStartConversation(slug: string) {
     if (startingConv) return
