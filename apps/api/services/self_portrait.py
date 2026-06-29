@@ -94,35 +94,50 @@ def total_question_count() -> int:
 FREE_QUESTION_LIMIT = 15
 
 
+def _ids_by_category(qids: list[str]) -> dict[str, list[str]]:
+    """Group question ids by their bank category, ids sorted within each category."""
+    by_category: dict[str, list[str]] = {}
+    for qid in qids:
+        by_category.setdefault(_BANK[qid].get("category", ""), []).append(qid)
+    for ids in by_category.values():
+        ids.sort()
+    return by_category
+
+
+def _round_robin_ids(ids_by_category: dict[str, list[str]], limit: int | None) -> list[str]:
+    """Round-robin across categories (categories sorted; ids already sorted within each),
+    taking one id per category per pass until `limit` ids are collected — or, when
+    `limit is None`, until every category is exhausted (the full ordered list). Round-
+    robin (rather than first-N-by-id) keeps the result spread across life areas instead
+    of front-loading whichever category sorts first. Pure + deterministic for a given
+    input, so callers can freeze the result once."""
+    ordered_categories = sorted(ids_by_category)
+    chosen: list[str] = []
+    round_idx = 0
+    # Stop once we've collected the limit OR no category has anything left to give.
+    while limit is None or len(chosen) < limit:
+        progressed = False
+        for cat in ordered_categories:
+            ids = ids_by_category[cat]
+            if round_idx < len(ids):
+                chosen.append(ids[round_idx])
+                progressed = True
+                if limit is not None and len(chosen) >= limit:
+                    break
+        if not progressed:
+            break
+        round_idx += 1
+    return chosen
+
+
 def _compute_free_question_ids() -> frozenset[str]:
     """Deterministic interleave: group the bank by category (categories sorted;
     questions sorted by id within each), then round-robin across categories taking
     one each until FREE_QUESTION_LIMIT ids are collected. Round-robin (rather than
     first-N-by-id) keeps the free slice spread across life areas instead of front-
     loading whichever category sorts first. Stable for a given bank → frozen once."""
-    by_category: dict[str, list[str]] = {}
-    for qid, q in _BANK.items():
-        by_category.setdefault(q.get("category", ""), []).append(qid)
-    for ids in by_category.values():
-        ids.sort()
-
-    ordered_categories = sorted(by_category)
-    chosen: list[str] = []
-    round_idx = 0
-    # Stop once we've collected the limit OR no category has anything left to give.
-    while len(chosen) < FREE_QUESTION_LIMIT:
-        progressed = False
-        for cat in ordered_categories:
-            ids = by_category[cat]
-            if round_idx < len(ids):
-                chosen.append(ids[round_idx])
-                progressed = True
-                if len(chosen) >= FREE_QUESTION_LIMIT:
-                    break
-        if not progressed:
-            break
-        round_idx += 1
-    return frozenset(chosen)
+    by_category = _ids_by_category(list(_BANK.keys()))
+    return frozenset(_round_robin_ids(by_category, FREE_QUESTION_LIMIT))
 
 
 _FREE_QUESTION_IDS: frozenset[str] = _compute_free_question_ids()
@@ -151,15 +166,20 @@ def _public_question(q: dict) -> dict:
 
 
 def visible_questions(is_pro: bool) -> list[dict]:
-    """Questions the given tier may see, in a stable order (category sorted, then id):
-    Pro → all questions; free → only the free slice. Returns the PUBLIC shape only."""
-    out = [
-        _public_question(q)
-        for q in _BANK.values()
-        if is_pro or is_free_question(q["id"])
+    """Questions the given tier may see, round-robin across categories (categories
+    sorted; ids sorted within each) so consecutive questions move between life areas
+    instead of running through one category at a time. Pro → all questions; free →
+    only the free slice. Returns the PUBLIC shape only.
+
+    Reorder-safe for stored answers: answers are keyed by question id, not position,
+    so changing the served order never duplicates, drops, or mismatches an existing
+    answer — only the order of the remaining (and answered) questions changes."""
+    visible_ids = [
+        qid for qid in _BANK
+        if is_pro or is_free_question(qid)
     ]
-    out.sort(key=lambda q: (q["category"], q["id"]))
-    return out
+    ordered_ids = _round_robin_ids(_ids_by_category(visible_ids), None)
+    return [_public_question(_BANK[qid]) for qid in ordered_ids]
 
 
 def question_key(question_id: str) -> int:
