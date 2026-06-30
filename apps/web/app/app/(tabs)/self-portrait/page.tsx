@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import toast from 'react-hot-toast'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
@@ -18,6 +19,7 @@ import {
 } from '@/components/self-portrait/Artwork'
 import { PortraitRadar } from '@/components/self-portrait/PortraitRadar'
 import { PortraitMap } from '@/components/self-portrait/PortraitMap'
+import { renderPortraitCardBlob, sharePortraitCardBlob } from '@/lib/portraitShareCard'
 
 // Human-readable category labels. Title-case fallback for any value not listed
 // (so a future bank category can never render blank or as a raw machine value).
@@ -208,6 +210,13 @@ export default function SelfPortraitPage() {
   // B2: which visualization of the same theme_scores is showing. Local UI only —
   // no URL, no refetch; defaults to the radar (B1's view).
   const [portraitViz, setPortraitViz] = useState<'radar' | 'map'>('radar')
+  // B3: shareable card. The ref reads the ACTIVE radar/map <svg> at share time; the
+  // preview overlay shows the rendered card (blob) before it leaves the device.
+  const portraitCardRef = useRef<HTMLDivElement>(null)
+  const shareBlobRef = useRef<Blob | null>(null)
+  const [shareOpen, setShareOpen] = useState(false)
+  const [shareBusy, setShareBusy] = useState(false)
+  const [sharePreviewUrl, setSharePreviewUrl] = useState<string | null>(null)
 
   // #6.2 / #7: independent category filters for the question flow and the
   // revisit list (same component, separate state so they don't cross-filter).
@@ -326,6 +335,64 @@ export default function SelfPortraitPage() {
     portrait && portrait.state === 'ready' && portrait.best_fit.length > 0
       ? portrait.best_fit[0].portrait_url
       : null
+
+  // B3: only allow sharing when there's real signal — never a "keep answering" card.
+  const portraitHasSignal = (portrait?.theme_scores ?? []).some((s) => s.score > 0)
+
+  // Open the share preview: render the card from the ACTIVE svg up-front (the heavy
+  // async work — fonts.ready, decode, toBlob), so the later "Share" tap fires
+  // navigator.share on an already-ready blob (clean gesture, no iOS activation strip).
+  const openShare = async () => {
+    const svg = portraitCardRef.current?.querySelector('svg')
+    if (!svg) return
+    setShareOpen(true)
+    setShareBusy(true)
+    setSharePreviewUrl(null)
+    shareBlobRef.current = null
+    try {
+      const blob = await renderPortraitCardBlob(svg)
+      shareBlobRef.current = blob
+      setSharePreviewUrl(URL.createObjectURL(blob))
+    } catch {
+      toast('Could not build the card — try again.')
+      setShareOpen(false)
+    } finally {
+      setShareBusy(false)
+    }
+  }
+
+  const closeShare = () => {
+    setShareOpen(false)
+    setShareBusy(false)
+    if (sharePreviewUrl) URL.revokeObjectURL(sharePreviewUrl)
+    setSharePreviewUrl(null)
+    shareBlobRef.current = null
+  }
+
+  const confirmShare = async () => {
+    const blob = shareBlobRef.current
+    if (!blob) return
+    setShareBusy(true)
+    try {
+      const result = await sharePortraitCardBlob(blob)
+      if (result === 'downloaded') toast('Image saved — share it from your downloads')
+      closeShare()
+    } catch (err) {
+      // AbortError = user dismissed the native sheet; keep the preview open to retry.
+      if (!(err instanceof DOMException && err.name === 'AbortError')) {
+        toast('Could not share — try again.')
+      }
+    } finally {
+      setShareBusy(false)
+    }
+  }
+
+  // Revoke the preview object URL when it changes / on unmount (no leak).
+  useEffect(() => {
+    return () => {
+      if (sharePreviewUrl) URL.revokeObjectURL(sharePreviewUrl)
+    }
+  }, [sharePreviewUrl])
 
   // `fromMainFlow` distinguishes a fresh answer in the one-at-a-time question flow
   // (which pauses on the observation beat) from a revisit-list edit (which does not).
@@ -636,13 +703,27 @@ export default function SelfPortraitPage() {
                   portrait has loaded; the supporting summary/forming text sits below. */}
               {portrait && (
                 <>
-                  {/* B2: toggle between the two views of the SAME theme_scores. */}
-                  <VizToggle viz={portraitViz} onChange={setPortraitViz} />
+                  {/* B2 toggle + B3 share — same row. Share is hidden until there's
+                      real signal (never a "keep answering" card). */}
+                  <div className="flex items-center justify-center gap-4">
+                    <VizToggle viz={portraitViz} onChange={setPortraitViz} />
+                    {portraitHasSignal && (
+                      <button
+                        type="button"
+                        onClick={openShare}
+                        className="font-lora text-[12px] text-sepia underline underline-offset-2"
+                      >
+                        Share
+                      </button>
+                    )}
+                  </div>
 
                   {/* When the frame texture is on, the box must be transparent so the
                       linen/molding is the visible surface (a white bg would cover it).
-                      The toggle swaps the contents; the frame/card stays put. */}
+                      The toggle swaps the contents; the frame/card stays put. The ref
+                      lets the share path read the active radar/map <svg>. */}
                   <div
+                    ref={portraitCardRef}
                     className={`rounded-lg border-[0.5px] border-bronze/30 shadow-card px-4 py-5 ${
                       USE_RADAR_FRAME ? 'bg-transparent' : 'bg-white'
                     }`}
@@ -768,6 +849,69 @@ export default function SelfPortraitPage() {
 
         </div>
       </div>
+
+      {/* B3: simple LOCAL share preview — shows exactly what will be posted before it
+          leaves the device. Not the server-coupled SharePreviewModal. */}
+      {shareOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Share your portrait"
+          className="fixed inset-0 z-50 flex items-center justify-center px-4"
+        >
+          <div
+            className="absolute inset-0 bg-[rgba(31,27,20,0.5)]"
+            aria-hidden="true"
+            onClick={() => {
+              if (!shareBusy) closeShare()
+            }}
+          />
+          <div className="relative z-10 w-full max-w-[360px] bg-paper rounded-lg p-5 shadow-[0_8px_32px_rgba(31,27,20,0.18)] max-h-[85svh] overflow-y-auto">
+            <div
+              className="relative w-full rounded-sm overflow-hidden mb-4 bg-vellum"
+              style={{ aspectRatio: '4/5' }}
+            >
+              {sharePreviewUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element -- local blob preview, not an optimizable asset
+                <img
+                  src={sharePreviewUrl}
+                  alt="Your shareable portrait card"
+                  className="w-full h-full object-contain"
+                />
+              ) : (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <p className="font-lora text-[13px] text-charcoal">Preparing your card&hellip;</p>
+                </div>
+              )}
+            </div>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={closeShare}
+                disabled={shareBusy}
+                className="flex-1 font-lora text-[13px] text-charcoal border border-edge rounded-sm py-2.5 px-4 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmShare}
+                disabled={shareBusy || !sharePreviewUrl}
+                className="flex-1 font-lora text-[13px] text-vellum bg-bronze rounded-sm py-2.5 px-4 flex items-center justify-center disabled:opacity-70"
+              >
+                {shareBusy ? (
+                  <span
+                    className="inline-block w-3.5 h-3.5 border-[0.8px] border-vellum/30 border-t-vellum rounded-full animate-spin-slow"
+                    aria-label="Working…"
+                  />
+                ) : (
+                  'Share'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   )
 }
