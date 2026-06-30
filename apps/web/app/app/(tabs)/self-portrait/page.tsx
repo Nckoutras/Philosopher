@@ -17,6 +17,7 @@ import {
   USE_RADAR_FRAME,
 } from '@/components/self-portrait/Artwork'
 import { PortraitRadar } from '@/components/self-portrait/PortraitRadar'
+import { PortraitMap } from '@/components/self-portrait/PortraitMap'
 
 // Human-readable category labels. Title-case fallback for any value not listed
 // (so a future bank category can never render blank or as a raw machine value).
@@ -119,6 +120,44 @@ function ViewSwitch({
   )
 }
 
+// B2: quiet pill toggle between the two visualizations of the SAME theme scores —
+// the radar ("Shape") and the spatial map ("Map"). Same visual family as ViewSwitch;
+// instant, local, no refetch.
+function VizToggle({
+  viz,
+  onChange,
+}: {
+  viz: 'radar' | 'map'
+  onChange: (next: 'radar' | 'map') => void
+}) {
+  const tabs: { key: 'radar' | 'map'; label: string }[] = [
+    { key: 'radar', label: 'Shape' },
+    { key: 'map', label: 'Map' },
+  ]
+  return (
+    <div className="flex justify-center">
+      <div className="inline-flex rounded-full border-[0.5px] border-bronze/40 bg-white p-[3px]">
+        {tabs.map((t) => {
+          const isActive = t.key === viz
+          return (
+            <button
+              key={t.key}
+              type="button"
+              onClick={() => onChange(t.key)}
+              aria-pressed={isActive}
+              className={`px-4 py-1.5 rounded-full font-lora text-[12px] transition-colors ${
+                isActive ? 'bg-bronze text-ink' : 'text-sepia'
+              }`}
+            >
+              {t.label}
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 // Round persona avatar — reuses the PR2 saved-readings markup: portrait when
 // present, else the persona's initial, else a neutral circle.
 function PersonaAvatar({ portraitUrl, name }: { portraitUrl: string | null; name: string }) {
@@ -166,6 +205,9 @@ export default function SelfPortraitPage() {
   // Portrait payoff — lazily fetched only when the portrait view is opened.
   const [portrait, setPortrait] = useState<SelfPortraitPortrait | null>(null)
   const [portraitLoading, setPortraitLoading] = useState(false)
+  // B2: which visualization of the same theme_scores is showing. Local UI only —
+  // no URL, no refetch; defaults to the radar (B1's view).
+  const [portraitViz, setPortraitViz] = useState<'radar' | 'map'>('radar')
 
   // #6.2 / #7: independent category filters for the question flow and the
   // revisit list (same component, separate state so they don't cross-filter).
@@ -275,6 +317,14 @@ export default function SelfPortraitPage() {
   const observationLine =
     justAnswered && activeQuestion && justAnswered.qid === activeQuestion.id
       ? observationFor(activeQuestion.category, justAnswered.pillIndex, activeQuestion.id)
+      : null
+
+  // Faint persona watermark URL for the radar/map — ready-state only, else null. Hoisted
+  // so the radar and map branches share one source of truth (the components further gate
+  // on a non-empty string, so null/"" render nothing).
+  const portraitWatermarkUrl =
+    portrait && portrait.state === 'ready' && portrait.best_fit.length > 0
+      ? portrait.best_fit[0].portrait_url
       : null
 
   // `fromMainFlow` distinguishes a fresh answer in the one-at-a-time question flow
@@ -585,22 +635,31 @@ export default function SelfPortraitPage() {
                   faint persona watermark only in the ready state. Shown once the
                   portrait has loaded; the supporting summary/forming text sits below. */}
               {portrait && (
-                // When the frame texture is on, the box must be transparent so the
-                // linen/molding is the visible surface (a white bg would cover it).
-                <div
-                  className={`rounded-lg border-[0.5px] border-bronze/30 shadow-card px-4 py-5 ${
-                    USE_RADAR_FRAME ? 'bg-transparent' : 'bg-white'
-                  }`}
-                >
-                  <PortraitRadar
-                    scores={portrait.theme_scores ?? []}
-                    watermarkUrl={
-                      portrait.state === 'ready' && portrait.best_fit.length > 0
-                        ? portrait.best_fit[0].portrait_url
-                        : null
-                    }
-                  />
-                </div>
+                <>
+                  {/* B2: toggle between the two views of the SAME theme_scores. */}
+                  <VizToggle viz={portraitViz} onChange={setPortraitViz} />
+
+                  {/* When the frame texture is on, the box must be transparent so the
+                      linen/molding is the visible surface (a white bg would cover it).
+                      The toggle swaps the contents; the frame/card stays put. */}
+                  <div
+                    className={`rounded-lg border-[0.5px] border-bronze/30 shadow-card px-4 py-5 ${
+                      USE_RADAR_FRAME ? 'bg-transparent' : 'bg-white'
+                    }`}
+                  >
+                    {portraitViz === 'radar' ? (
+                      <PortraitRadar
+                        scores={portrait.theme_scores ?? []}
+                        watermarkUrl={portraitWatermarkUrl}
+                      />
+                    ) : (
+                      <PortraitMap
+                        scores={portrait.theme_scores ?? []}
+                        watermarkUrl={portraitWatermarkUrl}
+                      />
+                    )}
+                  </div>
+                </>
               )}
 
               {portraitLoading && portrait === null ? (
