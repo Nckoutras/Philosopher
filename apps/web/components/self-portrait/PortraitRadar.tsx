@@ -5,7 +5,8 @@
 // fills the frame). No charting library.
 //
 // • Renders fully WITHOUT any asset. The κάδρο/frame is CSS + SVG; an OPTIONAL
-//   watercolor texture overlays only when USE_REAL_ARTWORK is on (Artwork seam).
+//   watercolor texture overlays only when USE_RADAR_FRAME is on (Artwork seam) —
+//   that flag stays off until radar-frame.webp ships, so the frame never 404s.
 // • Faint persona watermark sits BEHIND the frame, screen-only, and is passed in
 //   ONLY for the ready state (never forming). It is deliberately NOT part of any
 //   share canvas (that's B3 — keeping the persona out avoids canvas taint).
@@ -14,7 +15,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import Image from 'next/image'
 import type { SelfPortraitThemeScore } from '@/lib/api'
-import { USE_REAL_ARTWORK, radarFrameSrc } from './Artwork'
+import { USE_RADAR_FRAME, radarFrameSrc } from './Artwork'
 
 // Geometry in a 360×264 viewBox. The width carries ~90px of horizontal padding each
 // side of the R=88 web so the longest side labels ("Connection" at pure-left, anchored
@@ -72,8 +73,10 @@ export function PortraitRadar({
         </div>
       )}
 
-      {/* OPTIONAL watercolor frame texture — only when the real asset is present. */}
-      {USE_REAL_ARTWORK && (
+      {/* OPTIONAL watercolor frame texture — gated on USE_RADAR_FRAME (NOT the global
+          USE_REAL_ARTWORK), so it stays off until radar-frame.webp actually exists and
+          never renders a broken <img>. */}
+      {USE_RADAR_FRAME && (
         <div className="absolute inset-0 pointer-events-none">
           {/* eslint-disable-next-line @next/next/no-img-element -- decorative texture, no optimization needed */}
           <img src={radarFrameSrc()} alt="" className="w-full h-full object-contain opacity-40" />
