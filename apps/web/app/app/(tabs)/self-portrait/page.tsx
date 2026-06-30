@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
@@ -8,6 +8,13 @@ import { useStore } from '@/lib/store'
 import { api } from '@/lib/api'
 import type { SelfPortraitQuestion, SelfPortraitPortrait } from '@/lib/api'
 import { BronzeDivider } from '@/components/ui/BronzeDivider'
+import { observationFor } from '@/lib/selfPortraitObservations'
+import {
+  ThemeGlyph,
+  CardArtwork,
+  PatternArtwork,
+  EyeGlyph,
+} from '@/components/self-portrait/Artwork'
 
 // Human-readable category labels. Title-case fallback for any value not listed
 // (so a future bank category can never render blank or as a raw machine value).
@@ -35,18 +42,6 @@ function categoryLabel(value: string): string {
       .join(' ')
   )
 }
-
-// Quiet, in-voice acknowledgements shown once every ACK_EVERY new answers. These
-// are OBSERVATIONS about what the room is starting to see — never encouragement,
-// never a count, %, or streak.
-const ACK_EVERY = 7
-const ACK_LINES = [
-  'The room is starting to see how you weigh things.',
-  'A shape is forming — how you lean when it isn’t simple.',
-  'Patterns are surfacing in what you reach for first.',
-  'The room is learning where you hold firm and where you bend.',
-  'Something of your particular way of seeing is coming through.',
-]
 
 // Shared category filter — a horizontal row of pills ("All" + each category),
 // reused by both the question flow (#6.2) and the revisit list (#7).
@@ -175,10 +170,11 @@ export default function SelfPortraitPage() {
   const [questionCategory, setQuestionCategory] = useState('all')
   const [revisitOpen, setRevisitOpen] = useState(false)
   const [revisitCategory, setRevisitCategory] = useState('all')
-  // #6.3: count NEW answers this session (edits excluded) to time the quiet
-  // acknowledgement. A ref so it never triggers a render on its own.
-  const newAnswerCount = useRef(0)
-  const [ackLine, setAckLine] = useState<string | null>(null)
+  // Phase A: after answering a question in the MAIN flow, the card pauses here
+  // instead of auto-advancing — it shows "The Room notices" and waits for an
+  // explicit "Next question →". Holds the just-answered {qid, pillIndex}; null means
+  // "show the next unanswered question". Revisit-edits never set this (no pause).
+  const [justAnswered, setJustAnswered] = useState<{ qid: string; pillIndex: number } | null>(null)
 
   useEffect(() => {
     if (token === null) {
@@ -247,13 +243,19 @@ export default function SelfPortraitPage() {
 
   // #6.2: the question actually shown respects the selected category. When "all"
   // is selected this is exactly the unfiltered nextQuestion (original behaviour).
+  // Phase A: while paused on a just-answered question (the observation beat), keep
+  // showing THAT question until "Next question →" clears the pause — only then does
+  // the next unanswered question surface.
   const activeQuestion = useMemo(() => {
+    if (justAnswered) {
+      return questions.find((q) => q.id === justAnswered.qid) ?? null
+    }
     const pool =
       questionCategory === 'all'
         ? questions
         : questions.filter((q) => q.category === questionCategory)
     return pool.find((q) => answers[q.id] === undefined) ?? null
-  }, [questions, answers, questionCategory])
+  }, [questions, answers, questionCategory, justAnswered])
 
   // #7: the revisit list respects its own category filter.
   const revisitAnswered = useMemo(
@@ -264,28 +266,40 @@ export default function SelfPortraitPage() {
     [answered, revisitCategory],
   )
 
-  const choose = async (qid: string, pillIndex: number) => {
+  // The per-answer "The Room notices" line for the question currently paused on its
+  // observation beat — null when not paused, or when no pool covers this answer. The
+  // combined truthy check narrows both values for the lookup; deterministic by qid so
+  // the line is stable while the card is held.
+  const observationLine =
+    justAnswered && activeQuestion && justAnswered.qid === activeQuestion.id
+      ? observationFor(activeQuestion.category, justAnswered.pillIndex, activeQuestion.id)
+      : null
+
+  // `fromMainFlow` distinguishes a fresh answer in the one-at-a-time question flow
+  // (which pauses on the observation beat) from a revisit-list edit (which does not).
+  const choose = async (
+    qid: string,
+    pillIndex: number,
+    opts?: { fromMainFlow?: boolean },
+  ) => {
     if (inFlight) return
     setInFlight(true)
     setError(null)
     const prev = answers
-    const isNew = prev[qid] === undefined
-    setAckLine(null) // clear any prior acknowledgement on the next answer
-    // Optimistic: show the choice and advance immediately.
+    // Optimistic: record the choice immediately. The SAVE fires on tap exactly as
+    // before; only the VISUAL advance changes — in the main flow the card now pauses
+    // on the observation and waits for "Next question →" (justAnswered), rather than
+    // auto-advancing to the next question.
     setAnswers({ ...answers, [qid]: pillIndex })
     setEditingId(null)
+    if (opts?.fromMainFlow) {
+      setJustAnswered({ qid, pillIndex })
+    }
     try {
       await api.updateSelfPortrait(qid, pillIndex)
-      // #6.3: only NEW answers move the count; re-editing an answer does not.
-      if (isNew) {
-        newAnswerCount.current += 1
-        if (newAnswerCount.current % ACK_EVERY === 0) {
-          const idx = (newAnswerCount.current / ACK_EVERY - 1) % ACK_LINES.length
-          setAckLine(ACK_LINES[idx] ?? null)
-        }
-      }
     } catch (err) {
       setAnswers(prev) // revert on failure
+      if (opts?.fromMainFlow) setJustAnswered(null) // drop the pause; no false observation
       setError(err instanceof Error ? err.message : 'Could not save that — try again.')
     } finally {
       setInFlight(false)
@@ -334,7 +348,7 @@ export default function SelfPortraitPage() {
                 onClick={() => setView('questions')}
                 className="w-full py-3 rounded-full font-cormorant text-[17px] font-medium bg-ink text-vellum transition-colors"
               >
-                Start the journey
+                {answered.length > 0 ? 'Continue the questions' : 'Start the journey'}
               </button>
               <button
                 type="button"
@@ -366,33 +380,78 @@ export default function SelfPortraitPage() {
                 />
               )}
 
-              {/* One question at a time, respecting the selected category. */}
+              {/* One question at a time, as an artwork card. After answering, the
+                  card pauses on "The Room notices" + an explicit "Next question →"
+                  (justAnswered) rather than auto-advancing. */}
               {activeQuestion && (
                 <section className="space-y-4">
-                  <h2 className="font-cormorant text-[21px] font-medium text-ink leading-snug text-center">
-                    {activeQuestion.question}
-                  </h2>
-                  <div className="flex flex-wrap gap-2 justify-center">
-                    {activeQuestion.pills.map((pill, idx) => (
-                      <button
-                        key={idx}
-                        type="button"
-                        onClick={() => choose(activeQuestion.id, idx)}
-                        disabled={inFlight}
-                        className="px-4 py-2 rounded-full font-lora text-[13px] border-[0.5px] bg-white border-bronze/60 text-charcoal shadow-card transition-colors disabled:opacity-40"
-                      >
-                        {pill}
-                      </button>
-                    ))}
-                  </div>
-                </section>
-              )}
+                  {/* Eyebrow — the life-area this question sits in. No count/meter. */}
+                  <p className="font-lora text-[11px] uppercase tracking-[0.14em] text-sepia text-center">
+                    Current theme — {categoryLabel(activeQuestion.category)}
+                  </p>
 
-              {/* #6.3 quiet acknowledgement — one line, no metric. */}
-              {ackLine && (
-                <p className="font-cormorant italic text-[16px] text-bronze text-center leading-snug">
-                  {ackLine}
-                </p>
+                  <div className="rounded-lg border-[0.5px] border-bronze/30 bg-white shadow-card overflow-hidden">
+                    {/* Top artwork band (placeholder now; real watercolor drops in). */}
+                    <CardArtwork category={activeQuestion.category} />
+                    <div className="px-5 py-5 space-y-4">
+                      <h2 className="font-cormorant text-[21px] font-medium text-ink leading-snug text-center">
+                        {activeQuestion.question}
+                      </h2>
+                      <div className="flex flex-wrap gap-2 justify-center">
+                        {activeQuestion.pills.map((pill, idx) => {
+                          const paused = justAnswered?.qid === activeQuestion.id
+                          const isChosen = answers[activeQuestion.id] === idx
+                          return (
+                            <button
+                              key={idx}
+                              type="button"
+                              onClick={() => choose(activeQuestion.id, idx, { fromMainFlow: true })}
+                              disabled={inFlight || paused}
+                              aria-pressed={isChosen}
+                              className={`px-4 py-2 rounded-full font-lora text-[13px] border-[0.5px] transition-colors disabled:opacity-40 ${
+                                paused && isChosen
+                                  ? 'bg-bronze border-bronze-dark text-ink'
+                                  : paused
+                                    ? 'bg-white border-bronze/30 text-sepia'
+                                    : 'bg-white border-bronze/60 text-charcoal shadow-card'
+                              }`}
+                            >
+                              {pill}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* "The Room notices" — the per-answer observation, then Next. */}
+                  {justAnswered?.qid === activeQuestion.id && (
+                    <div className="space-y-4">
+                      {observationLine && (
+                        <div className="rounded-lg border-[0.5px] border-bronze/30 bg-linen/40 px-4 py-4 flex items-start gap-3">
+                          <span className="mt-[2px]">
+                            <EyeGlyph />
+                          </span>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-lora text-[11px] uppercase tracking-[0.12em] text-sepia">
+                              The Room notices
+                            </p>
+                            <p className="font-cormorant italic text-[16px] text-ink mt-1 leading-snug">
+                              {observationLine}
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setJustAnswered(null)}
+                        className="w-full py-3 rounded-full font-cormorant text-[16px] font-medium bg-ink text-vellum transition-colors"
+                      >
+                        Next question →
+                      </button>
+                    </div>
+                  )}
+                </section>
               )}
 
               {/* Category exhausted but more remain elsewhere — calm, not the Pro nudge. */}
@@ -469,15 +528,19 @@ export default function SelfPortraitPage() {
                               <button
                                 type="button"
                                 onClick={() => setEditingId(isEditing ? null : q.id)}
-                                className="w-full text-left"
+                                className="w-full text-left flex items-start gap-3"
                                 aria-expanded={isEditing}
                               >
-                                <p className="font-lora text-[13px] text-charcoal leading-[1.55]">
-                                  {q.question}
-                                </p>
-                                <p className="font-lora text-[13px] text-ink mt-1 font-medium">
-                                  {q.pills[chosen]}
-                                </p>
+                                {/* Small per-theme artwork tile (placeholder now). */}
+                                <ThemeGlyph category={q.category} size={40} />
+                                <div className="flex-1 min-w-0">
+                                  <p className="font-lora text-[13px] text-charcoal leading-[1.55]">
+                                    {q.question}
+                                  </p>
+                                  <p className="font-lora text-[13px] text-ink mt-1 font-medium">
+                                    {q.pills[chosen]}
+                                  </p>
+                                </div>
                               </button>
                               {isEditing && (
                                 <div className="flex flex-wrap gap-2 mt-3">
@@ -573,13 +636,20 @@ export default function SelfPortraitPage() {
                   )}
                 </>
               ) : portrait && portrait.preview.length > 0 ? (
-                // Forming (or ready without a cached summary yet): genuine observation lines.
-                <div className="rounded-lg border-[0.5px] border-bronze/30 bg-white shadow-card px-5 py-5 space-y-3 text-center">
-                  {portrait.preview.map((line, i) => (
-                    <p key={i} className="font-lora text-[14px] text-charcoal leading-[1.65]">
-                      {line}
-                    </p>
-                  ))}
+                // Forming (or ready without a cached summary yet): "a pattern is
+                // emerging" — genuine observation lines from the user's own answers.
+                <div className="rounded-lg border-[0.5px] border-bronze/30 bg-white shadow-card overflow-hidden">
+                  <PatternArtwork />
+                  <div className="px-5 py-5 space-y-3 text-center">
+                    <h2 className="font-cormorant text-[19px] font-medium text-ink leading-snug">
+                      A pattern is emerging
+                    </h2>
+                    {portrait.preview.map((line, i) => (
+                      <p key={i} className="font-lora text-[14px] text-charcoal leading-[1.65]">
+                        {line}
+                      </p>
+                    ))}
+                  </div>
                 </div>
               ) : (
                 // No content yet, or the fetch failed — never an error or spinner trap.
@@ -590,6 +660,16 @@ export default function SelfPortraitPage() {
                   </p>
                 </div>
               )}
+
+              {/* Primary payoff CTA — back to the questions to deepen the portrait.
+                  Pure navigation; no count/meter. */}
+              <button
+                type="button"
+                onClick={() => setView('questions')}
+                className="w-full py-3 rounded-full font-cormorant text-[16px] font-medium bg-ink text-vellum transition-colors"
+              >
+                Keep shaping the portrait
+              </button>
 
               {/* A different lens, not a primary CTA — quiet cross-link to You-vs-You. */}
               <div className="text-center pt-1">
