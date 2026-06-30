@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -222,11 +223,63 @@ async def read_self_portrait_portrait(
         if cache and isinstance(cache.get("text"), str) and cache["text"].strip():
             return _portrait_from_cache(state, cache)
 
-    # Forming, OR ready with no usable cache and generation unavailable. This is the
-    # ONLY branch that calls forming_reflection — never alongside a served summary.
+    # Forming, OR ready with no usable summary cache. The forming preview is cached in
+    # the SAME portrait_cache under an INDEPENDENT `forming` sub-key, mirroring the
+    # ready path exactly: serve verbatim when fresh, else regenerate (unless a recent
+    # failure is still in the shared cooldown), write, serve; on failure mark_failed +
+    # serve any stale preview. This keeps forming lines STABLE on reopen — they change
+    # only after >= PORTRAIT_REGEN_DELTA new answers, never on wording-resample. The
+    # `forming` and ready sub-keys are independent; neither stomps the other.
+    forming = (cache or {}).get("forming") if isinstance(cache, dict) else None
+    f_watermark = (forming or {}).get("answer_count_watermark")
+    f_preview = (forming or {}).get("preview")
+    f_fresh = (
+        isinstance(forming, dict)
+        and isinstance(f_watermark, int)
+        and (len(answers) - f_watermark) < PORTRAIT_REGEN_DELTA
+        and isinstance(f_preview, list)
+        and len(f_preview) > 0
+    )
+    if f_fresh:
+        return SelfPortraitPortraitOut(
+            state=state, preview=f_preview[:2], summary=None, best_fit=[]
+        )
+
+    # Missing or stale → regenerate, UNLESS a recent generation failure (ready OR
+    # forming — the cooldown marker is shared) is still within the retry window, so an
+    # LLM outage doesn't re-fire forming_reflection on every open. Only attempt when we
+    # actually have statements AND a row to write the cache onto.
     statements = answers_to_statements(answers, limit=8)
-    preview = (await self_comparison_service.forming_reflection(statements))[:2]
-    return SelfPortraitPortraitOut(state=state, preview=preview, summary=None, best_fit=[])
+    if prefs is not None and statements and not self_portrait_summary.in_failure_cooldown(cache):
+        preview = (await self_comparison_service.forming_reflection(statements))[:2]
+        if preview:
+            merged = dict(cache) if isinstance(cache, dict) else {}
+            merged["forming"] = {
+                "preview": preview,
+                "answer_count_watermark": len(answers),
+                "generated_at": datetime.now(timezone.utc).isoformat(),
+            }
+            prefs.portrait_cache = merged
+            await db.commit()
+            return SelfPortraitPortraitOut(
+                state=state, preview=preview, summary=None, best_fit=[]
+            )
+
+        # Empty despite having statements → treat as a generation failure: stamp the
+        # shared `last_failed_at` marker (merged, so a prior ready summary AND any stale
+        # forming preview survive), so the next opens serve stale without re-attempting
+        # until the cooldown elapses. A later success replaces the dict (self-heal).
+        prefs.portrait_cache = self_portrait_summary.mark_failed(cache)
+        await db.commit()
+
+    # In cooldown, just-failed, or nothing to generate from: serve a stale forming
+    # preview if we have one, else empty (the frontend renders the calm "still
+    # forming" message).
+    if isinstance(f_preview, list) and f_preview:
+        return SelfPortraitPortraitOut(
+            state=state, preview=f_preview[:2], summary=None, best_fit=[]
+        )
+    return SelfPortraitPortraitOut(state=state, preview=[], summary=None, best_fit=[])
 
 
 @router.patch("/self-portrait", response_model=PreferenceOut)
