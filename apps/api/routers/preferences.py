@@ -32,6 +32,7 @@ from services.self_portrait import (
     get_question,
     is_free_question,
     portrait_state,
+    portrait_theme_scores,
     PORTRAIT_REGEN_DELTA,
     total_question_count,
     visible_questions,
@@ -141,9 +142,12 @@ async def read_self_portrait(
     )
 
 
-def _portrait_from_cache(state: str, cache: dict) -> SelfPortraitPortraitOut:
+def _portrait_from_cache(
+    state: str, cache: dict, theme_scores: list[dict]
+) -> SelfPortraitPortraitOut:
     """Build the ready payload from a valid cache entry. No preview — a served
-    summary never also carries forming lines."""
+    summary never also carries forming lines. `theme_scores` (the curated radar axes)
+    is computed on read and identical across every branch."""
     best_fit = [
         BestFitOut(
             slug=b["slug"],
@@ -156,7 +160,8 @@ def _portrait_from_cache(state: str, cache: dict) -> SelfPortraitPortraitOut:
         if isinstance(b, dict) and b.get("slug") and b.get("name")
     ]
     return SelfPortraitPortraitOut(
-        state=state, preview=[], summary=cache.get("text"), best_fit=best_fit
+        state=state, preview=[], summary=cache.get("text"),
+        best_fit=best_fit, theme_scores=theme_scores,
     )
 
 
@@ -184,6 +189,10 @@ async def read_self_portrait_portrait(
     state = portrait_state(answers)
     cache = (prefs.portrait_cache if prefs else None) or None
 
+    # B1: curated radar axes — computed on read from answers (no migration, no count
+    # on the wire), identical in every branch below.
+    scores = portrait_theme_scores(answers)
+
     if state == "ready":
         watermark = (cache or {}).get("answer_count_watermark")
         fresh = (
@@ -194,7 +203,7 @@ async def read_self_portrait_portrait(
             and cache["text"].strip()
         )
         if fresh:
-            return _portrait_from_cache(state, cache)
+            return _portrait_from_cache(state, cache, scores)
 
         # Missing or stale → regenerate (synchronous, best-effort) — UNLESS a recent
         # failure is still within the retry cooldown, in which case skip the call so
@@ -209,7 +218,7 @@ async def read_self_portrait_portrait(
             if generated is not None:
                 prefs.portrait_cache = generated
                 await db.commit()
-                return _portrait_from_cache(state, generated)
+                return _portrait_from_cache(state, generated, scores)
 
             # Failure: stamp a `last_failed_at` marker (negative cache) so the next
             # opens serve forming/stale without re-attempting until the cooldown
@@ -221,7 +230,7 @@ async def read_self_portrait_portrait(
         # In cooldown OR just-failed: serve a prior valid summary if we have one,
         # else fall through to the forming preview below.
         if cache and isinstance(cache.get("text"), str) and cache["text"].strip():
-            return _portrait_from_cache(state, cache)
+            return _portrait_from_cache(state, cache, scores)
 
     # Forming, OR ready with no usable summary cache. The forming preview is cached in
     # the SAME portrait_cache under an INDEPENDENT `forming` sub-key, mirroring the
@@ -242,7 +251,8 @@ async def read_self_portrait_portrait(
     )
     if f_fresh:
         return SelfPortraitPortraitOut(
-            state=state, preview=f_preview[:2], summary=None, best_fit=[]
+            state=state, preview=f_preview[:2], summary=None, best_fit=[],
+            theme_scores=scores,
         )
 
     # Missing or stale → regenerate, UNLESS a recent generation failure (ready OR
@@ -262,7 +272,8 @@ async def read_self_portrait_portrait(
             prefs.portrait_cache = merged
             await db.commit()
             return SelfPortraitPortraitOut(
-                state=state, preview=preview, summary=None, best_fit=[]
+                state=state, preview=preview, summary=None, best_fit=[],
+                theme_scores=scores,
             )
 
         # Empty despite having statements → treat as a generation failure: stamp the
@@ -277,9 +288,12 @@ async def read_self_portrait_portrait(
     # forming" message).
     if isinstance(f_preview, list) and f_preview:
         return SelfPortraitPortraitOut(
-            state=state, preview=f_preview[:2], summary=None, best_fit=[]
+            state=state, preview=f_preview[:2], summary=None, best_fit=[],
+            theme_scores=scores,
         )
-    return SelfPortraitPortraitOut(state=state, preview=[], summary=None, best_fit=[])
+    return SelfPortraitPortraitOut(
+        state=state, preview=[], summary=None, best_fit=[], theme_scores=scores
+    )
 
 
 @router.patch("/self-portrait", response_model=PreferenceOut)

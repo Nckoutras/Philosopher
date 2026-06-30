@@ -116,6 +116,94 @@ def portrait_state(answers: dict) -> str:
     return "ready" if answered_category_count(answers) >= READY_CATEGORY_THRESHOLD else "forming"
 
 
+# ── Self-Portrait radar axes (Phase B) ─────────────────────────────────────────
+#
+# A FIXED, curated 8-axis octagon — IDENTICAL for every user, so portraits stay
+# comparable (the per-user signal is the polygon SHAPE, not the axes). Each axis is
+# fed by one or more raw theme_tags (the 20-word vocab from THEME_VOCABULARY —
+# deliberately NOT the matching bridge in self_portrait_summary, which targets a
+# different 12-word vocabulary for persona selection). FROZEN ORDER: the radar draws
+# axis i at i*45°, so this sequence is the contract — do not reorder.
+#
+# Tuple shape: (key, label, tags). The clusters partition the 20-tag vocab (each tag
+# on exactly one axis) so every answered question contributes to some axis.
+PORTRAIT_AXES: tuple[tuple[str, str, tuple[str, ...]], ...] = (
+    ("identity",   "Identity",   ("identity",)),
+    ("fear",       "Fear",       ("fear", "control")),
+    ("freedom",    "Freedom",    ("freedom", "envy")),
+    ("desire",     "Desire",     ("desire",)),
+    ("doubt",      "Doubt",      ("doubt",)),
+    ("duty",       "Duty",       ("duty", "discipline", "guilt")),
+    ("connection", "Connection", ("loneliness", "friendship", "parents", "resentment")),
+    ("meaning",    "Meaning",    ("meaning", "power", "dilemma", "death", "grief", "aging")),
+)
+
+# Flat tag -> axis-key lookup, built once from PORTRAIT_AXES (single source of truth).
+_TAG_TO_AXIS: dict[str, str] = {
+    tag: key for key, _label, tags in PORTRAIT_AXES for tag in tags
+}
+
+
+def _axis_prevalence() -> dict[str, int]:
+    """Per-axis prevalence denominator P_A: how many theme_tag instances across the
+    WHOLE bank land on each axis. Derived AT IMPORT from the live bank, so if the bank
+    ever changes the denominators self-correct — no hardcoded magic numbers. Bigger
+    clusters have a larger P_A, which is exactly what divides out the cluster-size bias
+    in portrait_theme_scores (so a wide axis isn't inherently 'higher' for everyone)."""
+    counts: dict[str, int] = {key: 0 for key, _l, _t in PORTRAIT_AXES}
+    for q in _BANK.values():
+        for tag in (q.get("theme_tags") or []):
+            axis = _TAG_TO_AXIS.get(tag)
+            if axis is not None:
+                counts[axis] += 1
+    return counts
+
+
+_AXIS_PREVALENCE: dict[str, int] = _axis_prevalence()
+
+
+def portrait_theme_scores(answers: dict) -> list[dict]:
+    """Per-axis normalized radar scores for the curated octagon, computed ON READ from
+    profile.answers. The raw-tag sibling of self_portrait_summary.themes_from_answers,
+    WITHOUT the matching bridge — it counts the raw 20-tag vocab straight onto the axes.
+
+    For each axis A:
+      raw_A   = # of the user's answered-question theme_tags that fall on A
+      rate_A  = raw_A / P_A                 (P_A from the bank → de-biases cluster size)
+      score_A = rate_A / max_B(rate_B)      (per-user max-normalize: strongest axis = 1.0
+                                             so the polygon fills the frame)
+    All-zero answers (no curated hits, e.g. a brand-new user) → every score 0.0; the
+    frontend then renders bare spokes + a 'keep answering' line, never a count.
+
+    Returns the axes in FROZEN PORTRAIT_AXES order: [{key, label, score}], score ∈ [0,1].
+    NEVER emits raw counts — only the normalized shape crosses the wire (no-count rule).
+    Unknown question ids are skipped (the bank may change under stored answers)."""
+    raw: dict[str, int] = {key: 0 for key, _l, _t in PORTRAIT_AXES}
+    for qid in answers or {}:
+        q = _BANK.get(qid)
+        if q is None:
+            continue
+        for tag in (q.get("theme_tags") or []):
+            axis = _TAG_TO_AXIS.get(tag)
+            if axis is not None:
+                raw[axis] += 1
+
+    rates: dict[str, float] = {}
+    for key, _label, _tags in PORTRAIT_AXES:
+        p = _AXIS_PREVALENCE.get(key, 0)
+        rates[key] = (raw[key] / p) if p > 0 else 0.0
+
+    max_rate = max(rates.values()) if rates else 0.0
+    return [
+        {
+            "key": key,
+            "label": label,
+            "score": round(rates[key] / max_rate, 4) if max_rate > 0 else 0.0,
+        }
+        for key, label, _tags in PORTRAIT_AXES
+    ]
+
+
 # ── Free-tier gating ──────────────────────────────────────────────────────────
 #
 # The free tier sees a fixed, DETERMINISTIC slice of the bank; Pro sees everything.

@@ -15,6 +15,7 @@ import {
   PatternArtwork,
   EyeGlyph,
 } from '@/components/self-portrait/Artwork'
+import { PortraitRadar } from '@/components/self-portrait/PortraitRadar'
 
 // Human-readable category labels. Title-case fallback for any value not listed
 // (so a future bank category can never render blank or as a raw machine value).
@@ -579,6 +580,22 @@ export default function SelfPortraitPage() {
           {/* ── Your portrait (#5c payoff) ── */}
           {view === 'portrait' && (
             <section className="space-y-5">
+              {/* B1: the radar — the portrait's data-visualization. Real theme scores;
+                  faint persona watermark only in the ready state. Shown once the
+                  portrait has loaded; the supporting summary/forming text sits below. */}
+              {portrait && (
+                <div className="rounded-lg border-[0.5px] border-bronze/30 bg-white shadow-card px-4 py-5">
+                  <PortraitRadar
+                    scores={portrait.theme_scores ?? []}
+                    watermarkUrl={
+                      portrait.state === 'ready' && portrait.best_fit.length > 0
+                        ? portrait.best_fit[0].portrait_url
+                        : null
+                    }
+                  />
+                </div>
+              )}
+
               {portraitLoading && portrait === null ? (
                 // First open / generation in progress — make the wait feel like a moment.
                 <div className="rounded-lg border-[0.5px] border-bronze/30 bg-white shadow-card px-5 py-6 text-center">

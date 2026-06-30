@@ -1251,14 +1251,27 @@ export interface SelfPortraitBestFit {
   why: string | null
 }
 
+// One curated radar axis (Phase B). `score` is the per-user max-normalized 0–1
+// leaning (1.0 = the user's strongest axis). Only the normalized score crosses the
+// wire — never a raw count. Axes arrive in a fixed octagon order.
+export interface SelfPortraitThemeScore {
+  key: string
+  label: string
+  score: number
+}
+
 // GET /preferences/self-portrait/portrait. Breadth-aware: `state` flips to "ready"
 // once answers span enough life areas. NEVER carries a count/%/fraction. In 5a only
-// `state` + `preview` are populated; `summary`/`best_fit` arrive in 5b.
+// `state` + `preview` are populated; `summary`/`best_fit` arrive in 5b; `theme_scores`
+// (the curated radar axes) arrives in B1 and is `[]` for backward-compat.
 export interface SelfPortraitPortrait {
   state: 'forming' | 'ready'
   preview: string[]
   summary: string | null
   best_fit: SelfPortraitBestFit[]
+  // Optional: genuinely absent during the backend-before-frontend deploy window.
+  // Both call sites guard with `?? []`.
+  theme_scores?: SelfPortraitThemeScore[]
 }
 
 export interface Match {

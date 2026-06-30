@@ -12,11 +12,12 @@
 // No other code change — the components below already point at these exact paths when
 // the flag is on. Until then, the deterministic placeholders render.
 //
-// Asset spec (also documented in the Phase A report):
+// Asset spec (also documented in the Phase A/B reports):
 //   • per-theme tile     — 1:1  256×256  WebP q82  → /self-portrait/themes/<category>.webp
 //   • question-card band — 16:9 768×432  WebP q82  → /self-portrait/card/<category>.webp
 //   • "pattern" comp     — 16:9 1024×576 WebP q82  → /self-portrait/pattern.webp
 //   • "room notices" eye — 1:1  64×64    SVG       → /self-portrait/eye.svg
+//   • radar frame texture— 1:1 1024×1024 WebP q82  → /self-portrait/radar-frame.webp  (B1, OPTIONAL)
 // (<category> = the 12 bank category slugs, exact machine values.)
 // ─────────────────────────────────────────────────────────────────────────────
 import Image from 'next/image'
@@ -28,6 +29,9 @@ export const USE_REAL_ARTWORK: boolean = false
 export const themeArtworkSrc = (category: string) => `/self-portrait/themes/${category}.webp`
 export const cardArtworkSrc = (category: string) => `/self-portrait/card/${category}.webp`
 export const patternArtworkSrc = () => `/self-portrait/pattern.webp`
+// OPTIONAL radar κάδρο/frame texture (B1). The radar renders fully without it; this
+// only overlays a watercolor canvas-grain when the real asset is present.
+export const radarFrameSrc = () => `/self-portrait/radar-frame.webp`
 
 // Palette tokens (hex, DESIGN_SYSTEM_v4 §1.2) — used directly in SVG fills.
 const PALETTE = ['#B89968', '#8A7340', '#8A7E6A', '#DDD0B5', '#C7B284', '#A98C5C']

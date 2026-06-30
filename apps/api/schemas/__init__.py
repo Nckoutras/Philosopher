@@ -392,6 +392,15 @@ class BestFitOut(BaseModel):
     why: str | None = None
 
 
+class ThemeScoreOut(BaseModel):
+    """One curated radar axis (Phase B). `score` is the per-user max-normalized 0–1
+    leaning (1.0 = the user's strongest axis), so the polygon fills the frame. ONLY the
+    normalized score crosses the wire — raw counts are never surfaced (no-count rule)."""
+    key: str       # stable axis key, e.g. "identity" (frozen octagon order)
+    label: str     # display label, e.g. "Identity"
+    score: float   # normalized leaning in [0, 1]
+
+
 class SelfPortraitPortraitOut(BaseModel):
     """GET /preferences/self-portrait/portrait payload — the present-tense portrait.
 
@@ -399,11 +408,13 @@ class SelfPortraitPortraitOut(BaseModel):
     areas, then 'ready'. The payload NEVER carries a count/%/fraction — only the
     state plus the surfaced content. In 5a only `state` + `preview` are emitted;
     `summary` and `best_fit` are reserved for 5b (the cached Sonnet summary +
-    persona best-fit) and stay null/empty until then."""
+    persona best-fit) and stay null/empty until then. Phase B adds `theme_scores`
+    (the curated radar axes), present in every state and `[]` for backward-compat."""
     state: str  # "forming" | "ready"
     preview: list[str] = []        # forming-style observation lines (always usable)
     summary: str | None = None     # 5b: cached LLM summary
     best_fit: list[BestFitOut] = []  # 5b: top 1-2 personas
+    theme_scores: list[ThemeScoreOut] = []  # B1: curated radar axes, fixed octagon order
 
 
 # ── Matches ───────────────────────────────────────────────────────────────────
