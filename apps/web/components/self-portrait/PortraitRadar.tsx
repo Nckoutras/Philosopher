@@ -53,6 +53,13 @@ export function PortraitRadar({
   const axes = scores ?? []
   const hasSignal = axes.length > 0 && axes.some((s) => s.score > 0)
 
+  // Resolve to a usable URL (non-empty string) or null — used as BOTH the gate and the
+  // <Image src>, so an absent/blank portrait renders nothing (no broken "?" placeholder)
+  // and TS sees a definite string inside the block. The caller already gates on
+  // ready-state + a present best_fit; this also rules out null / "" / whitespace.
+  const watermark =
+    typeof watermarkUrl === 'string' && watermarkUrl.trim().length > 0 ? watermarkUrl : null
+
   // Concentric guide octagons (the "web"), drawn at every axis count we actually have
   // so the frame still reads even if the API sent a different number of axes.
   const n = axes.length || 8
@@ -64,11 +71,12 @@ export function PortraitRadar({
 
   return (
     <div className="relative w-full max-w-[320px] mx-auto">
-      {/* Faint persona watermark — ready-state only, behind everything, screen-only. */}
-      {watermarkUrl && (
+      {/* Faint persona watermark — ready-state only, behind everything, screen-only.
+          Gated on a non-empty URL so an absent/blank portrait never shows a "?". */}
+      {watermark && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <div className="relative w-[58%] aspect-square rounded-full overflow-hidden opacity-[0.07]">
-            <Image src={watermarkUrl} alt="" fill sizes="200px" className="object-cover" />
+            <Image src={watermark} alt="" fill sizes="200px" className="object-cover" />
           </div>
         </div>
       )}
@@ -79,7 +87,7 @@ export function PortraitRadar({
       {USE_RADAR_FRAME && (
         <div className="absolute inset-0 pointer-events-none">
           {/* eslint-disable-next-line @next/next/no-img-element -- decorative texture, no optimization needed */}
-          <img src={radarFrameSrc()} alt="" className="w-full h-full object-contain opacity-40" />
+          <img src={radarFrameSrc()} alt="" className="w-full h-full object-contain opacity-[0.85]" />
         </div>
       )}
 

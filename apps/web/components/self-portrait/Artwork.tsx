@@ -32,11 +32,10 @@ export const patternArtworkSrc = () => `/self-portrait/pattern.webp`
 // OPTIONAL radar κάδρο/frame texture (B1). The radar renders fully without it; this
 // only overlays a watercolor canvas-grain when the real asset is present.
 export const radarFrameSrc = () => `/self-portrait/radar-frame.webp`
-// Independent of USE_REAL_ARTWORK: radar-frame.webp is the ONE artwork asset not yet
-// supplied, so this stays false even though the rest of the real art is live —
-// otherwise the frame <img> would 404 to a broken-image icon. Flip to true ONLY after
-// dropping radar-frame.webp into /public/self-portrait/.
-export const USE_RADAR_FRAME: boolean = false
+// Independent of USE_REAL_ARTWORK. radar-frame.webp now ships in /public/self-portrait/,
+// so the frame texture is live. Stays a separate flag so the frame can be toggled (or
+// re-disabled if the asset is ever pulled) without touching the rest of the real art.
+export const USE_RADAR_FRAME: boolean = true
 
 // Palette tokens (hex, DESIGN_SYSTEM_v4 §1.2) — used directly in SVG fills.
 const PALETTE = ['#B89968', '#8A7340', '#8A7E6A', '#DDD0B5', '#C7B284', '#A98C5C']

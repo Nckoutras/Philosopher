@@ -14,6 +14,7 @@ import {
   CardArtwork,
   PatternArtwork,
   EyeGlyph,
+  USE_RADAR_FRAME,
 } from '@/components/self-portrait/Artwork'
 import { PortraitRadar } from '@/components/self-portrait/PortraitRadar'
 
@@ -584,7 +585,13 @@ export default function SelfPortraitPage() {
                   faint persona watermark only in the ready state. Shown once the
                   portrait has loaded; the supporting summary/forming text sits below. */}
               {portrait && (
-                <div className="rounded-lg border-[0.5px] border-bronze/30 bg-white shadow-card px-4 py-5">
+                // When the frame texture is on, the box must be transparent so the
+                // linen/molding is the visible surface (a white bg would cover it).
+                <div
+                  className={`rounded-lg border-[0.5px] border-bronze/30 shadow-card px-4 py-5 ${
+                    USE_RADAR_FRAME ? 'bg-transparent' : 'bg-white'
+                  }`}
+                >
                   <PortraitRadar
                     scores={portrait.theme_scores ?? []}
                     watermarkUrl={
