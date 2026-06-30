@@ -24,7 +24,7 @@ import Image from 'next/image'
 
 // Flip to true once the real assets are dropped at the paths above. Typed as a
 // plain boolean (not the `false` literal) so it reads as a toggle, not a constant.
-export const USE_REAL_ARTWORK: boolean = false
+export const USE_REAL_ARTWORK: boolean = true
 
 export const themeArtworkSrc = (category: string) => `/self-portrait/themes/${category}.webp`
 export const cardArtworkSrc = (category: string) => `/self-portrait/card/${category}.webp`
