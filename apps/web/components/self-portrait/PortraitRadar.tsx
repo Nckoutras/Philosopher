@@ -6,7 +6,7 @@
 //   FROZEN relative order at 72° spacing (first at −90°/top). Deterministic + stable.
 // • Guides are CIRCLES: 2 dashed inner rings (0.4R, 0.7R) + 1 solid bronze outer ring.
 //   Spokes + endpoint dots; a bronze data pentagon (fill 0.3) + vertex dots.
-// • CENTER: a raster compass rose (/self-portrait/rose.png), same-origin, centered,
+// • CENTER: a raster compass rose (/self-portrait/rose.webp), same-origin, centered,
 //   width ≈0.55R, drawn BEHIND the data polygon (the 0.3 fill lets it show through).
 // • overflow:visible — the outer labels (fontSize 17) intentionally extend BEYOND the
 //   tight viewBox into the wrapper's padding, so the ring fills the plate instead of
@@ -30,7 +30,7 @@ const R = 116
 const LABEL_R = 126
 const TOP_N = 5
 const INNER_RINGS = [0.4, 0.7] as const
-const ROSE_SRC = '/self-portrait/rose.png' // same-origin raster compass rose
+const ROSE_SRC = '/self-portrait/rose.webp' // same-origin raster compass rose
 const ROSE_W = R * 0.55
 
 // Angle for pentagon position k (0..4): start at top (−90°), step 72° clockwise.

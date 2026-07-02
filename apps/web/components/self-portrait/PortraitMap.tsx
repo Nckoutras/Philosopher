@@ -36,7 +36,7 @@ const LABEL_GAP = 11 // radial offset of a node's label, outward from the node
 // 154.8 > R_MAX 88 + rose-half 22. The rose+needle group is tagged data-share-omit so
 // the share pipeline strips it (the <image> can't resolve there — avoids an orphaned
 // needle on the shared card).
-const ROSE_SRC = '/self-portrait/rose.png'
+const ROSE_SRC = '/self-portrait/rose.webp'
 const ROSE_CX = 310.7 // 86.3% of the 360-wide viewBox
 const ROSE_CY = 214.9 // 81.4% of the 264-tall viewBox
 const ROSE_W = 44 // decorative scale (half-width 22)

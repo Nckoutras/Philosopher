@@ -10,14 +10,14 @@
 //  • UN-CLIPPED LABELS: the on-screen radar overflows its tight 360×270 viewBox
 //    (overflow:visible), so for the RADAR we re-viewBox the serialized clone to the FULL
 //    label extents (SER_*) — nothing clips, for any top-5 selection.
-//  • ROSE: the on-screen <image href="/self-portrait/rose.png"> can't resolve inside a
-//    data-URL SVG, so the clone drops it and we composite rose.png as a SEPARATE
+//  • ROSE: the on-screen <image href="/self-portrait/rose.webp"> can't resolve inside a
+//    data-URL SVG, so the clone drops it and we composite rose.webp as a SEPARATE
 //    same-origin drawImage layer UNDER the radar svg (its 0.3 pentagon fill shows it
 //    through). The MAP path keeps its own viewBox, draws no rose, and is letterboxed
 //    into the viz area undistorted.
 //
 // TAINT-SAFE: the on-screen <svg> is pure vector (its <image> is stripped from the
-// clone); rose.png + QR are same-origin /public assets drawn straight to the canvas.
+// clone); rose.webp + QR are same-origin /public assets drawn straight to the canvas.
 // Nothing cross-origin enters the canvas → toBlob() works.
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -29,7 +29,7 @@ const BRONZE = '#B89968'
 const BRONZE_DARK = '#8A7340'
 
 const QR_SRC = '/self-portrait/qr-wiseroom.png' // same-origin; supplied asset
-const ROSE_SRC = '/self-portrait/rose.png' // same-origin raster compass rose (under the svg)
+const ROSE_SRC = '/self-portrait/rose.webp' // same-origin raster compass rose (under the svg)
 // Guarded: even when on, each optional asset is drawn ONLY if it actually loads
 // (loadOptional swallows a 404), so a missing asset never draws a broken image.
 const USE_SHARE_QR = true
