@@ -32,10 +32,12 @@ export const patternArtworkSrc = () => `/self-portrait/pattern.webp`
 // OPTIONAL radar κάδρο/frame texture (B1). The radar renders fully without it; this
 // only overlays a watercolor canvas-grain when the real asset is present.
 export const radarFrameSrc = () => `/self-portrait/radar-frame.webp`
-// Independent of USE_REAL_ARTWORK. radar-frame.webp now ships in /public/self-portrait/,
-// so the frame texture is live. Stays a separate flag so the frame can be toggled (or
-// re-disabled if the asset is ever pulled) without touching the rest of the real art.
-export const USE_RADAR_FRAME: boolean = true
+// Independent of USE_REAL_ARTWORK. The radar-frame.webp asset still ships in
+// /public/self-portrait/, but the approved mock restyle turns the on-screen walnut
+// frame OFF (clean vellum). Kept as a separate flag — flip back to true to re-enable
+// the frame without touching the rest of the real art. (The share card draws its own
+// frame independently, via portraitShareCard.ts.)
+export const USE_RADAR_FRAME: boolean = false
 
 // Palette tokens (hex, DESIGN_SYSTEM_v4 §1.2) — used directly in SVG fills.
 const PALETTE = ['#B89968', '#8A7340', '#8A7E6A', '#DDD0B5', '#C7B284', '#A98C5C']

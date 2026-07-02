@@ -15,12 +15,25 @@ import {
   CardArtwork,
   PatternArtwork,
   EyeGlyph,
-  USE_RADAR_FRAME,
 } from '@/components/self-portrait/Artwork'
 import { PortraitRadar } from '@/components/self-portrait/PortraitRadar'
 import { PortraitMap } from '@/components/self-portrait/PortraitMap'
 import { renderPortraitCardBlob, sharePortraitCardBlob } from '@/lib/portraitShareCard'
-import { portraitCaption } from '@/lib/selfPortraitCaption'
+import { User, Shield, Feather, Flame, HelpCircle, Anchor, Users, Compass } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
+import { topObservationCards, type CardIcon } from '@/lib/selfPortraitObservationCards'
+
+// Card icon NAME → lucide component (the frozen card map stores names to stay plain data).
+const CARD_ICONS: Record<CardIcon, LucideIcon> = {
+  User,
+  Shield,
+  Feather,
+  Flame,
+  HelpCircle,
+  Anchor,
+  Users,
+  Compass,
+}
 
 // Human-readable category labels. Title-case fallback for any value not listed
 // (so a future bank category can never render blank or as a raw machine value).
@@ -111,7 +124,7 @@ function ViewSwitch({
               onClick={() => onChange(t.key)}
               aria-pressed={isActive}
               className={`px-4 py-1.5 rounded-full font-lora text-[12px] transition-colors ${
-                isActive ? 'bg-bronze text-ink' : 'text-sepia'
+                isActive ? 'bg-bronze text-vellum' : 'text-sepia'
               }`}
             >
               {t.label}
@@ -149,7 +162,7 @@ function VizToggle({
               onClick={() => onChange(t.key)}
               aria-pressed={isActive}
               className={`px-4 py-1.5 rounded-full font-lora text-[12px] transition-colors ${
-                isActive ? 'bg-bronze text-ink' : 'text-sepia'
+                isActive ? 'bg-bronze text-vellum' : 'text-sepia'
               }`}
             >
               {t.label}
@@ -343,9 +356,12 @@ export default function SelfPortraitPage() {
   // B3: only allow sharing when there's real signal — never a "keep answering" card.
   const portraitHasSignal = (portrait?.theme_scores ?? []).some((s) => s.score > 0)
 
-  // B: deterministic 1–2 line caption naming the top-2 axes. Frozen phrase map, no LLM,
-  // no counts. Null when there's no signal (so it renders only alongside a real viz).
-  const caption = portraitHasSignal ? portraitCaption(portrait?.theme_scores) : null
+  // Ready vs forming drives the section-header + progress-line wording.
+  const isReady = portrait?.state === 'ready'
+
+  // B (mock): deterministic top-3 observation cards (frozen slug→copy map, no LLM/counts).
+  // Empty when there's no signal, so cards render only alongside a real viz.
+  const observationCards = portraitHasSignal ? topObservationCards(portrait?.theme_scores) : []
 
   // Open the share preview: render the card from the ACTIVE svg up-front (the heavy
   // async work — fonts.ready, decode, toBlob), so the later "Share" tap fires
@@ -734,42 +750,30 @@ export default function SelfPortraitPage() {
                   portrait has loaded; the supporting summary/forming text sits below. */}
               {portrait && (
                 <>
-                  {/* B2 toggle — Shape / Map. */}
+                  {/* Thin bronze rule + progress line (real answered count). */}
+                  <div className="space-y-3">
+                    <div className="h-px bg-bronze/40" />
+                    <p className="font-lora text-[11px] tracking-[0.18em] uppercase text-sepia text-center">
+                      Portrait {isReady ? 'ready' : 'forming'} · {answered.length} answers
+                    </p>
+                  </div>
+
+                  {/* Section header — two centered lines; wording flips with ready state. */}
+                  <div className="text-center space-y-1">
+                    <p className="font-lora text-[11px] tracking-[0.2em] uppercase text-sepia">
+                      {isReady ? 'The shape of' : 'Early contours of'}
+                    </p>
+                    <h2 className="font-cormorant text-[24px] font-medium text-ink tracking-[0.08em] uppercase leading-tight">
+                      Your pattern
+                    </h2>
+                  </div>
+
+                  {/* Shape / Map toggle — segmented control language. */}
                   <VizToggle viz={portraitViz} onChange={setPortraitViz} />
 
-                  {/* B3/B share + save — two bronze-filled pills, shown only with real
-                      signal (never a "keep answering" card). Share = preview-first flow;
-                      Save = direct render→download, no share sheet. */}
-                  {portraitHasSignal && (
-                    <div className="flex items-center justify-center gap-3">
-                      <button
-                        type="button"
-                        onClick={openShare}
-                        className="px-6 py-2 rounded-full font-lora text-[13px] bg-bronze text-vellum border-[0.5px] border-bronze-dark shadow-card transition-colors disabled:opacity-60"
-                      >
-                        Share
-                      </button>
-                      <button
-                        type="button"
-                        onClick={savePortrait}
-                        disabled={saveBusy}
-                        className="px-6 py-2 rounded-full font-lora text-[13px] bg-bronze text-vellum border-[0.5px] border-bronze-dark shadow-card transition-colors disabled:opacity-60"
-                      >
-                        {saveBusy ? 'Saving…' : 'Save'}
-                      </button>
-                    </div>
-                  )}
-
-                  {/* When the frame texture is on, the box must be transparent so the
-                      linen/molding is the visible surface (a white bg would cover it).
-                      The toggle swaps the contents; the frame/card stays put. The ref
+                  {/* Clean radar/map — no frame, no card border, vellum behind. The ref
                       lets the share path read the active radar/map <svg>. */}
-                  <div
-                    ref={portraitCardRef}
-                    className={`rounded-lg border-[0.5px] border-bronze/30 shadow-card px-4 py-5 ${
-                      USE_RADAR_FRAME ? 'bg-transparent' : 'bg-white'
-                    }`}
-                  >
+                  <div ref={portraitCardRef} className="px-1 py-2">
                     {portraitViz === 'radar' ? (
                       <PortraitRadar
                         scores={portrait.theme_scores ?? []}
@@ -781,15 +785,31 @@ export default function SelfPortraitPage() {
                         watermarkUrl={portraitWatermarkUrl}
                       />
                     )}
-
-                    {/* B: deterministic top-2 caption — discreet, sepia, no counts. Sits
-                        under the viz inside the card; not part of the shared <svg>. */}
-                    {caption && (
-                      <p className="font-lora text-[12px] text-sepia leading-[1.5] text-center mt-3">
-                        {caption}
-                      </p>
-                    )}
                   </div>
+
+                  {/* Observation cards — TOP-3 axes, deterministic frozen copy (no counts).
+                      3-across, thin bronze border, transparent bg. Replaces the caption. */}
+                  {observationCards.length > 0 && (
+                    <div className="grid grid-cols-3 gap-3">
+                      {observationCards.map((c) => {
+                        const Icon = CARD_ICONS[c.icon]
+                        return (
+                          <div
+                            key={c.key}
+                            className="rounded-lg border-[0.5px] border-bronze/30 bg-transparent px-3 py-4 flex flex-col items-center text-center gap-2"
+                          >
+                            <Icon size={20} strokeWidth={1.5} className="text-bronze" aria-hidden="true" />
+                            <p className="font-cormorant text-[15px] font-medium text-ink leading-snug">
+                              {c.headline}
+                            </p>
+                            <p className="font-lora text-[11px] text-charcoal leading-[1.45]">
+                              {c.support}
+                            </p>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
                 </>
               )}
 
@@ -875,15 +895,42 @@ export default function SelfPortraitPage() {
                 </div>
               )}
 
-              {/* Primary payoff CTA — back to the questions to deepen the portrait.
-                  Pure navigation; no count/meter. */}
+              {/* Footer line — what the early contours are for. */}
+              <p className="font-lora text-[13px] text-sepia leading-[1.6] text-center">
+                These early contours will help guide the Room&rsquo;s thinkers, ideas, and
+                conversations you&rsquo;ll explore.
+              </p>
+
+              {/* Primary CTA — full-width bronze pill back to the questions. */}
               <button
                 type="button"
                 onClick={() => setView('questions')}
-                className="w-full py-3 rounded-full font-cormorant text-[16px] font-medium bg-ink text-vellum transition-colors"
+                className="w-full h-12 rounded-full font-lora text-[16px] font-medium bg-bronze text-vellum transition-colors"
               >
                 Keep shaping the portrait
               </button>
+
+              {/* Share + Save — same pill language as the CTA, side by side spanning its
+                  width. Gated on real signal; handlers unchanged this PR. */}
+              {portraitHasSignal && (
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={openShare}
+                    className="flex-1 h-12 rounded-full font-lora text-[16px] font-medium bg-bronze text-vellum transition-colors disabled:opacity-60"
+                  >
+                    Share
+                  </button>
+                  <button
+                    type="button"
+                    onClick={savePortrait}
+                    disabled={saveBusy}
+                    className="flex-1 h-12 rounded-full font-lora text-[16px] font-medium bg-bronze text-vellum transition-colors disabled:opacity-60"
+                  >
+                    {saveBusy ? 'Saving…' : 'Save'}
+                  </button>
+                </div>
+              )}
 
               {/* A different lens, not a primary CTA — quiet cross-link to You-vs-You. */}
               <div className="text-center pt-1">
