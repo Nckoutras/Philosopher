@@ -574,12 +574,12 @@ export default function SelfPortraitPage() {
                               onClick={() => choose(activeQuestion.id, idx, { fromMainFlow: true })}
                               disabled={inFlight || paused}
                               aria-pressed={isChosen}
-                              className={`px-4 py-2 rounded-full font-lora text-[13px] border-[0.5px] transition-colors disabled:opacity-40 ${
+                              className={`px-5 py-2.5 rounded-full font-lora text-[15px] border-[0.5px] transition-colors disabled:opacity-40 ${
                                 paused && isChosen
-                                  ? 'bg-bronze border-bronze-dark text-ink'
+                                  ? 'bg-ink border-ink text-vellum'
                                   : paused
                                     ? 'bg-white border-bronze/30 text-sepia'
-                                    : 'bg-white border-bronze/60 text-charcoal shadow-card'
+                                    : 'bg-bronze border-bronze-dark text-vellum shadow-card'
                               }`}
                             >
                               {pill}
@@ -698,7 +698,7 @@ export default function SelfPortraitPage() {
                                 aria-expanded={isEditing}
                               >
                                 {/* Small per-theme artwork tile (placeholder now). */}
-                                <ThemeGlyph category={q.category} size={40} />
+                                <ThemeGlyph category={q.category} size={56} />
                                 <div className="flex-1 min-w-0">
                                   <p className="font-lora text-[13px] text-charcoal leading-[1.55]">
                                     {q.question}
@@ -719,10 +719,10 @@ export default function SelfPortraitPage() {
                                         onClick={() => choose(q.id, idx)}
                                         disabled={inFlight}
                                         aria-pressed={isSelected}
-                                        className={`px-4 py-2 rounded-full font-lora text-[13px] border-[0.5px] transition-colors disabled:opacity-40 ${
+                                        className={`px-5 py-2.5 rounded-full font-lora text-[15px] border-[0.5px] transition-colors disabled:opacity-40 ${
                                           isSelected
-                                            ? 'bg-bronze border-bronze-dark text-ink'
-                                            : 'bg-white border-bronze/60 text-charcoal shadow-card'
+                                            ? 'bg-ink border-ink text-vellum'
+                                            : 'bg-bronze border-bronze-dark text-vellum shadow-card'
                                         }`}
                                       >
                                         {pill}

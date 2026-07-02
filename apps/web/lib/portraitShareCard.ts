@@ -129,6 +129,7 @@ function svgToDataUrl(svg: SVGSVGElement, ser: ViewBox): string {
   clone.setAttribute('width', String(ser.w * RENDER_SCALE))
   clone.setAttribute('height', String(ser.h * RENDER_SCALE))
   clone.querySelectorAll('image').forEach((el) => el.remove())
+  clone.querySelectorAll('[data-share-omit]').forEach((el) => el.remove())
   clone.querySelectorAll('text').forEach((t) => {
     t.setAttribute('font-family', 'Georgia, serif')
   })
