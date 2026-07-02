@@ -270,7 +270,7 @@ export default function SharePreviewModal({
   const previewDate = `${String(now.getMonth() + 1).padStart(2, '0')}/${String(now.getDate()).padStart(2, '0')}/${now.getFullYear()}`
 
   // Line + mirror share the reflection layout; mirror swaps the hero + intro.
-  const heroSrc     = isLetter ? '/personas/sundayletter.png' : isMirror ? '/personas/mirror.png' : '/personas/wise-room-hero.webp'
+  const heroSrc     = isLetter ? '/personas/sundayletter.png' : isMirror ? '/personas/mirror.webp' : '/personas/wise-room-hero.webp'
   const heroOpacity = (isMirror || isLetter) ? 'opacity-[0.10]' : 'opacity-[0.06]'
   const introLine   = isLetter
     ? (letterTitle || 'The Sunday Letter')

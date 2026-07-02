@@ -22,7 +22,7 @@ export default function MirrorVerdictCard({ item, portraitUrl }: Props) {
   return (
     <>
       <div className="relative overflow-hidden w-full text-left bg-paper border border-bronze rounded-md shadow-card px-[18px] py-[16px]">
-        <Image src="/personas/mirror.png" alt="" aria-hidden fill sizes="100vw"
+        <Image src="/personas/mirror.webp" alt="" aria-hidden fill sizes="100vw"
           className="object-cover opacity-[0.10] pointer-events-none" />
         <div className="relative">
         <div className="flex items-center justify-between mb-[8px]">

@@ -364,7 +364,7 @@ export default function MirrorPage() {
       {/* Full-bleed background + vellum veil */}
       <div className="fixed inset-0 z-0">
         <Image
-          src="/personas/mirror.png"
+          src="/personas/mirror.webp"
           alt=""
           fill
           className="object-cover object-center"

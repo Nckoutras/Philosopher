@@ -1,7 +1,7 @@
 export interface RitualMeta { slug: string; name: string; src: string }
 
 export const RITUALS: RitualMeta[] = [
-  { slug: 'mirror',        name: 'The Mirror',                    src: '/personas/mirror.png' },
+  { slug: 'mirror',        name: 'The Mirror',                    src: '/personas/mirror.webp' },
   { slug: 'council',       name: 'The Council',                   src: '/personas/boardroom.webp' },
   { slug: 'you-vs-you',    name: 'You vs You',                    src: '/personas/youvsyou.webp' },
   { slug: 'sunday-letter', name: 'The Sunday Letter',             src: '/personas/sundayletter.png' },
