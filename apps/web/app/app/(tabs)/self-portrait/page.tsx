@@ -489,41 +489,62 @@ export default function SelfPortraitPage() {
       <div className="flex-1 flex flex-col px-7 py-8">
         <div className="w-full max-w-[380px] mx-auto space-y-7">
 
-          <div className="flex justify-center">
-            <BronzeDivider width={80} />
-          </div>
+          {view === 'entry' ? (
+            <>
+              {/* HERO — first paint of this tab. Fixed svh height so the page never jumps
+                  when the image decodes; soft bottom fade into the vellum page. */}
+              <div className="relative w-full h-[46vh] [height:46svh] rounded-lg overflow-hidden">
+                <Image
+                  src="/self-portrait/hero.webp"
+                  alt=""
+                  fill
+                  priority
+                  sizes="(max-width: 420px) 100vw, 380px"
+                  className="object-cover"
+                />
+                <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-b from-transparent to-vellum pointer-events-none" />
+              </div>
 
-          <header className="space-y-3 text-center">
-            <h1 className="font-cormorant text-[28px] font-medium text-ink leading-tight">
-              Self-Portrait
-            </h1>
-            {view === 'entry' && (
-              <p className="font-lora text-[15px] text-charcoal leading-[1.65]">
+              {/* INTRO — existing copy, verbatim. */}
+              <p className="font-lora text-[15px] text-charcoal leading-[1.65] text-center">
                 A long set of small questions about how you actually move through life. Answer
                 as many or as few as you like — even a handful sharpens how the room understands
                 you. Come back whenever; it keeps your place.
               </p>
-            )}
-          </header>
 
-          {/* #8 entry shell: two calm doors before the questions. */}
-          {view === 'entry' && (
-            <section className="flex flex-col gap-3">
-              <button
-                type="button"
-                onClick={() => setView('questions')}
-                className="w-full py-3 rounded-full font-cormorant text-[17px] font-medium bg-ink text-vellum transition-colors"
-              >
-                {answered.length > 0 ? 'Continue the questions' : 'Start the journey'}
-              </button>
-              <button
-                type="button"
-                onClick={() => setView('portrait')}
-                className="w-full py-3 rounded-full font-cormorant text-[16px] font-medium border-[0.5px] border-bronze/60 text-ink bg-white transition-colors"
-              >
-                Your portrait
-              </button>
-            </section>
+              {/* ENTRY BUTTONS — pill language. Primary bronze; secondary bordered-white so
+                  the primary reads as primary. Handlers + labels unchanged (local setView). */}
+              <section className="flex flex-col gap-3">
+                <button
+                  type="button"
+                  onClick={() => setView('questions')}
+                  className="w-full h-12 rounded-full font-lora text-[16px] font-medium bg-bronze text-vellum transition-colors"
+                >
+                  {answered.length > 0 ? 'Continue the questions' : 'Start the journey'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setView('portrait')}
+                  className="w-full h-12 rounded-full font-lora text-[16px] font-medium border-[0.5px] border-bronze-dark bg-white text-ink transition-colors"
+                >
+                  Your portrait
+                </button>
+              </section>
+            </>
+          ) : (
+            <>
+              {/* Divider + title — EXACTLY as before, now rendered in the non-entry views
+                  only (questions + portrait). Zero change to those two views. */}
+              <div className="flex justify-center">
+                <BronzeDivider width={80} />
+              </div>
+
+              <header className="space-y-3 text-center">
+                <h1 className="font-cormorant text-[28px] font-medium text-ink leading-tight">
+                  Self-Portrait
+                </h1>
+              </header>
+            </>
           )}
 
           {/* Quiet switch between the two faces once past the entry screen. */}
