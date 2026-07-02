@@ -3,8 +3,44 @@
 import Link from 'next/link'
 import { useEffect } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
-import { Home, Compass, Frame, User, Sparkle } from 'lucide-react'
+import { Home, Compass, User, Sparkle } from 'lucide-react'
 import { useStore } from '@/lib/store'
+
+// Artist's easel — local icon matching the lucide consumption contract used by
+// the tab bar: accepts `size` and `strokeWidth`, strokes with `currentColor` so
+// active/inactive tinting flows from the parent Link's text color unchanged.
+function EaselIcon({
+  size = 24,
+  strokeWidth = 2,
+}: {
+  size?: number
+  strokeWidth?: number
+}) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      {/* top pin */}
+      <line x1="12" y1="2.5" x2="12" y2="5" />
+      <line x1="10.4" y1="4.6" x2="13.6" y2="4.6" />
+      {/* canvas */}
+      <rect x="5.5" y="5" width="13" height="9.5" rx="0.5" />
+      {/* tray */}
+      <line x1="4" y1="15.2" x2="20" y2="15.2" />
+      {/* three legs, splayed */}
+      <line x1="7.8" y1="15.8" x2="5" y2="21.5" />
+      <line x1="12" y1="15.8" x2="12" y2="21.5" />
+      <line x1="16.2" y1="15.8" x2="19" y2="21.5" />
+    </svg>
+  )
+}
 
 const TABS = [
   {
@@ -20,8 +56,8 @@ const TABS = [
     activePattern: /^\/app\/explore/,
   },
   {
-    label: 'Portrait',
-    icon: Frame,
+    label: 'Self Portrait',
+    icon: EaselIcon,
     href: '/app/self-portrait',
     activePattern: /^\/app\/self-portrait/,
   },
@@ -99,7 +135,7 @@ export default function BottomTabBar() {
               )}
               <span
                 className={[
-                  'font-lora text-[10px] leading-none',
+                  'font-lora text-[10px] leading-none whitespace-nowrap',
                   isActive ? 'font-medium' : '',
                 ].join(' ')}
               >
