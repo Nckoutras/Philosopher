@@ -17,14 +17,16 @@ import Image from 'next/image'
 import type { SelfPortraitThemeScore } from '@/lib/api'
 import { USE_RADAR_FRAME, radarFrameSrc } from './Artwork'
 
-// Geometry in a 360×264 viewBox. The width carries ~90px of horizontal padding each
-// side of the R=88 web so the longest side labels ("Connection" at pure-left, anchored
-// `end`; "Freedom"/"Desire" at right, anchored `start`) sit fully inside LABEL_R and
-// never clip on a narrow phone frame. CY is shifted up slightly for the bottom label.
+// Geometry in a 360×264 viewBox, sized so ALL 8 theme labels — full text extents,
+// not just anchor points — fall inside the walnut frame's inner canvas (~x[30..330]
+// y[34..230], the frame image insets ~27 units per edge). LABEL_R is bounded by the
+// longest label ("Connection", pure-left, anchored `end`), and R sits inside LABEL_R
+// by a small gap so the web never overlaps the labels. Verified: min label x = 32,
+// max x = 307, min y = 41, max y = 219 at fontSize 12 (see PR extents table).
 const CX = 180
-const CY = 124
-const R = 88
-const LABEL_R = 106
+const CY = 130
+const R = 62
+const LABEL_R = 78
 const RINGS = [0.25, 0.5, 0.75, 1] as const
 
 // Angle for axis i: start at top (−90°), step 45° clockwise. Frozen to match the
@@ -87,7 +89,7 @@ export function PortraitRadar({
       {USE_RADAR_FRAME && (
         <div className="absolute inset-0 pointer-events-none">
           {/* eslint-disable-next-line @next/next/no-img-element -- decorative texture, no optimization needed */}
-          <img src={radarFrameSrc()} alt="" className="w-full h-full object-contain opacity-[0.85]" />
+          <img src={radarFrameSrc()} alt="" className="w-full h-full object-contain" />
         </div>
       )}
 
@@ -121,8 +123,9 @@ export function PortraitRadar({
                 dy={dy}
                 textAnchor={anchor}
                 className="font-lora"
-                fontSize={10}
-                fill="#8A7E6A"
+                fontSize={12}
+                fontWeight={500}
+                fill="#5C4A2E"
               >
                 {s.label}
               </text>

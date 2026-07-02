@@ -20,6 +20,7 @@ import {
 import { PortraitRadar } from '@/components/self-portrait/PortraitRadar'
 import { PortraitMap } from '@/components/self-portrait/PortraitMap'
 import { renderPortraitCardBlob, sharePortraitCardBlob } from '@/lib/portraitShareCard'
+import { portraitCaption } from '@/lib/selfPortraitCaption'
 
 // Human-readable category labels. Title-case fallback for any value not listed
 // (so a future bank category can never render blank or as a raw machine value).
@@ -217,6 +218,9 @@ export default function SelfPortraitPage() {
   const [shareOpen, setShareOpen] = useState(false)
   const [shareBusy, setShareBusy] = useState(false)
   const [sharePreviewUrl, setSharePreviewUrl] = useState<string | null>(null)
+  // B: "Save" renders + downloads the PNG directly (no share sheet). Its own busy flag
+  // so it never entangles with the share-preview modal's spinner.
+  const [saveBusy, setSaveBusy] = useState(false)
 
   // #6.2 / #7: independent category filters for the question flow and the
   // revisit list (same component, separate state so they don't cross-filter).
@@ -339,6 +343,10 @@ export default function SelfPortraitPage() {
   // B3: only allow sharing when there's real signal — never a "keep answering" card.
   const portraitHasSignal = (portrait?.theme_scores ?? []).some((s) => s.score > 0)
 
+  // B: deterministic 1–2 line caption naming the top-2 axes. Frozen phrase map, no LLM,
+  // no counts. Null when there's no signal (so it renders only alongside a real viz).
+  const caption = portraitHasSignal ? portraitCaption(portrait?.theme_scores) : null
+
   // Open the share preview: render the card from the ACTIVE svg up-front (the heavy
   // async work — fonts.ready, decode, toBlob), so the later "Share" tap fires
   // navigator.share on an already-ready blob (clean gesture, no iOS activation strip).
@@ -358,6 +366,29 @@ export default function SelfPortraitPage() {
       setShareOpen(false)
     } finally {
       setShareBusy(false)
+    }
+  }
+
+  // B: "Save" — render the card from the ACTIVE svg and download the PNG directly,
+  // skipping the share sheet entirely. Reuses the shipped B3 render path; never opens
+  // the preview modal.
+  const savePortrait = async () => {
+    const svg = portraitCardRef.current?.querySelector('svg')
+    if (!svg || saveBusy) return
+    setSaveBusy(true)
+    try {
+      const blob = await renderPortraitCardBlob(svg)
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'my-self-portrait.png'
+      a.click()
+      URL.revokeObjectURL(url)
+      toast('Saved to your downloads')
+    } catch {
+      toast('Could not build the card — try again.')
+    } finally {
+      setSaveBusy(false)
     }
   }
 
@@ -703,20 +734,31 @@ export default function SelfPortraitPage() {
                   portrait has loaded; the supporting summary/forming text sits below. */}
               {portrait && (
                 <>
-                  {/* B2 toggle + B3 share — same row. Share is hidden until there's
-                      real signal (never a "keep answering" card). */}
-                  <div className="flex items-center justify-center gap-4">
-                    <VizToggle viz={portraitViz} onChange={setPortraitViz} />
-                    {portraitHasSignal && (
+                  {/* B2 toggle — Shape / Map. */}
+                  <VizToggle viz={portraitViz} onChange={setPortraitViz} />
+
+                  {/* B3/B share + save — two bronze-filled pills, shown only with real
+                      signal (never a "keep answering" card). Share = preview-first flow;
+                      Save = direct render→download, no share sheet. */}
+                  {portraitHasSignal && (
+                    <div className="flex items-center justify-center gap-3">
                       <button
                         type="button"
                         onClick={openShare}
-                        className="font-lora text-[12px] text-sepia underline underline-offset-2"
+                        className="px-6 py-2 rounded-full font-lora text-[13px] bg-bronze text-vellum border-[0.5px] border-bronze-dark shadow-card transition-colors disabled:opacity-60"
                       >
                         Share
                       </button>
-                    )}
-                  </div>
+                      <button
+                        type="button"
+                        onClick={savePortrait}
+                        disabled={saveBusy}
+                        className="px-6 py-2 rounded-full font-lora text-[13px] bg-bronze text-vellum border-[0.5px] border-bronze-dark shadow-card transition-colors disabled:opacity-60"
+                      >
+                        {saveBusy ? 'Saving…' : 'Save'}
+                      </button>
+                    </div>
+                  )}
 
                   {/* When the frame texture is on, the box must be transparent so the
                       linen/molding is the visible surface (a white bg would cover it).
@@ -738,6 +780,14 @@ export default function SelfPortraitPage() {
                         scores={portrait.theme_scores ?? []}
                         watermarkUrl={portraitWatermarkUrl}
                       />
+                    )}
+
+                    {/* B: deterministic top-2 caption — discreet, sepia, no counts. Sits
+                        under the viz inside the card; not part of the shared <svg>. */}
+                    {caption && (
+                      <p className="font-lora text-[12px] text-sepia leading-[1.5] text-center mt-3">
+                        {caption}
+                      </p>
                     )}
                   </div>
                 </>

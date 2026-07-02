@@ -1,30 +1,35 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Self-Portrait map (Phase B2). A SECOND view of the SAME theme_scores the radar
-// uses — a spatial arrangement the user can toggle to. Pure SVG, no library.
+// Self-Portrait map (Phase B2, territorial rewrite). A SECOND view of the SAME
+// theme_scores the radar uses — an old-world "territories around a capital" map the
+// user can toggle to. Pure SVG over a parchment terrain image, no library.
 //
-// • The DOMINANT axis (highest score) is the CENTRAL node at (CX,CY), r=0. On a tie
-//   the FIRST axis in the frozen octagon order wins (axes arrive already ordered, so
-//   a strict `>` keeps the earliest max) — deterministic, stable on reopen.
-// • The other 7 axes ring around it at even angular spacing, with distance-from-center
-//   INVERSELY proportional to score: radius = R_FLOOR + (R_OUTER−R_FLOOR)·(1−score).
-//   Closer = higher score. This distance IS the data — the same numbers as the radar.
-//   Angular position is layout-only and carries NO meaning; only distance is data.
-// • Same 360×264 viewBox / center as PortraitRadar, so it sits in the SAME κάδρο with
-//   the same frame (USE_RADAR_FRAME + radarFrameSrc at 85%) and watermark treatment.
+// • The DOMINANT axis (rank 1 by score) is the CENTRAL "capital" node. Ties resolve to
+//   the FIRST axis in the frozen octagon order (stable on reopen).
+// • The other 7 axes ring around it. Angular position comes from the frozen axis order
+//   (layout-only, carries NO meaning). Distance from center is driven by ORDINAL RANK
+//   (2nd-highest closest … 8th-highest farthest), stepped evenly — ranks read cleaner on
+//   a map than raw-score distances, and no single number is decodable from a radius.
+// • The terrain (map-terrain.webp) is a FULL background — an HTML sibling OUTSIDE the
+//   <svg> (like the radar's frame/watermark), so it never enters the share-card canvas
+//   or taints it. This view carries NO walnut frame — the frame is Shape-view only.
+// • Dashed connector paths are DECORATIVE ONLY, aria-hidden. We have no theme-to-theme
+//   relationship data; nothing here (and no UI copy anywhere) implies one.
 // • Empty / all-zero → the same calm "keep answering" line, never a degenerate blob.
 // ─────────────────────────────────────────────────────────────────────────────
 import Image from 'next/image'
 import type { SelfPortraitThemeScore } from '@/lib/api'
-import { USE_RADAR_FRAME, radarFrameSrc } from './Artwork'
 
-// Geometry — identical viewBox/center to PortraitRadar so the frame lines up.
+// Same-origin parchment terrain (B2 asset). Inlined like portraitShareCard's FRAME_SRC.
+const MAP_TERRAIN_SRC = '/self-portrait/map-terrain.webp'
+
+// Geometry — centered in the 360×264 viewBox (no frame to align to on this view).
 const CX = 180
-const CY = 124
-const R_OUTER = 84 // distance for a score-0 outer node (farthest from center)
-const R_FLOOR = 22 // distance for a score-1 outer node (closest, never on the center)
+const CY = 132
+const R_MIN = 36 // radius of the rank-2 node (closest ring to the capital)
+const R_MAX = 88 // radius of the rank-8 node (farthest ring)
 const OUTER_COUNT = 7
 const STEP = 360 / OUTER_COUNT // even angular spacing for the 7 ring nodes
-const LABEL_GAP = 10 // radial offset of a node's label, outward from the node
+const LABEL_GAP = 11 // radial offset of a node's label, outward from the node
 
 function pointAt(radius: number, angleDeg: number): { x: number; y: number } {
   const a = (angleDeg * Math.PI) / 180
@@ -46,50 +51,57 @@ export function PortraitMap({
   const watermark =
     typeof watermarkUrl === 'string' && watermarkUrl.trim().length > 0 ? watermarkUrl : null
 
-  // Dominant axis = highest score; tie → first in frozen order (strict `>`). It is the
-  // central node and is excluded from the ring.
-  let dominantIdx = 0
-  for (let i = 1; i < axes.length; i++) {
-    if (axes[i].score > axes[dominantIdx].score) dominantIdx = i
-  }
-  const center = axes[dominantIdx]
+  // Ordinal rank of every axis: sort indices by score desc, tie-break by frozen order
+  // (lower index first) so it's deterministic and stable on reopen. rankOf[i] === 0 is
+  // the dominant (capital); 1..7 are the outer nodes' ranks.
+  const rankOf = new Array<number>(axes.length)
+  axes
+    .map((_s, i) => i)
+    .sort((a, b) => {
+      const d = axes[b].score - axes[a].score
+      return d !== 0 ? d : a - b
+    })
+    .forEach((idx, r) => {
+      rankOf[idx] = r
+    })
+  const dominantIdx = axes.length > 0 ? axes.findIndex((_s, i) => rankOf[i] === 0) : -1
+  const center = dominantIdx >= 0 ? axes[dominantIdx] : null
 
-  // The 7 outer nodes, in frozen order minus the dominant, at even angles; radius
-  // inversely proportional to score (closer = higher). Angle is layout-only, not data.
+  // The 7 outer nodes in FROZEN order minus the dominant, at even angles (layout-only).
+  // Radius steps evenly by ordinal RANK: rank 1 (2nd overall) closest, rank 7 farthest.
   const outer = axes
     .map((s, i) => ({ s, i }))
     .filter((e) => e.i !== dominantIdx)
     .map((e, k) => {
       const angle = -90 + k * STEP
-      const score = Math.max(0, Math.min(1, e.s.score))
-      const radius = R_FLOOR + (R_OUTER - R_FLOOR) * (1 - score)
+      const t = (rankOf[e.i] - 1) / (OUTER_COUNT - 1) // 0 (closest) … 1 (farthest)
+      const radius = R_MIN + (R_MAX - R_MIN) * t
       return { key: e.s.key, label: e.s.label, angle, radius, node: pointAt(radius, angle) }
     })
 
   return (
     <div className="relative w-full max-w-[320px] mx-auto">
-      {/* Faint persona watermark — ready-state only, behind everything, screen-only.
+      {/* FULL parchment terrain — background layer, sibling OUTSIDE the <svg> so it never
+          enters the share canvas. No frame on this view. */}
+      <div className="absolute inset-0 rounded-md overflow-hidden pointer-events-none">
+        {/* eslint-disable-next-line @next/next/no-img-element -- decorative full-bleed terrain, no optimization needed */}
+        <img src={MAP_TERRAIN_SRC} alt="" className="w-full h-full object-cover" />
+      </div>
+
+      {/* Faint persona watermark — ready-state only, above the terrain, screen-only.
           Gated on a non-empty URL so an absent/blank portrait never shows a "?". */}
       {watermark && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <div className="relative w-[58%] aspect-square rounded-full overflow-hidden opacity-[0.07]">
+          <div className="relative w-[52%] aspect-square rounded-full overflow-hidden opacity-[0.07]">
             <Image src={watermark} alt="" fill sizes="200px" className="object-cover" />
           </div>
-        </div>
-      )}
-
-      {/* Same optional watercolor frame as the radar (USE_RADAR_FRAME + 85% opacity). */}
-      {USE_RADAR_FRAME && (
-        <div className="absolute inset-0 pointer-events-none">
-          {/* eslint-disable-next-line @next/next/no-img-element -- decorative texture, no optimization needed */}
-          <img src={radarFrameSrc()} alt="" className="w-full h-full object-contain opacity-[0.85]" />
         </div>
       )}
 
       <svg viewBox="0 0 360 264" className="relative w-full block" role="img" aria-label="Your theme map">
         {hasSignal && center && (
           <>
-            {/* DECORATIVE radial tethers (center → each outer node). Purely aesthetic:
+            {/* DECORATIVE radial tethers (capital → each outer node). Purely aesthetic:
                 we have NO theme-to-theme relationship data, so these imply nothing and
                 are aria-hidden. No UI copy references them. */}
             <g aria-hidden="true">
@@ -100,15 +112,16 @@ export function PortraitMap({
                   y1={CY}
                   x2={o.node.x}
                   y2={o.node.y}
-                  stroke="#B89968"
-                  strokeWidth={0.6}
+                  stroke="#8A7340"
+                  strokeWidth={0.7}
                   strokeDasharray="2 3"
-                  opacity={0.4}
+                  opacity={0.45}
                 />
               ))}
             </g>
 
-            {/* Outer nodes + labels */}
+            {/* Outer nodes + labels. Labels carry a soft vellum halo (paint-order stroke)
+                so they stay readable over the textured parchment. */}
             {outer.map((o) => {
               const cos = Math.cos((o.angle * Math.PI) / 180)
               const sin = Math.sin((o.angle * Math.PI) / 180)
@@ -117,15 +130,20 @@ export function PortraitMap({
               const lp = pointAt(o.radius + LABEL_GAP, o.angle)
               return (
                 <g key={o.key}>
-                  <circle cx={o.node.x} cy={o.node.y} r={3.4} fill="#8A7340" />
+                  <circle cx={o.node.x} cy={o.node.y} r={3.4} fill="#8A7340" stroke="#EFE3CC" strokeWidth={0.8} />
                   <text
                     x={lp.x}
                     y={lp.y}
                     dy={dy}
                     textAnchor={anchor}
                     className="font-lora"
-                    fontSize={10}
-                    fill="#8A7E6A"
+                    fontSize={12}
+                    fontWeight={500}
+                    fill="#5C4A2E"
+                    stroke="#EFE3CC"
+                    strokeWidth={2.6}
+                    strokeLinejoin="round"
+                    paintOrder="stroke"
                   >
                     {o.label}
                   </text>
@@ -133,16 +151,21 @@ export function PortraitMap({
               )
             })}
 
-            {/* Central (dominant) node — larger, ink label below it. */}
-            <circle cx={CX} cy={CY} r={5} fill="#B89968" stroke="#8A7340" strokeWidth={1} />
+            {/* Central (dominant) "capital" node — larger, with its label below. */}
+            <circle cx={CX} cy={CY} r={5.5} fill="#B89968" stroke="#8A7340" strokeWidth={1.2} />
             <text
               x={CX}
               y={CY}
-              dy="1.7em"
+              dy="1.8em"
               textAnchor="middle"
               className="font-lora"
-              fontSize={11}
-              fill="#1F1B14"
+              fontSize={13}
+              fontWeight={600}
+              fill="#5C4A2E"
+              stroke="#EFE3CC"
+              strokeWidth={2.8}
+              strokeLinejoin="round"
+              paintOrder="stroke"
             >
               {center.label}
             </text>
