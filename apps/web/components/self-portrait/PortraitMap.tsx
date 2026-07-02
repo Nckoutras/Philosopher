@@ -31,6 +31,17 @@ const OUTER_COUNT = 7
 const STEP = 360 / OUTER_COUNT // even angular spacing for the 7 ring nodes
 const LABEL_GAP = 11 // radial offset of a node's label, outward from the node
 
+// Decorative compass rose overlay (same-origin asset shared with the radar) + a dynamic
+// needle. Lower-right, clear of the outer node rings — verified: dist capital→rose ≈
+// 154.8 > R_MAX 88 + rose-half 22. The rose+needle group is tagged data-share-omit so
+// the share pipeline strips it (the <image> can't resolve there — avoids an orphaned
+// needle on the shared card).
+const ROSE_SRC = '/self-portrait/rose.png'
+const ROSE_CX = 310.7 // 86.3% of the 360-wide viewBox
+const ROSE_CY = 214.9 // 81.4% of the 264-tall viewBox
+const ROSE_W = 44 // decorative scale (half-width 22)
+const NEEDLE_LEN = 22 // reaches the rose's outer edge
+
 function pointAt(radius: number, angleDeg: number): { x: number; y: number } {
   const a = (angleDeg * Math.PI) / 180
   return { x: CX + radius * Math.cos(a), y: CY + radius * Math.sin(a) }
@@ -76,8 +87,31 @@ export function PortraitMap({
       const angle = -90 + k * STEP
       const t = (rankOf[e.i] - 1) / (OUTER_COUNT - 1) // 0 (closest) … 1 (farthest)
       const radius = R_MIN + (R_MAX - R_MIN) * t
-      return { key: e.s.key, label: e.s.label, angle, radius, node: pointAt(radius, angle) }
+      return { key: e.s.key, label: e.s.label, score: e.s.score, angle, radius, node: pointAt(radius, angle) }
     })
+
+  // Compass needle → the highest-scoring OUTER node (the capital's runner-up). Decorative:
+  // null when there's no signal or no outer node has any score, so it never points at
+  // nothing. atan2 from the rose center toward that node's actual position.
+  const needleTarget = outer.reduce<(typeof outer)[number] | null>(
+    (best, o) => (best && best.score >= o.score ? best : o),
+    null,
+  )
+  const showCompass = hasSignal && !!needleTarget && needleTarget.score > 0
+  let needle: { bx: number; by: number; tip: string } | null = null
+  if (showCompass && needleTarget) {
+    const theta = Math.atan2(needleTarget.node.y - ROSE_CY, needleTarget.node.x - ROSE_CX)
+    const baseLen = NEEDLE_LEN - 6 // line stops short; a triangle forms the tip
+    const bx = ROSE_CX + baseLen * Math.cos(theta)
+    const by = ROSE_CY + baseLen * Math.sin(theta)
+    const tipX = ROSE_CX + NEEDLE_LEN * Math.cos(theta)
+    const tipY = ROSE_CY + NEEDLE_LEN * Math.sin(theta)
+    const perp = theta + Math.PI / 2
+    const hw = 3 // tip half-width
+    const pt = (x: number, y: number) => `${x.toFixed(1)},${y.toFixed(1)}`
+    const tip = `${pt(tipX, tipY)} ${pt(bx + hw * Math.cos(perp), by + hw * Math.sin(perp))} ${pt(bx - hw * Math.cos(perp), by - hw * Math.sin(perp))}`
+    needle = { bx, by, tip }
+  }
 
   return (
     <div className="relative w-full max-w-[320px] mx-auto">
@@ -169,6 +203,34 @@ export function PortraitMap({
             >
               {center.label}
             </text>
+
+            {/* Decorative compass rose + needle. data-share-omit → the share pipeline
+                removes the whole group (rose <image> + needle) so the shared map card
+                shows neither, never an orphaned needle. No copy references it. */}
+            {needle && (
+              <g data-share-omit aria-hidden="true">
+                <image
+                  href={ROSE_SRC}
+                  x={ROSE_CX - ROSE_W / 2}
+                  y={ROSE_CY - ROSE_W / 2}
+                  width={ROSE_W}
+                  height={ROSE_W}
+                  opacity={0.9}
+                  preserveAspectRatio="xMidYMid meet"
+                />
+                <line
+                  x1={ROSE_CX}
+                  y1={ROSE_CY}
+                  x2={needle.bx}
+                  y2={needle.by}
+                  stroke="#8A7340"
+                  strokeWidth={1.2}
+                  strokeLinecap="round"
+                />
+                <polygon points={needle.tip} fill="#8A7340" />
+                <circle cx={ROSE_CX} cy={ROSE_CY} r={1.6} fill="#8A7340" />
+              </g>
+            )}
           </>
         )}
       </svg>
