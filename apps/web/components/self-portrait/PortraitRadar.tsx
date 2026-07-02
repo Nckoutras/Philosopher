@@ -1,33 +1,37 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Self-Portrait radar (Phase B, mock restyle). A pure-SVG pentagon of the user's
-// FIVE strongest theme axes — the founder-approved payoff shape. No charting library.
+// Self-Portrait radar (Phase B, art polish). A pure-SVG pentagon of the user's FIVE
+// strongest theme axes. No charting library.
 //
-// • TOP-5 axes only: the 5 highest-scoring axes are selected (tie-break by frozen
-//   axis order), then arranged in their FROZEN relative order around the circle at
-//   72° spacing (first at −90°/top). Deterministic + stable on reopen. The Map view
-//   still shows all 8 — only the radar filters.
-// • Guides are CIRCLES: one solid bronze outer ring + two dashed inner rings (0.4R,
-//   0.7R). Spokes + endpoint dots on the ring; a bronze data pentagon (fill 0.3);
-//   an 8-point compass rose behind the polygon (decorative, shows through the fill).
-// • The κάδρο/frame texture is retained behind USE_RADAR_FRAME, but that flag is now
-//   OFF (Artwork.tsx) — clean vellum, no frame. The flag + asset stay for later use.
-// • Faint persona watermark sits BEHIND everything, screen-only, ready-state only.
+// • TOP-5 axes only: the 5 highest-scoring axes (tie-break frozen order), arranged in
+//   FROZEN relative order at 72° spacing (first at −90°/top). Deterministic + stable.
+// • Guides are CIRCLES: 2 dashed inner rings (0.4R, 0.7R) + 1 solid bronze outer ring.
+//   Spokes + endpoint dots; a bronze data pentagon (fill 0.3) + vertex dots.
+// • CENTER: a raster compass rose (/self-portrait/rose.png), same-origin, centered,
+//   width ≈0.55R, drawn BEHIND the data polygon (the 0.3 fill lets it show through).
+// • overflow:visible — the outer labels (fontSize 17) intentionally extend BEYOND the
+//   tight viewBox into the wrapper's padding, so the ring fills the plate instead of
+//   floating. The wrapper padding (px-4) + the page's perimeter frame padding hold the
+//   worst-case label overflow inside the bronze border. NOTE: the share card
+//   (portraitShareCard.ts) serializes by viewBox and will clip these overflow labels
+//   until its MANDATORY next-PR recomposition — coordinated debt, accepted.
+// • κάδρο/frame texture still gated behind USE_RADAR_FRAME (OFF). Watermark ready-only.
 // • No signal → the skeleton (rings/spokes/rose) + a calm line, never a count.
 // ─────────────────────────────────────────────────────────────────────────────
 import Image from 'next/image'
 import type { SelfPortraitThemeScore } from '@/lib/api'
 import { USE_RADAR_FRAME, radarFrameSrc } from './Artwork'
 
-// Geometry in a 360×264 viewBox (aspect kept so the shared card — untouched this PR —
-// draws the svg undistorted). CX/CY centered; R = outer ring; LABEL_R = label anchor
-// radius, bounded so all 5 labels fit the viewBox even in the 5-longest worst case
-// (verified: min x 34, max x 326, min y 24, max y 225 at fontSize 13 — see PR table).
+// Geometry in a 360×270 viewBox sized TIGHT to the ring; labels overflow into padding
+// (svg overflow:visible). Verified: with fontSize 17 all 5 labels fit the container
+// (viewBox + left-40/right-10/top-4 padding) even in the Connection@198° worst case.
 const CX = 180
-const CY = 134
-const R = 82
-const LABEL_R = 98
+const CY = 140
+const R = 116
+const LABEL_R = 126
 const TOP_N = 5
 const INNER_RINGS = [0.4, 0.7] as const
+const ROSE_SRC = '/self-portrait/rose.png' // same-origin raster compass rose
+const ROSE_W = R * 0.55
 
 // Angle for pentagon position k (0..4): start at top (−90°), step 72° clockwise.
 function angleRadAt(k: number): number {
@@ -42,24 +46,6 @@ function pointAt(radius: number, k: number): { x: number; y: number } {
 // "x,y x,y …" over the selected axes' per-position radii (closed pentagon).
 function polygonPoints(radii: number[]): string {
   return radii.map((r, k) => { const p = pointAt(r, k); return `${p.x.toFixed(1)},${p.y.toFixed(1)}` }).join(' ')
-}
-
-// Decorative 8-point compass rose, same-file + currentColor-compatible (the parent <g>
-// sets `color`, so stroke="currentColor" tints to bronze). Drawn behind the polygon.
-function CompassRose({ cx, cy, radius }: { cx: number; cy: number; radius: number }) {
-  const inner = radius * 0.4
-  const pts: string[] = []
-  for (let i = 0; i < 16; i++) {
-    const rr = i % 2 === 0 ? radius : inner
-    const a = ((-90 + i * 22.5) * Math.PI) / 180
-    pts.push(`${(cx + rr * Math.cos(a)).toFixed(1)},${(cy + rr * Math.sin(a)).toFixed(1)}`)
-  }
-  return (
-    <g aria-hidden="true" style={{ color: '#B89968' }}>
-      <polygon points={pts.join(' ')} fill="none" stroke="currentColor" strokeWidth={1} strokeLinejoin="round" opacity={0.5} />
-      <circle cx={cx} cy={cy} r={radius * 0.16} fill="none" stroke="currentColor" strokeWidth={1} opacity={0.5} />
-    </g>
-  )
 }
 
 export function PortraitRadar({
@@ -87,18 +73,19 @@ export function PortraitRadar({
     .map((e) => e.s)
 
   return (
-    <div className="relative w-full max-w-[320px] mx-auto">
+    // px-4 holds the worst-case label overflow (svg overflow:visible) inside the page's
+    // perimeter frame; no max-width cap so the ring uses the full plate width.
+    <div className="relative w-full mx-auto px-4">
       {/* Faint persona watermark — ready-state only, behind everything, screen-only. */}
       {watermark && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <div className="relative w-[50%] aspect-square rounded-full overflow-hidden opacity-[0.06]">
-            <Image src={watermark} alt="" fill sizes="200px" className="object-cover" />
+            <Image src={watermark} alt="" fill sizes="220px" className="object-cover" />
           </div>
         </div>
       )}
 
-      {/* OPTIONAL κάδρο/frame texture — retained but gated on USE_RADAR_FRAME (now OFF),
-          so it never renders a broken <img> and can be re-enabled later without code. */}
+      {/* OPTIONAL κάδρο/frame texture — retained but gated on USE_RADAR_FRAME (OFF). */}
       {USE_RADAR_FRAME && (
         <div className="absolute inset-0 pointer-events-none">
           {/* eslint-disable-next-line @next/next/no-img-element -- decorative texture, no optimization needed */}
@@ -106,7 +93,14 @@ export function PortraitRadar({
         </div>
       )}
 
-      <svg viewBox="0 0 360 264" className="relative w-full block" role="img" aria-label="Your theme radar">
+      {/* overflow-visible so the outer labels can extend past the tight viewBox. */}
+      <svg
+        viewBox="0 0 360 270"
+        className="relative w-full block overflow-visible"
+        style={{ overflow: 'visible' }}
+        role="img"
+        aria-label="Your theme radar"
+      >
         {/* Guide rings — 2 dashed inner circles + 1 solid bronze outer ring. */}
         {INNER_RINGS.map((frac) => (
           <circle
@@ -123,8 +117,18 @@ export function PortraitRadar({
         ))}
         <circle cx={CX} cy={CY} r={R} fill="none" stroke="#B89968" strokeWidth={1} opacity={0.85} />
 
-        {/* Compass rose — decorative, behind the data polygon (fill shows it through). */}
-        <CompassRose cx={CX} cy={CY} radius={R * 0.25} />
+        {/* Raster compass rose — decorative, centered, BEHIND the data polygon. Same-origin
+            so the (next-PR) share canvas won't taint; aria-hidden. */}
+        <image
+          href={ROSE_SRC}
+          x={CX - ROSE_W / 2}
+          y={CY - ROSE_W / 2}
+          width={ROSE_W}
+          height={ROSE_W}
+          opacity={0.9}
+          preserveAspectRatio="xMidYMid meet"
+          aria-hidden="true"
+        />
 
         {/* Spokes + endpoint dots + axis labels, one per selected axis. */}
         {selected.map((s, k) => {
@@ -145,7 +149,7 @@ export function PortraitRadar({
                 dy={dy}
                 textAnchor={anchor}
                 className="font-lora"
-                fontSize={13}
+                fontSize={17}
                 fontWeight={500}
                 fill="#1F1B14"
               >
