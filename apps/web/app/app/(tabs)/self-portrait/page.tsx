@@ -161,7 +161,7 @@ function VizToggle({
               type="button"
               onClick={() => onChange(t.key)}
               aria-pressed={isActive}
-              className={`px-4 py-1.5 rounded-full font-lora text-[12px] transition-colors ${
+              className={`px-6 py-1.5 rounded-full font-lora text-[13px] transition-colors ${
                 isActive ? 'bg-bronze text-vellum' : 'text-sepia'
               }`}
             >
@@ -749,14 +749,14 @@ export default function SelfPortraitPage() {
                   faint persona watermark only in the ready state. Shown once the
                   portrait has loaded; the supporting summary/forming text sits below. */}
               {portrait && (
-                <>
-                  {/* Thin bronze rule + progress line (real answered count). */}
-                  <div className="space-y-3">
-                    <div className="h-px bg-bronze/40" />
-                    <p className="font-lora text-[11px] tracking-[0.18em] uppercase text-sepia text-center">
-                      Portrait {isReady ? 'ready' : 'forming'} · {answered.length} answers
-                    </p>
-                  </div>
+                // Perimeter frame — a thin bronze plate/plaque wrapping the progress line,
+                // section header, toggle, radar, and observation cards. Vellum (transparent)
+                // bg, no shadow. The radar's own px-4 + this px-4 hold the overflow labels.
+                <div className="rounded-xl border-[1px] border-bronze/50 px-4 py-6 space-y-5">
+                  {/* Progress line — the plate's header (real answered count). */}
+                  <p className="font-lora text-[11px] tracking-[0.18em] uppercase text-sepia text-center">
+                    Portrait {isReady ? 'ready' : 'forming'} · {answered.length} answers
+                  </p>
 
                   {/* Section header — two centered lines; wording flips with ready state. */}
                   <div className="text-center space-y-1">
@@ -771,9 +771,8 @@ export default function SelfPortraitPage() {
                   {/* Shape / Map toggle — segmented control language. */}
                   <VizToggle viz={portraitViz} onChange={setPortraitViz} />
 
-                  {/* Clean radar/map — no frame, no card border, vellum behind. The ref
-                      lets the share path read the active radar/map <svg>. */}
-                  <div ref={portraitCardRef} className="px-1 py-2">
+                  {/* Radar/map — the ref lets the share path read the active <svg>. */}
+                  <div ref={portraitCardRef}>
                     {portraitViz === 'radar' ? (
                       <PortraitRadar
                         scores={portrait.theme_scores ?? []}
@@ -788,7 +787,7 @@ export default function SelfPortraitPage() {
                   </div>
 
                   {/* Observation cards — TOP-3 axes, deterministic frozen copy (no counts).
-                      3-across, thin bronze border, transparent bg. Replaces the caption. */}
+                      3-across, thin bronze border, transparent bg. */}
                   {observationCards.length > 0 && (
                     <div className="grid grid-cols-3 gap-3">
                       {observationCards.map((c) => {
@@ -810,7 +809,7 @@ export default function SelfPortraitPage() {
                       })}
                     </div>
                   )}
-                </>
+                </div>
               )}
 
               {portraitLoading && portrait === null ? (
