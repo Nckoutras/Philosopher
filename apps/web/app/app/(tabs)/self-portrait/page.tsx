@@ -19,7 +19,7 @@ import {
 import { PortraitRadar } from '@/components/self-portrait/PortraitRadar'
 import { PortraitMap } from '@/components/self-portrait/PortraitMap'
 import { renderPortraitCardBlob, sharePortraitCardBlob } from '@/lib/portraitShareCard'
-import { User, Shield, Feather, Flame, HelpCircle, Anchor, Users, Compass } from 'lucide-react'
+import { User, Shield, Feather, Flame, HelpCircle, Anchor, Users, Compass, Check, ArrowRight, Sparkle } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { topObservationCards, type CardIcon } from '@/lib/selfPortraitObservationCards'
 
@@ -573,6 +573,13 @@ export default function SelfPortraitPage() {
               </div>
 
               <header className="space-y-3 text-center">
+                {/* Wordmark — questions view only this PR (the shared header renders in
+                    the portrait view too, which stays untouched). */}
+                {view === 'questions' && (
+                  <p className="font-cormorant text-[13px] tracking-[0.25em] uppercase text-ink">
+                    The Wise Room
+                  </p>
+                )}
                 <h1 className="font-cormorant text-[28px] font-medium text-ink leading-tight">
                   Self-Portrait
                 </h1>
@@ -587,6 +594,15 @@ export default function SelfPortraitPage() {
               PR4 `started` gate, unchanged) ── */}
           {view === 'questions' && (
             <>
+              {/* Progress header — the SAME coverage-bar + progress-line unit as the
+                  portrait plate (reused, not forked), directly under the ViewSwitch. */}
+              <div className="space-y-2">
+                <CoverageBar touched={touchedCategories} total={TOTAL_CATEGORIES} />
+                <p className="font-lora text-[11px] tracking-[0.18em] uppercase text-sepia text-center">
+                  Portrait {isReady ? 'ready' : 'forming'} · {answered.length} answers
+                </p>
+              </div>
+
               {error && (
                 <p className="font-lora text-[12px] text-safety text-center">{error}</p>
               )}
@@ -605,16 +621,24 @@ export default function SelfPortraitPage() {
                   (justAnswered) rather than auto-advancing. */}
               {activeQuestion && (
                 <section className="space-y-4">
-                  {/* Eyebrow — the life-area this question sits in. No count/meter. */}
-                  <p className="font-lora text-[11px] uppercase tracking-[0.14em] text-sepia text-center">
-                    Current theme — {categoryLabel(activeQuestion.category)}
-                  </p>
+                  {/* Eyebrow — the life-area this question sits in. No count/meter.
+                      "CURRENT THEME" label + em dash + the category in Cormorant italic. */}
+                  <div className="flex items-baseline justify-center gap-1.5 text-center">
+                    <span className="font-lora text-[11px] uppercase tracking-[0.14em] text-sepia">
+                      Current theme
+                    </span>
+                    <span className="font-lora text-[11px] text-sepia">—</span>
+                    <span className="font-cormorant italic text-[17px] text-bronze-dark leading-none">
+                      {categoryLabel(activeQuestion.category)}
+                    </span>
+                  </div>
 
-                  <div className="rounded-lg border-[0.5px] border-bronze/30 bg-white shadow-card overflow-hidden">
+                  {/* Question card — the one intentional light surface on the page. */}
+                  <div className="rounded-xl border-[0.5px] border-bronze/30 bg-paper shadow-card overflow-hidden">
                     {/* Top artwork band (placeholder now; real watercolor drops in). */}
                     <CardArtwork category={activeQuestion.category} />
-                    <div className="px-5 py-5 space-y-4">
-                      <h2 className="font-cormorant text-[21px] font-medium text-ink leading-snug text-center">
+                    <div className="px-6 py-6 space-y-4">
+                      <h2 className="font-cormorant text-[20px] font-medium text-ink leading-snug text-center">
                         {activeQuestion.question}
                       </h2>
                       <div className="flex flex-wrap gap-2 justify-center">
@@ -628,14 +652,15 @@ export default function SelfPortraitPage() {
                               onClick={() => choose(activeQuestion.id, idx, { fromMainFlow: true })}
                               disabled={inFlight || paused}
                               aria-pressed={isChosen}
-                              className={`px-5 py-2.5 rounded-full font-lora text-[15px] border-[0.5px] transition-colors disabled:opacity-40 ${
-                                paused && isChosen
-                                  ? 'bg-ink border-ink text-vellum'
+                              className={`inline-flex items-center justify-center gap-1.5 px-5 py-2.5 rounded-full font-lora text-[15px] border-[0.5px] transition-colors disabled:opacity-40 ${
+                                isChosen
+                                  ? 'bg-bronze border-bronze-dark text-vellum'
                                   : paused
                                     ? 'bg-white border-bronze/30 text-sepia'
-                                    : 'bg-bronze border-bronze-dark text-vellum shadow-card'
+                                    : 'bg-white border-bronze/60 text-ink'
                               }`}
                             >
+                              {isChosen && <Check size={14} aria-hidden="true" />}
                               {pill}
                             </button>
                           )
@@ -644,31 +669,60 @@ export default function SelfPortraitPage() {
                     </div>
                   </div>
 
-                  {/* "The Room notices" — the per-answer observation, then Next. */}
+                  {/* "The Room notices" — the per-answer observation, sparkle strip, then CTAs. */}
                   {justAnswered?.qid === activeQuestion.id && (
                     <div className="space-y-4">
                       {observationLine && (
-                        <div className="rounded-lg border-[0.5px] border-bronze/30 bg-linen/40 px-4 py-4 flex items-start gap-3">
-                          <span className="mt-[2px]">
+                        <div className="rounded-lg border-[0.5px] border-bronze/30 px-4 py-4 flex items-start gap-3">
+                          {/* Eye glyph inside a thin bronze circle. */}
+                          <span className="flex-shrink-0 w-10 h-10 rounded-full border-[0.5px] border-bronze/50 flex items-center justify-center">
                             <EyeGlyph />
                           </span>
                           <div className="flex-1 min-w-0">
-                            <p className="font-lora text-[11px] uppercase tracking-[0.12em] text-sepia">
+                            <p className="font-cormorant text-[17px] text-bronze-dark leading-snug">
                               The Room notices
                             </p>
-                            <p className="font-cormorant italic text-[16px] text-ink mt-1 leading-snug">
+                            <p className="font-lora text-[14px] text-charcoal mt-1 leading-relaxed">
                               {observationLine}
                             </p>
                           </div>
                         </div>
                       )}
+
+                      {/* Sparkle strip — quiet reassurance + a mini coverage read (reused bar). */}
+                      <div className="bg-bronze/10 rounded-md px-3 py-2 flex justify-between items-center gap-3">
+                        <p className="font-lora text-[12px] text-sepia flex items-center gap-1.5 min-w-0">
+                          <Sparkle size={12} className="flex-shrink-0" aria-hidden="true" />
+                          This answer shapes how the Room listens.
+                        </p>
+                        <div className="flex-shrink-0 text-right">
+                          <p className="font-lora text-[10px] uppercase tracking-[0.12em] text-sepia">
+                            Portrait deepening
+                          </p>
+                          <div className="w-[120px] mt-1">
+                            <CoverageBar touched={touchedCategories} total={TOTAL_CATEGORIES} />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* CTAs — same existing handlers (setJustAnswered(null) / setRevisitOpen(true)). */}
                       <button
                         type="button"
                         onClick={() => setJustAnswered(null)}
-                        className="w-full py-3 rounded-full font-cormorant text-[16px] font-medium bg-ink text-vellum transition-colors"
+                        className="w-full h-12 rounded-full font-lora text-[16px] font-medium bg-bronze text-vellum inline-flex items-center justify-center gap-2 transition-colors"
                       >
-                        Next question →
+                        Next question
+                        <ArrowRight size={18} aria-hidden="true" />
                       </button>
+                      <div className="text-center">
+                        <button
+                          type="button"
+                          onClick={() => setRevisitOpen(true)}
+                          className="font-lora text-[13px] text-sepia underline underline-offset-2"
+                        >
+                          Review answers so far
+                        </button>
+                      </div>
                     </div>
                   )}
                 </section>
@@ -773,12 +827,13 @@ export default function SelfPortraitPage() {
                                         onClick={() => choose(q.id, idx)}
                                         disabled={inFlight}
                                         aria-pressed={isSelected}
-                                        className={`px-5 py-2.5 rounded-full font-lora text-[15px] border-[0.5px] transition-colors disabled:opacity-40 ${
+                                        className={`inline-flex items-center justify-center gap-1.5 px-5 py-2.5 rounded-full font-lora text-[15px] border-[0.5px] transition-colors disabled:opacity-40 ${
                                           isSelected
-                                            ? 'bg-ink border-ink text-vellum'
-                                            : 'bg-bronze border-bronze-dark text-vellum shadow-card'
+                                            ? 'bg-bronze border-bronze-dark text-vellum'
+                                            : 'bg-white border-bronze/60 text-ink'
                                         }`}
                                       >
+                                        {isSelected && <Check size={14} aria-hidden="true" />}
                                         {pill}
                                       </button>
                                     )
