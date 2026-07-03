@@ -19,7 +19,7 @@ import {
 import { PortraitRadar } from '@/components/self-portrait/PortraitRadar'
 import { PortraitMap } from '@/components/self-portrait/PortraitMap'
 import { renderPortraitCardBlob, sharePortraitCardBlob } from '@/lib/portraitShareCard'
-import { User, Shield, Feather, Flame, HelpCircle, Anchor, Users, Compass, Check, ArrowRight, Sparkle } from 'lucide-react'
+import { User, Shield, Feather, Flame, HelpCircle, Anchor, Users, Compass, Check, ArrowRight, Sparkle, Leaf } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { topObservationCards, type CardIcon } from '@/lib/selfPortraitObservationCards'
 
@@ -782,8 +782,8 @@ export default function SelfPortraitPage() {
                     </div>
                   ) : (
                     <>
-                      <h2 className="font-cormorant text-[18px] font-medium text-ink text-center">
-                        Your answers
+                      <h2 className="font-cormorant text-[22px] font-medium text-ink text-left">
+                        What you&rsquo;ve revealed so far
                       </h2>
                       <CategoryFilter
                         categories={categories}
@@ -797,7 +797,7 @@ export default function SelfPortraitPage() {
                           return (
                             <li
                               key={q.id}
-                              className="rounded-lg border-[0.5px] border-bronze/30 bg-white shadow-card px-4 py-3"
+                              className="rounded-xl border-[0.5px] border-bronze/30 bg-paper px-4 py-3"
                             >
                               <button
                                 type="button"
@@ -805,16 +805,21 @@ export default function SelfPortraitPage() {
                                 className="w-full text-left flex items-start gap-3"
                                 aria-expanded={isEditing}
                               >
-                                {/* Small per-theme artwork tile (placeholder now). */}
+                                {/* Per-theme artwork thumb. */}
                                 <ThemeGlyph category={q.category} size={56} />
                                 <div className="flex-1 min-w-0">
-                                  <p className="font-lora text-[13px] text-charcoal leading-[1.55]">
+                                  {/* Category eyebrow + question text (answer lives in the right pill). */}
+                                  <p className="font-lora text-[11px] uppercase tracking-[0.14em] text-bronze-dark">
+                                    {categoryLabel(q.category)}
+                                  </p>
+                                  <p className="font-lora text-[14px] text-charcoal leading-[1.5] mt-0.5 line-clamp-3">
                                     {q.question}
                                   </p>
-                                  <p className="font-lora text-[13px] text-ink mt-1 font-medium">
-                                    {q.pills[chosen]}
-                                  </p>
                                 </div>
+                                {/* Chosen answer — compact read-only outline pill. */}
+                                <span className="flex-shrink-0 rounded-full border-[0.5px] border-bronze/60 bg-transparent text-bronze-dark px-3 py-1.5 text-[12px] whitespace-nowrap">
+                                  {q.pills[chosen]}
+                                </span>
                               </button>
                               {isEditing && (
                                 <div className="flex flex-wrap gap-2 mt-3">
@@ -844,6 +849,32 @@ export default function SelfPortraitPage() {
                           )
                         })}
                       </ul>
+
+                      {/* Footer note — what these answers are for. */}
+                      <div className="flex items-center gap-2 pt-1">
+                        <Leaf size={14} className="text-sepia flex-shrink-0" aria-hidden="true" />
+                        <p className="font-lora text-[13px] text-sepia">
+                          These answers will shape how the Room listens and responds.
+                        </p>
+                      </div>
+
+                      {/* Double CTA — both wired to EXISTING handlers (no new navigation). */}
+                      <div className="flex gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setRevisitOpen(false)}
+                          className="flex-1 h-12 rounded-full font-lora text-[16px] font-medium border-[0.5px] border-bronze-dark bg-white text-ink transition-colors"
+                        >
+                          Continue questions
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setView('portrait')}
+                          className="flex-1 h-12 rounded-full font-lora text-[16px] font-medium bg-bronze text-vellum transition-colors"
+                        >
+                          Go to portrait
+                        </button>
+                      </div>
                     </>
                   )}
                 </section>
