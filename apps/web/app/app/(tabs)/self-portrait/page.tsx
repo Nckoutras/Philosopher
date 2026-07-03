@@ -62,6 +62,29 @@ function categoryLabel(value: string): string {
   )
 }
 
+// The content bank spans exactly these themed categories (source of truth for the
+// coverage denominator). Derived from CATEGORY_LABELS so there is never a second
+// hardcoded count to drift — matches the backend's 12 bank categories.
+const TOTAL_CATEGORIES = Object.keys(CATEGORY_LABELS).length
+
+// Category-coverage bar — fill = themed categories touched / TOTAL_CATEGORIES. It
+// signals BREADTH ("you've covered the whole spectrum"), never completion: a full
+// bar changes nothing else and depth continues. Extracted as a reusable local
+// component because the upcoming questions-restyle PR renders it a second time under
+// the view switch (it's in the approved mock there); THIS PR renders it once, above
+// the portrait plate's "Portrait forming · N answers" line.
+function CoverageBar({ touched, total }: { touched: number; total: number }) {
+  const pct = total > 0 ? Math.min(100, (touched / total) * 100) : 0
+  return (
+    <div className="h-[3px] rounded-full bg-bronze/20 w-full">
+      <div
+        className="h-full bg-bronze rounded-full transition-[width] duration-500"
+        style={{ width: `${pct}%` }}
+      />
+    </div>
+  )
+}
+
 // Shared category filter — a horizontal row of pills ("All" + each category),
 // reused by both the question flow (#6.2) and the revisit list (#7).
 function CategoryFilter({
@@ -308,6 +331,16 @@ export default function SelfPortraitPage() {
   const answered = useMemo(
     () => questions.filter((q) => answers[q.id] !== undefined),
     [questions, answers],
+  )
+  // Distinct themed categories the user has touched with at least one answer — the
+  // coverage-bar fill. Derived from existing client state; no new fetch.
+  // NAMED TECH DEBT: `questions` is tier-filtered, so for a lapsed-Pro→free user it
+  // may omit questions they answered while Pro, making this UNDERCOUNT. The backend's
+  // answered_category_count (services/self_portrait.py) is the authoritative number;
+  // surfacing it to the client is the future fix. Cannot occur in cold beta (all Pro).
+  const touchedCategories = useMemo(
+    () => new Set(answered.map((q) => q.category)).size,
+    [answered],
   )
   const allAnswered = questions.length > 0 && nextQuestion === null
 
@@ -774,10 +807,15 @@ export default function SelfPortraitPage() {
                 // section header, toggle, radar, and observation cards. Vellum (transparent)
                 // bg, no shadow. The radar's own px-4 + this px-4 hold the overflow labels.
                 <div className="rounded-xl border-[1px] border-bronze/50 px-4 py-6 space-y-5">
-                  {/* Progress line — the plate's header (real answered count). */}
-                  <p className="font-lora text-[11px] tracking-[0.18em] uppercase text-sepia text-center">
-                    Portrait {isReady ? 'ready' : 'forming'} · {answered.length} answers
-                  </p>
+                  {/* Coverage bar + progress line as ONE unit — the bar is the line's
+                      header (~8px apart), not a separate plate row. */}
+                  <div className="space-y-2">
+                    <CoverageBar touched={touchedCategories} total={TOTAL_CATEGORIES} />
+                    {/* Progress line — the plate's header (real answered count). */}
+                    <p className="font-lora text-[11px] tracking-[0.18em] uppercase text-sepia text-center">
+                      Portrait {isReady ? 'ready' : 'forming'} · {answered.length} answers
+                    </p>
+                  </div>
 
                   {/* Section header — two centered lines; wording flips with ready state. */}
                   <div className="text-center space-y-1">
