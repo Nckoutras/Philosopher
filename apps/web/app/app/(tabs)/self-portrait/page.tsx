@@ -500,7 +500,7 @@ export default function SelfPortraitPage() {
                   fill
                   priority
                   sizes="(max-width: 420px) 100vw, 380px"
-                  className="object-cover"
+                  className="object-cover scale-[1.45]"
                 />
                 <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-b from-transparent to-vellum pointer-events-none" />
               </div>
@@ -835,14 +835,14 @@ export default function SelfPortraitPage() {
 
               {portraitLoading && portrait === null ? (
                 // First open / generation in progress — make the wait feel like a moment.
-                <div className="rounded-lg border-[0.5px] border-bronze/30 bg-white shadow-card px-5 py-6 text-center">
+                <div className="rounded-lg border-[0.5px] border-bronze/30 px-5 py-6 text-center">
                   <p className="font-lora text-[14px] text-charcoal leading-[1.65]">
                     Putting your portrait together&hellip;
                   </p>
                 </div>
               ) : portrait && portrait.state === 'ready' && portrait.summary ? (
                 <>
-                  <div className="rounded-lg border-[0.5px] border-bronze/30 bg-white shadow-card px-5 py-5">
+                  <div className="rounded-lg border-[0.5px] border-bronze/30 px-5 py-5">
                     <div className="flex flex-col gap-[14px]">
                       {portrait.summary
                         .split(/\n\n|\n/)
@@ -866,7 +866,7 @@ export default function SelfPortraitPage() {
                       {portrait.best_fit.map((p) => (
                         <div
                           key={p.slug}
-                          className="rounded-lg border-[0.5px] border-bronze/30 bg-white shadow-card px-4 py-4 flex items-start gap-[14px]"
+                          className="rounded-lg border-[0.5px] border-bronze/30 px-4 py-4 flex items-start gap-[14px]"
                         >
                           <PersonaAvatar portraitUrl={p.portrait_url} name={p.name} />
                           <div className="flex-1 min-w-0">
@@ -892,7 +892,7 @@ export default function SelfPortraitPage() {
               ) : portrait && portrait.preview.length > 0 ? (
                 // Forming (or ready without a cached summary yet): "a pattern is
                 // emerging" — genuine observation lines from the user's own answers.
-                <div className="rounded-lg border-[0.5px] border-bronze/30 bg-white shadow-card overflow-hidden">
+                <div className="rounded-lg border-[0.5px] border-bronze/30 overflow-hidden">
                   <PatternArtwork />
                   <div className="px-5 py-5 space-y-3 text-center">
                     <h2 className="font-cormorant text-[19px] font-medium text-ink leading-snug">
@@ -907,7 +907,7 @@ export default function SelfPortraitPage() {
                 </div>
               ) : (
                 // No content yet, or the fetch failed — never an error or spinner trap.
-                <div className="rounded-lg border-[0.5px] border-bronze/30 bg-white shadow-card px-5 py-6 text-center">
+                <div className="rounded-lg border-[0.5px] border-bronze/30 px-5 py-6 text-center">
                   <p className="font-lora text-[14px] text-charcoal leading-[1.65]">
                     Your portrait is still forming. It appears here as you answer — a quiet
                     reflection of how you tend to weigh things, drawn from your own words.
