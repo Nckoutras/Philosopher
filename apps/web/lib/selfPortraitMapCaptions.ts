@@ -16,7 +16,7 @@ export const MAP_CAPTIONS: Record<string, string> = {
   fear: 'What you guard against.',
   freedom: 'The space you need to breathe.',
   desire: 'What pulls at you.',
-  doubt: 'The questions you sit with.',
+  doubt: 'Questions you sit with.',
   duty: 'What you feel responsible for.',
   connection: 'Who you hold close.',
   meaning: "What you're reaching for.",
