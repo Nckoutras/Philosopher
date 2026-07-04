@@ -1,23 +1,30 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Self-Portrait map (v3 — data-driven "stable-world" territories). A SECOND view of the
-// SAME theme_scores the radar uses. Each theme is a COUNTRY at a FIXED anchor forever
-// ("stable world" — a theme never relocates, only grows/shrinks), so the user recognizes
-// their map over time and a future then-vs-now view is trivial. Pure SVG path math over a
-// parchment terrain image, no library.
+// Self-Portrait map (v3.1 — cartographic polish). A SECOND view of the SAME theme_scores
+// the radar uses. Each theme is a COUNTRY at a FIXED anchor forever ("stable world" — a
+// theme never relocates, only grows/shrinks), so the user recognizes their map over time
+// and a future then-vs-now view is trivial. Pure SVG path math over a parchment terrain
+// image, no library.
 //
 // • FIXED LAYOUT: the 8 frozen PORTRAIT_AXES slugs each own a hardcoded viewBox anchor
 //   (ANCHORS). A theme's territory always centers on its anchor.
-// • TERRITORY: a seeded, deterministic organic closed path around the anchor. Vertex radii
-//   are jittered by a hash of the theme SLUG (stable across reopens — a coastline never
-//   changes shape), smoothed catmull-rom → cubic bezier. AREA ∝ score (radius ∝ √score),
-//   so area — not radius — reads proportional. Zero-score themes DO NOT render.
+// • TERRITORY (v3.1): a seeded, deterministic organic closed path around the anchor —
+//   14 vertices, GENTLE jitter (0.90–1.10) from a hash of the theme SLUG (stable across
+//   reopens — a coastline never changes shape), smoothed catmull-rom → cubic bezier.
+//   AREA ∝ score (radius ∝ √score). A soft outline (1.0 @0.75) plus an inner CONTOUR ring
+//   — the SAME seeded path at 0.80× radius, no fill (0.8 @0.25) — makes each shape read as
+//   topography, not a blob. Zero-score themes DO NOT render.
 // • CAPS (applied to the MAX jittered extent JITTER_MAX×baseR, never just baseR):
-//     – overlap: territories may touch, never swallow — capped so no vertex reaches within
-//       (1 − OVERLAP_FRAC) of a neighbour's anchor.
+//     – overlap: territories may touch, never swallow — capped so the farthest vertex
+//       reaches at most OVERLAP_FRAC of the way to a neighbour's anchor.
 //     – rose: no vertex enters the lower-right compass-rose disc (+ margin).
-// • The terrain (map-terrain.webp) is a FULL background — an HTML sibling OUTSIDE the
-//   <svg> (like the radar's frame/watermark), so it never enters the share-card canvas or
-//   taints it. This view carries NO walnut frame — the frame is Shape-view only.
+// • LABELS (v3.1): stacked + centered on the anchor — name (Lora 13, ink, vellum halo;
+//   dominant weight 600) then the sub-caption below, WRAPPED to ≤2 balanced lines (Lora
+//   9.5, sepia, same halo) so it stays inside its territory and never clips the viewBox.
+// • The terrain (map-terrain.webp) is dimmed to 0.45 so territories dominate; it's a FULL
+//   background sibling OUTSIDE the <svg> (like the radar's frame/watermark), so it never
+//   enters the share-card canvas or taints it. NB the asset has a compass baked into its
+//   lower-right corner co-located with the rose overlay; dimming lets the rose read as the
+//   one intentional compass.
 // • NO connector paths between territories — we have NO theme-to-theme relationship data,
 //   and no UI copy anywhere may imply one.
 // • Compass rose + needle: UNCHANGED behaviour — the rose+needle group is tagged
@@ -49,10 +56,11 @@ const ANCHORS: Record<string, { x: number; y: number }> = {
 
 // ── Territory geometry ─────────────────────────────────────────────────────────
 const MAX_R = 44 // baseR of a score-1.0 (dominant) territory before caps
-const VERTS = 10 // polygon vertices per coastline (before bezier smoothing)
-const JITTER_MIN = 0.82 // per-vertex radius factor lower bound
-const JITTER_MAX = 1.18 // …upper bound — a vertex can reach 1.18×baseR, so ALL caps
-//                          divide by JITTER_MAX to bound the MAX jittered extent.
+const VERTS = 14 // polygon vertices per coastline (before bezier smoothing)
+const JITTER_MIN = 0.9 // per-vertex radius factor lower bound (gentler than v3)
+const JITTER_MAX = 1.1 // …upper bound — a vertex can reach 1.10×baseR, so ALL caps
+//                        divide by JITTER_MAX to bound the MAX jittered extent.
+const INNER_RING = 0.8 // inner contour ring as a fraction of baseR (same seeded path)
 const OVERLAP_FRAC = 0.9 // a territory's farthest vertex may reach at most 90% of the
 //                          way to its nearest neighbour's anchor (touch, never swallow).
 const ROSE_MARGIN = 6 // px clearance between the farthest vertex and the rose disc edge.
@@ -86,12 +94,14 @@ function hash01(str: string): number {
 
 // Organic closed territory path: VERTS jittered radial points around (cx,cy), smoothed
 // with a closed Catmull-Rom → cubic-bezier conversion. Pure path math — no dependency.
-function territoryPath(cx: number, cy: number, baseR: number, slug: string): string {
+// `radiusScale` (default 1) reuses the IDENTICAL per-vertex jitter to draw a concentric
+// inner contour ring (radiusScale = INNER_RING) around the same anchor.
+function territoryPath(cx: number, cy: number, baseR: number, slug: string, radiusScale = 1): string {
   const pts: Array<{ x: number; y: number }> = []
   for (let i = 0; i < VERTS; i++) {
     const ang = (i / VERTS) * Math.PI * 2
     const j = JITTER_MIN + (JITTER_MAX - JITTER_MIN) * hash01(`${slug}:${i}`)
-    const r = baseR * j
+    const r = baseR * radiusScale * j
     pts.push({ x: cx + r * Math.cos(ang), y: cy + r * Math.sin(ang) })
   }
   const n = pts.length
@@ -108,6 +118,27 @@ function territoryPath(cx: number, cy: number, baseR: number, slug: string): str
     d += ` C ${c1x.toFixed(2)} ${c1y.toFixed(2)} ${c2x.toFixed(2)} ${c2y.toFixed(2)} ${p2.x.toFixed(2)} ${p2.y.toFixed(2)}`
   }
   return `${d} Z`
+}
+
+// Wrap a caption to at most 2 BALANCED lines (split point minimising the longer line) so
+// it stays inside its territory. ≤14 chars stays a single line. Deterministic — no layout
+// measurement, so it renders identically on server and client.
+function wrapCaption(text: string): string[] {
+  if (text.length <= 14) return [text]
+  const words = text.split(' ')
+  if (words.length < 2) return [text]
+  let bestI = 1
+  let bestMax = Infinity
+  for (let i = 1; i < words.length; i++) {
+    const l1 = words.slice(0, i).join(' ').length
+    const l2 = words.slice(i).join(' ').length
+    const m = Math.max(l1, l2)
+    if (m < bestMax) {
+      bestMax = m
+      bestI = i
+    }
+  }
+  return [words.slice(0, bestI).join(' '), words.slice(bestI).join(' ')]
 }
 
 export function PortraitMap({
@@ -157,8 +188,8 @@ export function PortraitMap({
   }
 
   // Build each territory. AREA ∝ score → radius ∝ √score. Both caps bound the MAX jittered
-  // extent (JITTER_MAX × baseR), NOT baseR — a vertex can reach 1.18×baseR, so we divide
-  // each cap by JITTER_MAX before clamping baseR.
+  // extent (JITTER_MAX × baseR), NOT baseR — a vertex can reach 1.10×baseR, so we divide
+  // each cap by JITTER_MAX before clamping baseR. The inner ring reuses the same seed.
   const territories = axes
     .map((s, i) => ({ s, i }))
     .filter((e) => e.s.score > 0 && ANCHORS[e.s.key])
@@ -176,6 +207,7 @@ export function PortraitMap({
         isDominant: e.i === dominantIdx,
         anchor: a,
         path: territoryPath(a.x, a.y, baseR, e.s.key),
+        innerPath: territoryPath(a.x, a.y, baseR, e.s.key, INNER_RING),
       }
     })
 
@@ -215,128 +247,148 @@ export function PortraitMap({
   const edgeCaption = ranked[1] ? (MAP_CAPTIONS[ranked[1].key] ?? null) : null
 
   return (
-    <div className="relative w-full max-w-[320px] mx-auto">
-      {/* FULL parchment terrain — background layer, sibling OUTSIDE the <svg> so it never
-          enters the share canvas. No frame on this view. */}
-      <div className="absolute inset-0 rounded-md overflow-hidden pointer-events-none">
-        {/* eslint-disable-next-line @next/next/no-img-element -- decorative full-bleed terrain, no optimization needed */}
-        <img src={MAP_TERRAIN_SRC} alt="" className="w-full h-full object-cover" />
+    <div className="relative w-full">
+      {/* MAP container — terrain + watermark + the shareable <svg>, capped at 320px. */}
+      <div className="relative w-full max-w-[320px] mx-auto">
+        {/* FULL parchment terrain — dimmed so the territories dominate; a sibling OUTSIDE
+            the <svg> so it never enters the share canvas. No frame on this view. */}
+        <div className="absolute inset-0 rounded-md overflow-hidden pointer-events-none">
+          {/* eslint-disable-next-line @next/next/no-img-element -- decorative full-bleed terrain, no optimization needed */}
+          <img src={MAP_TERRAIN_SRC} alt="" className="w-full h-full object-cover opacity-[0.45]" />
+        </div>
+
+        {/* Faint persona watermark — ready-state only, above the terrain, screen-only.
+            Gated on a non-empty URL so an absent/blank portrait never shows a "?". */}
+        {watermark && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <div className="relative w-[52%] aspect-square rounded-full overflow-hidden opacity-[0.07]">
+              <Image src={watermark} alt="" fill sizes="200px" className="object-cover" />
+            </div>
+          </div>
+        )}
+
+        <svg viewBox="0 0 360 264" className="relative w-full block" role="img" aria-label="Your theme map">
+          {hasSignal && territories.length > 0 && (
+            <>
+              {/* Territories — pure vector (serialize fine into the share card). A soft
+                  outline plus an inner contour ring (same seeded path @0.80× radius) reads
+                  as topography. Drawn first so labels (next pass) always sit on top. */}
+              {territories.map((t) => (
+                <g key={`terr-${t.key}`}>
+                  <path
+                    d={t.path}
+                    fill="#B89968"
+                    fillOpacity={t.isDominant ? 0.12 : 0.09}
+                    stroke="#8A7340"
+                    strokeOpacity={0.75}
+                    strokeWidth={1.0}
+                    strokeLinejoin="round"
+                  />
+                  <path
+                    d={t.innerPath}
+                    fill="none"
+                    stroke="#8A7340"
+                    strokeOpacity={0.25}
+                    strokeWidth={0.8}
+                    strokeLinejoin="round"
+                  />
+                </g>
+              ))}
+
+              {/* Labels pass — name (ink) + wrapped sub-caption (sepia) at the anchor, each
+                  with a vellum halo (paint-order stroke) so they read over fill and terrain. */}
+              {territories.map((t) => {
+                const capLines = MAP_CAPTIONS[t.key] ? wrapCaption(MAP_CAPTIONS[t.key]) : []
+                return (
+                  <g key={`label-${t.key}`}>
+                    <text
+                      x={t.anchor.x}
+                      y={t.anchor.y}
+                      textAnchor="middle"
+                      className="font-lora"
+                      fontSize={13}
+                      fontWeight={t.isDominant ? 600 : 500}
+                      fill="#1F1B14"
+                      stroke="#EFE3CC"
+                      strokeWidth={2.8}
+                      strokeLinejoin="round"
+                      paintOrder="stroke"
+                    >
+                      {t.label}
+                    </text>
+                    {capLines.length > 0 && (
+                      <text
+                        x={t.anchor.x}
+                        y={t.anchor.y}
+                        textAnchor="middle"
+                        className="font-lora"
+                        fontSize={9.5}
+                        fill="#8A7E6A"
+                        stroke="#EFE3CC"
+                        strokeWidth={2.0}
+                        strokeLinejoin="round"
+                        paintOrder="stroke"
+                      >
+                        {capLines.map((ln, i) => (
+                          <tspan key={i} x={t.anchor.x} dy={i === 0 ? 12 : 11}>
+                            {ln}
+                          </tspan>
+                        ))}
+                      </text>
+                    )}
+                  </g>
+                )
+              })}
+
+              {/* Decorative compass rose + needle. data-share-omit → the share pipeline
+                  removes the whole group (rose <image> + needle) so the shared map card
+                  shows neither, never an orphaned needle. No copy references it. */}
+              {needle && (
+                <g data-share-omit aria-hidden="true">
+                  <image
+                    href={ROSE_SRC}
+                    x={ROSE_CX - ROSE_W / 2}
+                    y={ROSE_CY - ROSE_W / 2}
+                    width={ROSE_W}
+                    height={ROSE_W}
+                    opacity={0.9}
+                    preserveAspectRatio="xMidYMid meet"
+                  />
+                  <line
+                    x1={ROSE_CX}
+                    y1={ROSE_CY}
+                    x2={needle.bx}
+                    y2={needle.by}
+                    stroke="#8A7340"
+                    strokeWidth={1.2}
+                    strokeLinecap="round"
+                  />
+                  <polygon points={needle.tip} fill="#8A7340" />
+                  <circle cx={ROSE_CX} cy={ROSE_CY} r={1.6} fill="#8A7340" />
+                </g>
+              )}
+            </>
+          )}
+        </svg>
       </div>
 
-      {/* Faint persona watermark — ready-state only, above the terrain, screen-only.
-          Gated on a non-empty URL so an absent/blank portrait never shows a "?". */}
-      {watermark && (
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <div className="relative w-[52%] aspect-square rounded-full overflow-hidden opacity-[0.07]">
-            <Image src={watermark} alt="" fill sizes="200px" className="object-cover" />
-          </div>
-        </div>
-      )}
-
-      <svg viewBox="0 0 360 264" className="relative w-full block" role="img" aria-label="Your theme map">
-        {hasSignal && territories.length > 0 && (
-          <>
-            {/* Territories — pure vector paths (serialize fine into the share card). The
-                dominant carries a slightly stronger fill; every border is the same bold
-                sepia. Drawn first so labels (next pass) always sit on top. */}
-            {territories.map((t) => (
-              <path
-                key={`terr-${t.key}`}
-                d={t.path}
-                fill="#B89968"
-                fillOpacity={t.isDominant ? 0.12 : 0.09}
-                stroke="#8A7340"
-                strokeWidth={1.4}
-                strokeLinejoin="round"
-              />
-            ))}
-
-            {/* Labels pass — name (ink) + sub-caption (sepia) at the anchor, each with a
-                vellum halo (paint-order stroke) so they read over fill and parchment. */}
-            {territories.map((t) => (
-              <g key={`label-${t.key}`}>
-                <text
-                  x={t.anchor.x}
-                  y={t.anchor.y}
-                  textAnchor="middle"
-                  className="font-lora"
-                  fontSize={t.isDominant ? 14 : 13}
-                  fontWeight={t.isDominant ? 600 : 500}
-                  fill="#1F1B14"
-                  stroke="#EFE3CC"
-                  strokeWidth={2.8}
-                  strokeLinejoin="round"
-                  paintOrder="stroke"
-                >
-                  {t.label}
-                </text>
-                {MAP_CAPTIONS[t.key] && (
-                  <text
-                    x={t.anchor.x}
-                    y={t.anchor.y}
-                    dy="1.35em"
-                    textAnchor="middle"
-                    className="font-lora"
-                    fontSize={10}
-                    fill="#8A7E6A"
-                    stroke="#EFE3CC"
-                    strokeWidth={2.2}
-                    strokeLinejoin="round"
-                    paintOrder="stroke"
-                  >
-                    {MAP_CAPTIONS[t.key]}
-                  </text>
-                )}
-              </g>
-            ))}
-
-            {/* Decorative compass rose + needle. data-share-omit → the share pipeline
-                removes the whole group (rose <image> + needle) so the shared map card
-                shows neither, never an orphaned needle. No copy references it. */}
-            {needle && (
-              <g data-share-omit aria-hidden="true">
-                <image
-                  href={ROSE_SRC}
-                  x={ROSE_CX - ROSE_W / 2}
-                  y={ROSE_CY - ROSE_W / 2}
-                  width={ROSE_W}
-                  height={ROSE_W}
-                  opacity={0.9}
-                  preserveAspectRatio="xMidYMid meet"
-                />
-                <line
-                  x1={ROSE_CX}
-                  y1={ROSE_CY}
-                  x2={needle.bx}
-                  y2={needle.by}
-                  stroke="#8A7340"
-                  strokeWidth={1.2}
-                  strokeLinecap="round"
-                />
-                <polygon points={needle.tip} fill="#8A7340" />
-                <circle cx={ROSE_CX} cy={ROSE_CY} r={1.6} fill="#8A7340" />
-              </g>
-            )}
-          </>
-        )}
-      </svg>
-
-      {/* Single-axis strip — two lines, inside the card, below the map. Each line names ONE
-          theme via its own caption; NO cross-theme relationship is implied or stated. */}
+      {/* Single-axis strip — a proper card BELOW the map (off the parchment). Two columns,
+          each naming ONE theme via its own caption; NO cross-theme relationship is implied
+          or stated. HTML (outside the <svg>) → never enters the share card. */}
       {hasSignal && pullCaption && (
-        <div className="relative mt-3 space-y-1 text-center">
-          <p className="font-lora text-[12px] text-charcoal leading-[1.5]">
-            <span className="text-sepia uppercase tracking-[0.14em] text-[10px]">Pull</span>
-            {' — '}
-            {pullCaption}
-          </p>
-          {edgeCaption && (
-            <p className="font-lora text-[12px] text-charcoal leading-[1.5]">
-              <span className="text-sepia uppercase tracking-[0.14em] text-[10px]">Edge</span>
-              {' — '}
-              {edgeCaption}
-            </p>
-          )}
+        <div className="mt-3 max-w-[320px] mx-auto rounded-lg border-[0.5px] border-bronze/30 bg-paper px-4 py-3">
+          <div className={edgeCaption ? 'grid grid-cols-2' : ''}>
+            <div className={edgeCaption ? 'pr-4' : ''}>
+              <p className="font-lora text-[10px] uppercase tracking-wide text-sepia">Pull</p>
+              <p className="font-lora text-[12px] text-charcoal leading-[1.4]">{pullCaption}</p>
+            </div>
+            {edgeCaption && (
+              <div className="pl-4 border-l border-bronze/20">
+                <p className="font-lora text-[10px] uppercase tracking-wide text-sepia">Edge</p>
+                <p className="font-lora text-[12px] text-charcoal leading-[1.4]">{edgeCaption}</p>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
