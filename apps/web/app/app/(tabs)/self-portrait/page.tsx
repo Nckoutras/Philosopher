@@ -524,16 +524,27 @@ export default function SelfPortraitPage() {
 
           {view === 'entry' ? (
             <>
+              {/* TITLE — wordmark + subtitle above the hero. Wordmark matches the shared
+                  header's styling; subtitle names this view. */}
+              <header className="space-y-2 text-center">
+                <p className="font-cormorant text-[13px] tracking-[0.25em] uppercase text-ink">
+                  The Wise Room
+                </p>
+                <h1 className="font-cormorant text-[26px] font-medium text-ink leading-tight">
+                  Your Self-Portrait
+                </h1>
+              </header>
+
               {/* HERO — first paint of this tab. Fixed svh height so the page never jumps
                   when the image decodes; soft bottom fade into the vellum page. */}
-              <div className="relative w-full h-[46vh] [height:46svh] rounded-lg overflow-hidden">
+              <div className="relative w-full h-[52vh] [height:52svh] rounded-lg overflow-hidden">
                 <Image
                   src="/self-portrait/hero.webp"
                   alt=""
                   fill
                   priority
                   sizes="(max-width: 420px) 100vw, 380px"
-                  className="object-cover scale-[1.45]"
+                  className="object-cover scale-[1.6]"
                 />
                 <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-b from-transparent to-vellum pointer-events-none" />
               </div>
