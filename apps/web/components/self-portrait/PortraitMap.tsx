@@ -1,69 +1,52 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Self-Portrait map (v3.1 — cartographic polish). A SECOND view of the SAME theme_scores
-// the radar uses. Each theme is a COUNTRY at a FIXED anchor forever ("stable world" — a
-// theme never relocates, only grows/shrinks), so the user recognizes their map over time
-// and a future then-vs-now view is trivial. Pure SVG path math over a parchment terrain
-// image, no library.
+// Self-Portrait map (v4 — static hand-drawn territories). A SECOND view of the SAME
+// theme_scores the radar uses. The base is now a HAND-DRAWN parchment map asset with 5
+// fixed blank territories (1 large, 1 medium, 3 small). We rank the 8 themes by score and
+// print the NAME + caption of each top-5 theme onto the territory matching its RANK
+// (rank-1 → largest … rank-5 → the last small one). Ranks 6-8 do not appear.
 //
-// • FIXED LAYOUT: the 8 frozen PORTRAIT_AXES slugs each own a hardcoded viewBox anchor
-//   (ANCHORS). A theme's territory always centers on its anchor.
-// • TERRITORY (v3.1): a seeded, deterministic organic closed path around the anchor —
-//   14 vertices, GENTLE jitter (0.90–1.10) from a hash of the theme SLUG (stable across
-//   reopens — a coastline never changes shape), smoothed catmull-rom → cubic bezier.
-//   AREA ∝ score (radius ∝ √score). A soft outline (1.0 @0.75) plus an inner CONTOUR ring
-//   — the SAME seeded path at 0.80× radius, no fill (0.8 @0.25) — makes each shape read as
-//   topography, not a blob. Zero-score themes DO NOT render.
-// • CAPS (applied to the MAX jittered extent JITTER_MAX×baseR, never just baseR):
-//     – overlap: territories may touch, never swallow — capped so the farthest vertex
-//       reaches at most OVERLAP_FRAC of the way to a neighbour's anchor.
-//     – rose: no vertex enters the lower-right compass-rose disc (+ margin).
-// • LABELS (v3.1): stacked + centered on the anchor — name (Lora 13, ink, vellum halo;
-//   dominant weight 600) then the sub-caption below, WRAPPED to ≤2 balanced lines (Lora
-//   9.5, sepia, same halo) so it stays inside its territory and never clips the viewBox.
-// • The terrain (map-terrain.webp) is dimmed to 0.45 so territories dominate; it's a FULL
-//   background sibling OUTSIDE the <svg> (like the radar's frame/watermark), so it never
-//   enters the share-card canvas or taints it. NB the asset has a compass baked into its
-//   lower-right corner co-located with the rose overlay; dimming lets the rose read as the
-//   one intentional compass.
+// This preserves "stable world" by RANK: a theme's slot is its CURRENT rank, so when the
+// ranking shifts the names move between the fixed territories — recognisable over time and
+// trivial to diff then-vs-now. No procedural shapes; the map art IS the territory.
+//
+// • BASE: map-territories.webp at full opacity (it IS the map — no dimming; no baked
+//   compass to fight). A FULL background sibling OUTSIDE the <svg> (like the radar's
+//   frame/watermark), so it never enters the share-card canvas or taints it.
+// • SLOTS: 5 fixed viewBox anchors (founder-confirmed centres), ordered by rank. Each
+//   carries a wrap width (large/medium 18 ch/line; the three small corner slots 14 ch/line
+//   so a caption never runs off the frame). Empty slots (fewer than 5 scored themes)
+//   render nothing.
+// • LABELS: stacked + centered on the slot anchor — name (Lora 13, ink, vellum halo;
+//   rank-1 weight 600) then the sub-caption below, WRAPPED to ≤3 lines (Lora 9.5, sepia,
+//   same halo) from selfPortraitMapCaptions.ts. The halo keeps small-slot captions legible
+//   where they overrun the blank onto the faint contour lines.
 // • NO connector paths between territories — we have NO theme-to-theme relationship data,
 //   and no UI copy anywhere may imply one.
-// • Compass rose + needle: UNCHANGED behaviour — the rose+needle group is tagged
-//   data-share-omit so the share pipeline strips it (the <image> can't resolve there —
-//   avoids an orphaned needle on the shared card).
+// • Compass rose + needle: the rose.webp overlay + needle stay in the data-share-omit group
+//   (the share pipeline strips it — the <image> can't resolve there, avoiding an orphaned
+//   needle). The needle points at SLOT_LARGE — the rank-1 (dominant) territory.
+// • Strip card (Pull/Edge) below the map: single-axis only, no cross-theme claim.
 // • Empty / all-zero → the same calm "keep answering" line, never a degenerate blob.
 // ─────────────────────────────────────────────────────────────────────────────
 import Image from 'next/image'
 import type { SelfPortraitThemeScore } from '@/lib/api'
 import { MAP_CAPTIONS } from '@/lib/selfPortraitMapCaptions'
 
-// Same-origin parchment terrain (B2 asset). Inlined like portraitShareCard's FRAME_SRC.
-const MAP_TERRAIN_SRC = '/self-portrait/map-terrain.webp'
+// Same-origin hand-drawn territory map (v4 asset). Full-bleed background, full opacity.
+const MAP_SRC = '/self-portrait/map-territories.webp'
 
-// ── FIXED anchors (viewBox 360×264) ───────────────────────────────────────────
-// The 8 frozen PORTRAIT_AXES slugs → their permanent territory centers. A balanced
-// spread whose lower-right corner is deliberately left empty for the compass rose.
-// These positions NEVER change: the "stable world" contract.
-const ANCHORS: Record<string, { x: number; y: number }> = {
-  identity: { x: 80, y: 60 },
-  fear: { x: 188, y: 54 },
-  freedom: { x: 294, y: 66 },
-  desire: { x: 74, y: 142 },
-  doubt: { x: 186, y: 128 },
-  duty: { x: 290, y: 136 },
-  connection: { x: 108, y: 210 },
-  meaning: { x: 216, y: 206 },
-}
-
-// ── Territory geometry ─────────────────────────────────────────────────────────
-const MAX_R = 44 // baseR of a score-1.0 (dominant) territory before caps
-const VERTS = 14 // polygon vertices per coastline (before bezier smoothing)
-const JITTER_MIN = 0.9 // per-vertex radius factor lower bound (gentler than v3)
-const JITTER_MAX = 1.1 // …upper bound — a vertex can reach 1.10×baseR, so ALL caps
-//                        divide by JITTER_MAX to bound the MAX jittered extent.
-const INNER_RING = 0.8 // inner contour ring as a fraction of baseR (same seeded path)
-const OVERLAP_FRAC = 0.9 // a territory's farthest vertex may reach at most 90% of the
-//                          way to its nearest neighbour's anchor (touch, never swallow).
-const ROSE_MARGIN = 6 // px clearance between the farthest vertex and the rose disc edge.
+// ── FIXED territory slots (viewBox 360×264), in RANK order ─────────────────────
+// Founder-confirmed centres of the 5 blank territories in the map art. rank-1 → LARGE,
+// rank-2 → MEDIUM, rank-3/4/5 → the three small ones (top-left, bottom-left, bottom-
+// center). `maxChars` is the per-slot caption wrap width: the three small CORNER slots use
+// a tighter width so a wide caption never runs off the viewBox edge.
+const SLOTS: Array<{ x: number; y: number; maxChars: number }> = [
+  { x: 252.0, y: 79.2, maxChars: 18 }, // LARGE  — rank 1 (top-right)
+  { x: 118.8, y: 134.6, maxChars: 18 }, // MEDIUM — rank 2 (center)
+  { x: 57.6, y: 55.4, maxChars: 14 }, // SMALL  — rank 3 (top-left corner)
+  { x: 52.2, y: 211.2, maxChars: 14 }, // SMALL  — rank 4 (bottom-left corner)
+  { x: 171.0, y: 212.5, maxChars: 14 }, // SMALL  — rank 5 (bottom-center)
+]
 
 // Decorative compass rose overlay (same-origin asset shared with the radar) + a dynamic
 // needle, lower-right. The rose+needle group is tagged data-share-omit so the share
@@ -72,73 +55,26 @@ const ROSE_SRC = '/self-portrait/rose.webp'
 const ROSE_CX = 310.7 // 86.3% of the 360-wide viewBox
 const ROSE_CY = 214.9 // 81.4% of the 264-tall viewBox
 const ROSE_W = 44 // decorative scale (half-width 22)
-const ROSE_HALF = ROSE_W / 2
 const NEEDLE_LEN = 22 // reaches the rose's outer edge
 
-// Deterministic [0,1) hash of a string (xfnv1a + avalanche). Seeded by `${slug}:${vertex}`
-// so a theme's coastline is identical on every reopen — only its scale (baseR) changes.
-// No Math.random(): stable-world shapes must be reproducible forever.
-function hash01(str: string): number {
-  let h = 2166136261 >>> 0
-  for (let i = 0; i < str.length; i++) {
-    h ^= str.charCodeAt(i)
-    h = Math.imul(h, 16777619)
-  }
-  h += h << 13
-  h ^= h >>> 7
-  h += h << 3
-  h ^= h >>> 17
-  h += h << 5
-  return ((h >>> 0) % 100000) / 100000
-}
-
-// Organic closed territory path: VERTS jittered radial points around (cx,cy), smoothed
-// with a closed Catmull-Rom → cubic-bezier conversion. Pure path math — no dependency.
-// `radiusScale` (default 1) reuses the IDENTICAL per-vertex jitter to draw a concentric
-// inner contour ring (radiusScale = INNER_RING) around the same anchor.
-function territoryPath(cx: number, cy: number, baseR: number, slug: string, radiusScale = 1): string {
-  const pts: Array<{ x: number; y: number }> = []
-  for (let i = 0; i < VERTS; i++) {
-    const ang = (i / VERTS) * Math.PI * 2
-    const j = JITTER_MIN + (JITTER_MAX - JITTER_MIN) * hash01(`${slug}:${i}`)
-    const r = baseR * radiusScale * j
-    pts.push({ x: cx + r * Math.cos(ang), y: cy + r * Math.sin(ang) })
-  }
-  const n = pts.length
-  let d = `M ${pts[0].x.toFixed(2)} ${pts[0].y.toFixed(2)}`
-  for (let i = 0; i < n; i++) {
-    const p0 = pts[(i - 1 + n) % n]
-    const p1 = pts[i]
-    const p2 = pts[(i + 1) % n]
-    const p3 = pts[(i + 2) % n]
-    const c1x = p1.x + (p2.x - p0.x) / 6
-    const c1y = p1.y + (p2.y - p0.y) / 6
-    const c2x = p2.x - (p3.x - p1.x) / 6
-    const c2y = p2.y - (p3.y - p1.y) / 6
-    d += ` C ${c1x.toFixed(2)} ${c1y.toFixed(2)} ${c2x.toFixed(2)} ${c2y.toFixed(2)} ${p2.x.toFixed(2)} ${p2.y.toFixed(2)}`
-  }
-  return `${d} Z`
-}
-
-// Wrap a caption to at most 2 BALANCED lines (split point minimising the longer line) so
-// it stays inside its territory. ≤14 chars stays a single line. Deterministic — no layout
-// measurement, so it renders identically on server and client.
-function wrapCaption(text: string): string[] {
-  if (text.length <= 14) return [text]
+// Wrap a caption to at most `maxLines` lines of ≤`maxChars` chars (greedy word-wrap) so it
+// stays inside its slot and the viewBox. Deterministic — no layout measurement, so it
+// renders identically on server and client. Small corner slots pass a tighter maxChars.
+function wrapCaption(text: string, maxChars: number, maxLines = 3): string[] {
   const words = text.split(' ')
-  if (words.length < 2) return [text]
-  let bestI = 1
-  let bestMax = Infinity
-  for (let i = 1; i < words.length; i++) {
-    const l1 = words.slice(0, i).join(' ').length
-    const l2 = words.slice(i).join(' ').length
-    const m = Math.max(l1, l2)
-    if (m < bestMax) {
-      bestMax = m
-      bestI = i
+  const lines: string[] = []
+  let cur = ''
+  for (const w of words) {
+    const cand = cur ? `${cur} ${w}` : w
+    if (cur && cand.length > maxChars && lines.length < maxLines - 1) {
+      lines.push(cur)
+      cur = w
+    } else {
+      cur = cand
     }
   }
-  return [words.slice(0, bestI).join(' '), words.slice(bestI).join(' ')]
+  if (cur) lines.push(cur)
+  return lines
 }
 
 export function PortraitMap({
@@ -156,74 +92,28 @@ export function PortraitMap({
   const watermark =
     typeof watermarkUrl === 'string' && watermarkUrl.trim().length > 0 ? watermarkUrl : null
 
-  // Ordinal rank of every axis: sort indices by score desc, tie-break by frozen order
-  // (lower index first) so it's deterministic and stable on reopen. rankOf[i] === 0 is the
-  // dominant. Drives the dominant's slightly stronger fill and the strip's Pull/Edge lines.
-  const rankOf = new Array<number>(axes.length)
-  axes
-    .map((_s, i) => i)
-    .sort((a, b) => {
-      const d = axes[b].score - axes[a].score
-      return d !== 0 ? d : a - b
-    })
-    .forEach((idx, r) => {
-      rankOf[idx] = r
-    })
-  const dominantIdx = axes.length > 0 ? axes.findIndex((_s, i) => rankOf[i] === 0) : -1
-
-  // Anchored axes that actually have a signal — the only ones that produce a territory.
-  const placed = axes.filter((s) => s.score > 0 && ANCHORS[s.key])
-
-  // Distance from an anchor to its NEAREST other placed anchor — the overlap cap basis.
-  const nearestAnchorDist = (key: string): number => {
-    const a = ANCHORS[key]
-    let min = Infinity
-    for (const o of placed) {
-      if (o.key === key) continue
-      const b = ANCHORS[o.key]
-      const d = Math.hypot(a.x - b.x, a.y - b.y)
-      if (d < min) min = d
-    }
-    return min === Infinity ? MAX_R : min
-  }
-
-  // Build each territory. AREA ∝ score → radius ∝ √score. Both caps bound the MAX jittered
-  // extent (JITTER_MAX × baseR), NOT baseR — a vertex can reach 1.10×baseR, so we divide
-  // each cap by JITTER_MAX before clamping baseR. The inner ring reuses the same seed.
-  const territories = axes
+  // Rank the axes by score desc, tie-break by frozen (incoming) order via a stable index —
+  // deterministic and stable on reopen. Keep only real signal; take the top-5.
+  const ranked = axes
     .map((s, i) => ({ s, i }))
-    .filter((e) => e.s.score > 0 && ANCHORS[e.s.key])
-    .map((e) => {
-      const a = ANCHORS[e.s.key]
-      const wantR = Math.sqrt(e.s.score) * MAX_R
-      const overlapCap = (OVERLAP_FRAC * nearestAnchorDist(e.s.key)) / JITTER_MAX
-      const roseDist = Math.hypot(a.x - ROSE_CX, a.y - ROSE_CY)
-      const roseCap = (roseDist - ROSE_HALF - ROSE_MARGIN) / JITTER_MAX
-      const baseR = Math.max(0, Math.min(wantR, overlapCap, roseCap))
-      return {
-        key: e.s.key,
-        label: e.s.label,
-        score: e.s.score,
-        isDominant: e.i === dominantIdx,
-        anchor: a,
-        path: territoryPath(a.x, a.y, baseR, e.s.key),
-        innerPath: territoryPath(a.x, a.y, baseR, e.s.key, INNER_RING),
-      }
-    })
+    .filter((e) => e.s.score > 0)
+    .sort((a, b) => b.s.score - a.s.score || a.i - b.i)
+    .map((e) => e.s)
 
-  // Compass needle → the highest-scoring NON-dominant territory's anchor (a 1:1 port of the
-  // prior "highest outer node" target; dominant excluded, best of the rest). Decorative:
-  // null when nothing qualifies, so it never points at nothing. Needle math UNCHANGED.
-  const needleTarget = territories
-    .filter((t) => !t.isDominant)
-    .reduce<(typeof territories)[number] | null>(
-      (best, o) => (best && best.score >= o.score ? best : o),
-      null,
-    )
-  const showCompass = hasSignal && !!needleTarget && needleTarget.score > 0
+  // Assign each top-5 theme to the slot matching its rank (rank-1 → SLOTS[0] = LARGE …).
+  const assigned = ranked.slice(0, SLOTS.length).map((axis, i) => ({
+    axis,
+    slot: SLOTS[i],
+    isDominant: i === 0,
+  }))
+
+  // Compass needle → SLOT_LARGE (the rank-1 / dominant territory). Decorative, so it only
+  // shows when there's signal (a rank-1 exists). Same atan2 + triangle-tip math as before,
+  // just a fixed target coordinate. Kept in the data-share-omit group.
   let needle: { bx: number; by: number; tip: string } | null = null
-  if (showCompass && needleTarget) {
-    const theta = Math.atan2(needleTarget.anchor.y - ROSE_CY, needleTarget.anchor.x - ROSE_CX)
+  if (hasSignal && assigned.length > 0) {
+    const target = SLOTS[0]
+    const theta = Math.atan2(target.y - ROSE_CY, target.x - ROSE_CX)
     const baseLen = NEEDLE_LEN - 6 // line stops short; a triangle forms the tip
     const bx = ROSE_CX + baseLen * Math.cos(theta)
     const by = ROSE_CY + baseLen * Math.sin(theta)
@@ -238,26 +128,21 @@ export function PortraitMap({
 
   // Single-axis strip lines (Pull = dominant, Edge = runner-up) from the SAME caption map.
   // No cross-theme sentence: the data cannot support theme-to-theme relationships.
-  const ranked = axes
-    .map((s, i) => ({ s, i }))
-    .filter((e) => e.s.score > 0)
-    .sort((a, b) => b.s.score - a.s.score || a.i - b.i)
-    .map((e) => e.s)
   const pullCaption = ranked[0] ? (MAP_CAPTIONS[ranked[0].key] ?? null) : null
   const edgeCaption = ranked[1] ? (MAP_CAPTIONS[ranked[1].key] ?? null) : null
 
   return (
     <div className="relative w-full">
-      {/* MAP container — terrain + watermark + the shareable <svg>, capped at 320px. */}
+      {/* MAP container — hand-drawn territory art + watermark + the shareable <svg>. */}
       <div className="relative w-full max-w-[320px] mx-auto">
-        {/* FULL parchment terrain — dimmed so the territories dominate; a sibling OUTSIDE
-            the <svg> so it never enters the share canvas. No frame on this view. */}
+        {/* FULL hand-drawn map — the base layer at full opacity; a sibling OUTSIDE the
+            <svg> so it never enters the share canvas. */}
         <div className="absolute inset-0 rounded-md overflow-hidden pointer-events-none">
-          {/* eslint-disable-next-line @next/next/no-img-element -- decorative full-bleed terrain, no optimization needed */}
-          <img src={MAP_TERRAIN_SRC} alt="" className="w-full h-full object-cover opacity-[0.45]" />
+          {/* eslint-disable-next-line @next/next/no-img-element -- decorative full-bleed map, no optimization needed */}
+          <img src={MAP_SRC} alt="" className="w-full h-full object-cover" />
         </div>
 
-        {/* Faint persona watermark — ready-state only, above the terrain, screen-only.
+        {/* Faint persona watermark — ready-state only, above the map, screen-only.
             Gated on a non-empty URL so an absent/blank portrait never shows a "?". */}
         {watermark && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
@@ -268,58 +153,36 @@ export function PortraitMap({
         )}
 
         <svg viewBox="0 0 360 264" className="relative w-full block" role="img" aria-label="Your theme map">
-          {hasSignal && territories.length > 0 && (
+          {hasSignal && assigned.length > 0 && (
             <>
-              {/* Territories — pure vector (serialize fine into the share card). A soft
-                  outline plus an inner contour ring (same seeded path @0.80× radius) reads
-                  as topography. Drawn first so labels (next pass) always sit on top. */}
-              {territories.map((t) => (
-                <g key={`terr-${t.key}`}>
-                  <path
-                    d={t.path}
-                    fill="#B89968"
-                    fillOpacity={t.isDominant ? 0.12 : 0.09}
-                    stroke="#8A7340"
-                    strokeOpacity={0.75}
-                    strokeWidth={1.0}
-                    strokeLinejoin="round"
-                  />
-                  <path
-                    d={t.innerPath}
-                    fill="none"
-                    stroke="#8A7340"
-                    strokeOpacity={0.25}
-                    strokeWidth={0.8}
-                    strokeLinejoin="round"
-                  />
-                </g>
-              ))}
-
-              {/* Labels pass — name (ink) + wrapped sub-caption (sepia) at the anchor, each
-                  with a vellum halo (paint-order stroke) so they read over fill and terrain. */}
-              {territories.map((t) => {
-                const capLines = MAP_CAPTIONS[t.key] ? wrapCaption(MAP_CAPTIONS[t.key]) : []
+              {/* Rank-assigned labels — name (ink) + wrapped sub-caption (sepia) centered on
+                  the slot anchor, each with a vellum halo (paint-order stroke) so they read
+                  over the parchment and, on small slots, the faint contour lines. */}
+              {assigned.map(({ axis, slot, isDominant }) => {
+                const capLines = MAP_CAPTIONS[axis.key]
+                  ? wrapCaption(MAP_CAPTIONS[axis.key], slot.maxChars)
+                  : []
                 return (
-                  <g key={`label-${t.key}`}>
+                  <g key={axis.key}>
                     <text
-                      x={t.anchor.x}
-                      y={t.anchor.y}
+                      x={slot.x}
+                      y={slot.y}
                       textAnchor="middle"
                       className="font-lora"
                       fontSize={13}
-                      fontWeight={t.isDominant ? 600 : 500}
+                      fontWeight={isDominant ? 600 : 500}
                       fill="#1F1B14"
                       stroke="#EFE3CC"
                       strokeWidth={2.8}
                       strokeLinejoin="round"
                       paintOrder="stroke"
                     >
-                      {t.label}
+                      {axis.label}
                     </text>
                     {capLines.length > 0 && (
                       <text
-                        x={t.anchor.x}
-                        y={t.anchor.y}
+                        x={slot.x}
+                        y={slot.y}
                         textAnchor="middle"
                         className="font-lora"
                         fontSize={9.5}
@@ -329,8 +192,8 @@ export function PortraitMap({
                         strokeLinejoin="round"
                         paintOrder="stroke"
                       >
-                        {capLines.map((ln, i) => (
-                          <tspan key={i} x={t.anchor.x} dy={i === 0 ? 12 : 11}>
+                        {capLines.map((ln, j) => (
+                          <tspan key={j} x={slot.x} dy={j === 0 ? 12 : 11}>
                             {ln}
                           </tspan>
                         ))}
@@ -340,9 +203,9 @@ export function PortraitMap({
                 )
               })}
 
-              {/* Decorative compass rose + needle. data-share-omit → the share pipeline
-                  removes the whole group (rose <image> + needle) so the shared map card
-                  shows neither, never an orphaned needle. No copy references it. */}
+              {/* Decorative compass rose + needle → SLOT_LARGE (rank-1). data-share-omit →
+                  the share pipeline removes the whole group (rose <image> + needle) so the
+                  shared map card shows neither, never an orphaned needle. */}
               {needle && (
                 <g data-share-omit aria-hidden="true">
                   <image
