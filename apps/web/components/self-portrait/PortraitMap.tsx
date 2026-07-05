@@ -25,7 +25,6 @@
 // • Compass rose + needle: the rose.webp overlay + needle stay in the data-share-omit group
 //   (the share pipeline strips it — the <image> can't resolve there, avoiding an orphaned
 //   needle). The needle points at SLOT_LARGE — the rank-1 (dominant) territory.
-// • Strip card (Pull/Edge) below the map: single-axis only, no cross-theme claim.
 // • Empty / all-zero → the same calm "keep answering" line, never a degenerate blob.
 // ─────────────────────────────────────────────────────────────────────────────
 import Image from 'next/image'
@@ -125,11 +124,6 @@ export function PortraitMap({
     const tip = `${pt(tipX, tipY)} ${pt(bx + hw * Math.cos(perp), by + hw * Math.sin(perp))} ${pt(bx - hw * Math.cos(perp), by - hw * Math.sin(perp))}`
     needle = { bx, by, tip }
   }
-
-  // Single-axis strip lines (Pull = dominant, Edge = runner-up) from the SAME caption map.
-  // No cross-theme sentence: the data cannot support theme-to-theme relationships.
-  const pullCaption = ranked[0] ? (MAP_CAPTIONS[ranked[0].key] ?? null) : null
-  const edgeCaption = ranked[1] ? (MAP_CAPTIONS[ranked[1].key] ?? null) : null
 
   return (
     <div className="relative w-full">
@@ -234,26 +228,6 @@ export function PortraitMap({
           )}
         </svg>
       </div>
-
-      {/* Single-axis strip — a proper card BELOW the map (off the parchment). Two columns,
-          each naming ONE theme via its own caption; NO cross-theme relationship is implied
-          or stated. HTML (outside the <svg>) → never enters the share card. */}
-      {hasSignal && pullCaption && (
-        <div className="mt-3 max-w-[320px] mx-auto rounded-lg border-[0.5px] border-bronze/30 bg-paper px-4 py-3">
-          <div className={edgeCaption ? 'grid grid-cols-2' : ''}>
-            <div className={edgeCaption ? 'pr-4' : ''}>
-              <p className="font-lora text-[10px] uppercase tracking-wide text-sepia">Pull</p>
-              <p className="font-lora text-[12px] text-charcoal leading-[1.4]">{pullCaption}</p>
-            </div>
-            {edgeCaption && (
-              <div className="pl-4 border-l border-bronze/20">
-                <p className="font-lora text-[10px] uppercase tracking-wide text-sepia">Edge</p>
-                <p className="font-lora text-[12px] text-charcoal leading-[1.4]">{edgeCaption}</p>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
 
       {/* No-signal calm line — same treatment as the radar, never a count. */}
       {!hasSignal && (
