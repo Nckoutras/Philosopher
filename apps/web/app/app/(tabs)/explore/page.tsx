@@ -19,6 +19,25 @@ const MINDS = [
   { slug: 'miyamoto_musashi', src: '/personas/miyamoto_musashi.webp', name: 'Miyamoto Musashi' },
 ]
 
+// Plain feature + storage lines. Rendered inline (no const module, per brief F). Each is
+// "what it does / where it's kept," second person, succinct. Pro tags only where a gate is
+// verified (Council, You vs You, Sunday Letter, deep mode); go-deeper is free 3/day.
+const CONVERSATION_TOOLS = [
+  'Go deeper — ask the same mind to press one level further. Free three times a day; unlimited on Pro.',
+  'Deep mode (Pro) — hold every reply at its most reflective for a whole conversation.',
+  'Bring another mind — pull a second thinker into the chat, then return to the first where you left off.',
+  'Ask the Council (Pro) — take one matter to four minds at once.',
+]
+
+const RITUAL_LINES = [
+  'The Mirror — once a week, your conversations read back to you in the voice of the mind you spent it with.',
+  'The Council (Pro) — one question, four thinkers, then the through-line across them. Save any reading.',
+  'You vs You (Pro) — the you who first raised something, beside the you reading it now, and what moved between them.',
+  'The Sunday Letter (Pro) — each week the room writes you a letter on where your attention has been. Write back, and your reply shapes the next one; read them in your Readings.',
+  'The Counterview — put a belief under pressure: two minds argue the case against it, never against you. Save the ones worth keeping.',
+  'A Message to Your Future Self — write to yourself now, set a date, and the room delivers it by email when that day comes.',
+]
+
 export default function ExplorePage() {
   return (
     <main
@@ -35,11 +54,11 @@ export default function ExplorePage() {
           </div>
 
           <header className="text-center space-y-2">
-            <h1 className="font-cormorant text-[26px] font-medium text-ink leading-tight">
+            <h1 className="font-cormorant text-[26px] font-semibold text-ink leading-tight">
               Explore The Wise Room
             </h1>
             <p className="font-lora text-[15px] italic text-charcoal leading-[1.65]">
-              Reflect with great thinkers — and meet who you were, and who you&rsquo;re becoming.
+              What each part does &mdash; and where your words are kept.
             </p>
           </header>
 
@@ -50,7 +69,7 @@ export default function ExplorePage() {
 
           <div className="flex justify-center my-7"><BronzeDivider width={64} /></div>
           <section className="space-y-3">
-            <h2 className="font-cormorant text-[20px] font-medium text-ink leading-tight">The minds.</h2>
+            <h2 className="font-cormorant text-[20px] font-semibold text-ink leading-tight">The minds</h2>
             <div className="grid grid-cols-3 gap-4">
               {MINDS.map((m) => (
                 <Link key={m.name} href={`/app/persona/${m.slug}`} className="flex flex-col items-center gap-1.5 transition-transform duration-150 active:scale-95">
@@ -62,38 +81,43 @@ export default function ExplorePage() {
               ))}
             </div>
             <p className="font-lora text-[15px] text-charcoal leading-[1.65]">
-              Eleven thinkers, each with their own voice, temperament, and way of
-              seeing. Socrates will question you. Marcus will steady you. Choose
-              who you need — or let the room choose for you.
+              Eleven thinkers, each with a distinct voice and way of seeing. Choose who you
+              need; tap a face to read who they are.
             </p>
           </section>
 
           <div className="flex justify-center my-7"><BronzeDivider width={64} /></div>
           <Link href="/app/explore/conversations" className="block transition-transform duration-150 active:scale-[0.99]">
-            <section className="space-y-2">
-              <h2 className="font-cormorant text-[20px] font-medium text-ink leading-tight">The conversations.</h2>
+            <section className="space-y-3">
+              <h2 className="font-cormorant text-[20px] font-semibold text-ink leading-tight">The conversations</h2>
               <p className="font-lora text-[15px] text-charcoal leading-[1.65]">
-                Bring what&rsquo;s on your mind. Speak plainly; they will not — they
-                listen closely, then press back, until you see an angle you&rsquo;d
-                missed: in the matter, and in yourself.
+                Bring what&rsquo;s on your mind. Speak plainly; they listen, then press back
+                until you see an angle you&rsquo;d missed. Every conversation is saved, so you
+                can pick any one back up.
               </p>
+              <ul className="space-y-1.5">
+                {CONVERSATION_TOOLS.map((line) => (
+                  <li key={line} className="font-lora text-[14px] text-charcoal leading-[1.55]">
+                    {line}
+                  </li>
+                ))}
+              </ul>
               <p className="font-lora text-[13px] text-bronze">See how the tools work &rarr;</p>
             </section>
           </Link>
 
           <div className="flex justify-center my-7"><BronzeDivider width={64} /></div>
           <section className="space-y-2">
-            <h2 className="font-cormorant text-[20px] font-medium text-ink leading-tight">The reflections.</h2>
+            <h2 className="font-cormorant text-[20px] font-semibold text-ink leading-tight">The reflections</h2>
             <p className="font-lora text-[15px] text-charcoal leading-[1.65]">
-              Everything worth keeping lives here: lines that moved you, verdicts
-              worth returning to. Revisit them, share them, or carry one to
-              another mind.
+              What you keep by hand collects here &mdash; lines that landed, verdicts worth
+              returning to &mdash; to revisit, share, or carry to another mind.
             </p>
           </section>
 
           <div className="flex justify-center my-7"><BronzeDivider width={64} /></div>
           <section className="space-y-3">
-            <h2 className="font-cormorant text-[20px] font-medium text-ink leading-tight">The rituals.</h2>
+            <h2 className="font-cormorant text-[20px] font-semibold text-ink leading-tight">The rituals</h2>
             <div className="grid grid-cols-2 gap-3">
               {RITUALS.map((r) => (
                 <Link key={r.slug} href={`/app/ritual/${r.slug}`} className="flex flex-col gap-1.5 transition-transform duration-150 active:scale-95">
@@ -105,18 +129,24 @@ export default function ExplorePage() {
               ))}
             </div>
             <p className="font-lora text-[15px] text-charcoal leading-[1.65]">
-              Beyond conversation, the room has its practices — <span className="italic">the Mirror</span>, <span className="italic">the Council</span>,
-              {' '}<span className="italic">You vs You</span>, <span className="italic">the Sunday Letter</span>, <span className="italic">the Counterview</span>, and <span className="italic">a Message to Your Future
-              Self</span>. Tap any one to see how it works.
+              Beyond conversation, the room has its set practices. Tap any card to see how it works.
             </p>
+            <ul className="space-y-2">
+              {RITUAL_LINES.map((line) => (
+                <li key={line} className="font-lora text-[14px] text-charcoal leading-[1.55]">
+                  {line}
+                </li>
+              ))}
+            </ul>
           </section>
 
           <div className="flex justify-center my-7"><BronzeDivider width={64} /></div>
           <section className="space-y-2">
-            <h2 className="font-cormorant text-[20px] font-medium text-ink leading-tight">The room remembers.</h2>
+            <h2 className="font-cormorant text-[20px] font-semibold text-ink leading-tight">The room remembers</h2>
             <p className="font-lora text-[15px] text-charcoal leading-[1.65]">
-              What you say stays with it. Week after week, it learns the shape of
-              your thinking — and reflects back what you couldn&rsquo;t see alone.
+              Some things the room keeps on its own. It notes the beliefs and patterns that
+              recur across your conversations and reflects them back as insights &mdash; then
+              uses them, week to week, to write your letters and sharpen what it asks.
             </p>
           </section>
 
