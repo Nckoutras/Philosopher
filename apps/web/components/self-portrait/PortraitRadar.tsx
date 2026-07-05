@@ -165,7 +165,7 @@ export function PortraitRadar({
             <polygon
               points={polygonPoints(selected.map((s) => R * Math.max(0, Math.min(1, s.score))))}
               fill="#B89968"
-              fillOpacity={0.3}
+              fillOpacity={0.4}
               stroke="#8A7340"
               strokeWidth={1.2}
               strokeLinejoin="round"
