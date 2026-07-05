@@ -1,7 +1,7 @@
 'use client'
 
 import type { ReactNode } from 'react'
-import { Zap, Users, Bookmark, Sparkle } from 'lucide-react'
+import { Zap, Users, Bookmark, Sparkle, Landmark, ArrowRight } from 'lucide-react'
 import SubPageNav from '@/components/layout/SubPageNav'
 import { BronzeDivider } from '@/components/ui/BronzeDivider'
 
@@ -14,12 +14,13 @@ const CHIP =
 const CHIP_INSIGHT =
   'bg-paper text-ink border-[0.5px] border-bronze px-[10px] py-[6px] font-lora text-[13px] rounded-sm inline-flex items-center gap-[5px] shadow-[0_0_8px_rgba(184,153,104,0.45)]'
 
-function Tool({ chip, title, children }: { chip: ReactNode; title: string; children: ReactNode }) {
+function Tool({ chip, title, sub, children }: { chip: ReactNode; title: string; sub?: ReactNode; children: ReactNode }) {
   return (
     <section className="space-y-[10px]">
       <div>{chip}</div>
       <h2 className="font-cormorant text-[20px] font-medium text-ink leading-tight">{title}</h2>
       <p className="font-lora text-[15px] text-charcoal leading-[1.65]">{children}</p>
+      {sub && <div className="flex flex-wrap items-center gap-[8px]">{sub}</div>}
     </section>
   )
 }
@@ -69,16 +70,60 @@ export default function ConversationsGuidePage() {
 
             <Tool
               chip={
+                <span className="inline-flex items-center gap-[6px] rounded-full border-[0.5px] px-[10px] py-[5px] font-lora text-[12px] border-bronze bg-bronze/10 text-bronze-dark">
+                  <span aria-hidden="true" className="w-[7px] h-[7px] rounded-full bg-bronze" />
+                  <span>Deep mode</span>
+                </span>
+              }
+              title="Deep mode."
+            >
+              Hold every reply at its most reflective, for the whole conversation. The toggle
+              sits in the header, above the talk; switch it on and each answer stays deep until
+              you turn it off. Part of Pro.
+            </Tool>
+
+            <div className="flex justify-center"><BronzeDivider width={64} /></div>
+
+            <Tool
+              chip={
                 <span className={CHIP}>
                   <Users size={11} strokeWidth={1.5} aria-hidden="true" />
                   <span>Bring another mind</span>
                 </span>
               }
               title="Bring another mind."
+              sub={
+                <>
+                  <span className={CHIP}>
+                    <ArrowRight size={11} strokeWidth={1.5} aria-hidden="true" />
+                    <span>Continue with Marcus Aurelius</span>
+                  </span>
+                  <span className="font-lora text-[12px] text-sepia">&larr; Return to Socrates</span>
+                </>
+              }
             >
-              Invite a second thinker onto the very same point — a different temperament,
-              a different angle. Use it when you want contrast, or to test what you just
-              heard against another voice. Some minds are part of Pro.
+              Invite a second thinker onto the same point &mdash; a different temperament, a
+              different angle. Their reply arrives marked <em>brought in</em>. If it&rsquo;s
+              worth staying with, <em>Continue with</em> them and they become the mind
+              you&rsquo;re speaking to; <em>&larr; Return to</em> the first, at the top, takes
+              you back to where you began. Some minds are part of Pro.
+            </Tool>
+
+            <div className="flex justify-center"><BronzeDivider width={64} /></div>
+
+            <Tool
+              chip={
+                <span className={CHIP}>
+                  <Landmark size={11} strokeWidth={1.5} aria-hidden="true" />
+                  <span>Ask the Council</span>
+                </span>
+              }
+              title="Ask the Council."
+            >
+              Take what you&rsquo;re discussing to four minds at once. Each answers in turn,
+              then the room draws the line that runs through them. Reach for it when a single
+              voice isn&rsquo;t enough &mdash; when a question deserves a panel. The Council is
+              part of Pro.
             </Tool>
 
             <div className="flex justify-center"><BronzeDivider width={64} /></div>
