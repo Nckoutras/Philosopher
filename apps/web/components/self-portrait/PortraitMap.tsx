@@ -149,9 +149,10 @@ export function PortraitMap({
         <svg viewBox="0 0 360 264" className="relative w-full block" role="img" aria-label="Your theme map">
           {hasSignal && assigned.length > 0 && (
             <>
-              {/* Rank-assigned labels — name (ink) + wrapped sub-caption (sepia) centered on
-                  the slot anchor, each with a vellum halo (paint-order stroke) so they read
-                  over the parchment and, on small slots, the faint contour lines. */}
+              {/* Rank-assigned labels — name (dominant=ink #1F1B14, others=bronze-dark
+                  #8A7340) + wrapped sub-caption (sepia) centered on the slot anchor, each with
+                  a vellum halo (paint-order stroke) so they read over the parchment and, on
+                  small slots, the faint contour lines. The dominant also gets an X marker. */}
               {assigned.map(({ axis, slot, isDominant }) => {
                 const capLines = MAP_CAPTIONS[axis.key]
                   ? wrapCaption(MAP_CAPTIONS[axis.key], slot.maxChars)
@@ -165,7 +166,7 @@ export function PortraitMap({
                       className="font-lora"
                       fontSize={13}
                       fontWeight={isDominant ? 600 : 500}
-                      fill="#1F1B14"
+                      fill={isDominant ? '#1F1B14' : '#8A7340'}
                       stroke="#EFE3CC"
                       strokeWidth={2.8}
                       strokeLinejoin="round"
@@ -179,7 +180,7 @@ export function PortraitMap({
                         y={slot.y}
                         textAnchor="middle"
                         className="font-lora"
-                        fontSize={9.5}
+                        fontSize={11}
                         fill="#8A7E6A"
                         stroke="#EFE3CC"
                         strokeWidth={2.0}
@@ -187,12 +188,33 @@ export function PortraitMap({
                         paintOrder="stroke"
                       >
                         {capLines.map((ln, j) => (
-                          <tspan key={j} x={slot.x} dy={j === 0 ? 12 : 11}>
+                          <tspan key={j} x={slot.x} dy={j === 0 ? 16 : 13}>
                             {ln}
                           </tspan>
                         ))}
                       </text>
                     )}
+
+                    {/* X-marks-the-spot — a discreet hand-drawn cross above the DOMINANT
+                        territory's name (clear of name + caption below). Vellum halo underlay
+                        (stroke 3.2) then bronze-dark strokes (1.4) so it reads over parchment.
+                        NOT in data-share-omit → it appears on the shared card too. */}
+                    {isDominant &&
+                      (() => {
+                        const cx = slot.x
+                        const cy = slot.y - 22
+                        const h = 4
+                        return (
+                          <g strokeLinecap="round" fill="none">
+                            {/* halo underlay */}
+                            <line x1={cx - h} y1={cy - h} x2={cx + h} y2={cy + h} stroke="#EFE3CC" strokeWidth={3.2} />
+                            <line x1={cx - h} y1={cy + h} x2={cx + h} y2={cy - h} stroke="#EFE3CC" strokeWidth={3.2} />
+                            {/* cross */}
+                            <line x1={cx - h} y1={cy - h} x2={cx + h} y2={cy + h} stroke="#8A7340" strokeWidth={1.4} />
+                            <line x1={cx - h} y1={cy + h} x2={cx + h} y2={cy - h} stroke="#8A7340" strokeWidth={1.4} />
+                          </g>
+                        )
+                      })()}
                   </g>
                 )
               })}
