@@ -94,13 +94,20 @@ export default function ExplorePage() {
           </Link>
 
           <div className="flex justify-center my-7"><BronzeDivider width={64} /></div>
-          <section className="space-y-2">
-            <h2 className="font-cormorant text-[20px] font-semibold text-ink leading-tight">The reflections</h2>
-            <p className="font-lora text-[15px] text-charcoal leading-[1.65]">
-              What you keep by hand collects here &mdash; lines that landed, verdicts worth
-              returning to &mdash; to revisit, share, or carry to another mind.
-            </p>
-          </section>
+          <Link href="/app/explore/reflections" className="block transition-transform duration-150 active:scale-[0.99]">
+            <section className="space-y-3">
+              <h2 className="font-cormorant text-[20px] font-semibold text-ink leading-tight">The reflections</h2>
+              <p className="font-lora text-[15px] text-charcoal leading-[1.65]">
+                What you keep by hand collects here &mdash; lines that landed, verdicts worth
+                returning to &mdash; to revisit, share, or carry to another mind.
+              </p>
+              <div className="rounded-[12px] overflow-hidden shadow-card">
+                <Image src="/self-portrait/reflections.webp" alt="The reflections"
+                  width={1200} height={675} className="w-full h-auto" />
+              </div>
+              <p className="font-lora text-[13px] text-bronze">See what gathers here &rarr;</p>
+            </section>
+          </Link>
 
           <div className="flex justify-center my-7"><BronzeDivider width={64} /></div>
           <section className="space-y-3">
