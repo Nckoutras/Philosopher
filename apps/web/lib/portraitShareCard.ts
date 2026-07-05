@@ -2,9 +2,12 @@
 // Self-Portrait shareable card (Phase B, v2 — recomposed to the new radar aesthetic).
 // CLIENT-SIDE, UNGATED, no server, no Pillow. Serializes the ACTIVE on-screen <svg>
 // (radar OR map — whichever is showing, read via a ref by the caller), composites a
-// 1080×1350 (4:5) card — vellum bg, a thin bronze plate border, the framed viz, and a
-// brand strip (wordmark + optional QR + URL) — and returns a PNG Blob fed to
-// navigator.share (+ download fallback). Save and Share consume this one path.
+// 1080×1350 (4:5) card — vellum bg, a thin bronze plate border, a top brand eyebrow +
+// "Your Self-Portrait" title, the (now larger) framed viz, the deterministic summary line,
+// and a footer cluster (smaller/lower QR + "thewiseroom.app" + the render date) — and
+// returns a PNG Blob fed to navigator.share (+ download fallback). Save and Share consume
+// this one path. The summary line is passed IN (the on-screen <p> is outside the captured
+// SVG); a null summary skips its band entirely.
 //
 // Two v2 fixes vs the on-screen restyle:
 //  • UN-CLIPPED LABELS: the on-screen radar overflows its tight 360×270 viewBox
@@ -42,12 +45,26 @@ const USE_SHARE_QR = true
 const SER = { x: -44, y: -8, w: 420, h: 272 }
 const RENDER_SCALE = 3 // rasterize the SVG at 3× for crisp text, drawn down
 
-// Viz AREA on the card — the active viz is fit into this box preserving aspect (so the
-// radar's 420:272 and the map's 360:264 are each undistorted), then the brand sits below.
-const VIZ_X = 90
-const VIZ_Y = 150
-const VIZ_W = 900
-const VIZ_MAX_H = 600
+// Viz AREA on the card (C2 recomposition — larger than the previous 90/150/900/600). The
+// active viz is fit into this box preserving aspect (so the radar's 420:272 and the map's
+// 360:264 are each undistorted). The title sits above (y≈108–172); the summary line + QR +
+// date sit below. Old box 900×600 → new 950×615 (radar +11% area, map wider & taller).
+const VIZ_X = 65
+const VIZ_Y = 205
+const VIZ_W = 950
+const VIZ_MAX_H = 615
+
+// ── C2 footer/text layout constants (canvas px; see the approved STEP-1 y-map) ──────────
+const EYEBROW_Y = 108 // "THE WISE ROOM" brand eyebrow baseline
+const TITLE_Y = 172 // "Your Self-Portrait" title baseline
+const SUMMARY_TOP = 852 // top of the summary band (first baseline = SUMMARY_TOP + size)
+const SUMMARY_SIZE = 30 // Lora px for the summary line (worst-case wraps to ≤4 lines)
+const SUMMARY_LH = 42 // summary line-height (~1.4)
+const SUMMARY_MAXW = 900 // summary wrap width (centered → 90px margin each side)
+const QR_SIZE = 150 // smaller than the old 240
+const QR_Y = 1050 // lower than the old 875
+const URL_Y = 1240 // "thewiseroom.app" baseline, beneath the QR
+const DATE_Y = 1278 // render-date baseline, near the footer
 
 // Radar center + rose size in viewBox units (mirror PortraitRadar: R=116, ROSE=R·0.55).
 const RADAR_CX = 180
@@ -112,6 +129,38 @@ function roundRectPath(
   ctx.closePath()
 }
 
+// Greedy word-wrap using the REAL canvas metrics (ctx.measureText) so line-breaks are exact
+// on the actual device — no headless estimate. `ctx.font` must already be set to the target
+// face/size. Returns one string per line, never breaking mid-word.
+function wrapCanvasText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string[] {
+  const words = text.split(' ')
+  const lines: string[] = []
+  let cur = ''
+  for (const w of words) {
+    const cand = cur ? `${cur} ${w}` : w
+    if (cur && ctx.measureText(cand).width > maxWidth) {
+      lines.push(cur)
+      cur = w
+    } else {
+      cur = cand
+    }
+  }
+  if (cur) lines.push(cur)
+  return lines
+}
+
+// Render-time date, formatted "5 July 2026" (en-GB long). Dates the snapshot being shared;
+// no backend field exists, so this is the render date by design.
+function renderDateLabel(): string {
+  try {
+    return new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }).format(
+      new Date(),
+    )
+  } catch {
+    return ''
+  }
+}
+
 // Serialize the active svg to a data-URL <img> under the given serialization viewBox.
 // Three things baked in:
 //  • re-viewBox to `ser` (expanded for the radar so overflow labels rasterize, own box
@@ -141,7 +190,10 @@ function svgToDataUrl(svg: SVGSVGElement, ser: ViewBox): string {
  * Composite the 1080×1350 share card from the active radar/map <svg>. Returns a PNG
  * Blob. Throws on a missing canvas context or a null toBlob (caller surfaces an error).
  */
-export async function renderPortraitCardBlob(svg: SVGSVGElement): Promise<Blob> {
+export async function renderPortraitCardBlob(
+  svg: SVGSVGElement,
+  summaryLine: string | null,
+): Promise<Blob> {
   // Ensure the real webfonts are loaded before any canvas fillText (canvas text DOES
   // use page-loaded faces, unlike a sandboxed serialized-SVG <img>).
   if (typeof document !== 'undefined' && document.fonts?.ready) {
@@ -201,7 +253,7 @@ export async function renderPortraitCardBlob(svg: SVGSVGElement): Promise<Blob> 
   // 4. The active viz — radar labels UN-CLIPPED via the expanded viewBox; map undistorted.
   ctx.drawImage(vizImg, dest.x, dest.y, dest.w, dest.h)
 
-  // 5. Brand strip — real fonts via the next/font CSS vars (read off <body>, where the
+  // 5. Text + footer — real fonts via the next/font CSS vars (read off <body>, where the
   //    .variable class resolves them to the actual loaded family names).
   const css = getComputedStyle(document.body)
   const cormorant = css.getPropertyValue('--font-cormorant').trim() || 'Georgia, serif'
@@ -210,20 +262,44 @@ export async function renderPortraitCardBlob(svg: SVGSVGElement): Promise<Blob> 
   ctx.textAlign = 'center'
   ctx.textBaseline = 'alphabetic'
 
-  // Wordmark (italic 500 — matches the app's synthetic-italic Cormorant brandmark).
-  ctx.fillStyle = INK
-  ctx.font = `italic 500 46px ${cormorant}`
-  ctx.fillText('The Wise Room', CARD_W / 2, 825)
-
-  // QR (optional) + URL, balanced in the space below the viz area.
+  // 5a. Brand eyebrow (tracked caps) + title, above the viz. letterSpacing isn't in every
+  //     lib.dom typings / engine, so set it through a guarded cast (no-op where absent).
+  const spaced = ctx as CanvasRenderingContext2D & { letterSpacing?: string }
   ctx.fillStyle = BRONZE_DARK
-  ctx.font = `400 30px ${lora}`
+  ctx.font = `500 22px ${cormorant}`
+  spaced.letterSpacing = '4px'
+  ctx.fillText('THE WISE ROOM', CARD_W / 2, EYEBROW_Y)
+  spaced.letterSpacing = '0px'
+
+  ctx.fillStyle = INK
+  ctx.font = `500 54px ${cormorant}`
+  ctx.fillText('Your Self-Portrait', CARD_W / 2, TITLE_Y)
+
+  // 5b. Summary line — the deterministic sentence passed in (the on-screen <p> is outside
+  //     the captured SVG). Wrapped with the REAL canvas metrics. Null → skip the band
+  //     entirely (no crash, no "null"; the space simply stays empty).
+  if (summaryLine) {
+    ctx.fillStyle = INK
+    ctx.font = `400 ${SUMMARY_SIZE}px ${lora}`
+    const lines = wrapCanvasText(ctx, summaryLine, SUMMARY_MAXW)
+    lines.forEach((ln, i) => {
+      ctx.fillText(ln, CARD_W / 2, SUMMARY_TOP + SUMMARY_SIZE + i * SUMMARY_LH)
+    })
+  }
+
+  // 5c. Footer cluster — smaller/lower QR (optional; drawn only if it loaded), the URL
+  //     beneath it, and the render date near the plate's bottom edge.
   if (qrImg) {
-    const QR = 240
-    ctx.drawImage(qrImg, (CARD_W - QR) / 2, 875, QR, QR)
-    ctx.fillText('thewiseroom.app', CARD_W / 2, 1180)
-  } else {
-    ctx.fillText('thewiseroom.app', CARD_W / 2, 895)
+    ctx.drawImage(qrImg, (CARD_W - QR_SIZE) / 2, QR_Y, QR_SIZE, QR_SIZE)
+  }
+  ctx.fillStyle = BRONZE_DARK
+  ctx.font = `400 28px ${lora}`
+  ctx.fillText('thewiseroom.app', CARD_W / 2, URL_Y)
+
+  const dateLabel = renderDateLabel()
+  if (dateLabel) {
+    ctx.font = `400 22px ${lora}`
+    ctx.fillText(dateLabel, CARD_W / 2, DATE_Y)
   }
 
   // 6. Encode.

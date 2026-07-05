@@ -414,7 +414,7 @@ export default function SelfPortraitPage() {
     setSharePreviewUrl(null)
     shareBlobRef.current = null
     try {
-      const blob = await renderPortraitCardBlob(svg)
+      const blob = await renderPortraitCardBlob(svg, summaryLine)
       shareBlobRef.current = blob
       setSharePreviewUrl(URL.createObjectURL(blob))
     } catch {
@@ -433,7 +433,7 @@ export default function SelfPortraitPage() {
     if (!svg || saveBusy) return
     setSaveBusy(true)
     try {
-      const blob = await renderPortraitCardBlob(svg)
+      const blob = await renderPortraitCardBlob(svg, summaryLine)
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
