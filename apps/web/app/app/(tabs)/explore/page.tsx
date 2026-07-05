@@ -19,16 +19,6 @@ const MINDS = [
   { slug: 'miyamoto_musashi', src: '/personas/miyamoto_musashi.webp', name: 'Miyamoto Musashi' },
 ]
 
-// Plain feature + storage lines. Rendered inline (no const module, per brief F). Each is
-// "what it does / where it's kept," second person, succinct. Pro tags only where a gate is
-// verified (Council, You vs You, Sunday Letter, deep mode); go-deeper is free 3/day.
-const CONVERSATION_TOOLS = [
-  'Go deeper — ask the same mind to press one level further. Free three times a day; unlimited on Pro.',
-  'Deep mode (Pro) — hold every reply at its most reflective for a whole conversation.',
-  'Bring another mind — pull a second thinker into the chat, then return to the first where you left off.',
-  'Ask the Council (Pro) — take one matter to four minds at once.',
-]
-
 const RITUAL_LINES = [
   'The Mirror — once a week, your conversations read back to you in the voice of the mind you spent it with.',
   'The Council (Pro) — one question, four thinkers, then the through-line across them. Save any reading.',
@@ -95,13 +85,10 @@ export default function ExplorePage() {
                 until you see an angle you&rsquo;d missed. Every conversation is saved, so you
                 can pick any one back up.
               </p>
-              <ul className="space-y-1.5">
-                {CONVERSATION_TOOLS.map((line) => (
-                  <li key={line} className="font-lora text-[14px] text-charcoal leading-[1.55]">
-                    {line}
-                  </li>
-                ))}
-              </ul>
+              <div className="rounded-[12px] overflow-hidden shadow-card">
+                <Image src="/self-portrait/theconversations.webp" alt="The conversations"
+                  width={1200} height={675} className="w-full h-auto" />
+              </div>
               <p className="font-lora text-[13px] text-bronze">See how the tools work &rarr;</p>
             </section>
           </Link>
