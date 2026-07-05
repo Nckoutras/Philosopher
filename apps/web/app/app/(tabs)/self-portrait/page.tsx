@@ -19,6 +19,7 @@ import {
 import { PortraitRadar } from '@/components/self-portrait/PortraitRadar'
 import { PortraitMap } from '@/components/self-portrait/PortraitMap'
 import { renderPortraitCardBlob, sharePortraitCardBlob } from '@/lib/portraitShareCard'
+import { buildSummary } from '@/lib/selfPortraitSummary'
 import { User, Shield, Feather, Flame, HelpCircle, Anchor, Users, Compass, Check, ArrowRight, Sparkle, Leaf } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { topObservationCards, type CardIcon } from '@/lib/selfPortraitObservationCards'
@@ -395,6 +396,12 @@ export default function SelfPortraitPage() {
   // B (mock): deterministic top-3 observation cards (frozen slug→copy map, no LLM/counts).
   // Empty when there's no signal, so cards render only alongside a real viz.
   const observationCards = portraitHasSignal ? topObservationCards(portrait?.theme_scores) : []
+
+  // C1: the deterministic one-line summary ("The Wise Room says: …") — top-2 axes, frozen
+  // clauses, no LLM/counts. Replaces the old Pull/Edge strip; shown under BOTH the radar and
+  // map. buildSummary returns null without real signal, so the line renders only alongside a
+  // real viz.
+  const summaryLine = buildSummary(portrait?.theme_scores)
 
   // Open the share preview: render the card from the ACTIVE svg up-front (the heavy
   // async work — fonts.ready, decode, toBlob), so the later "Share" tap fires
@@ -941,6 +948,16 @@ export default function SelfPortraitPage() {
                       />
                     )}
                   </div>
+
+                  {/* C1: deterministic summary line — one calm sentence naming the two
+                      strongest leanings. Rendered ONCE here (below the viz) so it shows under
+                      BOTH the radar and the map (replacing the old map-only Pull/Edge strip).
+                      Only when there's real signal (buildSummary → null otherwise). */}
+                  {summaryLine && (
+                    <p className="font-lora text-[13px] text-charcoal leading-relaxed text-center">
+                      {summaryLine}
+                    </p>
+                  )}
 
                   {/* Observation cards — TOP-3 axes, deterministic frozen copy (no counts).
                       3-across, thin bronze border, transparent bg. */}
