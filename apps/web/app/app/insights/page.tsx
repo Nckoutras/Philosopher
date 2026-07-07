@@ -17,6 +17,8 @@ import SharePreviewModal from '@/components/share/SharePreviewModal'
 export default function InsightsPage() {
   const router = useRouter()
   const token = useStore((s) => s.token)
+  const plan = useStore((s) => s.plan)
+  const isPro = plan === 'pro' || plan === 'premium'
   const [insights, setInsights] = useState<Insight[]>([])
   const [recentLine, setRecentLine] = useState<RecentSavedLine | null>(null)
   const [pickerOpen, setPickerOpen] = useState(false)
@@ -52,6 +54,25 @@ export default function InsightsPage() {
   }
 
   function handlePrimary(insight: Insight) {
+    // Slice 2 doorways — SAME semantics as the in-chat chip (conv/[id]): a
+    // dilemma/belief must present the same door wherever the insight appears.
+    if (insight.insight_type === 'dilemma') {
+      if (!isPro) {
+        router.push('/app/upgrade')
+        return
+      }
+      sessionStorage.setItem('council_prefill', insight.content.slice(0, 600))
+      sessionStorage.setItem('council_source', 'nudge')
+      if (insight.conversation_id) {
+        sessionStorage.setItem('council_conversation_id', insight.conversation_id)
+      }
+      router.push('/app/council')
+      return
+    }
+    if (insight.insight_type === 'belief') {
+      router.push(`/app/counterview?insightId=${insight.id}`)
+      return
+    }
     router.push(
       insight.insight_type === 'shift'
         ? '/app/you-vs-you'

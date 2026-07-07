@@ -2,6 +2,13 @@
 
 import { Sparkle } from 'lucide-react'
 
+// Frozen app-voice observation line shown above the quoted user statement for the
+// doorway insight types (Slice 2). Absent for pattern/shift, which render unchanged.
+const OBSERVATION_LINES: Record<string, string> = {
+  dilemma: 'This sounds like a decision with two sides.',
+  belief: 'This sounds like a belief you lean on.',
+}
+
 interface Props {
   content: string
   insightType: string | null
@@ -27,7 +34,21 @@ interface Props {
 // to You-vs-You; everything else reflects in the Mirror.
 export default function InsightCard({ content, insightType, sourceCount, onPrimary, onDoubt, onDiscard, variant = 'chat' }: Props) {
   const showProvenance = sourceCount != null && sourceCount >= 2
-  const primaryLabel = insightType === 'shift' ? 'See how this changed' : 'Reflect in the Mirror'
+  // Doorway types (Slice 2): the user's own words get an app-voice observation line
+  // above and are quoted below; the primary is a distinct door per type.
+  const isDoorway = insightType === 'dilemma' || insightType === 'belief'
+  const observationLine = insightType ? OBSERVATION_LINES[insightType] : undefined
+  const primaryLabel =
+    insightType === 'dilemma'
+      ? 'Take it to the Council'
+      : insightType === 'belief'
+        ? 'Put it under pressure'
+        : insightType === 'shift'
+          ? 'See how this changed'
+          : 'Reflect in the Mirror'
+  // A belief's primary IS the counterview door, so the 'Doubt this' secondary would
+  // be redundant — hidden for that type only. All other types keep both secondaries.
+  const showDoubt = insightType !== 'belief'
   const containerClass =
     variant === 'today'
       ? 'bg-paper border-[0.5px] border-bronze rounded-md pt-[18px] px-[18px] pb-[14px] shadow-card'
@@ -40,6 +61,12 @@ export default function InsightCard({ content, insightType, sourceCount, onPrima
       {showProvenance && (
         <p className="font-lora text-[10px] text-sepia mt-[3px]">
           Noticed across {sourceCount} of your conversations
+        </p>
+      )}
+
+      {observationLine && (
+        <p className="font-lora text-[13px] text-charcoal mt-[8px] leading-[1.5]">
+          {observationLine}
         </p>
       )}
 
@@ -59,7 +86,7 @@ export default function InsightCard({ content, insightType, sourceCount, onPrima
           <Sparkle size={13} strokeWidth={1.5} className="mt-[5px] shrink-0 text-bronze fill-bronze drop-shadow-[0_0_5px_rgba(184,153,104,0.9)]" aria-hidden="true" />
         )}
         <p className="font-cormorant text-[19px] italic leading-[1.4] text-ink">
-          {content}
+          {isDoorway ? `“${content}”` : content}
         </p>
       </div>
 
@@ -75,13 +102,15 @@ export default function InsightCard({ content, insightType, sourceCount, onPrima
         {/* Row 2: 'Doubt this' (bordered) sits above 'Discard this', which is the
             quietest action (light edge + sepia) so it doesn't invite removal. */}
         <div className="flex gap-[8px]">
-          <button
-            type="button"
-            onClick={onDoubt}
-            className="flex-1 bg-transparent text-ink border-[0.5px] border-ink font-lora text-[13px] py-[9px] rounded-sm"
-          >
-            Doubt this
-          </button>
+          {showDoubt && (
+            <button
+              type="button"
+              onClick={onDoubt}
+              className="flex-1 bg-transparent text-ink border-[0.5px] border-ink font-lora text-[13px] py-[9px] rounded-sm"
+            >
+              Doubt this
+            </button>
+          )}
           <button
             type="button"
             onClick={onDiscard}
