@@ -36,6 +36,31 @@ const CARD_ICONS: Record<CardIcon, LucideIcon> = {
   Compass,
 }
 
+// Frozen first-message templates for the "Take it to {name}" CTA — one per PORTRAIT_AXES
+// slug (services/self_portrait.py; same 8 keys as SUMMARY_CLAUSES). Hand-authored, no LLM.
+// The user's TOP axis selects the line, which seeds the chat composer via chat_prefill
+// (read-and-cleared on the chat mount) — never auto-sent.
+const FROZEN_TEMPLATES: Readonly<Record<string, string>> = {
+  identity: "My self-portrait here keeps circling who I actually am. I'd like to start there.",
+  fear: "My answers here keep pointing at what I'm afraid of losing control over. I want to look at that with you.",
+  freedom: "Something in my answers keeps coming back to needing room to choose my own way. Let's start there.",
+  desire: "My answers point at how strongly I follow what I want. I'd like to examine that.",
+  doubt: "I seem to sit with hard questions longer than most. I want to talk about what that costs and what it gives.",
+  duty: "My answers keep landing on the weight of what I owe — to others, to my own standards. Let's start there.",
+  connection: "The people I love show up in almost every answer I gave. I want to talk about what I carry for them.",
+  meaning: "My answers keep asking whether what I do actually matters. I'd like to take that seriously with you.",
+}
+
+// The user's strongest axis key by score (desc, tie-break = frozen incoming order — the
+// same ranking buildSummary and the map use). Returns null when no axis carries signal.
+function topAxisKey(scores: { key: string; score: number }[] | null | undefined): string | null {
+  const top = (scores ?? [])
+    .map((s, i) => ({ s, i }))
+    .filter((e) => e.s.score > 0)
+    .sort((a, b) => b.s.score - a.s.score || a.i - b.i)[0]
+  return top?.s.key ?? null
+}
+
 // Human-readable category labels. Title-case fallback for any value not listed
 // (so a future bank category can never render blank or as a raw machine value).
 const CATEGORY_LABELS: Record<string, string> = {
@@ -258,6 +283,9 @@ export default function SelfPortraitPage() {
   // B: "Save" renders + downloads the PNG directly (no share sheet). Its own busy flag
   // so it never entangles with the share-preview modal's spinner.
   const [saveBusy, setSaveBusy] = useState(false)
+  // Engagement routing: which best-fit slug is mid-create (one tap at a time). Guards
+  // the "Take it to {name}" CTA and drives its "Opening…" label.
+  const [startingSlug, setStartingSlug] = useState<string | null>(null)
 
   // #6.2 / #7: independent category filters for the question flow and the
   // revisit list (same component, separate state so they don't cross-filter).
@@ -445,6 +473,28 @@ export default function SelfPortraitPage() {
       toast('Could not build the card — try again.')
     } finally {
       setSaveBusy(false)
+    }
+  }
+
+  // Engagement routing: start a chat with a best-fit mind, seeding the first message from
+  // the user's TOP portrait axis (chat_prefill convention — read-and-cleared on the chat
+  // mount, fills the composer only, never auto-sends). Skips the prefill when no axis has
+  // signal, so the composer is never seeded with a broken sentence. On the Pro-gated 403
+  // the backend's message surfaces via toast and the CTA resets (no upgrade redirect here).
+  const takeToChat = async (slug: string) => {
+    if (startingSlug) return
+    setStartingSlug(slug)
+    try {
+      const conv = await api.createConversation(slug)
+      const axisKey = topAxisKey(portrait?.theme_scores)
+      const template = axisKey ? FROZEN_TEMPLATES[axisKey] : null
+      if (template) {
+        sessionStorage.setItem(`chat_prefill_${conv.id}`, template.slice(0, 600))
+      }
+      router.push(`/app/chat/conv/${conv.id}`)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not start conversation.')
+      setStartingSlug(null)
     }
   }
 
@@ -1032,6 +1082,16 @@ export default function SelfPortraitPage() {
                                 {p.why}
                               </p>
                             )}
+                            {/* Engagement routing: take this best-fit mind to chat with a
+                                first message seeded from the user's top axis. */}
+                            <button
+                              type="button"
+                              onClick={() => takeToChat(p.slug)}
+                              disabled={startingSlug !== null}
+                              className="mt-[10px] font-cormorant text-[15px] font-medium text-ink underline decoration-bronze/60 underline-offset-4 disabled:opacity-50"
+                            >
+                              {startingSlug === p.slug ? 'Opening…' : `Take it to ${p.name}`}
+                            </button>
                           </div>
                         </div>
                       ))}
