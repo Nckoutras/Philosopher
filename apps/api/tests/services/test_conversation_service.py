@@ -1301,6 +1301,7 @@ async def test_memory_extraction_enqueued_on_success():
         "What is virtue?",
         "Hello",
         0,
+        True,
     )
 
 
