@@ -22,6 +22,9 @@ interface Props {
   loading: boolean
   error: Error | null
   onRetry: () => void
+  // Fired after a conversation is successfully deleted, so the parent can keep
+  // sibling surfaces (e.g. the Continuing card) from pointing at the deleted row.
+  onDeleted?: (id: string) => void
 }
 
 export default function PastConversationsView({
@@ -30,6 +33,7 @@ export default function PastConversationsView({
   loading,
   error,
   onRetry,
+  onDeleted,
 }: Props) {
   const [q, setQ] = useState('')
   const [revealedRowId, setRevealedRowId] = useState<string | null>(null)
@@ -61,6 +65,7 @@ export default function PastConversationsView({
       useStore.getState().setConversations(
         useStore.getState().conversations.filter((c) => c.id !== pendingDelete),
       )
+      onDeleted?.(pendingDelete)
       toast.success('Deleted')
       setPendingDelete(null)
     } catch {

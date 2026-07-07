@@ -95,6 +95,13 @@ export class ShareLimitError extends Error {
   }
 }
 
+export class ConversationNotFoundError extends Error {
+  constructor() {
+    super('CONVERSATION_NOT_FOUND')
+    this.name = 'ConversationNotFoundError'
+  }
+}
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export interface User {
@@ -649,7 +656,20 @@ class ApiClient {
   }
 
   async getConversation(id: string): Promise<Conversation> {
-    return this.request<Conversation>(`/conversations/${id}`)
+    // Bespoke fetch (not request()) so a deleted/missing conversation surfaces as
+    // a typed 404 the chat route can handle gracefully, rather than a generic Error.
+    const res = await fetch(`${API_BASE}/conversations/${id}`, {
+      headers: {
+        'Content-Type': 'application/json',
+        ...(this.token ? { Authorization: `Bearer ${this.token}` } : {}),
+      },
+    })
+    if (res.status === 404) throw new ConversationNotFoundError()
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ detail: res.statusText }))
+      throw new Error(typeof error.detail === 'string' ? error.detail : 'Request failed')
+    }
+    return res.json()
   }
 
   // Sticky guest mind: make `personaSlug` the active mind for subsequent turns.
