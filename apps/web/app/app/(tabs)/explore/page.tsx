@@ -117,14 +117,20 @@ export default function ExplorePage() {
           </section>
 
           <div className="flex justify-center my-7"><BronzeDivider width={64} /></div>
-          <section className="space-y-2">
-            <h2 className="font-cormorant text-[20px] font-semibold text-ink leading-tight">The room remembers</h2>
-            <p className="font-lora text-[15px] text-charcoal leading-[1.65]">
-              Some things the room keeps on its own. It notes the beliefs and patterns that
-              recur across your conversations and reflects them back as insights &mdash; then
-              uses them, week to week, to write your letters and sharpen what it asks.
-            </p>
-          </section>
+          <Link href="/app/explore/memory" className="block transition-transform duration-150 active:scale-[0.99]">
+            <section className="space-y-3">
+              <h2 className="font-cormorant text-[20px] font-semibold text-ink leading-tight">The room remembers</h2>
+              <p className="font-lora text-[15px] text-charcoal leading-[1.65]">
+                Some things the room keeps on its own. It notes the beliefs and patterns that
+                recur across your conversations and reflects them back as insights &mdash; then
+                uses them, week to week, to write your letters and sharpen what it asks.
+              </p>
+              <div className="rounded-[12px] overflow-hidden shadow-card">
+                <Image src="/self-portrait/appbutton.png" alt="The room remembers"
+                  width={1122} height={1402} className="w-full h-[240px] object-cover object-center" />
+              </div>
+            </section>
+          </Link>
 
         </div>
       </div>
