@@ -197,9 +197,17 @@ export default function ExistingConversationPage() {
 
         // Pre-fill input draft for cross-persona conversations (written by PersonaPickerSheet)
         const draft = localStorage.getItem(`cross_persona_draft_${params.id}`)
+        // One-shot prefill from a letter suggested-persona tap (council_prefill
+        // convention): read-and-clear on mount, fills the composer only — never
+        // auto-sends. Cross-persona draft wins if both are present; the composer is
+        // empty at load, so nothing is overwritten.
+        const prefill = sessionStorage.getItem(`chat_prefill_${params.id}`)
+        sessionStorage.removeItem(`chat_prefill_${params.id}`)
         if (draft) {
           setInputDraft(draft)
           localStorage.removeItem(`cross_persona_draft_${params.id}`)
+        } else if (prefill) {
+          setInputDraft(prefill)
         }
 
         setMessages(msgs)
