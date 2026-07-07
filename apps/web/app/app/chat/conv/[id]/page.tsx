@@ -5,11 +5,12 @@ import { useParams, useRouter } from 'next/navigation'
 import AnotherMindSheet from '@/components/chat/AnotherMindSheet'
 import { useStore } from '@/lib/store'
 import { useStream } from '@/lib/useStream'
-import { api, SaveLimitError, DuplicateSaveError, type Insight } from '@/lib/api'
+import { api, SaveLimitError, DuplicateSaveError, ConversationNotFoundError, type Insight } from '@/lib/api'
 import toast from 'react-hot-toast'
 import { renderSavedToast } from '@/components/chat/savedToast'
 import { renderDiscardUndoToast } from '@/components/chat/discardToast'
 import ChatHeader from '@/components/chat/ChatHeader'
+import OpeningInvocation from '@/components/chat/OpeningInvocation'
 import MessageList from '@/components/chat/MessageList'
 import StreamingBubble from '@/components/chat/StreamingBubble'
 import ErrorMessage from '@/components/chat/ErrorMessage'
@@ -40,6 +41,7 @@ export default function ExistingConversationPage() {
   const activeConversationId = useStore((s) => s.activeConversationId)
   const personaName = useStore((s) => s.activePersonaName) ?? ''
   const portraitUrl = useStore((s) => s.activePersonaPortraitUrl) ?? ''
+  const openingInvocation = useStore((s) => s.activePersonaOpeningInvocation)
   const safetyActive = useStore((s) => s.safetyActive)
   const showPaywall = useStore((s) => s.showPaywall)
   const paywallDetails = useStore((s) => s.paywallDetails)
@@ -175,12 +177,16 @@ export default function ExistingConversationPage() {
 
         // conv.persona is the coalesced ACTIVE mind (sticky guest survives reload);
         // origin_persona_* is the immutable home for the "Return to [origin]" link.
+        // Empty conversations (abandoned topic / cross-persona rows) carry no opening
+        // message; fall back to the active persona's opening_invocation so the room is
+        // never blank — mirrors chat/[slug]. Non-empty conversations show their own
+        // history and get null (the greeting, if any, is already a message row).
         setActiveConversation(
           conv.id,
           conv.persona.slug,
           conv.persona.name,
           personaFull?.portrait_url ?? '',
-          null,
+          msgs.length === 0 ? (personaFull?.opening_invocation ?? null) : null,
         )
         setOrigin(
           conv.origin_persona_slug && conv.origin_persona_name
@@ -200,6 +206,14 @@ export default function ExistingConversationPage() {
         await loadSavedLines()
       } catch (err) {
         if (cancelled) return
+        // A deleted/missing conversation (e.g. a stale Continuing/Library card) is a
+        // dead end, not an error to sit on: send the user back to Library with a note
+        // instead of the failure screen. All other errors keep the dead-end screen.
+        if (err instanceof ConversationNotFoundError) {
+          toast('This conversation is no longer available')
+          router.replace('/app/library')
+          return
+        }
         setLoadError(err instanceof Error ? err.message : 'Could not load conversation')
       }
     }
@@ -391,6 +405,7 @@ export default function ExistingConversationPage() {
       />
 
       <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3">
+        {openingInvocation && <OpeningInvocation text={openingInvocation} />}
         <MessageList
           messages={messages}
           onSaveLine={handleSaveLine}

@@ -162,6 +162,10 @@ function LibraryContent() {
             loading={loading}
             error={error}
             onRetry={load}
+            onDeleted={(id) => {
+              // Keep the Continuing card from pointing at a just-deleted row.
+              if (lastConv?.conversation_id === id) setLastConv(null)
+            }}
           />
         )}
       </div>
