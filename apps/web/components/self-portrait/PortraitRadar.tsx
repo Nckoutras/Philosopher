@@ -8,7 +8,7 @@
 //   Spokes + endpoint dots; a bronze data pentagon (fill 0.3) + vertex dots.
 // • CENTER: a raster compass rose (/self-portrait/rose.webp), same-origin, centered,
 //   width ≈0.55R, drawn BEHIND the data polygon (the 0.3 fill lets it show through).
-// • overflow:visible — the outer labels (fontSize 17) intentionally extend BEYOND the
+// • overflow:visible — the outer labels (fontSize 15) intentionally extend BEYOND the
 //   tight viewBox into the wrapper's padding, so the ring fills the plate instead of
 //   floating. The wrapper padding (px-4) + the page's perimeter frame padding hold the
 //   worst-case label overflow inside the bronze border. NOTE: the share card
@@ -22,12 +22,13 @@ import type { SelfPortraitThemeScore } from '@/lib/api'
 import { USE_RADAR_FRAME, radarFrameSrc } from './Artwork'
 
 // Geometry in a 360×270 viewBox sized TIGHT to the ring; labels overflow into padding
-// (svg overflow:visible). Verified: with fontSize 17 all 5 labels fit the container
-// (viewBox + left-40/right-10/top-4 padding) even in the Connection@198° worst case.
+// (svg overflow:visible). Verified: with fontSize 15 / LABEL_R 134 all 5 labels fit the
+// container — worst left overflow (10-char "Connection" @198°) ≈ 34.4 vb-units ≈ 24.9px at
+// the ~260px max-layout svg width, inside the 32px of padding (radar px-4 + plate px-4).
 const CX = 180
 const CY = 140
-const R = 116
-const LABEL_R = 126
+const R = 124
+const LABEL_R = 134
 const TOP_N = 5
 const INNER_RINGS = [0.4, 0.7] as const
 const ROSE_SRC = '/self-portrait/rose.webp' // same-origin raster compass rose
@@ -112,7 +113,7 @@ export function PortraitRadar({
             stroke="#B89968"
             strokeWidth={0.8}
             strokeDasharray="2 3"
-            opacity={0.5}
+            opacity={0.65}
           />
         ))}
         <circle cx={CX} cy={CY} r={R} fill="none" stroke="#B89968" strokeWidth={1} opacity={0.85} />
@@ -141,7 +142,7 @@ export function PortraitRadar({
           const dy = sin > 0.3 ? '0.7em' : sin < -0.3 ? '-0.2em' : '0.32em'
           return (
             <g key={s.key}>
-              <line x1={CX} y1={CY} x2={outer.x} y2={outer.y} stroke="#B89968" strokeWidth={0.8} opacity={0.4} />
+              <line x1={CX} y1={CY} x2={outer.x} y2={outer.y} stroke="#B89968" strokeWidth={0.8} opacity={0.55} />
               <circle cx={outer.x} cy={outer.y} r={2.5} fill="#B89968" />
               <text
                 x={lp.x}
@@ -149,7 +150,7 @@ export function PortraitRadar({
                 dy={dy}
                 textAnchor={anchor}
                 className="font-lora"
-                fontSize={17}
+                fontSize={15}
                 fontWeight={500}
                 fill="#1F1B14"
               >

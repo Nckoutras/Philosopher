@@ -30,11 +30,13 @@ export const SUMMARY_CLAUSES: Readonly<Record<string, string>> = {
  * The deterministic summary sentence for the two strongest axes. Takes the top-2 by score
  * (desc, tie-break by frozen/incoming order), and returns exactly:
  *
- *   "The Wise Room says: your answers lean toward {A} and {B} — {clauseA}, and {clauseB}."
+ *   "You lean toward {A} and {B} — {clauseA}, and {clauseB}."
  *
  * where {A}/{B} are the axes' display labels and the clauses are their frozen essence
- * clauses. Returns null when there is no signal (no axis with score > 0) or when fewer than
- * two axes carry a clause, so the caller renders nothing.
+ * clauses. The "The Wise Room says" header is NOT part of this value — it is rendered
+ * separately (an on-screen <p> above this sentence, and a manual card line) so the phrase
+ * never doubles up. Returns null when there is no signal (no axis with score > 0) or when
+ * fewer than two axes carry a clause, so the caller renders nothing.
  */
 export function buildSummary(
   scores: { key: string; label: string; score: number }[] | null | undefined,
@@ -50,5 +52,5 @@ export function buildSummary(
   if (top.length < 2) return null
 
   const [a, b] = top
-  return `The Wise Room says: your answers lean toward ${a.label} and ${b.label} — ${SUMMARY_CLAUSES[a.key]}, and ${SUMMARY_CLAUSES[b.key]}.`
+  return `You lean toward ${a.label} and ${b.label} — ${SUMMARY_CLAUSES[a.key]}, and ${SUMMARY_CLAUSES[b.key]}.`
 }

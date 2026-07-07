@@ -542,26 +542,31 @@ export default function SelfPortraitPage() {
                 </h1>
               </header>
 
-              {/* HERO — first paint of this tab. Fixed svh height so the page never jumps
-                  when the image decodes; soft bottom fade into the vellum page. */}
-              <div className="relative w-full h-[52vh] [height:52svh] rounded-lg overflow-hidden">
-                <Image
-                  src="/self-portrait/hero.webp"
-                  alt=""
-                  fill
-                  priority
-                  sizes="(max-width: 420px) 100vw, 380px"
-                  className="object-cover scale-[1.6]"
-                />
-                <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-b from-transparent to-vellum pointer-events-none" />
-              </div>
+              {/* HERO + INTRO — wrapped together so the intro's -mt-6 pulls it UP into the
+                  hero's bottom fade without fighting the parent space-y-7 (the wrapper is one
+                  flex child; the buttons below keep their space-y-7 gap from the intro). */}
+              <div>
+                {/* HERO — first paint of this tab. Fixed svh height so the page never jumps
+                    when the image decodes; soft bottom fade into the vellum page. */}
+                <div className="relative w-full h-[52vh] [height:52svh] rounded-lg overflow-hidden">
+                  <Image
+                    src="/self-portrait/hero.webp"
+                    alt=""
+                    fill
+                    priority
+                    sizes="(max-width: 420px) 100vw, 380px"
+                    className="object-cover scale-[1.6]"
+                  />
+                  <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-b from-transparent to-vellum pointer-events-none" />
+                </div>
 
-              {/* INTRO — existing copy, verbatim. */}
-              <p className="font-lora text-[15px] text-charcoal leading-[1.65] text-center">
-                A long set of small questions about how you actually move through life. Answer
-                as many or as few as you like — even a handful sharpens how the room understands
-                you. Come back whenever; it keeps your place.
-              </p>
+                {/* INTRO — existing copy, verbatim. -mt-6 pulls it up into the fade. */}
+                <p className="-mt-6 font-lora text-[15px] text-charcoal leading-[1.65] text-center">
+                  A long set of small questions about how you actually move through life. Answer
+                  as many or as few as you like — even a handful sharpens how the room understands
+                  you. Come back whenever; it keeps your place.
+                </p>
+              </div>
 
               {/* ENTRY BUTTONS — pill language. Primary bronze; secondary bordered-white so
                   the primary reads as primary. Handlers + labels unchanged (local setView). */}
@@ -911,16 +916,6 @@ export default function SelfPortraitPage() {
                 // section header, toggle, radar, and observation cards. Vellum (transparent)
                 // bg, no shadow. The radar's own px-4 + this px-4 hold the overflow labels.
                 <div className="rounded-xl border-[1px] border-bronze/50 px-4 py-6 space-y-5">
-                  {/* Coverage bar + progress line as ONE unit — the bar is the line's
-                      header (~8px apart), not a separate plate row. */}
-                  <div className="space-y-2">
-                    <CoverageBar touched={touchedCategories} total={TOTAL_CATEGORIES} />
-                    {/* Progress line — the plate's header (real answered count). */}
-                    <p className="font-lora text-[11px] tracking-[0.18em] uppercase text-sepia text-center">
-                      Portrait {isReady ? 'ready' : 'forming'} · {answered.length} answers
-                    </p>
-                  </div>
-
                   {/* Section header — two centered lines; wording flips with ready state. */}
                   <div className="text-center space-y-1">
                     <p className="font-lora text-[11px] tracking-[0.2em] uppercase text-sepia">
@@ -949,16 +944,6 @@ export default function SelfPortraitPage() {
                     )}
                   </div>
 
-                  {/* C1: deterministic summary line — one calm sentence naming the two
-                      strongest leanings. Rendered ONCE here (below the viz) so it shows under
-                      BOTH the radar and the map (replacing the old map-only Pull/Edge strip).
-                      Only when there's real signal (buildSummary → null otherwise). */}
-                  {summaryLine && (
-                    <p className="font-lora text-[13px] text-charcoal leading-relaxed text-center">
-                      {summaryLine}
-                    </p>
-                  )}
-
                   {/* Observation cards — TOP-3 axes, deterministic frozen copy (no counts).
                       3-across, thin bronze border, transparent bg. */}
                   {observationCards.length > 0 && (
@@ -982,6 +967,21 @@ export default function SelfPortraitPage() {
                       })}
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* C1: deterministic summary — moved BELOW the plate. "The Wise Room says"
+                  header (its own line) above the lean sentence, so the phrase never doubles
+                  into the sentence value. Shown under BOTH the radar and the map; only when
+                  there's real signal (buildSummary → null otherwise). */}
+              {summaryLine && (
+                <div className="space-y-1">
+                  <p className="font-cormorant text-[19px] font-semibold text-ink text-center">
+                    The Wise Room says
+                  </p>
+                  <p className="font-lora text-[14px] text-charcoal leading-relaxed text-center">
+                    {summaryLine}
+                  </p>
                 </div>
               )}
 
@@ -1020,18 +1020,15 @@ export default function SelfPortraitPage() {
                           key={p.slug}
                           className="rounded-lg border-[0.5px] border-bronze/30 px-4 py-4 flex items-start gap-[14px]"
                         >
-                          <PersonaAvatar portraitUrl={p.portrait_url} name={p.name} />
+                          <Link href={`/app/persona/${p.slug}`} className="flex-shrink-0">
+                            <PersonaAvatar portraitUrl={p.portrait_url} name={p.name} />
+                          </Link>
                           <div className="flex-1 min-w-0">
                             <p className="font-cormorant text-[19px] font-medium text-ink leading-tight">
                               {p.name}
                             </p>
-                            {p.bio && (
-                              <p className="font-lora text-[13px] text-charcoal mt-[3px] leading-[1.55]">
-                                {p.bio}
-                              </p>
-                            )}
                             {p.why && (
-                              <p className="font-lora italic text-[13px] text-bronze mt-[6px] leading-[1.5]">
+                              <p className="font-lora text-[13px] text-charcoal mt-[6px] leading-[1.5]">
                                 {p.why}
                               </p>
                             )}
