@@ -33,16 +33,19 @@ const BRONZE_DARK = '#8A7340'
 
 const QR_SRC = '/self-portrait/qr-wiseroom.png' // same-origin; supplied asset
 const ROSE_SRC = '/self-portrait/rose.webp' // same-origin raster compass rose (under the svg)
+const MAP_SRC = '/self-portrait/map-territories.webp' // same-origin map base art (under the MAP svg)
 // Guarded: even when on, each optional asset is drawn ONLY if it actually loads
 // (loadOptional swallows a 404), so a missing asset never draws a broken image.
 const USE_SHARE_QR = true
 
 // RADAR serialization bounds (the clone's viewBox). The on-screen radar's viewBox is a
-// tight "0 0 360 270" that its fontSize-17 labels overflow via overflow:visible. Worst
-// case over ANY top-5 (0.58 em/char): x∈[-38.4, 368.8], y∈[-1.64, 257.2]. This box adds
-// L5.6 / R7.2 / T6.4 / B6.8 units of margin so no label ever clips. (The MAP path uses
-// the svg's own viewBox instead — it has no overflow.)
-const SER = { x: -44, y: -8, w: 420, h: 272 }
+// tight "0 0 360 270" that its fontSize-15 labels (LABEL_R 134) overflow via
+// overflow:visible. Worst case over ANY top-5 (0.58 em/char; per-position worst label —
+// right/top ≤7ch "Freedom" as frozen order keeps long labels off the right, left 10ch
+// "Connection"): x∈[-34.4, 368.3], y∈[-7.8, 261.9]. This box adds ~L5.6 / R7.7 / T6.2 /
+// B7.1 units of margin so no label ever clips. (The MAP path uses the svg's own viewBox
+// instead — it has no overflow.)
+const SER = { x: -40, y: -14, w: 416, h: 283 }
 const RENDER_SCALE = 3 // rasterize the SVG at 3× for crisp text, drawn down
 
 // Viz AREA on the card (C2 recomposition — larger than the previous 90/150/900/600). The
@@ -57,19 +60,21 @@ const VIZ_MAX_H = 615
 // ── C2 footer/text layout constants (canvas px; see the approved STEP-1 y-map) ──────────
 const EYEBROW_Y = 108 // "THE WISE ROOM" brand eyebrow baseline
 const TITLE_Y = 172 // "Your Self-Portrait" title baseline
-const SUMMARY_TOP = 852 // top of the summary band (first baseline = SUMMARY_TOP + size)
+const SUMMARY_HEAD_Y = 852 // "The Wise Room says" header baseline (600 34px cormorant, ink)
+const SUMMARY_HEAD_SIZE = 34 // Cormorant px for the header line
+const SUMMARY_TOP = 872 // top of the lean-sentence band (first baseline = SUMMARY_TOP + size)
 const SUMMARY_SIZE = 30 // Lora px for the summary line (worst-case wraps to ≤4 lines)
-const SUMMARY_LH = 42 // summary line-height (~1.4)
+const SUMMARY_LH = 42 // summary line-height (~1.4). 4-line bottom ≈ 1035 clears QR_Y 1050.
 const SUMMARY_MAXW = 900 // summary wrap width (centered → 90px margin each side)
 const QR_SIZE = 150 // smaller than the old 240
 const QR_Y = 1050 // lower than the old 875
 const URL_Y = 1240 // "thewiseroom.app" baseline, beneath the QR
 const DATE_Y = 1278 // render-date baseline, near the footer
 
-// Radar center + rose size in viewBox units (mirror PortraitRadar: R=116, ROSE=R·0.55).
+// Radar center + rose size in viewBox units (mirror PortraitRadar: R=124, ROSE=R·0.55).
 const RADAR_CX = 180
 const RADAR_CY = 140
-const ROSE_VB = 116 * 0.55 // 63.8
+const ROSE_VB = 124 * 0.55 // 68.2
 
 type ViewBox = { x: number; y: number; w: number; h: number }
 
@@ -211,6 +216,7 @@ export async function renderPortraitCardBlob(
 
   const vizImg = await loadImage(svgToDataUrl(svg, ser)) // pure vector → never taints
   const roseImg = isRadar ? await loadOptional(ROSE_SRC) : null // same-origin, under the svg
+  const mapImg = !isRadar ? await loadOptional(MAP_SRC) : null // same-origin map base, under the MAP svg
   const qrImg = USE_SHARE_QR ? await loadOptional(QR_SRC) : null
 
   const canvas = document.createElement('canvas')
@@ -250,6 +256,14 @@ export async function renderPortraitCardBlob(
     ctx.restore()
   }
 
+  // 3b. Map base art (map only) — same-origin parchment territories, drawn straight into
+  //     the dest rect UNDER the label svg. On screen it's an <img> sibling outside the svg
+  //     (so it's stripped from the clone); the container shares the svg's 360×264 aspect, so
+  //     a plain fill of dest is correct. Radar path is unaffected (mapImg is null there).
+  if (mapImg) {
+    ctx.drawImage(mapImg, dest.x, dest.y, dest.w, dest.h)
+  }
+
   // 4. The active viz — radar labels UN-CLIPPED via the expanded viewBox; map undistorted.
   ctx.drawImage(vizImg, dest.x, dest.y, dest.w, dest.h)
 
@@ -275,10 +289,15 @@ export async function renderPortraitCardBlob(
   ctx.font = `500 54px ${cormorant}`
   ctx.fillText('Your Self-Portrait', CARD_W / 2, TITLE_Y)
 
-  // 5b. Summary line — the deterministic sentence passed in (the on-screen <p> is outside
-  //     the captured SVG). Wrapped with the REAL canvas metrics. Null → skip the band
-  //     entirely (no crash, no "null"; the space simply stays empty).
+  // 5b. Summary band — a bold "The Wise Room says" header (drawn here, NOT part of the
+  //     summaryLine value) above the deterministic lean sentence passed in (the on-screen
+  //     <p> is outside the captured SVG). Sentence wrapped with the REAL canvas metrics.
+  //     Null → skip the whole band (no crash, no "null"; the space simply stays empty).
   if (summaryLine) {
+    ctx.fillStyle = INK
+    ctx.font = `600 ${SUMMARY_HEAD_SIZE}px ${cormorant}`
+    ctx.fillText('The Wise Room says', CARD_W / 2, SUMMARY_HEAD_Y)
+
     ctx.fillStyle = INK
     ctx.font = `400 ${SUMMARY_SIZE}px ${lora}`
     const lines = wrapCanvasText(ctx, summaryLine, SUMMARY_MAXW)
@@ -298,7 +317,8 @@ export async function renderPortraitCardBlob(
 
   const dateLabel = renderDateLabel()
   if (dateLabel) {
-    ctx.font = `400 22px ${lora}`
+    ctx.fillStyle = INK
+    ctx.font = `500 28px ${lora}`
     ctx.fillText(dateLabel, CARD_W / 2, DATE_Y)
   }
 

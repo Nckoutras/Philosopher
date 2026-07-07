@@ -166,7 +166,7 @@ export function PortraitMap({
                       className="font-lora"
                       fontSize={13}
                       fontWeight={isDominant ? 600 : 500}
-                      fill={isDominant ? '#1F1B14' : '#8A7340'}
+                      fill={isDominant ? '#1F1B14' : '#5C4A2E'}
                       stroke="#EFE3CC"
                       strokeWidth={2.8}
                       strokeLinejoin="round"

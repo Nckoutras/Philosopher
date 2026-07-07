@@ -19,15 +19,6 @@ const MINDS = [
   { slug: 'miyamoto_musashi', src: '/personas/miyamoto_musashi.webp', name: 'Miyamoto Musashi' },
 ]
 
-const RITUAL_LINES = [
-  'The Mirror — once a week, your conversations read back to you in the voice of the mind you spent it with.',
-  'The Council (Pro) — one question, four thinkers, then the through-line across them. Save any reading.',
-  'You vs You (Pro) — the you who first raised something, beside the you reading it now, and what moved between them.',
-  'The Sunday Letter (Pro) — each week the room writes you a letter on where your attention has been. Write back, and your reply shapes the next one; read them in your Readings.',
-  'The Counterview — put a belief under pressure: two minds argue the case against it, never against you. Save the ones worth keeping.',
-  'A Message to Your Future Self — write to yourself now, set a date, and the room delivers it by email when that day comes.',
-]
-
 export default function ExplorePage() {
   return (
     <main
@@ -60,6 +51,10 @@ export default function ExplorePage() {
           <div className="flex justify-center my-7"><BronzeDivider width={64} /></div>
           <section className="space-y-3">
             <h2 className="font-cormorant text-[20px] font-semibold text-ink leading-tight">The minds</h2>
+            <p className="font-lora text-[15px] text-charcoal leading-[1.65]">
+              Eleven thinkers, each with a distinct voice and way of seeing. Choose who you
+              need; tap a face to read who they are.
+            </p>
             <div className="grid grid-cols-3 gap-4">
               {MINDS.map((m) => (
                 <Link key={m.name} href={`/app/persona/${m.slug}`} className="flex flex-col items-center gap-1.5 transition-transform duration-150 active:scale-95">
@@ -70,10 +65,6 @@ export default function ExplorePage() {
                 </Link>
               ))}
             </div>
-            <p className="font-lora text-[15px] text-charcoal leading-[1.65]">
-              Eleven thinkers, each with a distinct voice and way of seeing. Choose who you
-              need; tap a face to read who they are.
-            </p>
           </section>
 
           <div className="flex justify-center my-7"><BronzeDivider width={64} /></div>
@@ -89,7 +80,6 @@ export default function ExplorePage() {
                 <Image src="/self-portrait/theconversations.webp" alt="The conversations"
                   width={1200} height={675} className="w-full h-auto" />
               </div>
-              <p className="font-lora text-[13px] text-bronze">See how the tools work &rarr;</p>
             </section>
           </Link>
 
@@ -105,13 +95,15 @@ export default function ExplorePage() {
                 <Image src="/self-portrait/reflections.webp" alt="The reflections"
                   width={1200} height={675} className="w-full h-auto" />
               </div>
-              <p className="font-lora text-[13px] text-bronze">See what gathers here &rarr;</p>
             </section>
           </Link>
 
           <div className="flex justify-center my-7"><BronzeDivider width={64} /></div>
           <section className="space-y-3">
             <h2 className="font-cormorant text-[20px] font-semibold text-ink leading-tight">The rituals</h2>
+            <p className="font-lora text-[15px] text-charcoal leading-[1.65]">
+              Beyond conversation, the room has its set practices. Tap any card to see how it works.
+            </p>
             <div className="grid grid-cols-2 gap-3">
               {RITUALS.map((r) => (
                 <Link key={r.slug} href={`/app/ritual/${r.slug}`} className="flex flex-col gap-1.5 transition-transform duration-150 active:scale-95">
@@ -122,16 +114,6 @@ export default function ExplorePage() {
                 </Link>
               ))}
             </div>
-            <p className="font-lora text-[15px] text-charcoal leading-[1.65]">
-              Beyond conversation, the room has its set practices. Tap any card to see how it works.
-            </p>
-            <ul className="space-y-2">
-              {RITUAL_LINES.map((line) => (
-                <li key={line} className="font-lora text-[14px] text-charcoal leading-[1.55]">
-                  {line}
-                </li>
-              ))}
-            </ul>
           </section>
 
           <div className="flex justify-center my-7"><BronzeDivider width={64} /></div>
