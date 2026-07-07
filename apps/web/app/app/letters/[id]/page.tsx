@@ -85,6 +85,17 @@ export default function LetterReadPage() {
     setStartingConv(true)
     try {
       const conv = await api.createConversation(slug)
+      // One-shot prefill for the suggested-persona tap (council_prefill convention):
+      // seed the first message with the letter's thread. Read-and-cleared on the chat
+      // mount, fills the composer only — never auto-sends. Skipped for title-less
+      // letters so the template never renders empty quotes.
+      const title = letter?.payload?.title
+      if (title) {
+        sessionStorage.setItem(
+          `chat_prefill_${conv.id}`,
+          `This week's letter touched on something I'm not done with — "${title}". I'd like to look at it with you.`.slice(0, 600),
+        )
+      }
       router.push(`/app/chat/conv/${conv.id}`)
     } catch {
       setStartingConv(false)
