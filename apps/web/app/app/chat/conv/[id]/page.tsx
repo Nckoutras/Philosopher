@@ -290,9 +290,28 @@ export default function ExistingConversationPage() {
   function handleInsightPrimary() {
     const current = insight
     if (!current) return
-    // Branch on insight type (Slice 2): a 'shift' goes to You-vs-You (which
-    // enforces its own Pro gate); everything else reflects in the Mirror — now
-    // seeded by this insight (the reader POSTs /insights/{id}/reflect).
+    // Branch on insight type. Slice 2 doorways (neither dismisses on tap):
+    //  - 'dilemma' → the Council, mirroring handleTakeToCouncil (Pro → seed
+    //    council_prefill/source='nudge'/conversation; free → /app/upgrade).
+    //  - 'belief'  → Counterview (the Doubt-this destination; primary IS that door).
+    // 'shift' → You-vs-You (own Pro gate); everything else reflects in the Mirror.
+    if (current.insight_type === 'dilemma') {
+      if (!isPro) {
+        router.push('/app/upgrade')
+        return
+      }
+      sessionStorage.setItem('council_prefill', current.content.slice(0, 600))
+      sessionStorage.setItem('council_source', 'nudge')
+      if (current.conversation_id) {
+        sessionStorage.setItem('council_conversation_id', current.conversation_id)
+      }
+      router.push('/app/council')
+      return
+    }
+    if (current.insight_type === 'belief') {
+      router.push(`/app/counterview?insightId=${current.id}`)
+      return
+    }
     if (current.insight_type === 'shift') {
       router.push('/app/you-vs-you')
     } else {
