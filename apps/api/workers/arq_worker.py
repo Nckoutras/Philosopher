@@ -170,8 +170,12 @@ async def extract_memory_task(
     user_text: str,
     assistant_text: str,
     turn: int = 0,
+    safety_ok: bool = False,
 ):
-    """Extracts and stores memory entries after each message pair."""
+    """Extracts and stores memory entries after each message pair.
+
+    `safety_ok` defaults False so a stale-queued job enqueued before this arg
+    existed can never promote a dilemma/belief signal insight."""
     from db.session import AsyncSessionLocal
     from services.memory_service import memory_service
 
@@ -185,6 +189,7 @@ async def extract_memory_task(
                 user_text=user_text,
                 assistant_text=assistant_text,
                 source_turn=turn,
+                safety_ok=safety_ok,
             )
             await db.commit()
             logger.info(f"Memory task: stored {len(entries)} entries for user={user_id}")

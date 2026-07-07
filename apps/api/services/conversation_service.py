@@ -872,6 +872,10 @@ class ConversationService:
             )
 
         if arq_queue is not None and not safety_out.should_suppress_persona:
+            # Dilemma/belief signal insights are only promoted when the WHOLE exchange
+            # was safety-clean; pass that as a trailing flag (the task defaults it False,
+            # so a stale-queued job without the arg stays safe).
+            safety_ok = safety_in.level == "none" and safety_out.level == "none"
             await arq_queue.enqueue_job(
                 "extract_memory_task",
                 str(user_id),
@@ -880,6 +884,7 @@ class ConversationService:
                 user_text,
                 full_response,
                 prior_pairs,
+                safety_ok,
             )
 
         # Gravity-gated conclusion: assess (and maybe distill) only at cadence,
