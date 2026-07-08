@@ -763,12 +763,23 @@ class ReflectionFeedCounterview(BaseModel):
     saved_at: datetime
 
 
+class ReflectionFeedYvYSentence(BaseModel):
+    """A saved You-vs-You "sentence you owe yourself" line, pulled from the run's
+    payload["closing"]["sentence_owed"]."""
+    kind: Literal["yvy_sentence"] = "yvy_sentence"
+    save_id: str
+    self_comparison_id: str
+    sentence: str
+    saved_at: datetime
+
+
 ReflectionFeedItem = Annotated[
     Union[
         ReflectionFeedLine,
         ReflectionFeedMirror,
         ReflectionFeedCouncil,
         ReflectionFeedCounterview,
+        ReflectionFeedYvYSentence,
     ],
     Field(discriminator="kind"),
 ]

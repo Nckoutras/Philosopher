@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronDown } from 'lucide-react'
+import { ChevronDown, Bookmark, BookmarkCheck } from 'lucide-react'
 import SubPageNav from '@/components/layout/SubPageNav'
 import { useStore } from '@/lib/store'
 import { api, RateLimitError } from '@/lib/api'
@@ -67,6 +67,8 @@ export default function YouVsYouPage() {
   const [comparisonId, setComparisonId] = useState<string | null>(null)
   const [ringTrue, setRingTrue] = useState<string | null>(null)
   const [ringSubmitting, setRingSubmitting] = useState(false)
+  const [sentenceSaved, setSentenceSaved] = useState(false)
+  const [sentenceSaving, setSentenceSaving] = useState(false)
 
   useEffect(() => {
     if (token === null) { router.replace('/auth?mode=signin'); return }
@@ -89,7 +91,7 @@ export default function YouVsYouPage() {
     setSubmitting(true)
     setMode('streaming')
     setThenText(''); setNowText(''); setThenDates(null); setNowDates(null); setStreamError(null)
-    setClosing(null); setComparisonId(null); setRingTrue(null)
+    setClosing(null); setComparisonId(null); setRingTrue(null); setSentenceSaved(false)
     try {
       const res = await api.streamSelfComparison({ prompt: p })
       const reader = res.body!.getReader()
@@ -149,6 +151,23 @@ export default function YouVsYouPage() {
     try { await api.setSelfComparisonRingTrue(comparisonId, value) }
     catch { /* best-effort signal */ }
     finally { setRingSubmitting(false) }
+  }
+
+  // Save/unsave the "sentence you owe yourself" → Reflections feed. Optimistic,
+  // mirroring the counterview Save toggle; reverts on failure.
+  async function toggleSaveSentence() {
+    if (!comparisonId || sentenceSaving) return
+    const next = !sentenceSaved
+    setSentenceSaving(true)
+    setSentenceSaved(next)
+    try {
+      if (next) await api.saveSelfComparison(comparisonId)
+      else await api.unsaveSelfComparison(comparisonId)
+    } catch {
+      setSentenceSaved(!next)
+    } finally {
+      setSentenceSaving(false)
+    }
   }
 
   return (
@@ -308,6 +327,17 @@ export default function YouVsYouPage() {
                     <div className="flex flex-col gap-[6px] pt-[12px] border-t border-bronze/20">
                       <span className="font-lora text-[11px] uppercase tracking-[0.2em] text-bronze-dark">A sentence you owe yourself</span>
                       <p className="font-cormorant italic text-[19px] text-ink leading-snug">{closing.sentence_owed}</p>
+                      {comparisonId && (
+                        <button
+                          type="button"
+                          onClick={toggleSaveSentence}
+                          disabled={sentenceSaving}
+                          className="self-start mt-[6px] min-h-[40px] flex items-center gap-[7px] px-[14px] border-[0.5px] border-charcoal rounded-[6px] font-cormorant text-[15px] text-charcoal disabled:opacity-50"
+                        >
+                          {sentenceSaved ? <BookmarkCheck size={16} strokeWidth={1.5} /> : <Bookmark size={16} strokeWidth={1.5} />}
+                          {sentenceSaved ? 'Saved' : 'Save'}
+                        </button>
+                      )}
                     </div>
                   )}
 

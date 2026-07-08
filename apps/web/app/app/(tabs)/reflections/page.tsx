@@ -11,6 +11,7 @@ import SavedLineCard from '@/components/reflections/SavedLineCard'
 import MirrorVerdictCard from '@/components/reflections/MirrorVerdictCard'
 import CouncilVerdictCard from '@/components/reflections/CouncilVerdictCard'
 import CounterviewVerdictCard from '@/components/reflections/CounterviewVerdictCard'
+import YvYSentenceCard from '@/components/reflections/YvYSentenceCard'
 import DateGrouper from '@/components/reflections/DateGrouper'
 import FilterPills, { type FilterOption } from '@/components/reflections/FilterPills'
 import EmptyReflections from '@/components/reflections/EmptyReflections'
@@ -27,6 +28,7 @@ type PendingDelete =
   | { kind: 'mirror_verdict'; mirrorId: string }
   | { kind: 'council_verdict'; sessionId: string }
   | { kind: 'counterview_verdict'; counterviewId: string }
+  | { kind: 'yvy_sentence'; selfComparisonId: string }
 
 function groupLabel(savedAt: string): 'This week' | 'Earlier' {
   const days = differenceInCalendarDays(new Date(), new Date(savedAt))
@@ -49,6 +51,7 @@ function itemKey(item: ReflectionFeedItem): string {
   if (item.kind === 'line') return `line:${item.id}`
   if (item.kind === 'mirror_verdict') return `mirror:${item.save_id}`
   if (item.kind === 'counterview_verdict') return `counterview:${item.save_id}`
+  if (item.kind === 'yvy_sentence') return `yvy:${item.save_id}`
   return `council:${item.save_id}`
 }
 
@@ -62,6 +65,9 @@ function matchesQuery(item: ReflectionFeedItem, q: string): boolean {
   if (item.kind === 'counterview_verdict') {
     return (item.anchor_text?.toLowerCase().includes(q) ?? false)
       || item.verdicts.some((v) => v.verdict.toLowerCase().includes(q) || v.persona_name.toLowerCase().includes(q))
+  }
+  if (item.kind === 'yvy_sentence') {
+    return item.sentence.toLowerCase().includes(q)
   }
   return item.synthesis.toLowerCase().includes(q)
 }
@@ -125,6 +131,9 @@ export default function ReflectionsPage() {
       } else if (pendingDelete.kind === 'counterview_verdict') {
         await api.unsaveCounterview(pendingDelete.counterviewId)
         useStore.getState().removeFeedCounterview(pendingDelete.counterviewId)
+      } else if (pendingDelete.kind === 'yvy_sentence') {
+        await api.unsaveSelfComparison(pendingDelete.selfComparisonId)
+        useStore.getState().removeFeedYvY(pendingDelete.selfComparisonId)
       } else {
         await api.unsaveCouncil(pendingDelete.sessionId)
         useStore.getState().removeFeedCouncil(pendingDelete.sessionId)
@@ -254,8 +263,10 @@ export default function ReflectionsPage() {
                               setPendingDelete({ kind: 'mirror_verdict', mirrorId: item.mirror_id })
                             } else if (item.kind === 'council_verdict') {
                               setPendingDelete({ kind: 'council_verdict', sessionId: item.session_id })
-                            } else {
+                            } else if (item.kind === 'counterview_verdict') {
                               setPendingDelete({ kind: 'counterview_verdict', counterviewId: item.counterview_id })
+                            } else {
+                              setPendingDelete({ kind: 'yvy_sentence', selfComparisonId: item.self_comparison_id })
                             }
                           }}
                           showHint={isFirstReflectionsRender && groupIdx === 0 && itemIdx === 0}
@@ -274,8 +285,10 @@ export default function ReflectionsPage() {
                             />
                           ) : item.kind === 'council_verdict' ? (
                             <CouncilVerdictCard item={item} portraitBySlug={portraitBySlug} />
-                          ) : (
+                          ) : item.kind === 'counterview_verdict' ? (
                             <CounterviewVerdictCard item={item} portraitBySlug={portraitBySlug} />
+                          ) : (
+                            <YvYSentenceCard item={item} />
                           )}
                         </SwipeableRow>
                       </div>

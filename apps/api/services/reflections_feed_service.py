@@ -18,6 +18,8 @@ from models import (
     Mirror,
     MirrorSave,
     Persona,
+    SelfComparison,
+    SelfComparisonSave,
 )
 from services.saved_lines_service import saved_lines_service
 
@@ -161,12 +163,44 @@ class ReflectionsFeedService:
             "saved_at": r.saved_at,
         } for r in rows]
 
+    async def _yvy_sentences(self, db: AsyncSession, user_id: str) -> list[dict]:
+        result = await db.execute(
+            select(
+                SelfComparisonSave.id.label("save_id"),
+                SelfComparisonSave.self_comparison_id,
+                SelfComparisonSave.saved_at,
+                SelfComparison.payload,
+            )
+            .join(SelfComparison, SelfComparisonSave.self_comparison_id == SelfComparison.id)
+            .where(
+                SelfComparisonSave.user_id == user_id,
+                SelfComparisonSave.deleted_at.is_(None),
+            )
+        )
+        items: list[dict] = []
+        for row in result.all():
+            # Pull the immutable "sentence you owe yourself" from the run payload.
+            # Skip saves whose run has no grounded sentence (null/absent) — nothing
+            # to render, and never a broken card.
+            sentence = ((row.payload or {}).get("closing") or {}).get("sentence_owed")
+            if not sentence:
+                continue
+            items.append({
+                "kind": "yvy_sentence",
+                "save_id": row.save_id,
+                "self_comparison_id": row.self_comparison_id,
+                "sentence": sentence,
+                "saved_at": row.saved_at,
+            })
+        return items
+
     async def get_feed(self, db: AsyncSession, user_id: str) -> list[dict]:
         lines = await self._lines(db, user_id)
         mirrors = await self._mirror_verdicts(db, user_id)
         councils = await self._council_verdicts(db, user_id)
         counterviews = await self._counterview_verdicts(db, user_id)
-        merged = lines + mirrors + councils + counterviews
+        yvy = await self._yvy_sentences(db, user_id)
+        merged = lines + mirrors + councils + counterviews + yvy
         merged.sort(key=lambda item: item["saved_at"], reverse=True)
         return merged
 

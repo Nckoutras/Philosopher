@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from db.session import get_db
-from models import User, SelfComparison
+from models import User, SelfComparison, SelfComparisonSave
 from schemas import SelfModelStatusOut
 from auth import get_current_user, get_current_user_plan
 from services.self_model_service import self_model_service
@@ -93,3 +93,58 @@ async def set_ring_true(
     row.ring_true = body.ring_true
     row.ring_true_note = body.note
     row.ring_true_at = datetime.now(timezone.utc)
+
+
+@router.post("/{comparison_id}/save")
+async def save_self_comparison(
+    comparison_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    # Verify the comparison belongs to this user (mirrors counterview save).
+    result = await db.execute(
+        select(SelfComparison).where(
+            SelfComparison.id == comparison_id,
+            SelfComparison.user_id == user.id,
+        )
+    )
+    if result.scalar_one_or_none() is None:
+        raise HTTPException(status_code=404)
+
+    # Upsert: re-save if soft-deleted, insert if absent, no-op if active.
+    existing = await db.execute(
+        select(SelfComparisonSave).where(
+            SelfComparisonSave.user_id == user.id,
+            SelfComparisonSave.self_comparison_id == comparison_id,
+        )
+    )
+    row = existing.scalar_one_or_none()
+
+    if row is None:
+        db.add(SelfComparisonSave(user_id=user.id, self_comparison_id=comparison_id))
+    elif row.deleted_at is not None:
+        row.deleted_at = None
+
+    await db.commit()
+    return {"saved": True}
+
+
+@router.delete("/{comparison_id}/save")
+async def unsave_self_comparison(
+    comparison_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    result = await db.execute(
+        select(SelfComparisonSave).where(
+            SelfComparisonSave.user_id == user.id,
+            SelfComparisonSave.self_comparison_id == comparison_id,
+            SelfComparisonSave.deleted_at.is_(None),
+        )
+    )
+    row = result.scalar_one_or_none()
+    if row is not None:
+        row.deleted_at = datetime.now(timezone.utc)
+        await db.commit()
+
+    return {"saved": False}

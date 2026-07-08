@@ -617,6 +617,21 @@ class CounterviewSave(Base):
     )
 
 
+class SelfComparisonSave(Base):
+    __tablename__ = "self_comparison_saves"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=gen_uuid)
+    user_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    self_comparison_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("self_comparisons.id", ondelete="CASCADE"), nullable=False)
+    saved_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "self_comparison_id", name="uq_self_comparison_saves_user_sc"),
+        Index("ix_self_comparison_saves_user", "user_id"),
+    )
+
+
 class CounterviewTurn(Base):
     """A bounded user rebuttal + the current speaker's reply, on its own axis
     (`sequence`) so the verdict/go-deeper round model is untouched. `persona_slug`
