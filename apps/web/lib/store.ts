@@ -124,6 +124,7 @@ interface AppStore {
   removeFeedMirror: (mirrorId: string) => void
   removeFeedCouncil: (sessionId: string) => void
   removeFeedCounterview: (counterviewId: string) => void
+  removeFeedYvY: (selfComparisonId: string) => void
 }
 
 export const useStore = create<AppStore>()(
@@ -342,6 +343,12 @@ export const useStore = create<AppStore>()(
         set((s) => ({
           feedItems: s.feedItems.filter(
             (i) => !(i.kind === 'counterview_verdict' && i.counterview_id === counterviewId),
+          ),
+        })),
+      removeFeedYvY: (selfComparisonId) =>
+        set((s) => ({
+          feedItems: s.feedItems.filter(
+            (i) => !(i.kind === 'yvy_sentence' && i.self_comparison_id === selfComparisonId),
           ),
         })),
     }),

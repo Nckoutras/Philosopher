@@ -279,11 +279,20 @@ export interface ReflectionFeedCounterview {
   saved_at: string
 }
 
+export interface ReflectionFeedYvYSentence {
+  kind: 'yvy_sentence'
+  save_id: string
+  self_comparison_id: string
+  sentence: string
+  saved_at: string
+}
+
 export type ReflectionFeedItem =
   | ReflectionFeedLine
   | ReflectionFeedMirror
   | ReflectionFeedCouncil
   | ReflectionFeedCounterview
+  | ReflectionFeedYvYSentence
 
 export interface ReflectionsFeedResponse {
   items: ReflectionFeedItem[]
@@ -914,6 +923,14 @@ class ApiClient {
 
   async unsaveCounterview(id: string): Promise<void> {
     return this.request(`/counterview/${id}/save`, { method: 'DELETE' })
+  }
+
+  async saveSelfComparison(id: string): Promise<void> {
+    return this.request(`/self-comparison/${id}/save`, { method: 'POST' })
+  }
+
+  async unsaveSelfComparison(id: string): Promise<void> {
+    return this.request(`/self-comparison/${id}/save`, { method: 'DELETE' })
   }
 
   async saveMirror(mirrorId: string): Promise<void> {
