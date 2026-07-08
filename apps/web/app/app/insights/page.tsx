@@ -9,7 +9,7 @@ import { api } from '@/lib/api'
 import type { Insight, RecentSavedLine } from '@/lib/api'
 import { formatItemDate } from '@/lib/formatItemDate'
 import InsightCard from '@/components/chat/InsightCard'
-import { renderDiscardUndoToast } from '@/components/chat/discardToast'
+import { useInsightDoors } from '@/lib/useInsightDoors'
 import SubPageNav from '@/components/layout/SubPageNav'
 import PersonaPickerSheet from '@/components/personas/PersonaPickerSheet'
 import SharePreviewModal from '@/components/share/SharePreviewModal'
@@ -17,8 +17,7 @@ import SharePreviewModal from '@/components/share/SharePreviewModal'
 export default function InsightsPage() {
   const router = useRouter()
   const token = useStore((s) => s.token)
-  const plan = useStore((s) => s.plan)
-  const isPro = plan === 'pro' || plan === 'premium'
+  const { primary, doubt, discard } = useInsightDoors()
   const [insights, setInsights] = useState<Insight[]>([])
   const [recentLine, setRecentLine] = useState<RecentSavedLine | null>(null)
   const [pickerOpen, setPickerOpen] = useState(false)
@@ -53,50 +52,16 @@ export default function InsightsPage() {
     }
   }
 
-  function handlePrimary(insight: Insight) {
-    // Slice 2 doorways — SAME semantics as the in-chat chip (conv/[id]): a
-    // dilemma/belief must present the same door wherever the insight appears.
-    if (insight.insight_type === 'dilemma') {
-      if (!isPro) {
-        router.push('/app/upgrade')
-        return
-      }
-      sessionStorage.setItem('council_prefill', insight.content.slice(0, 600))
-      sessionStorage.setItem('council_source', 'nudge')
-      if (insight.conversation_id) {
-        sessionStorage.setItem('council_conversation_id', insight.conversation_id)
-      }
-      router.push('/app/council')
-      return
-    }
-    if (insight.insight_type === 'belief') {
-      router.push(`/app/counterview?insightId=${insight.id}`)
-      return
-    }
-    router.push(
-      insight.insight_type === 'shift'
-        ? '/app/you-vs-you'
-        : `/app/mirror?insightId=${insight.id}`,
-    )
-  }
-
-  function handleDoubt(insight: Insight) {
-    // Counterview navigation (does NOT dismiss the insight) — mirrors Today.
-    router.push(`/app/counterview?insightId=${insight.id}`)
-  }
-
+  // primary/doubt come straight from the shared hook (byte-identical doors across
+  // chat, this tab, and Home). Only the optimistic array update is local to this
+  // surface, so handleDiscard threads onRemove/onRestore into the hook's discard.
   function handleDiscard(insight: Insight) {
-    // Optimistically remove, but delay the durable dismiss by 5s so Undo can
-    // cancel it (same contract as the Today insight card).
-    setInsights((prev) => prev.filter((i) => i.id !== insight.id))
-    const timer = setTimeout(() => {
-      api.dismissInsight(insight.id).catch(() => {})
-    }, 5000)
-    renderDiscardUndoToast(() => {
-      clearTimeout(timer)
-      setInsights((prev) =>
-        prev.some((i) => i.id === insight.id) ? prev : [insight, ...prev],
-      )
+    discard(insight, {
+      onRemove: () => setInsights((prev) => prev.filter((i) => i.id !== insight.id)),
+      onRestore: () =>
+        setInsights((prev) =>
+          prev.some((i) => i.id === insight.id) ? prev : [insight, ...prev],
+        ),
     })
   }
 
@@ -206,8 +171,8 @@ export default function InsightsPage() {
               content={insight.content}
               insightType={insight.insight_type}
               sourceCount={insight.source_count}
-              onPrimary={() => handlePrimary(insight)}
-              onDoubt={() => handleDoubt(insight)}
+              onPrimary={() => primary(insight)}
+              onDoubt={() => doubt(insight)}
               onDiscard={() => handleDiscard(insight)}
             />
           ))}

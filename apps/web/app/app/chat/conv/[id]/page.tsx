@@ -8,7 +8,7 @@ import { useStream } from '@/lib/useStream'
 import { api, SaveLimitError, DuplicateSaveError, ConversationNotFoundError, type Insight } from '@/lib/api'
 import toast from 'react-hot-toast'
 import { renderSavedToast } from '@/components/chat/savedToast'
-import { renderDiscardUndoToast } from '@/components/chat/discardToast'
+import { useInsightDoors } from '@/lib/useInsightDoors'
 import ChatHeader from '@/components/chat/ChatHeader'
 import OpeningInvocation from '@/components/chat/OpeningInvocation'
 import MessageList from '@/components/chat/MessageList'
@@ -68,6 +68,7 @@ export default function ExistingConversationPage() {
   const [insight, setInsight] = useState<Insight | null>(null)
   const [insightExpanded, setInsightExpanded] = useState(false)
   const { send, sendAnotherMind, sendGoDeeper } = useStream()
+  const { primary, doubt, discard } = useInsightDoors()
   const hasSentTopicRef = useRef(false)
   // Assistant-message count last observed; null until baselined on conversation
   // load, so the initial load is not mistaken for a turn boundary.
@@ -287,61 +288,30 @@ export default function ExistingConversationPage() {
     prevAssistantCountRef.current = count
   }, [messages, isReady, refreshInsight])
 
+  // Doors come from the shared hook (byte-identical across chat, the Insights tab,
+  // and Home). Discard additionally suppresses re-poll for this session via the
+  // module-scoped set — chat-only, so it lives in the onRemove/onRestore callbacks.
   function handleInsightPrimary() {
-    const current = insight
-    if (!current) return
-    // Branch on insight type. Slice 2 doorways (neither dismisses on tap):
-    //  - 'dilemma' → the Council, mirroring handleTakeToCouncil (Pro → seed
-    //    council_prefill/source='nudge'/conversation; free → /app/upgrade).
-    //  - 'belief'  → Counterview (the Doubt-this destination; primary IS that door).
-    // 'shift' → You-vs-You (own Pro gate); everything else reflects in the Mirror.
-    if (current.insight_type === 'dilemma') {
-      if (!isPro) {
-        router.push('/app/upgrade')
-        return
-      }
-      sessionStorage.setItem('council_prefill', current.content.slice(0, 600))
-      sessionStorage.setItem('council_source', 'nudge')
-      if (current.conversation_id) {
-        sessionStorage.setItem('council_conversation_id', current.conversation_id)
-      }
-      router.push('/app/council')
-      return
-    }
-    if (current.insight_type === 'belief') {
-      router.push(`/app/counterview?insightId=${current.id}`)
-      return
-    }
-    if (current.insight_type === 'shift') {
-      router.push('/app/you-vs-you')
-    } else {
-      router.push(`/app/mirror?insightId=${current.id}`)
-    }
+    if (insight) primary(insight)
   }
 
   function handleInsightDoubt() {
-    const current = insight
-    if (!current) return
-    // Counterview is a stub for now; navigate (do NOT dismiss the insight).
-    router.push(`/app/counterview?insightId=${current.id}`)
+    if (insight) doubt(insight)
   }
 
   function handleInsightDiscard() {
     const current = insight
     if (!current) return
-    // Optimistically remove the chip and suppress repoll for the window, but
-    // delay the durable dismiss by 5s so Undo can cancel it. If the window
-    // elapses, the PATCH commits (server is_dismissed is the durable control).
-    sessionDismissedInsightIds.add(current.id)
-    setInsight(null)
-    setInsightExpanded(false)
-    const timer = setTimeout(() => {
-      api.dismissInsight(current.id).catch(() => {})
-    }, 5000)
-    renderDiscardUndoToast(() => {
-      clearTimeout(timer)
-      sessionDismissedInsightIds.delete(current.id)
-      setInsight(current)
+    discard(current, {
+      onRemove: () => {
+        sessionDismissedInsightIds.add(current.id)
+        setInsight(null)
+        setInsightExpanded(false)
+      },
+      onRestore: () => {
+        sessionDismissedInsightIds.delete(current.id)
+        setInsight(current)
+      },
     })
   }
 

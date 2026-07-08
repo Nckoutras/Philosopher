@@ -12,6 +12,7 @@ import PersonaPickerSheet from '@/components/personas/PersonaPickerSheet'
 import NamePromptCard from '@/components/today/NamePromptCard'
 import AppHeader from '@/components/layout/AppHeader'
 import SundayLetterCard from '@/components/today/SundayLetterCard'
+import RoomNoticedCard from '@/components/today/RoomNoticedCard'
 
 // Real LQIPs for the four home tiles, minted from the actual public/personas
 // source files (16px wide, WebP). Shown as blurred placeholders so the tiles —
@@ -195,6 +196,10 @@ export default function TodayPage() {
         {!isFirstDay && (
           <SundayLetterCard isPro={isPro} />
         )}
+
+        {/* ── "The room noticed": newest non-dismissed insight, if any. Self-
+            fetching; renders nothing most days. Inherits the gap-[12px] rhythm. ── */}
+        <RoomNoticedCard />
 
         {/* The "Continuing." card now lives in Library; "Your reflections." in Insights. */}
 
