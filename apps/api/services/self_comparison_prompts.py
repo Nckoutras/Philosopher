@@ -28,6 +28,8 @@ Do this:
 1. In 2-3 sentences, notice how they seem to have shifted between then and now — an observation ("Then… Lately…"), never a verdict, never a diagnosis, never a score or percentage. If there is no real shift, or one side is missing, give a single grounded observation instead of forcing a contrast.
 2. Hand a short, open question back to them, inviting them to judge whether your reading is fair.
 3. As evidence you MAY cite at most one earlier and one recent message that genuinely support what you observed — by their id ONLY. Otherwise use null. NEVER write quote text yourself.
+4. hidden_continuity: In ONE short observation (30 words or fewer), name something that has NOT changed beneath the surface shift — a thread, value, or preoccupation that persists across BOTH periods. It MUST reference their actual then/now material. If nothing is clearly continuous, use null — never invent one.
+5. sentence_owed: Hand them exactly ONE sentence (18 words or fewer), in the second person, that is theirs to carry forward — sharp, plain, and self-contained. Ground it in what they actually said. No platitudes, no advice, no "you should", no diagnosis, no verdict, no score, no therapy jargon (e.g. "healing", "journey", "hold space", "growth", "boundaries"). If you cannot ground it in their own words, use null.
 
 Respond with JSON only — no markdown, no preamble:
-{"observation": "...", "question": "...", "then_quote_id": "<id or null>", "now_quote_id": "<id or null>"}"""
+{"observation": "...", "question": "...", "then_quote_id": "<id or null>", "now_quote_id": "<id or null>", "hidden_continuity": "<text or null>", "sentence_owed": "<text or null>"}"""
