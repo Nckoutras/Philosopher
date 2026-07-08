@@ -11,7 +11,14 @@ import Image from 'next/image'
 import WiseMark from '@/components/ui/WiseMark'
 
 type Quote = { text: string; date: string }
-type ClosingData = { observation: string; question: string; then_quote: Quote | null; now_quote: Quote | null }
+type ClosingData = {
+  observation: string
+  question: string
+  then_quote: Quote | null
+  now_quote: Quote | null
+  hidden_continuity: string | null
+  sentence_owed: string | null
+}
 type YvYEvent = {
   type: string
   which?: 'then' | 'now'
@@ -23,6 +30,8 @@ type YvYEvent = {
   question?: string
   then_quote?: Quote | null
   now_quote?: Quote | null
+  hidden_continuity?: string | null
+  sentence_owed?: string | null
   comparison_id?: string
 }
 
@@ -117,6 +126,8 @@ export default function YouVsYouPage() {
               question: ev.question ?? '',
               then_quote: ev.then_quote ?? null,
               now_quote: ev.now_quote ?? null,
+              hidden_continuity: ev.hidden_continuity ?? null,
+              sentence_owed: ev.sentence_owed ?? null,
             })
           } else if (ev.type === 'done') {
             if (ev.comparison_id) setComparisonId(ev.comparison_id)
@@ -282,6 +293,22 @@ export default function YouVsYouPage() {
 
                   {closing.question && (
                     <p className="font-cormorant text-[16px] text-ink leading-snug">{closing.question}</p>
+                  )}
+
+                  {/* R1a closing beats — the last substantive lines before the user is
+                      asked to judge, so sentence_owed lands with full weight. Rendered
+                      only when the server grounded them (null → omitted silently). */}
+                  {closing.hidden_continuity && (
+                    <div className="flex flex-col gap-[6px] pt-[12px] border-t border-bronze/20">
+                      <span className="font-lora text-[11px] uppercase tracking-[0.2em] text-bronze-dark">What hasn&rsquo;t moved</span>
+                      <p className="font-cormorant text-[17px] text-ink leading-snug">{closing.hidden_continuity}</p>
+                    </div>
+                  )}
+                  {closing.sentence_owed && (
+                    <div className="flex flex-col gap-[6px] pt-[12px] border-t border-bronze/20">
+                      <span className="font-lora text-[11px] uppercase tracking-[0.2em] text-bronze-dark">A sentence you owe yourself</span>
+                      <p className="font-cormorant italic text-[19px] text-ink leading-snug">{closing.sentence_owed}</p>
+                    </div>
                   )}
 
                   {comparisonId && (

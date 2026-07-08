@@ -150,6 +150,25 @@ class SelfComparisonService:
             logger.warning(f"Self-portrait context failed for user={user_id}: {exc}")
             return ("", "")
 
+    async def _closing_line(self, value, *, cap_words: int) -> str | None:
+        """Normalize an optional R1a closing beat (hidden_continuity / sentence_owed).
+
+        Returns the trimmed string, or None if: not a non-empty string (the model
+        emits null when it can't ground it), grossly over its word cap (>= 1.5x —
+        marginal overage ships as-is, never truncated mid-sentence), or the existing
+        output-safety check would suppress it. Scoped to these two new fields only —
+        observation/question keep their current (un-output-checked) behavior."""
+        if not isinstance(value, str):
+            return None
+        text = value.strip()
+        if not text:
+            return None
+        if len(text.split()) >= cap_words * 1.5:
+            return None
+        if (await safety_service.check_output(text)).should_suppress_persona:
+            return None
+        return text
+
     async def stream(self, db: AsyncSession, user_id: str, prompt: str, *, bypass_gate: bool = False) -> AsyncGenerator[str, None]:
         # 1. Safety gate on the prompt
         safety_in = await safety_service.check_input(prompt, user_id)
@@ -244,7 +263,12 @@ class SelfComparisonService:
         if shifts_block:
             closing_user += f"\n\nSelf-described answer-movements over time:\n{shifts_block}"
 
-        closing = {"observation": "", "question": "", "then_quote": None, "now_quote": None}
+        closing = {
+            "observation": "", "question": "", "then_quote": None, "now_quote": None,
+            # R1a closing beats — grounded-or-null; keys always present so the SSE
+            # event and payload carry them (null when absent). Old runs never re-render.
+            "hidden_continuity": None, "sentence_owed": None,
+        }
         try:
             raw = await llm_client.complete(system=CLOSING_PROMPT, user=closing_user, model=MODEL_PRO, max_tokens=512)
             ctext = raw.strip()
@@ -260,6 +284,10 @@ class SelfComparisonService:
                 cand = by_id.get(qid) if qid else None
                 if cand:
                     closing[f"{side}_quote"] = {"text": cand["text"][:QUOTE_TRUNC], "date": cand["date"].isoformat()}
+            # The model returns null when it can't ground these; we additionally null
+            # on gross word-cap overage (>= 1.5x) and on output-safety suppression.
+            closing["hidden_continuity"] = await self._closing_line(data.get("hidden_continuity"), cap_words=30)
+            closing["sentence_owed"] = await self._closing_line(data.get("sentence_owed"), cap_words=18)
         except Exception as exc:
             logger.error(f"Self-comparison closing failed for user={user_id}: {exc}")
 
