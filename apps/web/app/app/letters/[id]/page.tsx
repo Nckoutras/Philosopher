@@ -227,6 +227,19 @@ export default function LetterReadPage() {
           </div>
         )}
 
+        {/* What went unspoken — the occasional avoidance line. Present only when the
+            week's material clearly grounded it (most weeks it simply isn't here). */}
+        {payload.avoidance && (
+          <div className="border-t border-[0.5px] border-edge pt-[18px] mb-[24px]">
+            <p className="font-lora text-[11px] uppercase tracking-[0.18em] text-bronze mb-[8px]">
+              What went unspoken
+            </p>
+            <div className="flex flex-col gap-[14px]">
+              {renderParagraphs(payload.avoidance, 'font-lora text-[16px] text-charcoal leading-[1.7]')}
+            </div>
+          </div>
+        )}
+
         {/* Pull quote */}
         {payload.pull_quote && (
           <blockquote className="font-cormorant italic text-[20px] text-ink pl-[16px] border-l-2 border-bronze my-[24px] leading-snug">
