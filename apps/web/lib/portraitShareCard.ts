@@ -50,7 +50,7 @@ const RENDER_SCALE = 3 // rasterize the SVG at 3× for crisp text, drawn down
 
 // Viz AREA on the card (C2 recomposition — larger than the previous 90/150/900/600). The
 // active viz is fit into this box preserving aspect (so the radar's 420:272 and the map's
-// 360:264 are each undistorted). The title sits above (y≈108–172); the summary line + QR +
+// 360:294 are each undistorted). The title sits above (y≈108–172); the summary line + QR +
 // date sit below. Old box 900×600 → new 950×615 (radar +11% area, map wider & taller).
 const VIZ_X = 65
 const VIZ_Y = 205
@@ -258,7 +258,7 @@ export async function renderPortraitCardBlob(
 
   // 3b. Map base art (map only) — same-origin parchment territories, drawn straight into
   //     the dest rect UNDER the label svg. On screen it's an <img> sibling outside the svg
-  //     (so it's stripped from the clone); the container shares the svg's 360×264 aspect, so
+  //     (so it's stripped from the clone); the container shares the svg's 360×294 aspect, so
   //     a plain fill of dest is correct. Radar path is unaffected (mapImg is null there).
   if (mapImg) {
     ctx.drawImage(mapImg, dest.x, dest.y, dest.w, dest.h)
