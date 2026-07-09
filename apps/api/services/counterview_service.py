@@ -19,6 +19,11 @@ COUNTERVIEW_PERSONAS = [("miyamoto_musashi", 0), ("niccolo_machiavelli", 1)]
 # a line mid-sentence — a marginally-long retry is kept).
 MAX_WORDS = 10
 
+# "What still stands" closing line cap. Prompt-enforced at 14; the server only
+# nulls on GROSS overage (>= 1.5x = 21 words) — a marginal line ships, never cut
+# mid-sentence. Mirrors the R1a _closing_line pattern.
+STILL_STANDS_MAX_WORDS = 14
+
 COUNTERVIEW_PROMPT = """You are giving the CASE AGAINST a position a person holds. Two distinct minds answer, each in one sharp line.
 
 You receive the person's stated position, in their own words. Do not agree, soften, or reassure. Show — briefly and without cruelty — where it is weak: a contradiction, a blind spot, a cost they are not counting, an angle they have not considered.
@@ -37,8 +42,13 @@ Hard rules:
 - 10 words max per line. Shorter is stronger.
 - ONE idea, ONE blade. No em-dash or semicolon stitching two thoughts together — a single clean cut, not a compound sentence.
 
+After the two cuts, add ONE quiet closing line — "what still stands": the part of their position that SURVIVES the challenge, the grain worth keeping once the weak parts fall away. ONE sentence, 14 words MAXIMUM, neutral and plain.
+- This is NOT praise and NOT a third attack — it names, honestly, what of the belief remains true or worth holding.
+- Anchor it STRICTLY to what they wrote, same as the cuts. Invent nothing.
+- If nothing of the position honestly survives, use null — never manufacture one.
+
 Return JSON only, no preamble, exactly:
-{"status":"generated","verdicts":[{"persona":"miyamoto_musashi","verdict":"..."},{"persona":"niccolo_machiavelli","verdict":"..."}]}
+{"status":"generated","verdicts":[{"persona":"miyamoto_musashi","verdict":"..."},{"persona":"niccolo_machiavelli","verdict":"..."}],"still_stands":"<one sentence, or null>"}
 
 If there is genuinely nothing to push against, return exactly: {"status":"empty"}"""
 
@@ -114,17 +124,22 @@ async def generate_counterview(
             )
 
     # ── 4-5) Generate (+ one tightening retry on over-length) ─────────────────
+    # still_stands rides the same JSON as the verdicts; the tighten retry, when it
+    # fires, adopts the retry response wholesale (both verdicts and its closing line).
     verdicts = None
+    still_stands = None
     try:
-        verdicts = await _call_llm(anchor_text)
+        verdicts, still_stands = await _call_llm(anchor_text)
         if verdicts is not None and any(_word_count(v[2]) > MAX_WORDS for v in verdicts):
-            retry = await _call_llm(anchor_text, tighten=True)
-            if retry is not None:
-                verdicts = retry
+            retry_verdicts, retry_still = await _call_llm(anchor_text, tighten=True)
+            if retry_verdicts is not None:
+                verdicts = retry_verdicts
+                still_stands = retry_still
     except Exception as e:
         # Degrade gracefully to 'empty' rather than surfacing a 500.
         logger.warning("Counterview generation failed user=%s: %s", user_id, e)
         verdicts = None
+        still_stands = None
 
     if not verdicts:
         return await _write_counterview(
@@ -139,17 +154,23 @@ async def generate_counterview(
                 db, user_id, source, insight_id, anchor_text, status="suppressed"
             )
 
+    # The closing line: cap-guarded + the SAME output-safety gate, nulled (not
+    # suppressing) on failure — the verdicts already passed.
+    still_stands = await _clean_still_stands(still_stands)
+
     # ── 7) Persist generated counterview + its two responses ──────────────────
     return await _write_counterview(
         db, user_id, source, insight_id, anchor_text,
-        status="generated", verdicts=verdicts,
+        status="generated", verdicts=verdicts, still_stands=still_stands,
     )
 
 
 async def _call_llm(anchor_text: str, *, tighten: bool = False):
-    """One LLM call → list of [slug, position, verdict] in COUNTERVIEW_PERSONAS
-    order, or None if the model returned non-'generated' / unparseable / an
-    incomplete persona set."""
+    """One LLM call → (verdicts, still_stands): verdicts is a list of
+    [slug, position, verdict] in COUNTERVIEW_PERSONAS order (or None if the model
+    returned non-'generated' / unparseable / an incomplete persona set), and
+    still_stands is the raw closing line (or None). still_stands is only meaningful
+    when verdicts is not None."""
     system = COUNTERVIEW_PROMPT + (TIGHTEN_DIRECTIVE if tighten else "")
     raw = await llm_client.complete(
         system=system,
@@ -169,9 +190,9 @@ def _extract_verdicts(raw: str):
     try:
         data = json.loads(text)
     except (json.JSONDecodeError, ValueError):
-        return None
+        return None, None
     if not isinstance(data, dict) or data.get("status") != "generated":
-        return None
+        return None, None
 
     by_persona = {}
     for item in data.get("verdicts") or []:
@@ -184,9 +205,30 @@ def _extract_verdicts(raw: str):
     for slug, position in COUNTERVIEW_PERSONAS:
         verdict = by_persona.get(slug)
         if not verdict:
-            return None  # incomplete set → treat as empty
+            return None, None  # incomplete set → treat as empty
         result.append([slug, position, verdict])
-    return result
+
+    # The closing line rides the same JSON; raw here, cleaned+safety-checked later.
+    still_raw = data.get("still_stands")
+    still_stands = still_raw.strip() if isinstance(still_raw, str) else None
+    return result, (still_stands or None)
+
+
+async def _clean_still_stands(value: str | None) -> str | None:
+    """Normalize the "what still stands" closing line: None unless a non-empty
+    string within the gross word cap (>= 1.5x nulls; marginal ships) that passes
+    the SAME output-safety gate as the verdicts. A flagged line is nulled only —
+    the verdicts already passed, so the counterview is never suppressed for it."""
+    if not isinstance(value, str):
+        return None
+    text = value.strip()
+    if not text:
+        return None
+    if _word_count(text) >= STILL_STANDS_MAX_WORDS * 1.5:
+        return None
+    if (await safety_service.check_output(text)).should_suppress_persona:
+        return None
+    return text
 
 
 def _word_count(text: str) -> int:
@@ -202,6 +244,7 @@ async def _write_counterview(
     *,
     status: str,
     verdicts: list | None = None,
+    still_stands: str | None = None,
 ) -> Counterview:
     """Insert the counterview (+ responses when generated), race-safe against the
     partial unique index on insight_id: on IntegrityError (a concurrent insight
@@ -213,6 +256,7 @@ async def _write_counterview(
         insight_id=eff_insight_id,
         anchor_text=anchor_text,
         status=status,
+        still_stands=still_stands,
     )
     db.add(counterview)
     try:

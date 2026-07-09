@@ -575,6 +575,9 @@ class Counterview(Base):
     insight_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), ForeignKey("insights.id", ondelete="SET NULL"), nullable=True)
     anchor_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(String(20), nullable=False)  # generated | empty | suppressed
+    # "What still stands" closing line — one neutral sentence naming what of the
+    # belief survives the challenge. Null on old rows / empty / suppressed / ungrounded.
+    still_stands: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
     __table_args__ = (
