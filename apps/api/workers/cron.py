@@ -189,6 +189,7 @@ def setup_cron(arq_queue):
                         note=row.note,
                         scheduled_for_display=scheduled_display,
                         public_base_url=config.PUBLIC_ASSET_BASE_URL,
+                        arrived_url=f"{config.FRONTEND_URL}/app/scheduled-letters/{row.id}",
                     )
                     send_email(to=row.recipient_email, subject=subject, html=html)
                     row.status = "sent"

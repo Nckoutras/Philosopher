@@ -56,6 +56,15 @@
     </div>
     {% endif %}
 
+    <!-- Open in the room — in-app deep link to this delivered letter (R5b-1) -->
+    {% if arrived_url %}
+    <p style="font-size:14px;color:#3A3530;text-align:center;margin:0 0 24px 0;
+              font-family:Georgia,serif;line-height:1.6;">
+      This letter also lives in the room.
+      <a href="{{ arrived_url }}" style="color:#1F1B14;text-decoration:underline;">Open it there &rarr;</a>
+    </p>
+    {% endif %}
+
     <!-- Divider -->
     <div style="border-top:0.5px solid #D6C9B0;margin:0 0 20px 0;"></div>
 
