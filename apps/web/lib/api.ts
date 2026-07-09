@@ -364,6 +364,18 @@ export interface ScheduledEmailListItem {
   created_at: string
 }
 
+export interface ScheduledEmailDetail {
+  id: string
+  persona_id: string
+  persona_name: string
+  persona_portrait_url: string | null
+  note: string | null
+  scheduled_for: string
+  status: string
+  sent_at: string | null
+  created_at: string
+}
+
 export interface MirrorMoment {
   said: string
   meant: string
@@ -1170,6 +1182,10 @@ class ApiClient {
   async listScheduledEmails(status?: string): Promise<ScheduledEmailListItem[]> {
     const qs = status ? `?status=${encodeURIComponent(status)}` : ''
     return this.request<ScheduledEmailListItem[]>(`/scheduled-emails${qs}`)
+  }
+
+  async getScheduledEmail(emailId: string): Promise<ScheduledEmailDetail> {
+    return this.request<ScheduledEmailDetail>(`/scheduled-emails/${emailId}`)
   }
 
   async cancelScheduledEmail(emailId: string): Promise<void> {

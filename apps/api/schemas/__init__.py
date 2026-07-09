@@ -535,6 +535,25 @@ class ScheduledEmailListItem(BaseModel):
         from_attributes = True
 
 
+class ScheduledEmailDetail(BaseModel):
+    """A single DELIVERED future-self letter, for the in-app arrived-letter screen.
+    Only ever built for status='sent' rows (the endpoint 404s otherwise), so the
+    note is never exposed before delivery. `created_at` is the written date;
+    `sent_at` is the arrived date."""
+    id: str
+    persona_id: str
+    persona_name: str
+    persona_portrait_url: str
+    note: Optional[str]
+    scheduled_for: datetime
+    status: str
+    sent_at: Optional[datetime]
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
 # ── Mirror ────────────────────────────────────────────────────────────────────
 
 class MirrorOut(BaseModel):

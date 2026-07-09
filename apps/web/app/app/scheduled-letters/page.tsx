@@ -116,23 +116,40 @@ export default function ScheduledLettersPage() {
                     Sent
                   </p>
                 </div>
-                {past.map((item) => (
-                  <div
-                    key={item.id}
-                    className="border-t border-[0.5px] border-edge px-[16px] py-[14px]"
-                  >
-                    <p className="font-cormorant text-[17px] font-medium text-ink leading-tight">
-                      {item.persona_name}
-                    </p>
-                    <p className="font-lora text-[12px] text-charcoal mt-[2px]">
-                      {item.status === 'sent'
-                        ? `Sent ${formatDeliverDate(item.sent_at ?? item.scheduled_for)}`
-                        : item.status === 'cancelled'
-                          ? 'Cancelled'
-                          : `Failed · ${formatDeliverDate(item.scheduled_for)}`}
-                    </p>
-                  </div>
-                ))}
+                {past.map((item) => {
+                  const meta = (
+                    <>
+                      <p className="font-cormorant text-[17px] font-medium text-ink leading-tight">
+                        {item.persona_name}
+                      </p>
+                      <p className="font-lora text-[12px] text-charcoal mt-[2px]">
+                        {item.status === 'sent'
+                          ? `Sent ${formatDeliverDate(item.sent_at ?? item.scheduled_for)}`
+                          : item.status === 'cancelled'
+                            ? 'Cancelled'
+                            : `Failed · ${formatDeliverDate(item.scheduled_for)}`}
+                      </p>
+                    </>
+                  )
+                  // Only delivered letters open a detail (the endpoint 404s otherwise).
+                  return item.status === 'sent' ? (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => router.push(`/app/scheduled-letters/${item.id}`)}
+                      className="w-full text-left border-t border-[0.5px] border-edge px-[16px] py-[14px]"
+                    >
+                      {meta}
+                    </button>
+                  ) : (
+                    <div
+                      key={item.id}
+                      className="border-t border-[0.5px] border-edge px-[16px] py-[14px]"
+                    >
+                      {meta}
+                    </div>
+                  )
+                })}
               </div>
             )}
           </>

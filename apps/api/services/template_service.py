@@ -23,11 +23,14 @@ def render_future_self_email(
     note: str | None,
     scheduled_for_display: str,
     public_base_url: str,
+    arrived_url: str | None = None,
 ) -> str:
     """Render the future-self HTML email body.
 
     persona_portrait_url must be an absolute URL (or empty string).
     public_base_url is rendered in the footer link.
+    arrived_url, when provided, is the in-app deep link to this delivered letter
+    (the "open it in the room" CTA). Optional — omitted renders no CTA line.
     """
     template = _env.get_template("future_self_email.html")
     return template.render(
@@ -37,4 +40,5 @@ def render_future_self_email(
         note=note,
         scheduled_for_display=scheduled_for_display,
         public_base_url=public_base_url,
+        arrived_url=arrived_url,
     )

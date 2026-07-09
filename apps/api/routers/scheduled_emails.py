@@ -9,7 +9,12 @@ from sqlalchemy import select
 
 from db.session import get_db
 from models import ScheduledEmail, SavedLine, Persona, User
-from schemas import ScheduledEmailCreate, ScheduledEmailOut, ScheduledEmailListItem
+from schemas import (
+    ScheduledEmailCreate,
+    ScheduledEmailOut,
+    ScheduledEmailListItem,
+    ScheduledEmailDetail,
+)
 from auth import get_current_user
 from services.tier_service import get_user_tier
 
@@ -90,6 +95,44 @@ async def list_scheduled_emails(
     result = await db.execute(q)
     rows = result.mappings().all()
     return [ScheduledEmailListItem.model_validate(dict(row)) for row in rows]
+
+
+@router.get("/{email_id}", response_model=ScheduledEmailDetail)
+async def get_scheduled_email(
+    email_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> ScheduledEmailDetail:
+    """The in-app arrived-letter screen. Owner-scoped and DELIVERED-only.
+
+    404 unless the row belongs to the caller AND status='sent' — a pending row
+    is invisible as a detail (peek prevention: the note never surfaces before
+    delivery). Joins persona for the attribution + thumbnail.
+    """
+    q = (
+        select(
+            ScheduledEmail.id,
+            ScheduledEmail.persona_id,
+            Persona.name.label("persona_name"),
+            Persona.portrait_url.label("persona_portrait_url"),
+            ScheduledEmail.note,
+            ScheduledEmail.scheduled_for,
+            ScheduledEmail.status,
+            ScheduledEmail.sent_at,
+            ScheduledEmail.created_at,
+        )
+        .join(Persona, ScheduledEmail.persona_id == Persona.id)
+        .where(
+            ScheduledEmail.id == email_id,
+            ScheduledEmail.user_id == user.id,
+            ScheduledEmail.status == "sent",
+        )
+    )
+    result = await db.execute(q)
+    row = result.mappings().one_or_none()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Scheduled email not found")
+    return ScheduledEmailDetail.model_validate(dict(row))
 
 
 @router.delete("/{email_id}", status_code=204)
