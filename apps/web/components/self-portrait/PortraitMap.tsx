@@ -1,60 +1,51 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Self-Portrait map (v4 — static hand-drawn territories). A SECOND view of the SAME
-// theme_scores the radar uses. The base is now a HAND-DRAWN parchment map asset with 5
-// fixed blank territories (1 large, 1 medium, 3 small). We rank the 8 themes by score and
-// print the NAME + caption of each top-5 theme onto the territory matching its RANK
-// (rank-1 → largest … rank-5 → the last small one). Ranks 6-8 do not appear.
+// Self-Portrait map (v5 — hand-drawn territories, re-art). A SECOND view of the SAME
+// theme_scores the radar uses. The base is a HAND-DRAWN parchment map asset with 5 baked-in
+// anchor markers — a central compass bullseye plus four location dots (top-left, top-right,
+// bottom-right, and one over the lake, bottom-left). We rank the 8 themes by score and print
+// the NAME + caption of each top-5 theme onto the anchor matching its RANK (rank-1 → the
+// central bullseye … rank-5 → the lake). Ranks 6-8 do not appear.
 //
 // This preserves "stable world" by RANK: a theme's slot is its CURRENT rank, so when the
-// ranking shifts the names move between the fixed territories — recognisable over time and
+// ranking shifts the names move between the fixed anchors — recognisable over time and
 // trivial to diff then-vs-now. No procedural shapes; the map art IS the territory.
 //
-// • BASE: map-territories.webp at full opacity (it IS the map — no dimming; no baked
-//   compass to fight). A FULL background sibling OUTSIDE the <svg> (like the radar's
-//   frame/watermark), so it never enters the share-card canvas or taints it.
-// • SLOTS: 5 fixed viewBox anchors (founder-confirmed centres), ordered by rank. Each
-//   carries a wrap width (large/medium 18 ch/line; the three small corner slots 14 ch/line
-//   so a caption never runs off the frame). Empty slots (fewer than 5 scored themes)
-//   render nothing.
+// • BASE: map-territories.webp at full opacity (it IS the map). A FULL background sibling
+//   OUTSIDE the <svg> (like the radar's frame/watermark), so it never enters the share-card
+//   canvas or taints it. The art carries its OWN central compass, so we draw no rose overlay.
+// • SLOTS: 5 fixed viewBox anchors (detected centres of the map's markers), ordered by rank.
+//   Each carries a wrap width (centre + top-right 18 ch/line; the three corner slots
+//   14 ch/line so a caption never runs off the frame). Empty slots (fewer than 5 scored
+//   themes) render nothing.
 // • LABELS: stacked + centered on the slot anchor — name (Lora 13, ink, vellum halo;
-//   rank-1 weight 600) then the sub-caption below, WRAPPED to ≤3 lines (Lora 9.5, sepia,
-//   same halo) from selfPortraitMapCaptions.ts. The halo keeps small-slot captions legible
-//   where they overrun the blank onto the faint contour lines.
-// • NO connector paths between territories — we have NO theme-to-theme relationship data,
-//   and no UI copy anywhere may imply one.
-// • Compass rose + needle: the rose.webp overlay + needle stay in the data-share-omit group
-//   (the share pipeline strips it — the <image> can't resolve there, avoiding an orphaned
-//   needle). The needle points at SLOT_LARGE — the rank-1 (dominant) territory.
+//   rank-1 weight 600) then the sub-caption below, WRAPPED to ≤3 lines (Lora 11, sepia,
+//   same halo) from selfPortraitMapCaptions.ts. The halo keeps corner-slot captions legible
+//   where they overrun onto the faint contour lines.
+// • X-MARKS-THE-SPOT: a discreet cross above the rank-1 (dominant) name, on the central
+//   bullseye. NO connector paths between territories — we have NO theme-to-theme relationship
+//   data, and no UI copy anywhere may imply one.
 // • Empty / all-zero → the same calm "keep answering" line, never a degenerate blob.
 // ─────────────────────────────────────────────────────────────────────────────
 import Image from 'next/image'
 import type { SelfPortraitThemeScore } from '@/lib/api'
 import { MAP_CAPTIONS } from '@/lib/selfPortraitMapCaptions'
 
-// Same-origin hand-drawn territory map (v4 asset). Full-bleed background, full opacity.
+// Same-origin hand-drawn territory map (v5 re-art asset). Full-bleed background, full opacity.
 const MAP_SRC = '/self-portrait/map-territories.webp'
 
-// ── FIXED territory slots (viewBox 360×264), in RANK order ─────────────────────
-// Founder-confirmed centres of the 5 blank territories in the map art. rank-1 → LARGE,
-// rank-2 → MEDIUM, rank-3/4/5 → the three small ones (top-left, bottom-left, bottom-
-// center). `maxChars` is the per-slot caption wrap width: the three small CORNER slots use
-// a tighter width so a wide caption never runs off the viewBox edge.
+// ── FIXED territory slots (viewBox 360×294), in RANK order ─────────────────────
+// Detected centres of the 5 baked-in anchor markers on the map art (frac→viewBox from the
+// 1388×1133 asset). rank-1 → the CENTRAL bullseye (also gets the X-mark), rank-2 → top-right
+// territory, rank-3 → top-left, rank-4 → bottom-right, rank-5 → the lake (bottom-left).
+// `maxChars` is the per-slot caption wrap width: the three corner slots use a tighter width
+// so a wide caption never runs off the viewBox edge.
 const SLOTS: Array<{ x: number; y: number; maxChars: number }> = [
-  { x: 252.0, y: 79.2, maxChars: 18 }, // LARGE  — rank 1 (top-right)
-  { x: 118.8, y: 134.6, maxChars: 18 }, // MEDIUM — rank 2 (center)
-  { x: 57.6, y: 55.4, maxChars: 14 }, // SMALL  — rank 3 (top-left corner)
-  { x: 52.2, y: 211.2, maxChars: 14 }, // SMALL  — rank 4 (bottom-left corner)
-  { x: 171.0, y: 212.5, maxChars: 14 }, // SMALL  — rank 5 (bottom-center)
+  { x: 172.7, y: 173.3, maxChars: 18 }, // CENTRE    — rank 1 (bullseye)
+  { x: 267.7, y: 83.8, maxChars: 18 }, // TOP-RIGHT — rank 2
+  { x: 83.8, y: 77.3, maxChars: 14 }, // TOP-LEFT  — rank 3
+  { x: 292.6, y: 243.9, maxChars: 14 }, // BOT-RIGHT — rank 4
+  { x: 76.8, y: 247.0, maxChars: 14 }, // LAKE (BL) — rank 5
 ]
-
-// Decorative compass rose overlay (same-origin asset shared with the radar) + a dynamic
-// needle, lower-right. The rose+needle group is tagged data-share-omit so the share
-// pipeline strips it (the <image> can't resolve there — avoids an orphaned needle).
-const ROSE_SRC = '/self-portrait/rose.webp'
-const ROSE_CX = 310.7 // 86.3% of the 360-wide viewBox
-const ROSE_CY = 214.9 // 81.4% of the 264-tall viewBox
-const ROSE_W = 44 // decorative scale (half-width 22)
-const NEEDLE_LEN = 22 // reaches the rose's outer edge
 
 // Wrap a caption to at most `maxLines` lines of ≤`maxChars` chars (greedy word-wrap) so it
 // stays inside its slot and the viewBox. Deterministic — no layout measurement, so it
@@ -106,25 +97,6 @@ export function PortraitMap({
     isDominant: i === 0,
   }))
 
-  // Compass needle → SLOT_LARGE (the rank-1 / dominant territory). Decorative, so it only
-  // shows when there's signal (a rank-1 exists). Same atan2 + triangle-tip math as before,
-  // just a fixed target coordinate. Kept in the data-share-omit group.
-  let needle: { bx: number; by: number; tip: string } | null = null
-  if (hasSignal && assigned.length > 0) {
-    const target = SLOTS[0]
-    const theta = Math.atan2(target.y - ROSE_CY, target.x - ROSE_CX)
-    const baseLen = NEEDLE_LEN - 6 // line stops short; a triangle forms the tip
-    const bx = ROSE_CX + baseLen * Math.cos(theta)
-    const by = ROSE_CY + baseLen * Math.sin(theta)
-    const tipX = ROSE_CX + NEEDLE_LEN * Math.cos(theta)
-    const tipY = ROSE_CY + NEEDLE_LEN * Math.sin(theta)
-    const perp = theta + Math.PI / 2
-    const hw = 3 // tip half-width
-    const pt = (x: number, y: number) => `${x.toFixed(1)},${y.toFixed(1)}`
-    const tip = `${pt(tipX, tipY)} ${pt(bx + hw * Math.cos(perp), by + hw * Math.sin(perp))} ${pt(bx - hw * Math.cos(perp), by - hw * Math.sin(perp))}`
-    needle = { bx, by, tip }
-  }
-
   return (
     <div className="relative w-full">
       {/* MAP container — hand-drawn territory art + watermark + the shareable <svg>. */}
@@ -146,7 +118,7 @@ export function PortraitMap({
           </div>
         )}
 
-        <svg viewBox="0 0 360 264" className="relative w-full block" role="img" aria-label="Your theme map">
+        <svg viewBox="0 0 360 294" className="relative w-full block" role="img" aria-label="Your theme map">
           {hasSignal && assigned.length > 0 && (
             <>
               {/* Rank-assigned labels — name (dominant=ink #1F1B14, others=bronze-dark
@@ -218,34 +190,6 @@ export function PortraitMap({
                   </g>
                 )
               })}
-
-              {/* Decorative compass rose + needle → SLOT_LARGE (rank-1). data-share-omit →
-                  the share pipeline removes the whole group (rose <image> + needle) so the
-                  shared map card shows neither, never an orphaned needle. */}
-              {needle && (
-                <g data-share-omit aria-hidden="true">
-                  <image
-                    href={ROSE_SRC}
-                    x={ROSE_CX - ROSE_W / 2}
-                    y={ROSE_CY - ROSE_W / 2}
-                    width={ROSE_W}
-                    height={ROSE_W}
-                    opacity={0.9}
-                    preserveAspectRatio="xMidYMid meet"
-                  />
-                  <line
-                    x1={ROSE_CX}
-                    y1={ROSE_CY}
-                    x2={needle.bx}
-                    y2={needle.by}
-                    stroke="#8A7340"
-                    strokeWidth={1.2}
-                    strokeLinecap="round"
-                  />
-                  <polygon points={needle.tip} fill="#8A7340" />
-                  <circle cx={ROSE_CX} cy={ROSE_CY} r={1.6} fill="#8A7340" />
-                </g>
-              )}
             </>
           )}
         </svg>
