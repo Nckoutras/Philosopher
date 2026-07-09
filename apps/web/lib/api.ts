@@ -445,6 +445,9 @@ export interface WeeklyLetterPayload {
   title: string | null
   opening: string | null
   references: string | null
+  // "What went unspoken" — the occasional avoidance line. Weekly letters only,
+  // grounded-or-null; absent on old letters and on the monthly season finale.
+  avoidance?: string | null
   pull_quote: string | null
   forward_gesture: string | null
   practical_takeaway: string | null

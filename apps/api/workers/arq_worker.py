@@ -46,6 +46,7 @@ Return JSON only, no preamble, in exactly this shape:
   "title": "...",
   "opening": "...",
   "references": "...",
+  "avoidance": "...",
   "pull_quote": "...",
   "forward_gesture": "...",
   "practical_takeaway": "...",
@@ -55,6 +56,7 @@ Where:
 - "title": a 4-8 word title for the letter (e.g. "On the week you held still")
 - "opening": ONE short paragraph — the greeting and the single thing that stayed with you. Not a week-summary.
 - "references": 1 paragraph of interpretation — what 2-3 of their specifics reveal or point to, in your voice. Do NOT recount or quote at length; go beneath the words.
+- "avoidance": OPTIONAL and RARE. AT MOST ONE topic the person touched repeatedly this week but never opened — mentioned more than once, always in passing, never made the subject. This is OBSERVATION OF PATTERN ONLY: name the frequency and the shallowness of the recurring topic ("You mentioned your father three times this week, always in passing, never as the subject."). ≤2 sentences. HARD LIMITS, non-negotiable: NO motive attribution. NO diagnosis. NO mental-health language. NEVER "you avoided", "you fear", "you're not ready", or any claim about what they feel or why. Describe ONLY what the TEXT shows — frequency and shallowness of a recurring topic — never what they "really" feel. If this pattern is not CLEARLY grounded in the week's raw messages, use null and omit it entirely — a wrong or invented one is far worse than none. When in doubt, null.
 - "pull_quote": one sentence from the letter worth keeping — a line with staying power
 - "forward_gesture": 1-2 sentences — a teaser or challenge that sets a direction of thought. Not a question, not advice, not a task.
 - "practical_takeaway": ONE small, concrete thing to TRY or NOTICE this week — in YOUR own voice and method, drawn from how you actually think. It must read like you, not like a wellness app. Not a task, not advice, never "you should", never a self-help platitude. (Epictetus: "This week, when something stings, pause before you call it 'unfair'." — NOT "Practice gratitude daily.") Use null if nothing honest fits — never force one.
@@ -901,6 +903,31 @@ async def _maybe_send_weekly_letter_email(db, user, letter, payload, persona, re
         logger.error("%s email failed user=%s: %s", reading_label, getattr(user, "id", "?"), e, exc_info=True)
 
 
+# Gross word cap for the avoidance line: the prompt asks for <=2 sentences; the
+# server only nulls on gross overage (~1.5x a two-sentence line) and on output
+# safety. The letter path's FIRST output check — reserved for its most sensitive
+# line, so a wrong/over-long "what went unspoken" is dropped rather than shown.
+AVOIDANCE_MAX_WORDS = 40
+
+
+async def _clean_avoidance(value) -> str | None:
+    """Normalize the optional 'what went unspoken' line (grounded-or-null): None
+    unless a non-empty string within the gross word cap that passes safety
+    check_output. A flagged or grossly over-long line is dropped entirely — never a
+    wrong or invented avoidance. Mirrors the R1a/R2/R3 _clean_* pattern."""
+    if not isinstance(value, str):
+        return None
+    text = value.strip()
+    if not text or text.lower() == "null":
+        return None
+    if len(text.split()) >= AVOIDANCE_MAX_WORDS:
+        return None
+    from services.safety_service import safety_service
+    if (await safety_service.check_output(text)).should_suppress_persona:
+        return None
+    return text
+
+
 async def generate_weekly_letter_task(ctx, user_id: str, voice_persona_slug: str):
     """Generates a weekly epistolary letter in the voice of the user's most-conversed persona."""
     from datetime import datetime, timedelta, timezone
@@ -1125,10 +1152,16 @@ async def generate_weekly_letter_task(ctx, user_id: str, voice_persona_slug: str
             )
             suggested_slug = valid_suggestion_result.scalar_one_or_none()
 
+            # The avoidance line ("what went unspoken") is grounded-or-null, gross-cap
+            # guarded, and — uniquely in the letter path — passes check_output; a
+            # flagged/over-long line is nulled and the section simply doesn't render.
+            avoidance = await _clean_avoidance(data.get("avoidance"))
+
             payload = {
                 "title": data.get("title"),
                 "opening": data.get("opening"),
                 "references": data.get("references"),
+                "avoidance": avoidance,
                 "pull_quote": data.get("pull_quote"),
                 "forward_gesture": data.get("forward_gesture"),
                 "practical_takeaway": data.get("practical_takeaway"),
