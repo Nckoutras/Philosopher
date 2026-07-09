@@ -23,6 +23,7 @@ export default function RitualScheduleSheet({ open, onClose, userEmail }: Props)
   const [selectedLineId, setSelectedLineId] = useState('')
   const [portraitUrlsBySlug, setPortraitUrlsBySlug] = useState<Record<string, string>>({})
   const [note, setNote] = useState('')
+  const [prediction, setPrediction] = useState('')
   const [scheduledFor, setScheduledFor] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [fieldError, setFieldError] = useState<string | null>(null)
@@ -47,6 +48,7 @@ export default function RitualScheduleSheet({ open, onClose, userEmail }: Props)
   useEffect(() => {
     if (!open) {
       setNote('')
+      setPrediction('')
       setScheduledFor('')
       setFieldError(null)
     }
@@ -64,6 +66,7 @@ export default function RitualScheduleSheet({ open, onClose, userEmail }: Props)
       await api.createScheduledEmail({
         saved_line_id: selectedLineId,
         note: note.trim() || undefined,
+        prediction: prediction.trim() || undefined,
         scheduled_for: new Date(scheduledFor).toISOString(),
       })
       onClose()
@@ -134,6 +137,24 @@ export default function RitualScheduleSheet({ open, onClose, userEmail }: Props)
             placeholder="What do you want to remember?"
             className="w-full bg-paper border border-[0.5px] border-edge rounded-sm px-[12px] py-[10px] font-lora text-[15px] font-medium text-ink placeholder:text-charcoal/40 placeholder:font-normal resize-none transition-[border-color,box-shadow] duration-200 focus:outline-none focus:border-bronze focus:ring-1 focus:ring-bronze/20"
           />
+        </div>
+
+        {/* Prediction textarea (043 — optional, surfaced only on the arrived screen) */}
+        <div>
+          <label className="font-lora text-[12px] font-medium uppercase tracking-[0.18em] text-charcoal block mb-[8px]">
+            A prediction
+          </label>
+          <textarea
+            value={prediction}
+            onChange={(e) => setPrediction(e.target.value)}
+            maxLength={200}
+            rows={2}
+            placeholder="What will have changed?"
+            className="w-full bg-paper border border-[0.5px] border-edge rounded-sm px-[12px] py-[10px] font-lora text-[15px] font-medium text-ink placeholder:text-charcoal/40 placeholder:font-normal resize-none transition-[border-color,box-shadow] duration-200 focus:outline-none focus:border-bronze focus:ring-1 focus:ring-bronze/20"
+          />
+          <p className="font-lora text-[12px] text-charcoal mt-[4px]">
+            Optional. Guess where you&rsquo;ll be by the time it arrives — you&rsquo;ll see it again then.
+          </p>
         </div>
 
         {/* Reflection picker */}

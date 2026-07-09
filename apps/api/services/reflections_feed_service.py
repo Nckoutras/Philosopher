@@ -18,6 +18,7 @@ from models import (
     Mirror,
     MirrorSave,
     Persona,
+    ScheduledEmail,
     SelfComparison,
     SelfComparisonSave,
 )
@@ -194,13 +195,50 @@ class ReflectionsFeedService:
             })
         return items
 
+    async def _future_self_reviews(self, db: AsyncSession, user_id: str) -> list[dict]:
+        # A reviewed future-self letter: the reader's "what happened" answer on a
+        # DELIVERED letter, 1:1 with its row (no saves table). Display-only in the
+        # feed — editing happens on the arrived-letter screen. review_at is the
+        # sort key; prediction rides along for card context.
+        result = await db.execute(
+            select(
+                ScheduledEmail.id,
+                ScheduledEmail.persona_id,
+                Persona.name.label("persona_name"),
+                Persona.portrait_url.label("persona_portrait_url"),
+                ScheduledEmail.prediction,
+                ScheduledEmail.review_text,
+                ScheduledEmail.review_at,
+            )
+            .join(Persona, ScheduledEmail.persona_id == Persona.id)
+            .where(
+                ScheduledEmail.user_id == user_id,
+                ScheduledEmail.status == "sent",
+                ScheduledEmail.review_text.is_not(None),
+            )
+        )
+        items: list[dict] = []
+        for row in result.all():
+            items.append({
+                "kind": "future_self_review",
+                "scheduled_email_id": row.id,
+                "persona_id": row.persona_id,
+                "persona_name": row.persona_name,
+                "persona_portrait_url": row.persona_portrait_url,
+                "prediction": row.prediction,
+                "review_text": row.review_text,
+                "saved_at": row.review_at,
+            })
+        return items
+
     async def get_feed(self, db: AsyncSession, user_id: str) -> list[dict]:
         lines = await self._lines(db, user_id)
         mirrors = await self._mirror_verdicts(db, user_id)
         councils = await self._council_verdicts(db, user_id)
         counterviews = await self._counterview_verdicts(db, user_id)
         yvy = await self._yvy_sentences(db, user_id)
-        merged = lines + mirrors + councils + counterviews + yvy
+        reviews = await self._future_self_reviews(db, user_id)
+        merged = lines + mirrors + councils + counterviews + yvy + reviews
         merged.sort(key=lambda item: item["saved_at"], reverse=True)
         return merged
 

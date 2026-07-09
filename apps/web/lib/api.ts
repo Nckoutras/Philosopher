@@ -297,12 +297,24 @@ export interface ReflectionFeedYvYSentence {
   saved_at: string
 }
 
+export interface ReflectionFeedFutureSelfReview {
+  kind: 'future_self_review'
+  scheduled_email_id: string
+  persona_id: string
+  persona_name: string
+  persona_portrait_url: string | null
+  prediction: string | null
+  review_text: string
+  saved_at: string
+}
+
 export type ReflectionFeedItem =
   | ReflectionFeedLine
   | ReflectionFeedMirror
   | ReflectionFeedCouncil
   | ReflectionFeedCounterview
   | ReflectionFeedYvYSentence
+  | ReflectionFeedFutureSelfReview
 
 export interface ReflectionsFeedResponse {
   items: ReflectionFeedItem[]
@@ -338,6 +350,7 @@ export interface RecentSavedLine {
 export interface ScheduledEmailCreate {
   saved_line_id: string
   note?: string
+  prediction?: string
   scheduled_for: string
 }
 
@@ -370,6 +383,9 @@ export interface ScheduledEmailDetail {
   persona_name: string
   persona_portrait_url: string | null
   note: string | null
+  prediction: string | null
+  review_text: string | null
+  review_at: string | null
   scheduled_for: string
   status: string
   sent_at: string | null
@@ -1186,6 +1202,13 @@ class ApiClient {
 
   async getScheduledEmail(emailId: string): Promise<ScheduledEmailDetail> {
     return this.request<ScheduledEmailDetail>(`/scheduled-emails/${emailId}`)
+  }
+
+  async reviewScheduledEmail(emailId: string, text: string): Promise<ScheduledEmailDetail> {
+    return this.request<ScheduledEmailDetail>(`/scheduled-emails/${emailId}/review`, {
+      method: 'PATCH',
+      body: JSON.stringify({ text }),
+    })
   }
 
   async cancelScheduledEmail(emailId: string): Promise<void> {
