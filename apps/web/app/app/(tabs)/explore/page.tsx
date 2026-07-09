@@ -45,7 +45,7 @@ export default function ExplorePage() {
 
           <div className="mt-6 rounded-[16px] overflow-hidden shadow-card">
             <Image src="/personas/wise-room-hero.webp" alt="The Wise Room" width={760} height={300}
-              className="w-full h-[240px] object-cover object-bottom" priority />
+              className="w-full h-[380px] object-cover object-center" priority />
           </div>
 
           <div className="flex justify-center my-7"><BronzeDivider width={64} /></div>
@@ -127,7 +127,7 @@ export default function ExplorePage() {
               </p>
               <div className="rounded-[12px] overflow-hidden shadow-card">
                 <Image src="/self-portrait/appbutton.png" alt="The room remembers"
-                  width={1122} height={1402} className="w-full h-[240px] object-cover object-center" />
+                  width={1122} height={1402} className="w-full h-[240px] object-cover object-top" />
               </div>
             </section>
           </Link>
