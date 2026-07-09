@@ -12,6 +12,7 @@ import MirrorVerdictCard from '@/components/reflections/MirrorVerdictCard'
 import CouncilVerdictCard from '@/components/reflections/CouncilVerdictCard'
 import CounterviewVerdictCard from '@/components/reflections/CounterviewVerdictCard'
 import YvYSentenceCard from '@/components/reflections/YvYSentenceCard'
+import FutureSelfReviewCard from '@/components/reflections/FutureSelfReviewCard'
 import DateGrouper from '@/components/reflections/DateGrouper'
 import FilterPills, { type FilterOption } from '@/components/reflections/FilterPills'
 import EmptyReflections from '@/components/reflections/EmptyReflections'
@@ -52,6 +53,7 @@ function itemKey(item: ReflectionFeedItem): string {
   if (item.kind === 'mirror_verdict') return `mirror:${item.save_id}`
   if (item.kind === 'counterview_verdict') return `counterview:${item.save_id}`
   if (item.kind === 'yvy_sentence') return `yvy:${item.save_id}`
+  if (item.kind === 'future_self_review') return `fsreview:${item.scheduled_email_id}`
   return `council:${item.save_id}`
 }
 
@@ -68,6 +70,9 @@ function matchesQuery(item: ReflectionFeedItem, q: string): boolean {
   }
   if (item.kind === 'yvy_sentence') {
     return item.sentence.toLowerCase().includes(q)
+  }
+  if (item.kind === 'future_self_review') {
+    return item.review_text.toLowerCase().includes(q) || (item.prediction?.toLowerCase().includes(q) ?? false)
   }
   return item.synthesis.toLowerCase().includes(q)
 }
@@ -249,6 +254,14 @@ export default function ReflectionsPage() {
                   <DateGrouper label={label} />
                   {items.map((item, itemIdx) => {
                     const key = itemKey(item)
+                    // Display-only kinds render without a swipe-to-delete row.
+                    if (item.kind === 'future_self_review') {
+                      return (
+                        <div key={key} className="mb-[8px]">
+                          <FutureSelfReviewCard item={item} />
+                        </div>
+                      )
+                    }
                     return (
                       <div key={key} className="mb-[8px]">
                         <SwipeableRow

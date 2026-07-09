@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
+import toast from 'react-hot-toast'
 import SubPageNav from '@/components/layout/SubPageNav'
 import { useStore } from '@/lib/store'
 import { api } from '@/lib/api'
@@ -22,6 +23,9 @@ export default function ScheduledLetterDetailPage() {
   const token = useStore((s) => s.token)
   // undefined = loading · null = not found (404 / pending / foreign) · object = the letter
   const [letter, setLetter] = useState<ScheduledEmailDetail | null | undefined>(undefined)
+  const [reviewDraft, setReviewDraft] = useState('')
+  const [editing, setEditing] = useState(false)
+  const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     if (token === null) {
@@ -33,6 +37,23 @@ export default function ScheduledLetterDetailPage() {
       .then(setLetter)
       .catch(() => setLetter(null))
   }, [token, id, router])
+
+  async function handleSaveReview() {
+    if (!letter) return
+    const text = reviewDraft.trim()
+    if (!text || saving) return
+    setSaving(true)
+    try {
+      const updated = await api.reviewScheduledEmail(letter.id, text)
+      setLetter(updated)
+      setEditing(false)
+      toast.success('Saved.')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not save. Try again.')
+    } finally {
+      setSaving(false)
+    }
+  }
 
   // ── Loading ──
   if (letter === undefined) {
@@ -121,6 +142,61 @@ export default function ScheduledLetterDetailPage() {
             <p className="font-lora text-[16px] text-charcoal leading-[1.7] whitespace-pre-wrap">
               {letter.note}
             </p>
+          </div>
+        )}
+
+        {/* Prediction + review (043) — only when a prediction was written */}
+        {letter.prediction && (
+          <div className="mt-[32px] pt-[24px] border-t border-[0.5px] border-edge">
+            <p className="font-lora text-[11px] uppercase tracking-[0.18em] text-bronze mb-[10px]">
+              What you predicted
+            </p>
+            <p className="font-lora text-[16px] text-charcoal leading-[1.7] whitespace-pre-wrap">
+              {letter.prediction}
+            </p>
+
+            {letter.review_text && !editing ? (
+              <div className="mt-[24px]">
+                <p className="font-lora text-[11px] uppercase tracking-[0.18em] text-bronze mb-[10px]">
+                  What happened
+                </p>
+                <p className="font-lora text-[16px] text-charcoal leading-[1.7] whitespace-pre-wrap">
+                  {letter.review_text}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setReviewDraft(letter.review_text ?? '')
+                    setEditing(true)
+                  }}
+                  className="mt-[12px] font-lora text-[13px] text-sepia underline underline-offset-2"
+                >
+                  Edit
+                </button>
+              </div>
+            ) : (
+              <div className="mt-[24px]">
+                <p className="font-cormorant text-[20px] text-ink leading-snug mb-[12px]">
+                  You predicted this. What happened?
+                </p>
+                <textarea
+                  value={reviewDraft}
+                  onChange={(e) => setReviewDraft(e.target.value)}
+                  maxLength={2000}
+                  rows={4}
+                  placeholder="What happened — and what did it teach you?"
+                  className="w-full bg-paper border border-[0.5px] border-edge rounded-sm px-[12px] py-[10px] font-lora text-[15px] text-ink placeholder:text-charcoal/40 resize-none transition-[border-color,box-shadow] duration-200 focus:outline-none focus:border-bronze focus:ring-1 focus:ring-bronze/20"
+                />
+                <button
+                  type="button"
+                  onClick={handleSaveReview}
+                  disabled={saving || reviewDraft.trim() === ''}
+                  className="mt-[12px] px-[18px] py-[10px] bg-ink text-vellum rounded-sm font-cormorant text-[16px] font-medium disabled:opacity-40"
+                >
+                  {saving ? 'Saving…' : 'Save'}
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>

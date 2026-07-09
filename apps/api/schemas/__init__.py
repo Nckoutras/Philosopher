@@ -490,6 +490,7 @@ class SavedLineBadRoleError(BaseModel):
 class ScheduledEmailCreate(BaseModel):
     saved_line_id: str
     note: Optional[str] = Field(None, max_length=2000)
+    prediction: Optional[str] = Field(None, max_length=200)
     scheduled_for: datetime
     recipient_email: Optional[EmailStr] = None
 
@@ -539,12 +540,16 @@ class ScheduledEmailDetail(BaseModel):
     """A single DELIVERED future-self letter, for the in-app arrived-letter screen.
     Only ever built for status='sent' rows (the endpoint 404s otherwise), so the
     note is never exposed before delivery. `created_at` is the written date;
-    `sent_at` is the arrived date."""
+    `sent_at` is the arrived date. `prediction` (written at schedule time) and
+    `review_text`/`review_at` (written on open) close the loop (043)."""
     id: str
     persona_id: str
     persona_name: str
     persona_portrait_url: str
     note: Optional[str]
+    prediction: Optional[str]
+    review_text: Optional[str]
+    review_at: Optional[datetime]
     scheduled_for: datetime
     status: str
     sent_at: Optional[datetime]
@@ -552,6 +557,10 @@ class ScheduledEmailDetail(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class ScheduledEmailReviewIn(BaseModel):
+    text: str = Field(..., max_length=2000)
 
 
 # ── Mirror ────────────────────────────────────────────────────────────────────

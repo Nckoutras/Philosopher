@@ -456,6 +456,11 @@ class ScheduledEmail(Base):
     status: Mapped[str] = mapped_column(String(16), nullable=False, default="pending")
     sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     failure_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Future-self loop (043): optional guess written at schedule time (never emailed),
+    # and the reader's review on open (one per letter, overwrite-editable).
+    prediction: Mapped[str | None] = mapped_column(Text, nullable=True)
+    review_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    review_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True),
                                                   server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True),
