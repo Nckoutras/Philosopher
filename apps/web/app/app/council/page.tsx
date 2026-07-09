@@ -6,7 +6,7 @@ import Image from 'next/image'
 import { Bookmark, Share2 } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import { api, RateLimitError } from '@/lib/api'
-import type { SSEEvent, SSEEventMember } from '@/lib/api'
+import type { SSEEvent, SSEEventMember, SSEEventSynthesis } from '@/lib/api'
 import styles from './council.module.css'
 import SharePreviewModal from '@/components/share/SharePreviewModal'
 import WiseMark from '@/components/ui/WiseMark'
@@ -51,11 +51,21 @@ type VerdictCard = {
   revealedWords: string[]
 }
 
+// The structured decision-instrument synthesis (from the {type:'synthesis'} event).
+// real_question / next_move may be null (grounded-or-null); verdict is the beat also
+// written to the flat synthesis column (feed + share).
+type CouncilSynthesis = {
+  real_question: string | null
+  tension: string | null
+  verdict: string
+  next_move: string | null
+}
+
 type SessionPhase = {
   kind: 'session'
   bench: BenchItem[]
   verdicts: VerdictCard[]
-  synthesisWords: string[]
+  synthesis: CouncilSynthesis | null
   synthesisActive: boolean
   allDone: boolean
 }
@@ -109,11 +119,12 @@ export default function CouncilPage() {
   const memberOrder = useRef<string[]>([])
   const synBuf = useRef({ text: '', netDone: false })
   const synStartedRef = useRef(false)
+  // The structured synthesis payload once the {type:'synthesis'} event lands.
+  const synStructRef = useRef<CouncilSynthesis | null>(null)
   const netErrRef = useRef<{ kind: 'safety' | 'error'; message: string } | null>(null)
 
   // ── Animation-side refs ──
   const revealedBySlug = useRef(new Map<string, number>())
-  const synRevealedRef = useRef(0)
 
   const anim = useRef<{
     phase: AnimPhase
@@ -232,7 +243,7 @@ export default function CouncilPage() {
             kind: 'session',
             bench: buildBench(0, 'lighting'),
             verdicts: [],
-            synthesisWords: [],
+            synthesis: null,
             synthesisActive: false,
             allDone: false,
           })
@@ -329,30 +340,17 @@ export default function CouncilPage() {
       }
 
       case 'synthesis': {
-        const words = tokenize(synBuf.current.text)
-        const revealed = synRevealedRef.current
-
-        if (now - a.lastWordTime >= a.nextWordDelay && revealed < words.length) {
-          const next = revealed + 1
-          synRevealedRef.current = next
-          a.lastWordTime = now
-          const justRevealed = words[revealed]
-          const jitter = Math.random() * 20 - 10
-          a.nextWordDelay = WORD_STAGGER + jitter + (sentenceEnds(justRevealed) ? SENTENCE_PAUSE : 0)
-
-          if (next % 24 === 0) scrollPendingRef.current = true
-
-          const slice = words.slice(0, next)
-          setPhase((prev) => {
-            if (prev.kind !== 'session') return prev
-            return { ...prev, synthesisWords: slice }
-          })
-        } else if (revealed >= words.length && synBuf.current.netDone) {
+        // Structured synthesis: no word stream to reveal. The {type:'synthesis'}
+        // event fills synStructRef and marks netDone; a synthesis_error / done with
+        // no struct completes the phase with no synthesis card (flat fallback:
+        // nothing structured to show). Either way, one clean transition to done.
+        if (synBuf.current.netDone) {
           a.phase = 'done'
           scrollPendingRef.current = true
+          const struct = synStructRef.current
           setPhase((prev) => {
             if (prev.kind !== 'session') return prev
-            return { ...prev, allDone: true, synthesisActive: false }
+            return { ...prev, synthesis: struct, allDone: true, synthesisActive: false }
           })
         }
         break
@@ -376,9 +374,9 @@ export default function CouncilPage() {
     memberOrder.current = []
     synBuf.current = { text: '', netDone: false }
     synStartedRef.current = false
+    synStructRef.current = null
     netErrRef.current = null
     revealedBySlug.current.clear()
-    synRevealedRef.current = 0
     autoScrollPaused.current = false
     scrollPendingRef.current = false
     anim.current = { phase: 'idle', phaseStart: 0, memberIdx: -1, nextWordDelay: WORD_STAGGER, lastWordTime: 0 }
@@ -492,6 +490,17 @@ export default function CouncilPage() {
               break
             }
             case 'synthesis_error': {
+              synBuf.current.netDone = true
+              break
+            }
+            case 'synthesis': {
+              const ev = event as SSEEventSynthesis
+              synStructRef.current = {
+                real_question: ev.real_question,
+                tension: ev.tension,
+                verdict: ev.verdict,
+                next_move: ev.next_move,
+              }
               synBuf.current.netDone = true
               break
             }
@@ -648,23 +657,36 @@ export default function CouncilPage() {
               </div>
             )}
 
-            {/* Synthesis card */}
-            {(phase.synthesisActive || phase.synthesisWords.length > 0) && (
+            {/* Synthesis card — the structured decision instrument. Renders as one
+                reveal once the {type:'synthesis'} event lands (no word stream). Beats
+                appear only when grounded (real_question / next_move may be null). */}
+            {phase.synthesis && (
               <div className="bg-paper border border-edge rounded-[16px] px-[24px] py-[28px] flex flex-col gap-[20px]">
-                <div className="flex items-center justify-center gap-[8px]">
+                <div className="flex items-center justify-center">
                   <WiseMark size={24} />
-                  <p className="font-lora text-[11px] uppercase tracking-[0.24em] text-bronze-dark">
-                    THE COUNCIL&apos;S READING
-                  </p>
                 </div>
-                <p className="font-cormorant font-medium text-[21px] text-ink leading-snug">
-                  {phase.synthesisWords.map((word, i) => (
-                    <Fragment key={i}>
-                      {i > 0 && ' '}
-                      <span className={styles.word}>{word}</span>
-                    </Fragment>
-                  ))}
-                </p>
+                {phase.synthesis.real_question && (
+                  <div className="flex flex-col gap-[6px]">
+                    <p className="font-lora text-[11px] uppercase tracking-[0.24em] text-bronze-dark">The real question</p>
+                    <p className="font-cormorant font-medium text-[21px] text-ink leading-snug">{phase.synthesis.real_question}</p>
+                  </div>
+                )}
+                {phase.synthesis.tension && (
+                  <div className="flex flex-col gap-[6px]">
+                    <p className="font-lora text-[11px] uppercase tracking-[0.24em] text-bronze-dark">The trade-off</p>
+                    <p className="font-cormorant text-[18px] text-charcoal leading-snug">{phase.synthesis.tension}</p>
+                  </div>
+                )}
+                <div className="flex flex-col gap-[6px]">
+                  <p className="font-lora text-[11px] uppercase tracking-[0.24em] text-bronze-dark">The Council&apos;s reading</p>
+                  <p className="font-cormorant font-medium text-[21px] text-ink leading-snug">{phase.synthesis.verdict}</p>
+                </div>
+                {phase.synthesis.next_move && (
+                  <div className="flex flex-col gap-[6px] pt-[16px] border-t border-edge">
+                    <p className="font-lora text-[11px] uppercase tracking-[0.24em] text-bronze-dark">One next move</p>
+                    <p className="font-cormorant font-medium text-[19px] text-ink leading-snug">{phase.synthesis.next_move}</p>
+                  </div>
+                )}
                 {phase.allDone && (
                   <div className="flex gap-[10px] justify-center flex-wrap">
                     <button
@@ -745,7 +767,7 @@ export default function CouncilPage() {
         onClose={() => setShareModalOpen(false)}
         kind="council"
         councilSessionId={sessionId ?? ''}
-        quote={phase.kind === 'session' ? phase.synthesisWords.join(' ') : ''}
+        quote={phase.kind === 'session' ? (phase.synthesis?.verdict ?? '') : ''}
       />
     </main>
   )

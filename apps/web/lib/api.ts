@@ -17,6 +17,15 @@ export type SSEEventConvening = { type: 'convening' }
 export type SSEEventMember = { type: 'member'; slug: string; name: string; position: number }
 export type SSEEventSynthesisStart = { type: 'synthesis_start' }
 export type SSEEventSynthesisError = { type: 'synthesis_error' }
+// Structured council synthesis (decision instrument). real_question / tension /
+// next_move may be null (grounded-or-null); verdict is always present when emitted.
+export type SSEEventSynthesis = {
+  type: 'synthesis'
+  real_question: string | null
+  tension: string | null
+  verdict: string
+  next_move: string | null
+}
 
 export type SSEEvent =
   | SSEEventStart
@@ -31,6 +40,7 @@ export type SSEEvent =
   | SSEEventMember
   | SSEEventSynthesisStart
   | SSEEventSynthesisError
+  | SSEEventSynthesis
 
 // ── 429 response body (LLMErrorResponse from backend) ────────────────────────
 

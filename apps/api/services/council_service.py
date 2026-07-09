@@ -12,6 +12,7 @@ from models import CouncilCase, CouncilSession, CouncilResponse, Message
 from personas import get_persona
 from services.council_prompts import (
     COUNCIL_VERDICT_INSTRUCTION,
+    COUNCIL_ROLE_DIRECTIVE,
     COUNCIL_SYNTHESIS_PROMPT,
     COUNCIL_DISTILL_PROMPT,
 )
@@ -163,6 +164,10 @@ class CouncilService:
                 yield f"data: {json.dumps({'type': 'error', 'error_code': 'member_unavailable', 'slug': slug})}\n\n"
                 continue
 
+            # Internal role directive holds each voice to a distinct function so the
+            # four don't overlap. Appended AFTER the shared verdict instruction; never
+            # surfaced to the client.
+            role_directive = COUNCIL_ROLE_DIRECTIVE.get(slug, "")
             system = (
                 prompt_builder.build_system(
                     persona=persona,
@@ -172,6 +177,7 @@ class CouncilService:
                 )
                 + "\n\n"
                 + COUNCIL_VERDICT_INSTRUCTION.format(persona_name=persona.name)
+                + (f"\n\n{role_directive}" if role_directive else "")
             )
             messages = [{"role": "user", "content": effective_matter}]
 
@@ -224,25 +230,47 @@ class CouncilService:
                 verdict=verdict_text,
             ))
 
-        # ── 4. SYNTHESIS (app voice) ──────────────────────────────────────
+        # ── 4. SYNTHESIS (structured decision instrument) ─────────────────
+        # One structured JSON call (no longer streamed prose): real_question /
+        # tension / verdict / next_move. The verdict beat is ALSO written to the
+        # flat `synthesis` column so the feed + share card read it unchanged. A
+        # total failure (or a verdict-less parse) falls back to synthesis_error /
+        # flat-None exactly as the old streamed synthesis did.
         yield f"data: {json.dumps({'type': 'synthesis_start'})}\n\n"
 
         verdicts_block = "\n\n".join(f"[{name}]: {text}" for name, text in verdicts)
         synthesis_user_content = f"The matter:\n{effective_matter}\n\nThe four verdicts:\n{verdicts_block}"
 
-        synthesis_buf: list[str] = []
+        structured = None
         try:
-            async for chunk in llm_client.stream(
+            raw = await llm_client.complete(
                 system=COUNCIL_SYNTHESIS_PROMPT,
-                messages=[{"role": "user", "content": synthesis_user_content}],
+                user=synthesis_user_content,
                 model=MODEL_PRO,
-            ):
-                synthesis_buf.append(chunk)
-                yield f"data: {json.dumps({'type': 'chunk', 'data': chunk})}\n\n"
-            session.synthesis = "".join(synthesis_buf)
+                max_tokens=600,
+            )
+            structured = _parse_synthesis(raw)
         except Exception as exc:
             logger.error(f"Council synthesis failed for user={user_id}: {exc}")
+            structured = None
+
+        verdict_text = (structured.get("verdict") or "").strip() if structured else ""
+        if verdict_text:
+            # real_question + next_move: grounded-or-null, cap-guarded (>= 1.5x) +
+            # the same output-safety gate (null the field, keep the rest). tension +
+            # verdict ride the prompt caps as-is.
+            payload = {
+                "real_question": await _clean_field(structured.get("real_question"), cap_words=20),
+                "tension": (structured.get("tension") or "").strip() or None,
+                "verdict": verdict_text,
+                "next_move": await _clean_field(structured.get("next_move"), cap_words=18),
+            }
+            session.synthesis = verdict_text            # flat — MUST stay populated
+            session.synthesis_structured = payload
+            yield f"data: {json.dumps({'type': 'synthesis', **payload})}\n\n"
+        else:
             session.synthesis = None
+            session.synthesis_structured = None
             yield f"data: {json.dumps({'type': 'synthesis_error'})}\n\n"
 
         session.status = "complete"
@@ -250,6 +278,38 @@ class CouncilService:
         # ── 5. COMMIT + DONE ──────────────────────────────────────────────
         await db.commit()
         yield f"data: {json.dumps({'type': 'done', 'case_id': case.id, 'session_id': session.id})}\n\n"
+
+
+def _parse_synthesis(raw: str) -> dict | None:
+    """Parse the structured synthesis JSON (tolerating a ```-fenced payload).
+    Returns the dict, or None if unparseable / not an object."""
+    text = raw.strip()
+    if text.startswith("```"):
+        text = text.split("\n", 1)[1] if "\n" in text else ""
+    if text.endswith("```"):
+        text = text[:-3].rstrip()
+    try:
+        data = json.loads(text)
+    except (json.JSONDecodeError, ValueError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
+async def _clean_field(value, *, cap_words: int) -> str | None:
+    """Normalize a grounded synthesis beat (real_question / next_move): None unless
+    a non-empty string within the gross word cap (>= 1.5x nulls; marginal ships)
+    that passes the SAME output-safety gate. A flagged field is nulled only — the
+    rest of the synthesis (verdict, tension) is unaffected."""
+    if not isinstance(value, str):
+        return None
+    text = value.strip()
+    if not text or text.lower() == "null":
+        return None
+    if len(text.split()) >= cap_words * 1.5:
+        return None
+    if (await safety_service.check_output(text)).should_suppress_persona:
+        return None
+    return text
 
 
 council_service = CouncilService()
