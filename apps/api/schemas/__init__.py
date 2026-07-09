@@ -619,6 +619,7 @@ class CounterviewOut(BaseModel):
     source: str
     anchor_text: str | None = None
     status: str
+    still_stands: str | None = None
     responses: list[CounterviewResponseOut]
     turns: list[CounterviewTurnOut] = []
     rebuttals_remaining: int = 0

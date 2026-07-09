@@ -418,6 +418,7 @@ export interface Counterview {
   source: string
   anchor_text: string | null
   status: 'generated' | 'empty' | 'suppressed'
+  still_stands: string | null
   responses: CounterviewResponse[]
   turns: CounterviewTurn[]
   rebuttals_remaining: number

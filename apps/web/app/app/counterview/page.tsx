@@ -579,6 +579,24 @@ export default function CounterviewPage() {
         })()}
       </div>
 
+      {/* What still stands — the quiet closing beat: the part of the belief that
+          survives the challenge. Final reveal, only when the model grounded it. */}
+      {counterview?.still_stands && (
+        <div className={`mt-[16px] ${reveal(phase >= 4)}`}>
+          <div className="flex items-center gap-[7px] mb-[6px]">
+            <span className="w-[5px] h-[5px] rotate-45 bg-bronze" />
+            <p className="font-lora text-[11px] uppercase tracking-[0.24em] text-bronze-dark">
+              What still stands
+            </p>
+          </div>
+          <div className="bg-paper/60 border-[0.5px] border-edge rounded-[10px] px-[14px] py-[10px]">
+            <p className="font-cormorant text-[17px] text-ink leading-snug">
+              {counterview.still_stands}
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Save · Start over · Share */}
       <div className={`mt-[20px] flex gap-[10px] ${reveal(phase >= 4)}`}>
         <button

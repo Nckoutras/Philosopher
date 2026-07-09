@@ -104,6 +104,7 @@ async def _serialize_counterview(db: AsyncSession, cv: Counterview, user_id: str
         source=cv.source,
         anchor_text=cv.anchor_text,
         status=cv.status,
+        still_stands=cv.still_stands,
         responses=out_responses,
         turns=out_turns,
         rebuttals_remaining=rebuttals_remaining,
