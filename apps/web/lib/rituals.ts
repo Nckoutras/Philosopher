@@ -5,8 +5,8 @@ export const RITUALS: RitualMeta[] = [
   { slug: 'council',       name: 'The Council',                   src: '/personas/boardroom.webp' },
   { slug: 'you-vs-you',    name: 'You vs You',                    src: '/personas/youvsyou.webp' },
   { slug: 'sunday-letter', name: 'The Sunday Letter',             src: '/personas/sundayletter.webp' },
-  { slug: 'counterview',   name: 'The Counterview',               src: '/personas/thecounterview.png' },
-  { slug: 'future-self',   name: 'A Message to Your Future Self',  src: '/personas/messagetomyfutureself.png' },
+  { slug: 'counterview',   name: 'The Counterview',               src: '/personas/thecounterview.webp' },
+  { slug: 'future-self',   name: 'A Message to Your Future Self',  src: '/personas/messagetomyfutureself.webp' },
 ]
 
 export interface RitualInfo { tagline: string; body: string; onItsOwn: string; overTime: string }

@@ -126,7 +126,7 @@ export default function ExplorePage() {
                 uses them, week to week, to write your letters and sharpen what it asks.
               </p>
               <div className="rounded-[12px] overflow-hidden shadow-card">
-                <Image src="/self-portrait/appbutton.png" alt="The room remembers"
+                <Image src="/self-portrait/appbutton.webp" alt="The room remembers"
                   width={1122} height={1402} className="w-full h-[240px] object-cover object-top" />
               </div>
             </section>
