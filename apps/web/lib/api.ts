@@ -285,6 +285,7 @@ export interface ReflectionFeedCounterview {
   counterview_id: string
   source: string
   anchor_text: string | null
+  title: string | null
   verdicts: ReflectionFeedCounterviewVerdict[]
   saved_at: string
 }
@@ -457,6 +458,7 @@ export interface Counterview {
   anchor_text: string | null
   status: 'generated' | 'empty' | 'suppressed'
   still_stands: string | null
+  title: string | null
   responses: CounterviewResponse[]
   turns: CounterviewTurn[]
   rebuttals_remaining: number

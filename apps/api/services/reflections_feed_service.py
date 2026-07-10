@@ -115,6 +115,7 @@ class ReflectionsFeedService:
                 CounterviewSave.saved_at,
                 Counterview.source,
                 Counterview.anchor_text,
+                Counterview.title,
             )
             .join(Counterview, CounterviewSave.counterview_id == Counterview.id)
             .where(
@@ -160,6 +161,7 @@ class ReflectionsFeedService:
             "counterview_id": r.counterview_id,
             "source": r.source,
             "anchor_text": r.anchor_text,
+            "title": r.title,
             "verdicts": verdicts_by_cv.get(r.counterview_id, []),
             "saved_at": r.saved_at,
         } for r in rows]

@@ -648,6 +648,8 @@ class CounterviewOut(BaseModel):
     anchor_text: str | None = None
     status: str
     still_stands: str | None = None
+    # Terrain title (2-4 words) — the share card's heading, in place of anchor_text.
+    title: str | None = None
     responses: list[CounterviewResponseOut]
     turns: list[CounterviewTurnOut] = []
     rebuttals_remaining: int = 0
@@ -788,6 +790,8 @@ class ReflectionFeedCounterview(BaseModel):
     counterview_id: str
     source: str
     anchor_text: Optional[str] = None
+    # Terrain title (2-4 words) — the share card's heading; None on old rows.
+    title: Optional[str] = None
     verdicts: list[ReflectionFeedCounterviewVerdict]
     saved_at: datetime
 

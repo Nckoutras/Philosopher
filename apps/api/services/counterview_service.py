@@ -24,6 +24,10 @@ MAX_WORDS = 10
 # mid-sentence. Mirrors the R1a _closing_line pattern.
 STILL_STANDS_MAX_WORDS = 14
 
+# Terrain title cap. Prompt-enforced at 2-4 words; the server hard-nulls anything
+# longer (a title is a heading, not a sentence — no marginal tolerance).
+TITLE_MAX_WORDS = 4
+
 COUNTERVIEW_PROMPT = """You are giving the CASE AGAINST a position a person holds. Two distinct minds answer, each in one sharp line.
 
 You receive the person's stated position, in their own words. Do not agree, soften, or reassure. Show — briefly and without cruelty — where it is weak: a contradiction, a blind spot, a cost they are not counting, an angle they have not considered.
@@ -47,8 +51,15 @@ After the two cuts, add ONE quiet closing line — "what still stands": the part
 - Anchor it STRICTLY to what they wrote, same as the cuts. Invent nothing.
 - If nothing of the position honestly survives, use null — never manufacture one.
 
+Finally, name the TERRAIN of the belief in a TITLE of 2-4 words: the abstract domain the position lives on, in the register of a quiet chapter heading (e.g. "Bravery and decisions", "Ambition and rest", "Loyalty and its limits").
+- It names the theme, NEVER the confession. Do not summarise what they said, do not quote their words, do not judge, do not sell — no clickbait, no verdict, no "why you are wrong".
+- Abstract and dignified: the ground the belief stands on, not the person standing on it.
+- The "X and Y" shape is one option, not a template — "The shape of ambition", "When to walk away" are equally valid. Vary the form.
+- If the position is too vague to name a clear terrain, choose the nearest honest theme rather than inventing drama.
+- Same language as the person's position — if they wrote in Greek, the title is in Greek.
+
 Return JSON only, no preamble, exactly:
-{"status":"generated","verdicts":[{"persona":"miyamoto_musashi","verdict":"..."},{"persona":"niccolo_machiavelli","verdict":"..."}],"still_stands":"<one sentence, or null>"}
+{"status":"generated","verdicts":[{"persona":"miyamoto_musashi","verdict":"..."},{"persona":"niccolo_machiavelli","verdict":"..."}],"still_stands":"<one sentence, or null>","title":"<2-4 words naming the terrain>"}
 
 If there is genuinely nothing to push against, return exactly: {"status":"empty"}"""
 
@@ -128,18 +139,21 @@ async def generate_counterview(
     # fires, adopts the retry response wholesale (both verdicts and its closing line).
     verdicts = None
     still_stands = None
+    title = None
     try:
-        verdicts, still_stands = await _call_llm(anchor_text)
+        verdicts, still_stands, title = await _call_llm(anchor_text)
         if verdicts is not None and any(_word_count(v[2]) > MAX_WORDS for v in verdicts):
-            retry_verdicts, retry_still = await _call_llm(anchor_text, tighten=True)
+            retry_verdicts, retry_still, retry_title = await _call_llm(anchor_text, tighten=True)
             if retry_verdicts is not None:
                 verdicts = retry_verdicts
                 still_stands = retry_still
+                title = retry_title
     except Exception as e:
         # Degrade gracefully to 'empty' rather than surfacing a 500.
         logger.warning("Counterview generation failed user=%s: %s", user_id, e)
         verdicts = None
         still_stands = None
+        title = None
 
     if not verdicts:
         return await _write_counterview(
@@ -158,19 +172,23 @@ async def generate_counterview(
     # suppressing) on failure — the verdicts already passed.
     still_stands = await _clean_still_stands(still_stands)
 
+    # The terrain title: field-level (C-01) — a fail/empty/over-length/flagged title
+    # is nulled only, never blocks the counterview whose verdicts already passed.
+    title = await _clean_title(title)
+
     # ── 7) Persist generated counterview + its two responses ──────────────────
     return await _write_counterview(
         db, user_id, source, insight_id, anchor_text,
-        status="generated", verdicts=verdicts, still_stands=still_stands,
+        status="generated", verdicts=verdicts, still_stands=still_stands, title=title,
     )
 
 
 async def _call_llm(anchor_text: str, *, tighten: bool = False):
-    """One LLM call → (verdicts, still_stands): verdicts is a list of
+    """One LLM call → (verdicts, still_stands, title): verdicts is a list of
     [slug, position, verdict] in COUNTERVIEW_PERSONAS order (or None if the model
-    returned non-'generated' / unparseable / an incomplete persona set), and
-    still_stands is the raw closing line (or None). still_stands is only meaningful
-    when verdicts is not None."""
+    returned non-'generated' / unparseable / an incomplete persona set), still_stands
+    is the raw closing line (or None), and title is the raw terrain heading (or None).
+    still_stands and title are only meaningful when verdicts is not None."""
     system = COUNTERVIEW_PROMPT + (TIGHTEN_DIRECTIVE if tighten else "")
     raw = await llm_client.complete(
         system=system,
@@ -190,9 +208,9 @@ def _extract_verdicts(raw: str):
     try:
         data = json.loads(text)
     except (json.JSONDecodeError, ValueError):
-        return None, None
+        return None, None, None
     if not isinstance(data, dict) or data.get("status") != "generated":
-        return None, None
+        return None, None, None
 
     by_persona = {}
     for item in data.get("verdicts") or []:
@@ -205,13 +223,16 @@ def _extract_verdicts(raw: str):
     for slug, position in COUNTERVIEW_PERSONAS:
         verdict = by_persona.get(slug)
         if not verdict:
-            return None, None  # incomplete set → treat as empty
+            return None, None, None  # incomplete set → treat as empty
         result.append([slug, position, verdict])
 
-    # The closing line rides the same JSON; raw here, cleaned+safety-checked later.
+    # The closing line and the title both ride the same JSON; raw here, each
+    # cleaned + safety-checked later (independently, field-level).
     still_raw = data.get("still_stands")
     still_stands = still_raw.strip() if isinstance(still_raw, str) else None
-    return result, (still_stands or None)
+    title_raw = data.get("title")
+    title = title_raw.strip() if isinstance(title_raw, str) else None
+    return result, (still_stands or None), (title or None)
 
 
 async def _clean_still_stands(value: str | None) -> str | None:
@@ -225,6 +246,25 @@ async def _clean_still_stands(value: str | None) -> str | None:
     if not text:
         return None
     if _word_count(text) >= STILL_STANDS_MAX_WORDS * 1.5:
+        return None
+    if (await safety_service.check_output(text)).should_suppress_persona:
+        return None
+    return text
+
+
+async def _clean_title(value: str | None) -> str | None:
+    """Normalize the terrain TITLE: None unless a non-empty string of at most
+    TITLE_MAX_WORDS words that passes the SAME output-safety gate as the verdicts.
+    Surrounding quotes and trailing sentence punctuation are stripped (a title is a
+    heading, not a sentence). A flagged / over-length / empty title is nulled only —
+    the counterview is never suppressed for it (field-level C-01)."""
+    if not isinstance(value, str):
+        return None
+    text = value.strip().strip("\"'“”‘’").strip()
+    text = text.rstrip(".,;:!?—–-").strip()
+    if not text:
+        return None
+    if _word_count(text) > TITLE_MAX_WORDS:
         return None
     if (await safety_service.check_output(text)).should_suppress_persona:
         return None
@@ -245,6 +285,7 @@ async def _write_counterview(
     status: str,
     verdicts: list | None = None,
     still_stands: str | None = None,
+    title: str | None = None,
 ) -> Counterview:
     """Insert the counterview (+ responses when generated), race-safe against the
     partial unique index on insight_id: on IntegrityError (a concurrent insight
@@ -257,6 +298,7 @@ async def _write_counterview(
         anchor_text=anchor_text,
         status=status,
         still_stands=still_stands,
+        title=title,
     )
     db.add(counterview)
     try:

@@ -588,6 +588,9 @@ class Counterview(Base):
     # "What still stands" closing line — one neutral sentence naming what of the
     # belief survives the challenge. Null on old rows / empty / suppressed / ungrounded.
     still_stands: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Terrain-of-the-belief title (2-4 words) — rendered on the SHARED share card in
+    # place of the raw anchor_text. Null on old rows / empty / suppressed / over-length.
+    title: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
     __table_args__ = (
