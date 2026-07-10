@@ -71,7 +71,7 @@ export default function SundayLetterCard({ isPro }: Props) {
         </svg>
 
         <div className="absolute left-1/2 top-[44%] -translate-x-1/2 -translate-y-1/2 w-[56px] h-[56px]">
-          <Image src="/personas/sundayletter.png" alt="" width={56} height={56} className="w-full h-full object-cover rounded-[8px]" />
+          <Image src="/personas/sundayletter.webp" alt="" width={56} height={56} className="w-full h-full object-contain" />
         </div>
 
         <p className="relative font-cormorant text-[19px] font-medium text-ink">The Sunday Letter</p>

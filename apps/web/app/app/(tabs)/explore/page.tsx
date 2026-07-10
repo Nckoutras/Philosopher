@@ -107,8 +107,8 @@ export default function ExplorePage() {
             <div className="grid grid-cols-2 gap-3">
               {RITUALS.map((r) => (
                 <Link key={r.slug} href={`/app/ritual/${r.slug}`} className="flex flex-col gap-1.5 transition-transform duration-150 active:scale-95">
-                  <div className="rounded-[12px] overflow-hidden shadow-card">
-                    <Image src={r.src} alt={r.name} width={360} height={180} className="w-full h-[88px] object-cover" />
+                  <div className={`overflow-hidden shadow-card${r.slug === 'sunday-letter' ? '' : ' rounded-[12px]'}`}>
+                    <Image src={r.src} alt={r.name} width={360} height={180} className={`w-full h-[88px] ${r.slug === 'sunday-letter' ? 'object-contain' : 'object-cover'}`} />
                   </div>
                   <span className="font-lora text-[11px] text-sepia text-center leading-tight">{r.name}</span>
                 </Link>
