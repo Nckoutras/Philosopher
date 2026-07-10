@@ -610,11 +610,10 @@ export default function SelfPortraitPage() {
                   <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-b from-transparent to-vellum pointer-events-none" />
                 </div>
 
-                {/* INTRO — existing copy, verbatim. -mt-6 pulls it up into the fade. */}
-                <p className="-mt-6 font-lora text-[15px] text-charcoal leading-[1.65] text-center">
-                  A long set of small questions about how you actually move through life. Answer
-                  as many or as few as you like — even a handful sharpens how the room understands
-                  you. Come back whenever; it keeps your place.
+                {/* INTRO — mt-2 keeps the full copy clear of the hero's to-vellum fade. */}
+                <p className="mt-2 font-lora text-[15px] text-charcoal leading-[1.65] text-center">
+                  Small questions about how you move through life. Answer as many or as few as
+                  you like — even a handful sharpens how the room sees you.
                 </p>
               </div>
 
