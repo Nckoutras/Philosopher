@@ -62,7 +62,7 @@ export default function RitualsPage() {
           className="w-full text-left bg-paper border border-[0.5px] border-edge rounded-md shadow-card px-[16px] py-[14px] flex items-start gap-[14px]"
         >
           <div className="w-[56px] h-[56px] flex items-center justify-center flex-shrink-0 text-ink">
-            <Image src="/personas/messagetomyfutureself.png" alt="" width={56} height={56} className="w-full h-full object-cover rounded-[8px]" />
+            <Image src="/personas/messagetomyfutureself.webp" alt="" width={56} height={56} className="w-full h-full object-cover rounded-[8px]" />
           </div>
           <div className="flex-1 min-w-0">
             <p className="font-cormorant text-[19px] font-medium text-ink leading-tight">
@@ -141,7 +141,7 @@ export default function RitualsPage() {
           className="w-full text-left bg-paper border border-[0.5px] border-edge rounded-md shadow-card px-[16px] py-[14px] flex items-start gap-[14px]"
         >
           <div className="w-[56px] h-[56px] flex items-center justify-center flex-shrink-0 text-ink">
-            <Image src="/personas/thecounterview.png" alt="" width={56} height={56} className="w-full h-full object-cover rounded-[8px]" />
+            <Image src="/personas/thecounterview.webp" alt="" width={56} height={56} className="w-full h-full object-cover rounded-[8px]" />
           </div>
           <div className="flex-1 min-w-0">
             <p className="font-cormorant text-[19px] font-medium text-ink leading-tight">

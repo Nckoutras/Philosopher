@@ -61,10 +61,12 @@ function ImageTile({
   src,
   label,
   onClick,
+  priority = false,
 }: {
   src: string
   label: string
   onClick: () => void
+  priority?: boolean
 }) {
   return (
     <button
@@ -77,6 +79,7 @@ function ImageTile({
         src={src}
         alt=""
         fill
+        priority={priority}
         sizes="(max-width: 768px) 50vw, 200px"
         placeholder={TILE_BLUR[src] ? 'blur' : 'empty'}
         blurDataURL={TILE_BLUR[src]}
@@ -173,11 +176,13 @@ export default function TodayPage() {
           <ImageTile
             src="/personas/discuss.webp"
             label="Discussion"
+            priority
             onClick={() => router.push('/app/discuss')}
           />
           <ImageTile
             src="/personas/insights.webp"
             label="Insights"
+            priority
             onClick={() => router.push('/app/insights')}
           />
           <ImageTile
