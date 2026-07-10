@@ -75,12 +75,12 @@ export default function InsightCard({ content, insightType, sourceCount, onPrima
             the compact bronze diamond so it stays light inside the thread. */}
         {variant === 'today' ? (
           <img
-            src="/insight_seal.png"
+            src="/insight_seal.webp"
             alt=""
             aria-hidden
             width={44}
             height={44}
-            className="shrink-0 w-[44px] h-[44px] rounded-md object-cover shadow-[0_0_18px_4px_rgba(184,153,104,0.45),0_0_0_1px_rgba(138,115,64,0.55)]"
+            className="shrink-0 w-[44px] h-[44px] object-contain drop-shadow-[0_0_10px_rgba(184,153,104,0.35)]"
           />
         ) : (
           <Sparkle size={13} strokeWidth={1.5} className="mt-[5px] shrink-0 text-bronze fill-bronze drop-shadow-[0_0_5px_rgba(184,153,104,0.9)]" aria-hidden="true" />
