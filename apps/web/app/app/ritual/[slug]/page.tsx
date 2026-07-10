@@ -31,7 +31,7 @@ export default function RitualExplainerPage() {
   return (
     <main className="min-h-screen [min-height:100svh] flex flex-col bg-vellum">
       <section className="relative w-full h-[40vh] [height:40svh] overflow-hidden bg-linen flex-shrink-0">
-        <Image src={meta.src} alt={meta.name} fill priority sizes="100vw" className="object-cover" />
+        <Image src={meta.src} alt={meta.name} fill priority sizes="100vw" className={meta.slug === 'sunday-letter' ? 'object-contain' : 'object-cover'} />
         <button
           onClick={() => router.back()}
           aria-label="Close"
