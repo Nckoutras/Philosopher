@@ -56,7 +56,8 @@ export default function CounterviewVerdictCard({ item, portraitBySlug }: Props) 
         kind="counterview"
         counterviewId={item.counterview_id}
         counterviewPortraits={item.verdicts.map((v) => portraitBySlug[v.persona_slug]).filter(Boolean)}
-        quote={item.anchor_text ?? 'the case against this'}
+        heading={item.title}
+        quote={item.title ?? ''}
       />
     </>
   )

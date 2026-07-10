@@ -21,6 +21,9 @@ interface SharePreviewModalProps {
   // 'counterview' variant
   counterviewId?: string
   counterviewPortraits?: string[]   // the two personas' portrait URLs (preview thumbnails)
+  // Counterview terrain title — the big card text, in place of the raw anchor/quote.
+  // Null (old rows / failed title) → no heading line; NEVER falls back to anchor_text.
+  heading?: string | null
   // 'mirror' variant (personaName = host name, portraitUrl = host portrait)
   mirrorId?: string
   // 'letter' variant
@@ -47,6 +50,7 @@ export default function SharePreviewModal({
   councilPortraits,
   counterviewId,
   counterviewPortraits,
+  heading,
   mirrorId,
   weeklyLetterId,
   letterTitle,
@@ -68,6 +72,11 @@ export default function SharePreviewModal({
   const isMirror  = kind === 'mirror'
   const isLetter  = kind === 'letter'
   const isCounterview = kind === 'counterview'
+
+  // The counterview card/caption shows its terrain title (heading), NEVER the raw
+  // anchor/quote. Every other variant keeps using `quote`. Null heading → no text
+  // (the shared artifact stands on verdicts + personas + eyebrow).
+  const cardText = isCounterview ? (heading ?? '') : quote
 
   const generateBlob = useCallback((): Promise<Blob> => {
     if (kind === 'council') return api.shareCouncil(councilSessionId!)
@@ -176,7 +185,9 @@ export default function SharePreviewModal({
       ? `The case against:`
       : `${personaName} told me:`
     const shortShareText = `${lead}\nthewiseroom.app`
-    const fullShareText  = `${lead}\n\n${quote}\n\nthewiseroom.app`
+    const fullShareText  = cardText
+      ? `${lead}\n\n${cardText}\n\nthewiseroom.app`
+      : shortShareText
     const origin = typeof window !== 'undefined' ? window.location.origin : ''
     const url    = isCouncil
       ? `${origin}/app/council`
@@ -262,7 +273,7 @@ export default function SharePreviewModal({
   if (!isOpen) return null
 
   // Scale factor: preview card width (320px) / canvas width (1080px)
-  const previewFontSize    = (dynamicFontSize(quote.length) * 0.296).toFixed(1)
+  const previewFontSize    = (dynamicFontSize(cardText.length) * 0.296).toFixed(1)
 
   // Approximate date stamp for the line/mirror-variant preview (mm/dd/yyyy).
   // The real card uses the record's timestamp; preview uses today.
@@ -383,11 +394,13 @@ export default function SharePreviewModal({
                 </div>
               )}
               <p className="font-lora text-[9px] tracking-[0.18em] text-bronze-dark font-bold text-center mt-2">THE CASE AGAINST</p>
+              {/* Terrain title — the big card text. Null (old rows / failed title) →
+                  no line; the flex-1 spacer holds the layout. NEVER anchor_text. */}
               <p
-                className="font-cormorant italic text-ink text-center leading-[1.4] flex-1 flex items-center justify-center overflow-hidden"
+                className="font-cormorant text-ink text-center leading-[1.4] flex-1 flex items-center justify-center overflow-hidden"
                 style={{ fontSize: `${previewFontSize}px` }}
               >
-                {quote}
+                {heading}
               </p>
               <p className="font-lora text-[9px] font-bold text-bronze text-center mt-2">thewiseroom.app</p>
             </div>

@@ -629,7 +629,8 @@ export default function CounterviewPage() {
         kind="counterview"
         counterviewId={counterview.id}
         counterviewPortraits={baseRows.map((r) => r.persona_portrait_url).filter(Boolean) as string[]}
-        quote={counterview.anchor_text ?? 'the case against this'}
+        heading={counterview.title}
+        quote={counterview.title ?? ''}
       />
     )}
     </>
