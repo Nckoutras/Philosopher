@@ -30,7 +30,7 @@ export default function CounterviewVerdictCard({ item, portraitBySlug }: Props) 
           <span className="font-lora text-[10px] text-bronze-dark font-semibold flex-shrink-0 ml-[8px]">{formatItemDate(item.saved_at)}</span>
         </div>
         {item.anchor_text && (
-          <p className="font-cormorant text-[15px] italic text-sepia leading-snug mb-[12px]">“{item.anchor_text}”</p>
+          <p className="font-cormorant text-[15px] italic text-ink leading-snug mb-[12px]">“{item.anchor_text}”</p>
         )}
         <div className="space-y-[12px]">
           {item.verdicts.map((v) => (

@@ -1047,7 +1047,7 @@ def _render_counterview_card(
     right_name: str,
     left_verdict: str,
     right_verdict: str,
-    anchor_text: str | None,
+    title: str | None,
     saved_at: datetime | None,
 ) -> bytes:
     """Pure render (no DB). Composes the 1080×1350 counterview share card."""
@@ -1108,13 +1108,15 @@ def _render_counterview_card(
 
     # 6. THE CASE AGAINST
     draw.text((cx, CV_BOX[1] + 46), _letterspace("THE CASE AGAINST", " "), font=_load_font("Lora-Regular.ttf", 22), fill=BRONZE_DARK_COLOR, anchor="ms")
-    # 7. anchor italic sepia
-    if anchor_text:
-        fa = _load_font("CormorantGaramond-Italic.ttf", 30)
-        ay = CV_BOX[1] + 92
-        for line in _wrap_all_lines(anchor_text, fa, CV_BOX[2] - CV_BOX[0] - 120)[:2]:
-            draw.text((cx, ay), line, font=fa, fill=SEPIA_COLOR, anchor="mt")
-            ay += 40
+    # 7. terrain title — Cormorant Medium, ink, prominent (the belief's terrain, NOT
+    #    the raw confession). Old rows (title NULL) omit the line entirely; the card
+    #    NEVER falls back to printing anchor_text here.
+    if title:
+        ft = _load_font("CormorantGaramond-Medium.ttf", 46)
+        ty = CV_BOX[1] + 88
+        for line in _wrap_all_lines(title, ft, CV_BOX[2] - CV_BOX[0] - 120)[:2]:
+            draw.text((cx, ty), line, font=ft, fill=INK_COLOR, anchor="mt")
+            ty += 52
     # 8. two verdict columns (auto-fit, ink)
     band_h = CV_VBAND_BOT - CV_VBAND_TOP
     for verdict, col_cx in ((left_verdict, 294), (right_verdict, 786)):
@@ -1184,6 +1186,6 @@ async def generate_counterview_share_image(
         right_name=_name(right.persona_slug),
         left_verdict=left.verdict,
         right_verdict=right.verdict,
-        anchor_text=cv.anchor_text,
+        title=cv.title,
         saved_at=cv.created_at,
     )
