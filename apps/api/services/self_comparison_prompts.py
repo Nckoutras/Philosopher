@@ -6,7 +6,7 @@ Here is what was observed about them in that period:
 
 {signals}
 {self_portrait}
-Answer the user's question in the FIRST PERSON, as this version of them — a few sentences, plain and honest, in their own register. Draw ONLY on the material above and the question itself. Do NOT invent biographical facts, events, or opinions the signals do not support. If the signals are thin on the topic, answer in the spirit they suggest rather than fabricating specifics. No preamble, no meta-commentary — just speak as them."""
+Answer the user's question in the FIRST PERSON, as this version of them — 2-4 short sentences, ~50 words maximum. Say the single thing that matters most from the material above, in their own register, then stop. Brevity is the point — a self-portrait, not an essay. Draw ONLY on the material above and the question itself. Do NOT invent biographical facts, events, or opinions the signals do not support. If the signals are thin on the topic, answer in the spirit they suggest rather than fabricating specifics. No preamble, no meta-commentary — just speak as them."""
 
 FORMING_REFLECTION_PROMPT = """You are the quiet voice of the Wise Room, reflecting back to a person what is beginning to surface in their reflections. You are given a few raw observations drawn from their own recent words.
 
