@@ -80,6 +80,30 @@ class Persona(Base):
     source_chunks: Mapped[list["SourceChunk"]] = relationship("SourceChunk", back_populates="persona")
 
 
+# ── Quotes ───────────────────────────────────────────────────────────────────
+
+class Quote(Base):
+    __tablename__ = "quotes"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=gen_uuid)
+    persona_slug: Mapped[str] = mapped_column(Text, nullable=False)
+    text_en: Mapped[str] = mapped_column(Text, nullable=False)
+    text_original: Mapped[str | None] = mapped_column(Text, nullable=True)
+    source_locator: Mapped[str] = mapped_column(Text, nullable=False)
+    translation_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    confidence: Mapped[str] = mapped_column(Text, nullable=False)
+    context: Mapped[str] = mapped_column(Text, nullable=False)
+    discuss_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default=text("0"))
+    story_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default=text("0"))
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default=text("true"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+    __table_args__ = (
+        UniqueConstraint('persona_slug', 'source_locator', 'text_en', name='uq_quotes_persona_locator_text'),
+        Index('idx_quotes_persona_slug', 'persona_slug'),
+    )
+
+
 # ── Conversations & Messages ──────────────────────────────────────────────────
 
 class Conversation(Base):

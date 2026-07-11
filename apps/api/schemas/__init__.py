@@ -83,6 +83,22 @@ class PersonaOut(BaseModel):
         from_attributes = True
 
 
+# ── Quotes ────────────────────────────────────────────────────────────────────
+
+class QuoteOut(BaseModel):
+    id: str
+    persona_slug: str
+    text_en: str
+    text_original: Optional[str] = None
+    source_locator: str
+    translation_note: Optional[str] = None
+    confidence: str
+    context: str
+
+    class Config:
+        from_attributes = True
+
+
 # ── Conversation ──────────────────────────────────────────────────────────────
 
 class ConversationCreate(BaseModel):
