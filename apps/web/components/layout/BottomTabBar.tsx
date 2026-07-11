@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useEffect, type CSSProperties } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
-import { Home, Compass, User, Sparkle } from 'lucide-react'
+import { Home, Compass, User, Sparkle, Quote } from 'lucide-react'
 import { useStore } from '@/lib/store'
 
 // Artist's easel — local icon matching the lucide consumption contract used by
@@ -56,7 +56,7 @@ const TABS = [
     activePattern: /^\/app\/explore/,
   },
   {
-    label: 'Self Portrait',
+    label: 'Portrait',
     icon: EaselIcon,
     href: '/app/self-portrait',
     activePattern: /^\/app\/self-portrait/,
@@ -66,6 +66,12 @@ const TABS = [
     icon: User,
     href: '/app/account',
     activePattern: /^\/app\/account/,
+  },
+  {
+    label: 'Quotes',
+    icon: Quote,
+    href: '/app/quotes',
+    activePattern: /^\/app\/quotes/,
   },
 ] as const
 
@@ -170,15 +176,15 @@ export default function BottomTabBar() {
 
       <style jsx>{`
         /* Lens geometry: width is one tab minus a 3px inset; translateX moves it a
-           whole tab-step per active index. Because the lens is (25% − 3px) wide,
-           100% of its own width + 3px == 25% of the bar, so k·(100% + 3px) lands it
+           whole tab-step per active index. Because the lens is (20% − 3px) wide,
+           100% of its own width + 3px == 20% of the bar, so k·(100% + 3px) lands it
            centered under tab k (with the 1.5px left seed centering it under tab 0). */
         .tabbar-lens {
           position: absolute;
           top: 6px;
           left: 1.5px;
           height: 52px;
-          width: calc(25% - 3px);
+          width: calc(20% - 3px);
           border-radius: 999px;
           z-index: 1;
           pointer-events: none;
