@@ -201,6 +201,7 @@ class Insight(Base):
     content: Mapped[str] = mapped_column(Text, nullable=False)
     insight_type: Mapped[str | None] = mapped_column(String(50))  # pattern | shift | question | challenge
     source_count: Mapped[int | None] = mapped_column(Integer)  # distinct conversations a recurring theme was noticed across
+    theme: Mapped[str | None] = mapped_column(Text, nullable=True)  # optional life-theme slug (THEME_VALUES) captured at signal-write
     is_dismissed: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
