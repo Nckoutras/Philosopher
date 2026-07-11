@@ -1,56 +1,54 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import BottomTabBar from '../BottomTabBar'
 
-const mockPush = vi.fn()
-let mockPathname = '/app/library'
+let mockPathname = '/app/today'
 
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push: mockPush }),
+  // The bar navigates via <Link href>, not router.push. prefetch is here so the
+  // idle route-warming effect can't throw if it fires.
+  useRouter: () => ({ push: vi.fn(), prefetch: vi.fn() }),
   usePathname: () => mockPathname,
 }))
 
 beforeEach(() => {
-  mockPush.mockClear()
-  mockPathname = '/app/library'
+  mockPathname = '/app/today'
 })
 
 describe('BottomTabBar', () => {
-  it('renders all 4 tabs', () => {
+  it('renders all 5 tabs', () => {
     render(<BottomTabBar />)
     expect(screen.getByLabelText('Home')).toBeTruthy()
     expect(screen.getByLabelText('Explore')).toBeTruthy()
-    expect(screen.getByLabelText('Library')).toBeTruthy()
+    expect(screen.getByLabelText('Portrait')).toBeTruthy()
     expect(screen.getByLabelText('Account')).toBeTruthy()
+    expect(screen.getByLabelText('Quotes')).toBeTruthy()
   })
 
-  it('marks Library tab as active on /app/library', () => {
-    mockPathname = '/app/library'
+  it('marks Portrait tab as active on /app/self-portrait', () => {
+    mockPathname = '/app/self-portrait'
     render(<BottomTabBar />)
-    const libraryBtn = screen.getByLabelText('Library')
-    expect(libraryBtn.getAttribute('aria-current')).toBe('page')
+    const portraitBtn = screen.getByLabelText('Portrait')
+    expect(portraitBtn.getAttribute('aria-current')).toBe('page')
   })
 
-  it('does not mark other tabs as active on /app/library', () => {
-    mockPathname = '/app/library'
+  it('does not mark other tabs as active on /app/self-portrait', () => {
+    mockPathname = '/app/self-portrait'
     render(<BottomTabBar />)
     expect(screen.getByLabelText('Home').getAttribute('aria-current')).toBeNull()
     expect(screen.getByLabelText('Explore').getAttribute('aria-current')).toBeNull()
     expect(screen.getByLabelText('Account').getAttribute('aria-current')).toBeNull()
+    expect(screen.getByLabelText('Quotes').getAttribute('aria-current')).toBeNull()
   })
 
-  it('navigates to /app/library when Library tab tapped', () => {
-    mockPathname = '/app/today'
+  it('links the Quotes tab to /app/quotes', () => {
     render(<BottomTabBar />)
-    fireEvent.click(screen.getByLabelText('Library'))
-    expect(mockPush).toHaveBeenCalledWith('/app/library')
+    expect(screen.getByLabelText('Quotes').getAttribute('href')).toBe('/app/quotes')
   })
 
-  it('navigates to /app/explore when Explore tab tapped', () => {
-    mockPathname = '/app/today'
+  it('links the Explore tab to /app/explore', () => {
     render(<BottomTabBar />)
-    fireEvent.click(screen.getByLabelText('Explore'))
-    expect(mockPush).toHaveBeenCalledWith('/app/explore')
+    expect(screen.getByLabelText('Explore').getAttribute('href')).toBe('/app/explore')
   })
 })
