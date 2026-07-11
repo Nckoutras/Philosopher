@@ -64,7 +64,22 @@ export default function PaywallModal({ open, details, onClose }: Props) {
           ×
         </button>
 
-        {details.reason === 'go_deeper_depth' ? (
+        {details.reason === 'persona_locked' ? (
+          <>
+            <h2
+              id="paywall-title"
+              className="font-cormorant text-[26px] font-medium text-ink leading-tight mb-4"
+            >
+              A Pro mind
+            </h2>
+
+            {/* persona_locked carries the display name in details.personaVoice — the
+                quotes screen has no store.activePersonaName. Fallback: "This mind". */}
+            <p className="font-lora text-[13px] text-charcoal leading-relaxed mb-8">
+              {details.personaVoice ?? 'This mind'} opens up on Pro.
+            </p>
+          </>
+        ) : details.reason === 'go_deeper_depth' ? (
           <>
             <h2
               id="paywall-title"
