@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, text
 from models import MemoryEntry, Insight
+from schemas import THEME_VALUES
 from services.llm_client import llm_client
 from services.embedding_client import embedding_client
 from config import config
@@ -68,7 +69,7 @@ Given a conversation exchange (user message + assistant response), extract memor
 Focus on: beliefs, values, ongoing struggles, recurring patterns, personal milestones, stated goals.
 
 Return a JSON array only. No explanation. No markdown.
-Each item: {"type": "belief|value|struggle|pattern|milestone|dilemma", "content": "...", "confidence": 0.0-1.0}
+Each item: {"type": "belief|value|struggle|pattern|milestone|dilemma", "content": "...", "confidence": 0.0-1.0, "theme": "<one theme slug or omit>"}
 
 Rules:
 - Only extract what is genuinely stated or clearly implied. Do not infer beyond the text.
@@ -78,13 +79,14 @@ Rules:
 - Max 3 entries per exchange.
 - "dilemma": a live decision the user is ACTIVELY weighing between two courses of action, stated in THIS exchange. Not general uncertainty, not a decision already made in the past, not the assistant's framing. Content = one sentence naming the two sides in the user's own voice, first person (it is placed in the user's own input field verbatim).
 - "belief": write content as the belief ITSELF — a single declarative sentence in the user's own voice, not "You believe that…". e.g. "If I don't handle everything myself, it won't be done right." This text is used verbatim as a Counterview anchor.
+- "theme" (OPTIONAL): the single best-fitting life-theme for this item, one of: separation, anxiety, fear, grief, acceptance, work, relationships, purpose, dilemma, controversy, doubt, freedom. Omit the field entirely if none clearly fits. Only meaningful for "dilemma" and "belief"; may be omitted for other types.
 
 Example output:
 [
   {"type": "struggle", "content": "User is experiencing conflict between career ambitions and desire for stability.", "confidence": 0.85},
   {"type": "value", "content": "User places high importance on honesty in relationships.", "confidence": 0.75},
-  {"type": "dilemma", "content": "I'm weighing whether to leave a secure job for one that feels meaningful but far less certain.", "confidence": 0.9},
-  {"type": "belief", "content": "If I don't handle everything myself, it won't be done right.", "confidence": 0.85}
+  {"type": "dilemma", "content": "I'm weighing whether to leave a secure job for one that feels meaningful but far less certain.", "confidence": 0.9, "theme": "work"},
+  {"type": "belief", "content": "If I don't handle everything myself, it won't be done right.", "confidence": 0.85, "theme": "work"}
 ]"""
 
 
@@ -178,6 +180,8 @@ class MemoryService:
                 if signal is not None:
                     blocked = await self._insight_gate_blocked(db, user_id, conversation_id)
                     if blocked is None:
+                        raw_theme = (signal.get("theme") or "").strip().lower()
+                        theme = raw_theme if raw_theme in THEME_VALUES else None
                         db.add(Insight(
                             user_id=user_id,
                             conversation_id=conversation_id,
@@ -185,6 +189,7 @@ class MemoryService:
                             content=(signal.get("content") or "").strip(),
                             insight_type=signal.get("type"),
                             source_count=None,
+                            theme=theme,
                         ))
                         await db.flush()
                         logger.info(
