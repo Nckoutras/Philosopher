@@ -99,6 +99,12 @@ class QuoteOut(BaseModel):
         from_attributes = True
 
 
+class SuggestedQuoteOut(QuoteOut):
+    # matched_themes = the quote.themes ∩ user-candidate-themes intersection that
+    # drove the match; the frontend uses it to render the "why this" reason.
+    matched_themes: list[str] = []
+
+
 # ── Conversation ──────────────────────────────────────────────────────────────
 
 class ConversationCreate(BaseModel):

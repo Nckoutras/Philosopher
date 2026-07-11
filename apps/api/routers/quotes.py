@@ -3,8 +3,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
 from db.session import get_db
 from models import Quote
-from schemas import QuoteOut
+from schemas import QuoteOut, SuggestedQuoteOut
 from auth import get_current_user_plan
+from services.preferences_service import get_user_preferences
+from services.quote_suggest import rank_suggested_quotes
 
 router = APIRouter(prefix="/quotes", tags=["quotes"])
 
@@ -17,6 +19,28 @@ async def list_quotes(
     # Auth required (same as personas); no tier gate. No ordering — the client shuffles.
     result = await db.execute(select(Quote).where(Quote.is_active == True))
     return result.scalars().all()
+
+
+# Registered BEFORE the '/{quote_id}/...' routes so 'suggested' is never captured
+# as a quote_id path param.
+@router.get("/suggested", response_model=list[SuggestedQuoteOut])
+async def suggested(
+    db: AsyncSession = Depends(get_db),
+    auth: tuple = Depends(get_current_user_plan),
+):
+    user, plan = auth
+    # Pro-gated nudge: free users get NO personalized suggestion.
+    if plan not in ("pro", "premium"):
+        return []
+    prefs = await get_user_preferences(user_id=user.id, db=db)
+    if prefs is None:
+        return []
+    quotes = (await db.execute(select(Quote).where(Quote.is_active == True))).scalars().all()
+    ranked = rank_suggested_quotes(prefs, quotes, limit=5)
+    return [
+        SuggestedQuoteOut(**QuoteOut.model_validate(q).model_dump(), matched_themes=mt)
+        for q, mt in ranked
+    ]
 
 
 @router.post("/{quote_id}/discuss", status_code=204)
