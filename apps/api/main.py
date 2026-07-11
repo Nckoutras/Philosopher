@@ -29,6 +29,7 @@ from routers.counterview import router as counterview_router
 from routers.self_comparison import router as self_comparison_router
 from routers.weekly_letters import router as weekly_letters_router
 from routers.unsubscribe import router as unsubscribe_router
+from routers.quotes import router as quotes_router
 
 logging.basicConfig(level=logging.INFO if not config.DEBUG else logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -106,6 +107,7 @@ app.include_router(counterview_router,        prefix=PREFIX)
 app.include_router(self_comparison_router,    prefix=PREFIX)
 app.include_router(weekly_letters_router,     prefix=PREFIX)
 app.include_router(unsubscribe_router,         prefix=PREFIX)
+app.include_router(quotes_router,              prefix=PREFIX)
 
 
 @app.get("/health")
