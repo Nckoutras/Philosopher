@@ -721,6 +721,16 @@ class ApiClient {
     return this.request<Quote[]>('/quotes')
   }
 
+  // Fire-and-forget engagement counters (endpoints shipped in PR-4a). Callers use
+  // `void api.increment*()` and swallow errors — a lost count is harmless.
+  async incrementDiscuss(id: string): Promise<void> {
+    await this.request(`/quotes/${id}/discuss`, { method: 'POST' })
+  }
+
+  async incrementStory(id: string): Promise<void> {
+    await this.request(`/quotes/${id}/story`, { method: 'POST' })
+  }
+
   // ── Conversations ─────────────────────────────────────────────────────────
 
   async getConversations(): Promise<Conversation[]> {
