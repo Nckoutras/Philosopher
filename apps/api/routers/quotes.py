@@ -1,8 +1,9 @@
+from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
 from db.session import get_db
-from models import Quote
+from models import Quote, Insight
 from schemas import QuoteOut, SuggestedQuoteOut
 from auth import get_current_user_plan
 from services.preferences_service import get_user_preferences
@@ -35,8 +36,20 @@ async def suggested(
     prefs = await get_user_preferences(user_id=user.id, db=db)
     if prefs is None:
         return []
+    # Live chat-signal theme (3a): the most recent non-dismissed Insight with a
+    # theme in the last 14 days. None → the ranker falls back to 5b/5c behaviour.
+    cutoff = datetime.now(timezone.utc) - timedelta(days=14)
+    sig = await db.execute(
+        select(Insight.theme).where(
+            Insight.user_id == user.id,
+            Insight.is_dismissed == False,
+            Insight.theme.isnot(None),
+            Insight.created_at >= cutoff,
+        ).order_by(Insight.created_at.desc()).limit(1)
+    )
+    signal_theme = sig.scalar_one_or_none()
     quotes = (await db.execute(select(Quote).where(Quote.is_active == True))).scalars().all()
-    ranked = rank_suggested_quotes(prefs, quotes, limit=5)
+    ranked = rank_suggested_quotes(prefs, quotes, signal_theme=signal_theme, limit=5)
     return [
         SuggestedQuoteOut(**QuoteOut.model_validate(q).model_dump(), matched_themes=mt)
         for q, mt in ranked
