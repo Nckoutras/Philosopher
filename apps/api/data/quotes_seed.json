@@ -6,7 +6,11 @@
     "source_locator": "Plato, Apology 38a5–6",
     "translation_note": "My rendering from Greek",
     "confidence": "certain",
-    "context": "In Plato’s Apology, Socrates makes reflection a condition of fully human living. The point is not endless self-criticism, but a refusal to let habit, reputation, or inherited opinion decide what matters without question. The line still unsettles because a life can be busy, respectable, and outwardly successful while remaining largely untested from within, even by the person living it."
+    "context": "In Plato’s Apology, Socrates makes reflection a condition of fully human living. The point is not endless self-criticism, but a refusal to let habit, reputation, or inherited opinion decide what matters without question. The line still unsettles because a life can be busy, respectable, and outwardly successful while remaining largely untested from within, even by the person living it.",
+    "themes": [
+      "doubt",
+      "purpose"
+    ]
   },
   {
     "persona_slug": "socrates",
@@ -15,7 +19,10 @@
     "source_locator": "Plato, Apology 21d",
     "translation_note": "My rendering from Greek",
     "confidence": "certain",
-    "context": "Socrates separates ignorance from the more dangerous illusion of knowledge. He does not present not-knowing as a virtue in itself; its value lies in leaving inquiry open and preventing confidence from outrunning evidence. The line remains a compact standard for intellectual honesty, especially where certainty is rewarded more quickly than careful doubt or patient investigation."
+    "context": "Socrates separates ignorance from the more dangerous illusion of knowledge. He does not present not-knowing as a virtue in itself; its value lies in leaving inquiry open and preventing confidence from outrunning evidence. The line remains a compact standard for intellectual honesty, especially where certainty is rewarded more quickly than careful doubt or patient investigation.",
+    "themes": [
+      "doubt"
+    ]
   },
   {
     "persona_slug": "socrates",
@@ -24,7 +31,11 @@
     "source_locator": "Plato, Apology 29a",
     "translation_note": "My rendering from Greek",
     "confidence": "certain",
-    "context": "In the Apology, Socrates treats fear of death as an unnoticed claim to knowledge about what no one securely knows. His courage begins not in certainty about death, but in restraint about the unknown. The line shifts attention from mortality itself to the stories the mind invents around it, and to how those stories can govern conduct."
+    "context": "In the Apology, Socrates treats fear of death as an unnoticed claim to knowledge about what no one securely knows. His courage begins not in certainty about death, but in restraint about the unknown. The line shifts attention from mortality itself to the stories the mind invents around it, and to how those stories can govern conduct.",
+    "themes": [
+      "fear",
+      "doubt"
+    ]
   },
   {
     "persona_slug": "socrates",
@@ -33,7 +44,11 @@
     "source_locator": "Plato, Apology 29d",
     "translation_note": "My rendering from Greek",
     "confidence": "certain",
-    "context": "Socrates places his obligation to examination and truth above the demand for conformity. The tension is not simply religion against authority, but conscience against pressure when public approval asks a person to abandon a tested conviction. The line still carries force because obedience becomes morally serious only when competing loyalties cannot all be satisfied without personal cost."
+    "context": "Socrates places his obligation to examination and truth above the demand for conformity. The tension is not simply religion against authority, but conscience against pressure when public approval asks a person to abandon a tested conviction. The line still carries force because obedience becomes morally serious only when competing loyalties cannot all be satisfied without personal cost.",
+    "themes": [
+      "controversy",
+      "freedom"
+    ]
   },
   {
     "persona_slug": "socrates",
@@ -42,7 +57,11 @@
     "source_locator": "Plato, Apology 39a–b",
     "translation_note": "My rendering from Greek",
     "confidence": "certain",
-    "context": "Socrates contrasts physical survival with moral survival. Death may arrive through circumstance, but corruption enters through choices that trade integrity for safety, advantage, or fear. The line refuses the comforting assumption that avoiding the worst outcome is always the highest good; it asks what a person may preserve outwardly while losing inwardly, perhaps without immediately noticing the exchange."
+    "context": "Socrates contrasts physical survival with moral survival. Death may arrive through circumstance, but corruption enters through choices that trade integrity for safety, advantage, or fear. The line refuses the comforting assumption that avoiding the worst outcome is always the highest good; it asks what a person may preserve outwardly while losing inwardly, perhaps without immediately noticing the exchange.",
+    "themes": [
+      "dilemma",
+      "purpose"
+    ]
   },
   {
     "persona_slug": "socrates",
@@ -51,7 +70,11 @@
     "source_locator": "Plato, Apology 41d",
     "translation_note": "My rendering from Greek",
     "confidence": "certain",
-    "context": "Socrates uses “evil” in a moral rather than a merely painful sense. Loss, punishment, or death may still occur, but they do not by themselves make a just person unjust or destroy the worth of a life governed by integrity. The claim is severe because it relocates the deepest harm from what happens to character to what character becomes."
+    "context": "Socrates uses “evil” in a moral rather than a merely painful sense. Loss, punishment, or death may still occur, but they do not by themselves make a just person unjust or destroy the worth of a life governed by integrity. The claim is severe because it relocates the deepest harm from what happens to character to what character becomes.",
+    "themes": [
+      "acceptance",
+      "purpose"
+    ]
   },
   {
     "persona_slug": "socrates",
@@ -60,7 +83,11 @@
     "source_locator": "Plato, Crito 48b",
     "translation_note": "My rendering from Greek",
     "confidence": "certain",
-    "context": "In Plato’s Crito, Socrates refuses to treat continued existence as the final measure of a decision. Living well means living justly, so self-preservation cannot automatically overrule principle. The line remains demanding because it turns many practical questions around: not only whether a choice protects life or comfort, but what kind of life that protection produces."
+    "context": "In Plato’s Crito, Socrates refuses to treat continued existence as the final measure of a decision. Living well means living justly, so self-preservation cannot automatically overrule principle. The line remains demanding because it turns many practical questions around: not only whether a choice protects life or comfort, but what kind of life that protection produces.",
+    "themes": [
+      "purpose",
+      "dilemma"
+    ]
   },
   {
     "persona_slug": "socrates",
@@ -69,7 +96,11 @@
     "source_locator": "Plato, Crito 49c–d",
     "translation_note": "My rendering from Greek",
     "confidence": "certain",
-    "context": "Socrates denies that being wronged creates permission to do wrong in return. Retaliation may feel like balance, yet it can reproduce the very conduct being condemned and make another person’s injustice the author of one’s own. The line remains radical because it treats ethical limits as most meaningful precisely when injury offers a persuasive excuse to abandon them."
+    "context": "Socrates denies that being wronged creates permission to do wrong in return. Retaliation may feel like balance, yet it can reproduce the very conduct being condemned and make another person’s injustice the author of one’s own. The line remains radical because it treats ethical limits as most meaningful precisely when injury offers a persuasive excuse to abandon them.",
+    "themes": [
+      "relationships",
+      "acceptance"
+    ]
   },
   {
     "persona_slug": "marcus_aurelius",
@@ -78,7 +109,11 @@
     "source_locator": "Meditations, Book 5, §1",
     "translation_note": "My rendering from Greek",
     "confidence": "certain",
-    "context": "Marcus Aurelius answers reluctance by recalling function rather than waiting for enthusiasm. Human work, in his Stoic frame, means taking part in the shared tasks of reason, duty, and cooperation. The line still lands because it does not promise that obligation will feel attractive; it asks whether mood should decide what deserves to be done."
+    "context": "Marcus Aurelius answers reluctance by recalling function rather than waiting for enthusiasm. Human work, in his Stoic frame, means taking part in the shared tasks of reason, duty, and cooperation. The line still lands because it does not promise that obligation will feel attractive; it asks whether mood should decide what deserves to be done.",
+    "themes": [
+      "work",
+      "purpose"
+    ]
   },
   {
     "persona_slug": "marcus_aurelius",
@@ -87,7 +122,10 @@
     "source_locator": "Meditations, Book 5, §16",
     "translation_note": "My rendering from Greek",
     "confidence": "certain",
-    "context": "Marcus Aurelius presents thought as something that gradually colors character. A passing impression matters less than the patterns repeatedly entertained, endorsed, and allowed to settle into judgment. The image remains useful because it makes inner formation look cumulative: a person becomes shaped not only by events, but by the mental tones applied to them again and again."
+    "context": "Marcus Aurelius presents thought as something that gradually colors character. A passing impression matters less than the patterns repeatedly entertained, endorsed, and allowed to settle into judgment. The image remains useful because it makes inner formation look cumulative: a person becomes shaped not only by events, but by the mental tones applied to them again and again.",
+    "themes": [
+      "purpose"
+    ]
   },
   {
     "persona_slug": "marcus_aurelius",
@@ -96,7 +134,11 @@
     "source_locator": "Meditations, Book 5, §20",
     "translation_note": "My rendering from Greek",
     "confidence": "certain",
-    "context": "Marcus Aurelius turns obstruction into material for the next appropriate action. The claim does not make every difficulty desirable or harmless; it locates freedom in adapting purpose when the original route closes. Its enduring power lies in replacing the question of how to remove all resistance with the harder question of what resistance now makes possible."
+    "context": "Marcus Aurelius turns obstruction into material for the next appropriate action. The claim does not make every difficulty desirable or harmless; it locates freedom in adapting purpose when the original route closes. Its enduring power lies in replacing the question of how to remove all resistance with the harder question of what resistance now makes possible.",
+    "themes": [
+      "acceptance",
+      "work"
+    ]
   },
   {
     "persona_slug": "marcus_aurelius",
@@ -105,7 +147,11 @@
     "source_locator": "Meditations, Book 6, §6",
     "translation_note": "My rendering from Greek",
     "confidence": "certain",
-    "context": "Marcus Aurelius measures revenge by its effect on character rather than on the offender. Imitating cruelty, deceit, or pettiness may punish another person while allowing that person’s conduct to set the terms of one’s own. The line offers a quieter form of resistance: preserving the distinction between suffering an injustice and becoming capable of the same injustice."
+    "context": "Marcus Aurelius measures revenge by its effect on character rather than on the offender. Imitating cruelty, deceit, or pettiness may punish another person while allowing that person’s conduct to set the terms of one’s own. The line offers a quieter form of resistance: preserving the distinction between suffering an injustice and becoming capable of the same injustice.",
+    "themes": [
+      "relationships",
+      "acceptance"
+    ]
   },
   {
     "persona_slug": "marcus_aurelius",
@@ -114,7 +160,11 @@
     "source_locator": "Meditations, Book 10, §16",
     "translation_note": "My rendering from Greek",
     "confidence": "certain",
-    "context": "Marcus Aurelius exposes the comfort of moral discussion when it replaces moral practice. Definitions, debates, and admired examples can become another way of postponing the ordinary acts through which character is shown. The line is deliberately abrupt because the distance between knowing the good and doing it is often maintained by language that sounds serious."
+    "context": "Marcus Aurelius exposes the comfort of moral discussion when it replaces moral practice. Definitions, debates, and admired examples can become another way of postponing the ordinary acts through which character is shown. The line is deliberately abrupt because the distance between knowing the good and doing it is often maintained by language that sounds serious.",
+    "themes": [
+      "purpose",
+      "work"
+    ]
   },
   {
     "persona_slug": "marcus_aurelius",
@@ -123,7 +173,11 @@
     "source_locator": "Meditations, Book 12, §17",
     "translation_note": "My rendering from Greek",
     "confidence": "certain",
-    "context": "Marcus Aurelius reduces conduct to two tests: justice in action and truth in speech. The simplicity is not naïve, because both tests become difficult when convenience, fear, or loyalty offers reasons for exception. The line remains useful as a compact discipline against self-deception, especially when complicated explanations begin to hide a fairly clear moral fact."
+    "context": "Marcus Aurelius reduces conduct to two tests: justice in action and truth in speech. The simplicity is not naïve, because both tests become difficult when convenience, fear, or loyalty offers reasons for exception. The line remains useful as a compact discipline against self-deception, especially when complicated explanations begin to hide a fairly clear moral fact.",
+    "themes": [
+      "dilemma",
+      "purpose"
+    ]
   },
   {
     "persona_slug": "marcus_aurelius",
@@ -132,7 +186,11 @@
     "source_locator": "Meditations, Book 4, §3",
     "translation_note": "My rendering from Greek",
     "confidence": "certain",
-    "context": "Marcus Aurelius places outer flux beside inner interpretation. Change belongs to the structure of the world, while much of lived experience depends on the judgments formed about that change. The line does not imply that circumstances are unreal; it distinguishes what continually alters from the meanings the mind adds, often without noticing that it has done so."
+    "context": "Marcus Aurelius places outer flux beside inner interpretation. Change belongs to the structure of the world, while much of lived experience depends on the judgments formed about that change. The line does not imply that circumstances are unreal; it distinguishes what continually alters from the meanings the mind adds, often without noticing that it has done so.",
+    "themes": [
+      "acceptance",
+      "doubt"
+    ]
   },
   {
     "persona_slug": "marcus_aurelius",
@@ -141,7 +199,11 @@
     "source_locator": "Meditations, Book 4, §7",
     "translation_note": "My rendering from Greek",
     "confidence": "certain",
-    "context": "Marcus Aurelius separates an event from the conclusion that it has damaged the self in the deepest sense. This does not deny pain, loss, or injustice; it questions the added judgment that such experiences must also destroy dignity or moral agency. The line remains provocative because it identifies interpretation as a second wound, sometimes more enduring than the first."
+    "context": "Marcus Aurelius separates an event from the conclusion that it has damaged the self in the deepest sense. This does not deny pain, loss, or injustice; it questions the added judgment that such experiences must also destroy dignity or moral agency. The line remains provocative because it identifies interpretation as a second wound, sometimes more enduring than the first.",
+    "themes": [
+      "acceptance",
+      "anxiety"
+    ]
   },
   {
     "persona_slug": "epictetus",
@@ -150,7 +212,11 @@
     "source_locator": "Enchiridion, §1",
     "translation_note": "My rendering from Greek",
     "confidence": "certain",
-    "context": "Epictetus begins with a division that organizes the rest of his ethics. Judgments, intentions, and choices belong more closely to human agency than outcomes, other people, or external conditions. The line is spare because confusion about this boundary is costly: effort is wasted trying to command what cannot obey, while the part that can be shaped is neglected."
+    "context": "Epictetus begins with a division that organizes the rest of his ethics. Judgments, intentions, and choices belong more closely to human agency than outcomes, other people, or external conditions. The line is spare because confusion about this boundary is costly: effort is wasted trying to command what cannot obey, while the part that can be shaped is neglected.",
+    "themes": [
+      "acceptance",
+      "freedom"
+    ]
   },
   {
     "persona_slug": "epictetus",
@@ -159,7 +225,11 @@
     "source_locator": "Enchiridion, §5",
     "translation_note": "My rendering from Greek",
     "confidence": "certain",
-    "context": "Epictetus locates much disturbance in the meaning assigned to events rather than in events alone. The claim does not erase real hardship; it identifies an additional layer in which expectation, interpretation, and fear amplify what has happened. Its continuing force lies in creating a small interval between circumstance and response, where judgment can be examined rather than merely obeyed."
+    "context": "Epictetus locates much disturbance in the meaning assigned to events rather than in events alone. The claim does not erase real hardship; it identifies an additional layer in which expectation, interpretation, and fear amplify what has happened. Its continuing force lies in creating a small interval between circumstance and response, where judgment can be examined rather than merely obeyed.",
+    "themes": [
+      "anxiety",
+      "acceptance"
+    ]
   },
   {
     "persona_slug": "epictetus",
@@ -168,7 +238,10 @@
     "source_locator": "Enchiridion, §8",
     "translation_note": "My rendering from Greek",
     "confidence": "certain",
-    "context": "Epictetus contrasts reality with the demand that reality follow private preference. Acceptance here is not passivity or approval, but the refusal to make peace depend on an impossible power over events. The line asks for a difficult adjustment of desire: action can remain purposeful, while the mind stops treating every unwanted outcome as a violation of how the world was supposed to behave."
+    "context": "Epictetus contrasts reality with the demand that reality follow private preference. Acceptance here is not passivity or approval, but the refusal to make peace depend on an impossible power over events. The line asks for a difficult adjustment of desire: action can remain purposeful, while the mind stops treating every unwanted outcome as a violation of how the world was supposed to behave.",
+    "themes": [
+      "acceptance"
+    ]
   },
   {
     "persona_slug": "epictetus",
@@ -177,7 +250,11 @@
     "source_locator": "Enchiridion, §13",
     "translation_note": "My rendering from Greek",
     "confidence": "certain",
-    "context": "Epictetus warns that serious change may look unimpressive to people who measure success by status, possessions, or display. Progress therefore requires tolerating misunderstanding and the loss of an image that once secured approval. The line remains sharp because many principles are easy to hold until they become socially expensive, awkward, or invisible to those whose judgment matters."
+    "context": "Epictetus warns that serious change may look unimpressive to people who measure success by status, possessions, or display. Progress therefore requires tolerating misunderstanding and the loss of an image that once secured approval. The line remains sharp because many principles are easy to hold until they become socially expensive, awkward, or invisible to those whose judgment matters.",
+    "themes": [
+      "freedom",
+      "work"
+    ]
   },
   {
     "persona_slug": "epictetus",
@@ -186,7 +263,11 @@
     "source_locator": "Enchiridion, §17",
     "translation_note": "My rendering from Greek",
     "confidence": "certain",
-    "context": "Epictetus uses the image of a play to distinguish the assigned role from the quality of its performance. A person may not choose the length, status, or circumstances of a part, yet can still choose how faithfully and intelligently it is played. The metaphor preserves agency without pretending to control the whole production, a balance that remains difficult in any uncertain life."
+    "context": "Epictetus uses the image of a play to distinguish the assigned role from the quality of its performance. A person may not choose the length, status, or circumstances of a part, yet can still choose how faithfully and intelligently it is played. The metaphor preserves agency without pretending to control the whole production, a balance that remains difficult in any uncertain life.",
+    "themes": [
+      "acceptance",
+      "purpose"
+    ]
   },
   {
     "persona_slug": "epictetus",
@@ -195,7 +276,11 @@
     "source_locator": "Enchiridion, §20",
     "translation_note": "My rendering from Greek",
     "confidence": "certain",
-    "context": "Epictetus focuses on the judgment through which another person’s act becomes an injury to dignity. He is not declaring abusive conduct acceptable; he is trying to prevent the offender from acquiring total control over the victim’s inner state. The line remains difficult because it protects agency by refusing to let another person’s contempt become the final authority on one’s worth."
+    "context": "Epictetus focuses on the judgment through which another person’s act becomes an injury to dignity. He is not declaring abusive conduct acceptable; he is trying to prevent the offender from acquiring total control over the victim’s inner state. The line remains difficult because it protects agency by refusing to let another person’s contempt become the final authority on one’s worth.",
+    "themes": [
+      "relationships",
+      "freedom"
+    ]
   },
   {
     "persona_slug": "epictetus",
@@ -204,7 +289,11 @@
     "source_locator": "Discourses, Book 3, ch. 23, §1",
     "translation_note": "My rendering from Greek",
     "confidence": "certain",
-    "context": "Epictetus begins ethical action with a clear account of the person being formed. Identity is not treated as a private description but as a standard that must become visible in repeated conduct. The line still matters because vague aspiration creates little friction, while a named commitment exposes the ordinary choices that either support it or quietly contradict it."
+    "context": "Epictetus begins ethical action with a clear account of the person being formed. Identity is not treated as a private description but as a standard that must become visible in repeated conduct. The line still matters because vague aspiration creates little friction, while a named commitment exposes the ordinary choices that either support it or quietly contradict it.",
+    "themes": [
+      "purpose",
+      "work"
+    ]
   },
   {
     "persona_slug": "epictetus",
@@ -213,7 +302,11 @@
     "source_locator": "Discourses, Book 1, ch. 15, §7",
     "translation_note": "My rendering from Greek",
     "confidence": "certain",
-    "context": "Epictetus uses ordinary growth to correct impatience about human development. Fruit requires stages that cannot be skipped, and character likewise forms through practice, delay, and repetition rather than a single declaration. The line remains reassuring without being indulgent: slow progress is natural, but genuine growth still depends on conditions being carefully tended consistently over time."
+    "context": "Epictetus uses ordinary growth to correct impatience about human development. Fruit requires stages that cannot be skipped, and character likewise forms through practice, delay, and repetition rather than a single declaration. The line remains reassuring without being indulgent: slow progress is natural, but genuine growth still depends on conditions being carefully tended consistently over time.",
+    "themes": [
+      "work",
+      "acceptance"
+    ]
   },
   {
     "persona_slug": "sigmund_freud",
@@ -222,7 +315,10 @@
     "source_locator": "“Eine Schwierigkeit der Psychoanalyse” (1917), final section; GW XII",
     "translation_note": "My rendering from German",
     "confidence": "certain",
-    "context": "Freud challenges the flattering picture of a mind fully transparent to itself. Conscious intention occupies only part of mental life, while wishes, conflicts, and motives may operate outside direct awareness and still shape conduct. The line endures because it turns self-knowledge from a possession into a problem: sincerity alone does not guarantee that a person understands why an action was taken."
+    "context": "Freud challenges the flattering picture of a mind fully transparent to itself. Conscious intention occupies only part of mental life, while wishes, conflicts, and motives may operate outside direct awareness and still shape conduct. The line endures because it turns self-knowledge from a possession into a problem: sincerity alone does not guarantee that a person understands why an action was taken.",
+    "themes": [
+      "doubt"
+    ]
   },
   {
     "persona_slug": "sigmund_freud",
@@ -231,7 +327,11 @@
     "source_locator": "Neue Folge der Vorlesungen zur Einführung in die Psychoanalyse, Lecture XXXI, closing; GW XV, p. 86",
     "translation_note": "Standard Strachey rendering; copyrighted translation",
     "confidence": "certain",
-    "context": "Freud describes analysis as an enlargement of reflective awareness and workable agency. What was previously driven, obscure, or automatic is not simply erased; it becomes more available to thought, language, and choice. The line is often heard as a conquest, but its deeper tension concerns difficult reclamation: bringing more of mental life into a form that can be recognized and borne."
+    "context": "Freud describes analysis as an enlargement of reflective awareness and workable agency. What was previously driven, obscure, or automatic is not simply erased; it becomes more available to thought, language, and choice. The line is often heard as a conquest, but its deeper tension concerns difficult reclamation: bringing more of mental life into a form that can be recognized and borne.",
+    "themes": [
+      "doubt",
+      "purpose"
+    ]
   },
   {
     "persona_slug": "sigmund_freud",
@@ -240,7 +340,10 @@
     "source_locator": "Die Zukunft einer Illusion, ch. X",
     "translation_note": "My rendering from German",
     "confidence": "certain",
-    "context": "Freud contrasts the quietness of reason with the louder appeal of wish, fear, and illusion. Intellect does not necessarily command immediate obedience, yet its persistence can gradually make evasion harder to sustain. The line remains timely because truth often lacks the emotional force of what people would prefer to believe, and still returns after reassurance has spent itself."
+    "context": "Freud contrasts the quietness of reason with the louder appeal of wish, fear, and illusion. Intellect does not necessarily command immediate obedience, yet its persistence can gradually make evasion harder to sustain. The line remains timely because truth often lacks the emotional force of what people would prefer to believe, and still returns after reassurance has spent itself.",
+    "themes": [
+      "doubt"
+    ]
   },
   {
     "persona_slug": "sigmund_freud",
@@ -249,7 +352,11 @@
     "source_locator": "“Der Dichter und das Phantasieren,” opening; GW VII, p. 214",
     "translation_note": "My rendering from German",
     "confidence": "certain",
-    "context": "Freud distinguishes imaginative play from the external world rather than from seriousness. Play can carry intense feeling and meaning even while the player knows that its scene has been made rather than found. The line preserves the dignity of imagination: what is invented need not be trivial, but it remains different from the conditions to which ordinary action must answer."
+    "context": "Freud distinguishes imaginative play from the external world rather than from seriousness. Play can carry intense feeling and meaning even while the player knows that its scene has been made rather than found. The line preserves the dignity of imagination: what is invented need not be trivial, but it remains different from the conditions to which ordinary action must answer.",
+    "themes": [
+      "doubt",
+      "acceptance"
+    ]
   },
   {
     "persona_slug": "sigmund_freud",
@@ -258,7 +365,11 @@
     "source_locator": "Das Unbehagen in der Kultur, ch. II",
     "translation_note": "My rendering from German",
     "confidence": "certain",
-    "context": "Freud treats lasting happiness as a demand that human desire and the conditions of life are poorly arranged to satisfy. Pleasure is real, but it is interrupted by conflict, limitation, loss, and the needs of living with others. The line is not merely bleak; it questions the expectation that unhappiness always proves a personal failure or a badly managed life."
+    "context": "Freud treats lasting happiness as a demand that human desire and the conditions of life are poorly arranged to satisfy. Pleasure is real, but it is interrupted by conflict, limitation, loss, and the needs of living with others. The line is not merely bleak; it questions the expectation that unhappiness always proves a personal failure or a badly managed life.",
+    "themes": [
+      "acceptance",
+      "purpose"
+    ]
   },
   {
     "persona_slug": "sigmund_freud",
@@ -267,7 +378,12 @@
     "source_locator": "Das Unbehagen in der Kultur, ch. II",
     "translation_note": "My rendering from German",
     "confidence": "certain",
-    "context": "Freud places vulnerability inside attachment rather than outside it. Love makes another person, and the possibility of loss, central to one’s emotional life; protection from pain would therefore require protection from intimacy itself. The line remains powerful because it refuses the fantasy of a bond that offers deep connection without exposure, dependence, uncertainty, or risk."
+    "context": "Freud places vulnerability inside attachment rather than outside it. Love makes another person, and the possibility of loss, central to one’s emotional life; protection from pain would therefore require protection from intimacy itself. The line remains powerful because it refuses the fantasy of a bond that offers deep connection without exposure, dependence, uncertainty, or risk.",
+    "themes": [
+      "relationships",
+      "fear",
+      "separation"
+    ]
   },
   {
     "persona_slug": "sigmund_freud",
@@ -276,7 +392,10 @@
     "source_locator": "Die Traumdeutung, ch. VII, §F",
     "translation_note": "My rendering from German",
     "confidence": "certain",
-    "context": "Freud treats dreams as privileged material because they bring disguised wishes, conflicts, and associations into a form that can be examined. The claim does not make a dream a simple code or prophecy; meaning emerges through interpretation rather than a fixed dictionary of symbols. The line marks a route toward mental processes that ordinary waking explanation may leave concealed."
+    "context": "Freud treats dreams as privileged material because they bring disguised wishes, conflicts, and associations into a form that can be examined. The claim does not make a dream a simple code or prophecy; meaning emerges through interpretation rather than a fixed dictionary of symbols. The line marks a route toward mental processes that ordinary waking explanation may leave concealed.",
+    "themes": [
+      "doubt"
+    ]
   },
   {
     "persona_slug": "sigmund_freud",
@@ -285,7 +404,12 @@
     "source_locator": "Jenseits des Lustprinzips, ch. V",
     "translation_note": "My rendering from German",
     "confidence": "certain",
-    "context": "Freud places this severe statement inside a speculative account of repetition, tension, and the pull of living matter toward an earlier state. It is not a simple claim that life is pointless or that conscious beings seek death in an ordinary sense. The line remains disturbing because it imagines mortality not only as an external ending, but as something woven into the dynamics of life itself."
+    "context": "Freud places this severe statement inside a speculative account of repetition, tension, and the pull of living matter toward an earlier state. It is not a simple claim that life is pointless or that conscious beings seek death in an ordinary sense. The line remains disturbing because it imagines mortality not only as an external ending, but as something woven into the dynamics of life itself.",
+    "themes": [
+      "grief",
+      "acceptance",
+      "fear"
+    ]
   },
   {
     "persona_slug": "carl_jung",
@@ -294,7 +418,11 @@
     "source_locator": "“The Philosophical Tree,” Alchemical Studies, CW 13, §335",
     "translation_note": "My rendering; Hull’s standard translation is copyrighted",
     "confidence": "certain",
-    "context": "Jung rejects a version of growth built only from ideal images. What is feared, denied, or disowned does not disappear through positive aspiration; it continues to act until it can be recognized as part of the psyche. The line still lands because it makes self-knowledge less flattering: illumination comes not from looking pure, but from becoming less divided."
+    "context": "Jung rejects a version of growth built only from ideal images. What is feared, denied, or disowned does not disappear through positive aspiration; it continues to act until it can be recognized as part of the psyche. The line still lands because it makes self-knowledge less flattering: illumination comes not from looking pure, but from becoming less divided.",
+    "themes": [
+      "doubt",
+      "acceptance"
+    ]
   },
   {
     "persona_slug": "carl_jung",
@@ -303,7 +431,10 @@
     "source_locator": "“On the Psychology of the Unconscious,” Two Essays on Analytical Psychology, CW 7, §78",
     "translation_note": "My rendering from German",
     "confidence": "certain",
-    "context": "Jung sets mutual relation against the impulse to dominate. Love allows another person to remain real and separate, while the will to power turns relationship into control, advantage, or possession. The contrast is deliberately stark, yet it reveals a useful question beneath many bonds: whether closeness is being used to meet another person or to secure authority over them."
+    "context": "Jung sets mutual relation against the impulse to dominate. Love allows another person to remain real and separate, while the will to power turns relationship into control, advantage, or possession. The contrast is deliberately stark, yet it reveals a useful question beneath many bonds: whether closeness is being used to meet another person or to secure authority over them.",
+    "themes": [
+      "relationships"
+    ]
   },
   {
     "persona_slug": "carl_jung",
@@ -312,7 +443,10 @@
     "source_locator": "“Problems of Modern Psychotherapy,” The Practice of Psychotherapy, CW 16, §163",
     "translation_note": "My rendering; Hull translation copyrighted",
     "confidence": "certain",
-    "context": "In writing about psychotherapy, Jung presents encounter as a process that can alter both participants. A real relationship is not a one-way intervention performed by an untouched expert upon a passive subject; contact changes the field in which both stand. The image remains broader than therapy because any serious meeting may disturb established forms and produce something neither person could create alone."
+    "context": "In writing about psychotherapy, Jung presents encounter as a process that can alter both participants. A real relationship is not a one-way intervention performed by an untouched expert upon a passive subject; contact changes the field in which both stand. The image remains broader than therapy because any serious meeting may disturb established forms and produce something neither person could create alone.",
+    "themes": [
+      "relationships"
+    ]
   },
   {
     "persona_slug": "carl_jung",
@@ -321,7 +455,11 @@
     "source_locator": "“Archetypes of the Collective Unconscious,” CW 9i, §66",
     "translation_note": "My rendering from German",
     "confidence": "certain",
-    "context": "Jung suggests that apparent disorder may contain a pattern not yet visible to consciousness. Chaos is not automatically meaningful, and the line does not excuse confusion; it invites attention before premature judgment closes the inquiry. Its appeal lies in the possibility that fragmentation can be read, and that what seems senseless may reveal an organizing movement over time."
+    "context": "Jung suggests that apparent disorder may contain a pattern not yet visible to consciousness. Chaos is not automatically meaningful, and the line does not excuse confusion; it invites attention before premature judgment closes the inquiry. Its appeal lies in the possibility that fragmentation can be read, and that what seems senseless may reveal an organizing movement over time.",
+    "themes": [
+      "acceptance",
+      "doubt"
+    ]
   },
   {
     "persona_slug": "carl_jung",
@@ -330,7 +468,11 @@
     "source_locator": "“Commentary on The Secret of the Golden Flower,” CW 13, §18",
     "translation_note": "Condensed my rendering from German",
     "confidence": "certain",
-    "context": "Jung distinguishes a life problem from a technical problem. Some conflicts cannot be removed by finding the correct answer because the person asking must change in scale, perspective, or maturity before the conflict takes a different form. The line remains consoling and demanding at once: resolution may arrive, but not as victory over the original terms."
+    "context": "Jung distinguishes a life problem from a technical problem. Some conflicts cannot be removed by finding the correct answer because the person asking must change in scale, perspective, or maturity before the conflict takes a different form. The line remains consoling and demanding at once: resolution may arrive, but not as victory over the original terms.",
+    "themes": [
+      "acceptance",
+      "dilemma"
+    ]
   },
   {
     "persona_slug": "carl_jung",
@@ -339,7 +481,11 @@
     "source_locator": "“Problems of Modern Psychotherapy,” CW 16, §81",
     "translation_note": "My rendering; standard English edition copyrighted",
     "confidence": "certain",
-    "context": "Jung warns against treating a successful pattern as a universal law. Advice becomes harmful when it ignores temperament, history, circumstance, and the different tasks carried by different lives. The image stays memorable because a rule may look elegant from the outside while causing pain in practice; fit, not prestige, determines whether guidance can actually be lived."
+    "context": "Jung warns against treating a successful pattern as a universal law. Advice becomes harmful when it ignores temperament, history, circumstance, and the different tasks carried by different lives. The image stays memorable because a rule may look elegant from the outside while causing pain in practice; fit, not prestige, determines whether guidance can actually be lived.",
+    "themes": [
+      "freedom",
+      "doubt"
+    ]
   },
   {
     "persona_slug": "carl_jung",
@@ -348,7 +494,10 @@
     "source_locator": "“Psychotherapists or the Clergy,” Psychology and Religion, CW 11, §519",
     "translation_note": "My rendering; compare Hull, copyrighted",
     "confidence": "certain",
-    "context": "Jung treats acceptance as accurate contact with what exists, not approval of it. Condemnation can harden a problem into an enemy and divide the person who is trying to change from the part that requires understanding. The line remains important because change often begins only after moral disgust stops pretending that rejection is the same thing as transformation."
+    "context": "Jung treats acceptance as accurate contact with what exists, not approval of it. Condemnation can harden a problem into an enemy and divide the person who is trying to change from the part that requires understanding. The line remains important because change often begins only after moral disgust stops pretending that rejection is the same thing as transformation.",
+    "themes": [
+      "acceptance"
+    ]
   },
   {
     "persona_slug": "carl_jung",
@@ -357,7 +506,11 @@
     "source_locator": "Erinnerungen, Träume, Gedanken, ch. XI, “Über das Leben nach dem Tode,” p. 327",
     "translation_note": "My rendering; source edited by Aniela Jaffé",
     "confidence": "probable",
-    "context": "† Idea-only. Jung frames the issue as a person’s relation to something larger than the finite ego, whether understood as meaning, depth, or an enduring horizon beyond immediate concerns. The line does not define that infinity, and its force lies partly in the open question: what changes when a life is measured only by the temporary, and what changes when it is not."
+    "context": "† Idea-only. Jung frames the issue as a person’s relation to something larger than the finite ego, whether understood as meaning, depth, or an enduring horizon beyond immediate concerns. The line does not define that infinity, and its force lies partly in the open question: what changes when a life is measured only by the temporary, and what changes when it is not.",
+    "themes": [
+      "purpose",
+      "doubt"
+    ]
   },
   {
     "persona_slug": "simone_de_beauvoir",
@@ -366,7 +519,11 @@
     "source_locator": "Le Deuxième Sexe, Tome II, Part I, ch. I, “Enfance,” opening",
     "translation_note": "H. M. Parshley’s standard rendering; copyrighted",
     "confidence": "certain",
-    "context": "Beauvoir separates biological birth from the social formation of gendered identity. “Woman” appears here not as a finished essence delivered by nature, but as a position shaped through expectations, institutions, habits, and repeated treatment. The line remains foundational because it asks how much of what appears natural has been produced, taught, and made to seem inevitable."
+    "context": "Beauvoir separates biological birth from the social formation of gendered identity. “Woman” appears here not as a finished essence delivered by nature, but as a position shaped through expectations, institutions, habits, and repeated treatment. The line remains foundational because it asks how much of what appears natural has been produced, taught, and made to seem inevitable.",
+    "themes": [
+      "freedom",
+      "controversy"
+    ]
   },
   {
     "persona_slug": "simone_de_beauvoir",
@@ -375,7 +532,11 @@
     "source_locator": "Pour une morale de l’ambiguïté, Part II, “La liberté personnelle et les autres”",
     "translation_note": "My rendering from French",
     "confidence": "certain",
-    "context": "Beauvoir refuses a private idea of freedom secured at the expense of other people. A freedom that depends on reducing others to instruments contradicts itself, because human action unfolds in a shared world of equally active beings. The line remains demanding because it joins personal liberation to responsibility: another person’s freedom is not an optional addition to one’s own."
+    "context": "Beauvoir refuses a private idea of freedom secured at the expense of other people. A freedom that depends on reducing others to instruments contradicts itself, because human action unfolds in a shared world of equally active beings. The line remains demanding because it joins personal liberation to responsibility: another person’s freedom is not an optional addition to one’s own.",
+    "themes": [
+      "freedom",
+      "relationships"
+    ]
   },
   {
     "persona_slug": "simone_de_beauvoir",
@@ -384,7 +545,11 @@
     "source_locator": "Pour une morale de l’ambiguïté, Part III, “L’avenir et le présent”",
     "translation_note": "My rendering from French",
     "confidence": "certain",
-    "context": "Beauvoir resists the habit of treating the present as something already completed and awaiting retrospective explanation. The present is open because decisions are still being made and their meaning has not yet settled. The line still lands where reflection becomes delay: understanding the past matters, but existence takes form through choices made before certainty is available."
+    "context": "Beauvoir resists the habit of treating the present as something already completed and awaiting retrospective explanation. The present is open because decisions are still being made and their meaning has not yet settled. The line still lands where reflection becomes delay: understanding the past matters, but existence takes form through choices made before certainty is available.",
+    "themes": [
+      "freedom",
+      "purpose"
+    ]
   },
   {
     "persona_slug": "simone_de_beauvoir",
@@ -393,7 +558,11 @@
     "source_locator": "Pour une morale de l’ambiguïté, Part I, “L’ambiguïté et la liberté”",
     "translation_note": "My rendering from French",
     "confidence": "certain",
-    "context": "Beauvoir presents value as something disclosed through committed activity rather than passively discovered as a fixed object. Desire and project give direction to a world that does not arrive with every purpose already named. The line does not make values arbitrary; it shows that meaning depends on acts that select, sustain, and answer for an end."
+    "context": "Beauvoir presents value as something disclosed through committed activity rather than passively discovered as a fixed object. Desire and project give direction to a world that does not arrive with every purpose already named. The line does not make values arbitrary; it shows that meaning depends on acts that select, sustain, and answer for an end.",
+    "themes": [
+      "freedom",
+      "purpose"
+    ]
   },
   {
     "persona_slug": "simone_de_beauvoir",
@@ -402,7 +571,10 @@
     "source_locator": "Pour une morale de l’ambiguïté, Part I, “L’ambiguïté et la liberté”",
     "translation_note": "My rendering from French",
     "confidence": "certain",
-    "context": "Beauvoir contrasts possession with disclosure. Freedom fails when it tries to freeze the world or other people into objects that can be fully owned, defined, and controlled; it becomes more truthful when it reveals possibilities without cancelling their independence. The line remains subtle because engagement is still active, but its aim is openness rather than capture."
+    "context": "Beauvoir contrasts possession with disclosure. Freedom fails when it tries to freeze the world or other people into objects that can be fully owned, defined, and controlled; it becomes more truthful when it reveals possibilities without cancelling their independence. The line remains subtle because engagement is still active, but its aim is openness rather than capture.",
+    "themes": [
+      "freedom"
+    ]
   },
   {
     "persona_slug": "simone_de_beauvoir",
@@ -411,7 +583,12 @@
     "source_locator": "Pour une morale de l’ambiguïté, Part III, concluding discussion",
     "translation_note": "My rendering from French",
     "confidence": "certain",
-    "context": "Beauvoir joins three commitments that are often separated: affirming existence, revealing the world through action, and supporting the freedom of others. None can be completed in isolation, because meaning arises among people acting in conditions they share. The line offers an ethics of participation rather than withdrawal, while refusing to treat other lives as scenery for a private project."
+    "context": "Beauvoir joins three commitments that are often separated: affirming existence, revealing the world through action, and supporting the freedom of others. None can be completed in isolation, because meaning arises among people acting in conditions they share. The line offers an ethics of participation rather than withdrawal, while refusing to treat other lives as scenery for a private project.",
+    "themes": [
+      "freedom",
+      "purpose",
+      "relationships"
+    ]
   },
   {
     "persona_slug": "simone_de_beauvoir",
@@ -420,7 +597,11 @@
     "source_locator": "Pour une morale de l’ambiguïté, Introduction",
     "translation_note": "Condensed my rendering from French",
     "confidence": "certain",
-    "context": "Beauvoir makes lucidity a source of action rather than an excuse for despair. Human life is limited, ambiguous, and exposed to conditions not freely chosen, yet honest knowledge of those limits can clarify what remains possible and worth doing. The line rejects both comforting illusion and passive fatalism; strength begins with seeing the situation without disguising it."
+    "context": "Beauvoir makes lucidity a source of action rather than an excuse for despair. Human life is limited, ambiguous, and exposed to conditions not freely chosen, yet honest knowledge of those limits can clarify what remains possible and worth doing. The line rejects both comforting illusion and passive fatalism; strength begins with seeing the situation without disguising it.",
+    "themes": [
+      "acceptance",
+      "purpose"
+    ]
   },
   {
     "persona_slug": "simone_de_beauvoir",
@@ -429,7 +610,11 @@
     "source_locator": "Le Deuxième Sexe, Tome I, Introduction",
     "translation_note": "My rendering from French; hommes retains the text’s gendered wording",
     "confidence": "certain",
-    "context": "Beauvoir questions the neutrality of the images and explanations through which reality is understood. When men have held the authority to describe the world, their standpoint can appear universal while women are positioned as the described rather than the describing subject. The line still matters because power operates not only through institutions, but through the categories that make one perspective look like reality itself."
+    "context": "Beauvoir questions the neutrality of the images and explanations through which reality is understood. When men have held the authority to describe the world, their standpoint can appear universal while women are positioned as the described rather than the describing subject. The line still matters because power operates not only through institutions, but through the categories that make one perspective look like reality itself.",
+    "themes": [
+      "controversy",
+      "freedom"
+    ]
   },
   {
     "persona_slug": "lao_tzu",
@@ -438,7 +623,11 @@
     "source_locator": "Tao Te Ching, ch. 8",
     "translation_note": "James Legge, 1891, PD; punctuation normalized",
     "confidence": "probable",
-    "context": "† Idea-only — Water becomes an image of strength without display: it nourishes, adapts, and moves toward places others avoid. The line values usefulness that does not insist on recognition and power that works through responsiveness rather than force. Its quiet challenge remains clear in cultures that often mistake hardness, visibility, and dominance for the highest forms of effectiveness."
+    "context": "† Idea-only — Water becomes an image of strength without display: it nourishes, adapts, and moves toward places others avoid. The line values usefulness that does not insist on recognition and power that works through responsiveness rather than force. Its quiet challenge remains clear in cultures that often mistake hardness, visibility, and dominance for the highest forms of effectiveness.",
+    "themes": [
+      "acceptance",
+      "work"
+    ]
   },
   {
     "persona_slug": "lao_tzu",
@@ -447,7 +636,11 @@
     "source_locator": "Tao Te Ching, ch. 33",
     "translation_note": "Legge, PD; lightly normalized",
     "confidence": "probable",
-    "context": "† Idea-only — The line distinguishes outward perception from inward clarity. Reading other people may produce skill, influence, or advantage, but self-knowledge requires attention to the motives and limits that distort such reading. Its continuing force lies in the imbalance it exposes: a person can become highly perceptive about everyone else while remaining governed by what has not been recognized within."
+    "context": "† Idea-only — The line distinguishes outward perception from inward clarity. Reading other people may produce skill, influence, or advantage, but self-knowledge requires attention to the motives and limits that distort such reading. Its continuing force lies in the imbalance it exposes: a person can become highly perceptive about everyone else while remaining governed by what has not been recognized within.",
+    "themes": [
+      "doubt",
+      "purpose"
+    ]
   },
   {
     "persona_slug": "lao_tzu",
@@ -456,7 +649,10 @@
     "source_locator": "Tao Te Ching, ch. 33",
     "translation_note": "James Legge, 1891, PD",
     "confidence": "probable",
-    "context": "† Idea-only — Wealth is defined here by the end of restless insufficiency rather than by the amount possessed. Contentment does not make material conditions irrelevant; it questions the appetite that turns every gain into a new measure of lack. The line remains difficult because it relocates abundance from accumulation to the capacity to recognize enough, a capacity no external increase can guarantee."
+    "context": "† Idea-only — Wealth is defined here by the end of restless insufficiency rather than by the amount possessed. Contentment does not make material conditions irrelevant; it questions the appetite that turns every gain into a new measure of lack. The line remains difficult because it relocates abundance from accumulation to the capacity to recognize enough, a capacity no external increase can guarantee.",
+    "themes": [
+      "acceptance"
+    ]
   },
   {
     "persona_slug": "lao_tzu",
@@ -465,7 +661,10 @@
     "source_locator": "Tao Te Ching, ch. 56",
     "translation_note": "My compact rendering; compare Legge, PD",
     "confidence": "probable",
-    "context": "† Idea-only — The line challenges the urge to display understanding through constant assertion. Deep knowledge may produce restraint because reality exceeds neat explanation, while loud certainty can conceal a shallow grasp of what is being discussed. It is not a ban on language; it asks whether speech serves clarity or merely performs possession of a subject."
+    "context": "† Idea-only — The line challenges the urge to display understanding through constant assertion. Deep knowledge may produce restraint because reality exceeds neat explanation, while loud certainty can conceal a shallow grasp of what is being discussed. It is not a ban on language; it asks whether speech serves clarity or merely performs possession of a subject.",
+    "themes": [
+      "doubt"
+    ]
   },
   {
     "persona_slug": "lao_tzu",
@@ -474,7 +673,11 @@
     "source_locator": "Tao Te Ching, ch. 64",
     "translation_note": "James Legge, 1891, PD",
     "confidence": "probable",
-    "context": "† Idea-only — Great distance is reduced to the scale of a beginning that can actually occur. The line does not romanticize the first step as sufficient; it shows that no completed path escapes the humility of sequence. Its durability comes from joining ambition to immediacy: the whole journey matters, but movement exists only in the step presently taken."
+    "context": "† Idea-only — Great distance is reduced to the scale of a beginning that can actually occur. The line does not romanticize the first step as sufficient; it shows that no completed path escapes the humility of sequence. Its durability comes from joining ambition to immediacy: the whole journey matters, but movement exists only in the step presently taken.",
+    "themes": [
+      "work",
+      "purpose"
+    ]
   },
   {
     "persona_slug": "lao_tzu",
@@ -483,7 +686,10 @@
     "source_locator": "Tao Te Ching, ch. 71",
     "translation_note": "James Legge, 1891, PD",
     "confidence": "probable",
-    "context": "† Idea-only — The line treats awareness of uncertainty as a higher form of knowledge than confident display. This is not ignorance pretending to be wisdom, but understanding that remains conscious of its own limits and incomplete view. It still lands because expertise can harden into blindness when it loses the ability to notice what has not yet been understood."
+    "context": "† Idea-only — The line treats awareness of uncertainty as a higher form of knowledge than confident display. This is not ignorance pretending to be wisdom, but understanding that remains conscious of its own limits and incomplete view. It still lands because expertise can harden into blindness when it loses the ability to notice what has not yet been understood.",
+    "themes": [
+      "doubt"
+    ]
   },
   {
     "persona_slug": "lao_tzu",
@@ -492,7 +698,11 @@
     "source_locator": "Tao Te Ching, ch. 78",
     "translation_note": "Legge, PD; clause order normalized",
     "confidence": "probable",
-    "context": "† Idea-only — Softness is presented not as helplessness but as a different kind of power: adaptive, persistent, and difficult to break. Hardness may dominate at first yet become brittle when conditions change, while what yields can survive and continue working. The line remains counterintuitive because visible force is easier to admire than the quiet durability that eventually outlasts it."
+    "context": "† Idea-only — Softness is presented not as helplessness but as a different kind of power: adaptive, persistent, and difficult to break. Hardness may dominate at first yet become brittle when conditions change, while what yields can survive and continue working. The line remains counterintuitive because visible force is easier to admire than the quiet durability that eventually outlasts it.",
+    "themes": [
+      "acceptance",
+      "work"
+    ]
   },
   {
     "persona_slug": "lao_tzu",
@@ -501,7 +711,10 @@
     "source_locator": "Tao Te Ching, ch. 81",
     "translation_note": "James Legge, 1891, PD",
     "confidence": "probable",
-    "context": "† Idea-only — The line sets plain truth against speech polished mainly to impress. Beauty and sincerity are not always enemies, but ornament becomes suspect when it hides motive, uncertainty, or an inconvenient fact. Its relevance persists wherever language is rewarded for elegance before honesty, and where a pleasing formulation can make a weak claim feel complete."
+    "context": "† Idea-only — The line sets plain truth against speech polished mainly to impress. Beauty and sincerity are not always enemies, but ornament becomes suspect when it hides motive, uncertainty, or an inconvenient fact. Its relevance persists wherever language is rewarded for elegance before honesty, and where a pleasing formulation can make a weak claim feel complete.",
+    "themes": [
+      "doubt"
+    ]
   },
   {
     "persona_slug": "niccolo_machiavelli",
@@ -510,7 +723,12 @@
     "source_locator": "Il Principe, ch. XVII",
     "translation_note": "My rendering from Italian",
     "confidence": "certain",
-    "context": "Machiavelli frames this as a conditional problem of political security, not a general celebration of cruelty. Affection is valuable but unstable when it depends on voluntary loyalty, while fear can seem more controllable to a ruler facing uncertainty. The line remains troubling because it treats relationships of power by their reliability, exposing how quickly moral language changes when survival becomes the governing aim."
+    "context": "Machiavelli frames this as a conditional problem of political security, not a general celebration of cruelty. Affection is valuable but unstable when it depends on voluntary loyalty, while fear can seem more controllable to a ruler facing uncertainty. The line remains troubling because it treats relationships of power by their reliability, exposing how quickly moral language changes when survival becomes the governing aim.",
+    "themes": [
+      "relationships",
+      "dilemma",
+      "controversy"
+    ]
   },
   {
     "persona_slug": "niccolo_machiavelli",
@@ -519,7 +737,11 @@
     "source_locator": "Il Principe, ch. XVIII",
     "translation_note": "My rendering from Italian",
     "confidence": "certain",
-    "context": "Machiavelli separates public appearance from private reality. Political judgment is usually formed from visible conduct, symbols, and outcomes, while direct knowledge of a ruler’s character remains rare. The line still lands beyond politics because reputation is built at a distance: what can be seen spreads widely, while what is actually known belongs to very few."
+    "context": "Machiavelli separates public appearance from private reality. Political judgment is usually formed from visible conduct, symbols, and outcomes, while direct knowledge of a ruler’s character remains rare. The line still lands beyond politics because reputation is built at a distance: what can be seen spreads widely, while what is actually known belongs to very few.",
+    "themes": [
+      "relationships",
+      "controversy"
+    ]
   },
   {
     "persona_slug": "niccolo_machiavelli",
@@ -528,7 +750,11 @@
     "source_locator": "Il Principe, ch. XVII",
     "translation_note": "My rendering from Italian",
     "confidence": "certain",
-    "context": "Machiavelli uses a deliberately harsh comparison to emphasize the force of material interest. The statement is not a complete psychology of grief; it is a warning that injuries to property can produce durable political resentment even where emotional loyalties appear stronger. Its sting comes from refusing flattering assumptions about motive and asking what people defend when sentiment and advantage diverge."
+    "context": "Machiavelli uses a deliberately harsh comparison to emphasize the force of material interest. The statement is not a complete psychology of grief; it is a warning that injuries to property can produce durable political resentment even where emotional loyalties appear stronger. Its sting comes from refusing flattering assumptions about motive and asking what people defend when sentiment and advantage diverge.",
+    "themes": [
+      "grief",
+      "relationships"
+    ]
   },
   {
     "persona_slug": "niccolo_machiavelli",
@@ -537,7 +763,11 @@
     "source_locator": "Il Principe, ch. III",
     "translation_note": "My rendering from Italian",
     "confidence": "certain",
-    "context": "Machiavelli warns that delay can disguise itself as peace while leaving the underlying conflict intact. When a threat is growing, postponement may improve the opponent’s position rather than reduce the need for confrontation. The line remains useful because inaction also changes circumstances; refusing a decision does not preserve the present, and time rarely distributes its advantages evenly."
+    "context": "Machiavelli warns that delay can disguise itself as peace while leaving the underlying conflict intact. When a threat is growing, postponement may improve the opponent’s position rather than reduce the need for confrontation. The line remains useful because inaction also changes circumstances; refusing a decision does not preserve the present, and time rarely distributes its advantages evenly.",
+    "themes": [
+      "dilemma",
+      "controversy"
+    ]
   },
   {
     "persona_slug": "niccolo_machiavelli",
@@ -546,7 +776,11 @@
     "source_locator": "Il Principe, ch. III",
     "translation_note": "My rendering from Italian",
     "confidence": "certain",
-    "context": "Machiavelli draws attention to the danger of creating strength that cannot later be controlled. Assistance may solve an immediate problem while producing a new actor with greater resources, independence, and reason to escape obligation. The line is less a law than a warning about leverage: power transferred for convenience may survive the alliance that made the transfer seem safe."
+    "context": "Machiavelli draws attention to the danger of creating strength that cannot later be controlled. Assistance may solve an immediate problem while producing a new actor with greater resources, independence, and reason to escape obligation. The line is less a law than a warning about leverage: power transferred for convenience may survive the alliance that made the transfer seem safe.",
+    "themes": [
+      "controversy",
+      "relationships"
+    ]
   },
   {
     "persona_slug": "niccolo_machiavelli",
@@ -555,7 +789,10 @@
     "source_locator": "Il Principe, ch. III",
     "translation_note": "My rendering from Italian",
     "confidence": "certain",
-    "context": "Machiavelli states the brutal logic of a politics organized around revenge and control. Minor injuries leave an opponent both able and motivated to retaliate, while benefits may secure dependence; the middle ground appears unstable within that calculation. The line should disturb rather than instruct casually, because it reveals what human beings become when political prudence is separated from moral restraint."
+    "context": "Machiavelli states the brutal logic of a politics organized around revenge and control. Minor injuries leave an opponent both able and motivated to retaliate, while benefits may secure dependence; the middle ground appears unstable within that calculation. The line should disturb rather than instruct casually, because it reveals what human beings become when political prudence is separated from moral restraint.",
+    "themes": [
+      "controversy"
+    ]
   },
   {
     "persona_slug": "niccolo_machiavelli",
@@ -564,7 +801,11 @@
     "source_locator": "Il Principe, ch. XVIII",
     "translation_note": "Condensed my rendering from Italian",
     "confidence": "certain",
-    "context": "Machiavelli treats promises within a field where others may not honor theirs and circumstances can change. His argument is about the survival of rule under hostile conditions, not a universal permission to lie whenever truth is inconvenient. The line remains dangerous because prudence can easily become a flattering name for self-interest, making the claimed necessity itself the point that requires scrutiny."
+    "context": "Machiavelli treats promises within a field where others may not honor theirs and circumstances can change. His argument is about the survival of rule under hostile conditions, not a universal permission to lie whenever truth is inconvenient. The line remains dangerous because prudence can easily become a flattering name for self-interest, making the claimed necessity itself the point that requires scrutiny.",
+    "themes": [
+      "dilemma",
+      "controversy"
+    ]
   },
   {
     "persona_slug": "niccolo_machiavelli",
@@ -573,7 +814,10 @@
     "source_locator": "Il Principe, ch. XXV",
     "translation_note": "My rendering from Italian",
     "confidence": "certain",
-    "context": "Machiavelli favors forceful action within his discussion of fortune, but the larger tension concerns whether conduct fits changing circumstances. Caution can become paralysis when conditions require speed, just as boldness can fail when restraint is needed. The line remains provocative because decisive action often wins admiration before anyone knows whether it was judgment or merely temperament."
+    "context": "Machiavelli favors forceful action within his discussion of fortune, but the larger tension concerns whether conduct fits changing circumstances. Caution can become paralysis when conditions require speed, just as boldness can fail when restraint is needed. The line remains provocative because decisive action often wins admiration before anyone knows whether it was judgment or merely temperament.",
+    "themes": [
+      "dilemma"
+    ]
   },
   {
     "persona_slug": "oscar_wilde",
@@ -582,7 +826,10 @@
     "source_locator": "The Importance of Being Earnest, Act I",
     "translation_note": "English original",
     "confidence": "certain",
-    "context": "Wilde turns a solemn idea into a comic correction. Truth is presented as mixed, inconvenient, and resistant to the clean moral arrangements people prefer, especially when social appearances depend on simple stories. The line still works because complexity is often treated as evasion, while certainty gains authority from neatness; Wilde’s wit asks whether neatness is precisely what makes the account suspect."
+    "context": "Wilde turns a solemn idea into a comic correction. Truth is presented as mixed, inconvenient, and resistant to the clean moral arrangements people prefer, especially when social appearances depend on simple stories. The line still works because complexity is often treated as evasion, while certainty gains authority from neatness; Wilde’s wit asks whether neatness is precisely what makes the account suspect.",
+    "themes": [
+      "doubt"
+    ]
   },
   {
     "persona_slug": "oscar_wilde",
@@ -591,7 +838,11 @@
     "source_locator": "Lady Windermere’s Fan, Act III",
     "translation_note": "English original",
     "confidence": "certain",
-    "context": "Wilde holds degradation and aspiration in the same image. Looking upward does not remove the gutter, yet the surrounding condition does not fully determine the direction of attention or imagination. The line avoids easy optimism because everyone remains implicated in the lower scene; its hope lies only in the possibility that circumstance need not exhaust vision."
+    "context": "Wilde holds degradation and aspiration in the same image. Looking upward does not remove the gutter, yet the surrounding condition does not fully determine the direction of attention or imagination. The line avoids easy optimism because everyone remains implicated in the lower scene; its hope lies only in the possibility that circumstance need not exhaust vision.",
+    "themes": [
+      "purpose",
+      "acceptance"
+    ]
   },
   {
     "persona_slug": "oscar_wilde",
@@ -600,7 +851,10 @@
     "source_locator": "An Ideal Husband, Act III",
     "translation_note": "English original",
     "confidence": "certain",
-    "context": "Wilde recasts self-love in the language of courtship, making vanity and affection difficult to separate. The joke is light, but it also recognizes that a person remains a lifelong companion to the self, with all the intimacy and irritation that implies. The line endures because it refuses both pious self-denial and the solemn language often used to defend self-regard."
+    "context": "Wilde recasts self-love in the language of courtship, making vanity and affection difficult to separate. The joke is light, but it also recognizes that a person remains a lifelong companion to the self, with all the intimacy and irritation that implies. The line endures because it refuses both pious self-denial and the solemn language often used to defend self-regard.",
+    "themes": [
+      "relationships"
+    ]
   },
   {
     "persona_slug": "oscar_wilde",
@@ -609,7 +863,10 @@
     "source_locator": "The Picture of Dorian Gray, ch. II",
     "translation_note": "English original",
     "confidence": "certain",
-    "context": "In The Picture of Dorian Gray, the line operates as a seductive epigram rather than a dependable moral rule. It gives desire the voice of clever inevitability, turning surrender into the apparent cure for wanting. Its brilliance is also its danger: a polished sentence can make self-deception sound like psychological insight, which is precisely why the line remains memorable."
+    "context": "In The Picture of Dorian Gray, the line operates as a seductive epigram rather than a dependable moral rule. It gives desire the voice of clever inevitability, turning surrender into the apparent cure for wanting. Its brilliance is also its danger: a polished sentence can make self-deception sound like psychological insight, which is precisely why the line remains memorable.",
+    "themes": [
+      "dilemma"
+    ]
   },
   {
     "persona_slug": "oscar_wilde",
@@ -618,7 +875,10 @@
     "source_locator": "The Picture of Dorian Gray, ch. IV",
     "translation_note": "English original",
     "confidence": "certain",
-    "context": "Wilde contrasts measurable cost with forms of worth that cannot be reduced to a market figure. The epigram does not deny the usefulness of price; it exposes the shallowness of treating price as complete knowledge. The line remains sharp wherever expertise about exchange, status, or consumption replaces the harder judgment of what deserves care, admiration, or loyalty."
+    "context": "Wilde contrasts measurable cost with forms of worth that cannot be reduced to a market figure. The epigram does not deny the usefulness of price; it exposes the shallowness of treating price as complete knowledge. The line remains sharp wherever expertise about exchange, status, or consumption replaces the harder judgment of what deserves care, admiration, or loyalty.",
+    "themes": [
+      "purpose"
+    ]
   },
   {
     "persona_slug": "oscar_wilde",
@@ -627,7 +887,11 @@
     "source_locator": "The Picture of Dorian Gray, ch. V",
     "translation_note": "English original",
     "confidence": "certain",
-    "context": "Wilde compresses a changing family bond into three movements: dependence, judgment, and possible mercy. Forgiveness is not guaranteed, and the final word prevents maturity from being confused with permanent accusation. The line still lands because growing up often means seeing parents as limited people, then deciding whether clearer sight will deepen resentment or make room for a more complicated tenderness."
+    "context": "Wilde compresses a changing family bond into three movements: dependence, judgment, and possible mercy. Forgiveness is not guaranteed, and the final word prevents maturity from being confused with permanent accusation. The line still lands because growing up often means seeing parents as limited people, then deciding whether clearer sight will deepen resentment or make room for a more complicated tenderness.",
+    "themes": [
+      "relationships",
+      "separation"
+    ]
   },
   {
     "persona_slug": "oscar_wilde",
@@ -636,7 +900,11 @@
     "source_locator": "A Woman of No Importance, Act III",
     "translation_note": "English original; commonly shortened from the complete sentence",
     "confidence": "certain",
-    "context": "Wilde unsettles moral labels by placing each person in time. Virtue does not erase what came before, and wrongdoing does not close what may come after; identity remains less settled than public judgment prefers. The line is not an excuse for harm, but a refusal to let any single verdict become the whole account of a life."
+    "context": "Wilde unsettles moral labels by placing each person in time. Virtue does not erase what came before, and wrongdoing does not close what may come after; identity remains less settled than public judgment prefers. The line is not an excuse for harm, but a refusal to let any single verdict become the whole account of a life.",
+    "themes": [
+      "acceptance",
+      "freedom"
+    ]
   },
   {
     "persona_slug": "oscar_wilde",
@@ -645,7 +913,10 @@
     "source_locator": "Lady Windermere’s Fan, Act I",
     "translation_note": "English original",
     "confidence": "certain",
-    "context": "Wilde uses paradox to distrust solemnity as the only proper language for serious matters. Wit can approach vanity, fear, and social performance more honestly than grand declarations, especially when seriousness becomes a pose. The line remains characteristically double-edged: life matters enough to resist being flattened by the heavy language people use to prove that it matters."
+    "context": "Wilde uses paradox to distrust solemnity as the only proper language for serious matters. Wit can approach vanity, fear, and social performance more honestly than grand declarations, especially when seriousness becomes a pose. The line remains characteristically double-edged: life matters enough to resist being flattened by the heavy language people use to prove that it matters.",
+    "themes": [
+      "purpose"
+    ]
   },
   {
     "persona_slug": "george_orwell",
@@ -654,7 +925,10 @@
     "source_locator": "Nineteen Eighty-Four, Part I, ch. III",
     "translation_note": "English original",
     "confidence": "certain",
-    "context": "In Nineteen Eighty-Four, control of history is shown as a form of control over imaginable reality. When records and collective memory can be revised, the present power decides not only what happened but what alternatives can still be conceived. The line remains urgent because political authority grows stronger when people lose a stable ground from which to compare claims."
+    "context": "In Nineteen Eighty-Four, control of history is shown as a form of control over imaginable reality. When records and collective memory can be revised, the present power decides not only what happened but what alternatives can still be conceived. The line remains urgent because political authority grows stronger when people lose a stable ground from which to compare claims.",
+    "themes": [
+      "controversy"
+    ]
   },
   {
     "persona_slug": "george_orwell",
@@ -663,7 +937,11 @@
     "source_locator": "Nineteen Eighty-Four, Part I, ch. VII",
     "translation_note": "English original",
     "confidence": "certain",
-    "context": "Orwell makes freedom begin with the right to affirm a plain fact against imposed belief. The arithmetic matters because it is ordinary and independent of preference; once power can command assent even there, private judgment has no protected ground left. The line still lands because liberty depends not only on speaking opinions, but on preserving a reality that authority cannot redefine at will."
+    "context": "Orwell makes freedom begin with the right to affirm a plain fact against imposed belief. The arithmetic matters because it is ordinary and independent of preference; once power can command assent even there, private judgment has no protected ground left. The line still lands because liberty depends not only on speaking opinions, but on preserving a reality that authority cannot redefine at will.",
+    "themes": [
+      "freedom",
+      "controversy"
+    ]
   },
   {
     "persona_slug": "george_orwell",
@@ -672,7 +950,10 @@
     "source_locator": "Nineteen Eighty-Four, Part III, ch. III",
     "translation_note": "English original",
     "confidence": "certain",
-    "context": "Orwell strips domination of its respectable excuses. Power is not presented as a temporary instrument for order, reform, or protection, but as an appetite that validates itself through continued control. The line remains chilling because it removes the comforting belief that every oppressive system must secretly serve a higher end; sometimes the end is simply the ability to compel."
+    "context": "Orwell strips domination of its respectable excuses. Power is not presented as a temporary instrument for order, reform, or protection, but as an appetite that validates itself through continued control. The line remains chilling because it removes the comforting belief that every oppressive system must secretly serve a higher end; sometimes the end is simply the ability to compel.",
+    "themes": [
+      "controversy"
+    ]
   },
   {
     "persona_slug": "george_orwell",
@@ -681,7 +962,11 @@
     "source_locator": "Nineteen Eighty-Four, Part III, ch. III",
     "translation_note": "English original",
     "confidence": "certain",
-    "context": "Orwell condenses totalitarian power into an image of permanent humiliation. The boot does not merely punish resistance; it makes domination the enduring structure of the future and the human face its chosen surface. The line remains powerful because abstraction falls away: political terror becomes a repeated physical relation between the one who crushes and the one denied the possibility of rising."
+    "context": "Orwell condenses totalitarian power into an image of permanent humiliation. The boot does not merely punish resistance; it makes domination the enduring structure of the future and the human face its chosen surface. The line remains powerful because abstraction falls away: political terror becomes a repeated physical relation between the one who crushes and the one denied the possibility of rising.",
+    "themes": [
+      "controversy",
+      "fear"
+    ]
   },
   {
     "persona_slug": "george_orwell",
@@ -690,7 +975,10 @@
     "source_locator": "Animal Farm, ch. X",
     "translation_note": "English original",
     "confidence": "certain",
-    "context": "In Animal Farm, the sentence corrupts equality by preserving its language while reversing its meaning. Privilege no longer needs to reject the founding principle openly; it changes the grammar until contradiction sounds official. The line remains one of Orwell’s sharpest insights because hypocrisy becomes most durable when injustice speaks in the vocabulary of the value it has betrayed."
+    "context": "In Animal Farm, the sentence corrupts equality by preserving its language while reversing its meaning. Privilege no longer needs to reject the founding principle openly; it changes the grammar until contradiction sounds official. The line remains one of Orwell’s sharpest insights because hypocrisy becomes most durable when injustice speaks in the vocabulary of the value it has betrayed.",
+    "themes": [
+      "controversy"
+    ]
   },
   {
     "persona_slug": "george_orwell",
@@ -699,7 +987,11 @@
     "source_locator": "“Politics and the English Language,” discussion preceding the six rules",
     "translation_note": "English original",
     "confidence": "certain",
-    "context": "Orwell links bad language to a divided intention. When a writer or speaker wants to conceal motive, soften violence, or avoid a plain conclusion, vagueness and inflated phrasing become useful tools. The line remains relevant because unclear language is not always a technical failure; sometimes it succeeds perfectly at preventing people from seeing what honest words would expose."
+    "context": "Orwell links bad language to a divided intention. When a writer or speaker wants to conceal motive, soften violence, or avoid a plain conclusion, vagueness and inflated phrasing become useful tools. The line remains relevant because unclear language is not always a technical failure; sometimes it succeeds perfectly at preventing people from seeing what honest words would expose.",
+    "themes": [
+      "controversy",
+      "doubt"
+    ]
   },
   {
     "persona_slug": "george_orwell",
@@ -708,7 +1000,11 @@
     "source_locator": "“In Front of Your Nose,” concluding paragraph",
     "translation_note": "English original",
     "confidence": "certain",
-    "context": "Orwell describes obvious reality as something people can still fail to perceive when loyalty, fear, or self-interest stands in the way. Facts close at hand may be harder to accept than distant theories because they threaten an existing commitment. The line endures because clear sight is not a permanent possession; it must be defended against the mind’s talent for arranging evidence around desire."
+    "context": "Orwell describes obvious reality as something people can still fail to perceive when loyalty, fear, or self-interest stands in the way. Facts close at hand may be harder to accept than distant theories because they threaten an existing commitment. The line endures because clear sight is not a permanent possession; it must be defended against the mind’s talent for arranging evidence around desire.",
+    "themes": [
+      "doubt",
+      "controversy"
+    ]
   },
   {
     "persona_slug": "george_orwell",
@@ -717,7 +1013,11 @@
     "source_locator": "“The Freedom of the Press,” proposed preface to Animal Farm, concluding paragraph",
     "translation_note": "English original",
     "confidence": "certain",
-    "context": "Orwell tests liberty where speech becomes unwelcome rather than where it confirms the audience. A freedom reserved for agreeable claims is only permission granted by prevailing taste or power. The line does not make every offensive statement wise or true; it identifies the point at which tolerance becomes real, when discomfort is not treated as sufficient reason for silence."
+    "context": "Orwell tests liberty where speech becomes unwelcome rather than where it confirms the audience. A freedom reserved for agreeable claims is only permission granted by prevailing taste or power. The line does not make every offensive statement wise or true; it identifies the point at which tolerance becomes real, when discomfort is not treated as sufficient reason for silence.",
+    "themes": [
+      "freedom",
+      "controversy"
+    ]
   },
   {
     "persona_slug": "miyamoto_musashi",
@@ -726,7 +1026,11 @@
     "source_locator": "Dokkōdō, precept 2",
     "translation_note": "My rendering from Japanese",
     "confidence": "certain",
-    "context": "Musashi warns against arranging life around the deliberate pursuit of gratification. The precept does not require hostility to every pleasure; it questions what happens when comfort becomes a governing design and discipline must continually negotiate with appetite. Its severity still speaks to the ease with which a chosen purpose can be weakened by small conveniences that appear harmless in isolation."
+    "context": "Musashi warns against arranging life around the deliberate pursuit of gratification. The precept does not require hostility to every pleasure; it questions what happens when comfort becomes a governing design and discipline must continually negotiate with appetite. Its severity still speaks to the ease with which a chosen purpose can be weakened by small conveniences that appear harmless in isolation.",
+    "themes": [
+      "work",
+      "acceptance"
+    ]
   },
   {
     "persona_slug": "miyamoto_musashi",
@@ -735,7 +1039,11 @@
     "source_locator": "Dokkōdō, precept 4",
     "translation_note": "My rendering from Japanese",
     "confidence": "certain",
-    "context": "Musashi lowers the weight given to personal importance while increasing attention to the wider field of reality. The contrast is not self-contempt; it is a correction to the habit of interpreting every event through status, injury, or advantage to the self. The line remains useful because accurate judgment often begins when the world is allowed to be larger than one person’s immediate concerns."
+    "context": "Musashi lowers the weight given to personal importance while increasing attention to the wider field of reality. The contrast is not self-contempt; it is a correction to the habit of interpreting every event through status, injury, or advantage to the self. The line remains useful because accurate judgment often begins when the world is allowed to be larger than one person’s immediate concerns.",
+    "themes": [
+      "acceptance",
+      "purpose"
+    ]
   },
   {
     "persona_slug": "miyamoto_musashi",
@@ -744,7 +1052,10 @@
     "source_locator": "Dokkōdō, precept 6",
     "translation_note": "My rendering from Japanese",
     "confidence": "certain",
-    "context": "Musashi’s precept places responsibility before backward-looking torment. Regret can become a repeated attempt to change what is already fixed, while disciplined reflection extracts the lesson and returns attention to present conduct. The line is severe if read as a ban on learning; its stronger meaning lies in refusing to turn error into a permanent identity or excuse for inaction."
+    "context": "Musashi’s precept places responsibility before backward-looking torment. Regret can become a repeated attempt to change what is already fixed, while disciplined reflection extracts the lesson and returns attention to present conduct. The line is severe if read as a ban on learning; its stronger meaning lies in refusing to turn error into a permanent identity or excuse for inaction.",
+    "themes": [
+      "acceptance"
+    ]
   },
   {
     "persona_slug": "miyamoto_musashi",
@@ -753,7 +1064,11 @@
     "source_locator": "Dokkōdō, precept 7",
     "translation_note": "My rendering from Japanese",
     "confidence": "certain",
-    "context": "Musashi rejects comparison even when the object of envy is ambiguous or morally compromised. Envy gives another person’s condition authority over one’s own direction and can make both advantage and wrongdoing appear attractive merely because they belong to someone else. The line remains sharp because comparison rarely stays neutral; it quietly replaces chosen standards with borrowed desire."
+    "context": "Musashi rejects comparison even when the object of envy is ambiguous or morally compromised. Envy gives another person’s condition authority over one’s own direction and can make both advantage and wrongdoing appear attractive merely because they belong to someone else. The line remains sharp because comparison rarely stays neutral; it quietly replaces chosen standards with borrowed desire.",
+    "themes": [
+      "acceptance",
+      "relationships"
+    ]
   },
   {
     "persona_slug": "miyamoto_musashi",
@@ -762,7 +1077,11 @@
     "source_locator": "Dokkōdō, precept 9",
     "translation_note": "My rendering from Japanese",
     "confidence": "certain",
-    "context": "Musashi treats resentment and complaint as forms of attachment to injury. The precept does not prove that no wrong occurred; it refuses to let accusation become the continuing center of action, whether directed outward or inward. Its difficulty lies in preserving accountability without feeding the grievance that keeps both offender and offended bound to the same event."
+    "context": "Musashi treats resentment and complaint as forms of attachment to injury. The precept does not prove that no wrong occurred; it refuses to let accusation become the continuing center of action, whether directed outward or inward. Its difficulty lies in preserving accountability without feeding the grievance that keeps both offender and offended bound to the same event.",
+    "themes": [
+      "acceptance",
+      "relationships"
+    ]
   },
   {
     "persona_slug": "miyamoto_musashi",
@@ -771,7 +1090,11 @@
     "source_locator": "Dokkōdō, precept 17",
     "translation_note": "My rendering from Japanese",
     "confidence": "certain",
-    "context": "Musashi places commitment to the chosen Way beyond the instinct to preserve oneself at any cost. The precept does not praise reckless death; it asks whether fear can force a person to abandon the discipline that gives action its meaning. The line remains austere because every serious path eventually reveals what its follower is unwilling to risk."
+    "context": "Musashi places commitment to the chosen Way beyond the instinct to preserve oneself at any cost. The precept does not praise reckless death; it asks whether fear can force a person to abandon the discipline that gives action its meaning. The line remains austere because every serious path eventually reveals what its follower is unwilling to risk.",
+    "themes": [
+      "fear",
+      "acceptance"
+    ]
   },
   {
     "persona_slug": "miyamoto_musashi",
@@ -780,7 +1103,11 @@
     "source_locator": "Dokkōdō, precept 19",
     "translation_note": "My rendering from Japanese",
     "confidence": "certain",
-    "context": "Musashi separates reverence from dependence. Respect for what is sacred does not transfer responsibility for judgment, preparation, or action to an external power. The line remains balanced because it rejects both contempt and magical reliance: devotion may orient a life, but it cannot perform the work that still belongs to the person who must act."
+    "context": "Musashi separates reverence from dependence. Respect for what is sacred does not transfer responsibility for judgment, preparation, or action to an external power. The line remains balanced because it rejects both contempt and magical reliance: devotion may orient a life, but it cannot perform the work that still belongs to the person who must act.",
+    "themes": [
+      "freedom",
+      "purpose"
+    ]
   },
   {
     "persona_slug": "miyamoto_musashi",
@@ -789,6 +1116,10 @@
     "source_locator": "Dokkōdō, precept 21",
     "translation_note": "My rendering from Japanese",
     "confidence": "certain",
-    "context": "Musashi presents strategy as a continuous discipline rather than a technique used only at moments of conflict. To remain on the Way is to keep perception, preparation, timing, and action aligned across ordinary life, not merely during crisis. The line remains demanding because consistency is less dramatic than victory, yet it is the condition that makes reliable judgment possible when pressure arrives."
+    "context": "Musashi presents strategy as a continuous discipline rather than a technique used only at moments of conflict. To remain on the Way is to keep perception, preparation, timing, and action aligned across ordinary life, not merely during crisis. The line remains demanding because consistency is less dramatic than victory, yet it is the condition that makes reliable judgment possible when pressure arrives.",
+    "themes": [
+      "work",
+      "purpose"
+    ]
   }
 ]

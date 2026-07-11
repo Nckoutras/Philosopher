@@ -23,6 +23,7 @@ from sqlalchemy import select
 from db.session import AsyncSessionLocal
 from models import Quote
 from personas import PERSONA_REGISTRY
+from schemas import THEME_VALUES
 
 DATA_PATH = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
@@ -47,6 +48,13 @@ async def seed_quotes():
         print("  No rows inserted.")
         sys.exit(1)
 
+    # Same all-or-nothing discipline for themes — unknown theme ⇒ abort, no writes.
+    bad_themes = sorted({t for r in rows for t in (r.get("themes") or []) if t not in THEME_VALUES})
+    if bad_themes:
+        print(f"✗ Aborting — theme(s) not in THEME_VALUES: {bad_themes}")
+        print("  No rows inserted.")
+        sys.exit(1)
+
     inserted = 0
     updated = 0
     async with AsyncSessionLocal() as db:
@@ -58,6 +66,7 @@ async def seed_quotes():
             translation_note = _clean(r.get("translation_note"))
             confidence       = _clean(r["confidence"])
             context          = _clean(r["context"])
+            themes           = list(r.get("themes") or [])
 
             result = await db.execute(
                 select(Quote).where(
@@ -74,6 +83,7 @@ async def seed_quotes():
                 existing.confidence = confidence
                 existing.text_original = text_original
                 existing.translation_note = translation_note
+                existing.themes = themes
                 updated += 1
                 print(f"  Updated: {persona_slug} — {source_locator}")
             else:
@@ -85,6 +95,7 @@ async def seed_quotes():
                     translation_note=translation_note,
                     confidence=confidence,
                     context=context,
+                    themes=themes,
                 ))
                 inserted += 1
                 print(f"  Created: {persona_slug} — {source_locator}")
