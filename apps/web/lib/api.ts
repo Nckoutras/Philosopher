@@ -159,6 +159,12 @@ export interface Quote {
   context: string
 }
 
+// Mirrors backend SuggestedQuoteOut (GET /quotes/suggested): a Quote plus the
+// theme intersection that drove the match, used for the "why this" reason line.
+export interface SuggestedQuote extends Quote {
+  matched_themes: string[]
+}
+
 export interface Conversation {
   id: string
   // `persona` is the coalesced ACTIVE mind (sticky guest when set, else home).
@@ -719,6 +725,11 @@ class ApiClient {
 
   async getQuotes(): Promise<Quote[]> {
     return this.request<Quote[]>('/quotes')
+  }
+
+  // Themed, persona-ranked, Pro-gated nudge (PR-5b). Returns [] for free users.
+  async getSuggestedQuotes(): Promise<SuggestedQuote[]> {
+    return this.request<SuggestedQuote[]>('/quotes/suggested')
   }
 
   // Fire-and-forget engagement counters (endpoints shipped in PR-4a). Callers use

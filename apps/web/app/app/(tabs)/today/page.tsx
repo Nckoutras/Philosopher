@@ -13,6 +13,7 @@ import NamePromptCard from '@/components/today/NamePromptCard'
 import AppHeader from '@/components/layout/AppHeader'
 import SundayLetterCard from '@/components/today/SundayLetterCard'
 import RoomNoticedCard from '@/components/today/RoomNoticedCard'
+import QuoteNudgeCard from '@/components/today/QuoteNudgeCard'
 
 // Real LQIPs for the four home tiles, minted from the actual public/personas
 // source files (16px wide, WebP). Shown as blurred placeholders so the tiles —
@@ -205,6 +206,10 @@ export default function TodayPage() {
         {/* ── "The room noticed": newest non-dismissed insight, if any. Self-
             fetching; renders nothing most days. Inherits the gap-[12px] rhythm. ── */}
         <RoomNoticedCard />
+
+        {/* ── "A line for you": one themed, persona-ranked quote (Pro, daily-capped).
+            Self-gating; renders nothing for free users or once shown today. ── */}
+        <QuoteNudgeCard isPro={isPro} />
 
         {/* The "Continuing." card now lives in Library; "Your reflections." in Insights. */}
 
