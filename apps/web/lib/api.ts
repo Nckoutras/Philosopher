@@ -146,6 +146,19 @@ export interface Persona {
   is_accessible: boolean
 }
 
+// Mirrors backend QuoteOut (routers/quotes.py). Display-only; engagement counters
+// (discuss_count/story_count) are intentionally not exposed by the API.
+export interface Quote {
+  id: string
+  persona_slug: string
+  text_en: string
+  text_original: string | null
+  source_locator: string
+  translation_note: string | null
+  confidence: string
+  context: string
+}
+
 export interface Conversation {
   id: string
   // `persona` is the coalesced ACTIVE mind (sticky guest when set, else home).
@@ -700,6 +713,12 @@ class ApiClient {
 
   async getPersonas(): Promise<Persona[]> {
     return this.request<Persona[]>('/personas')
+  }
+
+  // ── Quotes ──────────────────────────────────────────────────────────────────
+
+  async getQuotes(): Promise<Quote[]> {
+    return this.request<Quote[]>('/quotes')
   }
 
   // ── Conversations ─────────────────────────────────────────────────────────
