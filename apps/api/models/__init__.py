@@ -96,6 +96,7 @@ class Quote(Base):
     discuss_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default=text("0"))
     story_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default=text("0"))
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default=text("true"))
+    themes: Mapped[list[str]] = mapped_column(ARRAY(Text), nullable=False, server_default=text("'{}'::text[]"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
     __table_args__ = (
