@@ -296,12 +296,12 @@ export default function QuotesPage() {
       <BottomSheet open={!!detailQuote} onClose={() => setDetailQuote(null)} maxHeight="85svh">
         {detailQuote && (
           <div className="overflow-y-auto px-[24px] pt-[24px] pb-[calc(4rem+28px)]">
-            <p className="font-cormorant text-ink text-[24px] font-medium leading-[1.3]">
+            <p className="font-cormorant text-ink text-[26px] font-medium leading-[1.32]">
               {detailQuote.text_en}
             </p>
 
             {!!detailQuote.text_original && detailQuote.text_original !== detailQuote.text_en && (
-              <p className="font-lora italic text-charcoal text-[15px] leading-snug mt-[10px]">
+              <p className="font-lora italic text-charcoal text-[16px] leading-snug mt-[10px]">
                 {detailQuote.text_original}
               </p>
             )}
@@ -314,7 +314,7 @@ export default function QuotesPage() {
               <p className="font-lora text-[11px] uppercase tracking-[0.18em] text-bronze mb-[12px]">
                 The story
               </p>
-              <p className="font-lora text-charcoal text-[14px] leading-relaxed whitespace-pre-line">
+              <p className="font-lora text-charcoal text-[17px] leading-relaxed whitespace-pre-line">
                 {detailQuote.context}
               </p>
 
@@ -322,7 +322,7 @@ export default function QuotesPage() {
               <p className="font-lora text-[10px] uppercase tracking-[0.18em] text-sepia mt-[18px] mb-[4px]">
                 Source
               </p>
-              <p className="font-lora text-charcoal text-[13px] leading-relaxed">
+              <p className="font-lora text-charcoal text-[15px] leading-relaxed">
                 {detailQuote.source_locator}
               </p>
             </div>
