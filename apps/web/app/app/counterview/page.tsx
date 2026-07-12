@@ -45,6 +45,9 @@ export default function CounterviewPage() {
   // Revisit list — the user's recent generated counterviews, shown under the input
   // form. Loaded only on the voluntary (no-insightId) path; reopen pulls full via id.
   const [past, setPast] = useState<CounterviewListItem[]>([])
+  // Collapse the past list to the 3 most recent (newest-first from the API); the
+  // rest reveal in place via the expander — no fetch.
+  const [showAllPast, setShowAllPast] = useState(false)
   // In-place rebuttal: whether the input has replaced the verdict text (for the
   // current speaker), the draft, and which persona is mid-send (drives the "…"
   // wait). The send targets the current speaker; toggling speaker while a non-empty
@@ -291,7 +294,7 @@ export default function CounterviewPage() {
           <section className="mt-[28px]">
             <p className="font-lora text-[11px] uppercase tracking-[0.22em] text-bronze-dark mb-[10px]">Past counterviews</p>
             <ul className="space-y-[8px]">
-              {past.map((p) => (
+              {(showAllPast ? past : past.slice(0, 3)).map((p) => (
                 <li key={p.id}>
                   <button
                     onClick={() => openPast(p.id)}
@@ -302,6 +305,15 @@ export default function CounterviewPage() {
                 </li>
               ))}
             </ul>
+            {past.length > 3 && (
+              <button
+                type="button"
+                onClick={() => setShowAllPast((v) => !v)}
+                className="mt-[12px] font-lora text-[11px] uppercase tracking-[0.22em] text-bronze-dark active:opacity-60 transition-opacity"
+              >
+                {showAllPast ? 'Show fewer' : `Show earlier (${past.length - 3})`}
+              </button>
+            )}
           </section>
         )}
       </main>
