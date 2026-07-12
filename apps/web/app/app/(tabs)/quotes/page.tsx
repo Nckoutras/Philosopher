@@ -9,6 +9,7 @@ import type { Quote } from '@/lib/api'
 import QuoteCard from '@/components/quotes/QuoteCard'
 import BottomSheet from '@/components/ui/BottomSheet'
 import PaywallModal from '@/components/chat/PaywallModal'
+import SharePreviewModal from '@/components/share/SharePreviewModal'
 import { openingFor } from '@/lib/quotePrefill'
 
 type PersonaMeta = { name: string; portrait_url: string | null }
@@ -167,6 +168,9 @@ export default function QuotesPage() {
   // ── Discuss / detail sheet (handleDiscuss reused verbatim) ────────────────────
 
   const [detailQuote, setDetailQuote] = useState<Quote | null>(null)
+  // The share modal (z-50) can't stack over the detail sheet (BottomSheet z-60), so
+  // opening Share closes the sheet and hands the quote to its own state.
+  const [shareQuote, setShareQuote] = useState<Quote | null>(null)
   const [startingDiscussId, setStartingDiscussId] = useState<string | null>(null)
 
   const showPaywall = useStore((s) => s.showPaywall)
@@ -282,17 +286,42 @@ export default function QuotesPage() {
               </p>
             </div>
 
-            <button
-              type="button"
-              onClick={() => handleDiscuss(detailQuote)}
-              disabled={startingDiscussId === detailQuote.id}
-              className="mt-[24px] w-full h-[48px] rounded-full bg-ink text-vellum font-cormorant text-[17px] font-medium transition active:scale-[0.98] disabled:opacity-60 [touch-action:manipulation]"
-            >
-              Discuss this
-            </button>
+            <div className="mt-[24px] flex gap-[10px]">
+              <button
+                type="button"
+                onClick={() => handleDiscuss(detailQuote)}
+                disabled={startingDiscussId === detailQuote.id}
+                className="flex-1 h-[48px] rounded-full bg-ink text-vellum font-cormorant text-[17px] font-medium transition active:scale-[0.98] disabled:opacity-60 [touch-action:manipulation]"
+              >
+                Discuss this
+              </button>
+              <button
+                type="button"
+                onClick={() => { setShareQuote(detailQuote); setDetailQuote(null) }}
+                className="flex-1 h-[48px] rounded-full border border-bronze/60 text-bronze font-cormorant text-[17px] font-medium transition active:scale-[0.98] [touch-action:manipulation]"
+              >
+                Share
+              </button>
+            </div>
           </div>
         )}
       </BottomSheet>
+
+      {/* Share preview — opened from the detail sheet (which closes first, so this
+          z-50 modal isn't hidden behind the z-60 sheet). Reads its own shareQuote
+          state so it keeps the data after the sheet unmounts. */}
+      {shareQuote && (
+        <SharePreviewModal
+          isOpen
+          onClose={() => setShareQuote(null)}
+          kind="quote"
+          quoteId={shareQuote.id}
+          quote={shareQuote.text_en}
+          personaName={personaMap[shareQuote.persona_slug]?.name ?? shareQuote.persona_slug}
+          portraitUrl={personaMap[shareQuote.persona_slug]?.portrait_url ?? undefined}
+          sourceLocator={shareQuote.source_locator}
+        />
+      )}
 
       {/* PaywallModal is not in the (tabs) layout — render it here, wired to the same
           store selectors (no duplicated paywall logic). */}

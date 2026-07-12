@@ -9,12 +9,15 @@ import { dynamicFontSize } from '@/lib/shareUtils'
 interface SharePreviewModalProps {
   isOpen: boolean
   onClose: () => void
-  kind?: 'line' | 'council' | 'mirror' | 'letter' | 'counterview'
+  kind?: 'line' | 'council' | 'mirror' | 'letter' | 'counterview' | 'quote'
   // 'line' variant
   savedLineId?: string
   personaName?: string
   portraitUrl?: string
   conversationId?: string
+  // 'quote' variant (personaName + portraitUrl reused; `quote` carries text_en)
+  quoteId?: string
+  sourceLocator?: string
   // 'council' variant
   councilSessionId?: string
   councilPortraits?: string[]   // participating-persona portrait URLs (preview thumbnails)
@@ -46,6 +49,8 @@ export default function SharePreviewModal({
   personaName,
   portraitUrl,
   conversationId,
+  quoteId,
+  sourceLocator,
   councilSessionId,
   councilPortraits,
   counterviewId,
@@ -72,6 +77,7 @@ export default function SharePreviewModal({
   const isMirror  = kind === 'mirror'
   const isLetter  = kind === 'letter'
   const isCounterview = kind === 'counterview'
+  const isQuote   = kind === 'quote'
 
   // The counterview card/caption shows its terrain title (heading), NEVER the raw
   // anchor/quote. Every other variant keeps using `quote`. Null heading → no text
@@ -83,8 +89,9 @@ export default function SharePreviewModal({
     if (kind === 'mirror')  return api.shareMirror(mirrorId!)
     if (kind === 'letter')  return api.shareWeeklyLetter(weeklyLetterId!)
     if (kind === 'counterview') return api.shareCounterview(counterviewId!)
+    if (kind === 'quote') return api.shareQuote(quoteId!)
     return api.createShareScreenshot(savedLineId!)
-  }, [kind, councilSessionId, mirrorId, weeklyLetterId, counterviewId, savedLineId])
+  }, [kind, councilSessionId, mirrorId, weeklyLetterId, counterviewId, quoteId, savedLineId])
 
   // Reset on open; pre-generate the image for pro/premium so the Send tap opens
   // the native share sheet synchronously (iOS needs navigator.share inside the
@@ -183,9 +190,15 @@ export default function SharePreviewModal({
       ? `My Sunday Letter:`
       : isCounterview
       ? `The case against:`
+      : isQuote
+      ? `"${quote}" — ${personaName}`
       : `${personaName} told me:`
     const shortShareText = `${lead}\nthewiseroom.app`
-    const fullShareText  = cardText
+    // The quote lead already carries the full quote + attribution, so the "full"
+    // text is just the short text (no double-printing the quote body).
+    const fullShareText  = isQuote
+      ? shortShareText
+      : cardText
       ? `${lead}\n\n${cardText}\n\nthewiseroom.app`
       : shortShareText
     const origin = typeof window !== 'undefined' ? window.location.origin : ''
@@ -197,6 +210,8 @@ export default function SharePreviewModal({
       ? `${origin}/app/letters`
       : isCounterview
       ? `${origin}/app/counterview`
+      : isQuote
+      ? `${origin}/app/quotes`
       : `${origin}/app/chat/conv/${conversationId}`
     const filename = isCouncil
       ? 'council-reading.png'
@@ -206,6 +221,8 @@ export default function SharePreviewModal({
       ? 'sunday-letter.png'
       : isCounterview
       ? 'counterview.png'
+      : isQuote
+      ? 'quote.png'
       : 'reflection.png'
 
     const downloadFallback = (b: Blob) => {
@@ -403,6 +420,62 @@ export default function SharePreviewModal({
                 {heading}
               </p>
               <p className="font-lora text-[9px] font-bold text-bronze text-center mt-2">thewiseroom.app</p>
+            </div>
+          </div>
+        ) : isQuote ? (
+          /* Quote variant — mirrors the line card: faint hero, top wordmark,
+             portrait, persona name, the quote, a "— {Name}, {source}" citation,
+             a QR, and the bold stamp. No date (the server card is timeless).
+             Approximation of the server-rendered PNG. */
+          <div
+            className="relative w-full bg-vellum rounded-sm overflow-hidden mb-4"
+            style={{ aspectRatio: '4/5' }}
+            aria-hidden="true"
+          >
+            <img
+              src="/personas/wise-room-hero.webp"
+              alt=""
+              className="pointer-events-none absolute inset-0 w-full h-full object-cover opacity-[0.06]"
+            />
+
+            <div className="relative z-10 flex flex-col items-center h-full px-6 pt-4 pb-3">
+              {/* "The Wise Room" — pinned top (no date: the quote card is timeless) */}
+              <p className="font-cormorant italic text-[12px] text-bronze text-center">The Wise Room</p>
+
+              {/* Portrait */}
+              <div className="w-[57px] h-[57px] rounded-full overflow-hidden flex-shrink-0 mt-4 mb-2 bg-edge flex items-center justify-center">
+                {portraitUrl ? (
+                  <img src={portraitUrl} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  <span className="font-cormorant text-[24px] font-medium text-charcoal">
+                    {personaName?.[0]?.toUpperCase()}
+                  </span>
+                )}
+              </div>
+
+              {/* Intro — persona name only */}
+              <p className="font-cormorant text-[11px] font-medium text-ink text-center mb-1">
+                {personaName}
+              </p>
+
+              {/* Quote — centred in the leftover band */}
+              <p
+                className="font-cormorant italic text-ink text-center leading-[1.4] flex-1 flex items-center justify-center overflow-hidden"
+                style={{ fontSize: `${previewFontSize}px` }}
+              >
+                {quote}
+              </p>
+
+              {/* Citation — "— {Name}, {source}" */}
+              <p className="font-cormorant italic text-[8px] text-bronze text-center mt-1 max-w-full truncate px-2">
+                — {personaName}{sourceLocator ? `, ${sourceLocator}` : ''}
+              </p>
+
+              {/* QR + bold "thewiseroom.app" stamp */}
+              <img src="/self-portrait/qr-wiseroom.png" alt="" className="w-[34px] h-[34px] mt-2" />
+              <p className="font-lora text-[9px] font-bold text-bronze text-center mt-1">
+                thewiseroom.app
+              </p>
             </div>
           </div>
         ) : (

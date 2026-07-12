@@ -1060,6 +1060,22 @@ class ApiClient {
     return res.blob()
   }
 
+  async shareQuote(quoteId: string): Promise<Blob> {
+    const res = await fetch(`${API_BASE}/share/quote`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(this.token ? { Authorization: `Bearer ${this.token}` } : {}),
+      },
+      body: JSON.stringify({ quote_id: quoteId }),
+    })
+    if (!res.ok) {
+      if (res.status === 429) throw new ShareLimitError()
+      throw new Error(`Quote share failed: ${res.status}`)
+    }
+    return res.blob()
+  }
+
   async shareMirror(mirrorId: string): Promise<Blob> {
     const res = await fetch(`${API_BASE}/mirrors/${mirrorId}/share`, {
       method: 'POST',
