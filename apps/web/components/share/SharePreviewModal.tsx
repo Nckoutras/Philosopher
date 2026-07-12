@@ -15,9 +15,11 @@ interface SharePreviewModalProps {
   personaName?: string
   portraitUrl?: string
   conversationId?: string
-  // 'quote' variant (personaName + portraitUrl reused; `quote` carries text_en)
+  // 'quote' variant (personaName + portraitUrl reused; `quote` carries text_en).
+  // sourceShort = the already-shortened source (matches the server PNG, which
+  // shortens server-side); the preview shows it verbatim.
   quoteId?: string
-  sourceLocator?: string
+  sourceShort?: string
   // 'council' variant
   councilSessionId?: string
   councilPortraits?: string[]   // participating-persona portrait URLs (preview thumbnails)
@@ -50,7 +52,7 @@ export default function SharePreviewModal({
   portraitUrl,
   conversationId,
   quoteId,
-  sourceLocator,
+  sourceShort,
   councilSessionId,
   councilPortraits,
   counterviewId,
@@ -466,9 +468,9 @@ export default function SharePreviewModal({
                 {quote}
               </p>
 
-              {/* Citation — "— {Name}, {source}" */}
+              {/* Citation — "— {Name}, {short source}" (matches the server PNG) */}
               <p className="font-cormorant italic text-[8px] text-bronze text-center mt-1 max-w-full truncate px-2">
-                — {personaName}{sourceLocator ? `, ${sourceLocator}` : ''}
+                — {personaName}{sourceShort ? `, ${sourceShort}` : ''}
               </p>
 
               {/* QR + bold "thewiseroom.app" stamp */}

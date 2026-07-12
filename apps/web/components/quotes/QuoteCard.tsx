@@ -1,11 +1,14 @@
 'use client'
 
+import { useState } from 'react'
 import Image from 'next/image'
 import type { Quote } from '@/lib/api'
 
 // A single tap-to-open card in the peek carousel. Read-only / presentational:
 // graded portrait + scrim + quote + (real non-English) original + attribution.
 // Discuss / The story now live in the detail sheet, opened via onOpen — not here.
+// The attribution's source is shown SHORT; when truncated it's tappable and opens
+// a small popover with the full citation (without opening the story).
 export default function QuoteCard({
   quote,
   personaName,
@@ -17,22 +20,33 @@ export default function QuoteCard({
   portraitUrl: string | null
   onOpen: () => void
 }) {
-  // Only surface the original when it's a REAL non-English original — present AND
-  // actually different from the English line. English-source quotes (text_original
-  // null, or equal to text_en) render no original line at all — and since the line
-  // is the only thing that would carry a separator, there is no stray dash either.
   const showOriginal = !!quote.text_original && quote.text_original !== quote.text_en
+  // Only tappable when the backend actually shortened it; otherwise the full
+  // source already fits and is shown plain (no popover needed).
+  const truncated = quote.source_short !== quote.source_locator
+  const [showSource, setShowSource] = useState(false)
+
+  // Opening the card (story) always dismisses the source popover first.
+  const openCard = () => {
+    setShowSource(false)
+    onOpen()
+  }
 
   return (
     <article
       role="button"
       tabIndex={0}
       aria-label={`Open “${quote.text_en}”`}
-      onClick={onOpen}
+      onClick={openCard}
       onKeyDown={(e) => {
+        if (e.key === 'Escape' && showSource) {
+          e.stopPropagation()
+          setShowSource(false)
+          return
+        }
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault()
-          onOpen()
+          openCard()
         }
       }}
       className="relative h-full w-full cursor-pointer overflow-hidden rounded-[20px] bg-vellum shadow-card [touch-action:manipulation]"
@@ -62,7 +76,8 @@ export default function QuoteCard({
 
       {/* Text block, anchored bottom in the scrim. Read-only now (no action row), and
           lowered so the quote clears the face — pt/pb are starting values the founder
-          fine-tunes on device. */}
+          fine-tunes on device. (No z-index here: keeping it out of a stacking context
+          lets the attribution's z-30 sit above the z-20 dismiss overlay below.) */}
       <div className="absolute inset-x-0 bottom-0 flex flex-col gap-[10px] px-[24px] pt-[56px] pb-[28px]">
         <p className="font-cormorant text-paper text-[27px] font-medium leading-[1.24] [text-wrap:balance] drop-shadow-[0_1px_10px_rgba(31,27,20,0.5)]">
           {quote.text_en}
@@ -74,10 +89,66 @@ export default function QuoteCard({
           </p>
         )}
 
-        <p className="font-lora text-bronze text-[11px] uppercase tracking-[0.16em] pt-[2px]">
-          {personaName} · {quote.source_locator}
-        </p>
+        {/* Attribution — persona · SHORT source. When truncated the source is a
+            tappable button (dotted underline + ⓘ) that toggles the full-source
+            popover; the popover sits above the line (z-30 > overlay z-20). */}
+        <div className="relative z-30 pt-[2px]">
+          <p className="font-lora text-bronze text-[11px] uppercase tracking-[0.16em]">
+            {personaName} ·{' '}
+            {truncated ? (
+              <button
+                type="button"
+                aria-label={showSource ? 'Hide full source' : `Show full source: ${quote.source_locator}`}
+                aria-expanded={showSource}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setShowSource((v) => !v)
+                }}
+                onKeyDown={(e) => {
+                  // Keep Enter/Space on the source from bubbling to the card (story).
+                  if (e.key === 'Enter' || e.key === ' ') e.stopPropagation()
+                }}
+                className="underline decoration-dotted decoration-bronze/70 underline-offset-2 [touch-action:manipulation]"
+              >
+                {quote.source_short}
+                <span aria-hidden="true"> ⓘ</span>
+              </button>
+            ) : (
+              quote.source_locator
+            )}
+          </p>
+
+          {showSource && (
+            <div
+              role="dialog"
+              aria-label="Source"
+              onClick={(e) => e.stopPropagation()}
+              className="absolute bottom-full left-0 mb-[8px] max-w-[88%] rounded-[8px] border-[0.5px] border-bronze bg-paper px-[12px] py-[8px] shadow-card"
+            >
+              <p className="font-lora text-[9px] uppercase tracking-[0.18em] text-sepia mb-[3px]">
+                Source
+              </p>
+              <p className="font-lora text-ink text-[12px] normal-case tracking-normal leading-snug">
+                {quote.source_locator}
+              </p>
+            </div>
+          )}
+        </div>
       </div>
+
+      {/* Dismiss overlay — only while the popover is open. Covers the card (except
+          the source button + popover, which are z-30) so a tap "elsewhere" closes
+          the popover WITHOUT opening the story. */}
+      {showSource && (
+        <div
+          className="absolute inset-0 z-20"
+          aria-hidden="true"
+          onClick={(e) => {
+            e.stopPropagation()
+            setShowSource(false)
+          }}
+        />
+      )}
     </article>
   )
 }

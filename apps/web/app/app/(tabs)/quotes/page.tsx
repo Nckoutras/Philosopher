@@ -274,7 +274,7 @@ export default function QuotesPage() {
             )}
 
             <p className="font-lora text-bronze text-[11px] uppercase tracking-[0.16em] mt-[14px]">
-              {personaMap[detailQuote.persona_slug]?.name ?? detailQuote.persona_slug} · {detailQuote.source_locator}
+              {personaMap[detailQuote.persona_slug]?.name ?? detailQuote.persona_slug} · {detailQuote.source_short}
             </p>
 
             <div className="mt-[22px] border-t border-[0.5px] border-edge pt-[18px]">
@@ -283,6 +283,14 @@ export default function QuotesPage() {
               </p>
               <p className="font-lora text-charcoal text-[14px] leading-relaxed whitespace-pre-line">
                 {detailQuote.context}
+              </p>
+
+              {/* Full citation — "The story" is where the complete source lives. */}
+              <p className="font-lora text-[10px] uppercase tracking-[0.18em] text-sepia mt-[18px] mb-[4px]">
+                Source
+              </p>
+              <p className="font-lora text-charcoal text-[13px] leading-relaxed">
+                {detailQuote.source_locator}
               </p>
             </div>
 
@@ -319,7 +327,7 @@ export default function QuotesPage() {
           quote={shareQuote.text_en}
           personaName={personaMap[shareQuote.persona_slug]?.name ?? shareQuote.persona_slug}
           portraitUrl={personaMap[shareQuote.persona_slug]?.portrait_url ?? undefined}
-          sourceLocator={shareQuote.source_locator}
+          sourceShort={shareQuote.source_short}
         />
       )}
 

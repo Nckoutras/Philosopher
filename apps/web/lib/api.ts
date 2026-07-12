@@ -154,6 +154,9 @@ export interface Quote {
   text_en: string
   text_original: string | null
   source_locator: string
+  // Backend computed field (QuoteOut.source_short): source_locator shortened to a
+  // 35-char word boundary for compact display. Equals source_locator when it fits.
+  source_short: string
   translation_note: string | null
   confidence: string
   context: string
