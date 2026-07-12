@@ -27,6 +27,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from models import CouncilCase, CouncilResponse, CouncilSession, Counterview, CounterviewResponse, Mirror, Quote, SavedLine, Message, Persona, WeeklyLetter
+from text_utils import shorten_source
 
 logger = logging.getLogger(__name__)
 
@@ -271,7 +272,7 @@ async def generate_quote_share_image(
         persona_initial=(name[0].upper() if name else None),
         intro_text=name,
         saved_at=None,  # a quote is timeless — no date stamp
-        attribution=f"— {name}, {quote.source_locator}",
+        attribution=f"— {name}, {shorten_source(quote.source_locator)}",
         show_qr=True,
     )
 
