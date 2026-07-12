@@ -17,6 +17,7 @@ import SharePreviewModal from '@/components/share/SharePreviewModal'
 export default function InsightsPage() {
   const router = useRouter()
   const token = useStore((s) => s.token)
+  const markAllInsightsSeen = useStore((s) => s.markAllInsightsSeen)
   const { primary, doubt, discard } = useInsightDoors()
   const [insights, setInsights] = useState<Insight[]>([])
   const [recentLine, setRecentLine] = useState<RecentSavedLine | null>(null)
@@ -36,14 +37,21 @@ export default function InsightsPage() {
           api.getRecentSavedLine(),
         ])
         // created_at desc, non-dismissed only.
-        if (all.status === 'fulfilled') setInsights(all.value.filter((i) => !i.is_dismissed))
+        if (all.status === 'fulfilled') {
+          const nonDismissed = all.value.filter((i) => !i.is_dismissed)
+          setInsights(nonDismissed)
+          // Visiting the Insights list is the "seen" moment: clear the Home tile
+          // star, the tab star's insight part, and the library glows together.
+          // Uses the freshly-fetched ids so it also works on a hard load here.
+          markAllInsightsSeen(nonDismissed.map((i) => i.id))
+        }
         if (line.status === 'fulfilled') setRecentLine(line.value)
       } finally {
         setLoading(false)
       }
     }
     load()
-  }, [token, router])
+  }, [token, router, markAllInsightsSeen])
 
   function handleCardKeyDown(e: React.KeyboardEvent) {
     if (e.key === 'Enter' || e.key === ' ') {

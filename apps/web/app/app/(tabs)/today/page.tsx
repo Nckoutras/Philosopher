@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
+import { Sparkle } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import { api } from '@/lib/api'
 import type { LastConversation } from '@/lib/api'
@@ -63,11 +64,13 @@ function ImageTile({
   label,
   onClick,
   priority = false,
+  showStar = false,
 }: {
   src: string
   label: string
   onClick: () => void
   priority?: boolean
+  showStar?: boolean
 }) {
   return (
     <button
@@ -94,6 +97,16 @@ function ImageTile({
       <span className="absolute inset-0 flex items-center justify-center px-[12px] text-center font-cormorant text-[24px] font-medium text-white leading-tight">
         {label}
       </span>
+      {/* "Something new" star — same bronze language as the tab-bar star (glow +
+          soft-pulse), pinned top-right clear of the centered word. */}
+      {showStar && (
+        <Sparkle
+          size={14}
+          strokeWidth={1.5}
+          className="absolute top-[8px] right-[8px] text-bronze fill-bronze drop-shadow-[0_0_5px_rgba(184,153,104,0.95)] motion-safe:animate-soft-pulse"
+          aria-hidden="true"
+        />
+      )}
     </button>
   )
 }
@@ -104,6 +117,12 @@ export default function TodayPage() {
   const user = useStore((s) => s.user)
   const subscription = useStore((s) => s.subscription)
   const isPro = subscription?.status === 'active' && subscription?.plan !== 'free'
+
+  // "Something new" star on the Insights tile — derived exactly like the tab-bar
+  // star's insight part (an active insight the user has not yet seen).
+  const activeInsights = useStore((s) => s.activeInsights)
+  const seenInsightIds = useStore((s) => s.seenInsightIds)
+  const hasUnseenInsight = activeInsights.some((i) => !seenInsightIds.includes(i.id))
 
   const [lastConv, setLastConv] = useState<LastConversation | null>(null)
   const [loading, setLoading] = useState(true)
@@ -184,6 +203,7 @@ export default function TodayPage() {
             src="/self-portrait/appbutton.webp"
             label="Insights"
             priority
+            showStar={hasUnseenInsight}
             onClick={() => router.push('/app/insights')}
           />
           <ImageTile
