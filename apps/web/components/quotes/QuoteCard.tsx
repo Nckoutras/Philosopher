@@ -5,7 +5,8 @@ import Image from 'next/image'
 import type { Quote } from '@/lib/api'
 
 // A single tap-to-open card in the peek carousel. Read-only / presentational:
-// graded portrait + scrim + quote + (real non-English) original + attribution.
+// graded portrait + scrim + quote + attribution. The original-language phrase
+// lives ONLY in the story (detail sheet), not on the card.
 // Discuss / The story now live in the detail sheet, opened via onOpen — not here.
 // The attribution's source is shown SHORT; when truncated it's tappable and opens
 // a small popover with the full citation (without opening the story).
@@ -20,7 +21,6 @@ export default function QuoteCard({
   portraitUrl: string | null
   onOpen: () => void
 }) {
-  const showOriginal = !!quote.text_original && quote.text_original !== quote.text_en
   // Only tappable when the backend actually shortened it; otherwise the full
   // source already fits and is shown plain (no popover needed).
   const truncated = quote.source_short !== quote.source_locator
@@ -82,12 +82,6 @@ export default function QuoteCard({
         <p className="font-cormorant text-paper text-[27px] font-medium leading-[1.24] [text-wrap:balance] drop-shadow-[0_1px_10px_rgba(31,27,20,0.5)]">
           {quote.text_en}
         </p>
-
-        {showOriginal && (
-          <p className="font-lora italic text-paper/70 text-[14px] leading-snug">
-            {quote.text_original}
-          </p>
-        )}
 
         {/* Attribution — persona · SHORT source. When truncated the source is a
             tappable button (dotted underline + ⓘ) that toggles the full-source
