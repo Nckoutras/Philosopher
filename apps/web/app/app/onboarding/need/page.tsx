@@ -56,7 +56,7 @@ export default function NeedPage() {
       const otherText = sessionStorage.getItem('onboarding_other_text') || ''
       const themes: string[] = themesJson ? JSON.parse(themesJson) : []
 
-      await api.upsertPreferences({
+      const prefs = await api.upsertPreferences({
         themes,
         other_text: otherText.trim() === '' ? null : otherText.trim(),
         need_most: selected,
@@ -64,7 +64,15 @@ export default function NeedPage() {
 
       sessionStorage.removeItem('onboarding_themes')
 
-      router.push('/app/onboarding/profile')
+      // Profile (values + disagreement) is one-time personality data. If the user
+      // has already engaged it, skip straight to matching instead of re-asking every
+      // reflection. The saved profile rides back in the upsert response (the server
+      // preserves it across this upsert), so this needs no extra fetch. A true
+      // first-run user (no profile yet) still goes through the profile step.
+      const answeredProfile =
+        (prefs.profile?.values.length ?? 0) > 0 ||
+        prefs.profile?.disagreement_style != null
+      router.push(answeredProfile ? '/app/onboarding/matches' : '/app/onboarding/profile')
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Something went wrong'
       setError(message)
