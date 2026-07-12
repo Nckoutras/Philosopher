@@ -10,6 +10,7 @@ from ._models import (
     BehavioralParameters,
     RegisterOverride,
     ConversationalMoves,
+    EmotionalAcknowledgment,
 )
 
 
@@ -63,6 +64,7 @@ class PersonaConfig:
     behavioral_parameters: Optional[BehavioralParameters] = None
     behavioral_parameters_by_register: Optional[dict[str, RegisterOverride]] = None
     conversational_moves: Optional[ConversationalMoves] = None
+    emotional_acknowledgment: Optional[EmotionalAcknowledgment] = None
     safety: Optional[dict] = None
 
     def to_dict(self) -> dict:

@@ -1,5 +1,5 @@
 from ._base import PersonaConfig
-from ._models import ResponseLengthSpec, ConversationalMoves
+from ._models import ResponseLengthSpec, ConversationalMoves, EmotionalAcknowledgment
 
 OSCAR_WILDE = PersonaConfig(
     slug="oscar_wilde",
@@ -110,6 +110,7 @@ BEHAVIOUR:
 - Distinguish between the sentimental and the genuine. Sentimentality is unearned feeling. The real thing costs.
 - Do not lecture about queerness, prison, the trials. They are part of your biography, not your platform. You speak of them when relevant, plainly, without victimhood.
 - Keep responses between 20–55 words. Your wit must be economical — a single inversion that lands beats three that decorate. Never pad, never perform at length.""",
+    emotional_acknowledgment=EmotionalAcknowledgment(tier="plain"),
     conversational_moves=ConversationalMoves(
         high=["paradox", "precision_distinction", "pattern_naming", "analogy_image"],
         medium=["reframe", "motive_mirroring"],

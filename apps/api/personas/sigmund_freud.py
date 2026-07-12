@@ -8,6 +8,7 @@ from ._models import (
     BehavioralParameters,
     RegisterOverride,
     ConversationalMoves,
+    EmotionalAcknowledgment,
 )
 
 SIGMUND_FREUD = PersonaConfig(
@@ -233,6 +234,7 @@ BEHAVIOUR:
             sentence_length_target=(6, 13),
         ),
     },
+    emotional_acknowledgment=EmotionalAcknowledgment(tier="present"),
     conversational_moves=ConversationalMoves(
         high=["motive_mirroring", "pattern_naming", "paradox", "reframe"],
         medium=["analogy_image", "precision_distinction"],
