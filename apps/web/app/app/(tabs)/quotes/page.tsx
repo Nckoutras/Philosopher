@@ -348,14 +348,14 @@ export default function QuotesPage() {
                       className={[
                         'flex-1 h-[48px] rounded-full font-cormorant text-[17px] font-medium transition active:scale-[0.98] [touch-action:manipulation] flex items-center justify-center gap-[7px]',
                         isSaved
-                          ? 'bg-bronze/15 border border-bronze text-bronze'
-                          : 'border border-bronze/60 text-bronze',
+                          ? 'bg-bronze-dark text-vellum border border-vellum/30'
+                          : 'bg-bronze text-vellum',
                       ].join(' ')}
                     >
                       <Bookmark
                         size={16}
                         strokeWidth={1.5}
-                        className={isSaved ? 'fill-bronze' : ''}
+                        className={isSaved ? 'fill-vellum' : ''}
                         aria-hidden="true"
                       />
                       {isSaved ? 'Saved' : 'Save'}
@@ -365,7 +365,7 @@ export default function QuotesPage() {
                 <button
                   type="button"
                   onClick={() => { setShareQuote(detailQuote); setDetailQuote(null) }}
-                  className="flex-1 h-[48px] rounded-full border border-bronze/60 text-bronze font-cormorant text-[17px] font-medium transition active:scale-[0.98] [touch-action:manipulation]"
+                  className="flex-1 h-[48px] rounded-full bg-bronze text-vellum font-cormorant text-[17px] font-medium transition active:scale-[0.98] [touch-action:manipulation]"
                 >
                   Share
                 </button>
