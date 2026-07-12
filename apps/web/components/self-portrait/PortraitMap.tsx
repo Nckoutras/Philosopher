@@ -17,13 +17,13 @@
 //   Each carries a wrap width (centre + top-right 18 ch/line; the three corner slots
 //   14 ch/line so a caption never runs off the frame). Empty slots (fewer than 5 scored
 //   themes) render nothing.
-// • LABELS: stacked + centered on the slot anchor — name (Lora 13, ink, vellum halo;
-//   rank-1 weight 600) then the sub-caption below, WRAPPED to ≤3 lines (Lora 11, sepia,
-//   same halo) from selfPortraitMapCaptions.ts. The halo keeps corner-slot captions legible
-//   where they overrun onto the faint contour lines.
-// • X-MARKS-THE-SPOT: a discreet cross above the rank-1 (dominant) name, on the central
-//   bullseye. NO connector paths between territories — we have NO theme-to-theme relationship
-//   data, and no UI copy anywhere may imply one.
+// • LABELS: stacked + centered on the slot anchor — name (Lora 15, rank-1 16; rank-1 ink
+//   #1F1B14 weight 600, others warm #7A4030) then the sub-caption below, WRAPPED to ≤3 lines
+//   (Lora 12, bronze-dark #8A7340), each with a vellum halo from selfPortraitMapCaptions.ts.
+//   The halo keeps corner-slot captions legible where they overrun onto the faint contour lines.
+// • NO connector paths between territories — we have NO theme-to-theme relationship data, and
+//   no UI copy anywhere may imply one. The dominant is marked by the map's own baked-in
+//   bullseye (in the asset), not a drawn overlay.
 // • Empty / all-zero → the same calm "keep answering" line, never a degenerate blob.
 // ─────────────────────────────────────────────────────────────────────────────
 import Image from 'next/image'
@@ -35,7 +35,7 @@ const MAP_SRC = '/self-portrait/map-territories.webp'
 
 // ── FIXED territory slots (viewBox 360×294), in RANK order ─────────────────────
 // Detected centres of the 5 baked-in anchor markers on the map art (frac→viewBox from the
-// 1388×1133 asset). rank-1 → the CENTRAL bullseye (also gets the X-mark), rank-2 → top-right
+// 1388×1133 asset). rank-1 → the CENTRAL bullseye, rank-2 → top-right
 // territory, rank-3 → top-left, rank-4 → bottom-right, rank-5 → the lake (bottom-left).
 // `maxChars` is the per-slot caption wrap width: the three corner slots use a tighter width
 // so a wide caption never runs off the viewBox edge.
@@ -121,10 +121,10 @@ export function PortraitMap({
         <svg viewBox="0 0 360 294" className="relative w-full block" role="img" aria-label="Your theme map">
           {hasSignal && assigned.length > 0 && (
             <>
-              {/* Rank-assigned labels — name (dominant=ink #1F1B14, others=bronze-dark
-                  #8A7340) + wrapped sub-caption (sepia) centered on the slot anchor, each with
-                  a vellum halo (paint-order stroke) so they read over the parchment and, on
-                  small slots, the faint contour lines. The dominant also gets an X marker. */}
+              {/* Rank-assigned labels — name (dominant=ink #1F1B14, others=warm #7A4030) +
+                  wrapped sub-caption (bronze-dark #8A7340) centered on the slot anchor, each
+                  with a vellum halo (paint-order stroke) so they read over the parchment and,
+                  on small slots, the faint contour lines. */}
               {assigned.map(({ axis, slot, isDominant }) => {
                 const capLines = MAP_CAPTIONS[axis.key]
                   ? wrapCaption(MAP_CAPTIONS[axis.key], slot.maxChars)
@@ -136,9 +136,9 @@ export function PortraitMap({
                       y={slot.y}
                       textAnchor="middle"
                       className="font-lora"
-                      fontSize={13}
+                      fontSize={isDominant ? 16 : 15}
                       fontWeight={isDominant ? 600 : 500}
-                      fill={isDominant ? '#1F1B14' : '#5C4A2E'}
+                      fill={isDominant ? '#1F1B14' : '#7A4030'}
                       stroke="#EFE3CC"
                       strokeWidth={2.8}
                       strokeLinejoin="round"
@@ -152,8 +152,8 @@ export function PortraitMap({
                         y={slot.y}
                         textAnchor="middle"
                         className="font-lora"
-                        fontSize={11}
-                        fill="#8A7E6A"
+                        fontSize={12}
+                        fill="#8A7340"
                         stroke="#EFE3CC"
                         strokeWidth={2.0}
                         strokeLinejoin="round"
@@ -166,27 +166,6 @@ export function PortraitMap({
                         ))}
                       </text>
                     )}
-
-                    {/* X-marks-the-spot — a discreet hand-drawn cross above the DOMINANT
-                        territory's name (clear of name + caption below). Vellum halo underlay
-                        (stroke 3.2) then bronze-dark strokes (1.4) so it reads over parchment.
-                        NOT in data-share-omit → it appears on the shared card too. */}
-                    {isDominant &&
-                      (() => {
-                        const cx = slot.x
-                        const cy = slot.y - 22
-                        const h = 4
-                        return (
-                          <g strokeLinecap="round" fill="none">
-                            {/* halo underlay */}
-                            <line x1={cx - h} y1={cy - h} x2={cx + h} y2={cy + h} stroke="#EFE3CC" strokeWidth={3.2} />
-                            <line x1={cx - h} y1={cy + h} x2={cx + h} y2={cy - h} stroke="#EFE3CC" strokeWidth={3.2} />
-                            {/* cross */}
-                            <line x1={cx - h} y1={cy - h} x2={cx + h} y2={cy + h} stroke="#8A7340" strokeWidth={1.4} />
-                            <line x1={cx - h} y1={cy + h} x2={cx + h} y2={cy - h} stroke="#8A7340" strokeWidth={1.4} />
-                          </g>
-                        )
-                      })()}
                   </g>
                 )
               })}
