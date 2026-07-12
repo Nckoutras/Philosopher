@@ -8,7 +8,7 @@ const PROTECTED_PREFIXES = ['/app', '/admin']
 const PRO_PREFIXES: string[] = []
 
 // Routes accessible only when NOT authenticated
-const AUTH_ONLY_ROUTES = ['/login', '/register']
+const AUTH_ONLY_ROUTES = ['/auth']
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
@@ -23,7 +23,8 @@ export function middleware(request: NextRequest) {
   if (PROTECTED_PREFIXES.some((p) => pathname.startsWith(p))) {
     if (!isAuthenticated) {
       const url = request.nextUrl.clone()
-      url.pathname = '/login'
+      url.pathname = '/auth'
+      url.searchParams.set('mode', 'signin')
       url.searchParams.set('next', pathname)
       return NextResponse.redirect(url)
     }
