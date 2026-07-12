@@ -191,6 +191,30 @@ function svgToDataUrl(svg: SVGSVGElement, ser: ViewBox): string {
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(xml)}`
 }
 
+// Personalized card title. `first` is the user's first name (may arrive as a full
+// name — defensively take the first token). Empty → the generic title. A name
+// ending in s/S or the Greek final sigma ς takes a bare apostrophe
+// ("Nikos' Self-Portrait", "Νίκος' Self-Portrait"), else 's.
+function portraitTitle(userFirstName?: string): string {
+  const first = (userFirstName ?? '').trim().split(/\s+/)[0] ?? ''
+  if (!first) return 'Your Self-Portrait'
+  const possessive = /[sSς]$/.test(first) ? `${first}'` : `${first}'s`
+  return `${possessive} Self-Portrait`
+}
+
+/** Slugified share filename from the first name; falls back when there's no name
+ *  (or it slugs to empty, e.g. a non-Latin script). Single source for both the
+ *  Share and Save paths. */
+export function portraitCardFilename(userFirstName?: string): string {
+  const slug = (userFirstName ?? '')
+    .trim()
+    .split(/\s+/)[0]
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+  return slug ? `${slug}-self-portrait.png` : 'my-self-portrait.png'
+}
+
 /**
  * Composite the 1080×1350 share card from the active radar/map <svg>. Returns a PNG
  * Blob. Throws on a missing canvas context or a null toBlob (caller surfaces an error).
@@ -198,6 +222,7 @@ function svgToDataUrl(svg: SVGSVGElement, ser: ViewBox): string {
 export async function renderPortraitCardBlob(
   svg: SVGSVGElement,
   summaryLine: string | null,
+  userFirstName?: string,
 ): Promise<Blob> {
   // Ensure the real webfonts are loaded before any canvas fillText (canvas text DOES
   // use page-loaded faces, unlike a sandboxed serialized-SVG <img>).
@@ -287,7 +312,14 @@ export async function renderPortraitCardBlob(
 
   ctx.fillStyle = INK
   ctx.font = `500 54px ${cormorant}`
-  ctx.fillText('Your Self-Portrait', CARD_W / 2, TITLE_Y)
+  // Personalize with the first name; if the name makes the (single, centred) line
+  // too wide, fall back to the generic title rather than shrink it.
+  let title = portraitTitle(userFirstName)
+  if (title !== 'Your Self-Portrait') {
+    const TITLE_MAXW = CARD_W - 2 * PLATE_INSET - 40 // plate insets + breathing room
+    if (ctx.measureText(title).width > TITLE_MAXW) title = 'Your Self-Portrait'
+  }
+  ctx.fillText(title, CARD_W / 2, TITLE_Y)
 
   // 5b. Summary band — a bold "The Wise Room says" header (drawn here, NOT part of the
   //     summaryLine value) above the deterministic lean sentence passed in (the on-screen
@@ -337,8 +369,8 @@ export async function renderPortraitCardBlob(
  * AbortError (user dismissed the native sheet) so the caller can keep the preview open;
  * any other share failure falls through to the download path.
  */
-export async function sharePortraitCardBlob(blob: Blob): Promise<'shared' | 'downloaded'> {
-  const filename = 'my-self-portrait.png'
+export async function sharePortraitCardBlob(blob: Blob, userFirstName?: string): Promise<'shared' | 'downloaded'> {
+  const filename = portraitCardFilename(userFirstName)
   const text = 'My Self-Portrait\nthewiseroom.app'
   const file = new File([blob], filename, { type: 'image/png' })
 

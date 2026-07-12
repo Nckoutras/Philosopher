@@ -18,7 +18,7 @@ import {
 } from '@/components/self-portrait/Artwork'
 import { PortraitRadar } from '@/components/self-portrait/PortraitRadar'
 import { PortraitMap } from '@/components/self-portrait/PortraitMap'
-import { renderPortraitCardBlob, sharePortraitCardBlob } from '@/lib/portraitShareCard'
+import { renderPortraitCardBlob, sharePortraitCardBlob, portraitCardFilename } from '@/lib/portraitShareCard'
 import { buildSummary } from '@/lib/selfPortraitSummary'
 import { User, Shield, Feather, Flame, HelpCircle, Anchor, Users, Compass, Check, ArrowRight, Sparkle, Leaf } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
@@ -252,6 +252,10 @@ function PersonaAvatar({ portraitUrl, name }: { portraitUrl: string | null; name
 export default function SelfPortraitPage() {
   const router = useRouter()
   const token = useStore((s) => s.token)
+  const user = useStore((s) => s.user)
+  // First name for the personalized share-card title + filename (no new fetch —
+  // the user is already in the store). Undefined when there's no name.
+  const firstName = user?.full_name?.trim().split(/\s+/)[0] || undefined
 
   const [loading, setLoading] = useState(true)
   const [questions, setQuestions] = useState<SelfPortraitQuestion[]>([])
@@ -442,7 +446,7 @@ export default function SelfPortraitPage() {
     setSharePreviewUrl(null)
     shareBlobRef.current = null
     try {
-      const blob = await renderPortraitCardBlob(svg, summaryLine)
+      const blob = await renderPortraitCardBlob(svg, summaryLine, firstName)
       shareBlobRef.current = blob
       setSharePreviewUrl(URL.createObjectURL(blob))
     } catch {
@@ -461,11 +465,11 @@ export default function SelfPortraitPage() {
     if (!svg || saveBusy) return
     setSaveBusy(true)
     try {
-      const blob = await renderPortraitCardBlob(svg, summaryLine)
+      const blob = await renderPortraitCardBlob(svg, summaryLine, firstName)
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = 'my-self-portrait.png'
+      a.download = portraitCardFilename(firstName)
       a.click()
       URL.revokeObjectURL(url)
       toast('Saved to your downloads')
@@ -511,7 +515,7 @@ export default function SelfPortraitPage() {
     if (!blob) return
     setShareBusy(true)
     try {
-      const result = await sharePortraitCardBlob(blob)
+      const result = await sharePortraitCardBlob(blob, firstName)
       if (result === 'downloaded') toast('Image saved — share it from your downloads')
       closeShare()
     } catch (err) {
