@@ -425,57 +425,63 @@ export default function SharePreviewModal({
             </div>
           </div>
         ) : isQuote ? (
-          /* Quote variant — mirrors the line card: faint hero, top wordmark,
-             portrait, persona name, the quote, a "— {Name}, {source}" citation,
-             a QR, and the bold stamp. No date (the server card is timeless).
-             Approximation of the server-rendered PNG. */
+          /* Quote variant — mirrors the full-bleed carousel/A1 card: a graded
+             portrait fills the card, a dark bottom scrim carries the quote low,
+             "The Wise Room" pins top, a "— {Name}, {source}" citation + QR +
+             stamp sit at the bottom. Preview-only; the sent PNG is server-rendered. */
           <div
             className="relative w-full bg-vellum rounded-sm overflow-hidden mb-4"
             style={{ aspectRatio: '4/5' }}
             aria-hidden="true"
           >
-            <img
-              src="/personas/wise-room-hero.webp"
-              alt=""
-              className="pointer-events-none absolute inset-0 w-full h-full object-cover opacity-[0.06]"
-            />
-
-            <div className="relative z-10 flex flex-col items-center h-full px-6 pt-4 pb-3">
-              {/* "The Wise Room" — pinned top (no date: the quote card is timeless) */}
-              <p className="font-cormorant italic text-[12px] text-bronze text-center">The Wise Room</p>
-
-              {/* Portrait */}
-              <div className="w-[57px] h-[57px] rounded-full overflow-hidden flex-shrink-0 mt-4 mb-2 bg-edge flex items-center justify-center">
-                {portraitUrl ? (
-                  <img src={portraitUrl} alt="" className="w-full h-full object-cover" />
-                ) : (
-                  <span className="font-cormorant text-[24px] font-medium text-charcoal">
-                    {personaName?.[0]?.toUpperCase()}
-                  </span>
-                )}
+            {/* Full-bleed graded portrait (same grade as QuoteCard + the server
+                card); fallback to vellum + a centred initial when absent. */}
+            {portraitUrl ? (
+              <img
+                src={portraitUrl}
+                alt=""
+                className="pointer-events-none absolute inset-0 w-full h-full object-cover [filter:grayscale(0.35)_sepia(0.16)_contrast(1.02)_brightness(0.97)]"
+              />
+            ) : (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <span className="font-cormorant text-[48px] font-medium text-charcoal">
+                  {personaName?.[0]?.toUpperCase()}
+                </span>
               </div>
+            )}
 
-              {/* Intro — persona name only */}
-              <p className="font-cormorant text-[11px] font-medium text-ink text-center mb-1">
-                {personaName}
+            {/* Bronze veil — final unifier over the graded photo. */}
+            <div className="absolute inset-0 bg-bronze/10" />
+
+            {/* Bottom scrim: ink → transparent over the lower ~62%. */}
+            <div className="absolute inset-x-0 bottom-0 h-[62%] bg-gradient-to-t from-ink via-ink/70 to-transparent" />
+
+            <div className="absolute inset-0 z-10 flex flex-col items-center px-6 pt-4 pb-3">
+              {/* "The Wise Room" — pinned top; text-shadow so bronze reads on a bright crop. */}
+              <p className="font-cormorant italic text-[12px] text-bronze text-center [text-shadow:0_1px_6px_rgba(31,27,20,0.6)]">
+                The Wise Room
               </p>
 
-              {/* Quote — centred in the leftover band */}
+              {/* Spacer pushes the quote + citation + brand into the lower scrim band. */}
+              <div className="flex-1" />
+
+              {/* Quote — near-white, anchored low over the scrim; the drop-shadow
+                  keeps paper text legible on light portraits. */}
               <p
-                className="font-cormorant italic text-ink text-center leading-[1.4] flex-1 flex items-center justify-center overflow-hidden"
+                className="font-cormorant font-medium text-paper text-center leading-[1.24] [text-wrap:balance] drop-shadow-[0_1px_10px_rgba(31,27,20,0.5)] overflow-hidden"
                 style={{ fontSize: `${previewFontSize}px` }}
               >
                 {quote}
               </p>
 
-              {/* Citation — "— {Name}, {short source}" (matches the server PNG) */}
-              <p className="font-cormorant italic text-[8px] text-bronze text-center mt-1 max-w-full truncate px-2">
+              {/* Citation — "— {Name}, {short source}" (matches the server PNG). */}
+              <p className="font-lora text-[8px] text-bronze text-center mt-1 max-w-full truncate px-2">
                 — {personaName}{sourceShort ? `, ${sourceShort}` : ''}
               </p>
 
-              {/* QR + bold "thewiseroom.app" stamp */}
+              {/* QR + bold "thewiseroom.app" stamp — read over the dark scrim. */}
               <img src="/self-portrait/qr-wiseroom.png" alt="" className="w-[34px] h-[34px] mt-2" />
-              <p className="font-lora text-[9px] font-bold text-bronze text-center mt-1">
+              <p className="font-lora text-[9px] font-bold text-paper text-center mt-1">
                 thewiseroom.app
               </p>
             </div>
