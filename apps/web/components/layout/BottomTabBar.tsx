@@ -62,16 +62,16 @@ const TABS = [
     activePattern: /^\/app\/self-portrait/,
   },
   {
-    label: 'Account',
-    icon: User,
-    href: '/app/account',
-    activePattern: /^\/app\/account/,
-  },
-  {
     label: 'Quotes',
     icon: Quote,
     href: '/app/quotes',
     activePattern: /^\/app\/quotes/,
+  },
+  {
+    label: 'Account',
+    icon: User,
+    href: '/app/account',
+    activePattern: /^\/app\/account/,
   },
 ] as const
 

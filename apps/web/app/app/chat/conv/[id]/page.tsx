@@ -447,7 +447,7 @@ export default function ExistingConversationPage() {
       <AnotherMindSheet
         open={pickerOpen}
         onClose={() => setPickerOpen(false)}
-        excludeSlug={activePersonaSlug ?? ''}
+        excludeSlugs={[activePersonaSlug, origin?.slug].filter(Boolean) as string[]}
         onSelect={(slug) => { setPickerOpen(false); sendAnotherMind(slug) }}
       />
     </main>

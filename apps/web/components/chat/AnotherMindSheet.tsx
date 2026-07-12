@@ -9,11 +9,11 @@ import BottomSheet from '@/components/ui/BottomSheet'
 interface Props {
   open: boolean
   onClose: () => void
-  excludeSlug: string
+  excludeSlugs: string[]
   onSelect: (slug: string) => void
 }
 
-export default function AnotherMindSheet({ open, onClose, excludeSlug, onSelect }: Props) {
+export default function AnotherMindSheet({ open, onClose, excludeSlugs, onSelect }: Props) {
   const router = useRouter()
   const [personas, setPersonas] = useState<Persona[] | null>(null)
   const [error, setError] = useState(false)
@@ -29,7 +29,7 @@ export default function AnotherMindSheet({ open, onClose, excludeSlug, onSelect 
     if (!open) setError(false)
   }, [open])
 
-  const filtered = personas?.filter((p) => p.slug !== excludeSlug) ?? []
+  const filtered = personas?.filter((p) => !excludeSlugs.includes(p.slug)) ?? []
 
   return (
     <BottomSheet open={open} onClose={onClose}>

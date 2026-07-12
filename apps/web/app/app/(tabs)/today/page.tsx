@@ -22,8 +22,8 @@ import QuoteNudgeCard from '@/components/today/QuoteNudgeCard'
 const TILE_BLUR: Record<string, string> = {
   '/personas/discuss.webp':
     'data:image/webp;base64,UklGRpQAAABXRUJQVlA4IIgAAAAQBACdASoQABgAPu1kqU2ppaQiMAgBMB2JQBOmUABGWiv18JrvFpD1oAD0SfdRW/Pt0D5ynJrCIeTr5cRJg1U8uoGg1MHrfYXOqImwYpQb/xLz63C4ss0Dr9eoeXuyg68gMFxapAqKQZHrBEP0a94YQZ52HPcnu4hywxVlix/Kpu+SJM6l8AAA',
-  '/personas/insights.webp':
-    'data:image/webp;base64,UklGRp4AAABXRUJQVlA4IJIAAABwBACdASoQABgAPu1iqU2ppaQiMAgBMB2JZACdMoACL1ltB44ok7c2IbiogAD8dQ3/HrpXu8xu/wsvL8U26ubZ/I0U1dbvDOHTF+EOnrcmCZl+V2nX40vabV3HNwBV1itXe3bff2NAVrCHLxH7mDYfiXAL/cTe5KAv589Z/i6HQLn2hPGIvI7k1YKIH3B8SEwAAA==',
+  '/self-portrait/appbutton.webp':
+    'data:image/webp;base64,UklGRnwAAABXRUJQVlA4IHAAAABQBACdASoQABQAPu1iqU2ppaOiMAgBMB2JQBOmUABqr+G+qAeLBCMnKUpAAP7Wh72AdqOO/cBFPixOigC5uE6xxwWn1qRj9bYlLKmPZqfe02M1wwl4yG7e/h266VEF/qrMT4y1RZKE75PmoPey+HwA',
   '/personas/revisit.webp':
     'data:image/webp;base64,UklGRnIAAABXRUJQVlA4IGYAAAAQBACdASoQABgAPu1iqU2ppaOiMAgBMB2JYwCdACFsBfhV+qpslKvzTAD+6a0RV2BfC8YHe14Jak6TOrG0C7+hL3q5cy8LrNzp9Vpkreua6MXvhgXr7uB9k6BrXAlHBE+3YuoKwAA=',
   '/personas/rituals.webp':
@@ -181,7 +181,7 @@ export default function TodayPage() {
             onClick={() => router.push('/app/discuss')}
           />
           <ImageTile
-            src="/personas/insights.webp"
+            src="/self-portrait/appbutton.webp"
             label="Insights"
             priority
             onClick={() => router.push('/app/insights')}

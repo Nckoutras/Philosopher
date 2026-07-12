@@ -243,7 +243,7 @@ export default function ChatPage() {
       <AnotherMindSheet
         open={pickerOpen}
         onClose={() => setPickerOpen(false)}
-        excludeSlug={activePersonaSlug ?? ''}
+        excludeSlugs={activePersonaSlug ? [activePersonaSlug] : []}
         onSelect={(slug) => { setPickerOpen(false); sendAnotherMind(slug) }}
       />
     </main>
