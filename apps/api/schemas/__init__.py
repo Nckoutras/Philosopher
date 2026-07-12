@@ -1,7 +1,9 @@
 from datetime import datetime, timedelta, timezone
 from typing import Optional, Any, Literal, Union
 from typing_extensions import Annotated
-from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
+from pydantic import BaseModel, EmailStr, Field, computed_field, field_validator, model_validator
+
+from text_utils import shorten_source
 
 
 # ── Auth ──────────────────────────────────────────────────────────────────────
@@ -94,6 +96,13 @@ class QuoteOut(BaseModel):
     translation_note: Optional[str] = None
     confidence: str
     context: str
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def source_short(self) -> str:
+        # Compact, word-boundary source for the carousel card + share preview.
+        # source_locator stays full (used by "The story").
+        return shorten_source(self.source_locator)
 
     class Config:
         from_attributes = True
