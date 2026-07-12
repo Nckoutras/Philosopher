@@ -125,6 +125,7 @@ interface AppStore {
   removeFeedCouncil: (sessionId: string) => void
   removeFeedCounterview: (counterviewId: string) => void
   removeFeedYvY: (selfComparisonId: string) => void
+  removeFeedQuote: (savedQuoteId: string) => void
 }
 
 export const useStore = create<AppStore>()(
@@ -349,6 +350,13 @@ export const useStore = create<AppStore>()(
         set((s) => ({
           feedItems: s.feedItems.filter(
             (i) => !(i.kind === 'yvy_sentence' && i.self_comparison_id === selfComparisonId),
+          ),
+        })),
+
+      removeFeedQuote: (savedQuoteId) =>
+        set((s) => ({
+          feedItems: s.feedItems.filter(
+            (i) => !(i.kind === 'quote' && i.saved_quote_id === savedQuoteId),
           ),
         })),
     }),

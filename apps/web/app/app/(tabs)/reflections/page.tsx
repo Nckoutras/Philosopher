@@ -8,6 +8,7 @@ import { useStore } from '@/lib/store'
 import { api } from '@/lib/api'
 import type { ReflectionFeedItem } from '@/lib/api'
 import SavedLineCard from '@/components/reflections/SavedLineCard'
+import SavedQuoteCard from '@/components/reflections/SavedQuoteCard'
 import MirrorVerdictCard from '@/components/reflections/MirrorVerdictCard'
 import CouncilVerdictCard from '@/components/reflections/CouncilVerdictCard'
 import CounterviewVerdictCard from '@/components/reflections/CounterviewVerdictCard'
@@ -30,6 +31,7 @@ type PendingDelete =
   | { kind: 'council_verdict'; sessionId: string }
   | { kind: 'counterview_verdict'; counterviewId: string }
   | { kind: 'yvy_sentence'; selfComparisonId: string }
+  | { kind: 'quote'; quoteId: string; savedQuoteId: string }
 
 function groupLabel(savedAt: string): 'This week' | 'Earlier' {
   const days = differenceInCalendarDays(new Date(), new Date(savedAt))
@@ -54,6 +56,7 @@ function itemKey(item: ReflectionFeedItem): string {
   if (item.kind === 'counterview_verdict') return `counterview:${item.save_id}`
   if (item.kind === 'yvy_sentence') return `yvy:${item.save_id}`
   if (item.kind === 'future_self_review') return `fsreview:${item.scheduled_email_id}`
+  if (item.kind === 'quote') return `quote:${item.saved_quote_id}`
   return `council:${item.save_id}`
 }
 
@@ -73,6 +76,11 @@ function matchesQuery(item: ReflectionFeedItem, q: string): boolean {
   }
   if (item.kind === 'future_self_review') {
     return item.review_text.toLowerCase().includes(q) || (item.prediction?.toLowerCase().includes(q) ?? false)
+  }
+  if (item.kind === 'quote') {
+    return item.text_en.toLowerCase().includes(q)
+      || item.persona_name.toLowerCase().includes(q)
+      || item.source_locator.toLowerCase().includes(q)
   }
   return item.synthesis.toLowerCase().includes(q)
 }
@@ -139,6 +147,10 @@ export default function ReflectionsPage() {
       } else if (pendingDelete.kind === 'yvy_sentence') {
         await api.unsaveSelfComparison(pendingDelete.selfComparisonId)
         useStore.getState().removeFeedYvY(pendingDelete.selfComparisonId)
+      } else if (pendingDelete.kind === 'quote') {
+        // DELETE is keyed by quote_id; the local feed removal by saved_quote_id.
+        await api.unsaveQuote(pendingDelete.quoteId)
+        useStore.getState().removeFeedQuote(pendingDelete.savedQuoteId)
       } else {
         await api.unsaveCouncil(pendingDelete.sessionId)
         useStore.getState().removeFeedCouncil(pendingDelete.sessionId)
@@ -278,6 +290,8 @@ export default function ReflectionsPage() {
                               setPendingDelete({ kind: 'council_verdict', sessionId: item.session_id })
                             } else if (item.kind === 'counterview_verdict') {
                               setPendingDelete({ kind: 'counterview_verdict', counterviewId: item.counterview_id })
+                            } else if (item.kind === 'quote') {
+                              setPendingDelete({ kind: 'quote', quoteId: item.quote_id, savedQuoteId: item.saved_quote_id })
                             } else {
                               setPendingDelete({ kind: 'yvy_sentence', selfComparisonId: item.self_comparison_id })
                             }
@@ -300,6 +314,8 @@ export default function ReflectionsPage() {
                             <CouncilVerdictCard item={item} portraitBySlug={portraitBySlug} />
                           ) : item.kind === 'counterview_verdict' ? (
                             <CounterviewVerdictCard item={item} portraitBySlug={portraitBySlug} />
+                          ) : item.kind === 'quote' ? (
+                            <SavedQuoteCard item={item} />
                           ) : (
                             <YvYSentenceCard item={item} />
                           )}

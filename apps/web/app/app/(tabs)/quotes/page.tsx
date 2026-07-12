@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { Bookmark } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useStore } from '@/lib/store'
 import { api } from '@/lib/api'
@@ -46,8 +47,15 @@ export default function QuotesPage() {
     let active = true
     async function load() {
       try {
-        const [quoteList, personas] = await Promise.all([api.getQuotes(), api.getPersonas()])
+        // Saved ids are secondary UI state — a failure there must not break the
+        // carousel, so it degrades to an empty set rather than rejecting the batch.
+        const [quoteList, personas, savedIdList] = await Promise.all([
+          api.getQuotes(),
+          api.getPersonas(),
+          api.getSavedQuoteIds().catch(() => [] as string[]),
+        ])
         if (!active) return
+        setSavedIds(new Set(savedIdList))
         const map: Record<string, PersonaMeta> = {}
         for (const p of personas) {
           map[p.slug] = { name: p.name, portrait_url: p.portrait_url || null }
@@ -172,6 +180,8 @@ export default function QuotesPage() {
   // opening Share closes the sheet and hands the quote to its own state.
   const [shareQuote, setShareQuote] = useState<Quote | null>(null)
   const [startingDiscussId, setStartingDiscussId] = useState<string | null>(null)
+  // Saved-state for the detail-sheet Save toggle (ids of the user's saved quotes).
+  const [savedIds, setSavedIds] = useState<Set<string>>(new Set())
 
   const showPaywall = useStore((s) => s.showPaywall)
   const paywallDetails = useStore((s) => s.paywallDetails)
@@ -207,6 +217,29 @@ export default function QuotesPage() {
   function handleOpen(quote: Quote) {
     void api.incrementStory(quote.id).catch(() => {}) // fire-and-forget demand signal
     setDetailQuote(quote)
+  }
+
+  // Optimistic save toggle: flip the Set immediately, call the API, revert on error.
+  async function handleToggleSave(quote: Quote) {
+    const wasSaved = savedIds.has(quote.id)
+    setSavedIds((prev) => {
+      const next = new Set(prev)
+      if (wasSaved) next.delete(quote.id)
+      else next.add(quote.id)
+      return next
+    })
+    try {
+      if (wasSaved) await api.unsaveQuote(quote.id)
+      else await api.saveQuote(quote.id)
+    } catch {
+      setSavedIds((prev) => {
+        const next = new Set(prev)
+        if (wasSaved) next.add(quote.id)
+        else next.delete(quote.id)
+        return next
+      })
+      toast('Could not update your save. Try again in a moment.')
+    }
   }
 
   // Quiet loading — a bare vellum field, no spinner (a cached GET resolves fast).
@@ -294,22 +327,49 @@ export default function QuotesPage() {
               </p>
             </div>
 
-            <div className="mt-[24px] flex gap-[10px]">
+            <div className="mt-[24px] flex flex-col gap-[10px]">
+              {/* Discuss stays the primary action; Save + Share are secondary. */}
               <button
                 type="button"
                 onClick={() => handleDiscuss(detailQuote)}
                 disabled={startingDiscussId === detailQuote.id}
-                className="flex-1 h-[48px] rounded-full bg-ink text-vellum font-cormorant text-[17px] font-medium transition active:scale-[0.98] disabled:opacity-60 [touch-action:manipulation]"
+                className="w-full h-[48px] rounded-full bg-ink text-vellum font-cormorant text-[17px] font-medium transition active:scale-[0.98] disabled:opacity-60 [touch-action:manipulation]"
               >
                 Discuss this
               </button>
-              <button
-                type="button"
-                onClick={() => { setShareQuote(detailQuote); setDetailQuote(null) }}
-                className="flex-1 h-[48px] rounded-full border border-bronze/60 text-bronze font-cormorant text-[17px] font-medium transition active:scale-[0.98] [touch-action:manipulation]"
-              >
-                Share
-              </button>
+              <div className="flex gap-[10px]">
+                {(() => {
+                  const isSaved = savedIds.has(detailQuote.id)
+                  return (
+                    <button
+                      type="button"
+                      aria-pressed={isSaved}
+                      onClick={() => handleToggleSave(detailQuote)}
+                      className={[
+                        'flex-1 h-[48px] rounded-full font-cormorant text-[17px] font-medium transition active:scale-[0.98] [touch-action:manipulation] flex items-center justify-center gap-[7px]',
+                        isSaved
+                          ? 'bg-bronze/15 border border-bronze text-bronze'
+                          : 'border border-bronze/60 text-bronze',
+                      ].join(' ')}
+                    >
+                      <Bookmark
+                        size={16}
+                        strokeWidth={1.5}
+                        className={isSaved ? 'fill-bronze' : ''}
+                        aria-hidden="true"
+                      />
+                      {isSaved ? 'Saved' : 'Save'}
+                    </button>
+                  )
+                })()}
+                <button
+                  type="button"
+                  onClick={() => { setShareQuote(detailQuote); setDetailQuote(null) }}
+                  className="flex-1 h-[48px] rounded-full border border-bronze/60 text-bronze font-cormorant text-[17px] font-medium transition active:scale-[0.98] [touch-action:manipulation]"
+                >
+                  Share
+                </button>
+              </div>
             </div>
           </div>
         )}
