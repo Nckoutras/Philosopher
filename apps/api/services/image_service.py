@@ -22,7 +22,7 @@ from datetime import datetime
 from io import BytesIO
 from pathlib import Path
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageEnhance
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
@@ -244,10 +244,10 @@ async def generate_quote_share_image(
     user_id: str,
 ) -> bytes:
     """
-    Compose a share card for a corpus Quote: the persona portrait, the persona
-    name as the intro, the quote itself, a "— {Name}, {Source}" citation, and a
-    QR (scan → thewiseroom.app) above the stamp. Quotes are timeless, so no date
-    is stamped. Returns raw PNG bytes.
+    Compose a share card for a corpus Quote: a full-bleed graded persona portrait
+    under a dark scrim, the quote anchored low, its original-language phrase, a
+    "— {Name}, {Source}" citation, and a QR (scan → thewiseroom.app) above the
+    stamp — a server-side mirror of the carousel QuoteCard. Returns raw PNG bytes.
 
     `user_id` is accepted for call-site parity with the other generators (the
     router already enforced auth + rate limit); quotes are global, not user-owned.
@@ -266,14 +266,12 @@ async def generate_quote_share_image(
     ).scalar_one_or_none()
     name = persona.name if persona else quote.persona_slug
 
-    return _render_reflection_canvas(
-        quote=quote.text_en,
+    return _render_quote_card(
+        quote_en=quote.text_en,
+        quote_original=quote.text_original,
         portrait_path=_resolve_portrait_path(persona),
-        persona_initial=(name[0].upper() if name else None),
-        intro_text=name,
-        saved_at=None,  # a quote is timeless — no date stamp
-        attribution=f"— {name}, {shorten_source(quote.source_locator)}",
-        show_qr=True,
+        persona_name=name,
+        source_short=shorten_source(quote.source_locator),
     )
 
 
@@ -1227,6 +1225,252 @@ def _render_counterview_card(
     out = canvas.convert("RGB")
     buf = BytesIO()
     out.save(buf, format="PNG")
+    return buf.getvalue()
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Quote share card (4:5). A server-side mirror of the carousel QuoteCard: a
+# full-bleed graded portrait, a dark ink→transparent scrim, the quote anchored
+# low, the original-language phrase beneath it, and "The Wise Room" + QR branding.
+# Distinct from the shared reflection canvas (vellum/circular) — quotes render
+# HERE, every other share (line/council/mirror/…) still uses that canvas.
+# All QUOTE_* values are starting points — tune without touching the function.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Grading — approximate the card's CSS grayscale(.35) sepia(.16) contrast(1.02)
+# brightness(.97) + a bronze/10 veil.
+QUOTE_GRADE_COLOR       = 0.65          # ImageEnhance.Color — the grayscale(0.35) pull
+QUOTE_GRADE_CONTRAST    = 1.02
+QUOTE_GRADE_BRIGHTNESS  = 0.97
+QUOTE_SEPIA_COLOR       = (138, 126, 106)   # warm sepia tint blended into the portrait
+QUOTE_SEPIA_STRENGTH    = 0.16          # ~sepia(0.16) blend fraction
+QUOTE_BRONZE_VEIL_ALPHA = 26            # bronze/10 (~10% of 255), whole-canvas veil
+
+# Bottom scrim — vertical ink→transparent over the lower band (from-ink via-ink/70
+# to-transparent). Alpha ramps 0 at the band top to MAX_ALPHA at the bottom edge.
+QUOTE_SCRIM_HEIGHT_RATIO = 0.62
+QUOTE_SCRIM_MAX_ALPHA    = 235
+
+# Top scrim — a short ink→transparent gradient behind the top wordmark so the
+# bronze reads on a bright (face-biased) portrait crop.
+QUOTE_TOP_SCRIM_HEIGHT_RATIO = 0.18
+QUOTE_TOP_SCRIM_MAX_ALPHA    = 150
+
+# Wordmark — "The Wise Room", Cormorant-Italic bronze, pinned top-centre.
+QUOTE_WORDMARK_BASELINE_Y = 88
+QUOTE_WORDMARK_FONT_SIZE  = 40
+
+# Quote (the visual focus) — Cormorant-Medium, near-white, bottom-anchored, auto-fit.
+QUOTE_TEXT_MAX_WIDTH   = 900
+QUOTE_TEXT_MAX_SIZE    = 58
+QUOTE_TEXT_MIN_SIZE    = 30
+QUOTE_TEXT_LINE_RATIO  = 1.24           # matches the card's leading-[1.24]
+QUOTE_PAPER_COLOR      = (247, 241, 227)    # near-white "paper"
+QUOTE_ORIGINAL_COLOR   = (206, 198, 182)    # paper dimmed ~30% (reads as paper/70 on dark)
+
+# Bottom stack — QR + stamp fixed at the bottom; source above them; the original
+# phrase (when present) above source; the quote block bottom-anchored above that.
+QUOTE_STAMP_BASELINE_Y      = 1300
+QUOTE_STAMP_FONT_SIZE       = 30
+QUOTE_QR_BOTTOM_Y           = 1250      # QR top = 1250 − REFLECT_QR_SIZE (110) = 1140
+QUOTE_SOURCE_BASELINE_Y     = 1112
+QUOTE_SOURCE_FONT_SIZE      = 26
+QUOTE_ORIGINAL_BASELINE_Y   = 1074      # bottom line of the (≤2-line) original phrase
+QUOTE_ORIGINAL_FONT_SIZE    = 26
+QUOTE_TEXT_BOTTOM_Y         = 1040      # quote block bottom when an original phrase shows
+QUOTE_TEXT_BOTTOM_Y_NO_ORIG = 1074      # quote drops toward the source when no original
+QUOTE_TEXT_BAND_TOP         = 560       # top clamp for the fit loop
+
+
+def _grade_portrait(img: Image.Image) -> Image.Image:
+    """Approximate the carousel card's museum grade on an RGB portrait:
+    desaturate, nudge contrast/brightness, and blend in a warm sepia tint."""
+    img = ImageEnhance.Color(img).enhance(QUOTE_GRADE_COLOR)
+    img = ImageEnhance.Contrast(img).enhance(QUOTE_GRADE_CONTRAST)
+    img = ImageEnhance.Brightness(img).enhance(QUOTE_GRADE_BRIGHTNESS)
+    tint = Image.new("RGB", img.size, QUOTE_SEPIA_COLOR)
+    return Image.blend(img, tint, QUOTE_SEPIA_STRENGTH)
+
+
+def _vertical_scrim(width: int, height: int, max_alpha: int, *, top_down: bool = False) -> Image.Image:
+    """An `L`-mode alpha ramp for a vertical ink scrim. Bottom-heavy by default
+    (0 at top → max_alpha at bottom); top_down flips it for a top scrim."""
+    grad = Image.new("L", (1, height), 0)
+    for y in range(height):
+        t = y / max(1, height - 1)
+        grad.putpixel((0, y), int(max_alpha * ((1 - t) if top_down else t)))
+    return grad.resize((width, height))
+
+
+def _wrap_cjk_chars(text: str, font: ImageFont.FreeTypeFont, max_width: int, max_lines: int) -> list[str]:
+    """Character-level greedy wrap for space-less scripts (e.g. CJK), where
+    word-splitting yields one oversized token that can't break. Accumulates
+    glyphs until the width is hit, then breaks. ≤ max_lines; '…'-truncates the
+    last line on overflow. Quote-card–only — the shared wrappers stay untouched."""
+    text = text.strip()
+    lines: list[str] = []
+    current = ""
+    for ch in text:
+        if not current or font.getlength(current + ch) <= max_width:
+            current += ch  # always take ≥1 glyph per line to guarantee progress
+        else:
+            lines.append(current)
+            current = ch
+            if len(lines) == max_lines:
+                current = ""
+                break
+    if current and len(lines) < max_lines:
+        lines.append(current)
+    if lines and sum(len(l) for l in lines) < len(text):  # overflow → ellipsize
+        last = lines[-1]
+        while last and font.getlength(last + "…") > max_width:
+            last = last[:-1]
+        lines[-1] = last + "…"
+    return lines
+
+
+def _renderable_original(s: str) -> bool:
+    """True when the bundled fonts (Cormorant/Lora) can render every glyph in the
+    original-language phrase. Confirmed via getmask that the bundled files cover
+    ONLY Latin + common punctuation — NOT Greek or CJK, both of which render as
+    tofu (□). So the card omits the phrase for Greek (Socrates / Marcus Aurelius /
+    Epictetus) and CJK (Lao Tzu / Musashi) originals; the story sheet still shows
+    them via the browser's system fonts. Bundling Greek/CJK-capable fonts (a
+    separate PR) would let these render here."""
+    for ch in s:
+        if ch.isspace():
+            continue
+        cp = ord(ch)
+        # Latin + Latin-1 + Latin Extended-A/B + General Punctuation only.
+        if cp <= 0x024F or 0x2000 <= cp <= 0x206F:
+            continue
+        return False  # Greek, CJK, or any other unsupported script → skip the phrase
+    return True
+
+
+def _render_quote_card(
+    *,
+    quote_en: str,
+    quote_original: str | None,
+    portrait_path: Path | None,
+    persona_name: str,
+    source_short: str,
+) -> bytes:
+    """Full-bleed carousel-style quote share card (1080×1350). A graded portrait
+    fills the canvas, a dark ink→transparent scrim anchors the quote low, the
+    original-language phrase sits beneath it, and "The Wise Room" + a QR/
+    thewiseroom.app stamp brand the card. Mirrors components/quotes/QuoteCard.tsx;
+    independent of the shared reflection canvas. Returns raw PNG bytes."""
+    canvas = Image.new("RGBA", (CANVAS_WIDTH, CANVAS_HEIGHT), BG_COLOR + (255,))
+    draw = ImageDraw.Draw(canvas)
+    cx = PORTRAIT_CENTER_X
+    initial = (persona_name[:1] or "?").upper()
+
+    # 1. Full-bleed graded portrait; vellum field + centred initial when absent.
+    if portrait_path:
+        try:
+            portrait = _grade_portrait(Image.open(portrait_path).convert("RGB"))
+            _cover_paste(canvas, portrait, (0, 0, CANVAS_WIDTH, CANVAS_HEIGHT))
+        except Exception as e:
+            logger.warning(f"Quote card portrait failed {portrait_path}: {e}. Using initial.")
+            _draw_initial_avatar(canvas, draw, initial, diameter=REFLECT_PORTRAIT_DIAMETER, top=REFLECT_PORTRAIT_TOP)
+    else:
+        _draw_initial_avatar(canvas, draw, initial, diameter=REFLECT_PORTRAIT_DIAMETER, top=REFLECT_PORTRAIT_TOP)
+
+    # 2. Bronze veil over the whole canvas (bronze/10) — final unifier.
+    canvas.alpha_composite(Image.new("RGBA", (CANVAS_WIDTH, CANVAS_HEIGHT), BRONZE_COLOR + (QUOTE_BRONZE_VEIL_ALPHA,)))
+
+    # 3. Top + bottom ink→transparent scrims for legibility.
+    top_h = int(CANVAS_HEIGHT * QUOTE_TOP_SCRIM_HEIGHT_RATIO)
+    top_layer = Image.new("RGBA", (CANVAS_WIDTH, top_h), INK_COLOR + (0,))
+    top_layer.putalpha(_vertical_scrim(CANVAS_WIDTH, top_h, QUOTE_TOP_SCRIM_MAX_ALPHA, top_down=True))
+    canvas.alpha_composite(top_layer, (0, 0))
+
+    bot_h = int(CANVAS_HEIGHT * QUOTE_SCRIM_HEIGHT_RATIO)
+    bot_layer = Image.new("RGBA", (CANVAS_WIDTH, bot_h), INK_COLOR + (0,))
+    bot_layer.putalpha(_vertical_scrim(CANVAS_WIDTH, bot_h, QUOTE_SCRIM_MAX_ALPHA))
+    canvas.alpha_composite(bot_layer, (0, CANVAS_HEIGHT - bot_h))
+    draw = ImageDraw.Draw(canvas)
+
+    # 4. "The Wise Room" — top-centre wordmark.
+    draw.text(
+        (cx, QUOTE_WORDMARK_BASELINE_Y), "The Wise Room",
+        font=_load_font("CormorantGaramond-Italic.ttf", QUOTE_WORDMARK_FONT_SIZE),
+        fill=BRONZE_COLOR, anchor="ms",
+    )
+
+    # 5. Bottom stack (drawn bottom-up): stamp, QR, source, original phrase, quote.
+    # 5a. "thewiseroom.app" stamp — paper with a bronze stroke so it reads on dark.
+    draw.text(
+        (cx, QUOTE_STAMP_BASELINE_Y), URL_TEXT,
+        font=_load_font("Lora-Regular.ttf", QUOTE_STAMP_FONT_SIZE),
+        fill=QUOTE_PAPER_COLOR, anchor="ms", stroke_width=1, stroke_fill=BRONZE_COLOR,
+    )
+
+    # 5b. QR — centred above the stamp. Missing asset → skip, never 500.
+    if REFLECT_QR_PATH.exists():
+        try:
+            qr = Image.open(REFLECT_QR_PATH).convert("RGBA").resize(
+                (REFLECT_QR_SIZE, REFLECT_QR_SIZE), Image.LANCZOS
+            )
+            canvas.paste(qr, (cx - REFLECT_QR_SIZE // 2, QUOTE_QR_BOTTOM_Y - REFLECT_QR_SIZE), qr)
+        except Exception as e:
+            logger.warning(f"Could not open QR {REFLECT_QR_PATH}: {e}. Skipping QR.")
+    else:
+        logger.warning(f"QR asset missing: {REFLECT_QR_PATH}. Skipping QR.")
+
+    # 5c. Source line "— {name}, {source}", bronze, shrunk to a single line.
+    source_line = f"— {persona_name}, {source_short}"
+    src_size = QUOTE_SOURCE_FONT_SIZE
+    while src_size > 16 and _load_font("Lora-Regular.ttf", src_size).getlength(source_line) > QUOTE_TEXT_MAX_WIDTH:
+        src_size -= 1
+    draw.text(
+        (cx, QUOTE_SOURCE_BASELINE_Y), source_line,
+        font=_load_font("Lora-Regular.ttf", src_size), fill=BRONZE_COLOR, anchor="ms",
+    )
+
+    # 5d. Original phrase — italic serif (no Lora-Italic is bundled; Cormorant-Italic
+    #     is the available italic), dimmed paper. Shown only when present, distinct,
+    #     AND renderable by the bundled fonts — Greek (Socrates/Marcus/Epictetus) and
+    #     CJK (Lao Tzu/Musashi) originals are omitted here rather than shipped as
+    #     tofu; the story sheet still shows them via system fonts.
+    show_original = (
+        bool(quote_original) and quote_original != quote_en
+        and _renderable_original(quote_original)
+    )
+    if show_original:
+        orig_font = _load_font("CormorantGaramond-Italic.ttf", QUOTE_ORIGINAL_FONT_SIZE)
+        orig_lines = _wrap_all_lines(quote_original, orig_font, QUOTE_TEXT_MAX_WIDTH)[:2]
+        # Space-less scripts (e.g. Lao Tzu's Chinese) split() into one oversized
+        # "word" that word-wrapping leaves overflowing — fall back to char wrapping.
+        if any(orig_font.getlength(ln) > QUOTE_TEXT_MAX_WIDTH for ln in orig_lines):
+            orig_lines = _wrap_cjk_chars(quote_original, orig_font, QUOTE_TEXT_MAX_WIDTH, 2)
+        oy = QUOTE_ORIGINAL_BASELINE_Y
+        for line in reversed(orig_lines):
+            draw.text((cx, oy), line, font=orig_font, fill=QUOTE_ORIGINAL_COLOR, anchor="ms")
+            oy -= round(QUOTE_ORIGINAL_FONT_SIZE * 1.2)
+
+    # 5e. Quote (text_en) — Cormorant-Medium, near-white, auto-fit, bottom-anchored.
+    quote_bottom = QUOTE_TEXT_BOTTOM_Y if show_original else QUOTE_TEXT_BOTTOM_Y_NO_ORIG
+    band_height = quote_bottom - QUOTE_TEXT_BAND_TOP
+    for size in range(QUOTE_TEXT_MAX_SIZE, QUOTE_TEXT_MIN_SIZE - 1, -1):
+        q_font = _load_font("CormorantGaramond-Medium.ttf", size)
+        q_lh = round(size * QUOTE_TEXT_LINE_RATIO)
+        q_lines = _wrap_all_lines(quote_en, q_font, QUOTE_TEXT_MAX_WIDTH)
+        if len(q_lines) * q_lh <= band_height:
+            break
+    else:
+        # Even at MIN size it overflows — truncate to the lines that fit.
+        q_font = _load_font("CormorantGaramond-Medium.ttf", QUOTE_TEXT_MIN_SIZE)
+        q_lh = round(QUOTE_TEXT_MIN_SIZE * QUOTE_TEXT_LINE_RATIO)
+        q_lines = _wrap_text(quote_en, q_font, QUOTE_TEXT_MAX_WIDTH, max(1, band_height // q_lh))
+    start_y = quote_bottom - len(q_lines) * q_lh   # bottom-anchored
+    for i, line in enumerate(q_lines):
+        draw.text((cx, start_y + i * q_lh), line, font=q_font, fill=QUOTE_PAPER_COLOR, anchor="mt")
+
+    out = canvas.convert("RGB")
+    buf = BytesIO()
+    out.save(buf, format="PNG", optimize=False)
     return buf.getvalue()
 
 
