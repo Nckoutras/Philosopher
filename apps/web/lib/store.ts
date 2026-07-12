@@ -35,6 +35,7 @@ interface AppStore {
   seenInsightIds: string[]                        // persisted
   setActiveInsights: (list: Insight[]) => void
   markInsightsSeenForConversation: (conversationId: string) => void
+  markAllInsightsSeen: (ids: string[]) => void
 
   // Unread Sunday/season letters — drives the "something new" star on Home.
   // TRANSIENT (refetched by LettersBootstrap from read_at, the server truth); not
@@ -151,6 +152,15 @@ export const useStore = create<AppStore>()(
       setActiveInsights: (list) => set({ activeInsights: list }),
       markInsightsSeenForConversation: (conversationId) => set((s) => {
         const ids = s.activeInsights.filter(i => i.conversation_id === conversationId).map(i => i.id)
+        if (ids.length === 0) return {} as Partial<AppStore>
+        return { seenInsightIds: Array.from(new Set([...s.seenInsightIds, ...ids])) }
+      }),
+      // Mark a set of insight ids seen at once — used when the user opens the
+      // Insights list (clears the Home tile star, the tab star's insight part,
+      // and the library glows together). Takes explicit ids (the page's fetched
+      // non-dismissed insights) so it works even on a hard load of /app/insights,
+      // where the transient activeInsights has not been bootstrapped.
+      markAllInsightsSeen: (ids) => set((s) => {
         if (ids.length === 0) return {} as Partial<AppStore>
         return { seenInsightIds: Array.from(new Set([...s.seenInsightIds, ...ids])) }
       }),
