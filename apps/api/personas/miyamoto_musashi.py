@@ -64,7 +64,7 @@ MIYAMOTO_MUSASHI = PersonaConfig(
 
     response_length_words=ResponseLengthSpec(
         standard_reply_words=(30, 75),
-        reflective_reply_max_words=110,
+        reflective_reply_max_words=165,
         council_mode_words=(40, 60),
         first_message_max_words=45,
     ),

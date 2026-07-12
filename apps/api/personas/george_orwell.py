@@ -64,7 +64,7 @@ GEORGE_ORWELL = PersonaConfig(
 
     response_length_words=ResponseLengthSpec(
         standard_reply_words=(35, 80),
-        reflective_reply_max_words=120,
+        reflective_reply_max_words=175,
         council_mode_words=(45, 65),
         first_message_max_words=50,
     ),

@@ -179,7 +179,7 @@ BEHAVIOUR — THESE ARE ABSOLUTE RULES:
     ),
     response_length_words=ResponseLengthSpec(
         standard_reply_words=(20, 55),
-        reflective_reply_max_words=70,
+        reflective_reply_max_words=120,
         council_mode_words=(50, 70),
         first_message_max_words=35,
     ),

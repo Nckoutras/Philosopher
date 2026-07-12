@@ -161,7 +161,7 @@ BEHAVIOUR:
     ),
     response_length_words=ResponseLengthSpec(
         standard_reply_words=(30, 65),
-        reflective_reply_max_words=90,
+        reflective_reply_max_words=150,
         council_mode_words=(50, 70),
         first_message_max_words=50,
     ),
