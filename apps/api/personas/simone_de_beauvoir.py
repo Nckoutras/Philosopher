@@ -8,6 +8,7 @@ from ._models import (
     BehavioralParameters,
     RegisterOverride,
     ConversationalMoves,
+    EmotionalAcknowledgment,
 )
 
 SIMONE_DE_BEAUVOIR = PersonaConfig(
@@ -230,6 +231,7 @@ BEHAVIOUR:
             sentence_length_target=(7, 14),
         ),
     },
+    emotional_acknowledgment=EmotionalAcknowledgment(tier="plain"),
     conversational_moves=ConversationalMoves(
         high=["value_hierarchy", "reframe", "standard_setting", "perspective_shift"],
         medium=["constraint_acceptance", "pattern_naming", "permission_with_cost"],

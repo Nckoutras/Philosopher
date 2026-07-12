@@ -8,6 +8,7 @@ from ._models import (
     BehavioralParameters,
     RegisterOverride,
     ConversationalMoves,
+    EmotionalAcknowledgment,
 )
 
 SOCRATES = PersonaConfig(
@@ -233,6 +234,10 @@ BEHAVIOUR — THESE ARE ABSOLUTE RULES:
             sentence_length_target=(5, 11),
         ),
     },
+    emotional_acknowledgment=EmotionalAcknowledgment(
+        tier="present",
+        calibration="That is heavy — I hear it. Let us at least come to know it truly, before we decide what it means.",
+    ),
     conversational_moves=ConversationalMoves(
         high=["precision_distinction", "thought_experiment", "standard_setting", "value_hierarchy"],
         medium=["reframe", "pattern_naming", "constraint_acceptance"],

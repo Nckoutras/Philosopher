@@ -7,7 +7,7 @@ Phase 4: PhenomenologyBridge added as runtime per-request context
 (not part of PersonaConfig — produced by phenomenology_bridge_service).
 """
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Literal, Optional
  
  
 @dataclass
@@ -39,6 +39,17 @@ class ResponseLengthSpec:
     first_message_max_words: Optional[int] = None
  
  
+@dataclass
+class EmotionalAcknowledgment:
+    """Per-persona directive to name stated heavy emotion before method, scaled to
+    character. `tier` selects the template directive (plain/present/warm); the
+    optional `calibration` is a voiced acknowledgment line in the persona's own
+    voice, injected as an example. No persona becomes a therapist — the universal
+    forbidden lexicon still applies."""
+    tier: Literal["plain", "present", "warm"]
+    calibration: Optional[str] = None
+
+
 @dataclass
 class ForbiddenLexicon:
     phrases: list[str] = field(default_factory=list)
