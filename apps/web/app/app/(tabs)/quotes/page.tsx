@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
 import { useStore } from '@/lib/store'
@@ -13,7 +13,7 @@ import { openingFor } from '@/lib/quotePrefill'
 
 type PersonaMeta = { name: string; portrait_url: string | null }
 
-// Fisher-Yates — pure, called exactly once per mount (post-fetch, in load()).
+// Fisher-Yates — pure. Used to build each no-repeat rotation cycle.
 function shuffle<T>(input: T[]): T[] {
   const a = [...input]
   for (let i = a.length - 1; i > 0; i--) {
@@ -28,9 +28,14 @@ export default function QuotesPage() {
   const router = useRouter()
 
   const [quotes, setQuotes] = useState<Quote[]>([])
+  const [feed, setFeed] = useState<Quote[]>([])
   const [personaMap, setPersonaMap] = useState<Record<string, PersonaMeta>>({})
   const [loading, setLoading] = useState(true)
   const [errored, setErrored] = useState(false)
+
+  // The full pool (one occurrence of each quote), read by appendCycle from a ref so
+  // the interval/scroll closures never see a stale copy.
+  const poolRef = useRef<Quote[]>([])
 
   useEffect(() => {
     if (token === null) {
@@ -47,10 +52,13 @@ export default function QuotesPage() {
           map[p.slug] = { name: p.name, portrait_url: p.portrait_url || null }
         }
         setPersonaMap(map)
-        // Shuffle ONCE, post-fetch. load() runs a single time per mount, so the
-        // order is stable across re-renders and only reshuffles on remount
-        // (i.e. re-entering the tab).
-        setQuotes(shuffle(quoteList))
+        setQuotes(quoteList)
+        // Rotation queue: the pool is one occurrence of each quote; the first cycle is
+        // a shuffle of it. appendCycle() extends the feed with further seam-avoided
+        // shuffles so every quote is seen before any repeats. load() runs once per
+        // mount, so re-entering the tab (remount) starts a fresh rotation.
+        poolRef.current = quoteList
+        setFeed(shuffle(quoteList))
       } catch {
         if (active) setErrored(true)
       } finally {
@@ -63,9 +71,102 @@ export default function QuotesPage() {
     }
   }, [token, router])
 
-  // ── Interactive layer (additive; the shuffle/fetch above is untouched) ────────
+  // ── Peek-carousel: no-repeat rotation + gentle auto-advance ──────────────────
 
-  const [storySheetQuote, setStorySheetQuote] = useState<Quote | null>(null)
+  const scrollerRef = useRef<HTMLDivElement | null>(null)
+  const pausedRef = useRef(false) // auto-advance stops permanently on first interaction
+  const programmaticRef = useRef(false) // true while WE are scrolling (not the user)
+  const currentIndexRef = useRef(0)
+  const intervalRef = useRef<number | null>(null)
+  const appendGuardRef = useRef(false) // one appendCycle per committed feed
+
+  const ready = !loading && !errored && feed.length > 0
+
+  // Extend the feed by one more full permutation, avoiding a seam repeat (the new
+  // cycle must not open with the quote the feed currently ends on).
+  const appendCycle = useCallback(() => {
+    const pool = poolRef.current
+    if (pool.length === 0) return
+    setFeed((prev) => {
+      let cyc = shuffle(pool)
+      const lastId = prev[prev.length - 1]?.id
+      if (cyc.length > 1 && cyc[0].id === lastId) {
+        cyc = [cyc[1], cyc[0], ...cyc.slice(2)]
+      }
+      return [...prev, ...cyc]
+    })
+  }, [])
+
+  // Stop the drift for good. Called on any first-touch / manual scroll.
+  const pauseAuto = useCallback(() => {
+    if (pausedRef.current) return
+    pausedRef.current = true
+    if (intervalRef.current !== null) {
+      window.clearInterval(intervalRef.current)
+      intervalRef.current = null
+    }
+  }, [])
+
+  // Smoothly centre the next card. Reads live geometry so it survives reflow.
+  const advance = useCallback(() => {
+    const el = scrollerRef.current
+    if (!el) return
+    const total = el.children.length
+    const target = Math.min(currentIndexRef.current + 1, total - 1)
+    const card = el.children[target] as HTMLElement | undefined
+    if (!card) return
+    programmaticRef.current = true
+    const left = card.offsetLeft - (el.clientWidth - card.clientWidth) / 2
+    el.scrollTo({ left, behavior: 'smooth' })
+    window.setTimeout(() => {
+      programmaticRef.current = false
+    }, 700)
+  }, [])
+
+  // Track the centred card; a MANUAL scroll pauses the drift; nearing the end tops
+  // up the rotation so a swipe never runs out of (or repeats) quotes.
+  const onScroll = useCallback(() => {
+    const el = scrollerRef.current
+    if (!el) return
+    const total = el.children.length
+    if (total === 0) return
+    const c0 = el.children[0] as HTMLElement
+    const c1 = el.children[1] as HTMLElement | undefined
+    const stride = c1 ? c1.offsetLeft - c0.offsetLeft : c0.clientWidth || 1
+    const idx = Math.max(0, Math.min(total - 1, Math.round(el.scrollLeft / stride)))
+    currentIndexRef.current = idx
+    if (!programmaticRef.current) pauseAuto()
+    if (idx >= total - 3 && !appendGuardRef.current) {
+      appendGuardRef.current = true
+      appendCycle()
+    }
+  }, [pauseAuto, appendCycle])
+
+  // Re-arm the append guard once the appended cards have committed.
+  useEffect(() => {
+    appendGuardRef.current = false
+  }, [feed.length])
+
+  // Gentle auto-advance: one card every 6s, until the first interaction. Skipped
+  // entirely under prefers-reduced-motion. Never resumes without a remount.
+  useEffect(() => {
+    if (!ready) return
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+    if (pausedRef.current) return
+    const id = window.setInterval(() => {
+      if (pausedRef.current) return
+      const el = scrollerRef.current
+      if (!el) return
+      if (currentIndexRef.current >= el.children.length - 3) appendCycle()
+      advance()
+    }, 6000)
+    intervalRef.current = id
+    return () => window.clearInterval(id)
+  }, [ready, advance, appendCycle])
+
+  // ── Discuss / detail sheet (handleDiscuss reused verbatim) ────────────────────
+
+  const [detailQuote, setDetailQuote] = useState<Quote | null>(null)
   const [startingDiscussId, setStartingDiscussId] = useState<string | null>(null)
 
   const showPaywall = useStore((s) => s.showPaywall)
@@ -99,9 +200,9 @@ export default function QuotesPage() {
     }
   }
 
-  function handleStory(quote: Quote) {
+  function handleOpen(quote: Quote) {
     void api.incrementStory(quote.id).catch(() => {}) // fire-and-forget demand signal
-    setStorySheetQuote(quote)
+    setDetailQuote(quote)
   }
 
   // Quiet loading — a bare vellum field, no spinner (a cached GET resolves fast).
@@ -123,19 +224,26 @@ export default function QuotesPage() {
   return (
     <>
       {/* h-full fills the (tabs) layout's padded content area, so the carousel sits
-          ABOVE the floating tab bar (the layout reserves its footprint). */}
+          ABOVE the floating tab bar (the layout reserves its footprint). Peek geometry:
+          each card is 80vw (snap-center) inside 10vw side padding, so the centre card
+          dominates and its neighbours peek ~10vw on each side. */}
       <main className="h-full min-h-0 bg-vellum">
-        <div className="flex h-full snap-x snap-mandatory overflow-x-auto overflow-y-hidden overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          {quotes.map((q) => {
+        <div
+          ref={scrollerRef}
+          onScroll={onScroll}
+          onPointerDown={pauseAuto}
+          onTouchStart={pauseAuto}
+          className="flex h-full snap-x snap-mandatory items-stretch gap-[8px] overflow-x-auto overflow-y-hidden overscroll-x-contain px-[10vw] py-[10px] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        >
+          {feed.map((q, i) => {
             const meta = personaMap[q.persona_slug]
             return (
-              <div key={q.id} className="h-full w-full shrink-0 snap-center">
+              <div key={`${q.id}-${i}`} className="h-full w-[80vw] shrink-0 snap-center">
                 <QuoteCard
                   quote={q}
                   personaName={meta?.name ?? q.persona_slug}
                   portraitUrl={meta?.portrait_url ?? null}
-                  onDiscuss={() => handleDiscuss(q)}
-                  onStory={() => handleStory(q)}
+                  onOpen={() => handleOpen(q)}
                 />
               </div>
             )
@@ -143,19 +251,45 @@ export default function QuotesPage() {
         </div>
       </main>
 
-      {/* "The story" — the narrative is already on the Quote (context); no new fetch. */}
-      <BottomSheet open={!!storySheetQuote} onClose={() => setStorySheetQuote(null)}>
-        {storySheetQuote && (
-          <div className="overflow-y-auto px-[24px] pt-[24px] pb-[16px]">
-            <p className="font-lora text-[11px] uppercase tracking-[0.18em] text-bronze mb-[14px]">
-              The story
+      {/* Detail sheet: the full quote, its (real) original, attribution, then the story
+          narrative (already on the Quote — no new fetch) and a single Discuss action.
+          maxHeight 85svh so long stories fit; the scroll content clears the floating
+          tab bar's iOS backdrop-blur overpaint (calc(4rem+28px); the panel already
+          insets safe-area, so it is NOT re-added here). */}
+      <BottomSheet open={!!detailQuote} onClose={() => setDetailQuote(null)} maxHeight="85svh">
+        {detailQuote && (
+          <div className="overflow-y-auto px-[24px] pt-[24px] pb-[calc(4rem+28px)]">
+            <p className="font-cormorant text-ink text-[24px] font-medium leading-[1.3]">
+              {detailQuote.text_en}
             </p>
-            <p className="font-cormorant text-ink text-[22px] font-medium leading-[1.3] mb-[16px]">
-              {storySheetQuote.text_en}
+
+            {!!detailQuote.text_original && detailQuote.text_original !== detailQuote.text_en && (
+              <p className="font-lora italic text-charcoal text-[15px] leading-snug mt-[10px]">
+                {detailQuote.text_original}
+              </p>
+            )}
+
+            <p className="font-lora text-bronze text-[11px] uppercase tracking-[0.16em] mt-[14px]">
+              {personaMap[detailQuote.persona_slug]?.name ?? detailQuote.persona_slug} · {detailQuote.source_locator}
             </p>
-            <p className="font-lora text-charcoal text-[14px] leading-relaxed whitespace-pre-line">
-              {storySheetQuote.context}
-            </p>
+
+            <div className="mt-[22px] border-t border-[0.5px] border-edge pt-[18px]">
+              <p className="font-lora text-[11px] uppercase tracking-[0.18em] text-bronze mb-[12px]">
+                The story
+              </p>
+              <p className="font-lora text-charcoal text-[14px] leading-relaxed whitespace-pre-line">
+                {detailQuote.context}
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => handleDiscuss(detailQuote)}
+              disabled={startingDiscussId === detailQuote.id}
+              className="mt-[24px] w-full h-[48px] rounded-full bg-ink text-vellum font-cormorant text-[17px] font-medium transition active:scale-[0.98] disabled:opacity-60 [touch-action:manipulation]"
+            >
+              Discuss this
+            </button>
           </div>
         )}
       </BottomSheet>
