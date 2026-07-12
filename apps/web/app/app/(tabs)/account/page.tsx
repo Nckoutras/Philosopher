@@ -101,7 +101,7 @@ export default function AccountPage() {
 
       <div className="px-[16px] flex flex-col gap-[12px]">
         {/* ── Profile card ── */}
-        <div className="bg-paper border border-[0.5px] border-edge rounded-md px-[16px] py-[20px] flex flex-col items-center gap-[6px]">
+        <div className="bg-paper border border-bronze/70 rounded-md px-[16px] py-[20px] flex flex-col items-center gap-[6px]">
           <div className="w-[48px] h-[48px] rounded-full bg-linen flex items-center justify-center">
             <span className="font-cormorant text-[24px] font-medium text-charcoal leading-none">
               {initial}
@@ -116,7 +116,7 @@ export default function AccountPage() {
         </div>
 
         {/* ── Subscription card ── */}
-        <div className="bg-paper border border-[0.5px] border-edge rounded-md overflow-hidden">
+        <div className="bg-paper border border-bronze/70 rounded-md overflow-hidden">
           <div className="px-[16px] pt-[14px] pb-[2px]">
             <p className="font-lora text-[12px] uppercase tracking-[0.18em] text-charcoal">
               Subscription
@@ -137,7 +137,7 @@ export default function AccountPage() {
         <button
           type="button"
           onClick={handleSignOut}
-          className="w-full bg-paper border border-[0.5px] border-edge rounded-md py-[16px] text-center font-cormorant text-[17px] font-medium text-ink"
+          className="w-full bg-paper border border-bronze/70 rounded-md py-[16px] text-center font-cormorant text-[17px] font-medium text-ink"
         >
           Sign out
         </button>
