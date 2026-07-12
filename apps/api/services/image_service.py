@@ -26,7 +26,7 @@ from PIL import Image, ImageDraw, ImageFont
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
-from models import CouncilCase, CouncilResponse, CouncilSession, Counterview, CounterviewResponse, Mirror, SavedLine, Message, Persona, WeeklyLetter
+from models import CouncilCase, CouncilResponse, CouncilSession, Counterview, CounterviewResponse, Mirror, Quote, SavedLine, Message, Persona, WeeklyLetter
 
 logger = logging.getLogger(__name__)
 
@@ -147,6 +147,21 @@ REFLECT_THUMB_DIAMETER = 140
 REFLECT_THUMB_GAP      = 26
 REFLECT_THUMB_CENTER_Y = REFLECT_PORTRAIT_TOP + REFLECT_PORTRAIT_DIAMETER // 2  # 319
 
+# Quote share card extends the reflection layout with two optional elements that
+# only render when their params are set (show_qr / attribution) — every existing
+# caller passes neither, so all current cards stay byte-identical:
+#   · a small "— {Name}, {Source}" citation below the quote, and
+#   · a centred QR above the bottom stamp (scan → thewiseroom.app).
+# When either is present the auto-fit quote band ends higher (REFLECT_QR_BAND_BOTTOM)
+# so the quote can never run into the citation / QR / stamp band.
+REFLECT_QR_PATH         = SHARE_DIR / "qr-wiseroom.png"
+REFLECT_QR_SIZE         = 110
+REFLECT_QR_BOTTOM_Y     = 1258   # QR bottom edge (top = 1148), sits above the stamp
+REFLECT_QR_BAND_BOTTOM  = 1060   # quote band floor when citation / QR present
+REFLECT_ATTR_BASELINE_Y = 1120   # "— {Name}, {Source}" citation baseline
+REFLECT_ATTR_FONT_SIZE  = 26
+REFLECT_ATTR_MIN_SIZE   = 18     # shrink-to-fit floor for a long name+source
+
 
 def dynamic_font_size(char_count: int) -> float:
     MIN_CHARS, MAX_CHARS = 15, 350
@@ -219,6 +234,45 @@ async def generate_share_image(
         persona_initial=persona.name[0].upper(),
         intro_text=f"{persona.name} told me",
         saved_at=saved_line.saved_at,
+    )
+
+
+async def generate_quote_share_image(
+    db: AsyncSession,
+    quote_id: str,
+    user_id: str,
+) -> bytes:
+    """
+    Compose a share card for a corpus Quote: the persona portrait, the persona
+    name as the intro, the quote itself, a "— {Name}, {Source}" citation, and a
+    QR (scan → thewiseroom.app) above the stamp. Quotes are timeless, so no date
+    is stamped. Returns raw PNG bytes.
+
+    `user_id` is accepted for call-site parity with the other generators (the
+    router already enforced auth + rate limit); quotes are global, not user-owned.
+    Raises ValueError if the quote is unknown or inactive.
+    """
+    quote = (
+        await db.execute(
+            select(Quote).where(Quote.id == quote_id, Quote.is_active.is_(True))
+        )
+    ).scalar_one_or_none()
+    if quote is None:
+        raise ValueError("Quote not found")
+
+    persona = (
+        await db.execute(select(Persona).where(Persona.slug == quote.persona_slug))
+    ).scalar_one_or_none()
+    name = persona.name if persona else quote.persona_slug
+
+    return _render_reflection_canvas(
+        quote=quote.text_en,
+        portrait_path=_resolve_portrait_path(persona),
+        persona_initial=(name[0].upper() if name else None),
+        intro_text=name,
+        saved_at=None,  # a quote is timeless — no date stamp
+        attribution=f"— {name}, {quote.source_locator}",
+        show_qr=True,
     )
 
 
@@ -699,6 +753,8 @@ def _render_reflection_canvas(
     hero_opacity: float = REFLECT_HERO_OPACITY,
     hero_path: Path = HERO_PATH,
     thumbnails: list[Path] | None = None,
+    attribution: str | None = None,
+    show_qr: bool = False,
 ) -> bytes:
     """
     Redesigned reflection share card (1080×1350). Faint hero behind everything;
@@ -708,8 +764,12 @@ def _render_reflection_canvas(
 
     Ritual cards reuse this layout: `hero_path` swaps the chesterfield for a
     ritual hero, and `thumbnails` (Council) replaces the single portrait with a
-    centred row of participating-persona portraits. Both default to the original
-    behaviour, so the line-card call site stays byte-stable.
+    centred row of participating-persona portraits.
+
+    The quote share card adds `attribution` (a "— {Name}, {Source}" citation drawn
+    below the quote) and `show_qr` (a centred QR above the stamp). When either is
+    set the quote band ends higher so it can't collide with them. All three extras
+    default to off, so every existing call site stays byte-stable.
     """
     # Base canvas (Vellum) + faint hero composited over it.
     canvas = Image.new("RGBA", (CANVAS_WIDTH, CANVAS_HEIGHT), BG_COLOR + (255,))
@@ -767,8 +827,10 @@ def _render_reflection_canvas(
         anchor="ms",
     )
 
-    # 6. Reflection — auto-fit, vertically centred in the leftover band
-    band_height = REFLECT_BAND_BOTTOM - REFLECT_BAND_TOP
+    # 6. Reflection — auto-fit, vertically centred in the leftover band. When a
+    #    citation or QR is present the band ends higher so the quote clears them.
+    band_bottom = REFLECT_QR_BAND_BOTTOM if (show_qr or attribution) else REFLECT_BAND_BOTTOM
+    band_height = band_bottom - REFLECT_BAND_TOP
     font_quote, lines, line_h = _fit_reflection(
         quote, band_height, REFLECT_QUOTE_MAX_WIDTH,
         lambda s: _load_font("CormorantGaramond-Italic.ttf", s),
@@ -783,6 +845,38 @@ def _render_reflection_canvas(
             fill=INK_COLOR,
             anchor="mt",
         )
+
+    # 6b. Citation — "— {Name}, {Source}" below the quote (quote card only). Shrunk
+    #     to fit a single centred line so a long name+source never spills the width.
+    if attribution:
+        attr_size = REFLECT_ATTR_FONT_SIZE
+        while attr_size > REFLECT_ATTR_MIN_SIZE and _load_font(
+            "CormorantGaramond-Italic.ttf", attr_size
+        ).getlength(attribution) > REFLECT_QUOTE_MAX_WIDTH:
+            attr_size -= 2
+        draw.text(
+            (PORTRAIT_CENTER_X, REFLECT_ATTR_BASELINE_Y),
+            attribution,
+            font=_load_font("CormorantGaramond-Italic.ttf", attr_size),
+            fill=BRONZE_COLOR,
+            anchor="ms",
+        )
+
+    # 6c. QR — centred above the stamp (quote card only). Missing asset → skip the
+    #     QR but keep the stamp, so the card never 500s.
+    if show_qr:
+        if REFLECT_QR_PATH.exists():
+            try:
+                qr = Image.open(REFLECT_QR_PATH).convert("RGBA").resize(
+                    (REFLECT_QR_SIZE, REFLECT_QR_SIZE), Image.LANCZOS
+                )
+                qx = PORTRAIT_CENTER_X - REFLECT_QR_SIZE // 2
+                qy = REFLECT_QR_BOTTOM_Y - REFLECT_QR_SIZE
+                canvas.paste(qr, (qx, qy), qr)
+            except Exception as e:
+                logger.warning(f"Could not open QR {REFLECT_QR_PATH}: {e}. Skipping QR.")
+        else:
+            logger.warning(f"QR asset missing: {REFLECT_QR_PATH}. Skipping QR.")
 
     # 7. "thewiseroom.app" — bold, high-opacity bottom stamp.
     # No bold Lora is bundled, so simulate weight with a stroke at full opacity.
