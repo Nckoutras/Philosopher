@@ -331,6 +331,19 @@ export interface ReflectionFeedFutureSelfReview {
   saved_at: string
 }
 
+export interface ReflectionFeedQuote {
+  kind: 'quote'
+  saved_quote_id: string
+  quote_id: string
+  text_en: string
+  persona_slug: string
+  persona_name: string
+  persona_portrait_url: string | null
+  source_short: string
+  source_locator: string
+  saved_at: string
+}
+
 export type ReflectionFeedItem =
   | ReflectionFeedLine
   | ReflectionFeedMirror
@@ -338,6 +351,7 @@ export type ReflectionFeedItem =
   | ReflectionFeedCounterview
   | ReflectionFeedYvYSentence
   | ReflectionFeedFutureSelfReview
+  | ReflectionFeedQuote
 
 export interface ReflectionsFeedResponse {
   items: ReflectionFeedItem[]
@@ -1026,6 +1040,18 @@ class ApiClient {
 
   async unsaveMirror(mirrorId: string): Promise<void> {
     return this.request(`/mirrors/${mirrorId}/save`, { method: 'DELETE' })
+  }
+
+  async saveQuote(id: string): Promise<{ saved: boolean }> {
+    return this.request(`/quotes/${id}/save`, { method: 'POST' })
+  }
+
+  async unsaveQuote(id: string): Promise<{ saved: boolean }> {
+    return this.request(`/quotes/${id}/save`, { method: 'DELETE' })
+  }
+
+  async getSavedQuoteIds(): Promise<string[]> {
+    return this.request<string[]>('/quotes/saved')
   }
 
   async shareCouncil(sessionId: string, annotation?: string): Promise<Blob> {
