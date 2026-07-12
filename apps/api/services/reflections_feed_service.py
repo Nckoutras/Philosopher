@@ -18,11 +18,14 @@ from models import (
     Mirror,
     MirrorSave,
     Persona,
+    Quote,
+    SavedQuote,
     ScheduledEmail,
     SelfComparison,
     SelfComparisonSave,
 )
 from services.saved_lines_service import saved_lines_service
+from text_utils import shorten_source
 
 
 class ReflectionsFeedService:
@@ -233,6 +236,42 @@ class ReflectionsFeedService:
             })
         return items
 
+    async def _quotes(self, db: AsyncSession, user_id: str) -> list[dict]:
+        # Saved corpus quotes → the quote + its persona. Active saves only.
+        # persona_slug always resolves to a corpus persona (inner join, matching
+        # the counterview method); source_short is the same shortening used on the
+        # card + share PNG, while source_locator carries the full citation.
+        result = await db.execute(
+            select(
+                SavedQuote.id.label("save_id"),
+                SavedQuote.quote_id,
+                SavedQuote.saved_at,
+                Quote.text_en,
+                Quote.persona_slug,
+                Quote.source_locator,
+                Persona.name.label("persona_name"),
+                Persona.portrait_url.label("persona_portrait_url"),
+            )
+            .join(Quote, SavedQuote.quote_id == Quote.id)
+            .join(Persona, Persona.slug == Quote.persona_slug)
+            .where(
+                SavedQuote.user_id == user_id,
+                SavedQuote.deleted_at.is_(None),
+            )
+        )
+        return [{
+            "kind": "quote",
+            "saved_quote_id": r.save_id,
+            "quote_id": r.quote_id,
+            "saved_at": r.saved_at,
+            "text_en": r.text_en,
+            "persona_slug": r.persona_slug,
+            "persona_name": r.persona_name,
+            "persona_portrait_url": r.persona_portrait_url,
+            "source_short": shorten_source(r.source_locator),
+            "source_locator": r.source_locator,
+        } for r in result.all()]
+
     async def get_feed(self, db: AsyncSession, user_id: str) -> list[dict]:
         lines = await self._lines(db, user_id)
         mirrors = await self._mirror_verdicts(db, user_id)
@@ -240,7 +279,8 @@ class ReflectionsFeedService:
         counterviews = await self._counterview_verdicts(db, user_id)
         yvy = await self._yvy_sentences(db, user_id)
         reviews = await self._future_self_reviews(db, user_id)
-        merged = lines + mirrors + councils + counterviews + yvy + reviews
+        quotes = await self._quotes(db, user_id)
+        merged = lines + mirrors + councils + counterviews + yvy + reviews + quotes
         merged.sort(key=lambda item: item["saved_at"], reverse=True)
         return merged
 

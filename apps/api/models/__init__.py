@@ -659,6 +659,28 @@ class CounterviewSave(Base):
     )
 
 
+class SavedQuote(Base):
+    __tablename__ = "saved_quotes"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=gen_uuid)
+    user_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    quote_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("quotes.id", ondelete="CASCADE"), nullable=False)
+    saved_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "quote_id", name="uq_saved_quotes_user_quote"),
+        # Matches migration 048 exactly (partial, newest-first) so the feed query is
+        # index-served and a future autogenerate won't clobber it.
+        Index(
+            "ix_saved_quotes_user_saved_at",
+            "user_id",
+            text("saved_at DESC"),
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+    )
+
+
 class SelfComparisonSave(Base):
     __tablename__ = "self_comparison_saves"
 
