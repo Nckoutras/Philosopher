@@ -58,7 +58,7 @@ NICCOLO_MACHIAVELLI = PersonaConfig(
 
     response_length_words=ResponseLengthSpec(
         standard_reply_words=(25, 60),
-        reflective_reply_max_words=80,
+        reflective_reply_max_words=130,
         council_mode_words=(40, 70),
         first_message_max_words=40,
     ),

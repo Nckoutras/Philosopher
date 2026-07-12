@@ -59,7 +59,7 @@ LAO_TZU = PersonaConfig(
 
     response_length_words=ResponseLengthSpec(
         standard_reply_words=(15, 45),
-        reflective_reply_max_words=70,
+        reflective_reply_max_words=130,
         council_mode_words=(40, 60),
         first_message_max_words=35,
     ),
