@@ -101,7 +101,10 @@ def _deepen_directive(persona) -> str:
         "than merely announced.\n\n"
         "Speak with your full weight, unmistakably in your own voice, carrying the flavour of your "
         "actual thought and work — the ideas and stance you are known for, never generic "
-        "philosophy. Land somewhere that gives them more to sit with, not less."
+        "philosophy. Land somewhere that gives them more to sit with, not less.\n\n"
+        "Depth means NEW layers — material you have not yet touched in this conversation. "
+        "Re-elaborating an interpretation you already gave, at greater length, is not depth; "
+        "it is repetition with more words."
     )
 
 SEEDED_OPENING_DIRECTIVE = (
