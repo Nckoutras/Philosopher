@@ -101,9 +101,9 @@ function ImageTile({
           soft-pulse), pinned top-right clear of the centered word. */}
       {showStar && (
         <Sparkle
-          size={14}
+          size={16}
           strokeWidth={1.5}
-          className="absolute top-[8px] right-[8px] text-bronze fill-bronze drop-shadow-[0_0_5px_rgba(184,153,104,0.95)] motion-safe:animate-soft-pulse"
+          className="absolute top-[8px] right-[8px] text-bronze fill-bronze drop-shadow-[0_0_4px_rgba(184,153,104,1)] drop-shadow-[0_0_9px_rgba(184,153,104,0.6)] motion-safe:animate-soft-pulse"
           aria-hidden="true"
         />
       )}
