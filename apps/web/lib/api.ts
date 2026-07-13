@@ -557,8 +557,20 @@ export interface SelfComparisonStatus {
 class ApiClient {
   private token: string | null = null
 
+  // Global 401 self-heal. onUnauthorized is registered once at app bootstrap
+  // (QueryProvider) and clears the session + routes to sign-in. handlingUnauthorized
+  // latches so a burst of concurrent 401s fires the handler at most once (guard c);
+  // it is re-armed whenever a fresh token is set below.
+  private onUnauthorized: (() => void) | null = null
+  private handlingUnauthorized = false
+
+  setUnauthorizedHandler(fn: () => void) {
+    this.onUnauthorized = fn
+  }
+
   setToken(token: string | null) {
     this.token = token
+    if (token) this.handlingUnauthorized = false // fresh session — re-arm the 401 self-heal
     if (typeof window !== 'undefined') {
       token ? localStorage.setItem('ph_token', token) : localStorage.removeItem('ph_token')
       // Also set cookie for middleware route protection
@@ -589,6 +601,24 @@ class ApiClient {
 
     const res = await fetch(`${API_BASE}${path}`, { ...options, headers })
     if (!res.ok) {
+      // 401 self-heal: an expired/invalid JWT (auth.py raises 401 "Invalid token")
+      // means the session is dead — clear it and route to sign-in via the registered
+      // handler, then still throw so this caller's promise rejects.
+      //   Guard (a): skip /auth/* endpoints — login/register/otp return 401 for bad
+      //     credentials, not an expired session; those pages surface the error inline.
+      //   Guard (c): fire at most once across a burst of concurrent 401s.
+      //   401 ONLY — never 403 (403 = authenticated-but-forbidden, e.g. admin/paywall;
+      //     signing the user out on a 403 would be wrong).
+      if (
+        res.status === 401 &&
+        !path.startsWith('/auth/') &&
+        !this.handlingUnauthorized &&
+        this.onUnauthorized &&
+        typeof window !== 'undefined'
+      ) {
+        this.handlingUnauthorized = true
+        this.onUnauthorized()
+      }
       const error = await res.json().catch(() => ({ detail: res.statusText }))
       let message: string
       if (Array.isArray(error.detail)) {

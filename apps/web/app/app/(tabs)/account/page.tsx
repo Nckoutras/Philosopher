@@ -6,6 +6,7 @@ import { ChevronRight } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useStore } from '@/lib/store'
 import { api } from '@/lib/api'
+import { signOut } from '@/lib/auth'
 import AppHeader from '@/components/layout/AppHeader'
 
 function useHydrated() {
@@ -78,14 +79,9 @@ export default function AccountPage() {
   }
 
   function handleSignOut() {
-    // Clear ALL three token stores, not just the Zustand store. api.setToken(null)
-    // deletes the ph_token cookie (read by middleware) and the ph_token localStorage
-    // key (read by api.loadToken); clearAuth() resets the persisted Zustand store.
-    // Skipping the cookie left the middleware treating the user as authenticated and
-    // bouncing /auth → /app/welcome after #489 made /auth an auth-only route.
-    api.setToken(null)
-    useStore.getState().clearAuth()
-    window.location.replace('/auth?mode=signin')
+    // Shared helper clears all three token stores (cookie + localStorage + Zustand)
+    // and redirects to sign-in — the same definition the 401 self-heal handler uses.
+    signOut()
   }
 
   if (!hydrated || token === null) {
