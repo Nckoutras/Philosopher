@@ -7,21 +7,20 @@ Endpoints (routers/auth.py) call into this module — no HTTP concerns here.
 import hashlib
 import secrets
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from config import config
 from models import OtpCode
 from services.email_service import send_email
+from services.template_service import render_otp_email
 
 # ── Constants ─────────────────────────────────────────────────────────────────
 
 OTP_LENGTH = 6
 OTP_EXPIRY_MINUTES = 10
 OTP_MAX_ATTEMPTS = 5
-
-_TEMPLATE_PATH = Path(__file__).resolve().parent.parent / "templates" / "otp_email.html"
 
 # ── Exceptions ────────────────────────────────────────────────────────────────
 
@@ -80,8 +79,8 @@ async def create_and_send_otp(db: AsyncSession, email: str) -> None:
     db.add(record)
     await db.commit()
 
-    template = _TEMPLATE_PATH.read_text(encoding="utf-8")
-    html = template.replace("{{code}}", code)
+    image_url = f"{config.PUBLIC_ASSET_BASE_URL.rstrip('/')}/self-portrait/appbutton.png"
+    html = render_otp_email(code=code, image_url=image_url)
     send_email(to=email, subject="Your verification code", html=html)
 
 

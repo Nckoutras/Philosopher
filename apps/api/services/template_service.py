@@ -15,6 +15,17 @@ _env = Environment(
 )
 
 
+def render_otp_email(*, code: str, image_url: str) -> str:
+    """Render the OTP verification-code email body.
+
+    image_url must be an absolute URL (built from config.PUBLIC_ASSET_BASE_URL by
+    the caller) — the armchair-with-W header motif. The code renders in its own
+    solid cell below the image, so it stays legible even if the image fails.
+    """
+    template = _env.get_template("otp_email.html")
+    return template.render(code=code, image_url=image_url)
+
+
 def render_future_self_email(
     *,
     persona_name: str,
