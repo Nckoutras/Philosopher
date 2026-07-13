@@ -58,13 +58,13 @@ export default function ChatHeader({
             aria-label={deepMode ? 'Deep mode on — tap to turn off' : 'Deep mode off — tap to turn on'}
             className={`inline-flex items-center gap-[6px] rounded-full border-[0.5px] px-[10px] py-[5px] font-lora text-[12px] transition-colors ${
               deepMode
-                ? 'border-bronze bg-bronze/10 text-bronze-dark'
+                ? 'border-bronze bg-bronze text-vellum'
                 : 'border-edge text-sepia'
             }`}
           >
             <span
               aria-hidden="true"
-              className={`w-[7px] h-[7px] rounded-full ${deepMode ? 'bg-bronze' : 'bg-edge'}`}
+              className={`w-[7px] h-[7px] rounded-full ${deepMode ? 'bg-vellum' : 'bg-edge'}`}
             />
             Deep mode
           </button>
