@@ -71,11 +71,11 @@ export default function InsightCard({ content, insightType, sourceCount, onPrima
       )}
 
       <div className="flex gap-[10px] items-start mt-[10px]">
-        {/* Today carries the brand seal (44px medallion); the chat card keeps
+        {/* Today carries the brand armchair-with-W mark (44px); the chat card keeps
             the compact bronze diamond so it stays light inside the thread. */}
         {variant === 'today' ? (
           <img
-            src="/insight_seal.webp"
+            src="/self-portrait/appbutton.webp"
             alt=""
             aria-hidden
             width={44}
