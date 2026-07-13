@@ -43,9 +43,29 @@ export default function ChatPage() {
 
   const [createError, setCreateError] = useState<string | null>(null)
   const [pickerOpen, setPickerOpen] = useState(false)
+  // Pro sticky deep mode: reflects conversations.deep_mode. A freshly created
+  // conversation always starts false, so no read from the create response is needed.
+  const [deepMode, setDeepMode] = useState(false)
   const { send, sendAnotherMind, sendGoDeeper } = useStream()
 
   const handleBringAnotherMind = () => setPickerOpen(true)
+
+  // Pro sticky deep mode: toggle on/off. Pro-only (the toggle is not rendered for
+  // free users, and the endpoint + read site are Pro-gated regardless).
+  async function handleToggleDeepMode() {
+    if (!activeConversationId) return
+    const next = !deepMode
+    setDeepMode(next) // optimistic
+    try {
+      const updated = next
+        ? await api.setDeepMode(activeConversationId)
+        : await api.clearDeepMode(activeConversationId)
+      setDeepMode(updated.deep_mode)
+    } catch {
+      setDeepMode(!next) // revert
+      toast.error('Could not change deep mode. Please try again.')
+    }
+  }
 
   // Take to the Council (upsell surface, visible to everyone). Seed from the
   // last user message; Pro → pre-filled Council, free → existing upgrade wall.
@@ -207,6 +227,9 @@ export default function ChatPage() {
       <ChatHeader
         personaName={personaName}
         portraitUrl={portraitUrl}
+        showDeepMode={isPro}
+        deepMode={deepMode}
+        onToggleDeepMode={handleToggleDeepMode}
       />
       <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3">
         {openingInvocation && <OpeningInvocation text={openingInvocation} />}
