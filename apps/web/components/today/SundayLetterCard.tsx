@@ -70,8 +70,8 @@ export default function SundayLetterCard({ isPro }: Props) {
           <line x1="100" y1="0" x2="50" y2="44" stroke="#B89968" strokeWidth="1" strokeOpacity="0.4" vectorEffect="non-scaling-stroke" />
         </svg>
 
-        <div className="absolute left-1/2 top-[44%] -translate-x-1/2 -translate-y-1/2 w-[76px] h-[76px]">
-          <Image src="/insight_seal.webp" alt="" width={76} height={76} className="w-full h-full object-contain drop-shadow-[0_1px_4px_rgba(122,64,48,0.35)]" />
+        <div className="absolute left-1/2 top-[39%] -translate-x-1/2 -translate-y-1/2 w-[71px] h-[71px]">
+          <Image src="/insight_seal.webp" alt="" width={71} height={71} className="w-full h-full object-contain drop-shadow-[0_1px_4px_rgba(122,64,48,0.35)]" />
         </div>
 
         <p className="relative font-cormorant text-[19px] font-medium text-ink">The Sunday Letter</p>

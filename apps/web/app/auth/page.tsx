@@ -25,7 +25,6 @@ const OAUTH_ERROR_MESSAGES: Record<string, string> = {
 function AuthForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const mode = searchParams.get('mode') === 'signin' ? 'signin' : 'signup'
   const errorParam = searchParams.get('error')
 
   const [email, setEmail] = useState('')
@@ -82,12 +81,10 @@ function AuthForm() {
         <div className="w-full max-w-[380px] mx-auto space-y-7">
           <header className="text-center space-y-2">
             <h1 className="font-cormorant text-[28px] font-medium text-ink leading-tight">
-              {mode === 'signin' ? 'Welcome back.' : 'Create your account.'}
+              You are always welcome
             </h1>
             <p className="font-lora text-[13px] text-charcoal">
-              {mode === 'signin'
-                ? 'Enter your email to receive a code.'
-                : 'We’ll send a code to your email.'}
+              Enter your email and we’ll send you a code.
             </p>
           </header>
 
