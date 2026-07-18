@@ -34,6 +34,9 @@ class UserOut(BaseModel):
     onboarded_at: Optional[datetime]
     created_at: datetime
     needs_disclaimer: bool = False
+    # Global free daily deep-mode allowance remaining today (0..5). -1 = unlimited
+    # (pro/premium). Computed in the /me handler; not an ORM column.
+    deep_remaining: int = -1
 
     class Config:
         from_attributes = True

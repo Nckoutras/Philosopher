@@ -11,7 +11,7 @@ from uuid import UUID
 
 import redis.asyncio as redis
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 
 from config import config
 from models import DailyUsage
@@ -52,6 +52,11 @@ FREE_DAILY_LIMIT_PER_PERSONA = 5
 # gentle upgrade wall. Pro/premium are unlimited. Quantity only — the depth of
 # each free go-deeper is identical to Pro (see _deepen_directive).
 FREE_DAILY_GO_DEEPER_LIMIT_PER_PERSONA = 3
+
+# Free sticky deep-mode allowance. Unlike go-deeper (per-persona), this is a
+# GLOBAL daily budget across ALL personas — 5 deep replies/day, then normal
+# replies (the flag can stay on; it simply stops deepening). Pro/premium unlimited.
+FREE_DAILY_DEEP_MODE_LIMIT = 5
 
 
 @dataclass
@@ -148,5 +153,47 @@ async def check_go_deeper_limit(
         allowed=count < FREE_DAILY_GO_DEEPER_LIMIT_PER_PERSONA,
         remaining=remaining,
         limit=FREE_DAILY_GO_DEEPER_LIMIT_PER_PERSONA,
+        reset_at=next_utc_midnight(),
+    )
+
+
+async def check_deep_mode_limit(
+    db: AsyncSession,
+    user_id: str | UUID,
+    user_tier: str | None = None,
+) -> RateLimitResult:
+    """Free daily deep-mode allowance — GLOBAL across all personas (not per-persona).
+
+    Reads SUM(daily_usage.deep_mode_count) for this user TODAY and compares against
+    FREE_DAILY_DEEP_MODE_LIMIT. Pro/premium are unlimited (remaining -1). Does NOT
+    increment — the caller bumps deep_mode_count on the per-persona row after a
+    successful deep reply. `remaining` is the PRE-increment allowance; the streaming
+    caller derives the predictive post-reply value from it.
+    """
+    if user_tier is None:
+        from services.tier_service import get_user_tier
+        user_tier = await get_user_tier(db, user_id)
+
+    if user_tier in ("pro", "premium"):
+        return RateLimitResult(
+            allowed=True,
+            remaining=-1,
+            limit=-1,
+            reset_at=next_utc_midnight(),
+        )
+
+    result = await db.execute(
+        select(func.coalesce(func.sum(DailyUsage.deep_mode_count), 0)).where(
+            DailyUsage.user_id == str(user_id),
+            DailyUsage.usage_date == date.today(),
+        )
+    )
+    count = int(result.scalar_one() or 0)
+    remaining = max(0, FREE_DAILY_DEEP_MODE_LIMIT - count)
+
+    return RateLimitResult(
+        allowed=count < FREE_DAILY_DEEP_MODE_LIMIT,
+        remaining=remaining,
+        limit=FREE_DAILY_DEEP_MODE_LIMIT,
         reset_at=next_utc_midnight(),
     )

@@ -601,19 +601,37 @@ class ConversationService:
             if seeded_opening and history_len == 0:
                 system_prompt = system_prompt + "\n\n" + SEEDED_OPENING_DIRECTIVE
 
-            # Pro sticky DEEP MODE (read site). When the conversation's deep_mode
-            # flag is on AND the sender is Pro/premium, every normal reply is deep
-            # (the persona's reflective band, exceeding the normal ceiling U).
-            # Defense-in-depth: the Pro/premium check here means a stale deep_mode
-            # on a downgraded account is inert (no depth) even though the flag
-            # persists — independent of the Pro-gated set endpoint. Distress still
-            # wins: skipped unless safety level is "none". Deep mode REPLACES the
-            # adaptive-length directive (they are mutually exclusive for this turn).
-            deep_mode_active = (
-                conv.deep_mode
-                and user_plan in ("pro", "premium")
-                and safety_in.level == "none"
-            )
+            # Sticky DEEP MODE (read site). When the conversation's deep_mode flag is
+            # on, a normal reply is deep (the persona's reflective band, exceeding the
+            # normal ceiling U). Distress still wins: skipped unless safety is "none".
+            #  - Pro/premium (and admins): unlimited.
+            #  - Free: allowed while the GLOBAL daily allowance remains — SUM of
+            #    deep_mode_count across ALL personas today < FREE_DAILY_DEEP_MODE_LIMIT.
+            #    A stale flag on an exhausted budget simply stops deepening (no depth),
+            #    so the flag can persist harmlessly.
+            # deep_remaining is computed predictively here (pre-increment) and emitted
+            # at the 'start' event; the per-persona bump happens post-gen in Phase C2.
+            # Deep mode REPLACES the adaptive-length directive (mutually exclusive).
+            # deep_remaining is authoritative ONLY when deep mode is engaged for this
+            # conversation; the client reads it only then (the meter is a deep-mode
+            # affordance). When deep is off we emit -1 as an inert filler — NOT a claim
+            # of unlimited — and skip the allowance query entirely (no cost on the
+            # common non-deep turn). The initial meter value comes from /me.
+            deep_flag_on = conv.deep_mode and safety_in.level == "none"
+            if not deep_flag_on:
+                deep_applied = False
+                deep_remaining = -1
+            elif user_plan in ("pro", "premium") or is_admin:
+                deep_applied = True
+                deep_remaining = -1  # unlimited
+            else:
+                dm_limit = await rate_limit_service.check_deep_mode_limit(
+                    db, user_id, user_tier="free"
+                )
+                deep_applied = dm_limit.allowed
+                # Predictive post-increment remaining: drop one iff this reply is deep.
+                deep_remaining = max(0, dm_limit.remaining - (1 if deep_applied else 0))
+            deep_mode_active = deep_applied
             if deep_mode_active:
                 system_prompt = system_prompt + "\n\n" + _deepen_directive(persona)
             # Adaptive response length: size the reply to the user's input size.
@@ -656,7 +674,9 @@ class ConversationService:
         # when no chunks have been sent yet (connection-phase failures).
         model = MODEL_PRO if user_plan in ("pro", "premium") else MODEL_FREE
         full_response = ""
-        yield f"data: {json.dumps({'type': 'start'})}\n\n"
+        # deep_applied: did THIS reply get deep treatment. deep_remaining: predictive
+        # post-reply allowance (free 0..5; pro/premium/admin -1). Both from Phase A.
+        yield f"data: {json.dumps({'type': 'start', 'deep_applied': deep_applied, 'deep_remaining': deep_remaining})}\n\n"
 
         _llm_success = False
         _last_llm_error: Exception | None = None
@@ -851,14 +871,21 @@ class ConversationService:
                     )
                 )
                 usage = usage_result.scalar_one_or_none()
+                # Free deep-mode bump: only when THIS reply actually got deep treatment
+                # (deep_applied, decided in Phase A). Pro/premium/admin never bump.
+                # Reaching Phase C2 already implies a successful, non-suppressed reply.
+                bump_deep = deep_applied and user_plan not in ("pro", "premium")
                 if usage:
                     usage.message_count += 1
+                    if bump_deep:
+                        usage.deep_mode_count += 1
                 else:
                     db.add(DailyUsage(
                         user_id=user_id,
                         persona_id=conv_persona_id,
                         usage_date=today,
                         message_count=1,
+                        deep_mode_count=1 if bump_deep else 0,
                     ))
 
             await db.commit()
