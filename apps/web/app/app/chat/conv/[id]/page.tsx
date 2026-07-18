@@ -9,6 +9,7 @@ import { api, SaveLimitError, DuplicateSaveError, ConversationNotFoundError, typ
 import toast from 'react-hot-toast'
 import { renderSavedToast } from '@/components/chat/savedToast'
 import { useInsightDoors } from '@/lib/useInsightDoors'
+import { markSeen, unmarkSeen, pruneSeen } from '@/lib/roomNoticedSeen'
 import ChatHeader from '@/components/chat/ChatHeader'
 import OpeningInvocation from '@/components/chat/OpeningInvocation'
 import MessageList from '@/components/chat/MessageList'
@@ -134,13 +135,31 @@ export default function ExistingConversationPage() {
   // Fetch this conversation's recurrence insight and pick the first that is
   // neither server-dismissed nor dismissed this session. A merely-seen (not
   // dismissed) insight may re-light on a later boundary — that's intended.
+  //
+  // If the scoped fetch finds nothing, fall back to the GLOBAL list (D1b): a signal
+  // from ANOTHER conversation lights a door chip here too, filtered by the shared
+  // Home seen-state (wr_roomnoticed_seen) so once acted-on/dismissed anywhere it
+  // stops nagging. Scoped insights re-light until dismissed (high relevance); global
+  // ones respect the seen set (lower relevance, cross-surface).
   const refreshInsight = useCallback(async () => {
     try {
       const list = await api.getInsights(params.id)
       const next = list.find(
         (i) => !i.is_dismissed && !sessionDismissedInsightIds.has(i.id),
       ) ?? null
-      setInsight(next)
+      if (next) {
+        setInsight(next)
+        return
+      }
+      // Global fallback: newest non-dismissed insight from any conversation this
+      // device hasn't already acted on (via Home or here). Prune the seen set to
+      // the live ids first, then exclude dismissed / session-dismissed / seen.
+      const global = await api.getInsights()
+      const seen = new Set(pruneSeen(global.map((i) => i.id)))
+      const globalNext = global.find(
+        (i) => !i.is_dismissed && !sessionDismissedInsightIds.has(i.id) && !seen.has(i.id),
+      ) ?? null
+      setInsight(globalNext)
     } catch {
       // Silent: the insight chip is a quiet affordance, never a hard failure.
     }
@@ -289,20 +308,30 @@ export default function ExistingConversationPage() {
   // Doors come from the shared hook (byte-identical across chat, the Insights tab,
   // and Home). Discard additionally suppresses re-poll for this session via the
   // module-scoped set — chat-only, so it lives in the onRemove/onRestore callbacks.
+  // An insight is "global" (surfaced here from ANOTHER conversation) when its origin
+  // conversation is not this one. Global actions update the shared Home seen set so
+  // "acted anywhere → gone everywhere"; scoped insights keep their re-light behavior.
   function handleInsightPrimary() {
-    if (insight) primary(insight)
+    if (!insight) return
+    if (insight.conversation_id !== params.id) markSeen(insight.id)
+    primary(insight)
   }
 
   function handleInsightDiscard() {
     const current = insight
     if (!current) return
+    const isGlobal = current.conversation_id !== params.id
     discard(current, {
       onRemove: () => {
         sessionDismissedInsightIds.add(current.id)
+        // Global: mark seen immediately so it can't re-nudge (Home or here) before
+        // the 5s server dismiss lands — mirrors RoomNoticedCard.
+        if (isGlobal) markSeen(current.id)
         setInsight(null)
       },
       onRestore: () => {
         sessionDismissedInsightIds.delete(current.id)
+        if (isGlobal) unmarkSeen(current.id)
         setInsight(current)
       },
     })
