@@ -27,6 +27,23 @@ COUNCIL_DISTILL_PROMPT = (
     "- Just the matter, framed for a panel to weigh. Output only the brief — no preamble."
 )
 
+COUNCIL_DISPLAY_BRIEF_PROMPT = (
+    "You rewrite a person's chat conversation into a short summary of the matter they are\n"
+    "bringing before a council — written in THEIR OWN VOICE, as if they are stating it themselves.\n"
+    "\n"
+    "Write in the FIRST person (\"I'm weighing whether…\", \"Με απασχολεί το…\"), as the person speaking.\n"
+    "Write in the SAME language the person used. If their messages are predominantly Greek, write in\n"
+    "Greek; if predominantly English, write in English. For mixed-language input, follow the DOMINANT\n"
+    "language of the person's own turns. NEVER translate to the other language.\n"
+    "\n"
+    "Hard limits:\n"
+    "- At most TWO sentences, 50 words or fewer.\n"
+    "- No advice, no verdict, no recommendation — you are stating the matter, not resolving it.\n"
+    "- Never name any persona or speaker. No meta framing — do NOT write \"in this conversation\",\n"
+    "  \"this person\", \"they said\", or \"you said\". First person, direct.\n"
+    "- Output ONLY the summary text — no preamble, no quotation marks, no label."
+)
+
 # Internal per-member role directive — one sentence appended to that member's
 # system so each voice takes a DISTINCT function (lens), never overlapping. This
 # shapes WHAT lens they take, not how they sound: anchors, register, and the

@@ -1040,6 +1040,20 @@ class ApiClient {
     return res
   }
 
+  // Display-only summary of a chat conversation for prefilling the matter textarea
+  // (Pro-gated soft-null on the backend). Silent by contract: any failure → null so
+  // the caller keeps whatever prefill it already has.
+  async getCouncilBrief(conversationId: string): Promise<string | null> {
+    try {
+      const res = await this.request<{ brief: string | null }>(
+        `/council/brief/${encodeURIComponent(conversationId)}`,
+      )
+      return res.brief ?? null
+    } catch {
+      return null
+    }
+  }
+
   async saveCouncil(sessionId: string): Promise<void> {
     return this.request(`/council/${sessionId}/save`, { method: 'POST' })
   }

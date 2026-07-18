@@ -110,6 +110,10 @@ export default function CouncilPage() {
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
   const [shareModalOpen, setShareModalOpen] = useState(false)
+  // Chat-sourced display-summary prefill: shimmer while the brief loads; the brief
+  // swaps into the textarea ONLY if the user hasn't started editing (userTouchedRef).
+  const [briefLoading, setBriefLoading] = useState(false)
+  const userTouchedRef = useRef(false)
 
   // ── Network-side refs ──
   // slug → { name, portraitUrl } — loaded once from API, stable across sessions
@@ -172,7 +176,27 @@ export default function CouncilPage() {
     setMirrorId(mid)
     setConversationId(cid)
 
+    // Chat-sourced councils: keep the raw last-message prefill visible immediately
+    // (no blank textarea), then swap in a nicer first-person display summary IF the
+    // user hasn't started editing. Display only — never blocks submit, never changes
+    // what the members receive. getCouncilBrief is silent (null on free/empty/error),
+    // so on null the raw prefill simply stays and the shimmer clears.
+    let cancelled = false
+    if (src === 'chat' && cid) {
+      setBriefLoading(true)
+      api
+        .getCouncilBrief(cid)
+        .then((brief) => {
+          if (cancelled) return
+          if (brief && !userTouchedRef.current) setMatter(brief)
+        })
+        .finally(() => {
+          if (!cancelled) setBriefLoading(false)
+        })
+    }
+
     return () => {
+      cancelled = true
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current)
     }
   }, [token, router])
@@ -557,11 +581,15 @@ export default function CouncilPage() {
           )}
           <textarea
             value={matter}
-            onChange={(e) => setMatter(e.target.value)}
+            onChange={(e) => {
+              // Any edit locks out the async display-brief swap (see mount effect).
+              userTouchedRef.current = true
+              setMatter(e.target.value)
+            }}
             maxLength={MATTER_MAX}
             rows={6}
             placeholder="What do you want the council to consider?"
-            className="w-full bg-paper border-[0.5px] border-edge rounded-[14px] px-[16px] py-[14px] font-lora text-[15px] text-ink placeholder:text-sepia/50 resize-none focus:outline-none focus:ring-1 focus:ring-bronze"
+            className={`w-full bg-paper border-[0.5px] border-edge rounded-[14px] px-[16px] py-[14px] font-lora text-[15px] text-ink placeholder:text-sepia/50 resize-none focus:outline-none focus:ring-1 focus:ring-bronze${briefLoading ? ' animate-pulse' : ''}`}
           />
           <div className="flex items-center justify-between">
             <span className={`font-lora text-[11px] ${matter.length > MATTER_MAX ? 'text-safety' : 'text-sepia'}`}>
