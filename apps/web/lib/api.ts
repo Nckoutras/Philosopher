@@ -998,7 +998,7 @@ class ApiClient {
     return res
   }
 
-  async streamCouncil(body: { matter: string; source?: string; mirror_id?: string | null; conversation_id?: string | null }): Promise<Response> {
+  async streamCouncil(body: { matter: string; source?: string; mirror_id?: string | null; conversation_id?: string | null; matter_edited?: boolean }): Promise<Response> {
     const res = await fetch(`${API_BASE}/council`, {
       method: 'POST',
       headers: {

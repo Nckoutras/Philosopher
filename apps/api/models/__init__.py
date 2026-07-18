@@ -571,6 +571,9 @@ class CouncilSession(Base):
     # Null on old sessions / synthesis failure → live screen falls back to `synthesis`.
     synthesis_structured: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="generating")
+    # True when a chat-sourced matter was user-edited before submit (so the members
+    # deliberated the EDITED text, not a fresh re-distillation). Persisted for mining.
+    matter_edited: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
     __table_args__ = (

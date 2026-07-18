@@ -459,6 +459,8 @@ export default function CouncilPage() {
         source,
         mirror_id: mirrorId,
         conversation_id: conversationId,
+        // Only chat-sourced edits count; direct councils always send false.
+        matter_edited: source === 'chat' && userTouchedRef.current,
       })
 
       const reader = res.body!.getReader()
