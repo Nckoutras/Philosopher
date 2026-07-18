@@ -259,6 +259,63 @@ async def counterview_belief_task(ctx, user_id: str, belief: str):
             logger.error(f"Counterview belief task failed: {e}", exc_info=True)
 
 
+async def distill_user_text_to_memory_task(
+    ctx,
+    user_id: str,
+    conversation_id: str | None,
+    text: str,
+    source_label: str,
+):
+    """Distil a person's OWN text (e.g. an edited Council matter) into ONE clean
+    memory statement and store it as a confidence-1.0 MemoryEntry, so it feeds
+    everything memory already feeds (chat recall, letters, insights) — no new
+    'everywhere' wiring. Mirrors counterview_belief_task's single-text→memory shape.
+
+    Cheap by construction: distill_to_memory pre-filters trivial text BEFORE any
+    LLM call and returns None → we return with zero further cost. Only a qualifying
+    edit incurs one Haiku distill + one embed. entry_type='stated', confidence=1.0
+    (auto-protected from the stale-memory cron, which only prunes <0.6).
+
+    Self-contained try/except — a failure here must never break anything upstream."""
+    from db.session import AsyncSessionLocal
+    from models import MemoryEntry
+    from services.embedding_client import embedding_client
+    from services.memory_service import distill_to_memory
+
+    async with AsyncSessionLocal() as db:
+        try:
+            statement = await distill_to_memory(text)
+            if statement is None:
+                logger.info(
+                    "Distill-to-memory: nothing to store (%s) user=%s conv=%s",
+                    source_label, user_id, conversation_id,
+                )
+                return  # no cost past the pre-filter / empty distill
+
+            embedding = await embedding_client.embed(statement)
+            db.add(MemoryEntry(
+                user_id=user_id,
+                persona_id=None,
+                conversation_id=conversation_id,
+                entry_type="stated",
+                content=statement,
+                embedding=embedding,
+                confidence=1.0,  # explicit self-stated; auto-protected from stale-cron
+                source_turn=0,
+                is_active=True,
+            ))
+            await db.commit()
+            logger.info(
+                "Distill-to-memory stored (%s) user=%s conv=%s",
+                source_label, user_id, conversation_id,
+            )
+        except Exception as e:
+            logger.error(
+                "distill_user_text_to_memory_task failed (%s) user=%s conv=%s: %s",
+                source_label, user_id, conversation_id, e, exc_info=True,
+            )
+
+
 async def seed_profile_memory_task(ctx, user_id: str):
     """Seed embedded memory_entries from the onboarding profile so persona recall AND
     the You-vs-You signal count pick it up for free. Mirrors counterview_belief_task.
@@ -1490,6 +1547,7 @@ class WorkerSettings:
     functions = [
         extract_memory_task,
         counterview_belief_task,
+        distill_user_text_to_memory_task,
         seed_profile_memory_task,
         seed_self_portrait_memory_task,
         generate_insight_task,
