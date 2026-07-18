@@ -50,7 +50,9 @@ Return JSON only, no preamble, in exactly this shape:
   "pull_quote": "...",
   "forward_gesture": "...",
   "practical_takeaway": "...",
-  "suggested_persona_slug": "..."}}
+  "suggested_persona_slug": "...",
+  "suggested_ritual_slug": "...",
+  "ritual_proposal": "..."}}
 
 Where:
 - "title": a 4-8 word title for the letter (e.g. "On the week you held still")
@@ -61,6 +63,12 @@ Where:
 - "forward_gesture": 1-2 sentences — a teaser or challenge that sets a direction of thought. Not a question, not advice, not a task.
 - "practical_takeaway": ONE small, concrete thing to TRY or NOTICE this week — in YOUR own voice and method, drawn from how you actually think. It must read like you, not like a wellness app. Not a task, not advice, never "you should", never a self-help platitude. (Epictetus: "This week, when something stings, pause before you call it 'unfair'." — NOT "Practice gratitude daily.") Use null if nothing honest fits — never force one.
 - "suggested_persona_slug": choose ONE slug from this list of other minds they have not yet spoken with this week: {other_persona_slugs}
+- "suggested_ritual_slug": choose the ONE ritual that best fits what THIS week surfaced — exactly one of "council" | "counterview" | "future-self" | "mirror":
+    "council" — they are weighing a live decision between courses, or caught in a hesitation that would benefit from several minds at once.
+    "counterview" — they hold a conviction firmly enough that testing it would serve them.
+    "future-self" — they are reaching for commitment, direction, or a change they have not yet named to themselves.
+    "mirror" — a recurring pattern worth sitting with, or nothing else clearly fits. When in doubt, choose "mirror".
+- "ritual_proposal": ONE warm, specific sentence in your own voice inviting them into the chosen ritual and why it fits THIS week — woven as a closing gesture, tied to what you named in this letter. Never an exercise, never "you should", never homework or a check-in. Write it in the SAME language as the rest of this letter — never drift into English. Use null if no honest one-sentence invitation fits.
 
 If the week holds nothing meaningful to letter about, return exactly: {{"status": "empty"}}
 
@@ -909,6 +917,33 @@ async def _maybe_send_weekly_letter_email(db, user, letter, payload, persona, re
 # line, so a wrong/over-long "what went unspoken" is dropped rather than shown.
 AVOIDANCE_MAX_WORDS = 40
 
+# The four rituals the weekly letter may steer into (B1 grammar). Deliberately a
+# subset of the full ritual canon (lib/rituals.ts) — excludes you-vs-you and the
+# sunday-letter itself. Validation fallback is "mirror" (an always-valid default),
+# NOT None, so B2 can always render a door.
+_LETTER_RITUAL_SLUGS = {"council", "counterview", "future-self", "mirror"}
+
+# Gross word cap for the ritual proposal (single closing sentence). Semantically
+# distinct from AVOIDANCE_MAX_WORDS (that guards the sensitive "what went unspoken"
+# line) — kept separate so the two tune independently.
+RITUAL_PROPOSAL_MAX_WORDS = 40
+
+
+def _clean_ritual_proposal(value) -> str | None:
+    """Normalize the optional ritual-invitation sentence: None unless a non-empty
+    string within the gross word cap. Mirrors _clean_avoidance's strip/null/cap
+    shape but WITHOUT the safety check_output call — ritual_proposal is an ordinary
+    payload field (like practical_takeaway / forward_gesture), not the sensitive
+    avoidance line, so it is not subjected to output safety."""
+    if not isinstance(value, str):
+        return None
+    text = value.strip()
+    if not text or text.lower() == "null":
+        return None
+    if len(text.split()) >= RITUAL_PROPOSAL_MAX_WORDS:
+        return None
+    return text
+
 
 async def _clean_avoidance(value) -> str | None:
     """Normalize the optional 'what went unspoken' line (grounded-or-null): None
@@ -1152,6 +1187,14 @@ async def generate_weekly_letter_task(ctx, user_id: str, voice_persona_slug: str
             )
             suggested_slug = valid_suggestion_result.scalar_one_or_none()
 
+            # Validate the suggested ritual against the fixed B1 grammar set (rituals
+            # are not DB rows, so this mirrors the suggested_persona shape but checks a
+            # module-level literal). Anything missing/invalid → "mirror": a deterministic,
+            # always-valid default so B2 can always render a door.
+            raw_ritual = data.get("suggested_ritual_slug")
+            ritual_slug = raw_ritual if raw_ritual in _LETTER_RITUAL_SLUGS else "mirror"
+            ritual_proposal = _clean_ritual_proposal(data.get("ritual_proposal"))
+
             # The avoidance line ("what went unspoken") is grounded-or-null, gross-cap
             # guarded, and — uniquely in the letter path — passes check_output; a
             # flagged/over-long line is nulled and the section simply doesn't render.
@@ -1166,6 +1209,8 @@ async def generate_weekly_letter_task(ctx, user_id: str, voice_persona_slug: str
                 "forward_gesture": data.get("forward_gesture"),
                 "practical_takeaway": data.get("practical_takeaway"),
                 "suggested_persona_slug": suggested_slug,
+                "suggested_ritual_slug": ritual_slug,
+                "ritual_proposal": ritual_proposal,
             }
             letter = WeeklyLetter(
                 user_id=user_id,
