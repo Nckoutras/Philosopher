@@ -26,6 +26,10 @@ import SubPageNav from '@/components/layout/SubPageNav'
 // too early; this catch-up poll is a same-session testing affordance. Trivially
 // tunable/removable — set to 0 / delete the timeout to disable.
 const INSIGHT_REPOLL_MS = 7000
+// Bounded catch-up after a reply: the worker writes the insight asynchronously,
+// and a backed-up queue can lag past a single 7s window. Recheck up to this many
+// times (~7/14/21s), stopping early once an insight is found.
+const INSIGHT_REPOLL_MAX_ATTEMPTS = 3
 
 // Insights dismissed during THIS browser session. Module-scoped so it survives
 // page remounts within the SPA (server-side is_dismissed is the real, durable
@@ -148,7 +152,9 @@ export default function ExistingConversationPage() {
   // Home seen-state (wr_roomnoticed_seen) so once acted-on/dismissed anywhere it
   // stops nagging. Scoped insights re-light until dismissed (high relevance); global
   // ones respect the seen set (lower relevance, cross-surface).
-  const refreshInsight = useCallback(async () => {
+  // Returns whether an insight was found (chip lit) so the turn-boundary catch-up
+  // chain can stop early. The load-time caller ignores the return value.
+  const refreshInsight = useCallback(async (): Promise<boolean> => {
     try {
       const list = await api.getInsights(params.id)
       const next = list.find(
@@ -156,7 +162,7 @@ export default function ExistingConversationPage() {
       ) ?? null
       if (next) {
         setInsight(next)
-        return
+        return true
       }
       // Global fallback: newest non-dismissed insight from any conversation this
       // device hasn't already acted on (via Home or here). Prune the seen set to
@@ -167,8 +173,10 @@ export default function ExistingConversationPage() {
         (i) => !i.is_dismissed && !sessionDismissedInsightIds.has(i.id) && !seen.has(i.id),
       ) ?? null
       setInsight(globalNext)
+      return globalNext !== null
     } catch {
       // Silent: the insight chip is a quiet affordance, never a hard failure.
+      return false
     }
   }, [params.id])
 
@@ -294,8 +302,11 @@ export default function ExistingConversationPage() {
   }, [isReady, refreshInsight])
 
   // Turn-boundary detection: when the assistant-message count grows, re-poll
-  // immediately and once more after a short delay (the worker writes the insight
-  // asynchronously, so the immediate poll usually misses it).
+  // immediately, then a bounded catch-up series at INSIGHT_REPOLL_MS intervals
+  // (the worker writes the insight asynchronously, so the immediate poll usually
+  // misses it, and a backed-up queue can lag past a single window). The chain
+  // stops early once an insight is found, and clears its pending timer on unmount
+  // or a new boundary so timers never leak or overlap.
   useEffect(() => {
     if (!isReady) return
     const count = messages.filter((m) => m.role === 'assistant').length
@@ -306,8 +317,27 @@ export default function ExistingConversationPage() {
     if (count > prevAssistantCountRef.current) {
       prevAssistantCountRef.current = count
       refreshInsight()
-      const t = setTimeout(refreshInsight, INSIGHT_REPOLL_MS)
-      return () => clearTimeout(t)
+
+      // Self-rescheduling chain: at most one timer pending at a time. `cancelled`
+      // guards against a fire that lands mid-teardown; `timer` holds the pending
+      // handle for cleanup.
+      let cancelled = false
+      let timer: ReturnType<typeof setTimeout> | undefined
+      let attempts = 0
+      const scheduleNext = () => {
+        if (cancelled || attempts >= INSIGHT_REPOLL_MAX_ATTEMPTS) return
+        timer = setTimeout(async () => {
+          attempts += 1
+          const found = await refreshInsight()
+          if (cancelled || found) return
+          scheduleNext()
+        }, INSIGHT_REPOLL_MS)
+      }
+      scheduleNext()
+      return () => {
+        cancelled = true
+        if (timer) clearTimeout(timer)
+      }
     }
     prevAssistantCountRef.current = count
   }, [messages, isReady, refreshInsight])
