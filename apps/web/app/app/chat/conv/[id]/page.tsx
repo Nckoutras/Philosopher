@@ -66,9 +66,8 @@ export default function ExistingConversationPage() {
   const [deepMode, setDeepMode] = useState(false)
   const isPro = plan === 'pro' || plan === 'premium'
   const [insight, setInsight] = useState<Insight | null>(null)
-  const [insightExpanded, setInsightExpanded] = useState(false)
   const { send, sendAnotherMind, sendGoDeeper } = useStream()
-  const { primary, doubt, discard } = useInsightDoors()
+  const { primary, discard } = useInsightDoors()
   const hasSentTopicRef = useRef(false)
   // Assistant-message count last observed; null until baselined on conversation
   // load, so the initial load is not mistaken for a turn boundary.
@@ -254,7 +253,6 @@ export default function ExistingConversationPage() {
   // Reset insight state when switching conversations.
   useEffect(() => {
     setInsight(null)
-    setInsightExpanded(false)
     prevAssistantCountRef.current = null
   }, [params.id])
 
@@ -295,10 +293,6 @@ export default function ExistingConversationPage() {
     if (insight) primary(insight)
   }
 
-  function handleInsightDoubt() {
-    if (insight) doubt(insight)
-  }
-
   function handleInsightDiscard() {
     const current = insight
     if (!current) return
@@ -306,7 +300,6 @@ export default function ExistingConversationPage() {
       onRemove: () => {
         sessionDismissedInsightIds.add(current.id)
         setInsight(null)
-        setInsightExpanded(false)
       },
       onRestore: () => {
         sessionDismissedInsightIds.delete(current.id)
@@ -410,14 +403,9 @@ export default function ExistingConversationPage() {
           onBringAnotherMind={handleBringAnotherMind}
           onGoDeeper={() => sendGoDeeper()}
           onContinueWithGuest={handleContinueWithGuest}
-          insightContent={insight?.content ?? null}
           insightType={insight?.insight_type ?? null}
-          insightSourceCount={insight?.source_count ?? null}
-          insightExpanded={insightExpanded}
-          onInsightTap={() => setInsightExpanded(true)}
-          onInsightPrimary={handleInsightPrimary}
-          onInsightDoubt={handleInsightDoubt}
-          onInsightDiscard={handleInsightDiscard}
+          onInsightDoor={handleInsightPrimary}
+          onInsightDismiss={handleInsightDiscard}
           onTakeToCouncil={handleTakeToCouncil}
         />
         {safetyActive ? (

@@ -1,9 +1,24 @@
 'use client'
 
 import { useState } from 'react'
-import { Zap, Users, Bookmark, Sparkle, ArrowRight, Landmark } from 'lucide-react'
+import { Zap, Users, Bookmark, Sparkle, ArrowRight, Landmark, Swords, GitCompareArrows, X, type LucideIcon } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import SaveLineInlineUpgrade from './SaveLineInlineUpgrade'
+
+// Named one-tap ritual door chip (D1a). Each known insight type maps to the ritual
+// its existing door routes to (see useInsightDoors.primary); the chip label + icon
+// name that ritual so a single tap goes straight in. Null/unknown types get NO
+// chip — the old generic "Insight" fallback is gone.
+const INSIGHT_DOOR: Record<string, { label: string; Icon: LucideIcon }> = {
+  dilemma: { label: 'Bring it to the Council', Icon: Landmark },
+  belief: { label: 'Put it to the test', Icon: Swords },
+  shift: { label: 'Then and now', Icon: GitCompareArrows },
+  pattern: { label: 'Reflect in the Mirror', Icon: Sparkle },
+}
+
+// Strong bronze glow so the door chip stands clearly apart from the utility chips.
+// Single tunable knob — premium, not neon; will be tuned on a real device.
+const DOOR_GLOW = 'shadow-[0_0_16px_rgba(184,153,104,0.8)]'
 
 interface Props {
   messageId: string
@@ -12,8 +27,12 @@ interface Props {
   onUpgradeConfirm: () => void
   onBringAnotherMind: () => void
   onGoDeeper: () => void
-  showInsightChip?: boolean
-  onInsightTap?: () => void
+  // Named door chip: the insight type drives label/icon/route. Only the four known
+  // types render a chip. onInsightDoor routes via the existing door; onInsightDismiss
+  // is the 5s-undo dismiss.
+  insightType?: string | null
+  onInsightDoor?: () => void
+  onInsightDismiss?: () => void
   showCouncilChip?: boolean
   onTakeToCouncil?: () => void
   // Sticky guest: shown only on a brought-in message whose guest is not already
@@ -22,7 +41,7 @@ interface Props {
   onContinueWith?: () => void
 }
 
-export default function QuickActionsRow({ messageId: _messageId, saved, onSave, onUpgradeConfirm, onBringAnotherMind, onGoDeeper, showInsightChip = false, onInsightTap, showCouncilChip = false, onTakeToCouncil, continueWithName = null, onContinueWith }: Props) {
+export default function QuickActionsRow({ messageId: _messageId, saved, onSave, onUpgradeConfirm, onBringAnotherMind, onGoDeeper, insightType = null, onInsightDoor, onInsightDismiss, showCouncilChip = false, onTakeToCouncil, continueWithName = null, onContinueWith }: Props) {
   const [showUpgrade, setShowUpgrade] = useState(false)
   const freeSaveCount = useStore((s) => s.freeSaveCount)
   const freeTierLimit = useStore((s) => s.freeTierLimit)
@@ -56,6 +75,10 @@ export default function QuickActionsRow({ messageId: _messageId, saved, onSave, 
   const chipSaved =
     'bg-linen-deep text-ink border border-ink font-medium px-[10px] py-[6px] font-lora text-[13px] rounded-sm inline-flex items-center gap-[5px]'
 
+  // Resolve the door for this message's insight type (undefined for null/unknown).
+  const door = insightType ? INSIGHT_DOOR[insightType] : undefined
+  const DoorIcon = door?.Icon
+
   return (
     <div className="flex gap-[6px] flex-wrap ml-[32px] mt-[4px]">
       <button
@@ -76,7 +99,9 @@ export default function QuickActionsRow({ messageId: _messageId, saved, onSave, 
         <Users size={11} strokeWidth={1.5} />
         <span className="hidden min-[360px]:inline">Bring another mind</span>
       </button>
-      {showCouncilChip && onTakeToCouncil && (
+      {/* A dilemma door IS a Council door — suppress the always-on Council chip so
+          the message shows only one Council entry. Other types leave it unchanged. */}
+      {showCouncilChip && onTakeToCouncil && insightType !== 'dilemma' && (
         <button
           type="button"
           onClick={onTakeToCouncil}
@@ -101,16 +126,28 @@ export default function QuickActionsRow({ messageId: _messageId, saved, onSave, 
         />
         <span className="hidden min-[360px]:inline">{saved ? 'Saved' : 'Save line'}</span>
       </button>
-      {showInsightChip && (
-        <button
-          type="button"
-          onClick={onInsightTap}
-          className="bg-paper text-ink border-[0.5px] border-bronze px-[10px] py-[6px] font-lora text-[13px] rounded-sm inline-flex items-center gap-[5px] shadow-[0_0_8px_rgba(184,153,104,0.45)]"
-          aria-label="View insight"
-        >
-          <Sparkle size={11} strokeWidth={1.5} className="text-bronze" />
-          <span>Insight</span>
-        </button>
+      {/* Named one-tap ritual door. Body → straight into the ritual (existing door);
+          the trailing × is the 5s-undo dismiss. One chip, two tap targets. */}
+      {door && DoorIcon && (
+        <div className={`bg-paper text-ink border-[0.5px] border-bronze rounded-sm inline-flex items-center ${DOOR_GLOW}`}>
+          <button
+            type="button"
+            onClick={onInsightDoor}
+            className="pl-[10px] pr-[6px] py-[6px] font-lora text-[13px] inline-flex items-center gap-[5px]"
+            aria-label={door.label}
+          >
+            <DoorIcon size={11} strokeWidth={1.5} className="text-bronze" />
+            <span>{door.label}</span>
+          </button>
+          <button
+            type="button"
+            onClick={onInsightDismiss}
+            className="pr-[8px] pl-[4px] py-[6px] min-w-[24px] min-h-[24px] inline-flex items-center justify-center text-sepia"
+            aria-label="Dismiss insight"
+          >
+            <X size={12} strokeWidth={1.5} />
+          </button>
+        </div>
       )}
       {continueWithName && onContinueWith && (
         <button
