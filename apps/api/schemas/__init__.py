@@ -195,6 +195,7 @@ class CouncilCreate(BaseModel):
     source: str = "direct"          # "direct" | "mirror" | "chat"
     mirror_id: str | None = None
     conversation_id: str | None = None   # chat source only; drives the essence brief
+    matter_edited: bool = False          # chat source only; user edited the auto-filled matter → skip re-distill
 
 
 # ── Memory ────────────────────────────────────────────────────────────────────

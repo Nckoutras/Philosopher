@@ -75,6 +75,7 @@ async def create_council(
             source=source,
             mirror_id=body.mirror_id,
             conversation_id=body.conversation_id,
+            matter_edited=body.matter_edited,
         ),
         media_type="text/event-stream",
         headers=response_headers,

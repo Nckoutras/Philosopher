@@ -153,6 +153,7 @@ class CouncilService:
         source: str = "direct",
         mirror_id: str | None = None,
         conversation_id: str | None = None,
+        matter_edited: bool = False,
     ) -> AsyncGenerator[str, None]:
 
         # ── 1. PRE-RITUAL SAFETY GATE ────────────────────────────────────
@@ -171,8 +172,11 @@ class CouncilService:
         # not just the last-message fragment. Internal-only: input_text below
         # keeps the RAW matter, and the brief is never sent to the client.
         # On any failure _distill_brief returns None → fall back to raw matter.
+        # When the user edited the auto-filled matter (matter_edited), skip the
+        # re-distillation entirely so the members deliberate the EDITED text —
+        # gating the CALL only; _distill_brief itself is unchanged.
         brief = None
-        if source == "chat" and conversation_id:
+        if source == "chat" and conversation_id and not matter_edited:
             brief = await self._distill_brief(db, user_id, conversation_id)
         effective_matter = brief or matter
 
@@ -192,6 +196,7 @@ class CouncilService:
             session_number=1,
             input_text=matter,
             status="generating",
+            matter_edited=matter_edited,
         )
         db.add(session)
         await db.flush()
