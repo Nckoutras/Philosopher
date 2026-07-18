@@ -69,7 +69,7 @@ Given a conversation exchange (user message + assistant response), extract memor
 Focus on: beliefs, values, ongoing struggles, recurring patterns, personal milestones, stated goals.
 
 Return a JSON array only. No explanation. No markdown.
-Each item: {"type": "belief|value|struggle|pattern|milestone|dilemma", "content": "...", "confidence": 0.0-1.0, "theme": "<one theme slug or omit>"}
+Each item: {"type": "belief|value|struggle|pattern|milestone|dilemma|aspiration", "content": "...", "confidence": 0.0-1.0, "theme": "<one theme slug or omit>"}
 
 Rules:
 - Only extract what is genuinely stated or clearly implied. Do not infer beyond the text.
@@ -79,6 +79,7 @@ Rules:
 - Max 3 entries per exchange.
 - "dilemma": a live decision the user is ACTIVELY weighing between two courses of action, stated in THIS exchange. Not general uncertainty, not a decision already made in the past, not the assistant's framing. Content = one sentence naming the two sides in the user's own voice, first person (it is placed in the user's own input field verbatim).
 - "belief": write content as the belief ITSELF — a single declarative sentence in the user's own voice, not "You believe that…". e.g. "If I don't handle everything myself, it won't be done right." This text is used verbatim as a Counterview anchor.
+- "aspiration": a genuine reach toward who the user wants to BECOME, or a direction/change they are resolving to make — stated with real weight in THIS exchange. NOT a passing wish, a casual preference, or an offhand goal. Only when they articulate the person they want to be or a change they mean to commit to. Content = one sentence in the user's own voice, first person, naming the direction.
 - "theme" (OPTIONAL): the single best-fitting life-theme for this item, one of: separation, anxiety, fear, grief, acceptance, work, relationships, purpose, dilemma, controversy, doubt, freedom. Omit the field entirely if none clearly fits. Only meaningful for "dilemma" and "belief"; may be omitted for other types.
 
 Example output:
@@ -127,8 +128,8 @@ class MemoryService:
 
         saved = []
         for entry in entries_data:
-            # Dilemma items are insight-only signals (see below) — never memory rows.
-            if entry.get("type") == "dilemma":
+            # Dilemma/aspiration items are insight-only signals (see below) — never memory rows.
+            if entry.get("type") in ("dilemma", "aspiration"):
                 continue
             if entry.get("confidence", 0) < 0.65:
                 continue
@@ -154,23 +155,27 @@ class MemoryService:
 
         await db.flush()
 
-        # ── Dilemma/belief → Insight (Slice 2) ────────────────────────────────
+        # ── Dilemma/belief/aspiration → Insight (Slice 2) ─────────────────────
         # Explicitly-stated, chip-worthy signals promoted to an Insight — ONLY when
         # the exchange was safety-clean (safety_ok, level 'none' both ways) and the
         # SAME throttle/dedup gate detect_recurrence uses allows it. At most one write
-        # per call; a dilemma is preferred over a belief when both qualify. content is
-        # used verbatim downstream (Council prefill for a dilemma, Counterview anchor
-        # for a belief); source_count=None (not a cross-conversation recurrence).
+        # per call; priority order dilemma > belief > aspiration when several qualify.
+        # Per-type confidence bar (_SIGNAL_MIN_CONF): dilemma/belief 0.8, aspiration
+        # 0.7. content is used verbatim downstream (Council prefill for a dilemma,
+        # Counterview anchor for a belief, Future Self door for an aspiration);
+        # source_count=None (not a cross-conversation recurrence).
         # Self-contained — a failure here must never break memory persistence.
         if safety_ok:
             try:
+                _SIGNAL_MIN_CONF = {"dilemma": 0.8, "belief": 0.8, "aspiration": 0.7}
                 signal = None
-                for want in ("dilemma", "belief"):
+                for want in ("dilemma", "belief", "aspiration"):
+                    thr = _SIGNAL_MIN_CONF[want]
                     signal = next(
                         (
                             e for e in entries_data
                             if e.get("type") == want
-                            and e.get("confidence", 0) >= 0.8
+                            and e.get("confidence", 0) >= thr
                             and (e.get("content") or "").strip()
                         ),
                         None,

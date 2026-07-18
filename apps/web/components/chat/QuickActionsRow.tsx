@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Users, Bookmark, Sparkle, ArrowRight, Landmark, Swords, GitCompareArrows, X, Lock, type LucideIcon } from 'lucide-react'
+import { Users, Bookmark, Sparkle, ArrowRight, Landmark, Swords, GitCompareArrows, Send, X, Lock, type LucideIcon } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import SaveLineInlineUpgrade from './SaveLineInlineUpgrade'
 
@@ -12,6 +12,7 @@ import SaveLineInlineUpgrade from './SaveLineInlineUpgrade'
 const INSIGHT_DOOR: Record<string, { label: string; Icon: LucideIcon }> = {
   dilemma: { label: 'Bring it to the Council', Icon: Landmark },
   belief: { label: 'Put it to the test', Icon: Swords },
+  aspiration: { label: 'Write to your future self', Icon: Send },
   shift: { label: 'Then and now', Icon: GitCompareArrows },
   pattern: { label: 'Reflect in the Mirror', Icon: Sparkle },
 }
