@@ -5,7 +5,6 @@ import { api, type Message } from '@/lib/api'
 import { useStore } from '@/lib/store'
 import MessageBubble from './MessageBubble'
 import QuickActionsRow from './QuickActionsRow'
-import InsightCard from './InsightCard'
 
 interface Props {
   messages: Message[]
@@ -18,19 +17,16 @@ interface Props {
   // fresh-start /chat/[slug] page omits it (its identity keys on the home slug),
   // so the chip is hidden there and another-mind stays one-shot.
   onContinueWithGuest?: (slug: string, name: string) => void
-  // Recurrence/shift insight (Slice 1–2): surfaced on the LAST assistant message only.
-  insightContent?: string | null
+  // Named one-tap ritual door (D1a): the insight type surfaces as a door chip on the
+  // LAST assistant message only. onInsightDoor routes via the existing door;
+  // onInsightDismiss is the 5s-undo dismiss. No in-chat card anymore.
   insightType?: string | null
-  insightSourceCount?: number | null
-  insightExpanded?: boolean
-  onInsightTap?: () => void
-  onInsightPrimary?: () => void
-  onInsightDoubt?: () => void
-  onInsightDiscard?: () => void
+  onInsightDoor?: () => void
+  onInsightDismiss?: () => void
   onTakeToCouncil?: () => void
 }
 
-export default function MessageList({ messages, onSaveLine, onUpgradeConfirm, onBringAnotherMind, onGoDeeper, onContinueWithGuest, insightContent, insightType, insightSourceCount, insightExpanded = false, onInsightTap, onInsightPrimary, onInsightDoubt, onInsightDiscard, onTakeToCouncil }: Props) {
+export default function MessageList({ messages, onSaveLine, onUpgradeConfirm, onBringAnotherMind, onGoDeeper, onContinueWithGuest, insightType, onInsightDoor, onInsightDismiss, onTakeToCouncil }: Props) {
   const savedMessageIds = useStore((s) => s.savedMessageIds)
   const activePersonaSlug = useStore((s) => s.activePersonaSlug)
 
@@ -39,7 +35,7 @@ export default function MessageList({ messages, onSaveLine, onUpgradeConfirm, on
       m.role === 'user' || m.role === 'assistant',
   )
 
-  // The insight chip/card anchors to the most recent assistant message.
+  // The insight door chip anchors to the most recent assistant message.
   const lastAssistantId = [...visible].reverse().find((m) => m.role === 'assistant')?.id ?? null
 
   const [personaNames, setPersonaNames] = useState<Record<string, string>>({})
@@ -80,22 +76,13 @@ export default function MessageList({ messages, onSaveLine, onUpgradeConfirm, on
                 onUpgradeConfirm={onUpgradeConfirm}
                 onBringAnotherMind={onBringAnotherMind}
                 onGoDeeper={onGoDeeper}
-                showInsightChip={msg.id === lastAssistantId && !!insightContent && !insightExpanded}
-                onInsightTap={onInsightTap}
+                insightType={msg.id === lastAssistantId ? (insightType ?? null) : null}
+                onInsightDoor={onInsightDoor}
+                onInsightDismiss={onInsightDismiss}
                 showCouncilChip={msg.id === lastAssistantId}
                 onTakeToCouncil={onTakeToCouncil}
                 continueWithName={onContinueWithGuest && broughtIn && slug && slug !== activePersonaSlug ? (broughtInName ?? null) : null}
                 onContinueWith={onContinueWithGuest && broughtIn && slug ? () => onContinueWithGuest(slug, broughtInName ?? '') : undefined}
-              />
-            )}
-            {msg.id === lastAssistantId && !!insightContent && insightExpanded && (
-              <InsightCard
-                content={insightContent}
-                insightType={insightType ?? null}
-                sourceCount={insightSourceCount ?? null}
-                onPrimary={onInsightPrimary ?? (() => {})}
-                onDoubt={onInsightDoubt ?? (() => {})}
-                onDiscard={onInsightDiscard ?? (() => {})}
               />
             )}
           </div>
