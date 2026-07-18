@@ -8,9 +8,9 @@ import { renderDiscardUndoToast } from '@/components/chat/discardToast'
 // Single source of truth for the four insight "doors" — the primary action per
 // type, the Doubt destination, and the 5s-undo discard. Consumed by all three
 // surfaces (chat conv/[id], the Insights tab, and the Home "room noticed" card)
-// so a dilemma/belief/shift/pattern insight behaves byte-identically wherever it
-// appears. isPro is derived here from the store `plan` (the dilemma gate's single
-// source of truth), so callers never re-derive it.
+// so a dilemma/belief/aspiration/shift/pattern insight behaves byte-identically
+// wherever it appears. isPro is derived here from the store `plan` (the dilemma/
+// aspiration gate's single source of truth), so callers never re-derive it.
 //
 // Discard is state-agnostic: the shared part (durable dismiss delayed 5s so Undo
 // can cancel it, plus the toast) lives here; each caller owns its optimistic UI
@@ -21,12 +21,14 @@ export function useInsightDoors() {
   const plan = useStore((s) => s.plan)
   const isPro = plan === 'pro' || plan === 'premium'
 
-  // The 4-way primary door. Neither dilemma nor belief dismisses on tap.
-  //  - dilemma → the Council (Pro → seed council_prefill/source='nudge'/
+  // The primary door. Neither dilemma nor belief dismisses on tap.
+  //  - dilemma    → the Council (Pro → seed council_prefill/source='nudge'/
   //    conversation; free → the /app/upgrade wall).
-  //  - belief  → Counterview (the Doubt-this destination; the primary IS that door).
-  //  - shift   → You-vs-You (its own Pro gate downstream).
-  //  - else    → reflect in the Mirror.
+  //  - belief     → Counterview (the Doubt-this destination; the primary IS that door).
+  //  - aspiration → the Future Self ritual (Pro → /app/rituals?open=future-self;
+  //    free → the /app/upgrade wall). Route-only, no seeding.
+  //  - shift      → You-vs-You (its own Pro gate downstream).
+  //  - else       → reflect in the Mirror.
   function primary(insight: Insight) {
     if (insight.insight_type === 'dilemma') {
       if (!isPro) {
@@ -43,6 +45,14 @@ export function useInsightDoors() {
     }
     if (insight.insight_type === 'belief') {
       router.push(`/app/counterview?insightId=${insight.id}`)
+      return
+    }
+    if (insight.insight_type === 'aspiration') {
+      if (!isPro) {
+        router.push('/app/upgrade')
+        return
+      }
+      router.push('/app/rituals?open=future-self')
       return
     }
     router.push(

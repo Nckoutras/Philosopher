@@ -36,19 +36,24 @@ export default function InsightCard({ content, insightType, sourceCount, onPrima
   const showProvenance = sourceCount != null && sourceCount >= 2
   // Doorway types (Slice 2): the user's own words get an app-voice observation line
   // above and are quoted below; the primary is a distinct door per type.
-  const isDoorway = insightType === 'dilemma' || insightType === 'belief'
+  // Aspiration content is first-person user voice (like dilemma/belief), so it's
+  // quoted; it has no observation line (degrades gracefully, like shift/pattern).
+  const isDoorway = insightType === 'dilemma' || insightType === 'belief' || insightType === 'aspiration'
   const observationLine = insightType ? OBSERVATION_LINES[insightType] : undefined
   const primaryLabel =
     insightType === 'dilemma'
       ? 'Take it to the Council'
       : insightType === 'belief'
         ? 'Put it under pressure'
-        : insightType === 'shift'
-          ? 'See how this changed'
-          : 'Reflect in the Mirror'
-  // A belief's primary IS the counterview door, so the 'Doubt this' secondary would
-  // be redundant — hidden for that type only. All other types keep both secondaries.
-  const showDoubt = insightType !== 'belief'
+        : insightType === 'aspiration'
+          ? 'Write to your future self'
+          : insightType === 'shift'
+            ? 'See how this changed'
+            : 'Reflect in the Mirror'
+  // A belief's primary IS the counterview door, and doubting an aspiration →
+  // Counterview is nonsensical, so 'Doubt this' is hidden for both. Other types
+  // keep both secondaries.
+  const showDoubt = insightType !== 'belief' && insightType !== 'aspiration'
   const containerClass =
     variant === 'today'
       ? 'bg-paper border-[0.5px] border-bronze rounded-md pt-[18px] px-[18px] pb-[14px] shadow-card'
