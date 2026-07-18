@@ -63,6 +63,46 @@ No-verbatim rule (both types): never quote the person and never paraphrase their
 Example pattern: {"insight_type": "pattern", "content": "The question of whether to leave your job has come up again — it surfaced weeks ago in a different conversation, and here it is once more."}
 Example shift: {"insight_type": "shift", "content": "It seems as though the certainty you once had about leaving has loosened; where you spoke of escape, you now weigh what staying might be worth."}"""
 
+# ── Single-text → memory distillation (reusable) ───────────────────────────────
+# Turn a person's OWN words into one clean, third-person memory statement. Generic
+# by design (no council/ritual wording) so later #4 surfaces (Counterview, Future
+# Self, Mirror) reuse it unchanged. Cheap: a word-count pre-filter skips trivial
+# text BEFORE any LLM call, and the one LLM call rides the default memory model
+# (Haiku via config.ANTHROPIC_MEMORY_MODEL). Returns None on trivial/empty/NONE.
+MIN_DISTILL_WORDS = 6
+
+DISTILL_TO_MEMORY_PROMPT = """You convert a person's own words into ONE clean memory statement about them.
+
+You are given text the person wrote themselves — their own framing of a matter they wanted considered. Rewrite it as a single, third-person memory statement in the shape "User ..." — factual, grounded, one sentence, no interpretation beyond what they stated. Write it in the SAME language as the input.
+
+Return ONLY the statement, no preamble, no quotation marks. If the text holds nothing meaningful to remember, return exactly: NONE"""
+
+
+async def distill_to_memory(text: str) -> str | None:
+    """Distil a person's own text into ONE third-person memory statement ("User …").
+
+    Pre-filter: text with fewer than MIN_DISTILL_WORDS words returns None WITHOUT any
+    LLM call (trivial edits cost nothing past this check). Otherwise one Haiku
+    completion (default memory model) produces the statement; an empty reply or the
+    sentinel NONE → None. Generic (no council-specific wording) so #4b/c/d reuse it.
+    """
+    text = (text or "").strip()
+    if len(text.split()) < MIN_DISTILL_WORDS:
+        return None
+    raw = await llm_client.complete(
+        system=DISTILL_TO_MEMORY_PROMPT,
+        user=text,
+        max_tokens=160,
+    )
+    statement = (raw or "").strip()
+    # Strip wrapping quotes if the model added them despite instructions.
+    if len(statement) >= 2 and statement[0] in "\"'" and statement[-1] in "\"'":
+        statement = statement[1:-1].strip()
+    if not statement or statement.upper() == "NONE":
+        return None
+    return statement
+
+
 MEMORY_EXTRACTION_PROMPT = """You are a memory extraction system for a philosophical companion app.
 
 Given a conversation exchange (user message + assistant response), extract memorable observations about the user.

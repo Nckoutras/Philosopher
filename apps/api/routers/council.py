@@ -67,6 +67,8 @@ async def create_council(
         response_headers["X-RateLimit-Limit"] = "1"
         response_headers["X-RateLimit-Remaining"] = str(max(0, remaining - 1))
 
+    arq_queue = getattr(request.app.state, "arq_queue", None)
+
     return StreamingResponse(
         council_service.stream_council(
             db=db,
@@ -76,6 +78,7 @@ async def create_council(
             mirror_id=body.mirror_id,
             conversation_id=body.conversation_id,
             matter_edited=body.matter_edited,
+            arq_queue=arq_queue,
         ),
         media_type="text/event-stream",
         headers=response_headers,

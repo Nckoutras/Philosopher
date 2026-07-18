@@ -154,6 +154,7 @@ class CouncilService:
         mirror_id: str | None = None,
         conversation_id: str | None = None,
         matter_edited: bool = False,
+        arq_queue=None,
     ) -> AsyncGenerator[str, None]:
 
         # ── 1. PRE-RITUAL SAFETY GATE ────────────────────────────────────
@@ -326,6 +327,26 @@ class CouncilService:
 
         # ── 5. COMMIT + DONE ──────────────────────────────────────────────
         await db.commit()
+
+        # ── 6. EDITED-MATTER → CONFIDENCE-1 MEMORY (chat-edit only) ────────
+        # When a chat-sourced council ran on matter the user REWROTE in their own
+        # words (matter_edited), distil that edited text into one clean stated
+        # memory. Async + cheap: the task pre-filters trivial edits before any LLM
+        # call. `matter` is the edited text here (re-distillation was skipped in 1b
+        # for matter_edited). Only in this exact case — never for non-edited or
+        # direct councils. Fire-and-forget; enqueue failure never breaks the stream.
+        if arq_queue is not None and source == "chat" and matter_edited:
+            try:
+                await arq_queue.enqueue_job(
+                    "distill_user_text_to_memory_task",
+                    str(user_id),
+                    str(conversation_id) if conversation_id else None,
+                    matter,
+                    "council_edit",
+                )
+            except Exception as exc:
+                logger.error(f"Council edit-to-memory enqueue failed for user={user_id}: {exc}")
+
         yield f"data: {json.dumps({'type': 'done', 'case_id': case.id, 'session_id': session.id})}\n\n"
 
 
