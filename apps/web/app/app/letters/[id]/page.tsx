@@ -7,6 +7,7 @@ import { ChevronLeft } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import { api } from '@/lib/api'
 import type { WeeklyLetter, Persona } from '@/lib/api'
+import { RITUALS, RITUAL_INFO } from '@/lib/rituals'
 import PersonaPickerSheet from '@/components/personas/PersonaPickerSheet'
 import SharePreviewModal from '@/components/share/SharePreviewModal'
 import SeasonFinaleView from '@/components/letters/SeasonFinaleView'
@@ -30,6 +31,19 @@ function renderParagraphs(text: string, className: string) {
   return text.split(/\n\n|\n/).filter(Boolean).map((para, i) => (
     <p key={i} className={className}>{para}</p>
   ))
+}
+
+// Where the weekly-letter ritual door routes. mirror/council/counterview have
+// their own pages; future-self has no page — it deep-links into the rituals tab
+// and auto-opens the schedule modal (Pro-guarded there).
+function ritualHref(slug: string): string {
+  switch (slug) {
+    case 'council': return '/app/council'
+    case 'counterview': return '/app/counterview'
+    case 'future-self': return '/app/rituals?open=future-self'
+    case 'mirror':
+    default: return '/app/mirror'
+  }
 }
 
 export default function LetterReadPage() {
@@ -154,6 +168,13 @@ export default function LetterReadPage() {
     ? personas.find((p) => p.slug === payload.suggested_persona_slug) ?? null
     : null
 
+  // Weekly ritual door: slug is guaranteed valid by B1 (mirror fallback), but guard
+  // the lookup anyway (old letters predating B1 have no slug → no door). Subtitle is
+  // the in-voice proposal when present, else the ritual's static tagline.
+  const ritualSlug = payload.suggested_ritual_slug ?? null
+  const ritualMeta = ritualSlug ? RITUALS.find((r) => r.slug === ritualSlug) ?? null : null
+  const ritualProposal = payload.ritual_proposal ?? null
+
   const voicePersona = personas.find((p) => p.slug === letter.voice_persona_slug) ?? null
 
   // Quiet end-of-letter write-back window, shared by the weekly inline reader and
@@ -276,6 +297,39 @@ export default function LetterReadPage() {
 
         {/* Write back to the persona — quiet, end of letter */}
         {writeBack}
+
+        {/* A ritual for this week — bronze door into the letter's suggested ritual.
+            Every viewer is Pro (page is gated above), so no tier gating here. */}
+        {ritualMeta && (
+          <div className="bg-paper border border-[0.5px] border-edge rounded-md px-[16px] py-[14px] mt-[8px]">
+            <p className="font-lora text-[11px] uppercase tracking-[0.18em] text-bronze mb-[10px]">
+              A ritual for this week
+            </p>
+            <button
+              type="button"
+              onClick={() => router.push(ritualHref(ritualMeta.slug))}
+              className="w-full flex items-center gap-[14px] text-left"
+            >
+              <div className="w-[48px] h-[48px] rounded-[8px] overflow-hidden flex-shrink-0 bg-linen border border-edge">
+                <Image
+                  src={ritualMeta.src}
+                  alt={ritualMeta.name}
+                  width={48}
+                  height={48}
+                  className="object-cover w-full h-full"
+                />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-cormorant text-[19px] font-medium text-ink leading-tight">
+                  {ritualMeta.name}
+                </p>
+                <p className="font-lora text-[13px] text-charcoal mt-[2px]">
+                  {ritualProposal ?? RITUAL_INFO[ritualMeta.slug]?.tagline}
+                </p>
+              </div>
+            </button>
+          </div>
+        )}
 
         {/* Suggested next mind */}
         {suggestedPersona && (
