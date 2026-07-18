@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { useStore } from '@/lib/store'
@@ -14,10 +14,27 @@ export default function RitualsPage() {
   const subscription = useStore((s) => s.subscription)
   const isPro = subscription?.status === 'active' && subscription?.plan !== 'free'
   const [scheduleOpen, setScheduleOpen] = useState(false)
+  // Guards the deep-link auto-open so it fires at most once per mount.
+  const autoOpenedRef = useRef(false)
 
   useEffect(() => {
-    if (token === null) router.replace('/auth?mode=signin')
-  }, [token, router])
+    if (token === null) {
+      router.replace('/auth?mode=signin')
+      return
+    }
+    // Deep-link auto-open: a weekly-letter "future-self" ritual door routes here as
+    // /app/rituals?open=future-self. Open the schedule modal once, Pro-guarded
+    // (mirrors handleBeginLetter). Read the param from window.location inside the
+    // effect (client-only) to avoid the useSearchParams Suspense-boundary build
+    // requirement. Non-Pro just lands on the tab — no modal. isPro is in the deps so
+    // this still fires if the subscription hydrates after mount; the ref keeps it once.
+    if (autoOpenedRef.current) return
+    const open = new URLSearchParams(window.location.search).get('open')
+    if (open === 'future-self' && isPro) {
+      autoOpenedRef.current = true
+      setScheduleOpen(true)
+    }
+  }, [token, router, isPro])
 
   function handleBeginLetter() {
     if (!isPro) {

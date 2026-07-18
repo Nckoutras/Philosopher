@@ -524,6 +524,12 @@ export interface WeeklyLetterPayload {
   forward_gesture: string | null
   practical_takeaway: string | null
   suggested_persona_slug: string | null
+  // Weekly ritual door (B1/B2). suggested_ritual_slug is guaranteed valid by the
+  // backend (mirror fallback), one of council/counterview/future-self/mirror;
+  // absent on old letters and on the monthly season finale. ritual_proposal is an
+  // optional in-voice invitation sentence (null when none fit).
+  suggested_ritual_slug?: string | null
+  ritual_proposal?: string | null
 }
 
 export interface WeeklyLetter {
