@@ -2,7 +2,10 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'https://philosopher-api-z9l
 
 // ── SSE event types ───────────────────────────────────────────────────────────
 
-export type SSEEventStart = { type: 'start'; brought_in?: boolean; persona_slug?: string; persona_name?: string }
+// deep_applied: did THIS reply get deep treatment. deep_remaining: predictive
+// free-tier remaining after this reply (0..N), or -1 when deep is off / pro /
+// premium (a filler that must NOT overwrite the store's real remaining).
+export type SSEEventStart = { type: 'start'; brought_in?: boolean; persona_slug?: string; persona_name?: string; deep_applied?: boolean; deep_remaining?: number }
 export type SSEEventChunk = { type: 'chunk'; data: string }
 // message_id is absent in pre-generation safety path (Pattern B)
 export type SSEEventDone = { type: 'done'; message_id?: string; case_id?: string; session_id?: string }
@@ -123,6 +126,9 @@ export interface User {
   onboarded_at: string | null
   created_at: string
   needs_disclaimer?: boolean
+  // Free-tier deep-mode allowance remaining today (0..N); -1 for pro/premium
+  // (unlimited). Seeds the store's deepRemaining at boot (see SubscriptionBootstrap).
+  deep_remaining?: number
 }
 
 export interface AuthResponse {

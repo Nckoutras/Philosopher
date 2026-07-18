@@ -56,6 +56,8 @@ export default function ExistingConversationPage() {
   const activePersonaSlug = useStore((s) => s.activePersonaSlug)
   const setActivePersona = useStore((s) => s.setActivePersona)
   const plan = useStore((s) => s.plan)
+  const deepRemaining = useStore((s) => s.deepRemaining)
+  const setShowPaywall = useStore((s) => s.setShowPaywall)
   const markInsightsSeenForConversation = useStore((s) => s.markInsightsSeenForConversation)
 
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -67,7 +69,12 @@ export default function ExistingConversationPage() {
   const [deepMode, setDeepMode] = useState(false)
   const isPro = plan === 'pro' || plan === 'premium'
   const [insight, setInsight] = useState<Insight | null>(null)
-  const { send, sendAnotherMind, sendGoDeeper } = useStream()
+  // deepLocked: a free user out of daily deep allowance. Takes precedence over
+  // the on-state in the chip. deepRemaining is -1 for pro/premium (never locks)
+  // and may be a stale -1 on a hard-refresh straight into chat before /me runs
+  // — fail-open by design (backend metering is the source of truth).
+  const deepLocked = !isPro && deepRemaining === 0
+  const { send, sendAnotherMind } = useStream()
   const { primary, discard } = useInsightDoors()
   const hasSentTopicRef = useRef(false)
   // Assistant-message count last observed; null until baselined on conversation
@@ -418,9 +425,6 @@ export default function ExistingConversationPage() {
         originName={origin?.name ?? null}
         isGuestActive={isGuestActive}
         onReturnToOrigin={handleReturnToOrigin}
-        showDeepMode={isPro}
-        deepMode={deepMode}
-        onToggleDeepMode={handleToggleDeepMode}
       />
 
       <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3">
@@ -430,7 +434,10 @@ export default function ExistingConversationPage() {
           onSaveLine={handleSaveLine}
           onUpgradeConfirm={handleUpgradeConfirm}
           onBringAnotherMind={handleBringAnotherMind}
-          onGoDeeper={() => sendGoDeeper()}
+          deepMode={deepMode}
+          deepLocked={deepLocked}
+          onToggleDeepMode={handleToggleDeepMode}
+          onDeepPaywall={() => setShowPaywall(true, { upgradeTarget: 'pro', reason: 'deep_mode' })}
           onContinueWithGuest={handleContinueWithGuest}
           insightType={insight?.insight_type ?? null}
           onInsightDoor={handleInsightPrimary}

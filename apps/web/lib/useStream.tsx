@@ -84,6 +84,17 @@ export function useStream() {
           }
 
           switch (event.type) {
+            case 'start': {
+              // Deep-mode metering signal. deep_remaining is the free-tier
+              // remaining after this reply; -1 is a filler for deep-off/pro and
+              // must NOT overwrite the store's real remaining. Only a >= 0 value
+              // is authoritative. deep_applied is unused here (reserved for A3).
+              const ev = event as SSEEventStart
+              if (typeof ev.deep_remaining === 'number' && ev.deep_remaining >= 0) {
+                useStore.getState().setDeepRemaining(ev.deep_remaining)
+              }
+              break
+            }
             case 'chunk':
               fullContent += event.data
               if (isCorrecting) {
