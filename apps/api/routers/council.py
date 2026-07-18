@@ -81,6 +81,23 @@ async def create_council(
     )
 
 
+@router.get("/brief/{conversation_id}")
+async def council_display_brief(
+    conversation_id: str,
+    db: AsyncSession = Depends(get_db),
+    auth: tuple = Depends(get_current_user_plan),
+):
+    """Display-only summary of a chat conversation, first-person in the user's voice,
+    for prefilling the Council matter textarea. Pro-gated soft-null (mirrors
+    /quotes/suggested): free users get {"brief": null}. Never changes what the
+    council members deliberate. Returns {"brief": string | null}."""
+    user, plan = auth
+    if plan not in ("pro", "premium"):
+        return {"brief": None}
+    brief = await council_service.display_brief(db, user.id, conversation_id)
+    return {"brief": brief}
+
+
 @router.post("/{session_id}/save")
 async def save_council_session(
     session_id: str,

@@ -15,6 +15,7 @@ from services.council_prompts import (
     COUNCIL_ROLE_DIRECTIVE,
     COUNCIL_SYNTHESIS_PROMPT,
     COUNCIL_DISTILL_PROMPT,
+    COUNCIL_DISPLAY_BRIEF_PROMPT,
 )
 from services.llm_client import llm_client
 from services.prompt_builder import prompt_builder
@@ -99,6 +100,49 @@ class CouncilService:
             return brief or None
         except Exception as exc:
             logger.warning(f"Council distill failed for user={user_id}: {exc}")
+            return None
+
+    async def display_brief(
+        self, db: AsyncSession, user_id: str, conversation_id: str
+    ) -> str | None:
+        """User-facing summary of a chat conversation, for DISPLAY-ONLY prefill of
+        the Council matter textarea. Written first-person in the user's own voice and
+        language (COUNCIL_DISPLAY_BRIEF_PROMPT) — distinct from _distill_brief, which
+        produces the neutral third-person INTERNAL brief the members deliberate. This
+        text is never sent to the council members and never changes what they receive.
+
+        Mirrors _distill_brief's query shape (last 12 messages, exclude conclusion,
+        <2 user turns → None) but is a separate method — _distill_brief is untouched.
+        Returns None on any failure or too-thin a conversation so the caller keeps the
+        raw prefill."""
+        try:
+            result = await db.execute(
+                select(Message)
+                .where(
+                    Message.user_id == user_id,
+                    Message.conversation_id == conversation_id,
+                    Message.message_kind != 'conclusion',
+                )
+                .order_by(Message.created_at.desc())
+                .limit(12)
+            )
+            recent = list(reversed(result.scalars().all()))
+
+            user_turns = sum(1 for m in recent if m.role == "user")
+            if user_turns < 2:
+                return None
+
+            transcript = "\n".join(f"{m.role}: {m.content}" for m in recent)
+            brief = await llm_client.complete(
+                system=COUNCIL_DISPLAY_BRIEF_PROMPT,
+                user=transcript,
+                model=MODEL_HAIKU,
+                max_tokens=150,
+            )
+            brief = (brief or "").strip()
+            return brief or None
+        except Exception as exc:
+            logger.warning(f"Council display brief failed for user={user_id}: {exc}")
             return None
 
     async def stream_council(
