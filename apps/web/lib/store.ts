@@ -9,7 +9,7 @@ function computePlan(sub: Subscription | null): string {
 
 export interface PaywallDetails {
   upgradeTarget: 'pro' | 'premium'
-  reason?: 'daily' | 'go_deeper_depth' | 'persona_locked'
+  reason?: 'daily' | 'go_deeper_depth' | 'persona_locked' | 'deep_mode'
   resetAt?: Date
   limit?: number
   personaVoice?: string
@@ -29,6 +29,13 @@ interface AppStore {
   subscription: Subscription | null
   setSubscription: (sub: Subscription) => void
   plan: string
+
+  // Deep-mode free allowance remaining today. Transient (never persisted — a
+  // live counter; a stale persisted value would mislead the chip's lock gate).
+  // -1 = pro/premium/unknown (fail-open: chip never locks). Seeded from /me at
+  // boot and refreshed by the send-stream 'start' event.
+  deepRemaining: number
+  setDeepRemaining: (n: number) => void
 
   // Insight discoverability glow
   activeInsights: Insight[]                       // transient (refetched)
@@ -145,6 +152,9 @@ export const useStore = create<AppStore>()(
       subscription: null,
       plan: 'free',
       setSubscription: (sub) => set({ subscription: sub, plan: computePlan(sub) }),
+
+      deepRemaining: -1,
+      setDeepRemaining: (n) => set({ deepRemaining: n }),
 
       // Insight discoverability glow
       activeInsights: [],

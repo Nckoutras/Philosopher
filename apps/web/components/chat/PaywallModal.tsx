@@ -93,6 +93,20 @@ export default function PaywallModal({ open, details, onClose }: Props) {
               more depth per reply, longer threads.
             </p>
           </>
+        ) : details.reason === 'deep_mode' ? (
+          <>
+            <h2
+              id="paywall-title"
+              className="font-cormorant text-[26px] font-medium text-ink leading-tight mb-4"
+            >
+              You&apos;ve used today&apos;s deep readings.
+            </h2>
+
+            <p className="font-lora text-[13px] text-charcoal leading-relaxed mb-8">
+              Deep mode draws a longer, more searching reply. You&apos;ve spent today&apos;s free
+              deep readings &mdash; Pro makes every reply deep, with no daily limit.
+            </p>
+          </>
         ) : (
           <>
             <h2

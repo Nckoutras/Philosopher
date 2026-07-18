@@ -11,7 +11,12 @@ interface Props {
   onSaveLine: (messageId: string) => void
   onUpgradeConfirm: () => void
   onBringAnotherMind: () => void
-  onGoDeeper: () => void
+  // Deep-mode chip props (conversation-level; rendered on the last assistant
+  // message only, gated below on lastAssistantId like insightType).
+  deepMode?: boolean
+  deepLocked?: boolean
+  onToggleDeepMode?: () => void
+  onDeepPaywall?: () => void
   // Sticky guest: make a brought-in guest the active mind for subsequent turns.
   // Optional — only the canonical /conv/[id] surface supports stickiness; the
   // fresh-start /chat/[slug] page omits it (its identity keys on the home slug),
@@ -26,7 +31,7 @@ interface Props {
   onTakeToCouncil?: () => void
 }
 
-export default function MessageList({ messages, onSaveLine, onUpgradeConfirm, onBringAnotherMind, onGoDeeper, onContinueWithGuest, insightType, onInsightDoor, onInsightDismiss, onTakeToCouncil }: Props) {
+export default function MessageList({ messages, onSaveLine, onUpgradeConfirm, onBringAnotherMind, deepMode, deepLocked, onToggleDeepMode, onDeepPaywall, onContinueWithGuest, insightType, onInsightDoor, onInsightDismiss, onTakeToCouncil }: Props) {
   const savedMessageIds = useStore((s) => s.savedMessageIds)
   const activePersonaSlug = useStore((s) => s.activePersonaSlug)
 
@@ -75,7 +80,11 @@ export default function MessageList({ messages, onSaveLine, onUpgradeConfirm, on
                 onSave={() => onSaveLine(msg.id)}
                 onUpgradeConfirm={onUpgradeConfirm}
                 onBringAnotherMind={onBringAnotherMind}
-                onGoDeeper={onGoDeeper}
+                showDeepChip={msg.id === lastAssistantId}
+                deepMode={deepMode}
+                deepLocked={deepLocked}
+                onToggleDeepMode={onToggleDeepMode}
+                onDeepPaywall={onDeepPaywall}
                 insightType={msg.id === lastAssistantId ? (insightType ?? null) : null}
                 onInsightDoor={onInsightDoor}
                 onInsightDismiss={onInsightDismiss}

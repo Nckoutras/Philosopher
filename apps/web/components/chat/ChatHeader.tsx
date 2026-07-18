@@ -6,11 +6,6 @@ interface Props {
   originName?: string | null
   isGuestActive?: boolean
   onReturnToOrigin?: () => void
-  // Pro sticky deep mode: a quiet toggle, rendered only for Pro users. When on,
-  // every reply is deep until turned off.
-  showDeepMode?: boolean
-  deepMode?: boolean
-  onToggleDeepMode?: () => void
 }
 
 export default function ChatHeader({
@@ -19,9 +14,6 @@ export default function ChatHeader({
   originName = null,
   isGuestActive = false,
   onReturnToOrigin,
-  showDeepMode = false,
-  deepMode = false,
-  onToggleDeepMode,
 }: Props) {
   return (
     <header className="sticky top-0 z-10 flex items-center gap-3 px-4 py-3 bg-vellum border-b border-edge">
@@ -46,27 +38,6 @@ export default function ChatHeader({
             aria-label={`Return to ${originName}`}
           >
             ← Return to {originName}
-          </button>
-        )}
-      </div>
-      <div className="ml-auto flex items-center gap-[8px] flex-shrink-0">
-        {showDeepMode && onToggleDeepMode && (
-          <button
-            type="button"
-            onClick={onToggleDeepMode}
-            aria-pressed={deepMode}
-            aria-label={deepMode ? 'Deep mode on — tap to turn off' : 'Deep mode off — tap to turn on'}
-            className={`inline-flex items-center gap-[6px] rounded-full border-[0.5px] px-[10px] py-[5px] font-lora text-[12px] transition-colors ${
-              deepMode
-                ? 'border-bronze bg-bronze text-vellum'
-                : 'border-edge text-sepia'
-            }`}
-          >
-            <span
-              aria-hidden="true"
-              className={`w-[7px] h-[7px] rounded-full ${deepMode ? 'bg-vellum' : 'bg-edge'}`}
-            />
-            Deep mode
           </button>
         )}
       </div>

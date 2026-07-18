@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Zap, Users, Bookmark, Sparkle, ArrowRight, Landmark, Swords, GitCompareArrows, X, type LucideIcon } from 'lucide-react'
+import { Users, Bookmark, Sparkle, ArrowRight, Landmark, Swords, GitCompareArrows, X, Lock, type LucideIcon } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import SaveLineInlineUpgrade from './SaveLineInlineUpgrade'
 
@@ -26,7 +26,15 @@ interface Props {
   onSave: () => void
   onUpgradeConfirm: () => void
   onBringAnotherMind: () => void
-  onGoDeeper: () => void
+  // Deep-mode chip: a conversation-level toggle rendered ONLY on the last
+  // assistant message (showDeepChip), mirroring the insight/council last-message
+  // gate. Three states: locked (free + exhausted) → paywall; on (filled bronze)
+  // → turn off; off (normal chip) → turn on.
+  showDeepChip?: boolean
+  deepMode?: boolean
+  deepLocked?: boolean
+  onToggleDeepMode?: () => void
+  onDeepPaywall?: () => void
   // Named door chip: the insight type drives label/icon/route. Only the four known
   // types render a chip. onInsightDoor routes via the existing door; onInsightDismiss
   // is the 5s-undo dismiss.
@@ -41,7 +49,7 @@ interface Props {
   onContinueWith?: () => void
 }
 
-export default function QuickActionsRow({ messageId: _messageId, saved, onSave, onUpgradeConfirm, onBringAnotherMind, onGoDeeper, insightType = null, onInsightDoor, onInsightDismiss, showCouncilChip = false, onTakeToCouncil, continueWithName = null, onContinueWith }: Props) {
+export default function QuickActionsRow({ messageId: _messageId, saved, onSave, onUpgradeConfirm, onBringAnotherMind, showDeepChip = false, deepMode = false, deepLocked = false, onToggleDeepMode, onDeepPaywall, insightType = null, onInsightDoor, onInsightDismiss, showCouncilChip = false, onTakeToCouncil, continueWithName = null, onContinueWith }: Props) {
   const [showUpgrade, setShowUpgrade] = useState(false)
   const freeSaveCount = useStore((s) => s.freeSaveCount)
   const freeTierLimit = useStore((s) => s.freeTierLimit)
@@ -81,15 +89,40 @@ export default function QuickActionsRow({ messageId: _messageId, saved, onSave, 
 
   return (
     <div className="flex gap-[6px] flex-wrap ml-[32px] mt-[4px]">
-      <button
-        type="button"
-        onClick={onGoDeeper}
-        className={chipBase}
-        aria-label="Go deeper"
-      >
-        <Zap size={11} strokeWidth={1.5} />
-        <span className="hidden min-[360px]:inline">Go deeper</span>
-      </button>
+      {/* Deep-mode toggle — last assistant message only. Locked state (free tier
+          exhausted) takes precedence over the on-state: even if the flag is on,
+          an out-of-quota free user sees the Pro lock. */}
+      {showDeepChip && (
+        deepLocked ? (
+          <button
+            type="button"
+            onClick={onDeepPaywall}
+            className={chipBase}
+            aria-label="Deep mode — Pro"
+          >
+            <Lock size={11} strokeWidth={1.5} />
+            <span className="hidden min-[360px]:inline">Deep mode — Pro</span>
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={onToggleDeepMode}
+            aria-pressed={deepMode}
+            aria-label={deepMode ? 'Deep mode on — tap to turn off' : 'Deep mode off — tap to turn on'}
+            className={
+              deepMode
+                ? 'bg-bronze text-vellum border-[0.5px] border-bronze px-[10px] py-[6px] font-lora text-[13px] rounded-sm inline-flex items-center gap-[5px] transition-colors'
+                : chipBase
+            }
+          >
+            <span
+              aria-hidden="true"
+              className={`w-[7px] h-[7px] rounded-full ${deepMode ? 'bg-vellum' : 'bg-edge'}`}
+            />
+            <span className="hidden min-[360px]:inline">Deep mode</span>
+          </button>
+        )
+      )}
       <button
         type="button"
         onClick={onBringAnotherMind}

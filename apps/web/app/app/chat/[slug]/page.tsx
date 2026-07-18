@@ -40,13 +40,18 @@ export default function ChatPage() {
   const loadSavedLines = useStore((s) => s.loadSavedLines)
   const plan = useStore((s) => s.plan)
   const isPro = plan === 'pro' || plan === 'premium'
+  const deepRemaining = useStore((s) => s.deepRemaining)
+  const setShowPaywall = useStore((s) => s.setShowPaywall)
+  // deepLocked: free user out of daily deep allowance (precedence over on-state).
+  // -1 = pro/premium or a pre-/me hard-refresh into chat → fail-open (never locks).
+  const deepLocked = !isPro && deepRemaining === 0
 
   const [createError, setCreateError] = useState<string | null>(null)
   const [pickerOpen, setPickerOpen] = useState(false)
   // Pro sticky deep mode: reflects conversations.deep_mode. A freshly created
   // conversation always starts false, so no read from the create response is needed.
   const [deepMode, setDeepMode] = useState(false)
-  const { send, sendAnotherMind, sendGoDeeper } = useStream()
+  const { send, sendAnotherMind } = useStream()
 
   const handleBringAnotherMind = () => setPickerOpen(true)
 
@@ -227,9 +232,6 @@ export default function ChatPage() {
       <ChatHeader
         personaName={personaName}
         portraitUrl={portraitUrl}
-        showDeepMode={isPro}
-        deepMode={deepMode}
-        onToggleDeepMode={handleToggleDeepMode}
       />
       <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3">
         {openingInvocation && <OpeningInvocation text={openingInvocation} />}
@@ -238,7 +240,10 @@ export default function ChatPage() {
           onSaveLine={handleSaveLine}
           onUpgradeConfirm={handleUpgradeConfirm}
           onBringAnotherMind={handleBringAnotherMind}
-          onGoDeeper={() => sendGoDeeper()}
+          deepMode={deepMode}
+          deepLocked={deepLocked}
+          onToggleDeepMode={handleToggleDeepMode}
+          onDeepPaywall={() => setShowPaywall(true, { upgradeTarget: 'pro', reason: 'deep_mode' })}
           onTakeToCouncil={handleTakeToCouncil}
         />
         {safetyActive ? (
