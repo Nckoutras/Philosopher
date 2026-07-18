@@ -543,14 +543,12 @@ async def _set_deep_mode(conversation_id: str, on: bool, db: AsyncSession, user:
 async def set_deep_mode(
     conversation_id: str,
     db: AsyncSession = Depends(get_db),
-    auth: tuple = Depends(get_current_user_plan),
+    user: User = Depends(get_current_user),
 ) -> ConversationOut:
-    """Turn sticky deep mode ON. Pro/premium only — free users never get sticky
-    depth (per-tap go-deeper only). The read site in stream_response is ALSO
-    Pro-gated, so the flag is inert if an account later downgrades."""
-    user, plan = auth
-    if plan not in ("pro", "premium"):
-        return JSONResponse(status_code=403, content={"error_code": "upgrade_required"})
+    """Turn sticky deep mode ON. Available to ALL tiers — the metering lives at the
+    read site (stream_response), not the toggle: pro/premium are unlimited; free get
+    a global 5/day deep-reply allowance, after which the flag stays on but stops
+    deepening. So no tier gate here."""
     return await _set_deep_mode(conversation_id, True, db, user)
 
 

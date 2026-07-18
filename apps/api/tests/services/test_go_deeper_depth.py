@@ -100,14 +100,18 @@ async def test_pro_unlimited_no_db_read(tier):
     assert r.limit == -1
 
 
-# ── Confirmation A: deep-mode read site is Pro-gated (downgrade-safe) ──────────
+# ── Confirmation A: deep-mode read site meters free users (5/day global) ──────
+# Updated for free deep-mode metering: deep mode is no longer Pro-ONLY. Pro/premium
+# (and admins) stay unlimited; free users get a global daily allowance metered at the
+# read site via check_deep_mode_limit. Distress still wins.
 
-def test_deep_mode_read_site_is_pro_gated():
+def test_deep_mode_read_site_meters_free():
     src = inspect.getsource(cs.ConversationService.stream_response)
     assert "conv.deep_mode" in src
-    # The read site MUST require Pro/premium so a stale flag on a downgraded
-    # account yields no depth.
+    # Pro/premium keep the unlimited branch.
     assert 'user_plan in ("pro", "premium")' in src
+    # Free users are metered (not hard-gated) via the global allowance helper.
+    assert "check_deep_mode_limit" in src
     # And distress must still win (level == none).
     assert 'safety_in.level == "none"' in src
 

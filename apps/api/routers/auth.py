@@ -15,7 +15,7 @@ from services.otp_service import (
     OtpExpired,
     OtpLocked,
 )
-from services.rate_limit_service import check_and_increment
+from services.rate_limit_service import check_and_increment, check_deep_mode_limit
 from services.disclaimer_service import user_needs_acceptance
 import stripe
 from config import config
@@ -77,7 +77,12 @@ async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
 @router.get("/me", response_model=UserOut)
 async def me(user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     needs_disclaimer = await user_needs_acceptance(user.id, db)
-    return UserOut.model_validate(user).model_copy(update={"needs_disclaimer": needs_disclaimer})
+    # Global free daily deep-mode allowance for the initial-load meter (A2). -1 for
+    # pro/premium/unlimited. Tier resolves via get_user_tier inside the helper.
+    deep = await check_deep_mode_limit(db, user.id)
+    return UserOut.model_validate(user).model_copy(
+        update={"needs_disclaimer": needs_disclaimer, "deep_remaining": deep.remaining}
+    )
 
 
 @router.patch("/me", response_model=UserOut)
