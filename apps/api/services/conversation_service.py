@@ -542,6 +542,7 @@ class ConversationService:
                 passages=passages,
                 phenomenology_bridge=phenomenology_bridge,
                 profile=profile_view,
+                include_cache_sentinel=True,
             )
 
             # ── 5. BUILD MESSAGE HISTORY ─────────────────────────────────────
@@ -688,7 +689,9 @@ class ConversationService:
             _chunks_yielded = False
             try:
                 async for chunk in llm_client.stream(
-                    system=system_prompt, messages=lm_messages, model=model
+                    system=prompt_builder.split_system_for_cache(system_prompt),
+                    messages=lm_messages,
+                    model=model,
                 ):
                     _buf.append(chunk)
                     _chunks_yielded = True
@@ -778,7 +781,9 @@ class ConversationService:
                 correction_buf: list[str] = []
                 try:
                     async for chunk in llm_client.stream(
-                        system=system_prompt + "\n\n" + directive,
+                        system=prompt_builder.split_system_for_cache(
+                            system_prompt + "\n\n" + directive
+                        ),
                         messages=lm_messages,
                         model=model,
                     ):
@@ -999,6 +1004,7 @@ class ConversationService:
             persona=persona,
             memories=memories,
             passages=passages,
+            include_cache_sentinel=True,
         )
         system_prompt = system_prompt + "\n\n" + GUEST_ENTRANCE
 
@@ -1070,7 +1076,9 @@ class ConversationService:
             _chunks_yielded = False
             try:
                 async for chunk in llm_client.stream(
-                    system=system_prompt, messages=lm_messages, model=model
+                    system=prompt_builder.split_system_for_cache(system_prompt),
+                    messages=lm_messages,
+                    model=model,
                 ):
                     _buf.append(chunk)
                     _chunks_yielded = True
@@ -1234,6 +1242,7 @@ class ConversationService:
             persona=persona,
             memories=memories,
             passages=passages,
+            include_cache_sentinel=True,
         )
         system_prompt = system_prompt + "\n\n" + _deepen_directive(persona) + DEEPEN_ESCALATION.get(level, "")
 
@@ -1305,7 +1314,9 @@ class ConversationService:
             _chunks_yielded = False
             try:
                 async for chunk in llm_client.stream(
-                    system=system_prompt, messages=lm_messages, model=model
+                    system=prompt_builder.split_system_for_cache(system_prompt),
+                    messages=lm_messages,
+                    model=model,
                 ):
                     _buf.append(chunk)
                     _chunks_yielded = True
