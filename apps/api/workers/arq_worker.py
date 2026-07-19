@@ -941,11 +941,17 @@ async def _maybe_send_weekly_letter_email(db, user, letter, payload, persona, re
 
     try:
         # Guard: if API_BASE_URL is still localhost, the unsubscribe link would be
-        # broken for a real recipient — refuse to send and warn instead.
+        # broken for a real recipient — refuse to send. Logged at ERROR because on a
+        # misconfigured prod env this silently costs a Sonnet letter generation with
+        # no delivery; the letter still exists and is readable in-app, but the send
+        # is never retried, so this must be loud enough to page ops.
         if "localhost" in config.API_BASE_URL or "127.0.0.1" in config.API_BASE_URL:
-            logger.warning(
-                "%s email skipped (API_BASE_URL not configured for prod) user=%s",
-                reading_label, getattr(user, "id", "?"),
+            logger.error(
+                "%s letter email SUPPRESSED (API_BASE_URL is localhost/unset) — letter "
+                "generated and readable in-app, but NO email was sent and it will NOT "
+                "retry. Set API_BASE_URL to the public backend URL on Render. "
+                "user=%s letter=%s",
+                reading_label, getattr(user, "id", "?"), getattr(letter, "id", "?"),
             )
             return
         if user is None or not user.email:
