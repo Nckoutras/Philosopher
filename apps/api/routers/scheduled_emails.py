@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -30,6 +30,7 @@ router = APIRouter(prefix="/scheduled-emails", tags=["scheduled-emails"])
 @router.post("", response_model=ScheduledEmailOut, status_code=201)
 async def create_scheduled_email(
     body: ScheduledEmailCreate,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ) -> ScheduledEmailOut:
@@ -79,6 +80,26 @@ async def create_scheduled_email(
     await db.commit()
     await db.refresh(row)
     logger.info("Scheduled email created id=%s user=%s for=%s", row.id, user.id, row.scheduled_for)
+
+    # The note is the user's OWN words to their future self — distil it into a
+    # confidence-1.0 memory (safety-gated + word-filtered inside the task). Async,
+    # NOTE only (never the prediction or letter metadata). Fire-and-forget; an
+    # enqueue failure must never break letter creation.
+    note = (body.note or "").strip()
+    if note:
+        arq_queue = getattr(request.app.state, "arq_queue", None)
+        if arq_queue is not None:
+            try:
+                await arq_queue.enqueue_job(
+                    "distill_user_text_to_memory_task",
+                    str(user.id),
+                    None,
+                    note,
+                    "future_self_note",
+                )
+            except Exception as exc:
+                logger.error("Future-self note enqueue failed user=%s: %s", user.id, exc)
+
     return ScheduledEmailOut.model_validate(row)
 
 

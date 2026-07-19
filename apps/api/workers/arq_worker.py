@@ -281,9 +281,22 @@ async def distill_user_text_to_memory_task(
     from models import MemoryEntry
     from services.embedding_client import embedding_client
     from services.memory_service import distill_to_memory
+    from services.safety_service import safety_service
 
     async with AsyncSessionLocal() as db:
         try:
+            # Safety gate FIRST (before the distill pre-filter): a suppressed input
+            # never becomes a confidence-1.0 memory. Same call shape as the
+            # counterview/prediction paths. Council matter is already checked upstream;
+            # the double-check here is accepted and intended for the reusable path.
+            res = await safety_service.check_input(text, user_id)
+            if res.should_suppress_persona:
+                logger.info(
+                    "Distill-to-memory: input suppressed (%s) user=%s conv=%s",
+                    source_label, user_id, conversation_id,
+                )
+                return
+
             statement = await distill_to_memory(text)
             if statement is None:
                 logger.info(

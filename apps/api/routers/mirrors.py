@@ -1,6 +1,7 @@
+import logging
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -11,6 +12,8 @@ import services.rate_limit_service as rate_limit_service
 from models import Mirror, MirrorSave, Persona, User
 from schemas import MirrorOut, RingTrueRequest, MirrorHostOut, MirrorHostsResponse, SetMirrorHostRequest
 from services.image_service import generate_mirror_share_image
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/mirrors", tags=["mirrors"])
 
@@ -76,6 +79,7 @@ async def get_latest_mirror(
 async def set_ring_true(
     mirror_id: str,
     body: RingTrueRequest,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
@@ -88,7 +92,28 @@ async def set_ring_true(
     mirror.ring_true = body.ring_true
     mirror.ring_true_note = body.note
     mirror.ring_true_at = datetime.now(timezone.utc)
-    await db.flush()
+    # Explicit commit (not a bare flush): the enqueue below fires only once the note
+    # is durably persisted, so a rollback at teardown can never orphan a stored memory.
+    await db.commit()
+
+    # The ring-true note is the user's OWN reaction to the mirror — distil it into a
+    # confidence-1.0 memory (safety-gated + word-filtered inside the task). Async;
+    # only when a non-empty note was written. Fire-and-forget; never break the response.
+    note = (body.note or "").strip()
+    if note:
+        arq_queue = getattr(request.app.state, "arq_queue", None)
+        if arq_queue is not None:
+            try:
+                await arq_queue.enqueue_job(
+                    "distill_user_text_to_memory_task",
+                    str(user.id),
+                    None,
+                    note,
+                    "mirror_ring_true",
+                )
+            except Exception as exc:
+                logger.error("Mirror ring-true note enqueue failed user=%s: %s", user.id, exc)
+
     persona = await _load_persona(db, mirror.host_persona_id)
     return _mirror_out(mirror, persona)
 
