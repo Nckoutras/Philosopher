@@ -39,7 +39,7 @@ export default function ExplorePage() {
               Explore The Wise Room
             </h1>
             <p className="font-lora text-[15px] italic text-charcoal leading-[1.65]">
-              What each part does &mdash; and where your words are kept.
+              What each part does &mdash; and what the room keeps of you.
             </p>
           </header>
 
@@ -89,7 +89,7 @@ export default function ExplorePage() {
               <h2 className="font-cormorant text-[20px] font-semibold text-ink leading-tight">The reflections</h2>
               <p className="font-lora text-[15px] text-charcoal leading-[1.65]">
                 What you keep by hand collects here &mdash; lines that landed, verdicts worth
-                returning to &mdash; to revisit, share, or carry to another mind.
+                returning to, quotes you saved &mdash; to revisit, share, or carry to another mind.
               </p>
               <div className="rounded-[12px] overflow-hidden shadow-card">
                 <Image src="/self-portrait/reflections.webp" alt="The reflections"
@@ -102,7 +102,9 @@ export default function ExplorePage() {
           <section className="space-y-3">
             <h2 className="font-cormorant text-[20px] font-semibold text-ink leading-tight">The rituals</h2>
             <p className="font-lora text-[15px] text-charcoal leading-[1.65]">
-              Beyond conversation, the room has its set practices. Tap any card to see how it works.
+              Beyond open conversation, the room has a handful of set practices &mdash; each a
+              different way to turn something over. Most you start yourself; one arrives on its own
+              each week. Whatever you say inside them, the room keeps. Tap any card to see how it works.
             </p>
             <div className="grid grid-cols-2 gap-3">
               {RITUALS.map((r) => (
@@ -117,13 +119,26 @@ export default function ExplorePage() {
           </section>
 
           <div className="flex justify-center my-7"><BronzeDivider width={64} /></div>
+          <section className="space-y-3">
+            <h2 className="font-cormorant text-[20px] font-semibold text-ink leading-tight">The portrait</h2>
+            <p className="font-lora text-[15px] text-charcoal leading-[1.65]">
+              Answer a little about yourself and the room builds a portrait &mdash; a
+              present-tense read of who you are now, and a map of what you keep
+              returning to. What you tell it here, the room keeps too.
+            </p>
+          </section>
+
+          <div className="flex justify-center my-7"><BronzeDivider width={64} /></div>
           <Link href="/app/explore/memory" className="block transition-transform duration-150 active:scale-[0.99]">
             <section className="space-y-3">
               <h2 className="font-cormorant text-[20px] font-semibold text-ink leading-tight">The room remembers</h2>
               <p className="font-lora text-[15px] text-charcoal leading-[1.65]">
-                Some things the room keeps on its own. It notes the beliefs and patterns that
-                recur across your conversations and reflects them back as insights &mdash; then
-                uses them, week to week, to write your letters and sharpen what it asks.
+                Two quiet things happen as you go. As you talk, the room keeps track of what
+                matters to you and carries it into later conversations &mdash; so a mind you return
+                to already knows you, and you&rsquo;re never starting from nothing. And when the
+                same thing keeps surfacing across different conversations, the room notices it,
+                names it back to you, and weaves it into your weekly letter. A noticing like that
+                is also a door &mdash; into the practice that fits it.
               </p>
               <div className="rounded-[12px] overflow-hidden shadow-card">
                 <Image src="/self-portrait/appbutton.webp" alt="The room remembers"
