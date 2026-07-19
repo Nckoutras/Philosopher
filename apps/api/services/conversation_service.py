@@ -18,6 +18,7 @@ from constants import TIER_ORDER
 from services.safety_service import safety_service
 from services.memory_service import memory_service
 from services.retrieval_service import retrieval_service
+from services.embedding_client import embedding_client
 from services.llm_client import llm_client
 from services.prompt_builder import prompt_builder
 from services.preferences_service import get_user_preferences
@@ -508,10 +509,21 @@ class ConversationService:
                 yield f"data: {json.dumps({'type': 'done'})}\n\n"
                 return
 
+            # Embed the user text ONCE and reuse the vector for both recall and
+            # retrieval (was two identical embeds per turn). On embed failure
+            # query_vec stays None and each consumer falls back to its own internal
+            # embed — preserving today's per-consumer fail-open (empty results +
+            # rollback in the except blocks below).
+            query_vec = None
+            try:
+                query_vec = await embedding_client.embed(user_text)
+            except Exception as e:
+                logger.warning(f"Query embedding failed: {e}")
+
             # ── 2. RECALL MEMORY ─────────────────────────────────────────────
             memories = []
             try:
-                memories = await memory_service.recall(db, user_id, user_text, top_k=6)
+                memories = await memory_service.recall(db, user_id, user_text, top_k=6, query_embedding=query_vec)
             except Exception as e:
                 logger.warning(f"Memory recall failed: {e}")
                 await db.rollback()
@@ -519,7 +531,7 @@ class ConversationService:
             # ── 3. RETRIEVE PASSAGES ─────────────────────────────────────────
             passages = []
             try:
-                passages = await retrieval_service.retrieve(db, user_text, persona)
+                passages = await retrieval_service.retrieve(db, user_text, persona, query_embedding=query_vec)
             except Exception as e:
                 logger.warning(f"Retrieval failed: {e}")
                 await db.rollback()
@@ -1002,10 +1014,20 @@ class ConversationService:
         )
         last_user_text: str = last_user_result.scalar_one_or_none() or ""
 
+        # Embed the last user text ONCE and reuse for both recall and retrieval
+        # (was two identical embeds). On embed failure query_vec stays None and each
+        # consumer falls back to its own internal embed — preserving today's
+        # per-consumer fail-open.
+        query_vec = None
+        try:
+            query_vec = await embedding_client.embed(last_user_text)
+        except Exception as e:
+            logger.warning(f"Query embedding failed (another_mind): {e}")
+
         # ── 1. RECALL MEMORY ─────────────────────────────────────────────────
         memories = []
         try:
-            memories = await memory_service.recall(db, user_id, last_user_text, top_k=6)
+            memories = await memory_service.recall(db, user_id, last_user_text, top_k=6, query_embedding=query_vec)
         except Exception as e:
             logger.warning(f"Memory recall failed (another_mind): {e}")
             await db.rollback()
@@ -1013,7 +1035,7 @@ class ConversationService:
         # ── 2. RETRIEVE PASSAGES (target persona) ────────────────────────────
         passages = []
         try:
-            passages = await retrieval_service.retrieve(db, last_user_text, persona)
+            passages = await retrieval_service.retrieve(db, last_user_text, persona, query_embedding=query_vec)
         except Exception as e:
             logger.warning(f"Retrieval failed (another_mind): {e}")
             await db.rollback()
@@ -1240,10 +1262,20 @@ class ConversationService:
         )
         last_user_text: str = last_user_result.scalar_one_or_none() or ""
 
+        # Embed the last user text ONCE and reuse for both recall and retrieval
+        # (was two identical embeds). On embed failure query_vec stays None and each
+        # consumer falls back to its own internal embed — preserving today's
+        # per-consumer fail-open.
+        query_vec = None
+        try:
+            query_vec = await embedding_client.embed(last_user_text)
+        except Exception as e:
+            logger.warning(f"Query embedding failed (go_deeper): {e}")
+
         # ── 1. RECALL MEMORY ─────────────────────────────────────────────────
         memories = []
         try:
-            memories = await memory_service.recall(db, user_id, last_user_text, top_k=6)
+            memories = await memory_service.recall(db, user_id, last_user_text, top_k=6, query_embedding=query_vec)
         except Exception as e:
             logger.warning(f"Memory recall failed (go_deeper): {e}")
             await db.rollback()
@@ -1251,7 +1283,7 @@ class ConversationService:
         # ── 2. RETRIEVE PASSAGES (target persona) ────────────────────────────
         passages = []
         try:
-            passages = await retrieval_service.retrieve(db, last_user_text, persona)
+            passages = await retrieval_service.retrieve(db, last_user_text, persona, query_embedding=query_vec)
         except Exception as e:
             logger.warning(f"Retrieval failed (go_deeper): {e}")
             await db.rollback()

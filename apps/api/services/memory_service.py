@@ -255,9 +255,16 @@ class MemoryService:
         user_id: str,
         query: str,
         top_k: int = 6,
+        query_embedding: list[float] | None = None,
     ) -> list[MemoryEntry]:
-        """Retrieve semantically relevant memories for a query."""
-        query_vec = await embedding_client.embed(query)
+        """Retrieve semantically relevant memories for a query.
+
+        query_embedding: an optional precomputed embedding of ``query``. When the
+        caller already embedded the same text (e.g. the chat turn reuses one vector
+        for both recall and retrieval), pass it here to skip a redundant embed. When
+        None, embed internally exactly as before.
+        """
+        query_vec = query_embedding if query_embedding is not None else await embedding_client.embed(query)
 
         # pgvector cosine similarity search
         result = await db.execute(
