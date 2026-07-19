@@ -17,9 +17,14 @@ class RetrievalService:
         persona: PersonaConfig,
         top_k: int | None = None,
         score_threshold: float = 0.72,
+        query_embedding: list[float] | None = None,
     ) -> list[SourceChunk]:
+        # query_embedding: an optional precomputed embedding of ``query``. When the
+        # caller already embedded the same text (the chat turn reuses one vector for
+        # both recall and retrieval), pass it here to skip a redundant embed. When
+        # None, embed internally exactly as before.
         top_k = top_k or persona.retrieval_top_k
-        query_vec = await embedding_client.embed(query)
+        query_vec = query_embedding if query_embedding is not None else await embedding_client.embed(query)
 
         result = await db.execute(
             text("""

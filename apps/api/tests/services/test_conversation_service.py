@@ -1629,3 +1629,259 @@ async def test_create_skip_opening_bypasses_dedup():
     # If dedup ran, execute would have been called twice and the second call
     # would have returned the existing conv. Verify only one execute call.
     assert db.execute.call_count == 1
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# PR-OPT-4a — embed the user text once per turn (dedup recall + retrieval query)
+# ══════════════════════════════════════════════════════════════════════════════
+#
+# Each chat turn now embeds the user text ONCE and reuses the vector for both
+# memory recall and RAG retrieval (was two identical embeds). Verified here:
+#   1. recall()/retrieve() accept a precomputed embedding and use it verbatim as
+#      the SQL query_vec — identical to the internal-embed path — with no second
+#      embed call.
+#   2. When no embedding is passed, each falls back to embedding internally once.
+#   3. Each of the three chat paths (main / another-mind / go-deeper) embeds the
+#      user text exactly once and hands the SAME vector to both consumers.
+
+from services.memory_service import memory_service as _memory_singleton
+from services.retrieval_service import retrieval_service as _retrieval_singleton
+
+
+@pytest.fixture(autouse=True)
+def _patch_conv_embedding_client():
+    """Neutralise the real OpenAI embedding client for every test in this module.
+
+    stream_response / stream_another_mind / stream_go_deeper now call
+    embedding_client.embed() directly; without this the existing tests (which mock
+    recall/retrieve but not the embed) would attempt a live network call. Yields
+    the mock so the count/vector-reuse tests can inspect it."""
+    with patch("services.conversation_service.embedding_client") as m:
+        m.embed = AsyncMock(return_value=[0.11, 0.22, 0.33])
+        yield m
+
+
+# ── recall(): precomputed embedding used verbatim; None falls back ────────────
+
+def _query_db():
+    """Mock session whose execute() returns an empty-rows result (fetchall → [])."""
+    db = AsyncMock()
+    exec_result = MagicMock()
+    exec_result.fetchall.return_value = []
+    db.execute = AsyncMock(return_value=exec_result)
+    db.rollback = AsyncMock()
+    return db
+
+
+@pytest.mark.asyncio
+async def test_recall_uses_precomputed_embedding_verbatim():
+    """query_embedding provided → no internal embed; that exact vector is the SQL query_vec."""
+    db = _query_db()
+    vec = [1.0, 2.0, 3.0]
+    with patch("services.memory_service.embedding_client") as m:
+        m.embed = AsyncMock(return_value=[9.9])  # must NOT be used
+        await _memory_singleton.recall(db, "user-1", "what is virtue?", query_embedding=vec)
+        m.embed.assert_not_called()
+    assert db.execute.call_args.args[1]["query_vec"] == str(vec)
+
+
+@pytest.mark.asyncio
+async def test_recall_falls_back_to_internal_embed_when_none():
+    """query_embedding=None → embeds internally once; that vector is the SQL query_vec."""
+    db = _query_db()
+    internal = [7.0, 8.0]
+    with patch("services.memory_service.embedding_client") as m:
+        m.embed = AsyncMock(return_value=internal)
+        await _memory_singleton.recall(db, "user-1", "what is virtue?")
+        m.embed.assert_called_once()
+    assert db.execute.call_args.args[1]["query_vec"] == str(internal)
+
+
+# ── retrieve(): precomputed embedding used verbatim; None falls back ──────────
+
+def _retrieve_persona():
+    p = MagicMock()
+    p.slug = "marcus_aurelius"
+    p.retrieval_top_k = 5
+    return p
+
+
+@pytest.mark.asyncio
+async def test_retrieve_uses_precomputed_embedding_verbatim():
+    """query_embedding provided → no internal embed; that exact vector is the SQL query_vec."""
+    db = _query_db()
+    vec = [1.0, 2.0, 3.0]
+    with patch("services.retrieval_service.embedding_client") as m:
+        m.embed = AsyncMock(return_value=[9.9])  # must NOT be used
+        await _retrieval_singleton.retrieve(db, "what is virtue?", _retrieve_persona(), query_embedding=vec)
+        m.embed.assert_not_called()
+    assert db.execute.call_args.args[1]["query_vec"] == str(vec)
+
+
+@pytest.mark.asyncio
+async def test_retrieve_falls_back_to_internal_embed_when_none():
+    """query_embedding=None → embeds internally once; that vector is the SQL query_vec."""
+    db = _query_db()
+    internal = [7.0, 8.0]
+    with patch("services.retrieval_service.embedding_client") as m:
+        m.embed = AsyncMock(return_value=internal)
+        await _retrieval_singleton.retrieve(db, "what is virtue?", _retrieve_persona())
+        m.embed.assert_called_once()
+    assert db.execute.call_args.args[1]["query_vec"] == str(internal)
+
+
+# ── One embed per turn, reused by both consumers — the 3 chat paths ───────────
+
+class _StopAfterRetrieval(Exception):
+    """Sentinel raised from build_system to abort a path right after recall+retrieve,
+    so the embed-dedup can be asserted without mocking the whole downstream flow."""
+
+
+@pytest.mark.asyncio
+async def test_main_path_embeds_once_and_reuses_vector(_patch_conv_embedding_client):
+    """stream_response embeds user_text once; that vector goes to both recall & retrieve."""
+    service = ConversationService()
+
+    mock_llm = MagicMock()
+
+    async def fake_stream(*args, **kwargs):
+        yield "Hello"
+
+    mock_llm.stream = fake_stream
+
+    with (
+        patch("services.conversation_service.safety_service") as mock_safety,
+        patch("services.conversation_service.memory_service") as mock_memory,
+        patch("services.conversation_service.retrieval_service") as mock_retrieval,
+        patch("services.conversation_service.llm_client", mock_llm),
+        patch("services.conversation_service.prompt_builder") as mock_prompt,
+        patch("services.conversation_service.analytics_service"),
+        patch("services.conversation_service.POSTPROCESSING_ENABLED", False),
+        patch("services.conversation_service.PHENOMENOLOGY_BRIDGE_ENABLED", False),
+        patch("services.conversation_service.get_persona") as mock_get_persona,
+    ):
+        safety_result = MagicMock()
+        safety_result.should_log = False
+        safety_result.should_suppress_persona = False
+        safety_result.level = "none"
+        mock_safety.check_input = AsyncMock(return_value=safety_result)
+        mock_safety.check_output = AsyncMock(return_value=safety_result)
+        mock_memory.recall = AsyncMock(return_value=[])
+        mock_retrieval.retrieve = AsyncMock(return_value=[])
+        mock_prompt.build_system.return_value = "system"
+        persona_config = MagicMock()
+        persona_config.slug = "marcus_aurelius"
+        mock_get_persona.return_value = persona_config
+
+        db = _make_db()
+        service._save_message = AsyncMock(return_value=_saved_msg())
+        service._log_safety_event = AsyncMock()
+
+        await _drain(service.stream_response(
+            session_factory=_factory(db),
+            conversation_id=CONV_ID,
+            user_id=USER_ID,
+            user_text="What is virtue?",
+            user_plan="free",
+        ))
+
+        embed_mock = _patch_conv_embedding_client.embed
+        embed_mock.assert_called_once_with("What is virtue?")
+        expected_vec = embed_mock.return_value
+        assert mock_memory.recall.call_args.kwargs["query_embedding"] == expected_vec
+        assert mock_retrieval.retrieve.call_args.kwargs["query_embedding"] == expected_vec
+
+
+@pytest.mark.asyncio
+async def test_another_mind_embeds_once_and_reuses_vector(_patch_conv_embedding_client):
+    """stream_another_mind embeds last_user_text once; that vector goes to both consumers."""
+    service = ConversationService()
+
+    conv_result = MagicMock()
+    conv_result.scalar_one_or_none.return_value = _mock_conv()
+    persona_result = MagicMock()
+    persona_result.scalar_one.return_value = _mock_persona_db()
+    last_user_result = MagicMock()
+    last_user_result.scalar_one_or_none.return_value = "What is courage?"
+
+    db = AsyncMock()
+    db.execute = AsyncMock(side_effect=[conv_result, persona_result, last_user_result])
+    db.rollback = AsyncMock()
+
+    with (
+        patch("services.conversation_service.memory_service") as mock_memory,
+        patch("services.conversation_service.retrieval_service") as mock_retrieval,
+        patch("services.conversation_service.prompt_builder") as mock_prompt,
+        patch("services.conversation_service.get_persona") as mock_get_persona,
+    ):
+        mock_memory.recall = AsyncMock(return_value=[])
+        mock_retrieval.retrieve = AsyncMock(return_value=[])
+        persona_config = MagicMock()
+        persona_config.slug = "socrates"
+        mock_get_persona.return_value = persona_config
+        # Abort right after retrieval — avoids mocking the entire downstream flow.
+        mock_prompt.build_system.side_effect = _StopAfterRetrieval()
+
+        with pytest.raises(_StopAfterRetrieval):
+            await _drain(service.stream_another_mind(
+                db=db,
+                conversation_id=CONV_ID,
+                user_id=USER_ID,
+                target_persona_slug="socrates",
+            ))
+
+        embed_mock = _patch_conv_embedding_client.embed
+        embed_mock.assert_called_once_with("What is courage?")
+        expected_vec = embed_mock.return_value
+        assert mock_memory.recall.call_args.kwargs["query_embedding"] == expected_vec
+        assert mock_retrieval.retrieve.call_args.kwargs["query_embedding"] == expected_vec
+
+
+@pytest.mark.asyncio
+async def test_go_deeper_embeds_once_and_reuses_vector(_patch_conv_embedding_client):
+    """stream_go_deeper embeds last_user_text once; that vector goes to both consumers."""
+    service = ConversationService()
+
+    conv_result = MagicMock()
+    conv_result.scalar_one_or_none.return_value = _mock_conv()
+    persona_result = MagicMock()
+    persona_result.scalar_one.return_value = _mock_persona_db()
+    thread_result = MagicMock(); thread_result.scalar.return_value = 0
+    last_std_result = MagicMock(); last_std_result.scalar.return_value = None
+    turn_result = MagicMock(); turn_result.scalar.return_value = 0
+    last_user_result = MagicMock(); last_user_result.scalar_one_or_none.return_value = "Say more about virtue."
+
+    db = AsyncMock()
+    db.execute = AsyncMock(side_effect=[
+        conv_result, persona_result, thread_result, last_std_result, turn_result, last_user_result,
+    ])
+    db.rollback = AsyncMock()
+
+    with (
+        patch("services.conversation_service.memory_service") as mock_memory,
+        patch("services.conversation_service.retrieval_service") as mock_retrieval,
+        patch("services.conversation_service.prompt_builder") as mock_prompt,
+        patch("services.conversation_service.get_persona") as mock_get_persona,
+    ):
+        mock_memory.recall = AsyncMock(return_value=[])
+        mock_retrieval.retrieve = AsyncMock(return_value=[])
+        persona_config = MagicMock()
+        persona_config.slug = "marcus_aurelius"
+        mock_get_persona.return_value = persona_config
+        # is_admin=True skips the daily go-deeper gate; abort right after retrieval.
+        mock_prompt.build_system.side_effect = _StopAfterRetrieval()
+
+        with pytest.raises(_StopAfterRetrieval):
+            await _drain(service.stream_go_deeper(
+                db=db,
+                conversation_id=CONV_ID,
+                user_id=USER_ID,
+                user_plan="free",
+                is_admin=True,
+            ))
+
+        embed_mock = _patch_conv_embedding_client.embed
+        embed_mock.assert_called_once_with("Say more about virtue.")
+        expected_vec = embed_mock.return_value
+        assert mock_memory.recall.call_args.kwargs["query_embedding"] == expected_vec
+        assert mock_retrieval.retrieve.call_args.kwargs["query_embedding"] == expected_vec
