@@ -537,6 +537,7 @@ async def respond_to_rebuttal(
     counterview_id: str,
     persona_slug: str,
     user_text: str,
+    arq_queue=None,
 ) -> Counterview:
     """Record one user rebuttal and the CURRENT speaker's reply to it.
 
@@ -610,9 +611,34 @@ async def respond_to_rebuttal(
             db, counterview_id, persona_slug, user_text, response=None, status="suppressed"
         )
 
-    return await _write_turn(
+    # ── Persist the generated turn, then distil the rebuttal → memory ─────────
+    # Enqueue ONLY if the write actually landed. _write_turn can hit IntegrityError
+    # (a concurrent turn won the sequence slot), roll back, and return the
+    # counterview WITHOUT our turn — we must not store a memory for a rebuttal that
+    # didn't persist. Signal: the COMMITTED generated-turn count strictly increases
+    # across the write (count_generated_rebuttals reads committed state, so a
+    # rolled-back write leaves it unchanged). Residual edge: two same-slot concurrent
+    # rebuttals — the IntegrityError loser could observe the winner's +1 and enqueue
+    # its own text; accepted as rare and non-fabricating (it is still the user's real
+    # words). The distill task safety-gates + word-filters the text again downstream.
+    pre_count = await count_generated_rebuttals(db, counterview_id)
+    cv_out = await _write_turn(
         db, counterview_id, persona_slug, user_text, response=line, status="generated"
     )
+    if arq_queue is not None:
+        post_count = await count_generated_rebuttals(db, counterview_id)
+        if post_count > pre_count:
+            try:
+                await arq_queue.enqueue_job(
+                    "distill_user_text_to_memory_task",
+                    str(user_id), None, user_text, "counterview_rebuttal",
+                )
+            except Exception as exc:
+                logger.error(
+                    "Counterview rebuttal enqueue failed cv=%s user=%s: %s",
+                    counterview_id, user_id, exc,
+                )
+    return cv_out
 
 
 async def _rebuttal_context(db: AsyncSession, cv: Counterview, persona_slug: str) -> str:

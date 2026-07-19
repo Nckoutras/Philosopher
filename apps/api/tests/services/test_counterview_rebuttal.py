@@ -122,9 +122,11 @@ async def test_router_maps_cap_to_409(monkeypatch):
     monkeypatch.setattr(rc, "respond_to_rebuttal", AsyncMock(side_effect=ValueError("cap_reached")))
     body = CounterviewRespondRequest(persona_slug=PERSONA, text="a rebuttal")
     user = MagicMock(id=USER_ID)
+    request = MagicMock()
+    request.app.state.arq_queue = None
 
     with pytest.raises(HTTPException) as ei:
-        await respond_counterview(CV_ID, body, db=AsyncMock(), user=user)
+        await respond_counterview(CV_ID, body, request, db=AsyncMock(), user=user)
     assert ei.value.status_code == 409
     assert ei.value.detail == "rebuttal_cap_reached"
 
