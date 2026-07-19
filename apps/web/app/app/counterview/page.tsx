@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { MessageCircle, Loader2, Bookmark, BookmarkCheck, Share2, CornerDownLeft, Send } from 'lucide-react'
 import { useStore } from '@/lib/store'
-import { api } from '@/lib/api'
+import { api, RateLimitError } from '@/lib/api'
 import type { Counterview, CounterviewListItem } from '@/lib/api'
 import SubPageNav from '@/components/layout/SubPageNav'
 import SharePreviewModal from '@/components/share/SharePreviewModal'
@@ -55,6 +55,8 @@ export default function CounterviewPage() {
   const [rebutting, setRebutting] = useState(false)
   const [rebuttalText, setRebuttalText] = useState('')
   const [respondingSlug, setRespondingSlug] = useState<string | null>(null)
+  // Free daily cap hit: the reset time from the 429 headers (null = not capped).
+  const [limitResetAt, setLimitResetAt] = useState<Date | null>(null)
 
   useEffect(() => {
     if (token === null) {
@@ -108,9 +110,16 @@ export default function CounterviewPage() {
     const b = belief.trim()
     if (!b) return
     setLoading(true)
-    const cv = await api.createCounterview(b).catch(() => null)
-    setCounterview(cv)
-    setLoading(false)
+    setLimitResetAt(null)
+    try {
+      setCounterview(await api.createCounterview(b))
+    } catch (e) {
+      // Free daily cap → show the upgrade wall; other errors fall through to the
+      // neutral "no clear case" state (prior behaviour was .catch(() => null)).
+      if (e instanceof RateLimitError) setLimitResetAt(e.resetAt)
+    } finally {
+      setLoading(false)
+    }
   }
 
   // Reopen a past counterview: pull the full set by id and show its result. mode
@@ -289,6 +298,24 @@ export default function CounterviewPage() {
         >
           Make the case
         </button>
+
+        {limitResetAt && (
+          <div className="mt-[16px] text-center">
+            <p className="font-lora text-[14px] text-sepia leading-[1.6]">
+              You&rsquo;ve used today&rsquo;s two counterviews. Pro removes the limit.
+            </p>
+            <p className="font-lora text-[12px] text-sepia/70 mt-[4px]">
+              Resets {limitResetAt.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}.
+            </p>
+            <button
+              type="button"
+              onClick={() => router.push('/app/upgrade')}
+              className="mt-[12px] px-[20px] py-[10px] rounded-[12px] bg-bronze text-vellum font-cormorant text-[16px] font-medium"
+            >
+              Go Pro
+            </button>
+          </div>
+        )}
 
         {past.length > 0 && (
           <section className="mt-[28px]">

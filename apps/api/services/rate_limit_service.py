@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 
 from config import config
-from models import DailyUsage
+from models import Counterview, DailyUsage
 
 _pool: Optional[redis.Redis] = None
 
@@ -57,6 +57,10 @@ FREE_DAILY_GO_DEEPER_LIMIT_PER_PERSONA = 3
 # GLOBAL daily budget across ALL personas — 5 deep replies/day, then normal
 # replies (the flag can stay on; it simply stops deepening). Pro/premium unlimited.
 FREE_DAILY_DEEP_MODE_LIMIT = 5
+
+# Free daily cap on DIRECT (user-typed) counterviews. GLOBAL per user (not
+# per-persona — counterview has no user-chosen persona). Pro/premium unlimited.
+FREE_DAILY_COUNTERVIEW_LIMIT = 2
 
 
 @dataclass
@@ -195,5 +199,51 @@ async def check_deep_mode_limit(
         allowed=count < FREE_DAILY_DEEP_MODE_LIMIT,
         remaining=remaining,
         limit=FREE_DAILY_DEEP_MODE_LIMIT,
+        reset_at=next_utc_midnight(),
+    )
+
+
+async def check_counterview_limit(
+    db: AsyncSession,
+    user_id: str | UUID,
+    user_tier: str | None = None,
+) -> RateLimitResult:
+    """Free daily cap on DIRECT (user-typed) counterviews. Pro/premium unlimited.
+
+    Counts today's (UTC) counterview rows with source='direct' for this user —
+    the row insert IS the counter (all statuses count; each direct POST writes
+    exactly one row). Does NOT increment: the caller blocks BEFORE generation
+    when not allowed, so a capped call costs zero LLM. The insight path
+    (source='insight', app-deduped one-per-insight) never consumes this
+    allowance. Mirrors check_rate_limit's shape.
+    """
+    if user_tier is None:
+        from services.tier_service import get_user_tier
+        user_tier = await get_user_tier(db, user_id)
+
+    if user_tier in ("pro", "premium"):
+        return RateLimitResult(
+            allowed=True,
+            remaining=-1,
+            limit=-1,
+            reset_at=next_utc_midnight(),
+        )
+
+    # next_utc_midnight() is tomorrow 00:00 UTC; minus a day = today 00:00 UTC.
+    today_start = next_utc_midnight() - timedelta(days=1)
+    result = await db.execute(
+        select(func.count()).select_from(Counterview).where(
+            Counterview.user_id == str(user_id),
+            Counterview.source == "direct",
+            Counterview.created_at >= today_start,
+        )
+    )
+    count = int(result.scalar_one() or 0)
+    remaining = max(0, FREE_DAILY_COUNTERVIEW_LIMIT - count)
+
+    return RateLimitResult(
+        allowed=count < FREE_DAILY_COUNTERVIEW_LIMIT,
+        remaining=remaining,
+        limit=FREE_DAILY_COUNTERVIEW_LIMIT,
         reset_at=next_utc_midnight(),
     )

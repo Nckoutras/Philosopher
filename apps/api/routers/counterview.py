@@ -1,12 +1,14 @@
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import JSONResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from auth import get_current_user
 from db.session import get_db
 from models import Counterview, CounterviewResponse, CounterviewSave, CounterviewTurn, Persona, User
+from services.rate_limit_service import check_counterview_limit
 from schemas import (
     CounterviewCreate,
     CounterviewDeeperRequest,
@@ -128,6 +130,20 @@ async def create_counterview(
         raise HTTPException(status_code=400, detail="empty_belief")
     if len(belief) > BELIEF_MAX_CHARS:
         raise HTTPException(status_code=400, detail="belief_too_long")
+
+    # Free daily cap on direct counterviews (Pro/premium unlimited). Blocks BEFORE
+    # generation — a capped call costs zero LLM. 429 shape mirrors self_comparison.
+    rl = await check_counterview_limit(db, user.id)
+    if not rl.allowed:
+        return JSONResponse(
+            status_code=429,
+            content={"error_code": "daily_limit"},
+            headers={
+                "X-RateLimit-Limit": str(rl.limit),
+                "X-RateLimit-Remaining": str(rl.remaining),
+                "X-RateLimit-Reset": rl.reset_at.isoformat(),
+            },
+        )
 
     cv = await generate_counterview(
         db, user.id, belief=belief, insight_id=None, source="direct"

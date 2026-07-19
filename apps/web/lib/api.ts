@@ -1242,10 +1242,31 @@ class ApiClient {
   // Voluntary path: generate a counterview against a belief the user types.
   // Synchronous on the server — status may be 'empty'/'suppressed' (no responses).
   async createCounterview(belief: string): Promise<Counterview> {
-    return this.request<Counterview>('/counterview', {
+    // Direct fetch (not this.request) so the 429 branch can read the rate-limit
+    // headers, mirroring the canonical handler on the streaming endpoints.
+    const res = await fetch(`${API_BASE}/counterview`, {
       method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(this.token ? { Authorization: `Bearer ${this.token}` } : {}),
+      },
       body: JSON.stringify({ belief }),
     })
+    if (!res.ok) {
+      if (res.status === 429) {
+        const body = await res.json().catch(() => ({} as LLMErrorResponse))
+        throw new RateLimitError({
+          resetAt: new Date(res.headers.get('X-RateLimit-Reset') ?? new Date().toISOString()),
+          limit: parseInt(res.headers.get('X-RateLimit-Limit') ?? '0', 10),
+          remaining: parseInt(res.headers.get('X-RateLimit-Remaining') ?? '0', 10),
+          errorCode: body.error_code ?? 'daily_limit',
+          upgradeTarget: 'pro', // counterview cap is free-only; Pro is uncapped
+        })
+      }
+      const error = await res.json().catch(() => ({ detail: res.statusText }))
+      throw new Error(typeof error.detail === 'string' ? error.detail : 'Request failed')
+    }
+    return res.json()
   }
 
   // Press one layer deeper for a single persona. Returns the full counterview,
