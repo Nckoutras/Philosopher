@@ -243,7 +243,9 @@ class CouncilService:
                 _chunks_yielded = False
                 try:
                     async for chunk in llm_client.stream(
-                        system=system, messages=messages, model=MODEL_PRO
+                        system=prompt_builder.cache_whole_system(system),
+                        messages=messages,
+                        model=MODEL_PRO,
                     ):
                         _buf.append(chunk)
                         _chunks_yielded = True
