@@ -841,6 +841,36 @@ class ReflectionFeedYvYSentence(BaseModel):
     saved_at: datetime
 
 
+class ReflectionFeedQuote(BaseModel):
+    """A saved corpus quote — the quote text + its persona and citation. `source_short`
+    is the compact card/share form; `source_locator` is the full citation. portrait may
+    be empty ("") for a persona without one, so it's Optional to match the frontend."""
+    kind: Literal["quote"] = "quote"
+    saved_quote_id: str
+    quote_id: str
+    text_en: str
+    persona_slug: str
+    persona_name: str
+    persona_portrait_url: Optional[str] = None
+    source_short: str
+    source_locator: str
+    saved_at: datetime
+
+
+class ReflectionFeedFutureSelfReview(BaseModel):
+    """A reviewed future-self letter (043): the reader's "what happened" answer on a
+    delivered letter, with the original prediction for card context. 1:1 with the
+    scheduled_emails row (no saves table); `saved_at` is the review timestamp."""
+    kind: Literal["future_self_review"] = "future_self_review"
+    scheduled_email_id: str
+    persona_id: str
+    persona_name: str
+    persona_portrait_url: Optional[str] = None
+    prediction: Optional[str] = None
+    review_text: str
+    saved_at: datetime
+
+
 ReflectionFeedItem = Annotated[
     Union[
         ReflectionFeedLine,
@@ -848,6 +878,8 @@ ReflectionFeedItem = Annotated[
         ReflectionFeedCouncil,
         ReflectionFeedCounterview,
         ReflectionFeedYvYSentence,
+        ReflectionFeedQuote,
+        ReflectionFeedFutureSelfReview,
     ],
     Field(discriminator="kind"),
 ]

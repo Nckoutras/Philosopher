@@ -71,6 +71,34 @@ def _council(saved_at):
     }
 
 
+def _quote(saved_at):
+    return {
+        "kind": "quote",
+        "saved_quote_id": "55555555-0000-0000-0000-000000000001",
+        "quote_id": "66666666-0000-0000-0000-000000000001",
+        "text_en": "The unexamined life is not worth living.",
+        "persona_slug": "socrates",
+        "persona_name": "Socrates",
+        "persona_portrait_url": "/personas/socrates.webp",
+        "source_short": "Apology 38a",
+        "source_locator": "Plato, Apology 38a",
+        "saved_at": saved_at,
+    }
+
+
+def _future_self_review(saved_at):
+    return {
+        "kind": "future_self_review",
+        "scheduled_email_id": "77777777-0000-0000-0000-000000000001",
+        "persona_id": "88888888-0000-0000-0000-000000000001",
+        "persona_name": "Marcus Aurelius",
+        "persona_portrait_url": "/personas/marcus-aurelius.webp",
+        "prediction": "I will have made peace with the decision.",
+        "review_text": "I did, though it took longer than I expected.",
+        "saved_at": saved_at,
+    }
+
+
 @pytest.fixture
 def client():
     from main import app
@@ -141,6 +169,58 @@ def test_feed_council_item_shape(client):
     assert item["kind"] == "council_verdict"
     assert item["synthesis"]
     assert len(item["persona_slugs"]) == 4
+
+
+def test_feed_quote_and_future_self_review_validate(client):
+    """Regression for the ResponseValidationError → 500 that shipped silently: the
+    service emits kind='quote' (#475) and kind='future_self_review' (#450), but the
+    ReflectionFeedItem union lacked both members, so any feed containing either 500'd.
+    A feed with both must now serialize through ReflectionsFeedResponse and return 200."""
+    from unittest.mock import patch
+    items = [_quote(NOW), _future_self_review(NOW - timedelta(hours=1))]
+    with patch("routers.reflections.reflections_feed_service.get_feed", AsyncMock(return_value=items)):
+        resp = client.get(FEED_URL)
+
+    assert resp.status_code == 200
+    body = resp.json()["items"]
+    assert [i["kind"] for i in body] == ["quote", "future_self_review"]
+
+    quote = body[0]
+    assert quote["saved_quote_id"] == "55555555-0000-0000-0000-000000000001"
+    assert quote["source_short"] == "Apology 38a"
+    assert quote["source_locator"] == "Plato, Apology 38a"
+
+    review = body[1]
+    assert review["scheduled_email_id"] == "77777777-0000-0000-0000-000000000001"
+    assert review["prediction"]
+    assert review["review_text"]
+
+
+def test_feed_response_accepts_all_seven_kinds():
+    """Direct schema check: ReflectionsFeedResponse validates one item of every kind,
+    including the two new members, discriminating solely on `kind`."""
+    from schemas import ReflectionsFeedResponse
+    items = [
+        _line(NOW),
+        _mirror(NOW),
+        _council(NOW),
+        _quote(NOW),
+        _future_self_review(NOW),
+    ]
+    parsed = ReflectionsFeedResponse.model_validate({"items": items})
+    assert [i.kind for i in parsed.items] == [
+        "line", "mirror_verdict", "council_verdict", "quote", "future_self_review",
+    ]
+
+
+def test_feed_future_self_review_nullable_prediction():
+    """prediction is genuinely nullable (frontend types it string|null); a null
+    prediction must still validate, not 500."""
+    from schemas import ReflectionsFeedResponse
+    review = _future_self_review(NOW)
+    review["prediction"] = None
+    parsed = ReflectionsFeedResponse.model_validate({"items": [review]})
+    assert parsed.items[0].prediction is None
 
 
 def test_feed_empty(client):
