@@ -213,6 +213,7 @@ async def deeper_counterview(
 async def respond_counterview(
     counterview_id: str,
     body: CounterviewRespondRequest,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
@@ -227,8 +228,12 @@ async def respond_counterview(
     if len(text) > REBUTTAL_MAX_CHARS:
         raise HTTPException(status_code=400, detail="rebuttal_too_long")
 
+    arq_queue = getattr(request.app.state, "arq_queue", None)
+
     try:
-        cv = await respond_to_rebuttal(db, user.id, counterview_id, body.persona_slug, text)
+        cv = await respond_to_rebuttal(
+            db, user.id, counterview_id, body.persona_slug, text, arq_queue=arq_queue
+        )
     except ValueError as e:
         msg = str(e)
         if "invalid persona" in msg:
