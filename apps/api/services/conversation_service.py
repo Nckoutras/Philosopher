@@ -12,8 +12,9 @@ import anthropic
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import func, select, update
 
-from models import Conversation, DailyUsage, Message, Persona, SafetyEvent, SavedLine, User, WeeklyLetter
+from models import Conversation, DailyUsage, Message, Persona, Ritual, SafetyEvent, SavedLine, User, WeeklyLetter
 from personas import get_persona, is_persona_accessible
+from constants import TIER_ORDER
 from services.safety_service import safety_service
 from services.memory_service import memory_service
 from services.retrieval_service import retrieval_service
@@ -217,6 +218,24 @@ class ConversationService:
             raise ValueError(f"Unknown persona: {persona_slug}")
         if not is_persona_accessible(persona_config, user_plan):
             raise PermissionError(f"Persona {persona_slug} requires plan upgrade")
+
+        # Validate ritual_id when provided: it MUST reference an active ritual the
+        # user's tier can access. ritual_id has no FK and nothing else validates it,
+        # so without this a free user could stamp any conversation as a "ritual" and
+        # escape the daily chat cap (send + counter both exempt ritual conversations).
+        # Mirrors rituals.py /start's gate; BOTH creation paths (POST /conversations
+        # and /rituals/{id}/start) route through here, so it can't be bypassed. A
+        # legit /start passes a real, tier-checked ritual → this re-check is a no-op.
+        if ritual_id is not None:
+            ritual = (
+                await db.execute(
+                    select(Ritual).where(Ritual.id == ritual_id, Ritual.is_active == True)
+                )
+            ).scalar_one_or_none()
+            if ritual is None:
+                raise ValueError("Ritual not found")
+            if TIER_ORDER.get(ritual.tier, 0) > TIER_ORDER.get(user_plan, 0):
+                raise PermissionError("Upgrade required")
 
         # Fetch persona DB record (for FK)
         result = await db.execute(select(Persona).where(Persona.slug == persona_slug))

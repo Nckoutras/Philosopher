@@ -29,13 +29,19 @@ def _mock_conv(conv_id="conv-uuid-existing", message_count=0):
     return c
 
 
-def _make_db(*, persona_db, dedup_conv):
-    """Mock AsyncSession with two sequential execute() return values.
+def _make_db(*, persona_db, dedup_conv, ritual=None):
+    """Mock AsyncSession. execute() sequence:
 
-    First execute → persona lookup.
-    Second execute → dedup conversation lookup.
+    [ritual lookup — only when `ritual` is provided (ritual_id validation)]
+    → persona lookup → dedup conversation lookup.
     """
     db = AsyncMock()
+
+    results = []
+    if ritual is not None:
+        ritual_result = MagicMock()
+        ritual_result.scalar_one_or_none.return_value = ritual
+        results.append(ritual_result)
 
     persona_result = MagicMock()
     persona_result.scalar_one_or_none.return_value = persona_db
@@ -43,7 +49,9 @@ def _make_db(*, persona_db, dedup_conv):
     dedup_result = MagicMock()
     dedup_result.scalar_one_or_none.return_value = dedup_conv
 
-    db.execute = AsyncMock(side_effect=[persona_result, dedup_result])
+    results += [persona_result, dedup_result]
+
+    db.execute = AsyncMock(side_effect=results)
     db.add = MagicMock()
     db.flush = AsyncMock()
     return db
@@ -109,8 +117,9 @@ async def test_create_does_not_duplicate_opening_invocation(service):
 async def test_create_dedup_respects_ritual_id(service):
     """A plain conv (ritual_id=None) is not reused for a call with ritual_id set."""
     persona_db = _mock_persona_db("marcus_aurelius")
-    # Query with ritual_id filter finds no match → returns None
-    db = _make_db(persona_db=persona_db, dedup_conv=None)
+    # ritual_id validation now runs first — supply a valid free ritual so the call
+    # proceeds; the dedup (ritual-scoped) then misses (None) and a new conv is made.
+    db = _make_db(persona_db=persona_db, dedup_conv=None, ritual=MagicMock(tier="free"))
 
     await service.create(
         db=db,
