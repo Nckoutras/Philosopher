@@ -78,4 +78,25 @@ describe('PaywallModal', () => {
     render(<PaywallModal open details={baseDetails} onClose={vi.fn()} />)
     expect(screen.getByText(/You've used today's reflections with this mind\./)).toBeTruthy()
   })
+
+  it('renders the save-limit copy and no daily-limit copy when reason is save_limit', () => {
+    // The four saved-line call sites used to open the paywall with no reason, so a
+    // user who hit the 3-line save cap was shown the DAILY MESSAGE limit copy plus a
+    // placeholder "resets today at <now>". The save cap has no reset at all.
+    const saveLimitDetails: PaywallDetails = {
+      upgradeTarget: 'pro',
+      reason: 'save_limit',
+    }
+    render(<PaywallModal open details={saveLimitDetails} onClose={vi.fn()} />)
+
+    expect(screen.getByText("You're keeping all three.")).toBeTruthy()
+    expect(
+      screen.getByText(
+        /Free saving stops at three lines\. Pro has no limit — everything you mark stays in your reflections\./,
+      ),
+    ).toBeTruthy()
+
+    expect(screen.queryByText('Daily limit reached.')).toBeNull()
+    expect(screen.queryByText(/Your free conversations reset/)).toBeNull()
+  })
 })

@@ -410,7 +410,7 @@ export default function ExistingConversationPage() {
     } catch (err) {
       if (err instanceof SaveLimitError) {
         useStore.getState().revertSave(messageId)
-        useStore.getState().setShowPaywall(true, { upgradeTarget: 'pro', resetAt: new Date(), limit: 3 })
+        useStore.getState().setShowPaywall(true, { upgradeTarget: 'pro', reason: 'save_limit' })
       } else if (err instanceof DuplicateSaveError) {
         // 409: silent no-op — optimistic state is correct
       } else {
@@ -421,7 +421,7 @@ export default function ExistingConversationPage() {
   }
 
   function handleUpgradeConfirm() {
-    useStore.getState().setShowPaywall(true, { upgradeTarget: 'pro', resetAt: new Date(), limit: 3 })
+    useStore.getState().setShowPaywall(true, { upgradeTarget: 'pro', reason: 'save_limit' })
   }
 
   if (loadError) {

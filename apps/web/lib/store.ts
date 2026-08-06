@@ -9,7 +9,7 @@ function computePlan(sub: Subscription | null): string {
 
 export interface PaywallDetails {
   upgradeTarget: 'pro' | 'premium'
-  reason?: 'daily' | 'go_deeper_depth' | 'persona_locked' | 'deep_mode'
+  reason?: 'daily' | 'go_deeper_depth' | 'persona_locked' | 'deep_mode' | 'save_limit'
   resetAt?: Date
   limit?: number
   personaVoice?: string
