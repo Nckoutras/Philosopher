@@ -60,7 +60,8 @@ export class RateLimitError extends Error {
   remaining: number
   errorCode: string
   personaVoice?: string
-  upgradeTarget: 'pro' | 'premium'
+  // Single Pro tier — there is no Premium to upgrade to.
+  upgradeTarget: 'pro'
 
   constructor(opts: {
     resetAt: Date
@@ -68,7 +69,7 @@ export class RateLimitError extends Error {
     remaining: number
     errorCode: string
     personaVoice?: string
-    upgradeTarget: 'pro' | 'premium'
+    upgradeTarget: 'pro'
   }) {
     super('RATE_LIMIT')
     this.name = 'RateLimitError'
@@ -901,7 +902,9 @@ class ApiClient {
   }
 
   // SSE stream — returns the raw Response for manual reading.
-  // userPlan is used to determine upgradeTarget on 429 ('free' → 'pro', 'pro' → 'premium').
+  // userPlan no longer affects upgradeTarget (single Pro tier; it used to map
+  // 'pro' → 'premium'). The parameter is kept on these three stream methods so
+  // their call sites are unchanged — see the note in the PR retiring Premium.
   async streamMessage(conversationId: string, content: string, userPlan: string = 'free', seededOpening: boolean = false, signal?: AbortSignal): Promise<Response> {
     const res = await fetch(`${API_BASE}/conversations/${conversationId}/messages`, {
       method: 'POST',
@@ -924,7 +927,7 @@ class ApiClient {
           remaining,
           errorCode: body.error_code ?? 'rate_limited',
           personaVoice: body.persona_voice,
-          upgradeTarget: userPlan === 'pro' ? 'premium' : 'pro',
+          upgradeTarget: 'pro',
         })
       }
       throw new Error('Stream failed')
@@ -957,7 +960,7 @@ class ApiClient {
           remaining,
           errorCode: body.error_code ?? 'rate_limited',
           personaVoice: body.persona_voice,
-          upgradeTarget: userPlan === 'pro' ? 'premium' : 'pro',
+          upgradeTarget: 'pro',
         })
       }
       throw new Error('Stream failed')
@@ -990,7 +993,7 @@ class ApiClient {
           remaining,
           errorCode: body.error_code ?? 'rate_limited',
           personaVoice: body.persona_voice,
-          upgradeTarget: userPlan === 'pro' ? 'premium' : 'pro',
+          upgradeTarget: 'pro',
         })
       }
       throw new Error('Stream failed')

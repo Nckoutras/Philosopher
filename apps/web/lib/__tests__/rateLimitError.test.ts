@@ -31,10 +31,10 @@ describe('RateLimitError', () => {
       limit: 50,
       remaining: 0,
       errorCode: 'rate_limited',
-      upgradeTarget: 'premium',
+      upgradeTarget: 'pro',
     })
 
     expect(err.personaVoice).toBeUndefined()
-    expect(err.upgradeTarget).toBe('premium')
+    expect(err.upgradeTarget).toBe('pro')
   })
 })

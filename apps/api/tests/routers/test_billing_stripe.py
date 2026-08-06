@@ -212,6 +212,18 @@ def test_checkout_keeps_valid_customer_id(client):
     assert m_session.call_args.kwargs["customer"] == NEW_CID
 
 
+def test_checkout_rejects_premium_at_the_schema(client):
+    """Single Pro tier. plan='premium' must be rejected by CheckoutRequest (422),
+    not carried into the router — where, since premium_monthly was dropped from
+    PLANS in #526, it surfaced as a confusing 400 'Invalid plan/interval:
+    premium_monthly'."""
+    with patch("routers.billing.stripe.checkout.Session.create") as m_session:
+        resp = client.post(CHECKOUT_URL, json={"plan": "premium", "interval": "monthly"})
+
+    assert resp.status_code == 422
+    m_session.assert_not_called()
+
+
 # ── /billing/portal — same healing ───────────────────────────────────────────
 
 def test_portal_heals_stale_customer_id(client):
