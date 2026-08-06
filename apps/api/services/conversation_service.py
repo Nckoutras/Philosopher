@@ -577,6 +577,10 @@ class ConversationService:
             )
 
             # ── 5. BUILD MESSAGE HISTORY ─────────────────────────────────────
+            # NEWEST-N WINDOW: DESC + limit selects the most RECENT N turns, then
+            # reversed() restores chronological order for the LLM. ASC + limit would
+            # return the OLDEST N — past turn N the persona would never see its own
+            # recent output. Same shape as council_service._distill_brief.
             history_result = await db.execute(
                 select(Message)
                 .where(
@@ -587,10 +591,10 @@ class ConversationService:
                     # behaviour for all existing/standard/go_deeper rows.
                     Message.message_kind != 'conclusion',
                 )
-                .order_by(Message.created_at.asc())
+                .order_by(Message.created_at.desc())
                 .limit(MEMORY_WINDOW_PRO if user_plan in ("pro", "premium") else MEMORY_WINDOW_FREE)
             )
-            history = history_result.scalars().all()
+            history = list(reversed(history_result.scalars().all()))
             # Cross-mind awareness: label every assistant turn NOT authored by the
             # current responder so it reads as another mind's words. The responder
             # is the sticky active guest when set, else home (persona_id None =>
@@ -1051,6 +1055,10 @@ class ConversationService:
 
         # ── 4. BUILD MESSAGE HISTORY ─────────────────────────────────────────
         # Use same window limits as regular chat.
+        # NEWEST-N WINDOW: DESC + limit selects the most RECENT N turns, then
+        # reversed() restores chronological order for the LLM. ASC + limit would
+        # return the OLDEST N — the guest would never see the recent exchange it
+        # is being brought into. Same shape as council_service._distill_brief.
         history_result = await db.execute(
             select(Message)
             .where(
@@ -1061,10 +1069,10 @@ class ConversationService:
                 # behaviour for all existing/standard/go_deeper rows.
                 Message.message_kind != 'conclusion',
             )
-            .order_by(Message.created_at.asc())
+            .order_by(Message.created_at.desc())
             .limit(MEMORY_WINDOW_PRO if user_plan in ("pro", "premium") else MEMORY_WINDOW_FREE)
         )
-        history = history_result.scalars().all()
+        history = list(reversed(history_result.scalars().all()))
         # Cross-mind awareness: the guest responder sees the home persona and
         # any other brought-in personas as other minds. Label every assistant
         # turn not authored by the guest itself (persona_id None => home).
@@ -1299,6 +1307,10 @@ class ConversationService:
 
         # ── 4. BUILD MESSAGE HISTORY ─────────────────────────────────────────
         # Use same window limits as regular chat.
+        # NEWEST-N WINDOW: DESC + limit selects the most RECENT N turns, then
+        # reversed() restores chronological order for the LLM. ASC + limit would
+        # return the OLDEST N — the persona would be asked to go deeper on the
+        # start of the conversation. Same shape as council_service._distill_brief.
         history_result = await db.execute(
             select(Message)
             .where(
@@ -1309,10 +1321,10 @@ class ConversationService:
                 # behaviour for all existing/standard/go_deeper rows.
                 Message.message_kind != 'conclusion',
             )
-            .order_by(Message.created_at.asc())
+            .order_by(Message.created_at.desc())
             .limit(MEMORY_WINDOW_PRO if user_plan in ("pro", "premium") else MEMORY_WINDOW_FREE)
         )
-        history = history_result.scalars().all()
+        history = list(reversed(history_result.scalars().all()))
         # Cross-mind awareness: the guest responder sees the home persona and
         # any other brought-in personas as other minds. Label every assistant
         # turn not authored by the guest itself (persona_id None => home).
