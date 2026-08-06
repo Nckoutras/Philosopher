@@ -5,8 +5,11 @@ import InsightBootstrap from '@/components/layout/InsightBootstrap'
 import LettersBootstrap from '@/components/layout/LettersBootstrap'
 
 export default function TabsLayout({ children }: { children: React.ReactNode }) {
+  // dvh, not svh (see interactiveWidget in app/layout.tsx): an svh shell keeps its full
+  // height when the keyboard opens, and overflow-hidden + BodyScrollLock leave no way to
+  // reach the clipped bottom — e.g. Today's TodaysTopicCard textarea.
   return (
-    <div className="relative h-[100svh] overflow-hidden flex flex-col">
+    <div className="relative h-[100dvh] overflow-hidden flex flex-col">
       <BodyScrollLock />
       <SubscriptionBootstrap />
       <InsightBootstrap />
