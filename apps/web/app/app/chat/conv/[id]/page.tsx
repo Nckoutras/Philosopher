@@ -446,8 +446,10 @@ export default function ExistingConversationPage() {
     )
   }
 
+  // dvh + fixed height so the column tracks the keyboard (see interactiveWidget in
+  // app/layout.tsx) and can never grow past the viewport, stranding the composer.
   return (
-    <main className="min-h-screen [min-height:100svh] flex flex-col bg-paper">
+    <main className="h-screen [height:100dvh] flex flex-col bg-paper">
       <SubPageNav fallbackHref="/app/library" showHome={false} />
       <ChatHeader
         personaName={personaName}

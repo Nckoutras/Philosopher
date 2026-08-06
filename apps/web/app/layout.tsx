@@ -23,6 +23,11 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
+  // Chrome/Android defaults to 'resizes-visual': the keyboard shrinks the VISUAL
+  // viewport only, so a bottom-anchored composer in a full-height column sits behind it
+  // with nowhere to scroll. 'resizes-content' shrinks the LAYOUT viewport instead, which
+  // dvh-sized shells (chat pages, (tabs)/layout) track — lifting the composer clear.
+  interactiveWidget: 'resizes-content',
 }
 
 export const metadata: Metadata = {
