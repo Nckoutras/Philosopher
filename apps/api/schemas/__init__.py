@@ -250,7 +250,10 @@ class RitualOut(BaseModel):
 # ── Billing ───────────────────────────────────────────────────────────────────
 
 class CheckoutRequest(BaseModel):
-    plan: str = Field(pattern="^(pro|premium)$")
+    # Single Pro tier. Rejecting "premium" here (422) rather than letting it reach
+    # the router, where it now fails as a confusing 400 "Invalid plan/interval:
+    # premium_monthly" — premium_monthly was removed from PLANS in #526.
+    plan: str = Field(pattern="^pro$")
     interval: str = Field(default="monthly", pattern="^(monthly|yearly)$")
 
 

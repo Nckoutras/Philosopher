@@ -33,12 +33,14 @@ describe('RF-02 upgradeTarget on 429', () => {
     expect((err as RateLimitError).upgradeTarget).toBe('pro')
   })
 
-  it('pro user gets upgradeTarget "premium"', async () => {
+  it('pro user ALSO gets upgradeTarget "pro" — Premium is retired', async () => {
+    // This test previously asserted 'premium', pinning the defect: a paying Pro
+    // user hitting a rate limit was offered a tier that will never exist.
     vi.stubGlobal('fetch', make429Fetch({ error_code: 'rate_limited', persona_voice: 'I am limited.' }))
 
     const err = await api.streamMessage('conv-1', 'hello', 'pro').catch((e: unknown) => e)
     expect(err).toBeInstanceOf(RateLimitError)
-    expect((err as RateLimitError).upgradeTarget).toBe('premium')
+    expect((err as RateLimitError).upgradeTarget).toBe('pro')
   })
 
   it('parses X-RateLimit headers into RateLimitError fields', async () => {

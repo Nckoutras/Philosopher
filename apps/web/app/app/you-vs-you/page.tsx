@@ -249,9 +249,6 @@ export default function YouVsYouPage() {
               {remaining === 0
                 ? <>You&rsquo;ve used all {status.weekly_limit} this week.</>
                 : <>{remaining ?? status.weekly_remaining} of {status.weekly_limit} left this week</>}
-              {status.plan === 'pro' && (
-                <> &middot; <button type="button" onClick={() => router.push('/app/upgrade')} className="text-bronze-dark underline underline-offset-2">Premium: 30 a week</button></>
-              )}
             </p>
           )}
         </div>

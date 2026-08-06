@@ -34,10 +34,14 @@ describe('PaywallModal', () => {
     expect(screen.getByRole('button', { name: /Upgrade to Pro/i })).toBeTruthy()
   })
 
-  it('renders correct upgrade target label for Premium', () => {
-    const premiumDetails: PaywallDetails = { ...baseDetails, upgradeTarget: 'premium' }
-    render(<PaywallModal open details={premiumDetails} onClose={vi.fn()} />)
-    expect(screen.getByRole('button', { name: /Upgrade to Premium/i })).toBeTruthy()
+  it('never offers Premium — a pro user still sees the Pro label', () => {
+    // Single Pro tier. Before this, a paying Pro user who hit a rate limit was
+    // shown "Upgrade to Premium → Coming soon" for a tier that will never exist.
+    // upgradeTarget can no longer even be typed as 'premium'; this pins the
+    // rendering so a reintroduced ternary would fail here.
+    render(<PaywallModal open details={baseDetails} onClose={vi.fn()} />)
+    expect(screen.getByRole('button', { name: /Upgrade to Pro/i })).toBeTruthy()
+    expect(screen.queryByText(/Premium/i)).toBeNull()
   })
 
   it('calls onClose when the × button is clicked', () => {

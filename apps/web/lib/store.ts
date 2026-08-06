@@ -8,7 +8,8 @@ function computePlan(sub: Subscription | null): string {
 }
 
 export interface PaywallDetails {
-  upgradeTarget: 'pro' | 'premium'
+  // Single Pro tier — there is no Premium to upgrade to.
+  upgradeTarget: 'pro'
   reason?: 'daily' | 'go_deeper_depth' | 'persona_locked' | 'deep_mode' | 'save_limit'
   resetAt?: Date
   limit?: number

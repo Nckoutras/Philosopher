@@ -36,7 +36,9 @@ export default function PaywallModal({ open, details, onClose }: Props) {
 
   if (!open || !details) return null
 
-  const upgradeLabel = details.upgradeTarget === 'premium' ? 'Premium' : 'Pro'
+  // Single Pro tier. The button stays disabled with "Coming soon" until live
+  // Stripe ships — that is a later step, not this one.
+  const upgradeLabel = 'Pro'
   const personaLabel = personaName ?? 'this mind'
 
   return (
