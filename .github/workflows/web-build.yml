@@ -33,5 +33,17 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund
 
+      # Measurement only. next.config.js sets typescript.ignoreBuildErrors and
+      # eslint.ignoreDuringBuilds, so `npm run build` validates nothing — these two
+      # steps report how much is currently broken. continue-on-error is deliberate:
+      # a red X here must never block a merge until we decide to enforce.
+      - name: Typecheck (report only)
+        run: npm run typecheck
+        continue-on-error: true
+
+      - name: Tests (report only)
+        run: npm test -- run
+        continue-on-error: true
+
       - name: Build
         run: npm run build
