@@ -6,6 +6,7 @@ history window based on user_plan. All external I/O is mocked.
 Run: cd apps/api && pytest tests/services/test_conversation_service.py -v
 """
 import pytest
+from datetime import datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch, call
 
 from services.conversation_service import ConversationService
@@ -344,12 +345,38 @@ async def test_premium_user_uses_sonnet():
 
 # ── Section B: History window ─────────────────────────────────────────────────
 
-def _make_db_capture_limit(captured: dict, *, history=None):
-    """DB mock that records the .limit() argument used in the history query.
+def _is_history_query(stmt) -> str | None:
+    """Return the compiled SQL if `stmt` is the history-window query, else None.
 
-    The history query is the third execute() call in stream_response.
-    We intercept the SQLAlchemy Select object passed to execute() on that
-    call and record the limit value.
+    The history query is identified by SHAPE — a SELECT over `messages` carrying a
+    LIMIT and the conclusion-exclusion filter — not by execute() call index. Queries
+    have been added ahead of it over time (the onboarding-profile load at
+    conversation_service.py:563 is the current one), and an index-based harness
+    silently captures the wrong statement and reports a failure that has nothing to
+    do with the history window.
+
+    The `message_kind` clause is what separates it from the `.desc().limit(1)`
+    last-user-message lookup in the another-mind / go-deeper paths, which is also a
+    limited SELECT over `messages`.
+    """
+    try:
+        compiled = str(stmt.compile(compile_kwargs={"literal_binds": True}))
+    except Exception:
+        return None
+    if (
+        "FROM messages" in compiled
+        and "LIMIT" in compiled.upper()
+        and "message_kind" in compiled
+    ):
+        return compiled
+    return None
+
+
+def _make_db_capture_limit(captured: dict, *, history=None):
+    """DB mock that records the compiled history query (LIMIT + ORDER BY).
+
+    Identifies the history query by shape via _is_history_query; every other
+    statement gets a generic result.
     """
     db = AsyncMock()
 
@@ -375,10 +402,9 @@ def _make_db_capture_limit(captured: dict, *, history=None):
             return conv_result
         if n == 1:
             return persona_result
-        if n == 2:
-            # History query — capture the limit
-            compiled = stmt.compile(compile_kwargs={"literal_binds": True})
-            captured["limit_clause"] = str(compiled)
+        compiled = _is_history_query(stmt)
+        if compiled is not None:
+            captured["limit_clause"] = compiled
             return history_result
         return save_result
 
@@ -1885,3 +1911,349 @@ async def test_go_deeper_embeds_once_and_reuses_vector(_patch_conv_embedding_cli
         expected_vec = embed_mock.return_value
         assert mock_memory.recall.call_args.kwargs["query_embedding"] == expected_vec
         assert mock_retrieval.retrieve.call_args.kwargs["query_embedding"] == expected_vec
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# History window must select the NEWEST N messages, not the oldest
+# ══════════════════════════════════════════════════════════════════════════════
+#
+# All three chat paths used `ORDER BY created_at ASC LIMIT N`, which returns the
+# OLDEST N rows of the conversation. Past turn N the persona never saw its own
+# recent output — a UAT tester quoted the persona's previous sentence back and was
+# told "I didn't say that — you did". The fix is DESC + limit (newest N) followed by
+# reversed() (chronological for the LLM), matching council_service._distill_brief.
+#
+# Covered here:
+#   1. The compiled history query orders created_at DESC on all three paths.
+#   2. stream_response actually hands the LLM the most recent window, in order.
+
+
+def _order_by_clause(compiled_sql: str) -> str:
+    """Slice the ORDER BY clause out of a compiled statement string.
+
+    Kept to the ORDER BY..LIMIT span so an ASC/DESC assertion cannot be satisfied
+    (or defeated) by some unrelated part of the query text.
+    """
+    upper = compiled_sql.upper()
+    start = upper.find("ORDER BY")
+    assert start != -1, f"No ORDER BY in compiled history query: {compiled_sql}"
+    end = upper.find("LIMIT", start)
+    return compiled_sql[start:] if end == -1 else compiled_sql[start:end]
+
+
+def _assert_desc(clause: str, path: str):
+    assert "DESC" in clause.upper(), (
+        f"{path}: history query must order created_at DESC (newest N), "
+        f"got ORDER BY clause: {clause!r}"
+    )
+    assert "ASC" not in clause.upper(), (
+        f"{path}: history query must not order created_at ASC (oldest N), "
+        f"got ORDER BY clause: {clause!r}"
+    )
+
+
+class _StopAfterHistory(Exception):
+    """Sentinel raised once the history query has been compiled and captured, so a
+    path aborts without the whole downstream stream flow needing to be mocked."""
+
+
+def _capture_history_sql(captured: dict, *, pre_results: list):
+    """DB mock that records the compiled history query (detected by shape) and then
+    aborts via _StopAfterHistory. Statements ahead of it are served from pre_results
+    in order; anything unexpected gets a generic MagicMock."""
+    db = AsyncMock()
+    call_index = {"n": 0}
+
+    async def execute_side_effect(stmt, *args, **kwargs):
+        compiled = _is_history_query(stmt)
+        if compiled is not None:
+            captured["sql"] = compiled
+            raise _StopAfterHistory()
+        n = call_index["n"]
+        call_index["n"] += 1
+        return pre_results[n] if n < len(pre_results) else MagicMock()
+
+    db.execute = execute_side_effect
+    db.rollback = AsyncMock()
+    return db
+
+
+# ── 1. Compiled query orders DESC — all three paths ───────────────────────────
+
+@pytest.mark.asyncio
+async def test_main_path_history_query_orders_desc():
+    """stream_response history query → ORDER BY created_at DESC (newest N)."""
+    captured = await _run_stream_capture_limit("pro")
+    _assert_desc(_order_by_clause(captured["limit_clause"]), "stream_response")
+
+
+@pytest.mark.asyncio
+async def test_another_mind_history_query_orders_desc():
+    """stream_another_mind history query → ORDER BY created_at DESC (newest N)."""
+    service = ConversationService()
+    captured = {}
+
+    conv_result = MagicMock()
+    conv_result.scalar_one_or_none.return_value = _mock_conv()
+    persona_result = MagicMock()
+    persona_result.scalar_one.return_value = _mock_persona_db()
+    last_user_result = MagicMock()
+    last_user_result.scalar_one_or_none.return_value = "What is courage?"
+
+    db = _capture_history_sql(
+        captured, pre_results=[conv_result, persona_result, last_user_result]
+    )
+
+    with (
+        patch("services.conversation_service.memory_service") as mock_memory,
+        patch("services.conversation_service.retrieval_service") as mock_retrieval,
+        patch("services.conversation_service.prompt_builder") as mock_prompt,
+        patch("services.conversation_service.get_persona") as mock_get_persona,
+    ):
+        mock_memory.recall = AsyncMock(return_value=[])
+        mock_retrieval.retrieve = AsyncMock(return_value=[])
+        mock_prompt.build_system.return_value = "system"
+        persona_config = MagicMock()
+        persona_config.slug = "socrates"
+        mock_get_persona.return_value = persona_config
+
+        with pytest.raises(_StopAfterHistory):
+            await _drain(service.stream_another_mind(
+                db=db,
+                conversation_id=CONV_ID,
+                user_id=USER_ID,
+                target_persona_slug="socrates",
+                user_plan="pro",
+            ))
+
+    _assert_desc(_order_by_clause(captured["sql"]), "stream_another_mind")
+
+
+@pytest.mark.asyncio
+async def test_go_deeper_history_query_orders_desc():
+    """stream_go_deeper history query → ORDER BY created_at DESC (newest N)."""
+    service = ConversationService()
+    captured = {}
+
+    conv_result = MagicMock()
+    conv_result.scalar_one_or_none.return_value = _mock_conv()
+    persona_result = MagicMock()
+    persona_result.scalar_one.return_value = _mock_persona_db()
+    thread_result = MagicMock(); thread_result.scalar.return_value = 0
+    last_std_result = MagicMock(); last_std_result.scalar.return_value = None
+    turn_result = MagicMock(); turn_result.scalar.return_value = 0
+    last_user_result = MagicMock()
+    last_user_result.scalar_one_or_none.return_value = "Say more about virtue."
+
+    db = _capture_history_sql(captured, pre_results=[
+        conv_result, persona_result, thread_result,
+        last_std_result, turn_result, last_user_result,
+    ])
+
+    with (
+        patch("services.conversation_service.memory_service") as mock_memory,
+        patch("services.conversation_service.retrieval_service") as mock_retrieval,
+        patch("services.conversation_service.prompt_builder") as mock_prompt,
+        patch("services.conversation_service.get_persona") as mock_get_persona,
+    ):
+        mock_memory.recall = AsyncMock(return_value=[])
+        mock_retrieval.retrieve = AsyncMock(return_value=[])
+        mock_prompt.build_system.return_value = "system"
+        persona_config = MagicMock()
+        persona_config.slug = "marcus_aurelius"
+        mock_get_persona.return_value = persona_config
+
+        # is_admin=True skips the daily go-deeper gate (no extra execute call).
+        with pytest.raises(_StopAfterHistory):
+            await _drain(service.stream_go_deeper(
+                db=db,
+                conversation_id=CONV_ID,
+                user_id=USER_ID,
+                user_plan="pro",
+                is_admin=True,
+            ))
+
+    _assert_desc(_order_by_clause(captured["sql"]), "stream_go_deeper")
+
+
+# ── 2. Behavioural: the LLM receives the most recent window, in order ──────────
+
+def _seeded_history(n: int):
+    """n messages with ascending created_at, alternating assistant/user.
+
+    Index 0 is an assistant turn (the persona's opening_invocation), so even
+    indices are assistant turns and odd indices are user turns — the real shape of
+    a conversation. persona_id=None ⇒ authored by the home persona, so the
+    cross-mind labelling branch stays off and content passes through verbatim.
+    """
+    base = datetime(2026, 1, 1, 12, 0, 0)
+    msgs = []
+    for i in range(n):
+        m = MagicMock()
+        m.role = "assistant" if i % 2 == 0 else "user"
+        m.content = f"m{i:02d}"
+        m.persona_id = None
+        m.created_at = base + timedelta(minutes=i)
+        msgs.append(m)
+    return msgs
+
+
+def _make_db_seeded_history(all_msgs, window: int):
+    """DB mock whose history call behaves like a miniature Postgres: it applies the
+    query's REAL ORDER BY direction to the seeded rows, then the window limit.
+
+    This is what makes the test a regression test rather than a restatement of the
+    mock — under the old ASC ordering it returns the OLDEST rows and the assertions
+    below fail.
+    """
+    db = AsyncMock()
+
+    conv_result = MagicMock()
+    conv_result.scalar_one_or_none.return_value = _mock_conv()
+    persona_result = MagicMock()
+    persona_result.scalar_one.return_value = _mock_persona_db()
+    default_result = MagicMock()
+    default_result.scalar_one_or_none.return_value = None
+
+    call_index = {"n": 0}
+
+    async def execute_side_effect(stmt, *args, **kwargs):
+        compiled = _is_history_query(stmt)
+        if compiled is not None:
+            clause = _order_by_clause(compiled)
+            rows = sorted(all_msgs, key=lambda m: m.created_at)
+            if "DESC" in clause.upper():
+                rows = list(reversed(rows))
+            history_result = MagicMock()
+            history_result.scalars.return_value.all.return_value = rows[:window]
+            return history_result
+        n = call_index["n"]
+        call_index["n"] += 1
+        if n == 0:
+            return conv_result
+        if n == 1:
+            return persona_result
+        return default_result
+
+    db.execute = execute_side_effect
+    db.add = MagicMock()
+    db.flush = AsyncMock()
+    db.commit = AsyncMock()
+    db.rollback = AsyncMock()
+    return db
+
+
+async def _run_main_path_seeded(n_messages: int, window: int) -> list[dict]:
+    """Run stream_response over a seeded n-message conversation and return the
+    message list actually handed to llm_client.stream()."""
+    service = ConversationService()
+    captured = {}
+
+    async def capture_stream(*args, **kwargs):
+        captured["messages"] = list(kwargs["messages"])
+        yield "Hello"
+
+    mock_llm = MagicMock()
+    mock_llm.stream = capture_stream
+
+    all_msgs = _seeded_history(n_messages)
+
+    with (
+        patch("services.conversation_service.safety_service") as mock_safety,
+        patch("services.conversation_service.memory_service") as mock_memory,
+        patch("services.conversation_service.retrieval_service") as mock_retrieval,
+        patch("services.conversation_service.llm_client", mock_llm),
+        patch("services.conversation_service.prompt_builder") as mock_prompt,
+        patch("services.conversation_service.analytics_service"),
+        patch("services.conversation_service.POSTPROCESSING_ENABLED", False),
+        patch("services.conversation_service.PHENOMENOLOGY_BRIDGE_ENABLED", False),
+        patch("services.conversation_service.get_persona") as mock_get_persona,
+    ):
+        safety_result = MagicMock()
+        safety_result.should_log = False
+        safety_result.should_suppress_persona = False
+        safety_result.level = "none"
+        mock_safety.check_input = AsyncMock(return_value=safety_result)
+        mock_safety.check_output = AsyncMock(return_value=safety_result)
+        mock_memory.recall = AsyncMock(return_value=[])
+        mock_retrieval.retrieve = AsyncMock(return_value=[])
+        mock_prompt.build_system.return_value = "system"
+        persona_config = MagicMock()
+        persona_config.slug = "marcus_aurelius"
+        # No length band ⇒ _length_directive_for_input returns None. This test is the
+        # first with a populated window, so it is the first to reach that branch
+        # (gated on history_len > 1); a bare MagicMock band would unpack-error there
+        # for reasons unrelated to ordering.
+        persona_config.response_length_words = None
+        mock_get_persona.return_value = persona_config
+
+        db = _make_db_seeded_history(all_msgs, window)
+        service._save_message = AsyncMock(return_value=_saved_msg())
+        service._log_safety_event = AsyncMock()
+
+        await _drain(service.stream_response(
+            session_factory=_factory(db),
+            conversation_id=CONV_ID,
+            user_id=USER_ID,
+            user_text="What is virtue?",
+            user_plan="pro",
+        ))
+
+    return captured["messages"]
+
+
+@pytest.mark.asyncio
+async def test_main_path_sends_most_recent_window_in_chronological_order():
+    """25-message conversation, Pro (window 20) → the LLM gets the LAST 20 messages
+    in chronological order, ending with the current user text.
+
+    The regression this pins: m24 — the persona's own most recent turn — must be in
+    the context. Under the old ASC ordering the model received m00–m19 and would
+    deny having said m24.
+    """
+    sent = await _run_main_path_seeded(25, MEMORY_WINDOW_PRO)
+    contents = [m["content"] for m in sent]
+
+    # Newest 20 rows are m05..m24 (m05 is a user turn, so nothing is stripped by
+    # the leading-assistant guard), then the current user text is appended.
+    expected = [f"m{i:02d}" for i in range(5, 25)] + ["What is virtue?"]
+    assert contents == expected, f"Expected {expected}, got {contents}"
+
+    # The bug, stated directly: the persona's most recent turn is in context…
+    assert "m24" in contents
+    # …and the oldest turns have fallen out of the window.
+    for old in ("m00", "m01", "m02", "m03", "m04"):
+        assert old not in contents
+
+    # Anthropic invariant: the array still starts with a user turn and ends on the
+    # current user text.
+    assert sent[0]["role"] == "user"
+    assert sent[-1] == {"role": "user", "content": "What is virtue?"}
+
+
+@pytest.mark.asyncio
+async def test_main_path_strips_leading_assistant_when_window_opens_on_one():
+    """26-message conversation, Pro (window 20) → window is m06..m25 and m06 is an
+    ASSISTANT turn, so the leading-assistant strip must fire.
+
+    This branch is newly live. Before the fix the window always began at m00 — the
+    conversation's first row — so on the main path the strip was effectively dead
+    code. Selecting the newest N means the window now opens at an arbitrary point
+    mid-conversation and lands on an assistant turn half the time; without the strip
+    that is an Anthropic 400 (messages must begin with a user turn) on every long
+    conversation.
+    """
+    sent = await _run_main_path_seeded(26, MEMORY_WINDOW_PRO)
+    contents = [m["content"] for m in sent]
+
+    # The strip fired — the API invariant holds even though the window opened on an
+    # assistant turn.
+    assert sent[0]["role"] == "user"
+
+    # Exactly one row stripped: m06 is gone, m07 onward survive intact.
+    expected = [f"m{i:02d}" for i in range(7, 26)] + ["What is virtue?"]
+    assert contents == expected, f"Expected {expected}, got {contents}"
+
+    # The newest turn is still in context (m25; the persona's own most recent turn,
+    # m24, rides along with it) — the strip trims the front, never the tail.
+    assert "m25" in contents
