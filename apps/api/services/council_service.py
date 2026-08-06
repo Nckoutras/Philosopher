@@ -229,7 +229,20 @@ class CouncilService:
                 + COUNCIL_VERDICT_INSTRUCTION.format(persona_name=persona.name)
                 + (f"\n\n{role_directive}" if role_directive else "")
             )
-            messages = [{"role": "user", "content": effective_matter}]
+            # The matter is FRAMED, not handed over bare. A bare user turn carrying a
+            # quotation reads as "comment on this text", so members opened by disowning
+            # and attributing it instead of counselling the person (UAT A5). The closing
+            # line does the most work: what the model carries into its first sentence is
+            # what it read last, and the first sentence is where the disowning happened.
+            # Applies on the shared path — direct- and mirror-sourced matters too.
+            # NOTE: effective_matter itself is deliberately NOT reassigned; the synthesis
+            # step below builds its own string from it and must keep the unwrapped text.
+            framed_matter = (
+                "The person brings this before the council:\n\n"
+                f"{effective_matter}\n\n"
+                "This is what they ask you to weigh."
+            )
+            messages = [{"role": "user", "content": framed_matter}]
 
             yield f"data: {json.dumps({'type': 'member', 'slug': slug, 'name': persona.name, 'position': i})}\n\n"
 
