@@ -97,7 +97,6 @@ def setup_cron(arq_queue):
             from models import Subscription
             from sqlalchemy import select
             from config import config
-            from datetime import datetime, timezone
 
             stripe.api_key = config.STRIPE_SECRET_KEY
             if not config.STRIPE_SECRET_KEY:
@@ -112,21 +111,47 @@ def setup_cron(arq_queue):
                 )
                 subs = result.scalars().all()
 
-                updated = 0
+                synced = 0
+                skipped = 0
                 for sub in subs:
                     try:
                         stripe_sub = stripe.Subscription.retrieve(sub.stripe_subscription_id)
-                        if stripe_sub.status != sub.status:
-                            sub.status = stripe_sub.status
-                            updated += 1
                     except stripe.error.InvalidRequestError:
-                        sub.status = "canceled"
-                        sub.plan = "free"
-                        updated += 1
+                        # NEVER downgrade here. Stripe RETAINS cancelled subscriptions
+                        # and returns them with status="canceled", so InvalidRequestError
+                        # never means "the customer cancelled" — it means the id is not
+                        # recognised under the CURRENT key (a test-mode id after a live
+                        # key switch, a synthetic comp-grant id like "admin_override", or
+                        # a typo). Genuine cancellations arrive via the status sync below
+                        # and via the customer.subscription.deleted webhook.
+                        skipped += 1
+                        logger.error(
+                            "Cron Stripe reconcile: subscription %s (user %s) is not "
+                            "recognised under the current Stripe key — NO downgrade "
+                            "performed. The stored id is stale or not a Stripe id.",
+                            sub.stripe_subscription_id, sub.user_id,
+                        )
+                        continue
 
-                if updated:
+                    if stripe_sub.status != sub.status:
+                        sub.status = stripe_sub.status
+                        # A confirmed cancellation from Stripe downgrades the plan too.
+                        # Without this the row keeps plan='pro' while status='canceled';
+                        # tier_service reads status first so access is correct either way,
+                        # but a reader of `plan` alone would be misled. Only for
+                        # "canceled" — no other status transition touches plan.
+                        if stripe_sub.status == "canceled":
+                            sub.plan = "free"
+                        synced += 1
+
+                if synced:
                     await db.commit()
-                    logger.info(f"Cron: reconciled {updated} subscriptions")
+                # Always report both numbers, and report them separately: "4 unrecognised"
+                # must never hide inside a single "reconciled 4" count.
+                logger.info(
+                    "Cron: Stripe reconcile finished — %d synced, %d unrecognised (skipped)",
+                    synced, skipped,
+                )
         except Exception as e:
             logger.error(f"Cron Stripe reconcile failed: {e}", exc_info=True)
 
