@@ -107,6 +107,20 @@ export default function PaywallModal({ open, details, onClose }: Props) {
               deep readings &mdash; Pro makes every reply deep, with no daily limit.
             </p>
           </>
+        ) : details.reason === 'save_limit' ? (
+          <>
+            <h2
+              id="paywall-title"
+              className="font-cormorant text-[26px] font-medium text-ink leading-tight mb-4"
+            >
+              You&apos;re keeping all three.
+            </h2>
+
+            <p className="font-lora text-[13px] text-charcoal leading-relaxed mb-8">
+              Free saving stops at three lines. Pro has no limit &mdash; everything you mark
+              stays in your reflections.
+            </p>
+          </>
         ) : (
           <>
             <h2
