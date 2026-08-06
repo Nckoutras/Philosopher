@@ -46,10 +46,11 @@ def test_plan_from_stripe_empty_items():
     assert _plan_from_stripe(sub_obj) == "free"
 
 
-def test_plans_dict_has_pro_and_premium():
+def test_plans_dict_has_pro_only():
+    """Single Pro tier — premium_monthly is retired from the purchasable plans."""
     assert "pro_monthly" in PLANS
     assert "pro_yearly" in PLANS
-    assert "premium_monthly" in PLANS
+    assert "premium_monthly" not in PLANS
 
 
 # ── Tier ordering ─────────────────────────────────────────────────────────────
