@@ -50,7 +50,7 @@ export default function WriteBackPanel({ letterId, personaName, initialWriteBack
           {saved}
         </p>
         <p className="font-lora text-[12px] text-sepia mt-[12px]">
-          {to} will carry this forward.
+          Kept. {to} doesn&rsquo;t reply here — your words stay with the correspondence and shape what comes next.
         </p>
       </div>
     )
