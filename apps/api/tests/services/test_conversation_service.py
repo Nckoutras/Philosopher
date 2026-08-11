@@ -11,6 +11,7 @@ from unittest.mock import AsyncMock, MagicMock, patch, call
 
 from services.conversation_service import ConversationService
 from services.conversation_service import MODEL_FREE, MODEL_PRO, MEMORY_WINDOW_FREE, MEMORY_WINDOW_PRO
+from services.conversation_service import MEMORY_MAX_ROWS_PRO, HISTORY_TOKEN_BUDGET_PRO
 
 
 # ── Shared fixtures ───────────────────────────────────────────────────────────
@@ -477,20 +478,25 @@ async def test_free_user_history_window_is_5():
 
 
 @pytest.mark.asyncio
-async def test_pro_user_history_window_is_20():
-    """Pro user → history query uses LIMIT 20 (MEMORY_WINDOW_PRO)."""
+async def test_pro_user_history_row_cap_is_the_backstop():
+    """Pro user → history query uses LIMIT MEMORY_MAX_ROWS_PRO.
+
+    Was LIMIT 20 (MEMORY_WINDOW_PRO). Pro no longer windows by message count: the
+    query fetches up to the row backstop and the TOKEN budget does the bounding
+    (see _fit_history_to_budget). Free is unchanged and still LIMIT 5.
+    """
     captured = await _run_stream_capture_limit("pro")
-    assert str(MEMORY_WINDOW_PRO) in captured.get("limit_clause", ""), (
-        f"Expected LIMIT {MEMORY_WINDOW_PRO} in query, got: {captured.get('limit_clause')}"
+    assert str(MEMORY_MAX_ROWS_PRO) in captured.get("limit_clause", ""), (
+        f"Expected LIMIT {MEMORY_MAX_ROWS_PRO} in query, got: {captured.get('limit_clause')}"
     )
 
 
 @pytest.mark.asyncio
-async def test_premium_user_history_window_is_20():
-    """Premium user is treated as pro → history query uses LIMIT 20."""
+async def test_premium_user_history_row_cap_is_the_backstop():
+    """Premium user is treated as pro → same row backstop."""
     captured = await _run_stream_capture_limit("premium")
-    assert str(MEMORY_WINDOW_PRO) in captured.get("limit_clause", ""), (
-        f"Expected LIMIT {MEMORY_WINDOW_PRO} in query, got: {captured.get('limit_clause')}"
+    assert str(MEMORY_MAX_ROWS_PRO) in captured.get("limit_clause", ""), (
+        f"Expected LIMIT {MEMORY_MAX_ROWS_PRO} in query, got: {captured.get('limit_clause')}"
     )
 
 
@@ -2265,11 +2271,15 @@ async def test_main_path_strips_leading_assistant_when_window_opens_on_one():
 #   1. the system prefix — prompt_builder.split_system_for_cache, unchanged
 #   2. the message history — the top-level automatic breakpoint, added here
 #
-# (2) is attached ONLY while the newest-N window has evicted nothing, because a
-# sliding window changes the message prefix every turn: the lookup would be a
-# guaranteed miss billed at the 1.25x write price. See _history_cache_control.
+# (2) is attached ONLY while nothing has been dropped from the history, because a
+# prefix that loses its oldest rows changes every turn: the lookup would be a
+# guaranteed miss billed at the 1.25x write price. Under the phase-2 growing
+# window that condition is the token budget's `truncated` flag, not a message
+# count. See _history_cache_control and _fit_history_to_budget.
 
-from services.conversation_service import _history_cache_control
+from services.conversation_service import (
+    _history_cache_control, _fit_history_to_budget, _estimate_tokens,
+)
 from services.prompt_builder import prompt_builder as _real_prompt_builder
 from services.prompt_builder import CACHE_SPLIT_SENTINEL as _SENTINEL
 
@@ -2296,9 +2306,13 @@ def _assert_system_prefix_breakpoint_intact(system):
     assert system[1]["text"].startswith("SUFFIX")
 
 
-async def _run_main_path_capture(n_messages: int, window: int, user_plan: str) -> dict:
+async def _run_main_path_capture(n_messages: int, window: int, user_plan: str,
+                                 budget: int | None = None) -> dict:
     """Run stream_response over a seeded conversation and return the FULL kwargs
-    handed to llm_client.stream() — system, messages, model, cache_control."""
+    handed to llm_client.stream() — system, messages, model, cache_control.
+
+    `budget` patches HISTORY_TOKEN_BUDGET_PRO so a test can force the token
+    trimmer to bite without seeding megabytes of text."""
     service = ConversationService()
     captured = {}
 
@@ -2321,6 +2335,8 @@ async def _run_main_path_capture(n_messages: int, window: int, user_plan: str) -
         patch("services.conversation_service.POSTPROCESSING_ENABLED", False),
         patch("services.conversation_service.PHENOMENOLOGY_BRIDGE_ENABLED", False),
         patch("services.conversation_service.get_persona") as mock_get_persona,
+        patch("services.conversation_service.HISTORY_TOKEN_BUDGET_PRO",
+              budget if budget is not None else HISTORY_TOKEN_BUDGET_PRO),
     ):
         safety_result = MagicMock()
         safety_result.should_log = False
@@ -2394,7 +2410,7 @@ def _make_db_go_deeper_history(all_msgs, window: int):
 
 
 async def _run_guest_path_capture(which: str, n_messages: int, window: int,
-                                  user_plan: str) -> dict:
+                                  user_plan: str, budget: int | None = None) -> dict:
     """Run stream_another_mind / stream_go_deeper over a seeded conversation and
     return the FULL kwargs handed to llm_client.stream().
 
@@ -2419,6 +2435,8 @@ async def _run_guest_path_capture(which: str, n_messages: int, window: int,
         patch("services.conversation_service.llm_client", mock_llm),
         patch("services.conversation_service.prompt_builder") as mock_prompt,
         patch("services.conversation_service.get_persona") as mock_get_persona,
+        patch("services.conversation_service.HISTORY_TOKEN_BUDGET_PRO",
+              budget if budget is not None else HISTORY_TOKEN_BUDGET_PRO),
     ):
         mock_memory.recall = AsyncMock(return_value=[])
         mock_retrieval.retrieve = AsyncMock(return_value=[])
@@ -2455,22 +2473,26 @@ async def _run_guest_path_capture(which: str, n_messages: int, window: int,
 
 # ── The guard itself ──────────────────────────────────────────────────────────
 
-def test_history_cache_control_attaches_only_below_the_window():
-    """Pro + nothing evicted ⇒ breakpoint. At/over the window ⇒ None, because a
-    sliding prefix can only ever MISS, and a miss is billed as a write."""
-    assert _history_cache_control("pro", 0) == _EPHEMERAL
-    assert _history_cache_control("pro", MEMORY_WINDOW_PRO - 1) == _EPHEMERAL
-    assert _history_cache_control("premium", MEMORY_WINDOW_PRO - 1) == _EPHEMERAL
-    # Eviction boundary: a full window means rows may already have fallen out.
-    assert _history_cache_control("pro", MEMORY_WINDOW_PRO) is None
-    assert _history_cache_control("pro", MEMORY_WINDOW_PRO + 5) is None
+def test_history_cache_control_attaches_only_when_nothing_was_dropped():
+    """Pro + nothing dropped ⇒ breakpoint. Truncated ⇒ None, because a prefix that
+    loses its oldest rows can only ever MISS, and a miss is billed as a write.
+
+    Phase 1 expressed this as `history_len >= MEMORY_WINDOW_PRO`, which was correct
+    only while the window was a fixed 20. Under the growing window that test would
+    INVERT — withholding the breakpoint from precisely the prefix-stable
+    conversations phase 2 creates. The condition is "did we drop anything".
+    """
+    assert _history_cache_control("pro", False) == _EPHEMERAL
+    assert _history_cache_control("premium", False) == _EPHEMERAL
+    assert _history_cache_control("pro", True) is None
+    assert _history_cache_control("premium", True) is None
 
 
 def test_history_cache_control_is_pro_only():
     """FREE is Haiku 4.5 (4,096-token cache minimum ≈ the whole free prompt) —
     gated off so behaviour is deterministic rather than length-dependent."""
-    assert _history_cache_control("free", 0) is None
-    assert _history_cache_control("free", MEMORY_WINDOW_FREE - 1) is None
+    assert _history_cache_control("free", False) is None
+    assert _history_cache_control("free", True) is None
 
 
 # ── Main path ─────────────────────────────────────────────────────────────────
@@ -2490,15 +2512,45 @@ async def test_main_path_sends_history_breakpoint_when_nothing_evicted():
 
 
 @pytest.mark.asyncio
-async def test_main_path_omits_history_breakpoint_after_eviction():
-    """25-message conversation, Pro (window 20) → rows have been evicted, so the
-    message prefix changes every turn. No history breakpoint: marking it would
-    buy a guaranteed cache MISS at 1.25x write price. The system prefix — which
-    does NOT slide — keeps its breakpoint."""
-    sent = await _run_main_path_capture(25, MEMORY_WINDOW_PRO, "pro")
+async def test_main_path_omits_history_breakpoint_when_budget_truncates():
+    """Budget too small for the conversation → the oldest rows are dropped, so the
+    message prefix changes every turn. No history breakpoint: marking it would buy
+    a guaranteed cache MISS at 1.25x write price. The system prefix — which does
+    NOT slide — keeps its breakpoint.
+
+    Eviction is now a TOKEN-budget event, not a message-count one: under the
+    growing window a 25-message conversation is carried in full."""
+    sent = await _run_main_path_capture(25, MEMORY_MAX_ROWS_PRO, "pro", budget=4)
 
     assert sent["cache_control"] is None
     _assert_system_prefix_breakpoint_intact(sent["system"])
+
+
+@pytest.mark.asyncio
+async def test_main_path_carries_whole_conversation_under_budget():
+    """THE PHASE-2 CHANGE: a 60-message conversation reaches the LLM in full, where
+    the old sliding window would have shown 20. The breakpoint ships because the
+    prefix is append-only."""
+    sent = await _run_main_path_capture(60, MEMORY_MAX_ROWS_PRO, "pro")
+    contents = [m["content"] for m in sent["messages"]]
+
+    # m00 is an assistant turn and is stripped by the leading-assistant guard;
+    # m01..m59 survive, then the current user text is appended.
+    assert contents == [f"m{i:02d}" for i in range(1, 60)] + ["What is virtue?"]
+    assert sent["cache_control"] == _EPHEMERAL
+
+
+@pytest.mark.asyncio
+async def test_main_path_budget_drops_oldest_first_and_keeps_newest():
+    """At the ceiling the trim is oldest-first: the newest turns survive, the
+    oldest fall away, and the array still opens on a user turn."""
+    sent = await _run_main_path_capture(25, MEMORY_MAX_ROWS_PRO, "pro", budget=12)
+    contents = [m["content"] for m in sent["messages"]]
+
+    assert contents[-1] == "What is virtue?"
+    assert "m24" in contents, "the newest history turn must survive the trim"
+    assert "m00" not in contents, "the oldest turns must be the ones dropped"
+    assert sent["messages"][0]["role"] == "user"
 
 
 @pytest.mark.asyncio
@@ -2523,8 +2575,10 @@ async def test_another_mind_sends_history_breakpoint_when_nothing_evicted():
 
 
 @pytest.mark.asyncio
-async def test_another_mind_omits_history_breakpoint_after_eviction():
-    sent = await _run_guest_path_capture("another_mind", 25, MEMORY_WINDOW_PRO, "pro")
+async def test_another_mind_omits_history_breakpoint_when_budget_truncates():
+    sent = await _run_guest_path_capture(
+        "another_mind", 25, MEMORY_MAX_ROWS_PRO, "pro", budget=4
+    )
 
     assert sent["cache_control"] is None
     _assert_system_prefix_breakpoint_intact(sent["system"])
@@ -2540,8 +2594,86 @@ async def test_go_deeper_sends_history_breakpoint_when_nothing_evicted():
 
 
 @pytest.mark.asyncio
-async def test_go_deeper_omits_history_breakpoint_after_eviction():
-    sent = await _run_guest_path_capture("go_deeper", 25, MEMORY_WINDOW_PRO, "pro")
+async def test_go_deeper_omits_history_breakpoint_when_budget_truncates():
+    sent = await _run_guest_path_capture(
+        "go_deeper", 25, MEMORY_MAX_ROWS_PRO, "pro", budget=4
+    )
 
     assert sent["cache_control"] is None
     _assert_system_prefix_breakpoint_intact(sent["system"])
+
+
+# ── The trimmer and the estimator ─────────────────────────────────────────────
+
+def _msg(content: str):
+    m = MagicMock()
+    m.content = content
+    return m
+
+
+def test_fit_history_under_budget_keeps_everything_untruncated():
+    """Under budget ⇒ the whole conversation, and truncated is False so the cache
+    breakpoint ships."""
+    history = [_msg(f"message number {i}") for i in range(30)]
+    kept, truncated = _fit_history_to_budget(history, "pro")
+
+    assert kept == history
+    assert truncated is False
+
+
+def test_fit_history_over_budget_drops_oldest_first():
+    """Over budget ⇒ oldest dropped, newest kept, truncated True."""
+    history = [_msg(f"message number {i}") for i in range(30)]
+    with patch("services.conversation_service.HISTORY_TOKEN_BUDGET_PRO", 20):
+        kept, truncated = _fit_history_to_budget(history, "pro")
+
+    assert truncated is True
+    assert 0 < len(kept) < len(history)
+    assert kept[-1] is history[-1], "the newest turn must always survive"
+    assert kept == history[len(history) - len(kept):], "kept must be a newest-N suffix"
+
+
+def test_fit_history_always_keeps_the_newest_message():
+    """A single message larger than the entire budget is still sent — an empty
+    history would break the API's user-first invariant."""
+    history = [_msg("x" * 400), _msg("y" * 4000)]
+    with patch("services.conversation_service.HISTORY_TOKEN_BUDGET_PRO", 1):
+        kept, truncated = _fit_history_to_budget(history, "pro")
+
+    assert len(kept) == 1
+    assert kept[0] is history[-1]
+    assert truncated is True
+
+
+def test_fit_history_leaves_free_untouched():
+    """FREE is never budget-managed: its 5-message sliding window is the LIMIT's
+    job, and it must behave exactly as before in every respect."""
+    history = [_msg("x" * 5000) for _ in range(5)]
+    with patch("services.conversation_service.HISTORY_TOKEN_BUDGET_PRO", 1):
+        kept, truncated = _fit_history_to_budget(history, "free")
+
+    assert kept == history
+    assert truncated is False
+
+
+def test_estimate_tokens_does_not_underestimate_greek():
+    """The reason chars/4 was rejected: Greek runs ~5.3 tokens/word, where chars/4
+    predicts ~1.3 — a 3.5x under-estimate that would let a Greek conversation carry
+    3.5x the intended budget."""
+    greek = ("Συνέχεια λέω στον εαυτό μου ότι θα ξεκινήσω μόλις ηρεμήσουν τα "
+             "πράγματα στη δουλειά, αλλά ποτέ δεν ηρεμούν.")
+
+    assert _estimate_tokens(greek) > 2 * (len(greek) // 4)
+    assert _estimate_tokens("") == 0
+
+
+def test_estimate_tokens_fallback_when_tiktoken_unavailable():
+    """No tiktoken ⇒ the fallback still tracks script weight and errs HIGH (smaller
+    window) rather than low (budget overrun)."""
+    greek = "Συνέχεια λέω στον εαυτό μου"
+    english = "I keep telling myself"
+
+    with patch("services.conversation_service._get_encoder", return_value=None):
+        assert _estimate_tokens(greek) > _estimate_tokens(english)
+        # ASCII path: ~4 chars/token.
+        assert _estimate_tokens("a" * 400) == 100

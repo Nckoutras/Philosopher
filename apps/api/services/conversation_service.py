@@ -39,25 +39,119 @@ from services.phenomenology_bridge_service import phenomenology_bridge_service
 MODEL_FREE = "claude-haiku-4-5-20251001"
 MODEL_PRO = "claude-sonnet-4-6"
 MEMORY_WINDOW_FREE = 5
+# Retained as the FREE-tier window and as the historical Pro message count. Pro no
+# longer windows by message count — see HISTORY_TOKEN_BUDGET_PRO.
 MEMORY_WINDOW_PRO = 20
 
+# Pro history is bounded by TOKENS, not messages: a growing (conversation-start)
+# window is prefix-stable and therefore cacheable, where a sliding newest-N window
+# can never hit the cache. 24k is ~250 English or ~65 Greek messages. It is chosen
+# on cost, NOT on context limits — Sonnet 4.6 holds 1M tokens, so 24k uses 2.4% of
+# the window and leaves the entire estimator error margin harmless.
+HISTORY_TOKEN_BUDGET_PRO = 24_000
+# Backstop against a pathological conversation: bounds the row fetch regardless of
+# how small the individual messages are. 400 rows at the budget is unreachable in
+# practice; this exists so the query can never degenerate.
+MEMORY_MAX_ROWS_PRO = 400
 
-def _history_cache_control(user_plan: str, history_len: int) -> dict | None:
+_ENCODER = None
+_ENCODER_TRIED = False
+
+
+def _get_encoder():
+    """Lazy cl100k_base encoder, loaded at most once, never raising.
+
+    tiktoken is already a dependency (scripts/chunking.py). It is loaded lazily
+    because get_encoding() may need to fetch and cache the BPE file on first use,
+    which must never happen inside a chat turn's critical path more than once —
+    and must never break the turn if it fails.
+    """
+    global _ENCODER, _ENCODER_TRIED
+    if not _ENCODER_TRIED:
+        _ENCODER_TRIED = True
+        try:
+            import tiktoken
+            _ENCODER = tiktoken.get_encoding("cl100k_base")
+        except Exception as e:  # pragma: no cover - environment-dependent
+            logger.warning(f"tiktoken unavailable, using fallback token estimate: {e}")
+            _ENCODER = None
+    return _ENCODER
+
+
+def _estimate_tokens(text: str) -> int:
+    """Estimate the token cost of a message.
+
+    ESTIMATOR CAVEAT: cl100k_base is OpenAI's BPE, not Anthropic's, so this is an
+    approximation — close for English, right in magnitude but not exact for other
+    scripts. That is why the budget sits at 24k against a 1M context window: the
+    error cannot approach any real limit.
+
+    Do NOT substitute chars/4. Measured: Greek runs ~5.3 tokens/word (164 chars →
+    146 tokens), where chars/4 predicts 41 — a 3.5x UNDER-estimate that would let a
+    Greek conversation carry 3.5x the intended budget.
+
+    The no-tiktoken fallback counts non-ASCII characters as ~1 token each and ASCII
+    at ~4 chars/token, which tracks the measured Greek and English cases closely and
+    errs high (smaller window) rather than low (budget overrun).
+    """
+    if not text:
+        return 0
+    enc = _get_encoder()
+    if enc is not None:
+        return len(enc.encode(text))
+    ascii_chars = sum(1 for c in text if ord(c) < 128)
+    return ascii_chars // 4 + (len(text) - ascii_chars)
+
+
+def _fit_history_to_budget(history: list, user_plan: str) -> tuple[list, bool]:
+    """Trim a CHRONOLOGICAL history to the Pro token budget, dropping oldest first.
+
+    Returns (kept, truncated). `truncated` is the cache guard's input: it is True
+    exactly when something was dropped this turn, which is exactly when the message
+    prefix is no longer append-only.
+
+    FREE is returned untouched — its 5-message sliding window is enforced by the
+    query's LIMIT and is not budget-managed in any respect.
+
+    The newest message is always kept, even if it alone exceeds the budget: an
+    empty history would break the user-first invariant the API requires.
+    """
+    if user_plan not in ("pro", "premium"):
+        return history, False
+
+    total = 0
+    kept = 0
+    for m in reversed(history):
+        cost = _estimate_tokens(m.content or "")
+        if kept and total + cost > HISTORY_TOKEN_BUDGET_PRO:
+            break
+        total += cost
+        kept += 1
+
+    if kept >= len(history):
+        return history, False
+    return history[len(history) - kept:], True
+
+
+def _history_cache_control(user_plan: str, truncated: bool) -> dict | None:
     """Top-level prompt-cache breakpoint covering the message history, or None.
 
     Prompt caching matches on a PREFIX HASH, so it only pays while the message
-    list is append-only. The newest-N window is append-only ONLY until the
-    conversation outgrows it: past that, every turn evicts the oldest rows, the
-    first element of `messages` changes, and the lookup is a GUARANTEED MISS —
-    billed as a cache WRITE (1.25x input) instead of plain input (1.0x). So a
-    marked-but-always-missing window is a ~25% surcharge on history tokens, not
-    a saving.
+    list is append-only. A history that drops its oldest rows is not: once
+    eviction starts, the first element of `messages` changes every turn, the
+    lookup is a GUARANTEED MISS — billed as a cache WRITE (1.25x input) instead
+    of plain input (1.0x). So a marked-but-always-missing history is a ~25%
+    surcharge on those tokens, not a saving.
 
-    Hence the guard: attach the breakpoint only when the history query returned
-    FEWER rows than the window limit, which is exactly the condition "nothing has
-    been evicted yet — the whole conversation is still in view". The guard becomes
-    a no-op the moment the window grows past real conversation lengths (phase 2):
-    it then simply always attaches.
+    Hence the guard: attach the breakpoint only when NOTHING was dropped this
+    turn. Under the phase-2 growing window that is `truncated is False`, i.e. the
+    whole conversation still fits the token budget.
+
+    This parameter was a message count in phase 1 (`history_len >=
+    MEMORY_WINDOW_PRO`), which was correct only while the window was a fixed 20.
+    Under a growing window that test does not self-disable — it INVERTS, and would
+    withhold the breakpoint from exactly the prefix-stable conversations phase 2
+    creates. The condition is, and always was, "did we drop anything".
 
     Pro-only. FREE runs Haiku 4.5, whose 4,096-token cache minimum sits right at
     the total size of a free-tier prompt (~4,100 tok) — it would cache or not
@@ -66,7 +160,7 @@ def _history_cache_control(user_plan: str, history_len: int) -> dict | None:
     """
     if user_plan not in ("pro", "premium"):
         return None
-    if history_len >= MEMORY_WINDOW_PRO:
+    if truncated:
         return None
     return {"type": "ephemeral"}
 
@@ -622,9 +716,15 @@ class ConversationService:
                     Message.message_kind != 'conclusion',
                 )
                 .order_by(Message.created_at.desc())
-                .limit(MEMORY_WINDOW_PRO if user_plan in ("pro", "premium") else MEMORY_WINDOW_FREE)
+                .limit(MEMORY_MAX_ROWS_PRO if user_plan in ("pro", "premium") else MEMORY_WINDOW_FREE)
             )
             history = list(reversed(history_result.scalars().all()))
+            # GROWING WINDOW (Pro): rows are capped by MEMORY_MAX_ROWS_PRO, then
+            # bounded by TOKEN budget with the oldest dropped first. Under budget
+            # this is the whole conversation — which is what makes the message
+            # prefix append-only, and therefore cacheable. FREE is returned
+            # untouched: 5 messages, sliding, enforced by the LIMIT above.
+            history, history_truncated = _fit_history_to_budget(history, user_plan)
             # Cross-mind awareness: label every assistant turn NOT authored by the
             # current responder so it reads as another mind's words. The responder
             # is the sticky active guest when set, else home (persona_id None =>
@@ -757,7 +857,7 @@ class ConversationService:
                     system=prompt_builder.split_system_for_cache(system_prompt),
                     messages=lm_messages,
                     model=model,
-                    cache_control=_history_cache_control(user_plan, history_len),
+                    cache_control=_history_cache_control(user_plan, history_truncated),
                 ):
                     _buf.append(chunk)
                     _chunks_yielded = True
@@ -1101,9 +1201,11 @@ class ConversationService:
                 Message.message_kind != 'conclusion',
             )
             .order_by(Message.created_at.desc())
-            .limit(MEMORY_WINDOW_PRO if user_plan in ("pro", "premium") else MEMORY_WINDOW_FREE)
+            .limit(MEMORY_MAX_ROWS_PRO if user_plan in ("pro", "premium") else MEMORY_WINDOW_FREE)
         )
         history = list(reversed(history_result.scalars().all()))
+        # GROWING WINDOW (Pro) — same bound as the main path. FREE untouched.
+        history, history_truncated = _fit_history_to_budget(history, user_plan)
         # Cross-mind awareness: the guest responder sees the home persona and
         # any other brought-in personas as other minds. Label every assistant
         # turn not authored by the guest itself (persona_id None => home).
@@ -1159,7 +1261,7 @@ class ConversationService:
                     system=prompt_builder.split_system_for_cache(system_prompt),
                     messages=lm_messages,
                     model=model,
-                    cache_control=_history_cache_control(user_plan, len(history)),
+                    cache_control=_history_cache_control(user_plan, history_truncated),
                 ):
                     _buf.append(chunk)
                     _chunks_yielded = True
@@ -1354,9 +1456,11 @@ class ConversationService:
                 Message.message_kind != 'conclusion',
             )
             .order_by(Message.created_at.desc())
-            .limit(MEMORY_WINDOW_PRO if user_plan in ("pro", "premium") else MEMORY_WINDOW_FREE)
+            .limit(MEMORY_MAX_ROWS_PRO if user_plan in ("pro", "premium") else MEMORY_WINDOW_FREE)
         )
         history = list(reversed(history_result.scalars().all()))
+        # GROWING WINDOW (Pro) — same bound as the main path. FREE untouched.
+        history, history_truncated = _fit_history_to_budget(history, user_plan)
         # Cross-mind awareness: the guest responder sees the home persona and
         # any other brought-in personas as other minds. Label every assistant
         # turn not authored by the guest itself (persona_id None => home).
@@ -1412,7 +1516,7 @@ class ConversationService:
                     system=prompt_builder.split_system_for_cache(system_prompt),
                     messages=lm_messages,
                     model=model,
-                    cache_control=_history_cache_control(user_plan, len(history)),
+                    cache_control=_history_cache_control(user_plan, history_truncated),
                 ):
                     _buf.append(chunk)
                     _chunks_yielded = True
