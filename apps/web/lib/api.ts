@@ -576,6 +576,8 @@ class ApiClient {
   // it is re-armed whenever a fresh token is set below.
   private onUnauthorized: (() => void) | null = null
   private handlingUnauthorized = false
+  // A11 — collapses a double-fire of refreshSession() into a single request.
+  private refreshInFlight = false
 
   setUnauthorizedHandler(fn: () => void) {
     this.onUnauthorized = fn
@@ -672,6 +674,36 @@ class ApiClient {
     })
     this.setToken(data.access_token)
     return data
+  }
+
+  // A11 — sliding session. JWT expiry runs from ISSUE, not from last use, so an
+  // active user was still logged out on day 7 and had to fetch an email code.
+  // This exchanges a still-valid token for a fresh one, called on app load and on
+  // return to the foreground (see QueryProvider) — the moments that actually reach
+  // someone who has been away, which is the user at risk.
+  //
+  // NEVER throws and NEVER clears the session: a refresh failure must not log
+  // anyone out. A genuinely dead token is already handled by the 401 self-heal in
+  // request(); a network blip is nothing and must stay nothing.
+  //
+  // The in-flight guard collapses a double-fire (mount + an immediate visibility
+  // change) into one call. Without it both would succeed and the second token would
+  // overwrite the first — harmless, since JWTs are stateless and both stay valid
+  // until their own exp — but one call is easier to reason about in the logs.
+  async refreshSession(): Promise<boolean> {
+    if (!this.token || this.refreshInFlight) return false
+    this.refreshInFlight = true
+    try {
+      const data = await this.request<AuthResponse>('/auth/refresh', { method: 'POST' })
+      // setToken updates the in-memory token, localStorage AND the middleware
+      // cookie — so the cookie's lifetime slides with the JWT's.
+      this.setToken(data.access_token)
+      return true
+    } catch {
+      return false
+    } finally {
+      this.refreshInFlight = false
+    }
   }
 
   async me(): Promise<User> {
