@@ -2257,3 +2257,291 @@ async def test_main_path_strips_leading_assistant_when_window_opens_on_one():
     # The newest turn is still in context (m25; the persona's own most recent turn,
     # m24, rides along with it) — the strip trims the front, never the tail.
     assert "m25" in contents
+
+
+# ── 3. Prompt cache: the message-history breakpoint ───────────────────────────
+#
+# A chat request carries TWO cache breakpoints (Anthropic permits 4):
+#   1. the system prefix — prompt_builder.split_system_for_cache, unchanged
+#   2. the message history — the top-level automatic breakpoint, added here
+#
+# (2) is attached ONLY while the newest-N window has evicted nothing, because a
+# sliding window changes the message prefix every turn: the lookup would be a
+# guaranteed miss billed at the 1.25x write price. See _history_cache_control.
+
+from services.conversation_service import _history_cache_control
+from services.prompt_builder import prompt_builder as _real_prompt_builder
+from services.prompt_builder import CACHE_SPLIT_SENTINEL as _SENTINEL
+
+_EPHEMERAL = {"type": "ephemeral"}
+
+
+def _use_real_cache_split(mock_prompt):
+    """Point a patched prompt_builder's split at the REAL implementation, over a
+    rendered system that carries the sentinel. Lets a test assert that the
+    system-prefix breakpoint still ships alongside the new history breakpoint."""
+    mock_prompt.build_system.return_value = f"PREFIX{_SENTINEL}SUFFIX"
+    mock_prompt.split_system_for_cache = _real_prompt_builder.split_system_for_cache
+
+
+def _assert_system_prefix_breakpoint_intact(system):
+    """The pre-existing system split is untouched: 2 blocks, cache_control on the
+    first only, suffix starting at the sentinel's position."""
+    assert isinstance(system, list) and len(system) == 2, (
+        f"system must still be the 2-block cache split, got: {system!r}"
+    )
+    assert system[0]["text"] == "PREFIX"
+    assert system[0]["cache_control"] == _EPHEMERAL
+    assert "cache_control" not in system[1]
+    assert system[1]["text"].startswith("SUFFIX")
+
+
+async def _run_main_path_capture(n_messages: int, window: int, user_plan: str) -> dict:
+    """Run stream_response over a seeded conversation and return the FULL kwargs
+    handed to llm_client.stream() — system, messages, model, cache_control."""
+    service = ConversationService()
+    captured = {}
+
+    async def capture_stream(*args, **kwargs):
+        captured.update(kwargs)
+        yield "Hello"
+
+    mock_llm = MagicMock()
+    mock_llm.stream = capture_stream
+
+    all_msgs = _seeded_history(n_messages)
+
+    with (
+        patch("services.conversation_service.safety_service") as mock_safety,
+        patch("services.conversation_service.memory_service") as mock_memory,
+        patch("services.conversation_service.retrieval_service") as mock_retrieval,
+        patch("services.conversation_service.llm_client", mock_llm),
+        patch("services.conversation_service.prompt_builder") as mock_prompt,
+        patch("services.conversation_service.analytics_service"),
+        patch("services.conversation_service.POSTPROCESSING_ENABLED", False),
+        patch("services.conversation_service.PHENOMENOLOGY_BRIDGE_ENABLED", False),
+        patch("services.conversation_service.get_persona") as mock_get_persona,
+    ):
+        safety_result = MagicMock()
+        safety_result.should_log = False
+        safety_result.should_suppress_persona = False
+        safety_result.level = "none"
+        mock_safety.check_input = AsyncMock(return_value=safety_result)
+        mock_safety.check_output = AsyncMock(return_value=safety_result)
+        mock_memory.recall = AsyncMock(return_value=[])
+        mock_retrieval.retrieve = AsyncMock(return_value=[])
+        _use_real_cache_split(mock_prompt)
+        persona_config = MagicMock()
+        persona_config.slug = "marcus_aurelius"
+        persona_config.response_length_words = None
+        mock_get_persona.return_value = persona_config
+
+        db = _make_db_seeded_history(all_msgs, window)
+        service._save_message = AsyncMock(return_value=_saved_msg())
+        service._log_safety_event = AsyncMock()
+
+        await _drain(service.stream_response(
+            session_factory=_factory(db),
+            conversation_id=CONV_ID,
+            user_id=USER_ID,
+            user_text="What is virtue?",
+            user_plan=user_plan,
+        ))
+
+    return captured
+
+
+def _make_db_go_deeper_history(all_msgs, window: int):
+    """DB mock for stream_go_deeper: serves the limit-enforcement scalars in call
+    order, then behaves like _make_db_seeded_history for the history query."""
+    db = AsyncMock()
+
+    conv_result = MagicMock()
+    conv_result.scalar_one_or_none.return_value = _mock_conv()
+    persona_result = MagicMock()
+    persona_result.scalar_one.return_value = _mock_persona_db()
+    thread_result = MagicMock(); thread_result.scalar.return_value = 0
+    last_std_result = MagicMock(); last_std_result.scalar.return_value = None
+    turn_result = MagicMock(); turn_result.scalar.return_value = 0
+    last_user_result = MagicMock()
+    last_user_result.scalar_one_or_none.return_value = "m01"
+    default_result = MagicMock()
+    default_result.scalar_one_or_none.return_value = None
+
+    ordered = [conv_result, persona_result, thread_result,
+               last_std_result, turn_result, last_user_result]
+    call_index = {"n": 0}
+
+    async def execute_side_effect(stmt, *args, **kwargs):
+        compiled = _is_history_query(stmt)
+        if compiled is not None:
+            rows = sorted(all_msgs, key=lambda m: m.created_at)
+            if "DESC" in _order_by_clause(compiled).upper():
+                rows = list(reversed(rows))
+            history_result = MagicMock()
+            history_result.scalars.return_value.all.return_value = rows[:window]
+            return history_result
+        n = call_index["n"]
+        call_index["n"] += 1
+        return ordered[n] if n < len(ordered) else default_result
+
+    db.execute = execute_side_effect
+    db.add = MagicMock()
+    db.flush = AsyncMock()
+    db.commit = AsyncMock()
+    db.rollback = AsyncMock()
+    return db
+
+
+async def _run_guest_path_capture(which: str, n_messages: int, window: int,
+                                  user_plan: str) -> dict:
+    """Run stream_another_mind / stream_go_deeper over a seeded conversation and
+    return the FULL kwargs handed to llm_client.stream().
+
+    The seeded history is authored by the home persona and the responder resolves
+    to the same persona, so the foreign-turn relabelling branch stays off — this
+    test is about the cache breakpoint, not about labelling."""
+    service = ConversationService()
+    captured = {}
+
+    async def capture_stream(*args, **kwargs):
+        captured.update(kwargs)
+        yield "Hello"
+
+    mock_llm = MagicMock()
+    mock_llm.stream = capture_stream
+
+    all_msgs = _seeded_history(n_messages)
+
+    with (
+        patch("services.conversation_service.memory_service") as mock_memory,
+        patch("services.conversation_service.retrieval_service") as mock_retrieval,
+        patch("services.conversation_service.llm_client", mock_llm),
+        patch("services.conversation_service.prompt_builder") as mock_prompt,
+        patch("services.conversation_service.get_persona") as mock_get_persona,
+    ):
+        mock_memory.recall = AsyncMock(return_value=[])
+        mock_retrieval.retrieve = AsyncMock(return_value=[])
+        _use_real_cache_split(mock_prompt)
+        persona_config = MagicMock()
+        persona_config.slug = "marcus_aurelius"
+        # Both guest paths JSON-dump slug + name in their 'start' event, so name
+        # must be a real string (a bare MagicMock is not JSON serialisable).
+        persona_config.name = "Marcus Aurelius"
+        mock_get_persona.return_value = persona_config
+        service._save_message = AsyncMock(return_value=_saved_msg())
+
+        if which == "another_mind":
+            db = _make_db_seeded_history(all_msgs, window)
+            await _drain(service.stream_another_mind(
+                db=db,
+                conversation_id=CONV_ID,
+                user_id=USER_ID,
+                target_persona_slug="socrates",
+                user_plan=user_plan,
+            ))
+        else:
+            db = _make_db_go_deeper_history(all_msgs, window)
+            await _drain(service.stream_go_deeper(
+                db=db,
+                conversation_id=CONV_ID,
+                user_id=USER_ID,
+                user_plan=user_plan,
+                is_admin=True,  # skips the daily gate (no extra execute call)
+            ))
+
+    return captured
+
+
+# ── The guard itself ──────────────────────────────────────────────────────────
+
+def test_history_cache_control_attaches_only_below_the_window():
+    """Pro + nothing evicted ⇒ breakpoint. At/over the window ⇒ None, because a
+    sliding prefix can only ever MISS, and a miss is billed as a write."""
+    assert _history_cache_control("pro", 0) == _EPHEMERAL
+    assert _history_cache_control("pro", MEMORY_WINDOW_PRO - 1) == _EPHEMERAL
+    assert _history_cache_control("premium", MEMORY_WINDOW_PRO - 1) == _EPHEMERAL
+    # Eviction boundary: a full window means rows may already have fallen out.
+    assert _history_cache_control("pro", MEMORY_WINDOW_PRO) is None
+    assert _history_cache_control("pro", MEMORY_WINDOW_PRO + 5) is None
+
+
+def test_history_cache_control_is_pro_only():
+    """FREE is Haiku 4.5 (4,096-token cache minimum ≈ the whole free prompt) —
+    gated off so behaviour is deterministic rather than length-dependent."""
+    assert _history_cache_control("free", 0) is None
+    assert _history_cache_control("free", MEMORY_WINDOW_FREE - 1) is None
+
+
+# ── Main path ─────────────────────────────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_main_path_sends_history_breakpoint_when_nothing_evicted():
+    """6-message conversation, Pro (window 20) → the history breakpoint ships,
+    and the system-prefix breakpoint is still there. Two breakpoints total."""
+    sent = await _run_main_path_capture(6, MEMORY_WINDOW_PRO, "pro")
+
+    assert sent["cache_control"] == _EPHEMERAL
+    _assert_system_prefix_breakpoint_intact(sent["system"])
+
+    # Anthropic permits 4 per request; this path uses 2.
+    breakpoints = sum(1 for b in sent["system"] if "cache_control" in b) + 1
+    assert breakpoints == 2, f"expected 2 cache breakpoints, got {breakpoints}"
+
+
+@pytest.mark.asyncio
+async def test_main_path_omits_history_breakpoint_after_eviction():
+    """25-message conversation, Pro (window 20) → rows have been evicted, so the
+    message prefix changes every turn. No history breakpoint: marking it would
+    buy a guaranteed cache MISS at 1.25x write price. The system prefix — which
+    does NOT slide — keeps its breakpoint."""
+    sent = await _run_main_path_capture(25, MEMORY_WINDOW_PRO, "pro")
+
+    assert sent["cache_control"] is None
+    _assert_system_prefix_breakpoint_intact(sent["system"])
+
+
+@pytest.mark.asyncio
+async def test_main_path_free_plan_sends_no_history_breakpoint():
+    """3-message conversation on FREE — nothing evicted, but free is gated off."""
+    sent = await _run_main_path_capture(3, MEMORY_WINDOW_FREE, "free")
+
+    assert sent["cache_control"] is None
+    assert sent["model"] == MODEL_FREE
+    _assert_system_prefix_breakpoint_intact(sent["system"])
+
+
+# ── Guest paths ───────────────────────────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_another_mind_sends_history_breakpoint_when_nothing_evicted():
+    """stream_another_mind carries the same two breakpoints."""
+    sent = await _run_guest_path_capture("another_mind", 6, MEMORY_WINDOW_PRO, "pro")
+
+    assert sent["cache_control"] == _EPHEMERAL
+    _assert_system_prefix_breakpoint_intact(sent["system"])
+
+
+@pytest.mark.asyncio
+async def test_another_mind_omits_history_breakpoint_after_eviction():
+    sent = await _run_guest_path_capture("another_mind", 25, MEMORY_WINDOW_PRO, "pro")
+
+    assert sent["cache_control"] is None
+    _assert_system_prefix_breakpoint_intact(sent["system"])
+
+
+@pytest.mark.asyncio
+async def test_go_deeper_sends_history_breakpoint_when_nothing_evicted():
+    """stream_go_deeper carries the same two breakpoints."""
+    sent = await _run_guest_path_capture("go_deeper", 6, MEMORY_WINDOW_PRO, "pro")
+
+    assert sent["cache_control"] == _EPHEMERAL
+    _assert_system_prefix_breakpoint_intact(sent["system"])
+
+
+@pytest.mark.asyncio
+async def test_go_deeper_omits_history_breakpoint_after_eviction():
+    sent = await _run_guest_path_capture("go_deeper", 25, MEMORY_WINDOW_PRO, "pro")
+
+    assert sent["cache_control"] is None
+    _assert_system_prefix_breakpoint_intact(sent["system"])
