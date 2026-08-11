@@ -74,6 +74,33 @@ async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
     return TokenResponse(access_token=token, user=user_out)
 
 
+@router.post("/refresh", response_model=TokenResponse)
+async def refresh(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Slide the session: mint a fresh token for an already-authenticated user.
+
+    A11. JWT expiry runs from ISSUE, not from last use, and there is no refresh
+    anywhere — so a user who opens the app every day is still logged out on day 7
+    and has to fetch an email code. In a habit product that is a churn event on
+    roughly the cadence of the ritual itself.
+
+    Authentication is get_current_user and nothing more: it already 401s on an
+    expired or malformed token and already confirms the user still exists, so a
+    deleted user cannot refresh and an expired one must sign in again. No new
+    validation, no schema, no revocation semantics (see A16).
+
+    The response is the SAME TokenResponse the four mint sites return, so the
+    frontend feeds it straight into the existing setToken() — which updates the
+    in-memory token, localStorage, AND the middleware cookie in one place.
+    """
+    token = create_token(user.id, user.email)
+    needs_disclaimer = await user_needs_acceptance(user.id, db)
+    user_out = UserOut.model_validate(user).model_copy(update={"needs_disclaimer": needs_disclaimer})
+    return TokenResponse(access_token=token, user=user_out)
+
+
 @router.get("/me", response_model=UserOut)
 async def me(user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     needs_disclaimer = await user_needs_acceptance(user.id, db)
