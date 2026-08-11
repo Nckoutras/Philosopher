@@ -29,18 +29,28 @@ class LLMClient:
         messages: list[dict],
         model: str | None = None,
         max_tokens: int = 1024,
+        cache_control: dict | None = None,
     ) -> AsyncGenerator[str, None]:
         """Stream tokens from Claude. Yields text chunks. `system` accepts a plain
         string or a list of content blocks (for cache_control) — passed through
-        unchanged; a string caller behaves byte-identically."""
+        unchanged; a string caller behaves byte-identically.
+
+        `cache_control` is the API's top-level automatic-caching breakpoint: when
+        set, the API places a cache breakpoint at the LAST cacheable block of the
+        request (i.e. covering the message history) and moves it forward as the
+        conversation grows. It is forwarded ONLY when set, so every caller that
+        omits it sends a byte-identical request to before. `messages` is never
+        rewritten here — the breakpoint is a request-level flag, not content."""
         model = model or config.ANTHROPIC_MODEL
         start = time.monotonic()
 
+        cache_kwargs = {"cache_control": cache_control} if cache_control else {}
         async with _client.messages.stream(
             model=model,
             max_tokens=max_tokens,
             system=system,
             messages=messages,
+            **cache_kwargs,
         ) as stream:
             async for text in stream.text_stream:
                 yield text

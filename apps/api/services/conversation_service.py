@@ -41,6 +41,36 @@ MODEL_PRO = "claude-sonnet-4-6"
 MEMORY_WINDOW_FREE = 5
 MEMORY_WINDOW_PRO = 20
 
+
+def _history_cache_control(user_plan: str, history_len: int) -> dict | None:
+    """Top-level prompt-cache breakpoint covering the message history, or None.
+
+    Prompt caching matches on a PREFIX HASH, so it only pays while the message
+    list is append-only. The newest-N window is append-only ONLY until the
+    conversation outgrows it: past that, every turn evicts the oldest rows, the
+    first element of `messages` changes, and the lookup is a GUARANTEED MISS —
+    billed as a cache WRITE (1.25x input) instead of plain input (1.0x). So a
+    marked-but-always-missing window is a ~25% surcharge on history tokens, not
+    a saving.
+
+    Hence the guard: attach the breakpoint only when the history query returned
+    FEWER rows than the window limit, which is exactly the condition "nothing has
+    been evicted yet — the whole conversation is still in view". The guard becomes
+    a no-op the moment the window grows past real conversation lengths (phase 2):
+    it then simply always attaches.
+
+    Pro-only. FREE runs Haiku 4.5, whose 4,096-token cache minimum sits right at
+    the total size of a free-tier prompt (~4,100 tok) — it would cache or not
+    depending on message length, with no error either way. Gating keeps the
+    behaviour deterministic rather than a coin flip when reading usage logs.
+    """
+    if user_plan not in ("pro", "premium"):
+        return None
+    if history_len >= MEMORY_WINDOW_PRO:
+        return None
+    return {"type": "ephemeral"}
+
+
 # Gravity-gated conclusion assessment (async, off the chat critical path).
 # First assessment fires at CONCLUSION_MIN_DEPTH messages, then every
 # CONCLUSION_CADENCE messages thereafter. Tunable.
@@ -727,6 +757,7 @@ class ConversationService:
                     system=prompt_builder.split_system_for_cache(system_prompt),
                     messages=lm_messages,
                     model=model,
+                    cache_control=_history_cache_control(user_plan, history_len),
                 ):
                     _buf.append(chunk)
                     _chunks_yielded = True
@@ -1128,6 +1159,7 @@ class ConversationService:
                     system=prompt_builder.split_system_for_cache(system_prompt),
                     messages=lm_messages,
                     model=model,
+                    cache_control=_history_cache_control(user_plan, len(history)),
                 ):
                     _buf.append(chunk)
                     _chunks_yielded = True
@@ -1380,6 +1412,7 @@ class ConversationService:
                     system=prompt_builder.split_system_for_cache(system_prompt),
                     messages=lm_messages,
                     model=model,
+                    cache_control=_history_cache_control(user_plan, len(history)),
                 ):
                     _buf.append(chunk)
                     _chunks_yielded = True
