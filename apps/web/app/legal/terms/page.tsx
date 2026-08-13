@@ -62,7 +62,7 @@ export default function TermsPage() {
           </Section>
 
           <Section title="9. Subscriptions and Payment">
-            The Service is offered as a free tier and a Pro subscription tier. Pro subscriptions are processed by Stripe and billed monthly at €14.90/month or annually at €149/year. You can cancel your subscription at any time via your Account screen, which opens the Stripe customer portal. Cancellation takes effect at the end of your current billing period.
+            The Service is offered as a free tier and a Pro subscription tier. Pro subscriptions are processed by Stripe and billed monthly at €11.99/month or annually at €99.99/year. You can cancel your subscription at any time via your Account screen, which opens the Stripe customer portal. Cancellation takes effect at the end of your current billing period.
           </Section>
 
           <Section title="10. Intellectual Property">
