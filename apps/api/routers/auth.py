@@ -56,7 +56,7 @@ async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
     analytics_service.identify(user.id, {"email": user.email, "plan": "free"})
     analytics_service.track("user_registered", user.id, {"plan": "free"})
 
-    token = create_token(user.id, user.email)
+    token = create_token(user.id, user.email, user.token_version)
     needs_disclaimer = await user_needs_acceptance(user.id, db)
     user_out = UserOut.model_validate(user).model_copy(update={"needs_disclaimer": needs_disclaimer})
     return TokenResponse(access_token=token, user=user_out)
@@ -68,7 +68,7 @@ async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
     user = result.scalar_one_or_none()
     if not user or not verify_password(body.password, user.hashed_password or ""):
         raise HTTPException(status_code=401, detail="Invalid credentials")
-    token = create_token(user.id, user.email)
+    token = create_token(user.id, user.email, user.token_version)
     needs_disclaimer = await user_needs_acceptance(user.id, db)
     user_out = UserOut.model_validate(user).model_copy(update={"needs_disclaimer": needs_disclaimer})
     return TokenResponse(access_token=token, user=user_out)
@@ -95,10 +95,34 @@ async def refresh(
     frontend feeds it straight into the existing setToken() — which updates the
     in-memory token, localStorage, AND the middleware cookie in one place.
     """
-    token = create_token(user.id, user.email)
+    token = create_token(user.id, user.email, user.token_version)
     needs_disclaimer = await user_needs_acceptance(user.id, db)
     user_out = UserOut.model_validate(user).model_copy(update={"needs_disclaimer": needs_disclaimer})
     return TokenResponse(access_token=token, user=user_out)
+
+
+@router.post("/signout-all", status_code=204)
+async def signout_all(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Revoke every token this user holds, on every device (A16).
+
+    Increments users.token_version. Both validators compare a token's "ver" claim
+    against that column, so from the next request onward every previously-issued
+    token 401s — including pre-A16 tokens, whose missing claim reads as 0 and no
+    longer matches.
+
+    THIS KILLS THE CALLING TOKEN TOO. There is no "all except this one" here: the
+    token used to authorise this call is dead the moment it returns. A client must
+    treat 204 as "you are now signed out locally as well" and clear its own state.
+
+    NO UI CALLS THIS IN v1 — deliberately, there is no button. It exists for
+    security response (lost device, suspected leak) via a direct authenticated
+    call. A signed-out-everywhere UX is a separate decision.
+    """
+    user.token_version += 1
+    await db.commit()
 
 
 @router.get("/me", response_model=UserOut)
@@ -189,7 +213,7 @@ async def otp_verify(body: OtpVerifyRequest, db: AsyncSession = Depends(get_db))
     else:
         analytics_service.track("user_signed_in", user.id, {"method": "otp"})
 
-    token = create_token(user.id, user.email)
+    token = create_token(user.id, user.email, user.token_version)
     needs_disclaimer = await user_needs_acceptance(user.id, db)
     user_out = UserOut.model_validate(user).model_copy(update={"needs_disclaimer": needs_disclaimer})
     return TokenResponse(access_token=token, user=user_out)
