@@ -226,6 +226,70 @@ def test_200_response_has_rate_limit_headers(client):
     assert resp.headers["X-RateLimit-Remaining"] == "4"
 
 
+# ── A15: the rate-limit headers must be READABLE cross-origin ────────────────
+#
+# Setting them is not enough. Without expose_headers on the CORS middleware,
+# Starlette never sends Access-Control-Expose-Headers, and a browser on a
+# different origin (web app on Netlify, API on Render) can read only the seven
+# CORS-safelisted response headers. lib/api.ts then falls back to '0' and
+# new Date() — the paywall telling free users their limit resets NOW.
+#
+# These assert real middleware behaviour through the real app, not config shape:
+# an Origin header is required, because CORSMiddleware passes non-CORS requests
+# straight through without adding anything.
+
+EXPOSED_RATE_LIMIT_HEADERS = (
+    "X-RateLimit-Limit",
+    "X-RateLimit-Remaining",
+    "X-RateLimit-Reset",
+)
+ORIGIN = "https://philosopher.netlify.app"
+
+
+def test_429_exposes_rate_limit_headers_cross_origin(client):
+    """The 429 that drives the paywall must expose all three headers, or the
+    modal renders a fabricated reset time."""
+    conv = _make_conv(ritual_id=None)
+    db = _make_db(conv=conv, subscription=None, usage=_make_usage(5))
+    client._db[0] = db
+
+    resp = client.post(
+        ENDPOINT.format(conv_id=CONV_ID),
+        json={"content": "Hello"},
+        headers={"Origin": ORIGIN},
+    )
+
+    assert resp.status_code == 429
+    exposed = resp.headers.get("access-control-expose-headers")
+    assert exposed is not None, (
+        "Access-Control-Expose-Headers missing — the browser cannot read any "
+        "X-RateLimit-* header and the paywall falls back to 'resets now'"
+    )
+    for name in EXPOSED_RATE_LIMIT_HEADERS:
+        assert name in exposed, f"{name} not exposed; got: {exposed!r}"
+
+
+def test_200_exposes_rate_limit_headers_cross_origin(client):
+    """The same must hold on the streaming 200, which carries the live
+    remaining-count the client tracks between turns."""
+    conv = _make_conv(ritual_id=None)
+    db = _make_db(conv=conv, subscription=None, usage=None)
+    client._db[0] = db
+
+    with patch("routers.conversations.conversation_service.stream_response", _fake_stream):
+        resp = client.post(
+            ENDPOINT.format(conv_id=CONV_ID),
+            json={"content": "Hello"},
+            headers={"Origin": ORIGIN},
+        )
+
+    assert resp.status_code == 200
+    exposed = resp.headers.get("access-control-expose-headers")
+    assert exposed is not None
+    for name in EXPOSED_RATE_LIMIT_HEADERS:
+        assert name in exposed, f"{name} not exposed; got: {exposed!r}"
+
+
 def test_stream_response_not_called_on_429(client):
     """When rate limited, response is JSON (not streaming) — stream_response never called."""
     conv = _make_conv(ritual_id=None)

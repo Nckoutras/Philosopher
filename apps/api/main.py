@@ -81,6 +81,21 @@ app.add_middleware(
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
+    # A15. Without this, Starlette never sends Access-Control-Expose-Headers, so a
+    # cross-origin browser (web app on Netlify, API on Render) can read only the
+    # seven CORS-safelisted response headers — every X-RateLimit-* header we set is
+    # invisible to JavaScript. lib/api.ts reads them in six places and silently
+    # falls back to '0' and new Date(), which is why the paywall told free users
+    # their limit resets NOW, on the conversion surface.
+    # Explicit list, never "*": browsers ignore a wildcard here when credentials are
+    # involved, and naming them documents what the API's readable contract is.
+    # X-Accel-Buffering is a proxy directive JS never reads; Cache-Control is
+    # already safelisted. Neither belongs here.
+    expose_headers=[
+        "X-RateLimit-Limit",
+        "X-RateLimit-Remaining",
+        "X-RateLimit-Reset",
+    ],
 
 )
 
