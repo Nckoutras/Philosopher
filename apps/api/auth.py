@@ -23,10 +23,13 @@ def verify_password(plain: str, hashed: str) -> bool:
     return pwd_context.verify(plain, hashed)
 
 
-def create_token(user_id: str, email: str) -> str:
+def create_token(user_id: str, email: str, token_version: int) -> str:
+    """Mint a session token. `token_version` is the user's CURRENT users.token_version
+    (A16): both validators reject a token whose "ver" differs from the column, so a
+    mint must always read the live value rather than carry one forward."""
     expire = datetime.now(timezone.utc) + timedelta(minutes=config.JWT_EXPIRE_MINUTES)
     return jwt.encode(
-        {"sub": user_id, "email": email, "exp": expire},
+        {"sub": user_id, "email": email, "ver": token_version, "exp": expire},
         config.JWT_SECRET,
         algorithm=config.JWT_ALGORITHM,
     )
@@ -48,6 +51,11 @@ async def get_current_user(
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
+    # A16 — revocation. No extra query: the row is already loaded. A missing "ver"
+    # is a pre-A16 token and reads as 0, matching the column default, so those stay
+    # valid until this user's first revocation.
+    if payload.get("ver", 0) != user.token_version:
+        raise HTTPException(status_code=401, detail="Token revoked")
     return user
 
 
@@ -81,6 +89,13 @@ async def get_user_plan_streaming(
         user = result.scalar_one_or_none()
         if not user:
             raise HTTPException(status_code=401, detail="User not found")
+        # A16 — revocation, same check and same position as get_current_user. It
+        # lives INSIDE this block deliberately: the session closes below and the
+        # returned User is detached, so the comparison must happen while the row
+        # is still attached. Forgetting this validator would leave every SSE
+        # endpoint accepting revoked tokens.
+        if payload.get("ver", 0) != user.token_version:
+            raise HTTPException(status_code=401, detail="Token revoked")
         tier = await get_user_tier(db, user.id)
     return user, tier
 

@@ -30,6 +30,11 @@ class User(Base):
     is_admin: Mapped[bool] = mapped_column(Boolean, default=False)
     mirror_host_slug: Mapped[str | None] = mapped_column(String(100), nullable=True)
     weekly_email_opt_out: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
+    # A16 — token revocation counter. Tokens embed the version they were minted
+    # with ("ver"); both validators reject a token whose claim differs. Incrementing
+    # this kills every token on every device. A missing claim reads as 0, so pre-A16
+    # tokens stay valid until the first increment.
+    token_version: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 

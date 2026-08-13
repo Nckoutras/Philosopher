@@ -167,7 +167,7 @@ async def google_oauth_callback(
         except Exception:
             logger.warning("OAuth sign-in analytics failed (non-fatal)", exc_info=True)
 
-    token = create_token(user.id, user.email)
+    token = create_token(user.id, user.email, user.token_version)
     needs_disclaimer = await user_needs_acceptance(user.id, db)
     nd_param = "1" if needs_disclaimer else "0"
 
