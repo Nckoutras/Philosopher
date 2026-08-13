@@ -1,6 +1,7 @@
+import logging
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import JSONResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,6 +12,8 @@ import services.rate_limit_service as rate_limit_service
 from models import WeeklyLetter, Persona
 from schemas import WeeklyLetterOut, WriteBackIn
 from services.image_service import generate_letter_share_image
+
+logger = logging.getLogger(__name__)
 
 # Free-tier share cap — the SAME 90-day rolling Redis counter the mirror, line,
 # and council share endpoints use (key: share_screenshot:{user_id}).
@@ -100,6 +103,7 @@ async def get_weekly_letter(
 async def write_back_to_letter(
     letter_id: str,
     body: WriteBackIn,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     auth: tuple = Depends(get_current_user_plan),
 ):
@@ -129,7 +133,30 @@ async def write_back_to_letter(
 
     letter.write_back_text = text
     letter.write_back_at = datetime.now(timezone.utc)
+    # Explicit commit (not a bare flush): the enqueue below fires only once the
+    # write-back is durably persisted, so a rollback at teardown can never orphan
+    # a stored memory.
     await db.commit()
+
+    # The write-back is the user's OWN words back to the letter — distil it into a
+    # confidence-1.0 memory (safety-gated + word-filtered inside the task). Async;
+    # conversation_id is None because a letter is not a conversation. Fire-and-forget;
+    # never break the response. `text` is guaranteed non-empty (422 above).
+    arq_queue = getattr(request.app.state, "arq_queue", None)
+    if arq_queue is not None:
+        try:
+            await arq_queue.enqueue_job(
+                "distill_user_text_to_memory_task",
+                str(user.id),
+                None,
+                text,
+                "letter_write_back",
+            )
+        except Exception as exc:
+            logger.error(
+                "Letter write-back enqueue failed user=%s letter=%s: %s",
+                user.id, letter_id, exc,
+            )
 
     persona = None
     if letter.voice_persona_id:
