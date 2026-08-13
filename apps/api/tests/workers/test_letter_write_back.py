@@ -11,11 +11,13 @@ prompt), and none was invented for this PR.
 
 Run: cd apps/api && pytest tests/workers/test_letter_write_back.py -v
 """
+from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock
 
 from workers.arq_worker import (
     _build_wrote_back_block,
-    WRITE_BACK_WINDOW_DAYS,
+    WRITE_BACK_WINDOW_DAYS_WEEKLY,
+    WRITE_BACK_WINDOW_DAYS_MONTHLY,
     WRITE_BACK_MAX_CARRIED,
 )
 
@@ -102,7 +104,51 @@ def test_the_bare_unattributed_form_is_never_produced_here():
 
 
 def test_window_and_cap_constants_are_the_agreed_values():
-    """The 14-day window and the 2-note cap are product decisions, not incidental
-    numbers: pin them so a change is deliberate."""
-    assert WRITE_BACK_WINDOW_DAYS == 14
+    """The windows and the 2-note cap are product decisions, not incidental numbers:
+    pin them so a change is deliberate.
+
+    A14 split one shared 14-day window into one per cadence. The single window
+    expired before the next season letter existed — the monthly cron fires on the
+    last calendar day of the month, so a reader who answered promptly, early in the
+    month, was silently dropped. The pin stays so the NEXT change is deliberate too.
+    """
+    assert WRITE_BACK_WINDOW_DAYS_WEEKLY == 14
+    assert WRITE_BACK_WINDOW_DAYS_MONTHLY == 45
     assert WRITE_BACK_MAX_CARRIED == 2
+
+
+# ── A14: the windows must match their cadences ────────────────────────────────
+#
+# These assert the cutoff ARITHMETIC over the constants, which is the property the
+# fix is about. They do NOT prove each query reads the right constant — that pairing
+# lives in the SQL inside generate_weekly_letter_task / generate_monthly_letter_task
+# and, with no letter-generation harness in this repo, is reviewable only in the diff.
+
+def _is_live(written_days_ago: int, window_days: int) -> bool:
+    """Reproduce the generators' cutoff test: write_back_at >= now - window."""
+    now = datetime.now(timezone.utc)
+    written_at = now - timedelta(days=written_days_ago)
+    cutoff = now - timedelta(days=window_days)
+    return written_at >= cutoff
+
+
+def test_monthly_write_back_written_30_days_ago_is_still_live():
+    """The defect in one line: season letters are ~30 days apart, so a write-back
+    from a month ago must still reach the next one."""
+    assert _is_live(30, WRITE_BACK_WINDOW_DAYS_MONTHLY) is True
+
+
+def test_weekly_write_back_written_30_days_ago_has_aged_out():
+    """The weekly cadence is 7 days; a month-old note is stale there and must not
+    be carried. The monthly widening must not leak into the weekly path."""
+    assert _is_live(30, WRITE_BACK_WINDOW_DAYS_WEEKLY) is False
+
+
+def test_monthly_window_covers_a_day_one_write_back_in_the_longest_month():
+    """A season letter fires on the last calendar day. Answered on day 1 of a 31-day
+    month, the note is 30 days old when the next letter is generated 31 days later —
+    61 days is beyond any window, but the note only needs to survive to the NEXT
+    letter, 30 days out. 45 gives headroom over the longest month without keeping a
+    note alive across two seasons (which would need > 62)."""
+    assert WRITE_BACK_WINDOW_DAYS_MONTHLY > 31
+    assert WRITE_BACK_WINDOW_DAYS_MONTHLY < 62

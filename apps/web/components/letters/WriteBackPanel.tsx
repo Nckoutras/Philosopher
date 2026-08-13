@@ -11,12 +11,34 @@ interface Props {
   // When present the panel renders read-only (one write-back per letter; the
   // backend overwrites on re-submit, but v1 shows the saved words quietly).
   initialWriteBack: string | null
+  // Cadence of the letter being answered. Only the post-submit confirmation
+  // branches on it: "what comes next" is seven days for a weekly letter and a
+  // whole month for a season one, and a tester watched for a reply the
+  // following week after writing back to a season letter. (A14.)
+  letterKind: 'weekly' | 'monthly'
+}
+
+// Which season letter a write-back sent NOW will actually reach.
+//
+// The monthly cron fires on the last calendar day of the month at 17:00 UTC, so
+// on that day this month's season letter is already dispatched (or about to be)
+// and the words travel to the NEXT one. Every other day of the month, they reach
+// this month's. Months are uneven, so the last day is computed rather than assumed:
+// `new Date(y, m + 1, 0)` is the final day of month m, and `new Date(y, m + 1, 1)`
+// rolls December into January of the following year on its own.
+function seasonLetterMonthName(now: Date = new Date()): string {
+  const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
+  const target =
+    now.getDate() >= lastDayOfMonth
+      ? new Date(now.getFullYear(), now.getMonth() + 1, 1)
+      : new Date(now.getFullYear(), now.getMonth(), 1)
+  return target.toLocaleString('en-US', { month: 'long' })
 }
 
 // Quiet end-of-letter window: a short space for the reader to write back to the
 // persona. No live reply in v1 — the text is captured and carried into the next
 // letter. Deliberately not a loud CTA: a soft prompt, a plain field, a small send.
-export default function WriteBackPanel({ letterId, personaName, initialWriteBack }: Props) {
+export default function WriteBackPanel({ letterId, personaName, initialWriteBack, letterKind }: Props) {
   const [text, setText] = useState('')
   const [saved, setSaved] = useState<string | null>(initialWriteBack)
   const [submitting, setSubmitting] = useState(false)
@@ -50,7 +72,15 @@ export default function WriteBackPanel({ letterId, personaName, initialWriteBack
           {saved}
         </p>
         <p className="font-lora text-[12px] text-sepia mt-[12px]">
-          Kept. {to} doesn&rsquo;t reply here — your words stay with the correspondence and shape what comes next.
+          {letterKind === 'monthly' ? (
+            <>
+              Kept. {to} doesn&rsquo;t reply here — your words travel with the correspondence and reach whoever writes the season letter at the end of {seasonLetterMonthName()}.
+            </>
+          ) : (
+            <>
+              Kept. {to} doesn&rsquo;t reply here — your words travel with the correspondence and reach whoever writes this Sunday.
+            </>
+          )}
         </p>
       </div>
     )
