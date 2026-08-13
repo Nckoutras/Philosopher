@@ -179,7 +179,15 @@ CONCLUSION_CONTEXT_WINDOW = 14
 # SHE WROTE IT (weekly_letters.write_back_at), not from the letter's own date — so a
 # reader who answers ten days late still gets the full window. Bounded by time rather
 # than by a consumed flag: no schema change, and a stale note simply ages out.
-WRITE_BACK_WINDOW_DAYS = 14
+#
+# One window per CADENCE (A14). A single 14-day window expired before the next season
+# letter existed: the monthly cron fires on the last calendar day of the month, so a
+# reader who answered her season letter promptly — early in the month, the natural
+# behaviour — had her words silently dropped, and only the final 14 days survived.
+# 45 covers the longest month with headroom for a day-1 write-back, while staying
+# short enough that a note never lives across two seasons.
+WRITE_BACK_WINDOW_DAYS_WEEKLY  = 14
+WRITE_BACK_WINDOW_DAYS_MONTHLY = 45
 # At most this many recent write-backs are carried forward. These are short reader
 # lines injected as orientation, not a correspondence log; beyond two they start to
 # crowd the week's own messages, which the prompts insist must stay dominant.
@@ -1240,7 +1248,7 @@ async def generate_weekly_letter_task(ctx, user_id: str, voice_persona_slug: str
             # kind-scoped, mirroring the fetch above: kind is CADENCE, not ownership —
             # a season write-back answers a month's reckoning and does not belong in a
             # letter about seven days. (See A14.)
-            wb_cutoff = datetime.now(timezone.utc) - timedelta(days=WRITE_BACK_WINDOW_DAYS)
+            wb_cutoff = datetime.now(timezone.utc) - timedelta(days=WRITE_BACK_WINDOW_DAYS_WEEKLY)
             recent_wb_result = await db.execute(
                 select(WeeklyLetter, Persona.name)
                 .outerjoin(Persona, Persona.id == WeeklyLetter.voice_persona_id)
@@ -1532,7 +1540,7 @@ async def generate_monthly_letter_task(ctx, user_id: str, voice_persona_slug: st
             # scoped by USER + RECENCY (never by voice), deduplicated on the already-
             # fetched letter IDs, kind-scoped so a weekly write-back never lands in a
             # season letter. See _build_wrote_back_block.
-            wb_cutoff = datetime.now(timezone.utc) - timedelta(days=WRITE_BACK_WINDOW_DAYS)
+            wb_cutoff = datetime.now(timezone.utc) - timedelta(days=WRITE_BACK_WINDOW_DAYS_MONTHLY)
             recent_wb_result = await db.execute(
                 select(WeeklyLetter, Persona.name)
                 .outerjoin(Persona, Persona.id == WeeklyLetter.voice_persona_id)

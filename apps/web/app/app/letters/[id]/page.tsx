@@ -185,6 +185,7 @@ export default function LetterReadPage() {
       letterId={id}
       personaName={letter.voice_persona_name}
       initialWriteBack={letter.write_back_text}
+      letterKind={letter.kind === 'monthly' ? 'monthly' : 'weekly'}
     />
   )
 
