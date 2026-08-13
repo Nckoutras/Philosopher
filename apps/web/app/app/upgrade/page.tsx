@@ -53,10 +53,10 @@ export default function UpgradePage() {
             Pro — Yearly
           </p>
           <p className="font-cormorant text-[17px] text-ink mt-[2px]">
-            €149 / year
+            €99.99 / year
           </p>
           <p className="font-lora text-[12px] text-charcoal mt-[2px]">
-            €12.42 / month · save 17%
+            €8.33 / month · save 30%
           </p>
           <button
             type="button"
@@ -74,7 +74,7 @@ export default function UpgradePage() {
             Pro — Monthly
           </p>
           <p className="font-cormorant text-[17px] text-ink mt-[2px]">
-            €14.90 / month
+            €11.99 / month
           </p>
           <button
             type="button"
