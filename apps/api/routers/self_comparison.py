@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 from typing import Optional
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from db.session import get_db
@@ -10,7 +10,7 @@ from models import User, SelfComparison, SelfComparisonSave
 from schemas import SelfModelStatusOut
 from auth import get_current_user, get_current_user_plan
 from services.self_model_service import self_model_service
-from services.self_comparison_service import self_comparison_service, weekly_limit
+from services.self_comparison_service import self_comparison_service, weekly_limit, _week_start
 
 router = APIRouter(prefix="/self-comparison", tags=["self-comparison"])
 
@@ -61,10 +61,17 @@ async def create_self_comparison(
     if not user.is_admin:
         remaining = await self_comparison_service.weekly_remaining(db, user.id, plan)
         if remaining <= 0:
+            # Reset is the start of the NEXT week — same Monday-00:00-UTC boundary the
+            # limit counts from, reused from the service rather than recomputed here.
+            reset_at = _week_start() + timedelta(days=7)
             return JSONResponse(
                 status_code=429,
                 content={"error_code": "weekly_limit"},
-                headers={"X-RateLimit-Limit": str(weekly_limit(plan)), "X-RateLimit-Remaining": "0"},
+                headers={
+                    "X-RateLimit-Limit": str(weekly_limit(plan)),
+                    "X-RateLimit-Remaining": "0",
+                    "X-RateLimit-Reset": reset_at.isoformat(),
+                },
             )
 
     return StreamingResponse(

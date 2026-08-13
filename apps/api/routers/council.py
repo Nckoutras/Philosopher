@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -12,7 +12,7 @@ from db.session import get_db
 import services.rate_limit_service as rate_limit_service
 from models import CouncilCase, CouncilSave, CouncilSession
 from schemas import CouncilCreate
-from services.council_service import council_service
+from services.council_service import council_service, _iso_week_start
 from services.image_service import generate_council_share_image
 
 FREE_SHARE_LIMIT  = 3
@@ -49,6 +49,9 @@ async def create_council(
     source = body.source if body.source in ("direct", "mirror", "chat", "nudge") else "direct"
 
     # Weekly rate limit: 1 per source per week. Admins bypass (for testing).
+    # Reset is the start of the NEXT ISO week — same Monday-00:00-UTC boundary the
+    # limit itself counts from, reused from the service rather than recomputed here.
+    reset_at = _iso_week_start() + timedelta(days=7)
     remaining = None
     if not user.is_admin:
         remaining = await council_service.weekly_remaining(db, user.id, source)
@@ -59,6 +62,7 @@ async def create_council(
                 headers={
                     "X-RateLimit-Limit": "1",
                     "X-RateLimit-Remaining": "0",
+                    "X-RateLimit-Reset": reset_at.isoformat(),
                 },
             )
 
@@ -66,6 +70,7 @@ async def create_council(
     if remaining is not None:
         response_headers["X-RateLimit-Limit"] = "1"
         response_headers["X-RateLimit-Remaining"] = str(max(0, remaining - 1))
+        response_headers["X-RateLimit-Reset"] = reset_at.isoformat()
 
     arq_queue = getattr(request.app.state, "arq_queue", None)
 
