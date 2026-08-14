@@ -232,6 +232,36 @@ def _build_wrote_back_block(rows) -> str:
     return f"<reader_wrote_back_recently>\n{body}\n</reader_wrote_back_recently>\n\n"
 
 
+# A17 — the letter generators' payload parse, shared so the two cadences cannot
+# drift. Returns None instead of raising: a malformed reply must be a branch the
+# caller handles, not an exception that unwinds past the row-writing code into an
+# outer `except` and loses the letter silently (2026-08-09 incident — the LLM wrote
+# the letter, an unescaped quote broke json.loads, nothing was persisted and arq
+# reported j_failed=0).
+#
+# Fence-strip logic is copied verbatim from the two call sites it replaces; the only
+# behaviour change is None-instead-of-raise. The parse error is logged HERE so both
+# attempts' messages survive, while the caller logs which user and which cadence.
+JSON_RETRY_DIRECTIVE = (
+    "\n\nYour previous reply was not valid JSON. Return the same letter again as "
+    "STRICTLY valid JSON only — check quote escaping inside strings. No prose, no "
+    "code fences."
+)
+
+
+def _parse_letter_payload(text: str) -> dict | None:
+    text = text.strip()
+    if text.startswith("```"):
+        text = text.split("\n", 1)[1] if "\n" in text else ""
+    if text.endswith("```"):
+        text = text[:-3].rstrip()
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError as e:
+        logger.warning("Letter payload parse failed (%s chars): %s", len(text), e)
+        return None
+
+
 # ── Tasks ─────────────────────────────────────────────────────────────────────
 
 async def extract_memory_task(
@@ -1125,11 +1155,14 @@ async def generate_weekly_letter_task(ctx, user_id: str, voice_persona_slug: str
             # Dedup: skip if a WEEKLY letter already exists for this user+period.
             # kind-scoped so a monthly letter sharing this period_start (when the
             # 1st of a month is a Sunday) cannot suppress the weekly one.
+            # A17: a 'failed' row records a lost letter — it must NOT block a later
+            # re-run, or the failure becomes permanent for that period.
             existing = await db.execute(
                 select(WeeklyLetter.id).where(
                     WeeklyLetter.user_id == user_id,
                     WeeklyLetter.period_start == period_start,
                     WeeklyLetter.kind == "weekly",
+                    WeeklyLetter.status != "failed",
                 )
             )
             if existing.scalar_one_or_none() is not None:
@@ -1317,18 +1350,46 @@ async def generate_weekly_letter_task(ctx, user_id: str, voice_persona_slug: str
                 other_persona_slugs=other_persona_slugs_str,
             )
 
+            user_msg = f"{prior_block}{wrote_back_block}{room_block}{portrait_block}<week>\n{week_text}\n</week>"
             raw = await llm_client.complete(
                 system=system,
-                user=f"{prior_block}{wrote_back_block}{room_block}{portrait_block}<week>\n{week_text}\n</week>",
+                user=user_msg,
                 model=config.ANTHROPIC_MODEL,
                 max_tokens=1024,
             )
-            text = raw.strip()
-            if text.startswith("```"):
-                text = text.split("\n", 1)[1] if "\n" in text else ""
-            if text.endswith("```"):
-                text = text[:-3].rstrip()
-            data = json.loads(text)
+            data = _parse_letter_payload(raw)
+
+            # A17 — one regeneration attempt on malformed JSON. The letter was
+            # written; only its envelope broke. The corrective directive is appended
+            # to the user message at call time — LETTER_PROMPT is not touched.
+            if data is None:
+                logger.warning(f"WeeklyLetter parse failed for user={user_id}, retrying once")
+                raw = await llm_client.complete(
+                    system=system,
+                    user=user_msg + JSON_RETRY_DIRECTIVE,
+                    model=config.ANTHROPIC_MODEL,
+                    max_tokens=1024,
+                )
+                data = _parse_letter_payload(raw)
+
+            # Both attempts unparseable. Write the failure down: silence is what cost
+            # us four days last time. status='failed' is operator-visible only — the
+            # list endpoint excludes it and generation queries filter on 'generated'.
+            if data is None:
+                db.add(WeeklyLetter(
+                    user_id=user_id,
+                    voice_persona_id=voice_persona_id,
+                    period_start=period_start,
+                    period_end=period_end,
+                    status="failed",
+                ))
+                await db.commit()
+                logger.error(
+                    f"WeeklyLetter FAILED for user={user_id} persona={voice_persona_slug}: "
+                    f"both the initial reply and the retry were unparseable JSON "
+                    f"(see the two preceding parse warnings for each error)"
+                )
+                return
 
             # Change 3: if LLM returns status != "generated", store empty without reading payload keys
             if data.get("status") != "generated":
@@ -1426,11 +1487,13 @@ async def generate_monthly_letter_task(ctx, user_id: str, voice_persona_slug: st
 
             # Dedup: skip if a MONTHLY letter already exists for this user+month
             # (kind-scoped; cannot collide with a weekly letter sharing period_start).
+            # A17: 'failed' rows are excluded so a lost letter can be re-run.
             existing = await db.execute(
                 select(WeeklyLetter.id).where(
                     WeeklyLetter.user_id == user_id,
                     WeeklyLetter.period_start == period_start,
                     WeeklyLetter.kind == "monthly",
+                    WeeklyLetter.status != "failed",
                 )
             )
             if existing.scalar_one_or_none() is not None:
@@ -1606,18 +1669,42 @@ async def generate_monthly_letter_task(ctx, user_id: str, voice_persona_slug: st
                 other_persona_slugs=other_persona_slugs_str,
             )
 
+            user_msg = f"{prior_block}{wrote_back_block}{room_block}{portrait_block}<month>\n{month_text}\n</month>"
             raw = await llm_client.complete(
                 system=system,
-                user=f"{prior_block}{wrote_back_block}{room_block}{portrait_block}<month>\n{month_text}\n</month>",
+                user=user_msg,
                 model=config.ANTHROPIC_MODEL,
                 max_tokens=1536,  # longer than weekly (1024): a truncated reply fails json.loads → no letter at all
             )
-            text = raw.strip()
-            if text.startswith("```"):
-                text = text.split("\n", 1)[1] if "\n" in text else ""
-            if text.endswith("```"):
-                text = text[:-3].rstrip()
-            data = json.loads(text)
+            data = _parse_letter_payload(raw)
+
+            # A17 — one regeneration attempt, same shape as the weekly path.
+            if data is None:
+                logger.warning(f"MonthlyLetter parse failed for user={user_id}, retrying once")
+                raw = await llm_client.complete(
+                    system=system,
+                    user=user_msg + JSON_RETRY_DIRECTIVE,
+                    model=config.ANTHROPIC_MODEL,
+                    max_tokens=1536,
+                )
+                data = _parse_letter_payload(raw)
+
+            if data is None:
+                db.add(WeeklyLetter(
+                    user_id=user_id,
+                    voice_persona_id=voice_persona_id,
+                    period_start=period_start,
+                    period_end=period_end,
+                    status="failed",
+                    kind="monthly",
+                ))
+                await db.commit()
+                logger.error(
+                    f"MonthlyLetter FAILED for user={user_id} persona={voice_persona_slug}: "
+                    f"both the initial reply and the retry were unparseable JSON "
+                    f"(see the two preceding parse warnings for each error)"
+                )
+                return
 
             if data.get("status") != "generated":
                 db.add(WeeklyLetter(

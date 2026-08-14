@@ -169,3 +169,41 @@ def test_enqueue_failure_does_not_break_the_write_back(client, caplog):
         "Letter write-back enqueue failed" in r.message and LETTER_ID in r.message
         for r in caplog.records
     )
+
+
+# ── A17: 'failed' rows must never reach the client ────────────────────────────
+
+def test_list_excludes_failed_letters(client):
+    """A17 — a 'failed' row records a letter the LLM wrote and we lost to malformed
+    JSON. It is an operator-visibility fact, never a user-facing state: the letters
+    list renders any non-'generated', non-'suppressed' row as "A quiet week — no
+    letter this time", which for a failed row is a confident falsehood about a week
+    that was not quiet.
+
+    This asserts the QUERY, not the mocked rows. The session here is an AsyncMock, so
+    it returns whatever it is told and no SQL is ever executed — a test that fed it two
+    rows and checked only one came back would be asserting on its own mock. Compiling
+    the statement is the only way to prove the predicate is actually there.
+    """
+    captured = []
+
+    letters_result = MagicMock()
+    letters_result.scalars.return_value.all.return_value = []
+
+    async def capturing_execute(stmt):
+        captured.append(stmt)
+        return letters_result
+
+    client._db[0].execute = capturing_execute
+
+    resp = client.get("/api/v1/weekly-letters")
+
+    assert resp.status_code == 200
+    assert len(captured) == 1, "expected exactly one query (no personas to load)"
+
+    sql = str(captured[0].compile(compile_kwargs={"literal_binds": True}))
+    assert "status != 'failed'" in sql, (
+        f"list query must exclude failed letters; compiled WHERE was:\n{sql}"
+    )
+    # The pre-existing ownership filter is untouched.
+    assert "user_id" in sql

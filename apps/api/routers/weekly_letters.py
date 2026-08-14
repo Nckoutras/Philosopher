@@ -48,9 +48,16 @@ async def list_weekly_letters(
     if plan not in ("pro", "premium"):
         return JSONResponse(status_code=403, content={"error_code": "upgrade_required"})
 
+    # 'failed' (A17) is an operator-visibility fact — a letter the LLM produced and
+    # we lost to malformed JSON — never a user-facing state. Excluded here so the
+    # client's status union stays true and the reader is never told "a quiet week"
+    # about a week that was not quiet.
     result = await db.execute(
         select(WeeklyLetter)
-        .where(WeeklyLetter.user_id == user.id)
+        .where(
+            WeeklyLetter.user_id == user.id,
+            WeeklyLetter.status != "failed",
+        )
         .order_by(WeeklyLetter.created_at.desc())
     )
     letters = result.scalars().all()

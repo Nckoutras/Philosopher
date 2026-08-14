@@ -1,4 +1,4 @@
-"""Tests for the reader write-back carry-forward block (A12).
+"""Tests for the letter generators' pure helpers (A12 write-back block, A17 parse).
 
 Covers _build_wrote_back_block — the pure renderer for write-backs the CURRENT
 letter voice did not receive, which must reach whoever writes next, attributed.
@@ -16,6 +16,8 @@ from unittest.mock import MagicMock
 
 from workers.arq_worker import (
     _build_wrote_back_block,
+    _parse_letter_payload,
+    JSON_RETRY_DIRECTIVE,
     WRITE_BACK_WINDOW_DAYS_WEEKLY,
     WRITE_BACK_WINDOW_DAYS_MONTHLY,
     WRITE_BACK_MAX_CARRIED,
@@ -152,3 +154,58 @@ def test_monthly_window_covers_a_day_one_write_back_in_the_longest_month():
     note alive across two seasons (which would need > 62)."""
     assert WRITE_BACK_WINDOW_DAYS_MONTHLY > 31
     assert WRITE_BACK_WINDOW_DAYS_MONTHLY < 62
+
+
+# ── A17: the payload parse must fail as a branch, never as an exception ───────
+#
+# The 2026-08-09 incident: generate_weekly_letter_task ran 14.8s, the LLM produced
+# the letter, and json.loads raised on an unescaped quote mid-string. The raise
+# unwound past the row-writing code into the outer `except Exception`, which logged
+# and swallowed — no row, no retry, arq j_failed=0, letter gone. These pin the
+# helper that turns that raise into a None the caller can handle.
+#
+# NOT covered here: the retry loop and the 'failed' row inside the two generators.
+# Reaching them means driving a task that opens a session, runs ~8 queries and calls
+# the LLM — i.e. the letter-generation harness this repo deliberately does not have.
+# That behaviour is reviewable in the diff only.
+
+def test_valid_json_parses_to_a_dict():
+    """The ordinary path — unchanged behaviour, pinned so the refactor is honest."""
+    assert _parse_letter_payload('{"status": "generated", "title": "A Quiet Turn"}') == {
+        "status": "generated",
+        "title": "A Quiet Turn",
+    }
+
+
+def test_valid_json_wrapped_in_code_fences_parses():
+    """The model routinely fences its reply. The fence-strip is carried over verbatim
+    from the two call sites this helper replaced — losing it would break every letter,
+    not just the malformed ones."""
+    fenced = '```json\n{"status": "generated", "title": "Fenced"}\n```'
+    assert _parse_letter_payload(fenced) == {"status": "generated", "title": "Fenced"}
+
+
+def test_the_incident_shape_returns_none_instead_of_raising():
+    """THE regression guard. An unescaped quote mid-string is exactly what broke
+    production: json.loads raises "Expecting ',' delimiter". The helper must return
+    None so the caller can retry and, failing that, write the loss down."""
+    incident = '{"status": "generated", "title": "She said "no" and meant it"}'
+
+    assert _parse_letter_payload(incident) is None
+
+
+def test_truncated_json_returns_none_instead_of_raising():
+    """The other failure mode, and the one the monthly generator's max_tokens comment
+    already anticipated: a reply cut off mid-object."""
+    truncated = '{"status": "generated", "title": "A Quiet Turn", "body": "It began'
+
+    assert _parse_letter_payload(truncated) is None
+
+
+def test_the_retry_directive_names_the_actual_failure():
+    """The directive is appended to the user message on the retry only — prompts are
+    untouched. Pin its substance: it must name JSON, name quote escaping (the observed
+    cause), and forbid the fences and prose that would fail the parse a second time."""
+    assert "not valid JSON" in JSON_RETRY_DIRECTIVE
+    assert "escaping" in JSON_RETRY_DIRECTIVE
+    assert "No prose, no code fences." in JSON_RETRY_DIRECTIVE
