@@ -20,6 +20,7 @@ from services.council_prompts import (
 from services.llm_client import llm_client
 from services.prompt_builder import prompt_builder
 from services.safety_service import safety_service
+from services.safety_event_log import log_safety_event, STAGE_COUNCIL_INPUT
 
 logger = logging.getLogger(__name__)
 
@@ -159,6 +160,8 @@ class CouncilService:
 
         # ── 1. PRE-RITUAL SAFETY GATE ────────────────────────────────────
         safety_in = await safety_service.check_input(matter, user_id)
+        if safety_in.should_log:
+            await log_safety_event(db, user_id, safety_in, STAGE_COUNCIL_INPUT)
         if safety_in.should_suppress_persona:
             yield f"data: {json.dumps({'type': 'safety', 'level': safety_in.level})}\n\n"
             safe = prompt_builder.build_safety_response(level=safety_in.level)

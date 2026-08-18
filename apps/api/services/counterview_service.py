@@ -9,6 +9,11 @@ from config import config
 from models import Counterview, CounterviewResponse, CounterviewTurn, Insight, Message
 from services.llm_client import llm_client
 from services.safety_service import safety_service
+from services.safety_event_log import (
+    log_safety_event,
+    STAGE_COUNTERVIEW_INPUT,
+    STAGE_COUNTERVIEW_REBUTTAL_INPUT,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -113,6 +118,8 @@ async def generate_counterview(
 
     # ── 3) Pre-generation safety gate ─────────────────────────────────────────
     res = await safety_service.check_input(anchor_text, user_id)
+    if res.should_log:
+        await log_safety_event(db, user_id, res, STAGE_COUNTERVIEW_INPUT)
     if res.should_suppress_persona:
         return await _write_counterview(
             db, user_id, source, insight_id, anchor_text, status="suppressed"
@@ -574,6 +581,8 @@ async def respond_to_rebuttal(
 
     # ── Pre-generation safety gate on the user's rebuttal ─────────────────────
     res = await safety_service.check_input(user_text, user_id)
+    if res.should_log:
+        await log_safety_event(db, user_id, res, STAGE_COUNTERVIEW_REBUTTAL_INPUT)
     if res.should_suppress_persona:
         return await _write_turn(
             db, counterview_id, persona_slug, user_text,

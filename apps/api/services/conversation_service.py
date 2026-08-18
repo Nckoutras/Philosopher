@@ -1642,18 +1642,18 @@ class ConversationService:
         return msg
 
     async def _log_safety_event(self, db, user_id, conversation_id, message_id, safety_result, stage):
-        event = SafetyEvent(
-            user_id=user_id,
+        """Thin delegate to services.safety_event_log.log_safety_event (A18b).
+
+        The signature is unchanged so the three chat call sites need no edit — which is
+        the point: 'chat behaviour is byte-identical' is guaranteed by the diff not
+        touching them, not by anyone re-reading them. The body moved verbatim."""
+        from services.safety_event_log import log_safety_event
+
+        await log_safety_event(
+            db, user_id, safety_result, stage,
             conversation_id=conversation_id,
             message_id=message_id,
-            trigger_stage=stage,
-            risk_level=safety_result.level,
-            category=safety_result.category,
-            action_taken="suppressed" if safety_result.should_suppress_persona else "logged",
-            raw_flags={"flags": safety_result.raw_flags, "trigger": safety_result.trigger},
         )
-        db.add(event)
-        await db.flush()
 
     def _chunk_text(self, text: str, size: int = 20):
         """Split text into small chunks for SSE simulation."""
