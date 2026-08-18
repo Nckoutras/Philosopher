@@ -7,9 +7,13 @@ was protected and invisible at the same time.
 
 Pattern: AsyncMock for db, real SafetyResult objects. No database, no network.
 
-NOT covered here: that each of the six call sites is wired, and that each logs BEFORE its
-suppression branch. Those need a session and a live service per surface — reviewable in
-the diff, where every site reads check -> `if …should_log:` -> log -> suppression.
+Wiring is covered at the bottom by a source-reading structural guard, added after the
+revert-verify showed every behavioural test here passes with all six call sites removed.
+
+NOT covered: that each log runs on every code path through its surface. The guard proves
+the call exists and is gated on should_log; ordering relative to the suppression branch is
+reviewable in the diff, where every site reads check -> `if …should_log:` -> log ->
+suppression.
 
 Run: cd apps/api && pytest tests/services/test_safety_event_log.py -v
 """
@@ -143,3 +147,62 @@ async def test_the_writer_never_commits():
     db = _db()
     await log_safety_event(db, USER_ID, SafetyResult(level="high"), STAGE_COUNTERVIEW_INPUT)
     db.commit.assert_not_awaited()
+
+
+# ── Structural guard: the six call sites are actually wired ───────────────────
+#
+# Added because the revert-verify exposed a real gap: every test above passes with all
+# six call sites reverted, since they exercise the WRITER, not the WIRING. Without this,
+# someone could delete a log call and the suite would stay green.
+#
+# Source-reading, following the precedent at tests/test_postprocessing.py. Not
+# bulletproof — it proves the call exists in the file, not that it runs on every path.
+# Manual review of the diff remains the real safeguard for ordering.
+
+SITES = [
+    ("services/council_service.py",          "STAGE_COUNCIL_INPUT",              1),
+    ("services/counterview_service.py",      "STAGE_COUNTERVIEW_INPUT",          1),
+    ("services/counterview_service.py",      "STAGE_COUNTERVIEW_REBUTTAL_INPUT", 1),
+    ("services/self_comparison_service.py",  "STAGE_SELF_COMPARISON_INPUT",      1),
+    ("routers/scheduled_emails.py",          "STAGE_SCHEDULED_EMAIL_INPUT",      2),
+]
+
+
+def _source(rel):
+    from pathlib import Path
+    return (Path(__file__).resolve().parent.parent.parent / rel).read_text(encoding="utf-8")
+
+
+def test_every_ritual_input_site_logs():
+    """One missing call means a whole surface goes back to being invisible in the record
+    — the exact condition A18b exists to end."""
+    for rel, stage, expected_calls in SITES:
+        src = _source(rel)
+        assert "log_safety_event" in src, f"{rel} does not import/call the writer"
+        # The constant is referenced once per call site in that file.
+        assert src.count(stage) >= expected_calls, (
+            f"{rel}: expected >= {expected_calls} use(s) of {stage}, got {src.count(stage)}"
+        )
+
+
+def test_each_log_is_gated_on_should_log_not_on_suppression():
+    """The threshold is should_log (level != 'none'), matching chat's input side. Gating
+    on should_suppress_persona instead would silently drop every 'low' from the record."""
+    for rel, _stage, _n in SITES:
+        src = _source(rel)
+        for line_no, line in enumerate(src.split("\n")):
+            if "await log_safety_event(" in line:
+                prev = src.split("\n")[line_no - 1]
+                assert "should_log" in prev, (
+                    f"{rel}:{line_no + 1} log is gated on {prev.strip()!r}, expected should_log"
+                )
+
+
+def test_the_letter_ritual_blocks_deliberately_log_nothing():
+    """A18b decision: the ORIGINATING surface owns the record. The weekly and monthly
+    letter generators re-check ritual text days later; logging there would write a second
+    row misdated to the letter run, and a misdated safety record is worse than none."""
+    src = _source("workers/arq_worker.py")
+    assert "log_safety_event" not in src, (
+        "arq_worker must not write safety events — the originating surface owns the record"
+    )
