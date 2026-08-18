@@ -251,7 +251,28 @@ JSON_RETRY_DIRECTIVE = (
 )
 
 
-def _parse_letter_payload(text: str) -> dict | None:
+def _is_null_reply(text: str) -> bool:
+    """True when the model deliberately said "there is nothing here" (A17b).
+
+    INSIGHT_PROMPT asks for bare `null` when no insight is worth surfacing. That is a
+    VALID outcome, but json.loads("null") returns None — the same value
+    _parse_letter_payload returns on a parse FAILURE. The two are indistinguishable
+    downstream, so the null case must be recognised from the raw reply instead, before
+    any retry decision. Fence-tolerant: the strict `== "null"` sentinel at the insight
+    call site catches the bare form, this also catches a fenced one."""
+    t = text.strip()
+    if t.startswith("```"):
+        t = t.split("\n", 1)[1] if "\n" in t else ""
+    if t.endswith("```"):
+        t = t[:-3].rstrip()
+    return t.strip().lower() == "null"
+
+
+def _parse_letter_payload(text: str, label: str = "Letter") -> dict | None:
+    """`label` names the caller in the warning line only — A17b routes the mirror and
+    insight tasks through this same helper. It is an optional kwarg precisely so the
+    letter call sites stay byte-identical: this function's behaviour for letters is
+    unchanged, and the diff proves it by not touching them."""
     text = text.strip()
     if text.startswith("```"):
         text = text.split("\n", 1)[1] if "\n" in text else ""
@@ -260,7 +281,7 @@ def _parse_letter_payload(text: str) -> dict | None:
     try:
         return json.loads(text)
     except json.JSONDecodeError as e:
-        logger.warning("Letter payload parse failed (%s chars): %s", len(text), e)
+        logger.warning("%s payload parse failed (%s chars): %s", label, len(text), e)
         return None
 
 
@@ -803,7 +824,50 @@ async def generate_insight_task(ctx, user_id: str, conversation_id: str):
             if raw.strip().lower() == "null":
                 return
 
-            data = json.loads(raw.strip())
+            # A17b — the sentinel above stays FIRST and untouched. INSIGHT_PROMPT tells
+            # the model to return bare null when there is nothing worth surfacing, which
+            # is a valid outcome, not a failure. json.loads("null") is None — the same
+            # value this helper returns on a parse failure — so a null reply must be
+            # answered before the parse, or every quiet day becomes a wasted retry.
+            data = _parse_letter_payload(raw, label="Insight")
+
+            # A latent fix rides along: this site had no fence-strip, so a fenced reply
+            # died here even though INSIGHT_PROMPT says "Return JSON only". The helper
+            # strips fences for all four JSON sites uniformly.
+            if data is None and not _is_null_reply(raw):
+                logger.warning(f"Insight parse failed for user={user_id}, retrying once")
+                raw = await llm_client.complete(
+                    system=INSIGHT_PROMPT,
+                    user=memory_text + JSON_RETRY_DIRECTIVE,
+                    max_tokens=256,
+                )
+                if _is_null_reply(raw):
+                    return
+                data = _parse_letter_payload(raw, label="Insight")
+
+            # A parsed-null reaches here as None, indistinguishable from a parse failure.
+            # It is the model saying there is nothing worth surfacing — a clean return.
+            if _is_null_reply(raw):
+                return
+
+            # No row on double failure — an Insight has no status column, and insights are
+            # opportunistic: returning without one is already this task's vocabulary for
+            # "nothing today".
+            if data is None:
+                logger.error(
+                    f"Insight FAILED for user={user_id} conv={conversation_id}: both the "
+                    f"initial reply and the retry were unparseable JSON "
+                    f"(see the two preceding parse warnings for each error)"
+                )
+                return
+
+            # Minimal shape guard: content is the one field the row cannot be built
+            # without (it is NOT NULL and subscripted below). A parsed-but-shapeless
+            # payload took a KeyError into the swallowing except before A17b.
+            content = (data.get("content") or "").strip() if isinstance(data, dict) else ""
+            if not content:
+                logger.error(f"Insight FAILED for user={user_id}: parsed payload has no usable content")
+                return
             insight = Insight(
                 user_id=user_id,
                 conversation_id=conversation_id,
@@ -1142,12 +1206,31 @@ async def generate_weekly_mirror_task(ctx, user_id: str, persona_slug: str, kind
                 model=config.ANTHROPIC_MODEL,
                 max_tokens=768,
             )
-            text = raw.strip()
-            if text.startswith("```"):
-                text = text.split("\n", 1)[1] if "\n" in text else ""
-            if text.endswith("```"):
-                text = text[:-3].rstrip()
-            data = json.loads(text)
+            data = _parse_letter_payload(raw, label="Mirror")
+
+            # A17b — one regeneration attempt on malformed JSON, same shape as the two
+            # letter generators. The mirror was written; only its envelope broke.
+            if data is None:
+                logger.warning(f"Mirror parse failed for user={user_id}, retrying once")
+                raw = await llm_client.complete(
+                    system=system,
+                    user=f"<week>\n{week_text}\n</week>" + JSON_RETRY_DIRECTIVE,
+                    model=config.ANTHROPIC_MODEL,
+                    max_tokens=768,
+                )
+                data = _parse_letter_payload(raw, label="Mirror")
+
+            # Both attempts unparseable. NO ROW is written: status='empty' would assert
+            # "the week held nothing" about a week the LLM did write a mirror for, and a
+            # confident falsehood is worse than an absence (the A18 1.3 principle). No row
+            # also leaves the weekly cron free to produce one next run.
+            if data is None:
+                logger.error(
+                    f"Mirror FAILED for user={user_id} persona={persona_slug}: both the "
+                    f"initial reply and the retry were unparseable JSON "
+                    f"(see the two preceding parse warnings for each error)"
+                )
+                return
 
             if data.get("status") != "generated":
                 db.add(Mirror(
