@@ -373,18 +373,20 @@ def setup_cron(arq_queue):
 
     @scheduler.scheduled_job(CronTrigger(day="last", hour=17, minute=0), id="monthly_letter")
     async def dispatch_monthly_letters():
-        """Last day of month 17:00 UTC — enqueue a monthly 'season' letter for users
-        with >= MONTHLY_MIN_MESSAGES user messages this calendar month, voiced by the
-        persona they conversed with most that month. CronTrigger(day='last') fires on
-        the final calendar day of the month."""
+        """Last day of month 17:00 UTC — enqueue a monthly 'season' letter for users with
+        >= MONTHLY_MIN_MESSAGES acts this calendar month, where an act is a user message OR
+        a ritual (council session, generated counterview rebuttal, annotated mirror,
+        you-vs-you). Voiced by the persona they conversed with most that month; for a month
+        with no chat at all, by their mirror host (A18-monthly). CronTrigger(day='last')
+        fires on the final calendar day of the month."""
         logger.info("Cron: dispatching monthly letters")
         try:
             from db.session import AsyncSessionLocal
-            from models import Message, Conversation, Persona
+            from models import Message, Conversation, Persona, User
             from sqlalchemy import select, func
             from datetime import datetime, timezone
             from collections import defaultdict
-            from workers.arq_worker import MONTHLY_MIN_MESSAGES
+            from workers.arq_worker import MONTHLY_MIN_MESSAGES, ritual_counts_by_user
 
             now = datetime.now(timezone.utc)
             month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
@@ -413,12 +415,50 @@ def setup_cron(arq_queue):
             for row in rows:
                 user_persona_counts[str(row.user_id)].append((str(row.persona_id), row.msg_count))
 
+            # A18-monthly — the month is chat AND rituals, mirroring the weekly dispatch.
+            # Same shared helper the generator's quiet-month gate uses. The windows are not
+            # identical (cron ends at its own `now`, the generator at the last day 23:59:59)
+            # but they agree in the SAFE direction: the generator's window is a superset, so
+            # it can never count fewer than cron and a dispatched user cannot fall through
+            # into a false 'empty' row.
+            async with AsyncSessionLocal() as db:
+                ritual_counts = await ritual_counts_by_user(
+                    db, month_start, datetime.now(timezone.utc)
+                )
+
             targets: list[tuple[str, str]] = []  # [(user_id, persona_id)]
-            for uid, entries in user_persona_counts.items():
-                total = sum(c for _, c in entries)
-                if total >= MONTHLY_MIN_MESSAGES:
+            ritual_only: list[str] = []          # eligible, but no chat to elect a voice
+            for uid in set(user_persona_counts) | set(ritual_counts):
+                entries = user_persona_counts.get(uid, [])
+                total = sum(c for _, c in entries) + ritual_counts.get(uid, 0)
+                if total < MONTHLY_MIN_MESSAGES:
+                    continue
+                if entries:
                     top_persona_id = entries[0][0]  # ordered desc by count, asc by id
                     targets.append((uid, top_persona_id))
+                else:
+                    # Voice election is UNCHANGED for anyone who chatted. With zero chat
+                    # there is no top persona to elect, so the season letter is voiced by the
+                    # mirror host — the same expression the weekly dispatch uses.
+                    ritual_only.append(uid)
+
+            if ritual_only:
+                async with AsyncSessionLocal() as db:
+                    host_result = await db.execute(
+                        select(User.id, User.mirror_host_slug).where(User.id.in_(ritual_only))
+                    )
+                    host_by_user = {str(r.id): (r.mirror_host_slug or "carl_jung") for r in host_result.all()}
+                    wanted = set(host_by_user.values()) or {"carl_jung"}
+                    pid_result = await db.execute(
+                        select(Persona.id, Persona.slug).where(Persona.slug.in_(wanted))
+                    )
+                    id_by_slug = {r.slug: str(r.id) for r in pid_result.all()}
+                for uid in ritual_only:
+                    pid = id_by_slug.get(host_by_user.get(uid, "carl_jung"))
+                    if pid:
+                        targets.append((uid, pid))
+                    else:
+                        logger.warning(f"Cron: no persona row for monthly-letter fallback voice, user={uid}")
 
             if not targets:
                 logger.info("Cron: no monthly-letter-eligible users")
