@@ -1,4 +1,4 @@
-"""Tests for the letter generators' pure helpers (A12 write-back block, A17 parse).
+"""Tests for the letter generators' pure helpers (A12 write-back, A17 parse, A18 rituals).
 
 Covers _build_wrote_back_block — the pure renderer for write-backs the CURRENT
 letter voice did not receive, which must reach whoever writes next, attributed.
@@ -18,6 +18,10 @@ from workers.arq_worker import (
     _build_wrote_back_block,
     _parse_letter_payload,
     JSON_RETRY_DIRECTIVE,
+    _build_rituals_block,
+    RITUALS_MAX_ENTRIES,
+    RITUALS_MAX_ENTRY_CHARS,
+    RITUALS_MAX_BLOCK_CHARS,
     WRITE_BACK_WINDOW_DAYS_WEEKLY,
     WRITE_BACK_WINDOW_DAYS_MONTHLY,
     WRITE_BACK_MAX_CARRIED,
@@ -209,3 +213,125 @@ def test_the_retry_directive_names_the_actual_failure():
     assert "not valid JSON" in JSON_RETRY_DIRECTIVE
     assert "escaping" in JSON_RETRY_DIRECTIVE
     assert "No prose, no code fences." in JSON_RETRY_DIRECTIVE
+
+
+# ── A18: the week is more than chat ───────────────────────────────────────────
+#
+# The 2026-08-16 dispatch enqueued ZERO letters. The one active user had spent the
+# week entirely in rituals and sent no chat messages, so a week of 1 council, 3
+# rebuttals, 2 mirror notes and a you-vs-you classified as quiet. These pin the
+# renderer for the block that carries that week into the letter.
+#
+# HER WORDS ONLY is a property of what the CALLER selects (input_text, user_text,
+# ring_true_note, prompt — never synthesis, persona_response or verdict), so it lives
+# in _fetch_ritual_entries and is reviewable in the diff, not here.
+#
+# NOT covered here: the four queries, the eligibility merge in cron, the quiet-week
+# gate, and the per-entry safety filter. All need a session and a live safety_service
+# — the letter-generation harness this repo deliberately does not have.
+
+def _r(kind, day, text):
+    """One (kind, occurred_at, text) tuple as _fetch_ritual_entries returns it."""
+    return (kind, datetime(2026, 8, day, 12, 0, tzinfo=timezone.utc), text)
+
+
+def test_the_incident_week_renders_all_four_surfaces():
+    """THE regression guard: the exact 2026-08-16 shape — 1 council, 3 counterview
+    rebuttals, 2 mirror notes, 1 you-vs-you — the week that produced no letter."""
+    block = _build_rituals_block([
+        _r("council", 12, "Whether to take the job in Berlin"),
+        _r("counterview", 13, "I still think loyalty is worth the cost"),
+        _r("counterview", 13, "But that assumes I owe them something"),
+        _r("counterview", 13, "Maybe the debt is imagined"),
+        _r("mirror", 14, "This landed harder than I expected"),
+        _r("mirror", 14, "I keep returning to the same week in March"),
+        _r("you_vs_you", 15, "Am I steadier than I was in spring?"),
+    ])
+
+    assert block.startswith("<rituals>\n")
+    assert block.endswith("</rituals>\n\n")
+    assert "brought before the council" in block
+    assert "pushed back in counterview" in block
+    assert "noted at the mirror" in block
+    assert "asked of themselves" in block
+    # Every one of the seven acts survives — none is collapsed or deduplicated.
+    assert block.count("[") == 7
+
+
+def test_no_ritual_rows_returns_empty_string():
+    """The caller concatenates the block unconditionally, so 'no rituals this week'
+    must be '' and never an empty wrapper the voice would try to interpret."""
+    assert _build_rituals_block([]) == ""
+
+
+def test_entries_with_blank_or_missing_text_are_skipped():
+    """ring_true_note is nullable and a matter can be whitespace. An empty entry would
+    render a label with nothing after it — a day the voice would read as meaningful."""
+    assert _build_rituals_block([_r("mirror", 12, None)]) == ""
+    assert _build_rituals_block([_r("mirror", 12, "   ")]) == ""
+
+
+def test_unknown_kind_is_skipped_rather_than_rendered_unlabelled():
+    """A future surface added to the fetcher but not to _RITUAL_LABELS must not leak
+    in without a label — an unlabelled line tells the voice nothing about what it is."""
+    assert _build_rituals_block([_r("seance", 12, "words")]) == ""
+
+
+def test_caller_ordering_is_preserved_oldest_first():
+    """The fetcher selects newest-first then reverses, so the block reads forward
+    through the week. A reordering here would scramble the week's shape."""
+    block = _build_rituals_block([
+        _r("council", 12, "earlier thing"),
+        _r("mirror", 15, "later thing"),
+    ])
+
+    assert block.index("earlier thing") < block.index("later thing")
+
+
+def test_a_long_entry_is_truncated_not_dropped():
+    """A council matter runs to 600 chars. Truncating keeps the week's shape intact;
+    dropping would silently lose the act entirely."""
+    long_text = "x" * (RITUALS_MAX_ENTRY_CHARS + 200)
+    block = _build_rituals_block([_r("council", 12, long_text)])
+
+    assert "brought before the council" in block
+    assert "…" in block
+    assert len(block) < RITUALS_MAX_ENTRY_CHARS + 200
+
+
+def test_entry_count_is_capped():
+    """Defensive: the fetcher already cuts to RITUALS_MAX_ENTRIES, but the renderer
+    re-applies it so the block cannot grow past what the week's messages compete with."""
+    rows = [_r("mirror", 12, "note {}".format(i)) for i in range(RITUALS_MAX_ENTRIES + 8)]
+    block = _build_rituals_block(rows)
+
+    assert block.count("[") == RITUALS_MAX_ENTRIES
+
+
+def test_character_budget_drops_the_oldest_not_the_newest():
+    """When the budget runs out the WEEK'S END must survive: what she did on Saturday
+    is more use to a letter written on Sunday than what she did on Monday."""
+    big = "y" * RITUALS_MAX_ENTRY_CHARS
+    rows = [_r("council", 10 + i, "{} {}".format(i, big)) for i in range(RITUALS_MAX_ENTRIES)]
+    block = _build_rituals_block(rows)
+
+    assert len(block) <= RITUALS_MAX_BLOCK_CHARS + len("<rituals>\n</rituals>\n\n") + RITUALS_MAX_ENTRY_CHARS
+    # The newest entry is kept; the oldest is the one sacrificed.
+    assert block.count("[") < RITUALS_MAX_ENTRIES
+    assert "{} ".format(RITUALS_MAX_ENTRIES - 1) in block
+    assert not block.startswith("<rituals>\n[Mon Aug 10")
+
+
+def test_label_text_is_exactly_the_approved_wording():
+    """The four labels are approved input format, not incidental strings — the voice is
+    told what she was doing so it can interpret a council matter differently from a
+    mirror note. Pin them so a reword is deliberate."""
+    block = _build_rituals_block([
+        _r("council", 12, "a"), _r("counterview", 12, "b"),
+        _r("mirror", 12, "c"), _r("you_vs_you", 12, "d"),
+    ])
+
+    assert "· brought before the council]" in block
+    assert "· pushed back in counterview]" in block
+    assert "· noted at the mirror]" in block
+    assert "· asked of themselves]" in block

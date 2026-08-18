@@ -261,14 +261,18 @@ def setup_cron(arq_queue):
 
     @scheduler.scheduled_job(CronTrigger(day_of_week="sun", hour=18, minute=0), id="weekly_letter")
     async def dispatch_weekly_letters():
-        """Sunday 18:00 UTC — enqueue a weekly letter for users with >=5 user messages in the last 7 days,
-        voiced by the persona they conversed with most that week."""
+        """Sunday 18:00 UTC — enqueue a weekly letter for users with >=5 acts in the last
+        7 days, where an act is a user message OR a ritual (council session, generated
+        counterview rebuttal, annotated mirror, you-vs-you). Voiced by the persona they
+        conversed with most that week; for a week with no chat at all, by their mirror
+        host (A18)."""
         logger.info("Cron: dispatching weekly letters")
         try:
             from db.session import AsyncSessionLocal
-            from models import Message, Conversation, Persona
+            from models import Message, Conversation, Persona, User
             from sqlalchemy import select, func
             from datetime import datetime, timezone, timedelta
+            from workers.arq_worker import ritual_counts_by_user
 
             cutoff = datetime.now(timezone.utc) - timedelta(days=7)
             async with AsyncSessionLocal() as db:
@@ -299,12 +303,50 @@ def setup_cron(arq_queue):
             for row in rows:
                 user_persona_counts[str(row.user_id)].append((str(row.persona_id), row.msg_count))
 
+            # A18 — the week is chat AND rituals. Counting messages alone enqueued ZERO
+            # letters on 2026-08-16 for a user who spent the week in 1 council, 3
+            # counterview rebuttals, 2 mirror notes and a you-vs-you. The ritual count
+            # comes from the SAME helper the generator's quiet-week gate uses, so cron
+            # and the generator can never disagree about whether a week happened.
+            async with AsyncSessionLocal() as db:
+                ritual_counts = await ritual_counts_by_user(
+                    db, cutoff, datetime.now(timezone.utc)
+                )
+
             targets: list[tuple[str, str]] = []  # [(user_id, persona_id)]
-            for uid, entries in user_persona_counts.items():
-                total = sum(c for _, c in entries)
-                if total >= 5:
+            ritual_only: list[str] = []          # eligible, but no chat to elect a voice
+            for uid in set(user_persona_counts) | set(ritual_counts):
+                entries = user_persona_counts.get(uid, [])
+                total = sum(c for _, c in entries) + ritual_counts.get(uid, 0)
+                if total < 5:
+                    continue
+                if entries:
                     top_persona_id = entries[0][0]  # already ordered desc by count, asc by id
                     targets.append((uid, top_persona_id))
+                else:
+                    # Voice election is UNCHANGED for anyone who chatted. With zero chat
+                    # there is no top persona to elect, so the letter is voiced by the
+                    # mirror host — an explicit user choice with a shipped default,
+                    # resolved with the same expression insight_mirror_service uses.
+                    ritual_only.append(uid)
+
+            if ritual_only:
+                async with AsyncSessionLocal() as db:
+                    host_result = await db.execute(
+                        select(User.id, User.mirror_host_slug).where(User.id.in_(ritual_only))
+                    )
+                    host_by_user = {str(r.id): (r.mirror_host_slug or "carl_jung") for r in host_result.all()}
+                    wanted = set(host_by_user.values()) or {"carl_jung"}
+                    pid_result = await db.execute(
+                        select(Persona.id, Persona.slug).where(Persona.slug.in_(wanted))
+                    )
+                    id_by_slug = {r.slug: str(r.id) for r in pid_result.all()}
+                for uid in ritual_only:
+                    pid = id_by_slug.get(host_by_user.get(uid, "carl_jung"))
+                    if pid:
+                        targets.append((uid, pid))
+                    else:
+                        logger.warning(f"Cron: no persona row for weekly-letter fallback voice, user={uid}")
 
             if not targets:
                 logger.info("Cron: no weekly-letter-eligible users")
