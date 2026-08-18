@@ -23,6 +23,10 @@ from workers.arq_worker import (
     RITUALS_MAX_ENTRIES,
     RITUALS_MAX_ENTRY_CHARS,
     RITUALS_MAX_BLOCK_CHARS,
+    RITUALS_MAX_PER_SURFACE_MONTHLY,
+    RITUALS_MAX_ENTRIES_MONTHLY,
+    RITUALS_MAX_ENTRY_CHARS_MONTHLY,
+    RITUALS_MAX_BLOCK_CHARS_MONTHLY,
     WRITE_BACK_WINDOW_DAYS_WEEKLY,
     WRITE_BACK_WINDOW_DAYS_MONTHLY,
     WRITE_BACK_MAX_CARRIED,
@@ -403,3 +407,78 @@ def test_label_defaults_to_letter_so_a17_behaviour_is_unchanged(caplog):
     with caplog.at_level("WARNING", logger="workers.arq_worker"):
         assert _parse_letter_payload("{ broken") is None
     assert any("Letter payload parse failed" in r.message for r in caplog.records)
+
+
+# ── A18-monthly: the same block over a month-sized window ─────────────────────
+#
+# The season letter carried the identical defect the weekly did: a reader who spends
+# the month in rituals was invisible to both eligibility and material.
+#
+# The helpers are period-parameterised and already covered above; what the monthly adds
+# is caps. They are passed as arguments so the WEEKLY call sites pass nothing and keep
+# today's behaviour by default — the same guarantee the A17b label argument gave.
+#
+# NOT covered here: the monthly gates, the cron merge, the voice fallback and the safety
+# filter. Same limit as A18 — they need a session and a live safety_service.
+
+def test_monthly_caps_are_the_agreed_values():
+    """Product decisions, not incidental numbers — pinned the way A14's windows are.
+    2x the weekly rather than 4.3x: month-scaling the entry count would put ~52 entries
+    beside the month's messages and invert the guardrail that keeps her own words
+    dominant. Per-entry chars are deliberately UNCHANGED across cadences, because entry
+    length is a property of the utterance, not of the window."""
+    assert RITUALS_MAX_PER_SURFACE_MONTHLY == 8
+    assert RITUALS_MAX_ENTRIES_MONTHLY == 24
+    assert RITUALS_MAX_ENTRY_CHARS_MONTHLY == 400
+    assert RITUALS_MAX_BLOCK_CHARS_MONTHLY == 6000
+    # The monthly must be strictly roomier where it matters, and identical where it does not.
+    assert RITUALS_MAX_ENTRIES_MONTHLY > RITUALS_MAX_ENTRIES
+    assert RITUALS_MAX_BLOCK_CHARS_MONTHLY > RITUALS_MAX_BLOCK_CHARS
+    assert RITUALS_MAX_ENTRY_CHARS_MONTHLY == RITUALS_MAX_ENTRY_CHARS
+
+
+def test_the_block_defaults_to_weekly_caps_when_none_are_passed():
+    """The binding condition of this PR: the weekly call sites pass no caps argument, so
+    a regression in the defaults would silently reshape the shipped weekly letter."""
+    rows = [_r("mirror", 10 + (i % 20), "note {}".format(i)) for i in range(RITUALS_MAX_ENTRIES + 10)]
+
+    assert _build_rituals_block(rows).count("[") == RITUALS_MAX_ENTRIES
+
+
+def test_monthly_caps_admit_more_entries_than_weekly():
+    """The point of the wider caps: a month of rituals must not be trimmed to a week's
+    worth of them."""
+    rows = [_r("mirror", 1 + (i % 28), "note {}".format(i)) for i in range(RITUALS_MAX_ENTRIES_MONTHLY + 10)]
+
+    weekly = _build_rituals_block(rows)
+    monthly = _build_rituals_block(
+        rows,
+        max_entries=RITUALS_MAX_ENTRIES_MONTHLY,
+        max_entry_chars=RITUALS_MAX_ENTRY_CHARS_MONTHLY,
+        max_block_chars=RITUALS_MAX_BLOCK_CHARS_MONTHLY,
+    )
+
+    assert weekly.count("[") == RITUALS_MAX_ENTRIES
+    assert monthly.count("[") == RITUALS_MAX_ENTRIES_MONTHLY
+
+
+def test_character_budget_still_drops_the_oldest_at_monthly_values():
+    """The oldest-dropped rule is the one behaviour the caps parameter could break: the
+    accumulation walks backwards from the newest, so a wider budget must widen what is
+    KEPT, never flip which end is sacrificed. What she did in the last week of the month
+    is more use to a letter written on its last day than what she did in the first."""
+    big = "y" * RITUALS_MAX_ENTRY_CHARS_MONTHLY
+    rows = [_r("council", 1 + i, "{} {}".format(i, big)) for i in range(RITUALS_MAX_ENTRIES_MONTHLY)]
+
+    block = _build_rituals_block(
+        rows,
+        max_entries=RITUALS_MAX_ENTRIES_MONTHLY,
+        max_entry_chars=RITUALS_MAX_ENTRY_CHARS_MONTHLY,
+        max_block_chars=RITUALS_MAX_BLOCK_CHARS_MONTHLY,
+    )
+
+    # Budget bites before the entry cap, so some entries are dropped …
+    assert block.count("[") < RITUALS_MAX_ENTRIES_MONTHLY
+    # … and the sacrificed ones are the OLDEST: the newest survives, the first does not.
+    assert "{} ".format(RITUALS_MAX_ENTRIES_MONTHLY - 1) in block
+    assert not block.startswith("<rituals>\n[Thu Aug 01")
