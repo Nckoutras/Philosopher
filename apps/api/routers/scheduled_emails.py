@@ -21,6 +21,7 @@ from schemas import (
 from auth import get_current_user
 from services.tier_service import get_user_tier
 from services.safety_service import safety_service
+from services.safety_event_log import log_safety_event, STAGE_SCHEDULED_EMAIL_INPUT
 
 logger = logging.getLogger(__name__)
 
@@ -63,6 +64,8 @@ async def create_scheduled_email(
     prediction = (body.prediction or "").strip() or None
     if prediction is not None:
         res = await safety_service.check_input(prediction, user.id)
+        if res.should_log:
+            await log_safety_event(db, user.id, res, STAGE_SCHEDULED_EMAIL_INPUT)
         if res.should_suppress_persona:
             return JSONResponse(status_code=422, content={"error_code": "unsafe_prediction"})
 
@@ -191,6 +194,8 @@ async def review_scheduled_email(
         return JSONResponse(status_code=422, content={"error_code": "empty_review"})
 
     res = await safety_service.check_input(text, user.id)
+    if res.should_log:
+        await log_safety_event(db, user.id, res, STAGE_SCHEDULED_EMAIL_INPUT)
     if res.should_suppress_persona:
         return JSONResponse(status_code=422, content={"error_code": "unsafe_review"})
 
