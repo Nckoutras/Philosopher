@@ -102,6 +102,28 @@ Lessons that updated this protocol:
   hole. Lesson: enumerate existing endpoints in same domain BEFORE 
   designing new ones.
 
+- **2026-08-18**: A tech-debt item that had been CLOSED for eight doc 
+  rotations was still listed as open — here, and in every PROJECT_STATE 
+  from v17 to v24. The dual tier-resolution debt was resolved by #203 
+  (2026-06-03) and recorded then; the "open" claim survived because each 
+  rotation copied the previous document's text instead of re-verifying it 
+  against the code. A second instance was found the same way: "RLS 
+  DISABLED on all public tables" was propagated from v8 through v24 while 
+  RLS was in fact ENABLED on all 35 public tables — and "RLS" sat on the 
+  P0 launch-blocker list the whole time, tracking work that was already 
+  done. Lesson: **a doc claim repeated without re-verification is evidence 
+  about the previous doc, not about the system.** When rotating 
+  documentation, re-check every load-bearing claim against code or the 
+  database, or mark it explicitly unverified. "Unchanged." is not a 
+  verification.
+
+  Corollary, learned the expensive way: the correction to this very entry 
+  was written on 2026-08-06 and **never merged** — it sat on an unpushed 
+  local branch while the false text stayed in this file for another twelve 
+  days, and the next session's brief was written from it. **A doc that is 
+  not merged does not exist.** Before a rotation is done: push, open the 
+  PR, and confirm the files are on main.
+
 ## Future-proof first, shortcuts second
 
 Every proposal — code, schema, architecture — must be evaluated against
@@ -311,18 +333,25 @@ Render deploy at the version-write; DB stayed cleanly at 034; #371 renamed it to
 
 ## Known tech debt
 
-### Dual tier resolution (added PR4j-paywall-audit, 2026-05-23)
+### Dual tier resolution — CLOSED (#203)
 
-`apps/api/auth.py:get_current_user_plan` and `apps/api/services/tier_service.py:get_user_tier`
-are two parallel tier-resolution functions with different semantics:
+**This entry previously described `get_current_user_plan` and `get_user_tier` as two
+parallel tier-resolution functions with different semantics. That has been false since
+#203.** `apps/api/auth.py:get_current_user_plan` is a thin FastAPI dependency wrapper
+that awaits `tier_service.get_user_tier` and returns `(user, tier)`. There is one
+tier-resolution function. `get_user_tier` is canonical, including its expiry/status
+validation and the `BETA_GRANT_PRO_TO_ALL` bypass.
 
-- `get_current_user_plan` returns `"free" | "pro" | "premium"` from `Subscription.plan` directly
-- `get_user_tier` returns `"free" | "pro"` with expiry/status validation and BETA_GRANT_PRO_TO_ALL bypass
+The stale entry survived eight doc rotations and shaped briefs during that time. The
+correction was written on 2026-08-06 and never merged. It is kept here as a closed item
+rather than deleted, as a standing example: **a claim in this file is a claim about the
+past unless it was re-verified against the code.**
 
-PR4j added BETA bypass to both, but the duplication remains. Eight endpoints across
-`personas.py`, `rituals.py`, `conversations.py`, and `share.py` use `get_current_user_plan`;
-five use `get_user_tier`. Frontend `isPro` logic depends on whichever these endpoints return.
-
-**Refactor before paid launch:** consolidate to a single tier-resolution function used by all
-enforcement points. Decision needed at that time: keep `"premium"` tier semantics or collapse
-to `free | pro`. Affects all paywall gates and the frontend Subscription type.
+A separate, still-open question survives this closure. `get_user_tier` remains
+typed `Literal["free","pro","premium"]` and can still return `"premium"`
+(`tier_service.py:29-31`), and `constants.py` retains `premium` in `TIER_ORDER`
+and `PLAN_FEATURES` as deliberate defensive tolerance after #528 retired Premium
+from the frontend and schema. 72 non-test occurrences of `premium` remain in
+`apps/api` (bounded count, 2026-08-18). **Whether to collapse to `free | pro` is
+undecided.** This is tolerance for a tier that will not exist in v1 — it is not
+a defect, and it is not urgent, but it is also not closed.
