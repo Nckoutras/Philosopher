@@ -28,12 +28,14 @@ from services.profile_text import profile_to_statements
 from services.self_comparison_service import self_comparison_service
 from services import self_portrait_summary
 from services.self_portrait import (
+    answered_category_count,
     answers_to_statements,
     get_question,
     is_free_question,
     portrait_state,
     portrait_theme_scores,
     PORTRAIT_REGEN_DELTA,
+    total_category_count,
     total_question_count,
     visible_questions,
 )
@@ -139,6 +141,12 @@ async def read_self_portrait(
         answers=answers,
         is_pro=is_pro,
         locked_count=locked_count,
+        # From `stored`, NOT `answers`: the coverage number must describe what the user
+        # actually answered, including categories whose questions this tier can no longer
+        # see. Passing the filtered dict here would reintroduce the undercount on the
+        # server side, which is the whole defect this closes.
+        answered_category_count=answered_category_count(stored),
+        total_category_count=total_category_count(),
     )
 
 

@@ -1528,6 +1528,11 @@ export interface SelfPortraitData {
   answers: Record<string, number>
   is_pro: boolean
   locked_count: number
+  // Category coverage for the breadth bar. answered_category_count comes from the
+  // user's UNFILTERED stored answers, so it stays correct for a lapsed Pro→free user
+  // whose `questions` no longer include everything they answered.
+  answered_category_count: number
+  total_category_count: number
 }
 
 // One best-fit persona for the portrait payoff. Populated in 5b; the fields are

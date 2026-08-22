@@ -84,6 +84,16 @@ def total_question_count() -> int:
     return len(_BANK)
 
 
+def total_category_count() -> int:
+    """Number of DISTINCT categories in the bank — the denominator for coverage.
+
+    DERIVED, never hardcoded: the bank is the only authority on how many categories
+    exist, so adding or removing one moves this number with no code change. Counts
+    exactly what answered_category_count counts, so the pair can never disagree
+    about what a "category" is."""
+    return len({q.get("category", "") for q in _BANK.values()})
+
+
 # ── Self-Portrait payoff gate ───────────────────────────────────────────────
 # The portrait becomes "ready" once a user's answers span breadth across life
 # areas — NOT once they reach a raw count. Breadth is what makes a present-tense
