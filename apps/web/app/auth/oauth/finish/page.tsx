@@ -19,6 +19,10 @@ function OAuthFinish() {
 
     const token = searchParams.get('token')
     const needsDisclaimer = searchParams.get('needs_disclaimer') === '1'
+    // Set by the callback when THIS sign-in created the account (A8b). An absent
+    // parameter reads as false, so a redirect from an older backend behaves exactly as
+    // it did before this change.
+    const isNewAccount = searchParams.get('new_account') === '1'
 
     if (!token) {
       toast.error('Sign-in failed. Please try again.')
@@ -30,8 +34,19 @@ function OAuthFinish() {
       try {
         api.setToken(token)
         const user = await api.me()
+        // LOAD-BEARING ORDER — setAuth MUST stay before the navigation below.
+        // /auth/welcome reads `needs_disclaimer` from the STORE, not from a query
+        // param. If this line moves after the navigation, welcome reads an empty store,
+        // its Continue falls through to /app/today, and every new Google user skips the
+        // disclaimer — a legal-consent gap with no failing test to catch it, because
+        // the routing itself would still look correct.
         useStore.getState().setAuth(user, token)
-        if (needsDisclaimer) {
+        if (isNewAccount) {
+          // This callback CREATED the account. Say so before anything else — the user
+          // may have picked a Google account they did not mean to use. /auth/welcome
+          // forwards to the disclaimer when it is still needed, so this cannot skip it.
+          router.replace('/auth/welcome')
+        } else if (needsDisclaimer) {
           router.replace('/auth/disclaimer')
         } else {
           router.replace('/app/today')
