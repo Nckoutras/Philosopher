@@ -171,6 +171,17 @@ async def google_oauth_callback(
     needs_disclaimer = await user_needs_acceptance(user.id, db)
     nd_param = "1" if needs_disclaimer else "0"
 
-    finish_qs = urlencode({"token": token, "needs_disclaimer": nd_param})
+    # new_account tells the finish page THIS callback created the account (A8b). The
+    # value has existed at :125 since the flow was written and was never surfaced, so a
+    # Google sign-in with an unrecognised address produced a second, empty account in
+    # silence — the same defect A8 fixed on the OTP path.
+    #
+    # The EMAIL is deliberately not added: /auth/welcome reads it from the store. A
+    # boolean adds no exposure the token in this same query string does not already have.
+    finish_qs = urlencode({
+        "token": token,
+        "needs_disclaimer": nd_param,
+        "new_account": "1" if is_new_user else "0",
+    })
     finish_url = f"{config.FRONTEND_URL}/auth/oauth/finish?{finish_qs}"
     return RedirectResponse(finish_url, status_code=302)
