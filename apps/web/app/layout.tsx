@@ -28,6 +28,9 @@ export const viewport: Viewport = {
   // with nowhere to scroll. 'resizes-content' shrinks the LAYOUT viewport instead, which
   // dvh-sized shells (chat pages, (tabs)/layout) track — lifting the composer clear.
   interactiveWidget: 'resizes-content',
+  // Android address bar / task switcher chrome when installed. Lives here, not in
+  // `metadata`: the App Router moved themeColor onto the viewport export.
+  themeColor: '#B89968',
 }
 
 export const metadata: Metadata = {
@@ -38,6 +41,12 @@ export const metadata: Metadata = {
     title: 'The Wise Room',
     description: 'A premium AI reflective companion grounded in historical philosophy.',
     type: 'website',
+  },
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'The Wise Room',
   },
 }
 
@@ -63,6 +72,19 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             />
           </QueryProvider>
         </ThemeProvider>
+        {/* HTTPS only: registration is skipped on http://localhost so the worker
+            never shadows the dev server. See public/sw.js for the cache policy. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+      if ('serviceWorker' in navigator && location.protocol === 'https:') {
+        window.addEventListener('load', function() {
+          navigator.serviceWorker.register('/sw.js');
+        });
+      }
+    `,
+          }}
+        />
       </body>
     </html>
   )
