@@ -136,6 +136,10 @@ export interface AuthResponse {
   access_token: string
   token_type: string
   user: User
+  // True only when THIS request created the account (OTP sign-in creates one implicitly
+  // for an unknown email). OPTIONAL, mirroring the backend's `= False` default, so the
+  // register / login / refresh call sites need no edit.
+  is_new_account?: boolean
 }
 
 export interface Persona {

@@ -195,6 +195,10 @@ async def otp_verify(body: OtpVerifyRequest, db: AsyncSession = Depends(get_db))
     result = await db.execute(select(User).where(User.email == email))
     user = result.scalar_one_or_none()
 
+    # Whether THIS request created the account, taken from the branch that already
+    # decides it — no new lookup, no restructuring of the handler.
+    is_new_account = user is None
+
     if user is None:
         user = User(email=email, hashed_password=None, full_name=None)
         db.add(user)
@@ -216,4 +220,4 @@ async def otp_verify(body: OtpVerifyRequest, db: AsyncSession = Depends(get_db))
     token = create_token(user.id, user.email, user.token_version)
     needs_disclaimer = await user_needs_acceptance(user.id, db)
     user_out = UserOut.model_validate(user).model_copy(update={"needs_disclaimer": needs_disclaimer})
-    return TokenResponse(access_token=token, user=user_out)
+    return TokenResponse(access_token=token, user=user_out, is_new_account=is_new_account)

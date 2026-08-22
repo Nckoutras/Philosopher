@@ -74,7 +74,13 @@ function VerifyForm() {
     try {
       const data = await api.verifyOtp(email, fullCode)
       useStore.getState().setAuth(data.user, data.access_token)
-      if (data.user.needs_disclaimer) {
+      if (data.is_new_account) {
+        // This request CREATED the account. Say so before anything else — the user may
+        // have mistyped an address they also own and be about to start a second, empty
+        // account. /auth/welcome forwards to the disclaimer when it is still needed, so
+        // this branch cannot skip it.
+        router.replace('/auth/welcome')
+      } else if (data.user.needs_disclaimer) {
         router.replace('/auth/disclaimer')
       } else {
         router.replace('/app/today')
