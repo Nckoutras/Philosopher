@@ -23,6 +23,17 @@ class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     user: "UserOut"
+    # True only when THIS request created the account. OTP sign-in creates a user
+    # implicitly when the verified email has no row (auth.py:198), and the screens were
+    # identical either way — so a mistyped address the user also owns produced a second,
+    # empty account with no signal at all.
+    #
+    # Defaults False so the login / register / refresh mint sites need no edit: that the
+    # diff does not touch them IS the guarantee they are unchanged.
+    #
+    # Set only AFTER successful verification. Reporting at request time whether an email
+    # is known would let an unauthenticated caller enumerate accounts.
+    is_new_account: bool = False
 
 
 class UserOut(BaseModel):
