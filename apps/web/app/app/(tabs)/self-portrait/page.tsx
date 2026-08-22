@@ -88,25 +88,38 @@ function categoryLabel(value: string): string {
   )
 }
 
-// The content bank spans exactly these themed categories (source of truth for the
-// coverage denominator). Derived from CATEGORY_LABELS so there is never a second
-// hardcoded count to drift — matches the backend's 12 bank categories.
-const TOTAL_CATEGORIES = Object.keys(CATEGORY_LABELS).length
-
-// Category-coverage bar — fill = themed categories touched / TOTAL_CATEGORIES. It
-// signals BREADTH ("you've covered the whole spectrum"), never completion: a full
-// bar changes nothing else and depth continues. Extracted as a reusable local
-// component because the upcoming questions-restyle PR renders it a second time under
-// the view switch (it's in the approved mock there); THIS PR renders it once, above
-// the portrait plate's "Portrait forming · N answers" line.
-function CoverageBar({ touched, total }: { touched: number; total: number }) {
+// Category-coverage bar — fill = themed categories touched / total bank categories.
+// It signals BREADTH ("you've covered the whole spectrum"), never completion: a full
+// bar changes nothing else and depth continues. Rendered TWICE: full-width in the
+// progress header under the view switch (with the label), and again as a 120px
+// decorative bar in the just-answered card (without it).
+//
+// `label` is opt-in because only the progress-header instance should carry the count.
+// In 120px beside "Portrait deepening" the label would crowd the cell and repeat what
+// the header already says.
+function CoverageBar({
+  touched,
+  total,
+  label = false,
+}: {
+  touched: number
+  total: number
+  label?: boolean
+}) {
   const pct = total > 0 ? Math.min(100, (touched / total) * 100) : 0
   return (
-    <div className="h-[3px] rounded-full bg-bronze/20 w-full">
-      <div
-        className="h-full bg-bronze rounded-full transition-[width] duration-500"
-        style={{ width: `${pct}%` }}
-      />
+    <div>
+      <div className="h-[6px] rounded-full bg-bronze/20 w-full">
+        <div
+          className="h-full bg-bronze rounded-full transition-[width] duration-500"
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      {label && total > 0 && (
+        <p className="font-lora text-[12px] text-sepia mt-1">
+          {touched} από {total} θεματικές
+        </p>
+      )}
     </div>
   )
 }
@@ -247,8 +260,13 @@ function PersonaAvatar({ portraitUrl, name }: { portraitUrl: string | null; name
 
 // Perpetual self-knowledge quiz. A long, calm set of small questions; the user
 // answers as many or as few as they like, one at a time, returning whenever.
-// Mirrors profile/page.tsx in structure and DS-v5 pill styling. NO progress bar,
-// streak, points, %, fraction, or completion meter anywhere — by design.
+// Mirrors profile/page.tsx in structure and DS-v5 pill styling. NO streak,
+// points, %, or completion meter anywhere — by design. The one exception is
+// the category-coverage bar and its "N από M θεματικές" label, which signal
+// BREADTH across the 12 bank categories, never completion: a full bar changes
+// nothing and depth continues past it. A UAT tester with 93 answers across 10
+// categories could not tell she had progressed at all, which is why it is
+// there.
 export default function SelfPortraitPage() {
   const router = useRouter()
   const token = useStore((s) => s.token)
@@ -262,6 +280,11 @@ export default function SelfPortraitPage() {
   const [answers, setAnswers] = useState<Record<string, number>>({})
   const [isPro, setIsPro] = useState(false)
   const [lockedCount, setLockedCount] = useState(0)
+  // Authoritative category coverage from the API — computed server-side from the
+  // UNFILTERED stored answers. Seeded at load; see `touchedCategories` below for why
+  // it is combined with the client-derived count rather than replacing it outright.
+  const [apiAnsweredCategories, setApiAnsweredCategories] = useState(0)
+  const [totalCategories, setTotalCategories] = useState(0)
   // While a PATCH is in flight, every pill is disabled — this SERIALIZES the
   // read-modify-write on profile.answers so concurrent taps can't lose an answer.
   const [inFlight, setInFlight] = useState(false)
@@ -314,6 +337,8 @@ export default function SelfPortraitPage() {
         setAnswers(data.answers)
         setIsPro(data.is_pro)
         setLockedCount(data.locked_count)
+        setApiAnsweredCategories(data.answered_category_count)
+        setTotalCategories(data.total_category_count)
       } catch {
         // Transient — leave the empty state; the user can pull back later.
       } finally {
@@ -365,15 +390,23 @@ export default function SelfPortraitPage() {
     () => questions.filter((q) => answers[q.id] !== undefined),
     [questions, answers],
   )
-  // Distinct themed categories the user has touched with at least one answer — the
-  // coverage-bar fill. Derived from existing client state; no new fetch.
-  // NAMED TECH DEBT: `questions` is tier-filtered, so for a lapsed-Pro→free user it
-  // may omit questions they answered while Pro, making this UNDERCOUNT. The backend's
-  // answered_category_count (services/self_portrait.py) is the authoritative number;
-  // surfacing it to the client is the future fix. Cannot occur in cold beta (all Pro).
+  // Distinct themed categories touched — the coverage-bar fill. The API number is
+  // authoritative (computed server-side from the UNFILTERED stored answers, so a
+  // lapsed Pro→free user's pre-downgrade categories still count). The client number
+  // is derived from tier-filtered `questions` and can therefore only ever UNDERCOUNT.
+  //
+  // Both are needed. Answering is optimistic and does NOT refetch, so the API number
+  // is a load-time snapshot and would freeze while the user answers — the exact thing
+  // this bar exists to show. The client number rises immediately. max() takes the
+  // authoritative floor and still moves live.
+  //
+  // Residual, narrower than the undercount it replaces: a lapsed Pro→free user who
+  // answers a category they never touched while Pro sees the count lag by one until
+  // the next load, because the client cannot know which categories the server counted.
+  // For any Pro user the two numbers are equal by construction.
   const touchedCategories = useMemo(
-    () => new Set(answered.map((q) => q.category)).size,
-    [answered],
+    () => Math.max(apiAnsweredCategories, new Set(answered.map((q) => q.category)).size),
+    [apiAnsweredCategories, answered],
   )
   const allAnswered = questions.length > 0 && nextQuestion === null
 
@@ -673,7 +706,7 @@ export default function SelfPortraitPage() {
               {/* Progress header — the SAME coverage-bar + progress-line unit as the
                   portrait plate (reused, not forked), directly under the ViewSwitch. */}
               <div className="space-y-2">
-                <CoverageBar touched={touchedCategories} total={TOTAL_CATEGORIES} />
+                <CoverageBar touched={touchedCategories} total={totalCategories} label />
                 <p className="font-lora text-[11px] tracking-[0.18em] uppercase text-sepia text-center">
                   Portrait {isReady ? 'ready' : 'forming'} · {answered.length} answers
                 </p>
@@ -776,7 +809,7 @@ export default function SelfPortraitPage() {
                             Portrait deepening
                           </p>
                           <div className="w-[120px] mt-1">
-                            <CoverageBar touched={touchedCategories} total={TOTAL_CATEGORIES} />
+                            <CoverageBar touched={touchedCategories} total={totalCategories} />
                           </div>
                         </div>
                       </div>

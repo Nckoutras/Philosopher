@@ -418,6 +418,12 @@ class SelfPortraitOut(BaseModel):
     answers: dict[str, int]
     is_pro: bool
     locked_count: int
+    # Category coverage, for the breadth bar. answered_category_count is computed from
+    # the UNFILTERED stored answers, not from `answers` above — a lapsed Pro→free user
+    # answered categories whose questions this tier can no longer see, and those still
+    # count. total_category_count is derived from the bank, never hardcoded.
+    answered_category_count: int
+    total_category_count: int
 
 
 class BestFitOut(BaseModel):
