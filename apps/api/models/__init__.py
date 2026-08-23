@@ -160,6 +160,15 @@ class Message(Base):
     role: Mapped[str] = mapped_column(String(20), nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
     tokens_used: Mapped[int | None] = mapped_column(Integer)
+    # Components of tokens_used (054). The four Anthropic usage buckets are
+    # disjoint and price differently (input 1.0x, cache_creation 1.25x,
+    # cache_read 0.1x), so the sum alone cannot express cost. output_tokens is
+    # deliberately absent — it is tokens_used minus these three.
+    # NULL = pre-054 row or usage read failed. 0 = genuinely zero, and the two
+    # must stay distinguishable.
+    input_tokens: Mapped[int | None] = mapped_column(Integer)
+    cache_creation_tokens: Mapped[int | None] = mapped_column(Integer)
+    cache_read_tokens: Mapped[int | None] = mapped_column(Integer)
     model_used: Mapped[str | None] = mapped_column(String(64), nullable=True)
     retrieval_ids: Mapped[list | None] = mapped_column(JSONB)
     safety_level: Mapped[str] = mapped_column(String(20), default="none")

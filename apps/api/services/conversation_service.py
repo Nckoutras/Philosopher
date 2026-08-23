@@ -1022,7 +1022,15 @@ class ConversationService:
                 safety_level=max(safety_in.level, safety_out.level, key=lambda l: ["none","low","medium","high","critical"].index(l)),
                 persona_override=safety_out.should_suppress_persona,
                 latency_ms=latency_ms,
+                # tokens_used keeps `or None` — its established meaning, where a
+                # falsy total means the usage read failed. The components use a
+                # plain .get(): absent -> None (no reading), present -> the int,
+                # INCLUDING 0. cache_read_tokens = 0 is a real measurement (this
+                # request hit no cache) and must not be flattened into NULL.
                 tokens_used=_token_sink.get("total") or None,
+                input_tokens=_token_sink.get("input"),
+                cache_creation_tokens=_token_sink.get("cache_creation"),
+                cache_read_tokens=_token_sink.get("cache_read"),
             )
 
             # ── UPDATE CONVERSATION METADATA ─────────────────────────────────
@@ -1314,6 +1322,9 @@ class ConversationService:
             retrieval_ids=[str(p.id) for p in passages],
             persona_id=target_db.id,
             tokens_used=_token_sink.get("total") or None,
+            input_tokens=_token_sink.get("input"),
+            cache_creation_tokens=_token_sink.get("cache_creation"),
+            cache_read_tokens=_token_sink.get("cache_read"),
         )
         await db.execute(
             update(Conversation)
@@ -1574,6 +1585,9 @@ class ConversationService:
             persona_id=target_db.id,
             message_kind='go_deeper',
             tokens_used=_token_sink.get("total") or None,
+            input_tokens=_token_sink.get("input"),
+            cache_creation_tokens=_token_sink.get("cache_creation"),
+            cache_read_tokens=_token_sink.get("cache_read"),
         )
         await db.execute(
             update(Conversation)
@@ -1640,6 +1654,9 @@ class ConversationService:
         persona_override=False, latency_ms=None,
         persona_id=None, message_kind: str = 'standard',
         tokens_used: int | None = None,
+        input_tokens: int | None = None,
+        cache_creation_tokens: int | None = None,
+        cache_read_tokens: int | None = None,
     ) -> Message:
         msg = Message(
             conversation_id=conv.id,
@@ -1653,6 +1670,9 @@ class ConversationService:
             persona_id=persona_id,
             message_kind=message_kind,
             tokens_used=tokens_used,
+            input_tokens=input_tokens,
+            cache_creation_tokens=cache_creation_tokens,
+            cache_read_tokens=cache_read_tokens,
         )
         db.add(msg)
         await db.flush()
