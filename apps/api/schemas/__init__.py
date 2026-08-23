@@ -632,6 +632,13 @@ class MirrorOut(BaseModel):
     ring_true: str | None = None
     ring_true_note: str | None = None
     created_at: datetime
+    # Set only on the ring-true safety path (A18c). The mirror itself is returned
+    # unchanged — pre-note state, because the note was rejected and never written
+    # — so the client still receives a well-formed MirrorOut and these two fields
+    # are what tell it the note did not land. Defaults keep every other response
+    # and every other endpoint returning MirrorOut byte-compatible.
+    safety_triggered: bool = False
+    safety_message: str | None = None
 
     class Config:
         from_attributes = True
