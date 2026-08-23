@@ -1,0 +1,90 @@
+name: Backend CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/api/**'
+      - '.github/workflows/backend-ci.yml'
+      - '.github/scripts/**'
+  pull_request:
+    paths:
+      - 'apps/api/**'
+      - '.github/workflows/backend-ci.yml'
+      - '.github/scripts/**'
+
+concurrency:
+  group: backend-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ── Suite + alembic head count ──────────────────────────────────────────────
+  # These share a job because both need the installed dependencies. No
+  # continue-on-error anywhere in this file: unlike web-build.yml's report-only
+  # steps, these are meant to block.
+  tests:
+    name: pytest (baseline) + alembic single head
+    runs-on: ubuntu-latest
+    env:
+      # The conftest files already set these via os.environ.setdefault, but that
+      # guard is load-bearing by accident. Setting them here means the suite does
+      # not depend on it. Dummy values: nothing here authenticates anything.
+      OPENAI_API_KEY: sk-test-dummy
+      ANTHROPIC_API_KEY: test-dummy
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          # Matches apps/api/Dockerfile (python:3.12-slim). CI must run the
+          # version production runs.
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: apps/api/requirements.txt
+
+      - name: Install dependencies
+        working-directory: apps/api
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # Fails only on failures absent from apps/api/tests/ci_baseline_failures.txt.
+      # The script runs pytest itself so it can be reproduced locally, verbatim.
+      - name: pytest against committed baseline
+        run: python .github/scripts/check_pytest_baseline.py
+
+      # File-based: reads db/migrations/versions, never opens a connection.
+      # Verified locally with DATABASE_URL scrubbed from the environment.
+      - name: Alembic single head
+        working-directory: apps/api
+        run: |
+          heads="$(python -m alembic heads)"
+          echo "$heads"
+          count="$(printf '%s\n' "$heads" | grep -c '(head)' || true)"
+          if [ "$count" -ne 1 ]; then
+            echo "::error::expected exactly 1 alembic head, found $count"
+            echo "Two heads means two migrations share a down_revision."
+            echo "Resolve with a merge migration before merging this PR."
+            exit 1
+          fi
+          echo "OK — exactly one alembic head."
+
+  # ── C-04 migration naming ───────────────────────────────────────────────────
+  # Standalone and dependency-free: stdlib only, no pip install, finishes in
+  # seconds and reports independently of the suite.
+  migration-naming:
+    name: C-04 migration naming
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Check revision id length and filename match
+        run: python .github/scripts/check_migration_naming.py
