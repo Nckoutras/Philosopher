@@ -1,6 +1,6 @@
 # CI pytest baseline — known-failing tests (TD-45).
 #
-# These 29 are broken MOCK HARNESSES, not product defects. They fail on
+# These 12 are broken MOCK HARNESSES, not product defects. They fail on
 # origin/main and are expected to fail in CI. The backend-ci workflow compares
 # the failing set against this file BY TEST ID and fails only on ids that are
 # NOT listed here.
@@ -9,6 +9,8 @@
 # regression, and a count check would call that green.
 #
 # Captured: 2026-08-23 at 9a46720c, Python 3.10.4, pytest 8.3.3.
+# Pruned 2026-08-23: the 17 test_conversation_service.py entries were repaired
+# in TD-45 part 1 (shape-based db.execute dispatch). 29 -> 12.
 # CI runs Python 3.12 (matching apps/api/Dockerfile). If a listed test PASSES on
 # 3.12, prune it from this file. If a test fails on 3.12 that is not listed,
 # that is a NEW failure on the production Python version — investigate it as a
@@ -20,23 +22,6 @@ tests/routers/test_share.py::test_share_screenshot_200_for_valid_saved_line
 tests/routers/test_share.py::test_share_screenshot_404_for_wrong_user
 tests/routers/test_share.py::test_share_screenshot_429_when_rate_limit_exceeded
 tests/routers/test_share.py::test_share_screenshot_pro_user_bypasses_rate_limit
-tests/services/test_conversation_service.py::test_auto_title_enqueued_at_3rd_message
-tests/services/test_conversation_service.py::test_auto_title_enqueued_with_correct_conv_id
-tests/services/test_conversation_service.py::test_auto_title_not_enqueued_at_2nd_message
-tests/services/test_conversation_service.py::test_auto_title_not_enqueued_at_4th_message
-tests/services/test_conversation_service.py::test_auto_title_not_enqueued_at_6th_message
-tests/services/test_conversation_service.py::test_auto_title_not_enqueued_when_title_exists
-tests/services/test_conversation_service.py::test_auto_title_skipped_when_no_queue
-tests/services/test_conversation_service.py::test_daily_usage_existing_row_incremented
-tests/services/test_conversation_service.py::test_daily_usage_new_row_created_for_regular_conv
-tests/services/test_conversation_service.py::test_llm_connection_error_retries_succeed_third
-tests/services/test_conversation_service.py::test_llm_retry_succeeds_second_attempt
-tests/services/test_conversation_service.py::test_llm_success_first_attempt_normal_flow
-tests/services/test_conversation_service.py::test_memory_extraction_enqueued_for_admin
-tests/services/test_conversation_service.py::test_memory_extraction_enqueued_for_ritual_conv
-tests/services/test_conversation_service.py::test_memory_extraction_enqueued_on_success
-tests/services/test_conversation_service.py::test_memory_extraction_no_error_when_queue_is_none
-tests/services/test_conversation_service.py::test_memory_extraction_not_enqueued_when_post_safety_suppressed
 tests/services/test_counterview_rebuttal.py::test_serializer_rebuttals_remaining_zero_at_cap
 tests/services/test_counterview_rebuttal.py::test_serializes_deeper_and_turns_without_collision
 tests/test_conversations.py::test_create_does_not_duplicate_opening_invocation
