@@ -344,6 +344,126 @@ async def test_premium_user_uses_sonnet():
     )
 
 
+# ── Shape-based db.execute dispatch (TD-45) ──────────────────────────────────
+#
+# Every harness below used to hand db.execute an ORDERED side_effect list and
+# read results back by position. That is a standing trap: any query inserted
+# ahead of the one under test shifts every later index, so the harness either
+# asserts against the wrong statement or runs the list dry. It ran dry. All 17
+# tests repaired in this file failed with the same
+# `RuntimeError: async generator raised StopAsyncIteration`, caused by ONE
+# insertion — the get_user_preferences() load at conversation_service.py:687,
+# which lands between the persona load and the history window.
+#
+# Not one of the 17 was a product defect. They broke when a query was added,
+# not when behaviour changed.
+#
+# Dispatch below is by SHAPE — which table, plus a discriminating filter where
+# the table alone is ambiguous. Position is never consulted. The `_generic`
+# fallback is the point of the whole design: a query against a table nobody
+# anticipated returns a benign empty result instead of shifting or exhausting
+# anything, so the next inserted query does not re-break these tests.
+
+
+def _stmt_kind(stmt) -> str:
+    """Classify a statement by shape. Never by call index.
+
+    `messages` needs a discriminator because two different limited SELECTs hit
+    it: the history window (carries the conclusion-exclusion `message_kind`
+    clause) and the `.desc().limit(1)` last-user-message lookup in the
+    another-mind / go-deeper paths.
+    """
+    try:
+        sql = " ".join(
+            str(stmt.compile(compile_kwargs={"literal_binds": True})).split()
+        )
+    except Exception:
+        return "other"
+
+    upper = sql.upper()
+    if upper.startswith("UPDATE"):
+        return "update"
+    if upper.startswith("INSERT"):
+        return "insert"
+    if upper.startswith("DELETE"):
+        return "delete"
+    if upper.startswith("SELECT"):
+        if "FROM CONVERSATIONS" in upper:
+            return "conversation"
+        if "FROM PERSONAS" in upper:
+            return "persona"
+        if "FROM USER_PREFERENCES" in upper:
+            return "user_preferences"
+        if "FROM DAILY_USAGE" in upper:
+            return "daily_usage"
+        if "FROM MESSAGES" in upper:
+            return "history" if "MESSAGE_KIND" in upper else "message_lookup"
+    return "other"
+
+
+def _shape_dispatch_execute(*, conv, persona_db=None, history=None,
+                            existing_usage=None, on_history=None):
+    """Build an async db.execute that returns results by statement shape.
+
+    `on_history` receives the compiled history SQL when that query is seen, for
+    tests that assert on the LIMIT clause.
+    """
+    def _result(**attrs):
+        r = MagicMock()
+        for name, value in attrs.items():
+            getattr(r, name).return_value = value
+        return r
+
+    def _generic():
+        # Unknown/unanticipated query. Answers every access pattern a caller
+        # might use, so a newly inserted query cannot break an unrelated test.
+        r = MagicMock()
+        r.scalar_one_or_none.return_value = None
+        r.scalars.return_value.all.return_value = []
+        return r
+
+    history_result = MagicMock()
+    history_result.scalars.return_value.all.return_value = history or []
+
+    results = {
+        "conversation": _result(scalar_one_or_none=conv),
+        "persona": _result(scalar_one=persona_db or _mock_persona_db()),
+        "user_preferences": _generic(),
+        "daily_usage": _result(scalar_one_or_none=existing_usage),
+        "history": history_result,
+    }
+
+    async def execute(stmt, *args, **kwargs):
+        kind = _stmt_kind(stmt)
+        if kind == "history" and on_history is not None:
+            try:
+                on_history(
+                    " ".join(
+                        str(stmt.compile(compile_kwargs={"literal_binds": True})).split()
+                    )
+                )
+            except Exception:
+                pass
+        return results.get(kind) or _generic()
+
+    return execute
+
+
+def _shape_dispatch_db(*, conv, persona_db=None, history=None,
+                       existing_usage=None, on_history=None):
+    """AsyncSession mock whose execute() dispatches by statement shape."""
+    db = AsyncMock()
+    db.execute = _shape_dispatch_execute(
+        conv=conv, persona_db=persona_db, history=history,
+        existing_usage=existing_usage, on_history=on_history,
+    )
+    db.add = MagicMock()
+    db.flush = AsyncMock()
+    db.commit = AsyncMock()
+    db.rollback = AsyncMock()
+    return db
+
+
 # ── Section B: History window ─────────────────────────────────────────────────
 
 def _is_history_query(stmt) -> str | None:
@@ -376,45 +496,16 @@ def _is_history_query(stmt) -> str | None:
 def _make_db_capture_limit(captured: dict, *, history=None):
     """DB mock that records the compiled history query (LIMIT + ORDER BY).
 
-    Identifies the history query by shape via _is_history_query; every other
-    statement gets a generic result.
+    Fully shape-dispatched. This helper previously matched the history query by
+    shape but still resolved calls 0 and 1 (conversation, persona) by index — a
+    half-migrated harness, which is exactly how the position dependency survived
+    long enough to break 17 tests. Nothing here reads a call index now.
     """
-    db = AsyncMock()
-
-    conv_result = MagicMock()
-    conv_result.scalar_one_or_none.return_value = _mock_conv()
-
-    persona_result = MagicMock()
-    persona_result.scalar_one.return_value = _mock_persona_db()
-
-    history_result = MagicMock()
-    history_result.scalars.return_value.all.return_value = history or []
-
-    save_result = MagicMock()
-    save_result.scalar_one_or_none.return_value = None
-    update_result = MagicMock()
-
-    call_index = {"n": 0}
-
-    async def execute_side_effect(stmt, *args, **kwargs):
-        n = call_index["n"]
-        call_index["n"] += 1
-        if n == 0:
-            return conv_result
-        if n == 1:
-            return persona_result
-        compiled = _is_history_query(stmt)
-        if compiled is not None:
-            captured["limit_clause"] = compiled
-            return history_result
-        return save_result
-
-    db.execute = execute_side_effect
-    db.add = MagicMock()
-    db.flush = AsyncMock()
-    db.commit = AsyncMock()
-    db.rollback = AsyncMock()
-    return db
+    return _shape_dispatch_db(
+        conv=_mock_conv(),
+        history=history,
+        on_history=lambda sql: captured.__setitem__("limit_clause", sql),
+    )
 
 
 async def _run_stream_capture_limit(user_plan: str) -> dict:
@@ -546,15 +637,10 @@ from models import DailyUsage
 def _make_db_for_usage(existing_usage=None, ritual_id=None):
     """DB mock with explicit ritual_id and controllable DailyUsage lookup result.
 
-    Execute call order with _save_message mocked:
-      1. select(Conversation)  → conv_result
-      2. select(Persona)       → persona_result
-      3. select(Message) hist  → history_result
-      4. update(Conversation)  → update_result
-      5. select(DailyUsage)    → usage_result  (only if ritual_id is None)
+    Shape-dispatched: the DailyUsage lookup is answered because it is a SELECT
+    over daily_usage, not because it is the Nth call. Whether it runs at all
+    depends on ritual_id, and the harness no longer has to model that.
     """
-    db = AsyncMock()
-
     conv = MagicMock()
     conv.id = CONV_ID
     conv.persona_id = PERSONA_ID
@@ -562,32 +648,7 @@ def _make_db_for_usage(existing_usage=None, ritual_id=None):
     conv.deep_mode = False
     conv.ritual_id = ritual_id
 
-    conv_result = MagicMock()
-    conv_result.scalar_one_or_none.return_value = conv
-
-    persona_result = MagicMock()
-    persona_result.scalar_one.return_value = _mock_persona_db()
-
-    history_result = MagicMock()
-    history_result.scalars.return_value.all.return_value = []
-
-    update_result = MagicMock()
-
-    usage_result = MagicMock()
-    usage_result.scalar_one_or_none.return_value = existing_usage
-
-    db.execute = AsyncMock(side_effect=[
-        conv_result,
-        persona_result,
-        history_result,
-        update_result,   # update(Conversation) — return value not used
-        usage_result,    # select(DailyUsage)   — only reached when increment runs
-    ])
-    db.add = MagicMock()
-    db.flush = AsyncMock()
-    db.commit = AsyncMock()
-    db.rollback = AsyncMock()
-    return db, conv
+    return _shape_dispatch_db(conv=conv, existing_usage=existing_usage), conv
 
 
 async def _run_stream_for_usage(db, conv, is_admin: bool = False):
@@ -695,17 +756,7 @@ async def test_daily_usage_not_incremented_for_admin():
 
 
 def _make_db_for_auto_title(message_count=0, title=None):
-    """DB mock with controllable message_count and title for auto-title tests.
-
-    Execute call order (with _save_message mocked):
-      1. select(Conversation)  → conv_result
-      2. select(Persona)       → persona_result
-      3. select(Message) hist  → history_result
-      4. update(Conversation)  → update_result
-      5. select(DailyUsage)    → usage_result
-    """
-    db = AsyncMock()
-
+    """DB mock with controllable message_count and title for auto-title tests."""
     conv = MagicMock()
     conv.id = CONV_ID
     conv.persona_id = PERSONA_ID
@@ -715,32 +766,7 @@ def _make_db_for_auto_title(message_count=0, title=None):
     conv.message_count = message_count
     conv.title = title
 
-    conv_result = MagicMock()
-    conv_result.scalar_one_or_none.return_value = conv
-
-    persona_result = MagicMock()
-    persona_result.scalar_one.return_value = _mock_persona_db()
-
-    history_result = MagicMock()
-    history_result.scalars.return_value.all.return_value = []
-
-    update_result = MagicMock()
-
-    usage_result = MagicMock()
-    usage_result.scalar_one_or_none.return_value = None
-
-    db.execute = AsyncMock(side_effect=[
-        conv_result,
-        persona_result,
-        history_result,
-        update_result,
-        usage_result,
-    ])
-    db.add = MagicMock()
-    db.flush = AsyncMock()
-    db.commit = AsyncMock()
-    db.rollback = AsyncMock()
-    return db, conv
+    return _shape_dispatch_db(conv=conv), conv
 
 
 async def _run_stream_for_auto_title(db, arq_queue=None):
@@ -809,37 +835,52 @@ def _title_calls(mock_queue):
     return [c for c in mock_queue.enqueue_job.call_args_list if c.args[0] == "generate_conversation_title"]
 
 
+# The three tests below asserted `== 0` — the `new_message_count == 3` rule from
+# #57, which fired the title job exactly once, on the third message. #240
+# ("title from first exchange") replaced that with `>= 2`, so an untitled
+# conversation enqueues on the 2nd message and on every message after it. The
+# product changed; these expectations did not, and the harness bug hid that for
+# as long as it lasted. They now assert the shipped behaviour.
+#
+# The redundant enqueues that `>= 2` implies are tracked as TD-55 — the job has
+# no existing-title guard, so each one costs a title-generation call until the
+# first result lands. Deliberate behaviour, logged separately, not changed here.
+
+
 @pytest.mark.asyncio
-async def test_auto_title_not_enqueued_at_2nd_message():
-    """message_count starts at 0 → new_message_count == 2 → generate_conversation_title not enqueued."""
+async def test_auto_title_enqueued_at_2nd_message():
+    """message_count 0 → new_message_count == 2 → enqueued (>= 2, per #240)."""
     db, conv = _make_db_for_auto_title(message_count=0, title=None)
     mock_queue = AsyncMock()
 
     await _run_stream_for_auto_title(db, arq_queue=mock_queue)
 
-    assert len(_title_calls(mock_queue)) == 0
+    assert len(_title_calls(mock_queue)) == 1
 
 
 @pytest.mark.asyncio
-async def test_auto_title_not_enqueued_at_4th_message():
-    """message_count starts at 2 → new_message_count == 4 → generate_conversation_title not enqueued."""
+async def test_auto_title_enqueued_at_4th_message():
+    """message_count 2 → new_message_count == 4 → still enqueued while untitled (#240)."""
     db, conv = _make_db_for_auto_title(message_count=2, title=None)
     mock_queue = AsyncMock()
 
     await _run_stream_for_auto_title(db, arq_queue=mock_queue)
 
-    assert len(_title_calls(mock_queue)) == 0
+    assert len(_title_calls(mock_queue)) == 1
 
 
 @pytest.mark.asyncio
-async def test_auto_title_not_enqueued_at_6th_message():
-    """message_count starts at 4 → new_message_count == 6 → generate_conversation_title not enqueued."""
+async def test_auto_title_enqueued_at_6th_message():
+    """message_count 4 → new_message_count == 6 → still enqueued while untitled (#240).
+
+    Only `conv_title is None` stops it, never the message count.
+    """
     db, conv = _make_db_for_auto_title(message_count=4, title=None)
     mock_queue = AsyncMock()
 
     await _run_stream_for_auto_title(db, arq_queue=mock_queue)
 
-    assert len(_title_calls(mock_queue)) == 0
+    assert len(_title_calls(mock_queue)) == 1
 
 
 @pytest.mark.asyncio
@@ -905,34 +946,14 @@ class _FakeAuthError(_anthropic.AuthenticationError):
 
 
 def _make_db_for_retry():
-    """DB mock for retry tests: 4 execute calls covering both error and success paths.
+    """DB mock for retry tests, covering both the error and success paths.
 
-    Error path consumes: conv, persona, history (3 of 4).
-    Success path (ritual_id=MagicMock, so DailyUsage is skipped) consumes all 4.
+    Shape dispatch removes the need to count calls per path: the error path
+    simply issues fewer queries than the success path, and neither can exhaust
+    anything. conv.ritual_id is an auto-MagicMock (not None), so DailyUsage is
+    skipped either way.
     """
-    db = AsyncMock()
-
-    conv = _mock_conv()  # ritual_id is auto-MagicMock (not None) → DailyUsage skipped
-
-    conv_result = MagicMock()
-    conv_result.scalar_one_or_none.return_value = conv
-    persona_result = MagicMock()
-    persona_result.scalar_one.return_value = _mock_persona_db()
-    history_result = MagicMock()
-    history_result.scalars.return_value.all.return_value = []
-    update_result = MagicMock()
-
-    db.execute = AsyncMock(side_effect=[
-        conv_result,
-        persona_result,
-        history_result,
-        update_result,  # update(Conversation) — only consumed on success
-    ])
-    db.add = MagicMock()
-    db.flush = AsyncMock()
-    db.commit = AsyncMock()
-    db.rollback = AsyncMock()
-    return db
+    return _shape_dispatch_db(conv=_mock_conv())
 
 
 def _make_stream_factory(behaviors: list):
@@ -1216,15 +1237,12 @@ async def test_daily_usage_not_incremented_on_llm_failure():
 def _make_db_for_memory(message_count=0, ritual_id=None, safety_out_suppressed=False, is_admin=False):
     """DB mock for memory extraction tests.
 
-    Execute call order (with _save_message mocked):
-      1. select(Conversation)  → conv_result
-      2. select(Persona)       → persona_result
-      3. select(Message) hist  → history_result
-      4. update(Conversation)  → update_result
-      5. select(DailyUsage)    → usage_result  (only when ritual_id is None, not admin, not suppressed)
+    The is_admin / ritual_id / safety_out_suppressed parameters used to decide
+    whether to append a fifth side_effect entry — the harness had to predict
+    whether the service would reach the DailyUsage lookup. Shape dispatch makes
+    that prediction unnecessary: the query is answered if it happens, ignored if
+    it does not. The parameters are kept so the call sites read unchanged.
     """
-    db = AsyncMock()
-
     conv = MagicMock()
     conv.id = CONV_ID
     conv.persona_id = PERSONA_ID
@@ -1234,30 +1252,7 @@ def _make_db_for_memory(message_count=0, ritual_id=None, safety_out_suppressed=F
     conv.message_count = message_count
     conv.title = "Existing Title"  # prevent auto-title interference
 
-    conv_result = MagicMock()
-    conv_result.scalar_one_or_none.return_value = conv
-
-    persona_result = MagicMock()
-    persona_result.scalar_one.return_value = _mock_persona_db()
-
-    history_result = MagicMock()
-    history_result.scalars.return_value.all.return_value = []
-
-    update_result = MagicMock()
-
-    usage_result = MagicMock()
-    usage_result.scalar_one_or_none.return_value = None
-
-    side_effects = [conv_result, persona_result, history_result, update_result]
-    if not is_admin and ritual_id is None and not safety_out_suppressed:
-        side_effects.append(usage_result)
-
-    db.execute = AsyncMock(side_effect=side_effects)
-    db.add = MagicMock()
-    db.flush = AsyncMock()
-    db.commit = AsyncMock()
-    db.rollback = AsyncMock()
-    return db, conv
+    return _shape_dispatch_db(conv=conv), conv
 
 
 async def _run_stream_for_memory(db, arq_queue=None, safety_out_suppressed=False, is_admin=False):
