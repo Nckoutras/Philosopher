@@ -124,6 +124,37 @@ Lessons that updated this protocol:
   not merged does not exist.** Before a rotation is done: push, open the 
   PR, and confirm the files are on main.
 
+- **2026-08-23 (TD-45)**: 29 backend tests had been failing long enough to
+  be grandfathered into a CI baseline, under a carried one-line
+  explanation: "hard-coded `execute()` indices". For the 17 in one file
+  that was true. For the remaining 12 it was wrong about **four of the
+  five** families — the real causes were an unset mock attribute
+  collapsing a tier to `free`, `patch()` failing to replace an
+  already-resolved FastAPI `Depends`, a mock missing two schema fields
+  added by later PRs, and a hardcoded persona list that had drifted.
+
+  Repairing them per the carried explanation would have failed on four
+  families and taught nothing. Diagnosing each one first also surfaced
+  what a green-looking repair would have buried: **three stale product
+  expectations** (auto-title `== 3` vs the shipped `>= 2`, and two
+  postprocessing tests describing a migration state that no longer
+  existed), **one shipped behaviour with no test at all** (#244's
+  seed-the-opening half, which the pre-#244 harness could not express),
+  and **one live migration gap** (3 personas still carry no
+  forbidden-lexicon).
+
+  Lesson: **a carried explanation for a failing test is a doc claim like
+  any other — verify it per test before repairing.** The same rule the
+  2026-08-18 entry states for documentation applies to bug diagnoses
+  inherited from a previous session. A red test is evidence that
+  something is wrong; it is not evidence about *what*.
+
+  Corollary on repair: when a harness repair makes a test reach its
+  assertion for the first time in months, the assertion itself is now
+  unverified text. Read it against current behaviour and `git log -L` the
+  condition before trusting it — three of these needed that, and none of
+  the three was a defect in the product.
+
 ## Future-proof first, shortcuts second
 
 Every proposal — code, schema, architecture — must be evaluated against
@@ -328,6 +359,70 @@ Rules for every migration file:
 **Source:** 2026-06-26 session. `035_deep_mode_and_go_deeper_count` (33 chars) crashed the
 Render deploy at the version-write; DB stayed cleanly at 034; #371 renamed it to
 `035_deep_mode_go_deeper`. No data repair was needed.
+
+### C-05 — A migration that creates a public table enables RLS on it, in the same migration
+
+Established 2026-08-18 by `052_enable_rls`. Recorded here 2026-08-23; it was not new
+then, only unwritten.
+
+Every migration that creates a table in the `public` schema must `ENABLE ROW LEVEL
+SECURITY` on that table in the **same** migration. Not a follow-up, not a manual step
+against production.
+
+`052_enable_rls` is a **one-time catch-up for 001–051, not a pattern to re-run.** RLS had
+been enabled on the live database by hand, but no migration contained `ROW LEVEL SECURITY`
+in any form — so a database rebuilt from migrations came up with RLS DISABLED on every
+table, silently. 052 closed that gap without retrofitting anything: 001–051 stay
+byte-identical.
+
+The API connects as the table owner and owners bypass RLS, so this never gates the API.
+What it closes is the PostgREST anon/authenticated surface, where an unauthenticated
+caller would otherwise read every row of a new table.
+
+A migration that adds a column to an existing table does not need it — say so explicitly in
+the docstring rather than leaving a reader to wonder, as `053_token_version` and
+`054_token_components` both do.
+
+**Why this entry exists at all:** the convention was stated only inside migration
+docstrings (052, and cited by 053 and 054). That is exactly the drift this file's own
+failure log warns about — a rule that lives outside the protocol document is one rotation
+away from not existing. Nothing about the rule changed when it was written down here.
+
+### C-06 — Mocks must set every field the code under test reads
+
+Codified 2026-08-23 after four instances in a single working session.
+
+A `MagicMock` auto-creates any attribute you ask for. The result is not an error — it is a
+`Mock` object that silently fails every type check and membership test it meets:
+
+```python
+if sub.plan not in ("pro", "premium"):   # a Mock is not in the tuple -> takes the branch
+still_stands: str | None                 # a Mock is neither -> pydantic rejects
+input + cache_read                       # int + Mock -> a Mock, not a TypeError
+```
+
+So a mock that omits a field does not fail loudly. It makes the code under test take a
+branch nobody intended, and the test then passes or fails **for reasons unrelated to what
+it claims to check**.
+
+Rule: a mock feeding a validated model (pydantic, SQLAlchemy) or a branch condition must
+set **every field that model or condition reads** — explicitly, including fields whose
+correct value is `None`. When a real object is cheap to build, prefer it: the plain
+`FakeMirror` / `FakeComparison` classes in the ring-true tests exist because a MagicMock
+would have absorbed an unwanted attribute write and made "was this persisted?"
+unassertable.
+
+Four instances, 2026-08-23:
+- `_make_subscription` never set `plan` → tier resolved to `"free"` → a test named "pro is
+  not rate limited" asserted against a 429 (TD-45 part 2).
+- `_cv` never set `still_stands` / `title` → pydantic `ValidationError` in the router, not
+  in the test (TD-45 part 2).
+- `_mock_anthropic` omitting a usage field would have made the token sum a `Mock` instead
+  of raising, so a dropped bucket would have passed silently (#556).
+- The ring-true safety tests could not have asserted "the note was NOT persisted" against a
+  MagicMock at all — it accepts an attribute write and still answers every read — so they
+  use plain `FakeMirror` / `FakeComparison` classes instead (#557). The fourth instance is
+  the one that was avoided, and it is the reason the rule ends with "prefer a real object".
 
 ---
 
