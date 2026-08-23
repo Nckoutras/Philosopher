@@ -30,8 +30,12 @@ jobs:
         with:
           node-version: '22'
 
+      # ci, not install: `npm install` silently rewrites a drifted
+      # package-lock.json and carries on, so the job could never detect the
+      # drift #537 synced the lockfile to prevent. `npm ci` fails on any
+      # manifest/lockfile mismatch instead.
       - name: Install dependencies
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
 
       # Measurement only. next.config.js sets typescript.ignoreBuildErrors and
       # eslint.ignoreDuringBuilds, so `npm run build` validates nothing — these two
