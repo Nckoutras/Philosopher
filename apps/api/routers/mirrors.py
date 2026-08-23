@@ -12,10 +12,22 @@ import services.rate_limit_service as rate_limit_service
 from models import Mirror, MirrorSave, Persona, User
 from schemas import MirrorOut, RingTrueRequest, MirrorHostOut, MirrorHostsResponse, SetMirrorHostRequest
 from services.image_service import generate_mirror_share_image
+from services.safety_service import safety_service
+from services.safety_event_log import log_safety_event
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/mirrors", tags=["mirrors"])
+
+# App-voice crisis response for the ring-true note (A18c). NOT persona voice:
+# it is not attributed to any thinker and must not read as one — the persona is
+# dropped entirely when this fires.
+RING_TRUE_SAFETY_MESSAGE = (
+    "What you've shared matters. Before we continue, I want to make "
+    "sure you're okay. If you're going through something difficult "
+    "right now, please reach out to someone you trust or contact a "
+    "crisis line in your country."
+)
 
 # Free-tier share cap — the SAME 90-day rolling Redis counter the line and
 # council share endpoints use (key: share_screenshot:{user_id}).
@@ -89,6 +101,35 @@ async def set_ring_true(
     mirror = result.scalar_one_or_none()
     if mirror is None:
         raise HTTPException(status_code=404)
+
+    # ── Pre-persistence safety gate on the ring-true note ─────────────────────
+    # The note is free text about the user's own emotional reaction. The ARQ
+    # enqueue below has a safety gate inside the task, but that runs after the
+    # commit — a crisis signal would already be stored and nothing would answer
+    # it. This gate is synchronous and runs BEFORE any attribute is assigned, so
+    # on suppression the note is never written: `mirror` stays unmodified and
+    # there is nothing dirty for the session to flush.
+    note = (body.note or "").strip()
+    if note:
+        safety_result = await safety_service.check_input(note, str(user.id))
+        if safety_result.should_log:
+            await log_safety_event(
+                db, str(user.id), safety_result, "ring_true_input",
+                conversation_id=None,
+                message_id=None,
+            )
+        if safety_result.should_suppress_persona:
+            # Return a well-formed MirrorOut built from the UNCHANGED mirror, so
+            # the client still gets every field it reads. Because the early return
+            # is above the assignments, the mirror carries pre-note state and
+            # ring_true/ring_true_note are whatever they already were — the two
+            # safety fields are what tell the client this note did not land.
+            persona = await _load_persona(db, mirror.host_persona_id)
+            out = _mirror_out(mirror, persona)
+            out.safety_triggered = True
+            out.safety_message = RING_TRUE_SAFETY_MESSAGE
+            return out
+
     mirror.ring_true = body.ring_true
     mirror.ring_true_note = body.note
     mirror.ring_true_at = datetime.now(timezone.utc)
@@ -99,7 +140,7 @@ async def set_ring_true(
     # The ring-true note is the user's OWN reaction to the mirror — distil it into a
     # confidence-1.0 memory (safety-gated + word-filtered inside the task). Async;
     # only when a non-empty note was written. Fire-and-forget; never break the response.
-    note = (body.note or "").strip()
+    # `note` was computed by the safety gate above; reaching here means it passed.
     if note:
         arq_queue = getattr(request.app.state, "arq_queue", None)
         if arq_queue is not None:

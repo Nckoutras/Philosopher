@@ -11,10 +11,23 @@ from schemas import SelfModelStatusOut
 from auth import get_current_user, get_current_user_plan
 from services.self_model_service import self_model_service
 from services.self_comparison_service import self_comparison_service, weekly_limit, _week_start
+from services.safety_service import safety_service
+from services.safety_event_log import log_safety_event
 
 router = APIRouter(prefix="/self-comparison", tags=["self-comparison"])
 
 PROMPT_MAX_CHARS = 600
+
+# App-voice crisis response for the ring-true note (A18c). NOT persona voice:
+# it is not attributed to any thinker and must not read as one — the persona is
+# dropped entirely when this fires. Kept verbatim in sync with the identical
+# constant in routers/mirrors.py.
+RING_TRUE_SAFETY_MESSAGE = (
+    "What you've shared matters. Before we continue, I want to make "
+    "sure you're okay. If you're going through something difficult "
+    "right now, please reach out to someone you trust or contact a "
+    "crisis line in your country."
+)
 
 
 class SelfComparisonCreate(BaseModel):
@@ -97,6 +110,32 @@ async def set_ring_true(
     row = result.scalar_one_or_none()
     if not row:
         raise HTTPException(status_code=404)
+
+    # ── Pre-persistence safety gate on the ring-true note ─────────────────────
+    # This surface had no safety call of any kind on the note, and no memory
+    # enqueue either — so a crisis signal here was stored and never seen. The
+    # gate runs BEFORE any attribute is assigned: on suppression `row` stays
+    # unmodified, so get_db's commit-on-teardown has nothing to write except the
+    # SafetyEvent. The note is not persisted.
+    note = (body.note or "").strip()
+    if note:
+        safety_result = await safety_service.check_input(note, str(user.id))
+        if safety_result.should_log:
+            await log_safety_event(
+                db, str(user.id), safety_result, "ring_true_input",
+                conversation_id=None,
+                message_id=None,
+            )
+        if safety_result.should_suppress_persona:
+            # 200 with a body instead of this endpoint's usual 204. The decorator's
+            # status_code is a default for returned values; an explicit Response
+            # overrides it. Both are 2xx, and the two clients await without reading
+            # the body, so this is not a breaking change for them.
+            return JSONResponse(status_code=200, content={
+                "safety": True,
+                "message": RING_TRUE_SAFETY_MESSAGE,
+            })
+
     row.ring_true = body.ring_true
     row.ring_true_note = body.note
     row.ring_true_at = datetime.now(timezone.utc)
