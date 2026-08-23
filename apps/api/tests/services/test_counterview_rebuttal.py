@@ -68,13 +68,20 @@ def _db(results, *, commit_exc=None):
     return db
 
 
-def _cv(status="generated"):
+def _cv(status="generated", still_stands=None, title=None):
     cv = MagicMock()
     cv.id = CV_ID
     cv.user_id = USER_ID
     cv.status = status
     cv.anchor_text = "I should wait before leaving my job."
     cv.source = "direct"
+    # CounterviewOut gained still_stands (#443) and title (#453) after this mock
+    # was written. Both are `str | None`, so None validates fine — but an unset
+    # attribute on a MagicMock is auto-created as a Mock, which is neither str
+    # nor None, and pydantic rejected it at routers/counterview.py:104. Every
+    # field a validated model reads has to be set explicitly here.
+    cv.still_stands = still_stands
+    cv.title = title
     return cv
 
 
