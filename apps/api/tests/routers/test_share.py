@@ -12,7 +12,7 @@ os.environ.setdefault("ANTHROPIC_API_KEY", "test-dummy")
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 import pytest
-from datetime import datetime, timezone
+from contextlib import contextmanager
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from fastapi.testclient import TestClient
@@ -31,44 +31,45 @@ def _make_user(is_admin=False):
     return u
 
 
-def _make_subscription(plan="free", active=True):
-    if not active:
-        return None
-    s = MagicMock()
-    s.plan = plan
-    s.status = "active"
-    s.current_period_end = datetime(2027, 1, 1, tzinfo=timezone.utc)
-    return s
+@contextmanager
+def _client_with_plan(plan):
+    """TestClient with the auth + db FastAPI deps overridden.
 
+    patch() CANNOT replace an already-resolved Depends: FastAPI builds the
+    dependency tree at route registration, so patching `auth.get_current_user`
+    afterwards leaves the real dependency in place. These four tests did exactly
+    that and every one of them got `403 {'detail': 'Not authenticated'}` — the
+    real authenticator running against no credentials. Nothing raised; the
+    assertions simply compared 403 against the status they wanted.
 
-def _make_db(subscription=None):
-    db = AsyncMock()
-    sub_result = MagicMock()
-    sub_result.scalar_one_or_none.return_value = subscription
-    db.execute = AsyncMock(return_value=sub_result)
-    return db
+    dependency_overrides is the supported mechanism, and is what the sibling
+    test_mirror_share.py (same endpoint shape, green throughout) already used.
 
-
-def _get_client():
+    The subscription/db mocks this file used to build are gone: the route reads
+    `plan` straight off get_current_user_plan and never calls get_user_tier, so
+    the tier was never coming from the database on this path.
+    """
     from main import app
-    return TestClient(app, raise_server_exceptions=False)
+    from auth import get_current_user_plan
+    from db.session import get_db
+
+    user = _make_user()
+    app.dependency_overrides[get_current_user_plan] = lambda: (user, plan)
+    app.dependency_overrides[get_db] = lambda: AsyncMock()
+    try:
+        yield TestClient(app, raise_server_exceptions=False)
+    finally:
+        app.dependency_overrides.pop(get_current_user_plan, None)
+        app.dependency_overrides.pop(get_db, None)
 
 
 # ── Tests ─────────────────────────────────────────────────────────────────────
 
 def test_share_screenshot_200_for_valid_saved_line():
     """Valid saved_line_id owned by auth user → 200 image/png."""
-    user = _make_user()
-    sub = _make_subscription("free")
-    db = _make_db(sub)
-
     with patch("routers.share.generate_share_image", new=AsyncMock(return_value=FAKE_PNG)), \
          patch("routers.share.rate_limit_service.check_and_increment", new=AsyncMock(return_value=True)), \
-         patch("auth.get_current_user", return_value=user), \
-         patch("auth.get_current_user_plan", return_value=(user, "free")), \
-         patch("db.session.get_db", return_value=db):
-
-        client = _get_client()
+         _client_with_plan("free") as client:
         resp = client.post(ENDPOINT, json={"saved_line_id": SAVED_LINE_ID})
 
     assert resp.status_code == 200
@@ -78,20 +79,12 @@ def test_share_screenshot_200_for_valid_saved_line():
 
 def test_share_screenshot_404_for_wrong_user():
     """Saved line not owned by requesting user → 404."""
-    user = _make_user()
-    sub = _make_subscription("free")
-    db = _make_db(sub)
-
     with patch(
         "routers.share.generate_share_image",
         new=AsyncMock(side_effect=ValueError("Saved line not found")),
     ), \
          patch("routers.share.rate_limit_service.check_and_increment", new=AsyncMock(return_value=True)), \
-         patch("auth.get_current_user", return_value=user), \
-         patch("auth.get_current_user_plan", return_value=(user, "free")), \
-         patch("db.session.get_db", return_value=db):
-
-        client = _get_client()
+         _client_with_plan("free") as client:
         resp = client.post(ENDPOINT, json={"saved_line_id": SAVED_LINE_ID})
 
     assert resp.status_code == 404
@@ -99,17 +92,9 @@ def test_share_screenshot_404_for_wrong_user():
 
 def test_share_screenshot_429_when_rate_limit_exceeded():
     """Free user who has exhausted limit → 429 + error_code=share_limit_reached."""
-    user = _make_user()
-    sub = _make_subscription("free")
-    db = _make_db(sub)
-
     with patch("routers.share.generate_share_image", new=AsyncMock(return_value=FAKE_PNG)), \
          patch("routers.share.rate_limit_service.check_and_increment", new=AsyncMock(return_value=False)), \
-         patch("auth.get_current_user", return_value=user), \
-         patch("auth.get_current_user_plan", return_value=(user, "free")), \
-         patch("db.session.get_db", return_value=db):
-
-        client = _get_client()
+         _client_with_plan("free") as client:
         resp = client.post(ENDPOINT, json={"saved_line_id": SAVED_LINE_ID})
 
     assert resp.status_code == 429
@@ -118,17 +103,9 @@ def test_share_screenshot_429_when_rate_limit_exceeded():
 
 def test_share_screenshot_pro_user_bypasses_rate_limit():
     """Pro user: rate_limit check is never called, always 200."""
-    user = _make_user()
-    sub = _make_subscription("pro")
-    db = _make_db(sub)
-
-    with patch("routers.share.generate_share_image", new=AsyncMock(return_value=FAKE_PNG)) as mock_gen, \
+    with patch("routers.share.generate_share_image", new=AsyncMock(return_value=FAKE_PNG)), \
          patch("routers.share.rate_limit_service.check_and_increment", new=AsyncMock(return_value=False)) as mock_rl, \
-         patch("auth.get_current_user", return_value=user), \
-         patch("auth.get_current_user_plan", return_value=(user, "pro")), \
-         patch("db.session.get_db", return_value=db):
-
-        client = _get_client()
+         _client_with_plan("pro") as client:
         resp = client.post(ENDPOINT, json={"saved_line_id": SAVED_LINE_ID})
 
     assert resp.status_code == 200

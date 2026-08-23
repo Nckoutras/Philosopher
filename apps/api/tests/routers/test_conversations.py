@@ -59,10 +59,18 @@ def _make_conv(ritual_id=None, persona_id=PERSONA_ID, user_id=USER_ID, conv_id=C
     return c
 
 
-def _make_subscription(active=True):
+def _make_subscription(active=True, plan="pro"):
     if not active:
         return None
     s = MagicMock()
+    # `plan` MUST be set explicitly. get_user_tier ends with
+    #     if sub.plan not in ("pro", "premium"): return "free"
+    # (added in #203, after this mock was written). An unset attribute on a
+    # MagicMock is auto-created, is not in that tuple, and silently resolves the
+    # tier to "free" — so a test asserting "pro is not rate limited" got a 429
+    # with nothing raised anywhere. A mock feeding a branch condition has to
+    # populate every field that condition reads.
+    s.plan = plan
     s.status = "active"
     s.current_period_end = datetime(2027, 1, 1, tzinfo=timezone.utc)
     return s

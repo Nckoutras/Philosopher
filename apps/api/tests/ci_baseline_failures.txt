@@ -1,31 +1,24 @@
-# CI pytest baseline — known-failing tests (TD-45).
+# CI pytest baseline — known-failing tests.
 #
-# These 12 are broken MOCK HARNESSES, not product defects. They fail on
-# origin/main and are expected to fail in CI. The backend-ci workflow compares
-# the failing set against this file BY TEST ID and fails only on ids that are
-# NOT listed here.
+# THIS FILE IS EMPTY, AND THAT IS THE POINT. Every backend test passes. Any
+# failure CI reports is a NEW failure, with no exceptions to weigh and no list
+# to consult. The mechanism stays so a future known-broken test can be
+# quarantined deliberately rather than by letting CI go red; the debt is gone.
 #
-# Comparison is by id, never by count: 28 failures could be 1 fixed plus 1 new
-# regression, and a count check would call that green.
+# The backend-ci workflow compares the failing set against this file BY TEST ID
+# and fails on any id not listed here. With no ids listed, it fails on anything.
 #
-# Captured: 2026-08-23 at 9a46720c, Python 3.10.4, pytest 8.3.3.
-# Pruned 2026-08-23: the 17 test_conversation_service.py entries were repaired
-# in TD-45 part 1 (shape-based db.execute dispatch). 29 -> 12.
-# CI runs Python 3.12 (matching apps/api/Dockerfile). If a listed test PASSES on
-# 3.12, prune it from this file. If a test fails on 3.12 that is not listed,
-# that is a NEW failure on the production Python version — investigate it as a
-# possible real defect before adding it here.
+# Comparison is by id, never by count — a count check cannot tell one test fixed
+# plus one regressed from no change at all. That property mattered while this
+# file had entries; it costs nothing now and protects the next time it does.
 #
-# Shrinking this file is the goal. Do not add to it to make CI green.
-tests/routers/test_conversations.py::test_pro_user_not_rate_limited
-tests/routers/test_share.py::test_share_screenshot_200_for_valid_saved_line
-tests/routers/test_share.py::test_share_screenshot_404_for_wrong_user
-tests/routers/test_share.py::test_share_screenshot_429_when_rate_limit_exceeded
-tests/routers/test_share.py::test_share_screenshot_pro_user_bypasses_rate_limit
-tests/services/test_counterview_rebuttal.py::test_serializer_rebuttals_remaining_zero_at_cap
-tests/services/test_counterview_rebuttal.py::test_serializes_deeper_and_turns_without_collision
-tests/test_conversations.py::test_create_does_not_duplicate_opening_invocation
-tests/test_conversations.py::test_create_returns_existing_empty_conversation
-tests/test_postprocessing.py::test_check_brevity_returns_skip_for_unmigrated_personas
-tests/test_postprocessing.py::test_check_persona_forbidden_returns_skip_for_unmigrated_personas
-tests/test_postprocessing.py::test_safety_override_bypasses_postprocessing_invariant
+# History:
+#   2026-08-23  Captured at 9a46720c with 29 entries (TD-45): broken mock
+#               harnesses, not product defects.
+#   2026-08-23  TD-45 part 1 (#560) repaired 17 in test_conversation_service.py
+#               via shape-based db.execute dispatch. 29 -> 12.
+#   2026-08-23  TD-45 part 2 repaired the remaining 12 across five files. 12 -> 0.
+#
+# Adding an entry here is a decision, not a convenience. It means "this test is
+# known broken and we are choosing to ship anyway" — which needs a reason in the
+# PR that adds it. Repairing the test is nearly always cheaper than the entry.

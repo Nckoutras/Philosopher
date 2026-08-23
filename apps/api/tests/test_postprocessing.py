@@ -17,9 +17,15 @@ from services.postprocessing_service import (
 )
 from personas import PERSONA_REGISTRY, get_persona
 
-# Personas migrated to Phase 3 structured data. Append slugs as each persona
-# is migrated. See HANDOFF_BRIEF_v3 §16.2 Phase 3 implementation status.
-PHASE_3_MIGRATED_PERSONAS = {"socrates", "epictetus", "sigmund_freud", "carl_jung", "simone_de_beauvoir", "marcus_aurelius"}
+# PHASE_3_MIGRATED_PERSONAS (a hardcoded set of 6 slugs) was retired here.
+#
+# It was transitional bookkeeping: tests skipped it to assert "unmigrated
+# personas SKIP". Nobody updated it as personas were migrated or added, so by
+# the time the registry reached 11 the list was wrong in both directions and the
+# tests that depended on it failed for reasons unrelated to the code they check.
+#
+# Nothing hardcoded replaces it. Migration state is read from the persona config
+# itself below, which cannot drift from reality by construction.
 
 
 # ──────────────────────────────────────────────────────────────────
@@ -98,27 +104,33 @@ def test_universal_forbidden_all_hits_have_category():
 # check_brevity — None fields → SKIP (Phase 3 not yet populated)
 # ──────────────────────────────────────────────────────────────────
 
-def test_check_brevity_returns_skip_for_unmigrated_personas():
-    """Personas without response_length_words populated → SKIP.
+def test_every_registered_persona_has_response_length_words():
+    """C-03 checklist item 1, as an executable check.
 
-    Migrated personas (Phase 3) are excluded — see PHASE_3_MIGRATED_PERSONAS.
+    This test used to assert the opposite — that unmigrated personas SKIP —
+    against a hardcoded list of the 6 then-migrated slugs. The brevity migration
+    has since completed for all 11 personas, so the unmigrated set is empty and
+    the old test asserted something that can no longer be true.
+
+    Inverted, it earns its place: it fails the moment a persona is added without
+    response_length_words, which the checklist requires and nothing else
+    enforces.
     """
-    for slug, persona in PERSONA_REGISTRY.items():
-        if slug in PHASE_3_MIGRATED_PERSONAS:
-            continue
-        r = check_brevity("Some reply.", persona)
-        assert r.action == CheckAction.SKIP, f"{slug}: expected SKIP, got {r.action}"
+    missing = [
+        slug for slug, persona in PERSONA_REGISTRY.items()
+        if check_brevity("Some reply.", persona).action == CheckAction.SKIP
+    ]
+    assert not missing, (
+        f"personas missing response_length_words: {missing}. "
+        "Every persona must populate it — see CLAUDE.md C-03."
+    )
 
 
-def test_check_brevity_is_active_for_migrated_personas():
-    """Personas with response_length_words populated → check is active (not SKIP)."""
-    from personas import get_persona
-    for slug in PHASE_3_MIGRATED_PERSONAS:
-        persona = get_persona(slug)
-        assert persona is not None, f"{slug}: persona not in registry"
-        r = check_brevity("Some reply.", persona)
-        assert r.action != CheckAction.SKIP, \
-            f"{slug}: brevity check should not SKIP after migration, got {r.action}"
+# test_check_brevity_is_active_for_migrated_personas was removed here: it
+# asserted "the 6 listed personas do not SKIP", which
+# test_every_registered_persona_has_response_length_words now covers for all 11
+# without a list to maintain. Keeping both would be duplicate coverage anchored
+# to the same retired constant.
 
 
 def test_check_brevity_skip_has_correct_check_name():
@@ -181,24 +193,37 @@ def test_check_brevity_first_message_uses_ceiling():
 # check_persona_forbidden — None fields → SKIP (Phase 3 not yet populated)
 # ──────────────────────────────────────────────────────────────────
 
-def test_check_persona_forbidden_returns_skip_for_unmigrated_personas():
-    """Personas without forbidden_lexicon_persona_specific populated → SKIP."""
+def test_check_persona_forbidden_skips_exactly_the_personas_lacking_a_lexicon():
+    """SKIP iff forbidden_lexicon_persona_specific is unpopulated.
+
+    NOT inverted like the brevity test above, because this migration is genuinely
+    incomplete — some personas still carry no persona-specific lexicon, and that
+    is a real state, not stale bookkeeping. The old test asserted the same thing
+    but decided which personas to expect via the hardcoded PHASE_3 list, which
+    had drifted from the configs.
+
+    Reading the expectation off the config makes the test self-maintaining: it
+    tracks the migration as it proceeds instead of needing an edit per persona,
+    and it still fails if the SKIP behaviour itself regresses.
+    """
     for slug, persona in PERSONA_REGISTRY.items():
-        if slug in PHASE_3_MIGRATED_PERSONAS:
-            continue
+        has_lexicon = persona.forbidden_lexicon_persona_specific is not None
         r = check_persona_forbidden("Some reply.", persona)
-        assert r.action == CheckAction.SKIP, f"{slug}: expected SKIP, got {r.action}"
+        if has_lexicon:
+            assert r.action != CheckAction.SKIP, (
+                f"{slug}: has a persona lexicon but the check SKIPped it"
+            )
+        else:
+            assert r.action == CheckAction.SKIP, (
+                f"{slug}: has no persona lexicon; expected SKIP, got {r.action}"
+            )
 
 
-def test_check_persona_forbidden_is_active_for_migrated_personas():
-    """Personas with forbidden_lexicon_persona_specific populated → check is active."""
-    from personas import get_persona
-    for slug in PHASE_3_MIGRATED_PERSONAS:
-        persona = get_persona(slug)
-        assert persona is not None, f"{slug}: persona not in registry"
-        r = check_persona_forbidden("Some reply.", persona)
-        assert r.action != CheckAction.SKIP, \
-            f"{slug}: persona forbidden check should not SKIP after migration, got {r.action}"
+# test_check_persona_forbidden_is_active_for_migrated_personas was removed here:
+# its assertion ("a persona with a lexicon does not SKIP") is the `if has_lexicon`
+# half of
+# test_check_persona_forbidden_skips_exactly_the_personas_lacking_a_lexicon,
+# which derives the set from the configs instead of the retired constant.
 
 
 def test_check_persona_forbidden_skip_has_correct_check_name():
@@ -397,42 +422,73 @@ def test_safety_override_bypasses_postprocessing_invariant():
     """Document the architectural invariant that safety override replies
     are sent as-is and never run through postprocessing.
 
-    This is enforced at the call site (conversation_service.py step 8/8b
-    if/elif structure), not in postprocessing_service.py itself. This
-    test exists as a tripwire: if someone refactors conversation_service.py
-    in a way that calls regenerate_or_trim on safety responses, they
-    must update this test, which forces them to confront the invariant.
+    Enforced at the call site in conversation_service.py, not in
+    postprocessing_service.py. This is a TRIPWIRE, not proof: it is a cheap
+    structural check over the source text, and manual review at PR time remains
+    the real safeguard. Its job is to make a refactor that postprocesses safety
+    replies fail loudly enough that someone has to confront the invariant.
+
+    It used to grep for `regenerate_or_trim`. That function still exists in
+    postprocessing_service.py, but conversation_service.py stopped calling it —
+    the wiring was reimplemented inline as check_universal_forbidden /
+    check_brevity / _build_regen_directive plus a streaming correction. So the
+    tripwire failed on a rename while the invariant it guards was intact, which
+    is the worst thing a tripwire can do: cry wolf and get muted.
+
+    It now checks the structure that actually enforces the invariant, and names
+    no function that could be renamed out from under it.
     """
     from pathlib import Path
     cs_path = Path(__file__).resolve().parent.parent / "services" / "conversation_service.py"
-    source = cs_path.read_text(encoding="utf-8")
+    lines = cs_path.read_text(encoding="utf-8").split("\n")
 
-    # Cheap structural check: regenerate_or_trim must not appear inside
-    # the safety override branch. Verify by searching for the pattern.
-    # (Not bulletproof — manual review at PR time is the real safeguard.)
-    assert "regenerate_or_trim" in source, "Phase 2 wiring missing"
-    assert "should_suppress_persona" in source, "Safety branch missing"
+    def _find(pred):
+        return [i for i, ln in enumerate(lines) if pred(ln)]
 
-    # Find the safety branch and ensure regenerate_or_trim is not
-    # called within it (within the next ~30 lines after the if).
-    lines = source.split("\n")
-    for i, line in enumerate(lines):
-        if "should_suppress_persona" in line and "if " in line:
-            # Look at next ~30 lines for regenerate_or_trim
-            window = "\n".join(lines[i:i+30])
-            # The 'else' / 'elif' branch must come before regenerate_or_trim
-            # appears. Find both positions.
-            regen_pos = window.find("regenerate_or_trim")
-            elif_pos = window.find("\n        elif")
-            else_pos = window.find("\n        else:")
-            branch_break = min(p for p in [elif_pos, else_pos] if p > 0) if any(p > 0 for p in [elif_pos, else_pos]) else -1
-            if regen_pos > 0 and branch_break > 0:
-                assert regen_pos > branch_break, (
-                    "INVARIANT VIOLATION: regenerate_or_trim appears INSIDE "
-                    "the safety override branch. Safety responses must not "
-                    "be postprocessed. See Decision D."
-                )
-            break
+    # 1. The post-generation safety branch and the postprocessing branch must be
+    #    mutually exclusive — postprocessing hangs off an `elif`, so a suppressed
+    #    reply cannot reach it.
+    postproc = _find(lambda ln: ln.strip().startswith("elif POSTPROCESSING_ENABLED"))
+    assert postproc, (
+        "postprocessing is no longer guarded by `elif POSTPROCESSING_ENABLED`. "
+        "If it moved to its own `if`, a safety-override reply can now reach it — "
+        "confront the invariant before changing this test."
+    )
+
+    # POST-generation suppression is keyed on safety_out; PRE-generation on
+    # safety_in. Matching the bare attribute would also catch branches in other
+    # methods (the revisit path has its own safety_out block), so both checks
+    # name the variable they mean.
+    post_gen = _find(
+        lambda ln: "safety_out.should_suppress_persona" in ln and ln.strip().startswith("if ")
+    )
+    assert post_gen, "post-generation safety-suppression branch missing entirely"
+
+    # The elif must attach to a safety branch that opens BEFORE it, at the same
+    # indentation — that adjacency is the whole mechanism.
+    elif_line = postproc[0]
+    guarding_if = [i for i in post_gen if i < elif_line]
+    assert guarding_if, (
+        "`elif POSTPROCESSING_ENABLED` no longer follows a safety_out suppression "
+        "branch — the mutual exclusion that keeps safety replies out of "
+        "postprocessing is gone. See Decision D."
+    )
+    assert (len(lines[elif_line]) - len(lines[elif_line].lstrip())) == (
+        len(lines[guarding_if[-1]]) - len(lines[guarding_if[-1]].lstrip())
+    ), "the postprocessing elif is not at the safety branch's indentation level"
+
+    # 2. The PRE-generation safety branch returns outright, long before any of
+    #    the above is reached — a suppressed input never gets generated for.
+    pre_gen = _find(
+        lambda ln: "safety_in.should_suppress_persona" in ln and ln.strip().startswith("if ")
+    )
+    assert pre_gen, "pre-generation safety branch missing"
+    assert pre_gen[0] < elif_line, "pre-generation safety branch moved after postprocessing"
+    window = lines[pre_gen[0]:pre_gen[0] + 20]
+    assert any(ln.strip() == "return" for ln in window), (
+        "the pre-generation safety branch no longer returns; a suppressed reply "
+        "could now fall through into generation and postprocessing."
+    )
 
 
 # ──────────────────────────────────────────────────────────────────
