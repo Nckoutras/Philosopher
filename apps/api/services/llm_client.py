@@ -30,6 +30,7 @@ class LLMClient:
         model: str | None = None,
         max_tokens: int = 1024,
         cache_control: dict | None = None,
+        _token_sink: dict | None = None,
     ) -> AsyncGenerator[str, None]:
         """Stream tokens from Claude. Yields text chunks. `system` accepts a plain
         string or a list of content blocks (for cache_control) — passed through
@@ -40,7 +41,25 @@ class LLMClient:
         request (i.e. covering the message history) and moves it forward as the
         conversation grows. It is forwarded ONLY when set, so every caller that
         omits it sends a byte-identical request to before. `messages` is never
-        rewritten here — the breakpoint is a request-level flag, not content."""
+        rewritten here — the breakpoint is a request-level flag, not content.
+
+        `_token_sink`, when passed, receives the token count under key "total":
+        input + cache_creation + cache_read + output, i.e. every billed
+        component. The cache fields are NOT optional detail — history caching
+        drives cache_read to the large majority of input volume on a deep
+        conversation, so omitting them would make the longest (most expensive)
+        conversations record the smallest numbers.
+
+        An async generator cannot `return` a value (SyntaxError — PEP 525), so a
+        caller-owned dict is the only way to hand the count back alongside the
+        yielded chunks. Callers that omit it are byte-identical to before.
+
+        The count ACCUMULATES (`+=`) rather than overwrites, so one sink passed
+        to several stream() calls totals them. That is deliberate: a caller that
+        retries a failed attempt, or regenerates a correction, is billed for
+        every attempt, and the sink is meant to record spend rather than the
+        size of whichever text was ultimately kept. Reused across unrelated
+        messages it would over-count, so a sink is created per saved message."""
         model = model or config.ANTHROPIC_MODEL
         start = time.monotonic()
 
@@ -58,7 +77,15 @@ class LLMClient:
             # manager. Does NOT change what/when the generator yields. Guarded so a
             # usage-read failure can never break the stream contract for callers.
             try:
-                _log_usage((await stream.get_final_message()).usage, model)
+                usage = (await stream.get_final_message()).usage
+                _log_usage(usage, model)
+                if _token_sink is not None:
+                    _token_sink["total"] = _token_sink.get("total", 0) + (
+                        getattr(usage, "input_tokens", 0)
+                        + getattr(usage, "cache_creation_input_tokens", 0)
+                        + getattr(usage, "cache_read_input_tokens", 0)
+                        + getattr(usage, "output_tokens", 0)
+                    )
             except Exception as e:  # pragma: no cover - observability only
                 logger.debug(f"stream usage log skipped: {e}")
 

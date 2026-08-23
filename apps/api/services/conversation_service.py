@@ -848,6 +848,10 @@ class ConversationService:
         _last_llm_error: Exception | None = None
         _buf: list[str] = []
         _chunks_yielded = False
+        # One sink for this assistant message. Shared with the correction
+        # regeneration below, and re-passed on every retry attempt, so it ends up
+        # holding every token this reply was billed for — not just the last call.
+        _token_sink: dict = {}
 
         for attempt in range(3):
             _buf = []
@@ -858,6 +862,7 @@ class ConversationService:
                     messages=lm_messages,
                     model=model,
                     cache_control=_history_cache_control(user_plan, history_truncated),
+                    _token_sink=_token_sink,
                 ):
                     _buf.append(chunk)
                     _chunks_yielded = True
@@ -952,6 +957,7 @@ class ConversationService:
                         ),
                         messages=lm_messages,
                         model=model,
+                        _token_sink=_token_sink,
                     ):
                         correction_buf.append(chunk)
                         yield f"data: {json.dumps({'type': 'chunk', 'data': chunk})}\n\n"
@@ -1016,6 +1022,7 @@ class ConversationService:
                 safety_level=max(safety_in.level, safety_out.level, key=lambda l: ["none","low","medium","high","critical"].index(l)),
                 persona_override=safety_out.should_suppress_persona,
                 latency_ms=latency_ms,
+                tokens_used=_token_sink.get("total") or None,
             )
 
             # ── UPDATE CONVERSATION METADATA ─────────────────────────────────
@@ -1252,6 +1259,8 @@ class ConversationService:
         _last_llm_error: Exception | None = None
         _buf: list[str] = []
         _chunks_yielded = False
+        # Re-passed on every retry attempt, so failed attempts are counted too.
+        _token_sink: dict = {}
 
         for attempt in range(3):
             _buf = []
@@ -1262,6 +1271,7 @@ class ConversationService:
                     messages=lm_messages,
                     model=model,
                     cache_control=_history_cache_control(user_plan, history_truncated),
+                    _token_sink=_token_sink,
                 ):
                     _buf.append(chunk)
                     _chunks_yielded = True
@@ -1303,6 +1313,7 @@ class ConversationService:
             db, conv, user_id, "assistant", full_response,
             retrieval_ids=[str(p.id) for p in passages],
             persona_id=target_db.id,
+            tokens_used=_token_sink.get("total") or None,
         )
         await db.execute(
             update(Conversation)
@@ -1507,6 +1518,8 @@ class ConversationService:
         _last_llm_error: Exception | None = None
         _buf: list[str] = []
         _chunks_yielded = False
+        # Re-passed on every retry attempt, so failed attempts are counted too.
+        _token_sink: dict = {}
 
         for attempt in range(3):
             _buf = []
@@ -1517,6 +1530,7 @@ class ConversationService:
                     messages=lm_messages,
                     model=model,
                     cache_control=_history_cache_control(user_plan, history_truncated),
+                    _token_sink=_token_sink,
                 ):
                     _buf.append(chunk)
                     _chunks_yielded = True
@@ -1559,6 +1573,7 @@ class ConversationService:
             retrieval_ids=[str(p.id) for p in passages],
             persona_id=target_db.id,
             message_kind='go_deeper',
+            tokens_used=_token_sink.get("total") or None,
         )
         await db.execute(
             update(Conversation)
@@ -1624,6 +1639,7 @@ class ConversationService:
         retrieval_ids=None, safety_level="none",
         persona_override=False, latency_ms=None,
         persona_id=None, message_kind: str = 'standard',
+        tokens_used: int | None = None,
     ) -> Message:
         msg = Message(
             conversation_id=conv.id,
@@ -1636,6 +1652,7 @@ class ConversationService:
             latency_ms=latency_ms,
             persona_id=persona_id,
             message_kind=message_kind,
+            tokens_used=tokens_used,
         )
         db.add(msg)
         await db.flush()
