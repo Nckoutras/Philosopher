@@ -148,6 +148,21 @@ REFLECT_THUMB_DIAMETER = 140
 REFLECT_THUMB_GAP      = 26
 REFLECT_THUMB_CENTER_Y = REFLECT_PORTRAIT_TOP + REFLECT_PORTRAIT_DIAMETER // 2  # 319
 
+# Council card only — the prestige mechanism was implicit while the portraits were
+# unnamed. Names sit in the clear band between the circles (bottom edge 389) and
+# the "The Council" intro baseline (530).
+REFLECT_THUMB_LABEL_BASELINE_Y = 416
+REFLECT_THUMB_LABEL_FONT_SIZE  = 24
+# A label may use its own circle plus one gap; beyond that two names touch.
+REFLECT_THUMB_LABEL_MAX_WIDTH  = REFLECT_THUMB_DIAMETER + REFLECT_THUMB_GAP  # 166
+
+# Council card only — the theme line sits directly above the verdict, so the quote
+# band starts lower than REFLECT_BAND_TOP (576) to make room. The quote auto-fits,
+# so it simply renders a little smaller; no other card passes band_top.
+COUNCIL_THEME_BASELINE_Y = 572
+COUNCIL_THEME_FONT_SIZE  = 25
+COUNCIL_BAND_TOP         = 620
+
 # Quote share card extends the reflection layout with two optional elements that
 # only render when their params are set (show_qr / attribution) — every existing
 # caller passes neither, so all current cards stay byte-identical:
@@ -311,14 +326,27 @@ async def generate_council_share_image(
             slugs.append(slug)
     slugs = slugs[:4]
 
+    # Portraits and names are collected together and appended together, so a
+    # persona whose portrait file is missing drops out of BOTH lists and the row
+    # stays aligned — a name under the wrong face is worse than no names at all.
     thumbnails: list[Path] = []
+    thumbnail_labels: list[str] = []
     if slugs:
         p_result = await db.execute(select(Persona).where(Persona.slug.in_(slugs)))
         by_slug = {p.slug: p for p in p_result.scalars().all()}
         for slug in slugs:
-            path = _resolve_portrait_path(by_slug.get(slug))
+            persona = by_slug.get(slug)
+            path = _resolve_portrait_path(persona)
             if path:
                 thumbnails.append(path)
+                thumbnail_labels.append(persona.name if persona else "")
+
+    # The neutral context line. Read defensively: synthesis_structured is JSONB and
+    # every session synthesised before this shipped simply has no `theme` key, so
+    # the card must render without one. _clean_field already guarantees it is a
+    # non-empty string or None when present.
+    structured = session.synthesis_structured or {}
+    theme = structured.get("theme") if isinstance(structured, dict) else None
 
     # `annotation` is accepted for API compatibility but, like the line card, the
     # redesigned ritual card no longer renders it.
@@ -331,6 +359,10 @@ async def generate_council_share_image(
         hero_opacity=REFLECT_HERO_OPACITY_RITUAL,
         hero_path=COUNCIL_HERO_PATH,
         thumbnails=thumbnails or None,
+        thumbnail_labels=thumbnail_labels or None,
+        theme=theme,
+        band_top=COUNCIL_BAND_TOP if theme else None,
+        use_display_date=True,
     )
 
 
@@ -754,6 +786,10 @@ def _render_reflection_canvas(
     thumbnails: list[Path] | None = None,
     attribution: str | None = None,
     show_qr: bool = False,
+    thumbnail_labels: list[str] | None = None,
+    theme: str | None = None,
+    band_top: int | None = None,
+    use_display_date: bool = False,
 ) -> bytes:
     """
     Redesigned reflection share card (1080×1350). Faint hero behind everything;
@@ -769,6 +805,15 @@ def _render_reflection_canvas(
     below the quote) and `show_qr` (a centred QR above the stamp). When either is
     set the quote band ends higher so it can't collide with them. All three extras
     default to off, so every existing call site stays byte-stable.
+
+    The Council card adds `thumbnail_labels` (persona names under the circles),
+    `theme` (a neutral context line directly above the verdict), `band_top` (the
+    quote band floor lowered to clear that line) and `use_display_date`
+    ("24 Aug 2026" rather than the US format). These four default to off/None for
+    the same reason: the line, mirror and letter cards share this canvas and must
+    render byte-identically. `use_display_date` exists ONLY because the US format
+    is still correct-by-default for those three until the date-format follow-up
+    switches them too — it is not a preference, it is a scope boundary.
     """
     # Base canvas (Vellum) + faint hero composited over it.
     canvas = Image.new("RGBA", (CANVAS_WIDTH, CANVAS_HEIGHT), BG_COLOR + (255,))
@@ -792,11 +837,11 @@ def _render_reflection_canvas(
         anchor="ms",
     )
 
-    # 3. Date — mm/dd/yyyy
+    # 3. Date — mm/dd/yyyy, or "24 Aug 2026" where the caller opts in (Council).
     if saved_at is not None:
         draw.text(
             (PORTRAIT_CENTER_X, REFLECT_DATE_BASELINE_Y),
-            _format_date_us(saved_at),
+            _format_date(saved_at) if use_display_date else _format_date_us(saved_at),
             font=font_date,
             fill=BRONZE_COLOR,
             anchor="ms",
@@ -805,7 +850,7 @@ def _render_reflection_canvas(
     # 4. Portrait — a single 10%-larger portrait, or (Council) a centred row of
     #    the participating personas' thumbnails in the same vertical band.
     if thumbnails:
-        _draw_thumbnail_row(canvas, draw, thumbnails)
+        _draw_thumbnail_row(canvas, draw, thumbnails, labels=thumbnail_labels)
     elif portrait_path:
         _draw_circular_portrait(
             canvas, draw, portrait_path,
@@ -826,16 +871,36 @@ def _render_reflection_canvas(
         anchor="ms",
     )
 
+    # 5b. Theme — the Council card's context line, in the tracked bronze eyebrow
+    #     treatment, sitting directly above the verdict. Drawn ONLY when the caller
+    #     passes a non-empty string, so a session synthesised before this shipped
+    #     (no `theme` key at all) renders exactly the card it rendered yesterday.
+    if isinstance(theme, str) and theme.strip():
+        draw.text(
+            (PORTRAIT_CENTER_X, COUNCIL_THEME_BASELINE_Y),
+            # Explicit U+0020 separator, as the counterview eyebrows do. NOT the
+            # _letterspace default: that is U+2009 THIN SPACE, which Lora has no
+            # glyph for and draws as a tofu box between every letter. A PNG-bytes
+            # smoke test cannot see that — test_the_theme_eyebrow_is_renderable can.
+            _letterspace(theme.strip().upper(), " "),
+            font=_load_font("Lora-Regular.ttf", COUNCIL_THEME_FONT_SIZE),
+            fill=BRONZE_COLOR,
+            anchor="ms",
+        )
+
     # 6. Reflection — auto-fit, vertically centred in the leftover band. When a
     #    citation or QR is present the band ends higher so the quote clears them.
+    #    `band_top` lets the Council card start the band lower to clear its theme
+    #    line; every other caller leaves it None and gets REFLECT_BAND_TOP.
     band_bottom = REFLECT_QR_BAND_BOTTOM if (show_qr or attribution) else REFLECT_BAND_BOTTOM
-    band_height = band_bottom - REFLECT_BAND_TOP
+    band_start  = REFLECT_BAND_TOP if band_top is None else band_top
+    band_height = band_bottom - band_start
     font_quote, lines, line_h = _fit_reflection(
         quote, band_height, REFLECT_QUOTE_MAX_WIDTH,
         lambda s: _load_font("CormorantGaramond-Italic.ttf", s),
     )
     block_h = len(lines) * line_h
-    start_y = REFLECT_BAND_TOP + max(0, (band_height - block_h) // 2)
+    start_y = band_start + max(0, (band_height - block_h) // 2)
     for i, line in enumerate(lines):
         draw.text(
             (PORTRAIT_CENTER_X, start_y + i * line_h),
@@ -956,6 +1021,25 @@ def _paste_circular(
     canvas.paste(rgba, (left, top), rgba)
 
 
+def _fit_thumbnail_label(name: str | None) -> str | None:
+    """The name to draw under a council portrait, or None to draw nothing.
+
+    Falls back to the surname (last whitespace-separated token) when the full name
+    overruns the per-portrait width budget — "Marcus Aurelius" does not fit at label
+    size, "Aurelius" does. A single long token has nothing to fall back to and is
+    returned as-is: a tight name reads better than a nameless portrait.
+    """
+    if not isinstance(name, str):
+        return None
+    text = name.strip()
+    if not text:
+        return None
+    font = _load_font("CormorantGaramond-Medium.ttf", REFLECT_THUMB_LABEL_FONT_SIZE)
+    if font.getlength(text) <= REFLECT_THUMB_LABEL_MAX_WIDTH:
+        return text
+    return text.split()[-1]
+
+
 def _draw_thumbnail_row(
     canvas: Image.Image,
     draw: ImageDraw.ImageDraw,
@@ -964,17 +1048,37 @@ def _draw_thumbnail_row(
     diameter: int = REFLECT_THUMB_DIAMETER,
     gap: int = REFLECT_THUMB_GAP,
     center_y: int = REFLECT_THUMB_CENTER_Y,
+    labels: list[str] | None = None,
 ) -> None:
-    """Draw a centred horizontal row of circular thumbnails (Council card)."""
+    """Draw a centred horizontal row of circular thumbnails (Council card).
+
+    `labels` (Council only) draws each persona's name under its circle. It is
+    positional against `paths`, so a persona whose portrait failed to resolve
+    takes its label with it and the row stays aligned.
+    """
     n = len(paths)
     if n == 0:
         return
     row_w   = n * diameter + (n - 1) * gap
     start_x = (CANVAS_WIDTH - row_w) // 2
     top     = center_y - diameter // 2
+    font_label = (
+        _load_font("CormorantGaramond-Medium.ttf", REFLECT_THUMB_LABEL_FONT_SIZE)
+        if labels else None
+    )
     for i, path in enumerate(paths):
         left = start_x + i * (diameter + gap)
         _paste_circular(canvas, draw, path, left, top, diameter)
+        if labels and i < len(labels):
+            label = _fit_thumbnail_label(labels[i])
+            if label:
+                draw.text(
+                    (left + diameter // 2, REFLECT_THUMB_LABEL_BASELINE_Y),
+                    label,
+                    font=font_label,
+                    fill=BRONZE_COLOR,
+                    anchor="ms",
+                )
 
 
 def _resolve_portrait_path(persona: Persona | None) -> Path | None:
