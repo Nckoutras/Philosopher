@@ -45,6 +45,8 @@ Write a letter that does the following:
 3. Ends on a forward gesture that is a provocation, not a question: a single sharp thought or challenge that opens a line of thinking for the week ahead — something that lingers and pulls them forward. Never a question. Never advice. Never an assigned task.
 4. Closes warmly, briefly — as a letter ends, not a therapy session.
 
+LANGUAGE: Write the ENTIRE letter — every field in the JSON, including title, pull_quote, practical_takeaway and ritual_proposal — in {language}. Never mix languages between fields. If the person's messages mix languages, {language} still governs every field.
+
 Return JSON only, no preamble, in exactly this shape:
 {{"status": "generated",
   "title": "...",
@@ -92,6 +94,9 @@ Rules:
 # letter, so thin users simply get none that month (graceful degradation). Tunable.
 MONTHLY_MIN_MESSAGES = 15
 
+# NOTE: MONTHLY_PROMPT's LANGUAGE directive is deliberately NOT byte-identical to
+# LETTER_PROMPT's — it lists the monthly JSON's fields, which have no ritual_proposal.
+# Do not "fix" the two back into sync: the schemas differ, so the field lists differ.
 MONTHLY_PROMPT = """You are {persona_name}{persona_tradition_clause}. Once a month you write a "season letter" — a longer reckoning than the weekly note, looking back across the whole month at what the person has been living through, in your voice, addressed directly to them.
 
 You may receive a record of earlier season letters you wrote to this person. If so, this is an ongoing correspondence across seasons: pick up the thread. If there is none, simply begin.
@@ -113,6 +118,8 @@ Write a season letter with four beats:
 2. WHAT CHANGED — name how their stance MOVED over the month (then → now): a position that shifted, softened, hardened, or reframed. Anchor this on the 'shift' noticings. If nothing genuinely changed, say honestly that the season was one of holding rather than turning — do not invent movement.
 3. ONE LINE WORTH KEEPING — a single sentence from the letter with staying power: the season distilled.
 4. THE FORWARD GESTURE — close on a lingering provocation that opens the next season: a single sharp thought that pulls them forward. Never a literal question. Never advice. Never a task.
+
+LANGUAGE: Write the ENTIRE letter — every field in the JSON, including title, pull_quote and practical_takeaway — in {language}. Never mix languages between fields. If the person's messages mix languages, {language} still governs every field.
 
 Return JSON only, no preamble, in exactly this shape:
 {{"status": "generated",
@@ -143,6 +150,35 @@ Rules:
 - You may invite them to write back; never promise a reply. Never say you will answer or respond to what they write, and never tell them when or how they will hear from you — the shape of this correspondence is not yours to describe.
 - The practical_takeaway is a gift, not an assignment — something to try or notice, in your voice, never a duty or a "should". If the season supports none, return it as null rather than inventing one.
 - Never quote the person and never paraphrase their sentences one-to-one. Reuse their key concept-words as anchors, but distill one level above the instance, and make no claim their own words do not support."""
+
+
+# The letter's language is COMPUTED, not inferred. Both letter prompts take a
+# {language} directive; this is what fills it.
+#
+# The 2026-08-24 incident: a weekly letter came back with its body in English and
+# practical_takeaway + ritual_proposal in Greek. Neither prompt stated a language
+# for the letter — LETTER_PROMPT's only language reference was on ritual_proposal
+# ("the SAME language as the rest of this letter"), which presupposes a letter
+# language that was never established, and MONTHLY_PROMPT said nothing at all. With
+# no anchor the model picked a language per FIELD from mixed-language input, and the
+# Greek it produced was ungrammatical ("Θα σε κάλεσα").
+#
+# Characters, not words: a week's messages mix languages inside single sentences, and
+# a word-splitter has to decide what a word is in two scripts. Codepoint ranges follow
+# the _renderable_original precedent in services/image_service.py — no new dependency.
+
+def _dominant_language(texts: list[str]) -> str:
+    """Return 'Greek' or 'English' by counting Greek vs Latin letters
+    across the user's own words for the period. Ties -> 'English'."""
+    greek = latin = 0
+    for t in texts:
+        for ch in t:
+            if '\u0370' <= ch <= '\u03ff' or '\u1f00' <= ch <= '\u1fff':
+                greek += 1
+            elif ch.isascii() and ch.isalpha():
+                latin += 1
+    return "Greek" if greek > latin else "English"
+
 
 MIRROR_PROMPT = """You are {persona_name}{persona_tradition_clause}. Once a week you hold up a mirror to a person — not to summarize their week, but to show them the deeper meaning beneath their own words, seen through your distinct way of understanding.
 
@@ -1677,11 +1713,21 @@ async def generate_weekly_letter_task(ctx, user_id: str, voice_persona_slug: str
             persona_tradition_clause = (
                 (", " + persona.tradition) if persona and persona.tradition else ""
             )
+            # LANGUAGE — computed from the week's own words, not inferred by the
+            # model: her messages plus the ritual entries that survived the safety
+            # filter, taken BEFORE _build_rituals_block truncates them. Blank/None
+            # texts are dropped — _fetch_ritual_entries can yield a null text, and
+            # the block builder skips those too.
+            letter_language = _dominant_language(
+                [m.content for m in messages if m.content]
+                + [t for _, _, t in safe_entries if t]
+            )
             system = LETTER_PROMPT.format(
                 persona_name=persona.name if persona else "A thoughtful observer",
                 persona_tradition_clause=persona_tradition_clause,
                 user_first_name=user_first_name,
                 other_persona_slugs=other_persona_slugs_str,
+                language=letter_language,
             )
 
             rituals_block = _build_rituals_block(safe_entries)
@@ -2029,11 +2075,21 @@ async def generate_monthly_letter_task(ctx, user_id: str, voice_persona_slug: st
             persona_tradition_clause = (
                 (", " + persona.tradition) if persona and persona.tradition else ""
             )
+            # LANGUAGE — computed from the month's own words, not inferred by the
+            # model: her messages plus the ritual entries that survived the safety
+            # filter, taken BEFORE _build_rituals_block truncates them. Blank/None
+            # texts are dropped — _fetch_ritual_entries can yield a null text, and
+            # the block builder skips those too.
+            letter_language = _dominant_language(
+                [m.content for m in messages if m.content]
+                + [t for _, _, t in safe_entries if t]
+            )
             system = MONTHLY_PROMPT.format(
                 persona_name=persona.name if persona else "A thoughtful observer",
                 persona_tradition_clause=persona_tradition_clause,
                 user_first_name=user_first_name,
                 other_persona_slugs=other_persona_slugs_str,
+                language=letter_language,
             )
 
             rituals_block = _build_rituals_block(
