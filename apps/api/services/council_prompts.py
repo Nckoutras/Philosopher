@@ -77,7 +77,7 @@ COUNCIL_SYNTHESIS_PROMPT = (
     "reading into a small DECISION INSTRUMENT — not a fifth opinion, not new advice.\n"
     "\n"
     "Return JSON only — no preamble, no markdown:\n"
-    '{"real_question":"...","tension":"...","verdict":"...","next_move":"..."}\n'
+    '{"real_question":"...","tension":"...","verdict":"...","next_move":"...","theme":"..."}\n'
     "\n"
     "- real_question: the REAL question beneath the one they asked. ONE sentence, 20 words maximum. "
     "If you cannot name it honestly from the matter, use null.\n"
@@ -86,6 +86,11 @@ COUNCIL_SYNTHESIS_PROMPT = (
     "thread to carry out of the chamber. No false certainty, no fifth opinion, no new advice. 50 words maximum.\n"
     "- next_move: ONE small, concrete, testable action they could take next. 18 words maximum. NEVER "
     "\"reflect more\", \"think about it\", or anything unmeasurable. If no honest concrete move exists, use null.\n"
+    "- theme: a neutral thematic title for this matter, 3-6 words, in the form "
+    "\"On ...\" (e.g. \"On permission and asking\", \"On leaving well\"). It names the "
+    "TERRITORY, never the person's situation, decision, or any identifying detail — a "
+    "stranger reading it learns the theme, nothing else. Same language as the verdict. "
+    "If no honest neutral title fits, use null.\n"
     "\n"
     "Do not quote. Second person (\"you\"). Ground everything STRICTLY in the matter and the four verdicts."
 )

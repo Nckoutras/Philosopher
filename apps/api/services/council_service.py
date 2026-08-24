@@ -324,14 +324,21 @@ class CouncilService:
 
         verdict_text = (structured.get("verdict") or "").strip() if structured else ""
         if verdict_text:
-            # real_question + next_move: grounded-or-null, cap-guarded (>= 1.5x) +
-            # the same output-safety gate (null the field, keep the rest). tension +
-            # verdict ride the prompt caps as-is.
+            # real_question + next_move + theme: grounded-or-null, cap-guarded
+            # (>= 1.5x) + the same output-safety gate (null the field, keep the
+            # rest). tension + verdict ride the prompt caps as-is.
+            #
+            # theme is the share card's context line — the NEUTRAL subject, which is
+            # why it is a separate beat and not real_question: real_question is the
+            # private reading and has no business on a surface built to be shared.
+            # Null-safe by construction, and absent entirely from every session
+            # generated before this shipped; the card skips the line either way.
             payload = {
                 "real_question": await _clean_field(structured.get("real_question"), cap_words=20),
                 "tension": (structured.get("tension") or "").strip() or None,
                 "verdict": verdict_text,
                 "next_move": await _clean_field(structured.get("next_move"), cap_words=18),
+                "theme": await _clean_field(structured.get("theme"), cap_words=8),
             }
             session.synthesis = verdict_text            # flat — MUST stay populated
             session.synthesis_structured = payload
