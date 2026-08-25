@@ -216,7 +216,38 @@ async def stripe_webhook(request: Request, db: AsyncSession = Depends(get_db)):
                 sub.stripe_subscription_id = obj["id"]
                 sub.plan = _plan_from_stripe(obj)
                 sub.status = obj["status"]
-                sub.current_period_end = _ts(_period_end_from_stripe(obj))
+
+                # This handler carries the ENTIRE renewal: invoice.payment_succeeded
+                # only heals status, and the 6-hourly reconcile cron syncs status
+                # only — neither writes a period end. So what happens here when the
+                # payload has no period end decides which way a renewal fails.
+                #
+                # FAIL-CLOSED BY CHOICE. A NULL current_period_end means "manual comp
+                # grant, no expiry" to tier_service, so writing NULL over a good date
+                # grants permanent Pro for free — silently, with nothing to correct
+                # it. Keeping the stale date can instead cost a paying user access at
+                # that date, which is loud: they complain, and the error below is in
+                # the log waiting. We take the loud, recoverable failure over the
+                # silent, unrecoverable one.
+                #
+                # Not hypothetical: Stripe already moved this field once (top-level ->
+                # items), which _period_end_from_stripe absorbs. A second move lands
+                # here.
+                period_end = _ts(_period_end_from_stripe(obj))
+                if period_end is not None:
+                    sub.current_period_end = period_end
+                elif sub.current_period_end is not None:
+                    logger.error(
+                        "customer.subscription.%s carried no period end — KEEPING the "
+                        "existing current_period_end=%s. subscription=%s event=%s "
+                        "user=%s. Check the Stripe API version and the payload shape: "
+                        "the user loses access at the stale date.",
+                        event["type"].rsplit(".", 1)[-1], sub.current_period_end,
+                        obj["id"], event.get("id"), sub.user_id,
+                    )
+                # An already-NULL row is a deliberate comp grant. Leave it NULL —
+                # inventing a date here would revoke access somebody chose to give.
+
                 sub.cancel_at_period_end = obj.get("cancel_at_period_end", False)
                 analytics_service.track("subscription_activated", sub.user_id, {"plan": sub.plan})
 

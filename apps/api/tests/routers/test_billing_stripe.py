@@ -326,3 +326,162 @@ def test_completed_does_not_grant_when_session_has_no_subscription(client):
     m_ret.assert_not_called()
     assert sub.plan == "free"
     assert sub.current_period_end is None
+
+
+# ── webhook: customer.subscription.updated — the renewal path ────────────────
+#
+# Every renewal reaches us as customer.subscription.updated: invoice.payment_
+# succeeded only heals status and never touches the date (asserted below), and the
+# 6-hourly reconcile cron syncs status only. So this handler is the ONLY thing that
+# advances the paid period, and until this file it had no test at all.
+
+EVENT_ID = "evt_test_renewal_1"
+RENEWED_TS = int(datetime(2026, 10, 5, 12, 0, 0, tzinfo=timezone.utc).timestamp())
+
+
+def _updated_event(period_end=RENEWED_TS, price_id=PRICE_PRO, status="active"):
+    """customer.subscription.updated, shaped as Stripe sends it on renewal."""
+    items = {"price": {"id": price_id}}
+    if period_end is not None:
+        items["current_period_end"] = period_end
+    return {
+        "id": EVENT_ID,
+        "type": "customer.subscription.updated",
+        "data": {"object": {
+            "id": SUB_ID,
+            "customer": STALE_CID,
+            "status": status,
+            "cancel_at_period_end": False,
+            "items": {"data": [items]},
+        }},
+    }
+
+
+def _paying_sub():
+    """A live Pro row mid-period — what a real subscriber looks like."""
+    s = _make_sub(customer_id=STALE_CID)
+    s.stripe_subscription_id = SUB_ID
+    s.plan = "pro"
+    s.status = "active"
+    s.current_period_end = datetime.fromtimestamp(PERIOD_END_TS, tz=timezone.utc)
+    return s
+
+
+def _post_webhook(client, event):
+    with (
+        patch("routers.billing.stripe.Webhook.construct_event", return_value=event),
+        patch("routers.billing.config.STRIPE_PRICE_PRO_MONTHLY", PRICE_PRO),
+    ):
+        return client.post(WEBHOOK_URL, content=b"{}", headers={"stripe-signature": "sig"})
+
+
+def test_updated_advances_the_period_end_on_renewal(client):
+    """Coverage for the happy path — this passes on main too. It is here because
+    the single most important billing event had zero tests, not because it is
+    broken."""
+    sub = _paying_sub()
+    before = sub.current_period_end
+    client._db[0] = _db_returning(sub)
+
+    resp = _post_webhook(client, _updated_event())
+
+    assert resp.status_code == 200
+    assert sub.plan == "pro"
+    assert sub.status == "active"
+    assert sub.current_period_end == datetime.fromtimestamp(RENEWED_TS, tz=timezone.utc)
+    assert sub.current_period_end > before
+
+
+def test_updated_without_a_period_end_does_not_clobber_the_existing_date(client):
+    """THE GUARD. A payload carrying no period-end field in either location used to
+    write NULL over a good date — and tier_service reads NULL as "manual comp grant,
+    no expiry", i.e. permanent Pro for free, silently, with no cron to correct it.
+
+    Stripe has already relocated this field once (top-level -> items); the next move
+    would trigger exactly this. The row must keep the date it had.
+    """
+    sub = _paying_sub()
+    kept = sub.current_period_end
+    client._db[0] = _db_returning(sub)
+
+    resp = _post_webhook(client, _updated_event(period_end=None))
+
+    assert resp.status_code == 200
+    assert sub.current_period_end == kept, (
+        "a period-end-less payload overwrote a good date — this is the permanent-Pro fail-open"
+    )
+    assert sub.current_period_end is not None
+
+
+def test_updated_without_a_period_end_logs_an_error_with_the_ids(client, caplog):
+    """Fail-closed is only acceptable if it is LOUD: the operator needs the
+    subscription id and the Stripe event id to find the payload."""
+    import logging
+    sub = _paying_sub()
+    client._db[0] = _db_returning(sub)
+
+    with caplog.at_level(logging.ERROR, logger="routers.billing"):
+        resp = _post_webhook(client, _updated_event(period_end=None))
+
+    assert resp.status_code == 200
+    errors = [r for r in caplog.records if r.levelno >= logging.ERROR]
+    assert errors, "a silently-kept stale date is the bug in a different costume"
+    blob = " ".join(r.getMessage() for r in errors)
+    assert SUB_ID in blob
+    assert EVENT_ID in blob
+
+
+def test_updated_on_a_comp_grant_row_leaves_the_null_alone(client):
+    """A NULL date is a deliberate manual comp grant with no expiry. The guard must
+    keep it NULL — inventing a date here would revoke a grant somebody chose to
+    give."""
+    sub = _make_sub(customer_id=STALE_CID)
+    sub.stripe_subscription_id = SUB_ID
+    sub.plan = "pro"
+    sub.status = "active"
+    sub.current_period_end = None
+    client._db[0] = _db_returning(sub)
+
+    resp = _post_webhook(client, _updated_event(period_end=None))
+
+    assert resp.status_code == 200
+    assert sub.current_period_end is None
+
+
+def test_updated_still_writes_the_other_fields_when_the_date_is_kept(client):
+    """The guard covers the date only. plan / status / cancel_at_period_end still
+    reflect the event, or a downgrade or cancellation would be swallowed with it."""
+    sub = _paying_sub()
+    client._db[0] = _db_returning(sub)
+
+    resp = _post_webhook(client, _updated_event(period_end=None, status="past_due"))
+
+    assert resp.status_code == 200
+    assert sub.status == "past_due"
+    assert sub.stripe_subscription_id == SUB_ID
+
+
+# ── webhook: invoice.payment_succeeded heals status, never the date ──────────
+
+def _invoice_paid_event():
+    return {
+        "id": "evt_invoice_1",
+        "type": "invoice.payment_succeeded",
+        "data": {"object": {"subscription": SUB_ID}},
+    }
+
+
+def test_invoice_payment_succeeded_heals_status_and_never_touches_the_date(client):
+    """Documents WHY the updated-handler carries the whole renewal: this one only
+    flips status back to active. If it ever starts writing a date, the comment in
+    the guard needs revisiting."""
+    sub = _paying_sub()
+    sub.status = "past_due"
+    kept = sub.current_period_end
+    client._db[0] = _db_returning(sub)
+
+    resp = _post_webhook(client, _invoice_paid_event())
+
+    assert resp.status_code == 200
+    assert sub.status == "active"
+    assert sub.current_period_end == kept
