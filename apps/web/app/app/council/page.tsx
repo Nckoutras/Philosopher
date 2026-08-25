@@ -59,6 +59,11 @@ type CouncilSynthesis = {
   tension: string | null
   verdict: string
   next_move: string | null
+  // Optional here but REQUIRED on SSEEventSynthesis, deliberately: the wire event
+  // always carries theme, while the handler below builds this object from four
+  // picked keys and never sets it. Do not sync the two — rendering theme on this
+  // screen is a separate product PR that picks the key and flips this to required.
+  theme?: string | null
 }
 
 type SessionPhase = {
