@@ -92,6 +92,9 @@ Rules 1-4 above. The brief must require the executing agent to:
 Both Claude assistants (planning and execution) consult this protocol 
 at the start of every new work item.
 
+That protocol covers WHAT to investigate; SKILL.md (repo root) governs 
+HOW a unit of work runs, from brief to push.
+
 ## Failure Log
 
 Lessons that updated this protocol:
