@@ -469,9 +469,18 @@ async def generate_letter_share_image(
     )
 
 
-def _letterspace(s: str, sp: str = " ") -> str:
+def _letterspace(s: str, sp: str = " ") -> str:
     """Light tracking for the eyebrow caps (Pillow has no native letter-spacing):
-    join characters with a thin space."""
+    join characters with a space.
+
+    The separator is U+0020, NOT U+2009 THIN SPACE. It was U+2009 until 2026-08-24,
+    and Lora-Regular — the font every eyebrow on the season and counterview cards
+    uses — has no glyph for it, so it drew a tofu box between every character. The
+    season card shipped its eyebrow as "S#E#A#S#O#N# #.# #A#U#G#U#S#T" for as long
+    as it existed; the other call sites were only correct because each passed an
+    explicit " " and overrode this default. Do not change it back: see
+    test_the_letterspace_default_is_renderable, which measures the glyph rather
+    than trusting this comment."""
     return sp.join(list(s))
 
 

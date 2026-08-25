@@ -4,6 +4,7 @@ Covers _render_reflection_canvas: renders without error, output is the
 expected 1080×1350 PNG, and the hero-missing fallback still renders.
 """
 
+import inspect
 from datetime import datetime
 from io import BytesIO
 from pathlib import Path
@@ -22,6 +23,9 @@ from services.image_service import (
     _format_date,
     _format_date_us,
     COUNCIL_BAND_TOP,
+    _letterspace,
+    _render_season_card,
+    SEASON_EYEBROW_FONT_SIZE,
     PERSONAS_DIR,
     FONTS_DIR,
     CANVAS_WIDTH,
@@ -231,3 +235,55 @@ def test_the_theme_eyebrow_is_renderable():
     assert call, "the theme _letterspace call moved"
     assert thin not in call[0], "the theme eyebrow passes the tofu-rendering thin space"
     assert call[0].rstrip().endswith('" "),'), "the theme eyebrow must pass an explicit U+0020"
+
+
+def test_the_letterspace_default_is_renderable():
+    """The DEFAULT separator must be a glyph Lora can draw invisibly.
+
+    Measured against the live default via inspect.signature — NOT against a
+    hardcoded " " — so reverting the default to U+2009 fails here instead of
+    shipping tofu. U+2009 was the default until 2026-08-24: Lora-Regular has no
+    glyph for it and drew a visible box between every character, which is what the
+    season card's eyebrow rendered as for its whole life. The three counterview
+    call sites and the council theme line escaped it only by passing an explicit
+    " " that overrode the default.
+    """
+    _require_fonts()
+    default_sep = inspect.signature(_letterspace).parameters["sp"].default
+    assert _letterspace("AB") == "A" + default_sep + "B"
+    for font_name, size in (
+        ("Lora-Regular.ttf", SEASON_EYEBROW_FONT_SIZE),
+        ("Lora-Regular.ttf", COUNCIL_THEME_FONT_SIZE),
+    ):
+        font = _load_font(font_name, size)
+        assert font.getmask(default_sep).getbbox() is None, (
+            f"{font_name}@{size} draws the _letterspace default separator "
+            f"(U+{ord(default_sep):04X}) as a visible box — it will tofu every eyebrow"
+        )
+
+
+def test_the_season_eyebrow_renders_without_tofu():
+    """The call site this fix was raised for. It passes NO separator, so it is the
+    one that inherits the default — which is the whole point of fixing the default
+    rather than the call site."""
+    _require_fonts()
+    eyebrow = _letterspace("SEASON . AUGUST 2026")
+    font = _load_font("Lora-Regular.ttf", SEASON_EYEBROW_FONT_SIZE)
+    for ch in set(eyebrow):
+        mask = font.getmask(ch).getbbox()
+        if ch.isspace():
+            assert mask is None, f"whitespace {hex(ord(ch))} renders as a visible box"
+        else:
+            assert mask is not None, f"{ch!r} renders as nothing"
+
+
+def test_the_season_card_renders():
+    _require_fonts()
+    png = _render_season_card(
+        title="The month you stopped bracing",
+        quote="You have been holding a door shut that no one was pushing on.",
+        period_label="August 2026",
+        created_at=datetime(2026, 8, 24),
+    )
+    assert png.startswith(bytes([137, 80, 78, 71, 13, 10, 26, 10]))  # PNG magic
+    assert Image.open(BytesIO(png)).size == (CANVAS_WIDTH, CANVAS_HEIGHT)
