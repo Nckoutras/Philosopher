@@ -163,20 +163,11 @@ COUNCIL_THEME_BASELINE_Y = 572
 COUNCIL_THEME_FONT_SIZE  = 25
 COUNCIL_BAND_TOP         = 620
 
-# Quote share card extends the reflection layout with two optional elements that
-# only render when their params are set (show_qr / attribution) — every existing
-# caller passes neither, so all current cards stay byte-identical:
-#   · a small "— {Name}, {Source}" citation below the quote, and
-#   · a centred QR above the bottom stamp (scan → thewiseroom.app).
-# When either is present the auto-fit quote band ends higher (REFLECT_QR_BAND_BOTTOM)
-# so the quote can never run into the citation / QR / stamp band.
+# QR asset for the quote share card (_render_quote_card). These two were once
+# shared with an attribution/QR path on the reflection canvas that no caller ever
+# used; that path is gone, the quote card's is live, and these stay for it.
 REFLECT_QR_PATH         = SHARE_DIR / "qr-wiseroom.png"
 REFLECT_QR_SIZE         = 110
-REFLECT_QR_BOTTOM_Y     = 1258   # QR bottom edge (top = 1148), sits above the stamp
-REFLECT_QR_BAND_BOTTOM  = 1060   # quote band floor when citation / QR present
-REFLECT_ATTR_BASELINE_Y = 1120   # "— {Name}, {Source}" citation baseline
-REFLECT_ATTR_FONT_SIZE  = 26
-REFLECT_ATTR_MIN_SIZE   = 18     # shrink-to-fit floor for a long name+source
 
 
 def dynamic_font_size(char_count: int) -> float:
@@ -362,7 +353,6 @@ async def generate_council_share_image(
         thumbnail_labels=thumbnail_labels or None,
         theme=theme,
         band_top=COUNCIL_BAND_TOP if theme else None,
-        use_display_date=True,
     )
 
 
@@ -695,11 +685,6 @@ def _render_share_canvas(
     return buf.getvalue()
 
 
-def _format_date_us(dt: datetime) -> str:
-    """Format as mm/dd/yyyy with leading zeros (e.g. '05/01/2026')."""
-    return dt.strftime("%m/%d/%Y")
-
-
 def _load_hero_cover(opacity: float, path: Path = HERO_PATH) -> Image.Image | None:
     """
     Load a hero asset, resize-to-cover the full canvas (center-crop), and knock
@@ -793,12 +778,9 @@ def _render_reflection_canvas(
     hero_opacity: float = REFLECT_HERO_OPACITY,
     hero_path: Path = HERO_PATH,
     thumbnails: list[Path] | None = None,
-    attribution: str | None = None,
-    show_qr: bool = False,
     thumbnail_labels: list[str] | None = None,
     theme: str | None = None,
     band_top: int | None = None,
-    use_display_date: bool = False,
 ) -> bytes:
     """
     Redesigned reflection share card (1080×1350). Faint hero behind everything;
@@ -810,19 +792,15 @@ def _render_reflection_canvas(
     ritual hero, and `thumbnails` (Council) replaces the single portrait with a
     centred row of participating-persona portraits.
 
-    The quote share card adds `attribution` (a "— {Name}, {Source}" citation drawn
-    below the quote) and `show_qr` (a centred QR above the stamp). When either is
-    set the quote band ends higher so it can't collide with them. All three extras
-    default to off, so every existing call site stays byte-stable.
-
     The Council card adds `thumbnail_labels` (persona names under the circles),
-    `theme` (a neutral context line directly above the verdict), `band_top` (the
-    quote band floor lowered to clear that line) and `use_display_date`
-    ("24 Aug 2026" rather than the US format). These four default to off/None for
-    the same reason: the line, mirror and letter cards share this canvas and must
-    render byte-identically. `use_display_date` exists ONLY because the US format
-    is still correct-by-default for those three until the date-format follow-up
-    switches them too — it is not a preference, it is a scope boundary.
+    `theme` (a neutral context line directly above the verdict) and `band_top` (the
+    quote band floor lowered to clear that line). All three default to off/None,
+    because the line, mirror and letter cards share this canvas.
+
+    The date is always "24 Aug 2026" (_format_date). It used to be caller-selectable
+    via `use_display_date`, which existed solely as a scope boundary while the
+    Council card moved off the US format ahead of the others; all four cards are on
+    the display format now, so the switch — and _format_date_us — are gone.
     """
     # Base canvas (Vellum) + faint hero composited over it.
     canvas = Image.new("RGBA", (CANVAS_WIDTH, CANVAS_HEIGHT), BG_COLOR + (255,))
@@ -846,11 +824,11 @@ def _render_reflection_canvas(
         anchor="ms",
     )
 
-    # 3. Date — mm/dd/yyyy, or "24 Aug 2026" where the caller opts in (Council).
+    # 3. Date — "24 Aug 2026", the one format every card in the product uses.
     if saved_at is not None:
         draw.text(
             (PORTRAIT_CENTER_X, REFLECT_DATE_BASELINE_Y),
-            _format_date(saved_at) if use_display_date else _format_date_us(saved_at),
+            _format_date(saved_at),
             font=font_date,
             fill=BRONZE_COLOR,
             anchor="ms",
@@ -897,11 +875,10 @@ def _render_reflection_canvas(
             anchor="ms",
         )
 
-    # 6. Reflection — auto-fit, vertically centred in the leftover band. When a
-    #    citation or QR is present the band ends higher so the quote clears them.
+    # 6. Reflection — auto-fit, vertically centred in the leftover band.
     #    `band_top` lets the Council card start the band lower to clear its theme
     #    line; every other caller leaves it None and gets REFLECT_BAND_TOP.
-    band_bottom = REFLECT_QR_BAND_BOTTOM if (show_qr or attribution) else REFLECT_BAND_BOTTOM
+    band_bottom = REFLECT_BAND_BOTTOM
     band_start  = REFLECT_BAND_TOP if band_top is None else band_top
     band_height = band_bottom - band_start
     font_quote, lines, line_h = _fit_reflection(
@@ -918,38 +895,6 @@ def _render_reflection_canvas(
             fill=INK_COLOR,
             anchor="mt",
         )
-
-    # 6b. Citation — "— {Name}, {Source}" below the quote (quote card only). Shrunk
-    #     to fit a single centred line so a long name+source never spills the width.
-    if attribution:
-        attr_size = REFLECT_ATTR_FONT_SIZE
-        while attr_size > REFLECT_ATTR_MIN_SIZE and _load_font(
-            "CormorantGaramond-Italic.ttf", attr_size
-        ).getlength(attribution) > REFLECT_QUOTE_MAX_WIDTH:
-            attr_size -= 2
-        draw.text(
-            (PORTRAIT_CENTER_X, REFLECT_ATTR_BASELINE_Y),
-            attribution,
-            font=_load_font("CormorantGaramond-Italic.ttf", attr_size),
-            fill=BRONZE_COLOR,
-            anchor="ms",
-        )
-
-    # 6c. QR — centred above the stamp (quote card only). Missing asset → skip the
-    #     QR but keep the stamp, so the card never 500s.
-    if show_qr:
-        if REFLECT_QR_PATH.exists():
-            try:
-                qr = Image.open(REFLECT_QR_PATH).convert("RGBA").resize(
-                    (REFLECT_QR_SIZE, REFLECT_QR_SIZE), Image.LANCZOS
-                )
-                qx = PORTRAIT_CENTER_X - REFLECT_QR_SIZE // 2
-                qy = REFLECT_QR_BOTTOM_Y - REFLECT_QR_SIZE
-                canvas.paste(qr, (qx, qy), qr)
-            except Exception as e:
-                logger.warning(f"Could not open QR {REFLECT_QR_PATH}: {e}. Skipping QR.")
-        else:
-            logger.warning(f"QR asset missing: {REFLECT_QR_PATH}. Skipping QR.")
 
     # 7. "thewiseroom.app" — bold, high-opacity bottom stamp.
     # No bold Lora is bundled, so simulate weight with a stroke at full opacity.
