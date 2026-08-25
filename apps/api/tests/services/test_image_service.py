@@ -4,6 +4,7 @@ Covers _render_reflection_canvas: renders without error, output is the
 expected 1080×1350 PNG, and the hero-missing fallback still renders.
 """
 
+import ast
 import inspect
 from datetime import datetime
 from io import BytesIO
@@ -21,7 +22,6 @@ from services.image_service import (
     REFLECT_THUMB_LABEL_FONT_SIZE,
     REFLECT_THUMB_LABEL_MAX_WIDTH,
     _format_date,
-    _format_date_us,
     COUNCIL_BAND_TOP,
     _letterspace,
     _render_season_card,
@@ -194,16 +194,53 @@ def test_a_blank_label_is_skipped_not_drawn_as_empty():
     assert _fit_thumbnail_label(None) is None
 
 
-def test_the_council_card_uses_the_display_date_not_the_us_one():
+def test_the_display_date_format_is_the_agreed_one():
     assert _format_date(datetime(2026, 8, 24)) == "24 Aug 2026"
-    assert _format_date_us(datetime(2026, 8, 24)) == "08/24/2026"
 
 
-def test_the_other_cards_keep_the_us_date_in_this_pr():
-    # The date-format follow-up covers line/mirror/letter. Until then the shared
-    # canvas must still default to the US format for them.
-    _require_fonts()
-    assert _render(use_display_date=False) == _render()
+def test_format_date_is_the_only_date_helper_the_canvas_can_reach():
+    """Every card on this canvas — line, mirror, letter, council — shows one date
+    format. Asserted by walking the function's AST rather than by rendering,
+    because two date helpers produce different pixels but equally valid PNGs, so a
+    render smoke cannot tell them apart.
+
+    The docstring is deliberately excluded from the scan: it names the removed
+    helper as history, and a raw text search cannot tell prose from a call. The
+    claim here is about reachable CODE.
+
+    Replaces test_the_other_cards_keep_the_us_date_in_this_pr, whose own docstring
+    named this change as its successor.
+    """
+    src = (Path(__file__).resolve().parents[2] / "services" / "image_service.py").read_text(encoding="utf-8")
+    fn = next(
+        n for n in ast.walk(ast.parse(src))
+        if isinstance(n, ast.FunctionDef) and n.name == "_render_reflection_canvas"
+    )
+    called = {
+        n.func.id for n in ast.walk(fn)
+        if isinstance(n, ast.Call) and isinstance(n.func, ast.Name)
+    }
+    referenced = {n.id for n in ast.walk(fn) if isinstance(n, ast.Name)}
+    assert "_format_date" in called
+    assert "_format_date_us" not in called, "the canvas still calls the US date helper"
+    assert "use_display_date" not in referenced, "the per-caller date switch is back"
+
+
+def test_the_us_date_helper_is_gone_from_the_module():
+    src = (Path(__file__).resolve().parents[2] / "services" / "image_service.py").read_text(encoding="utf-8")
+    assert "def _format_date_us" not in src
+
+
+def test_the_dead_citation_and_qr_params_are_gone_from_the_canvas():
+    """attribution / show_qr had zero call sites for their whole life. The quote
+    card's own QR lives in _render_quote_card and keeps REFLECT_QR_PATH/SIZE, so
+    this asserts the canvas is clean WITHOUT asserting the constants are gone."""
+    sig = inspect.signature(_render_reflection_canvas).parameters
+    assert "attribution" not in sig
+    assert "show_qr" not in sig
+    assert "use_display_date" not in sig
+    # Still live, and still needed by the quote card:
+    from services.image_service import REFLECT_QR_PATH, REFLECT_QR_SIZE  # noqa: F401
 
 
 def test_the_non_council_cards_are_byte_identical_without_the_new_params():
