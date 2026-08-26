@@ -8,11 +8,11 @@ import { LandingSections } from '@/components/landing/LandingSections'
 import { LANDING_COPY } from '@/lib/landing-copy'
 import { useStore } from '@/lib/store'
 
-// Real LQIP for the hero, minted from public/personas/wise-room-hero.webp (16px
+// Real LQIP for the hero, minted from public/personas/wise-room-hero-v2.webp (16px
 // wide, WebP) — shown as a blurred placeholder so there's no empty-box pop-in
 // before Netlify's optimized variant arrives. Regenerate if the source changes.
 const HERO_BLUR =
-  'data:image/webp;base64,UklGRpgAAABXRUJQVlA4IIwAAAAwBACdASoQABwAPu1mqk2ppaQiMAgBMB2JQBOnKAAXGYXawc+mxK9PphAA/e2Ev9nL13S7n8juRMbgQ4qnR3O+yHrPfenaOStOdvaWJSTSDzTml8u796Z8P8aKT3u0JBLaYH7iD5tWWAtiHzFKC11PJfn2D1z3N+b23D+EH7G5gSS+mHzZ4gLkClRAAA=='
+  'data:image/webp;base64,UklGRpgAAABXRUJQVlA4IIwAAAAQBACdASoQABwAPu1orU6ppiSiMAgBMB2JQBOnKAAXGYXayUVZjrLAwAD97YS/2cvXdLufyO5ExuBDiqdHc77Ies996do5K0529pYlJNIPNOaXvOOgund9sybKBXfnUcem5czv7/cd3MIW2gdoyvn0HwIme/7jlm4j8j7Lz0Kl2rvwnneBQXpLKu4AAA=='
 
 export default function RootPage() {
   const router = useRouter()
@@ -40,11 +40,17 @@ export default function RootPage() {
         photograph down the whole page. */}
     <main className="relative [min-height:100svh] bg-ink flex flex-col">
       <Image
-        src="/personas/wise-room-hero.webp"
+        src="/personas/wise-room-hero-v2.webp"
         alt=""
         fill
         priority
-        sizes="100vw"
+        // Deliberately UNDER-declared on phones. The layout width is 100vw, but
+        // this is a scrimmed background photograph behind text, not detail the
+        // reader inspects — so 60vw makes a DPR-3 phone pick the w=750/828
+        // variant (~80-92 KB) instead of w=1200 (~148 KB). Desktop keeps 100vw.
+        // Bytes are a conversion cost at the top of the funnel; a background at
+        // ~1.8x effective density is not a visible one.
+        sizes="(max-width: 768px) 60vw, 100vw"
         placeholder="blur"
         blurDataURL={HERO_BLUR}
         className="absolute inset-0 object-cover object-center"

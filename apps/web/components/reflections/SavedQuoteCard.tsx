@@ -17,7 +17,7 @@ export default function SavedQuoteCard({ item }: Props) {
 
   return (
     <div className="relative overflow-hidden w-full text-left bg-paper border border-bronze rounded-md shadow-card px-[18px] py-[16px]">
-      <Image src="/personas/wise-room-hero.webp" alt="" aria-hidden fill sizes="100vw"
+      <Image src="/personas/wise-room-hero-v2.webp" alt="" aria-hidden fill sizes="100vw"
         className="object-cover opacity-[0.06] pointer-events-none" />
       <div className="relative">
         <div className="flex items-center justify-between mb-[8px]">

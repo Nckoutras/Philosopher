@@ -44,7 +44,7 @@ export default function ExplorePage() {
           </header>
 
           <div className="mt-6 rounded-[16px] overflow-hidden shadow-card">
-            <Image src="/personas/wise-room-hero.webp" alt="The Wise Room" width={760} height={300}
+            <Image src="/personas/wise-room-hero-v2.webp" alt="The Wise Room" width={760} height={300}
               className="w-full h-[380px] object-cover object-center" priority />
           </div>
 

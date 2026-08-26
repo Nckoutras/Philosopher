@@ -41,6 +41,24 @@ export const metadata: Metadata = {
     title: 'The Wise Room',
     description: 'A premium AI reflective companion grounded in historical philosophy.',
     type: 'website',
+    // 1200x630 JPEG. JPEG, not WebP: some social scrapers still refuse WebP, and a
+    // link that unfurls with no image costs more than the ~25 KB the format saves.
+    // Cropped from the council-chamber asset — the 9:16 splash hero cannot yield a
+    // 1.91:1 frame that still reads as a room, only a close-up of the armchair.
+    images: [
+      {
+        url: '/og-image.jpg',
+        width: 1200,
+        height: 630,
+        alt: 'The Wise Room — a quiet council chamber',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'The Wise Room',
+    description: 'A premium AI reflective companion grounded in historical philosophy.',
+    images: ['/og-image.jpg'],
   },
   manifest: '/manifest.json',
   appleWebApp: {
