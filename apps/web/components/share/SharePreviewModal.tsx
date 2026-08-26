@@ -294,10 +294,21 @@ export default function SharePreviewModal({
   // Scale factor: preview card width (320px) / canvas width (1080px)
   const previewFontSize    = (dynamicFontSize(cardText.length) * 0.296).toFixed(1)
 
-  // Approximate date stamp for the line/mirror-variant preview (mm/dd/yyyy).
-  // The real card uses the record's timestamp; preview uses today.
+  // Approximate date stamp for the line/mirror-variant preview (D MMM YYYY,
+  // e.g. "24 Aug 2026"). The real card uses the record's timestamp; preview uses
+  // today.
+  //
+  // Must match image_service._format_date byte for byte — this is a preview of
+  // that card, so any divergence is visible the moment the user shares. Spelled
+  // out rather than toLocaleDateString: the backend's %b is locale-independent
+  // (C/English), while the browser's would follow the VIEWER's locale, and
+  // en-GB in particular renders September as "Sept" where the backend says "Sep".
+  const PREVIEW_MONTHS = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  ]
   const now = new Date()
-  const previewDate = `${String(now.getMonth() + 1).padStart(2, '0')}/${String(now.getDate()).padStart(2, '0')}/${now.getFullYear()}`
+  const previewDate = `${now.getDate()} ${PREVIEW_MONTHS[now.getMonth()]} ${now.getFullYear()}`
 
   // Line + mirror share the reflection layout; mirror swaps the hero + intro.
   const heroSrc     = isLetter ? '/personas/sundayletter.webp' : isMirror ? '/personas/mirror.webp' : '/personas/wise-room-hero-v2.webp'
