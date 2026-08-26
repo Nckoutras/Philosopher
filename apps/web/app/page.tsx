@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { BronzeDivider } from '@/components/ui/BronzeDivider'
+import { LandingSections } from '@/components/landing/LandingSections'
+import { LANDING_COPY } from '@/lib/landing-copy'
 import { useStore } from '@/lib/store'
 
 // Real LQIP for the hero, minted from public/personas/wise-room-hero.webp (16px
@@ -31,6 +33,11 @@ export default function RootPage() {
   }
 
   return (
+    <>
+    {/* Fold 1 keeps its own <main> and its exact 100svh height. The marketing
+        sections are siblings, NOT children: the hero <Image fill> covers its
+        nearest positioned ancestor, so nesting them here would stretch the
+        photograph down the whole page. */}
     <main className="relative [min-height:100svh] bg-ink flex flex-col">
       <Image
         src="/personas/wise-room-hero.webp"
@@ -90,7 +97,17 @@ export default function RootPage() {
         >
           Sign in
         </button>
+
+        {/* Scroll hint — the ONLY change to fold 1. Static by design: no bounce,
+            no chevron animation (v5 §1.7). It sits inside the existing CTA block
+            so the safe-area padding above still applies. */}
+        <p className="font-lora text-[12px] tracking-[0.18em] uppercase text-vellum/80">
+          {LANDING_COPY.scrollHint}
+        </p>
       </div>
     </main>
+
+    <LandingSections />
+    </>
   )
 }
