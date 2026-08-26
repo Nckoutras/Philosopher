@@ -1,6 +1,9 @@
 __pycache__/
 *.pyc
 .pytest_cache/
+# pytest-cov writes these into apps/api on every local run
+.coverage
+.coverage.*
 
 # Local diagnostic / dev scripts — not for commit
 apps/api/scripts/voice_test_socrates.py
