@@ -53,7 +53,9 @@ async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
     db.add(sub)
     await db.commit()
 
-    analytics_service.identify(user.id, {"email": user.email, "plan": "free"})
+    # No email property: distinct_id is the internal user id and person
+    # profiles carry no direct identifier (data minimization, GDPR Art. 5(1)(c)).
+    analytics_service.identify(user.id, {"plan": "free"})
     analytics_service.track("user_registered", user.id, {"plan": "free"})
 
     token = create_token(user.id, user.email, user.token_version)
@@ -212,7 +214,8 @@ async def otp_verify(body: OtpVerifyRequest, db: AsyncSession = Depends(get_db))
         )
         db.add(sub)
         await db.commit()
-        analytics_service.identify(user.id, {"email": email, "plan": "free"})
+        # No email property — see the signup path above.
+        analytics_service.identify(user.id, {"plan": "free"})
         analytics_service.track("user_registered", user.id, {"plan": "free", "method": "otp"})
     else:
         analytics_service.track("user_signed_in", user.id, {"method": "otp"})

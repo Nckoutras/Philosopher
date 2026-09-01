@@ -45,6 +45,10 @@ class Settings(BaseSettings):
 
     # Analytics
     POSTHOG_API_KEY: str = ""
+    # EU-hosted by default. The project is EU-hosted and the privacy policy
+    # names PostHog as an EU processor; a US default would silently contradict
+    # both if the Render env var were ever unset.
+    POSTHOG_HOST: str = "https://eu.i.posthog.com"
 
     # Cold beta override: grants Pro tier to all users regardless of subscription
     BETA_GRANT_PRO_TO_ALL: bool = False

@@ -155,7 +155,8 @@ async def google_oauth_callback(
 
         # Analytics fires after commit — never blocks auth flow
         try:
-            analytics_service.identify(user.id, {"email": email, "plan": "free"})
+            # No email property — see routers/auth.py.
+            analytics_service.identify(user.id, {"plan": "free"})
             analytics_service.track(
                 "user_registered", user.id, {"plan": "free", "method": "google"}
             )

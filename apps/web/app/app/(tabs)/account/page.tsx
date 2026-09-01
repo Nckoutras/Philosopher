@@ -8,6 +8,13 @@ import { useStore } from '@/lib/store'
 import { api } from '@/lib/api'
 import { signOut } from '@/lib/auth'
 import AppHeader from '@/components/layout/AppHeader'
+import Switch from '@/components/ui/Switch'
+import {
+  getConsent,
+  setConsent,
+  initAnalytics,
+  optOutAnalytics,
+} from '@/lib/analytics'
 
 function useHydrated() {
   const [hydrated, setHydrated] = useState(false)
@@ -32,6 +39,14 @@ export default function AccountPage() {
 
   const hydrated = useHydrated()
   const [portalLoading, setPortalLoading] = useState(false)
+  // Read in an effect, not in the initializer: localStorage does not exist
+  // during SSR, and the toggle must reflect the stored choice rather than a
+  // default. Until it resolves the row renders in its stored-off position.
+  const [analyticsOn, setAnalyticsOn] = useState(false)
+
+  useEffect(() => {
+    setAnalyticsOn(getConsent() === 'granted')
+  }, [])
 
   useEffect(() => {
     if (!hydrated) return
@@ -76,6 +91,16 @@ export default function AccountPage() {
     } finally {
       setPortalLoading(false)
     }
+  }
+
+  function handleAnalyticsToggle(next: boolean) {
+    setAnalyticsOn(next)
+    setConsent(next ? 'granted' : 'denied')
+    // Withdrawal is immediate and local: opt_out_capturing() stops the SDK and
+    // drops its cookie in this browser. It does not delete events already sent
+    // — that is an erasure request, which §7 (Your Rights) of the policy covers.
+    if (next) void initAnalytics()
+    else optOutAnalytics()
   }
 
   function handleSignOut() {
@@ -133,6 +158,25 @@ export default function AccountPage() {
             <span className="font-cormorant text-[17px] font-medium text-ink">{plan}</span>
             <ChevronRight size={16} strokeWidth={1.5} className="text-sepia" />
           </button>
+        </div>
+
+        {/* ── Analytics card ── */}
+        <div className="bg-paper border border-bronze/70 rounded-md overflow-hidden">
+          <div className="px-[16px] pt-[14px] pb-[2px]">
+            <p className="font-lora text-[12px] uppercase tracking-[0.18em] text-charcoal">
+              Analytics
+            </p>
+          </div>
+          <div className="w-full flex items-center justify-between px-[16px] py-[14px]">
+            <span className="font-cormorant text-[17px] font-medium text-ink">
+              {analyticsOn ? 'On' : 'Off'}
+            </span>
+            <Switch
+              checked={analyticsOn}
+              onChange={handleAnalyticsToggle}
+              label="Analytics"
+            />
+          </div>
         </div>
 
         {/* ── Sign out card ── */}

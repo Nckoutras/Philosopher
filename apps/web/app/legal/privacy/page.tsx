@@ -21,7 +21,7 @@ export default function PrivacyPage() {
               Privacy Policy
             </h1>
             <p className="font-lora text-[12px] text-sepia">
-              Effective: 19 May 2026 · Version 1.1
+              Effective: 1 September 2026 · Version 1.2
             </p>
           </header>
 
@@ -32,7 +32,7 @@ export default function PrivacyPage() {
           <Section title="2. Personal Data We Collect">
             <strong className="font-lora font-medium text-ink">From you directly:</strong> email address (for authentication and communication); conversation messages (content you write to personas); disclaimer acceptance (record of your acknowledgment of our age requirement and service positioning, including timestamp, IP address, and browser).
             {' '}
-            <strong className="font-lora font-medium text-ink">Automatically:</strong> authentication metadata (one-time codes, session tokens, login timestamps); technical data (IP address, browser type, device characteristics, basic usage events); strictly necessary cookies for authentication and session management.
+            <strong className="font-lora font-medium text-ink">Automatically:</strong> authentication metadata (one-time codes, session tokens, login timestamps); technical data (IP address, browser type, device characteristics); strictly necessary cookies for authentication and session; and, only with your consent, product analytics events (pages viewed, features used, subscription funnel steps). Analytics events never contain the text of your conversations, reflections, or letters.
             {' '}
             We do not intentionally collect special categories of personal data (health, religion, etc.). Please avoid sharing such data with personas.
           </Section>
@@ -43,10 +43,12 @@ export default function PrivacyPage() {
             Maintaining audit trail of disclaimer acceptance and complying with legal obligations: legal obligation (Article 6(1)(c)).
             {' '}
             Preventing abuse, fraud, and security incidents: legitimate interest (Article 6(1)(f)).
+            {' '}
+            Product analytics: consent (Article 6(1)(a)).
           </Section>
 
           <Section title="4. Who Has Access (Processors)">
-            We work with the following third-party processors, each bound by data processing agreements: Supabase (database hosting, United States); Render (backend API hosting, United States); Anthropic (AI language model, United States); Resend (transactional email, United States); Netlify (frontend hosting, United States); Upstash (cache for rate limiting, Ireland/EU); and Stripe (payment processing, United States).
+            We work with the following third-party processors, each bound by data processing agreements: Supabase (database hosting, United States); Render (backend API hosting, United States); Anthropic (AI language model, United States); Resend (transactional email, United States); Netlify (frontend hosting, United States); Upstash (cache for rate limiting, Ireland/EU); Stripe (payment processing, United States); and PostHog (product analytics, hosted in the EU; activated only after you accept analytics cookies).
             {' '}
             When personal data is transferred outside the EU/EEA, we rely on Standard Contractual Clauses (SCCs) approved by the European Commission. We do not sell your personal data.
           </Section>
@@ -68,7 +70,7 @@ export default function PrivacyPage() {
           </Section>
 
           <Section title="8. Cookies">
-            We use only strictly necessary cookies for authentication and session management. We do not currently use analytics or marketing cookies; if this changes, we will update this Policy and obtain consent where required.
+            We use strictly necessary cookies for authentication and session management; these cannot be switched off. We also use analytics cookies (PostHog) to understand how the Service is used and to improve it &mdash; these are set only if you accept them in the cookie notice, and you can withdraw consent at any time from your Account page. We do not use marketing or advertising cookies.
           </Section>
 
           <Section title="9. Security">

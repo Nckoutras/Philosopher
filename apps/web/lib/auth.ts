@@ -1,5 +1,6 @@
 import { api } from './api'
 import { useStore } from './store'
+import { resetAnalytics } from './analytics'
 
 /**
  * The single definition of "become signed out."
@@ -21,6 +22,10 @@ import { useStore } from './store'
 export function signOut({ redirect = true }: { redirect?: boolean } = {}): void {
   api.setToken(null)
   useStore.getState().clearAuth()
+  // Before the redirect below, not after: window.location.replace tears the
+  // page down, so a reset queued afterwards would never run and the next user
+  // of this browser would inherit the previous distinct_id.
+  resetAnalytics()
   if (redirect && typeof window !== 'undefined') {
     window.location.replace('/auth?mode=signin')
   }
