@@ -1,8 +1,15 @@
 'use client'
 
 import { useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { useStore } from '@/lib/store'
 import type { PaywallDetails } from '@/lib/store'
+import { track } from '@/lib/analytics'
+
+// The surface id carried into /app/upgrade and into every event fired here.
+// One of the two allowed values (the other is 'persona_detail'); PR #3 reads it
+// off the query string to pick the benefit line.
+const SURFACE = 'paywall_modal'
 
 interface Props {
   open: boolean
@@ -20,8 +27,31 @@ function formatResetAt(date: Date): string {
   return `on ${date.toLocaleDateString([], { month: 'long', day: 'numeric' })} at ${timeStr}`
 }
 
+function upgradeHref(reason: string, personaSlug: string | null): string {
+  // URLSearchParams only ever receives defined values, so no key can serialize
+  // as the string "undefined" — the reason falls back to 'daily' at the call
+  // site and the persona key is omitted entirely when the slug is unknown.
+  const params = new URLSearchParams({ source: SURFACE, reason })
+  if (personaSlug) params.set('persona', personaSlug)
+  return `/app/upgrade?${params.toString()}`
+}
+
 export default function PaywallModal({ open, details, onClose }: Props) {
+  const router = useRouter()
   const personaName = useStore((s) => s.activePersonaName)
+  // Slug, never the display name: the name is user-facing copy, the slug is an
+  // internal id. Null on the quotes screen, where the paywall opens without an
+  // active conversation — the key is then left out of the URL.
+  const personaSlug = useStore((s) => s.activePersonaSlug)
+
+  // The 429 variant carries no `reason` at all (it is the else-branch of the
+  // render below), so 'daily' is the explicit default rather than an absence.
+  const reason = details?.reason ?? 'daily'
+
+  useEffect(() => {
+    if (!open || !details) return
+    track('paywall_viewed', { surface: SURFACE, reason })
+  }, [open, details, reason])
 
   useEffect(() => {
     if (!open) return
@@ -36,9 +66,6 @@ export default function PaywallModal({ open, details, onClose }: Props) {
 
   if (!open || !details) return null
 
-  // Single Pro tier. The button stays disabled with "Coming soon" until live
-  // Stripe ships — that is a later step, not this one.
-  const upgradeLabel = 'Pro'
   const personaLabel = personaName ?? 'this mind'
 
   return (
@@ -144,21 +171,16 @@ export default function PaywallModal({ open, details, onClose }: Props) {
         )}
 
         <div className="flex flex-col gap-3">
-          <div className="relative group">
-            <button
-              disabled
-              className="w-full bg-[rgba(31,27,20,0.3)] text-[rgba(239,227,204,0.6)] font-lora text-[14px] py-3 px-6 rounded-sm cursor-not-allowed"
-            >
-              Upgrade to {upgradeLabel} → Coming soon
-            </button>
-            {/* Desktop tooltip */}
-            <span
-              role="tooltip"
-              className="hidden group-hover:block absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-ink text-vellum font-lora text-[11px] rounded-sm whitespace-nowrap pointer-events-none"
-            >
-              Subscriptions launching soon.
-            </span>
-          </div>
+          <button
+            type="button"
+            onClick={() => {
+              track('upgrade_clicked', { surface: SURFACE, reason })
+              router.push(upgradeHref(reason, personaSlug))
+            }}
+            className="w-full bg-ink text-vellum font-lora text-[14px] py-3 px-6 rounded-sm hover:opacity-90 transition-opacity"
+          >
+            Upgrade to Pro
+          </button>
 
           <button
             onClick={onClose}
