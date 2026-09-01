@@ -24,5 +24,8 @@ python-dotenv==1.0.1
 pytest==8.3.3
 pytest-asyncio==0.24.0
 tiktoken==0.7.0
-Pillow>=10.4.0
+# Pinned, not floored. CI and Render each resolved this independently from a
+# >=10.4.0 floor and drifted across a major version; the card renderer's output
+# depends on the Pillow build (freetype, and whether the wheel carries Raqm).
+Pillow==12.3.0
 emoji==2.12.1

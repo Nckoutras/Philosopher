@@ -50,6 +50,25 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      # Informational only — `continue-on-error: true` on the step, and nothing
+      # here gates the build. It exists because a render assertion in the image-service
+      # suite was platform-dependent and cost nine red runs (#11-#19) before the
+      # cause was pinned down: the same U+2009 draws .notdef under basic layout and
+      # blanks under HarfBuzz's space fallback, so a card test can pass locally and
+      # fail here for reasons no log showed. Printing the imaging build turns that
+      # inference into a fact on every run.
+      - name: Environment report
+        working-directory: apps/api
+        continue-on-error: true
+        run: |
+          python - <<'PY'
+          from PIL import features
+          import PIL
+          print("Pillow          :", PIL.__version__)
+          print("raqm (harfbuzz) :", features.check("raqm"))
+          print("freetype2       :", features.version("freetype2"))
+          PY
+
       # Fails only on failures absent from apps/api/tests/ci_baseline_failures.txt.
       # The script runs pytest itself so it can be reproduced locally, verbatim.
       - name: pytest against committed baseline
