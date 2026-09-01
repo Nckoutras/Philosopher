@@ -158,6 +158,40 @@ Lessons that updated this protocol:
   condition before trusting it — three of these needed that, and none of
   the three was a defect in the product.
 
+- **2026-09-01**: Backend CI was red for eight days — from run #11 (PR #567,
+  Aug 24) through run #19 — and four PRs were merged over it: #567, #568,
+  #569, #571. The cause was one assertion in
+  `test_the_theme_eyebrow_is_renderable`, which measured whether U+2009 draws
+  a visible box in Lora. That is a property of the RUNNER, not of the product:
+  the font has no cmap entry for U+2009, so it resolves to `.notdef` — a drawn
+  rectangle under basic layout (Windows, Render) and a blank under HarfBuzz's
+  space fallback (the CI wheel). The test passed on the machine it was written
+  on and failed on every machine that mattered, from its first run onward.
+
+  **Nobody read a run.** The gap was not in the code review — the diff was
+  approved and the pushed tarball was verified against it, both correctly. It
+  was that the pre-merge verification step checked *the branch* and never
+  checked *CI status*, and a green merge button was read as a green build. The
+  button reflects branch-protection settings, not the Actions page.
+
+  Lesson: **the merge gate is THREE things — diff approved, tarball verified,
+  CI green on the PR — and the third is read from the Actions page, not
+  inferred from the merge button.** Two of the three had been enforced
+  rigorously for months, which is exactly why the third going unchecked
+  survived eight days and four merges.
+
+  Corollary, and the reason the gap was invisible: **"no run" is not "green".**
+  `backend-ci.yml` has a `paths:` filter, so a web-only PR produces no backend
+  run at all — #573 through #576 each produced zero, correctly. A glance at a
+  PR that shows no backend check looks identical to one that passed. The three
+  gates must be checked against the runs a PR actually triggered.
+
+  Fixed in #578, which replaced the render assertion with a source assertion
+  (the test now pins the decision #568 made — an explicit U+0020 at the theme
+  call site — instead of the runner's layout engine). (Squash merges rewrite
+  the SHA — a branch-SHA ancestry check will report a squash-merged fix as
+  unmerged. Check by commit title.)
+
 ## Future-proof first, shortcuts second
 
 Every proposal — code, schema, architecture — must be evaluated against
