@@ -28,6 +28,18 @@ INVESTIGATE → report → STOP → ruling → IMPLEMENT → full raw diff → S
 - After push: the planning assistant independently fetches the pushed
   branch and checks it against the approved diff before merge. Your
   report is a claim; this step is the evidence model.
+- The merge gate is THREE things, all three checked before the squash:
+  (1) the diff is approved; (2) the pushed branch is verified against
+  that diff; (3) **CI is green on the PR, read from the Actions page.**
+  The GitHub merge button reflects branch-protection settings, not the
+  build — it is not evidence of (3). Backend CI ran red for eight days
+  and four merges because (1) and (2) were enforced and (3) was assumed
+  (2026-09-01).
+- "No run" is not "green". `backend-ci.yml` has a `paths:` filter, so a
+  web-only PR produces no backend run at all; a PR showing no backend
+  check looks identical to one that passed. Check the runs the PR
+  actually triggered, and if a run you expected is absent, establish why
+  before merging.
 
 ## 2. Investigation discipline
 
