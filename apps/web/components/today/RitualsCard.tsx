@@ -16,7 +16,7 @@ export default function RitualsCard({ isPro, userEmail }: Props) {
 
   function handleSendToFutureSelf() {
     if (!isPro) {
-      router.push('/app/upgrade')
+      router.push('/app/upgrade?source=ritual')
       return
     }
     setScheduleOpen(true)

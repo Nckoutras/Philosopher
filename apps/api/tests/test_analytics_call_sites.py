@@ -35,6 +35,7 @@ _SAFE_CALL_NAMES = {
     "_interval_of",  # 'month' | 'year'
     "_latency_bucket",
     "strftime",      # ISO week bucket
+    "_source_of",    # allow-listed enum from Stripe metadata
 }
 
 
@@ -191,7 +192,8 @@ def test_the_council_matter_never_becomes_a_property():
         ("share_created", {"artifact_type"}),
         ("letter_delivered", {"week", "host", "reading_label"}),
         ("subscription_canceled", {"plan", "tenure_days"}),
-        ("subscription_activated", {"plan", "interval"}),
+        ("subscription_activated", {"plan", "interval", "source"}),
+        ("checkout_started", {"plan", "interval", "source"}),
     ],
 )
 def test_specific_sites_send_the_expected_keys(event, expected):

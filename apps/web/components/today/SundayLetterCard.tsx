@@ -46,7 +46,7 @@ export default function SundayLetterCard({ isPro }: Props) {
 
   function handleClick() {
     if (!isPro) {
-      router.push('/app/upgrade')
+      router.push('/app/upgrade?source=letter')
       return
     }
     if (unread) {

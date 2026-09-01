@@ -1341,10 +1341,18 @@ class ApiClient {
     return this.request<Subscription>('/billing/subscription')
   }
 
-  async createCheckout(plan: string, interval: 'monthly' | 'yearly' = 'monthly'): Promise<{ checkout_url: string }> {
+  /** `source` is the paywall that produced this checkout. Optional and omitted
+   *  when absent, so the two pre-existing callers are unchanged on the wire. It
+   *  reaches Stripe's session AND subscription metadata, which is what lets
+   *  checkout_started and subscription_activated be split by paywall. */
+  async createCheckout(
+    plan: string,
+    interval: 'monthly' | 'yearly' = 'monthly',
+    source?: string,
+  ): Promise<{ checkout_url: string }> {
     return this.request('/billing/checkout', {
       method: 'POST',
-      body: JSON.stringify({ plan, interval }),
+      body: JSON.stringify(source ? { plan, interval, source } : { plan, interval }),
     })
   }
 

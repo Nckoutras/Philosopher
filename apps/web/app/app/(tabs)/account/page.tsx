@@ -14,6 +14,7 @@ import {
   setConsent,
   initAnalytics,
   optOutAnalytics,
+  track,
 } from '@/lib/analytics'
 
 function useHydrated() {
@@ -79,7 +80,9 @@ export default function AccountPage() {
 
   async function handleSubscriptionTap() {
     if (plan === 'Free') {
-      router.push('/app/upgrade')
+      // A deliberate CTA: the user tapped the subscription row to change plan.
+      track('upgrade_clicked', { surface: 'account', reason: 'none' })
+      router.push('/app/upgrade?source=account')
       return
     }
     setPortalLoading(true)

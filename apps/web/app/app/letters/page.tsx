@@ -50,7 +50,7 @@ export default function LettersPage() {
       return
     }
     if (!isPro) {
-      router.replace('/app/upgrade')
+      router.replace('/app/upgrade?source=letter')
       return
     }
     api.getWeeklyLetters()

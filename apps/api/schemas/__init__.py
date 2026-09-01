@@ -266,6 +266,12 @@ class CheckoutRequest(BaseModel):
     # premium_monthly" — premium_monthly was removed from PLANS in #526.
     plan: str = Field(pattern="^pro$")
     interval: str = Field(default="monthly", pattern="^(monthly|yearly)$")
+    # Which paywall produced this checkout. SHAPE is validated here, not
+    # membership: the enum lives in apps/web/lib/upgradeCopy.ts, which is where
+    # it is read and rendered. Duplicating the list server-side would give two
+    # sources of truth that drift, and a value this endpoint does not recognise
+    # is a reporting gap, never a reason to refuse a payment.
+    source: str | None = Field(default=None, pattern="^[a-z_]{1,32}$")
 
 
 class CheckoutResponse(BaseModel):

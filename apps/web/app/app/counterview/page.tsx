@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { MessageCircle, Loader2, Bookmark, BookmarkCheck, Share2, CornerDownLeft, Send } from 'lucide-react'
+import { track } from '@/lib/analytics'
 import { useStore } from '@/lib/store'
 import { api, RateLimitError } from '@/lib/api'
 import type { Counterview, CounterviewListItem } from '@/lib/api'
@@ -309,7 +310,10 @@ export default function CounterviewPage() {
             </p>
             <button
               type="button"
-              onClick={() => router.push('/app/upgrade')}
+              onClick={() => {
+                track('upgrade_clicked', { surface: 'counterview', reason: 'none' })
+                router.push('/app/upgrade?source=counterview')
+              }}
               className="mt-[12px] px-[20px] py-[10px] rounded-[12px] bg-bronze text-vellum font-cormorant text-[16px] font-medium"
             >
               Go Pro

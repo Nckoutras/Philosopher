@@ -30,6 +30,20 @@ def _tenure_days(sub) -> int | None:
         return None
 
 
+def _source_of(obj) -> str | None:
+    """The paywall that produced this subscription, from Stripe metadata.
+
+    Works for both webhook shapes: the checkout Session carries it in its own
+    metadata, the Subscription carries the copy that subscription_data made.
+    None when the checkout predates this field or carried no source — analytics
+    only, and never allowed to raise inside a webhook.
+    """
+    try:
+        return ((obj or {}).get("metadata") or {}).get("source") or None
+    except Exception:
+        return None
+
+
 def _interval_of(stripe_sub) -> str | None:
     """'month' | 'year' from the Stripe subscription's first price. None if the
     payload shape is not what we expect — same fail-quiet rule as above."""
@@ -148,6 +162,24 @@ async def create_checkout(
 
     customer_id = await _resolve_customer_id(db, user, sub)
 
+    # BOTH metadata bags, and ONLY when there is a source to put in them.
+    #
+    # Why both: Stripe hands the two webhook cases different objects.
+    # `checkout.session.completed` receives the SESSION, so it reads session
+    # metadata. `customer.subscription.created|updated` receives the
+    # SUBSCRIPTION, which never sees session metadata — subscription_data is
+    # what Stripe copies onto the subscription at creation. Both cases fire
+    # subscription_activated, so a version that sets only one is silently
+    # half-instrumented.
+    #
+    # Why conditional: a checkout with no source must go to Stripe exactly as it
+    # did before this change. Passing metadata={} would alter the request for
+    # every existing caller to buy nothing.
+    checkout_kwargs: dict = {}
+    if body.source:
+        checkout_kwargs["metadata"] = {"source": body.source}
+        checkout_kwargs["subscription_data"] = {"metadata": {"source": body.source}}
+
     session = stripe.checkout.Session.create(
         customer=customer_id,
         mode="subscription",
@@ -155,9 +187,14 @@ async def create_checkout(
         success_url=f"{config.FRONTEND_URL}/app/account?checkout=success",
         cancel_url=f"{config.FRONTEND_URL}/app/account",
         allow_promotion_codes=True,
+        **checkout_kwargs,
     )
 
-    analytics_service.track("checkout_started", user.id, {"plan": body.plan, "interval": body.interval})
+    analytics_service.track("checkout_started", user.id, {
+        "plan": body.plan,
+        "interval": body.interval,
+        "source": body.source,
+    })
     return CheckoutResponse(checkout_url=session.url)
 
 
@@ -229,6 +266,9 @@ async def stripe_webhook(request: Request, db: AsyncSession = Depends(get_db)):
                             "subscription_activated", sub.user_id, {
                                 "plan": sub.plan,
                                 "interval": _interval_of(stripe_sub),
+                                # `obj` is the checkout Session here, so this is
+                                # the session metadata set at create_checkout.
+                                "source": _source_of(obj),
                             },
                         )
 
@@ -289,6 +329,9 @@ async def stripe_webhook(request: Request, db: AsyncSession = Depends(get_db)):
                 analytics_service.track("subscription_activated", sub.user_id, {
                     "plan": sub.plan,
                     "interval": _interval_of(obj),
+                    # `obj` is the Subscription here — this reads the metadata
+                    # that subscription_data carried over at creation.
+                    "source": _source_of(obj),
                 })
 
         case "customer.subscription.deleted":

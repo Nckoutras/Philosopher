@@ -71,7 +71,7 @@ export default function LetterReadPage() {
       return
     }
     if (!isPro) {
-      router.replace('/app/upgrade')
+      router.replace('/app/upgrade?source=letter')
       return
     }
 
