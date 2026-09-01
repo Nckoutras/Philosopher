@@ -6,6 +6,12 @@ import Image from 'next/image'
 import { useStore } from '@/lib/store'
 import { api, type Persona } from '@/lib/api'
 import { BronzeDivider } from '@/components/ui/BronzeDivider'
+import { track } from '@/lib/analytics'
+
+// This page is the second of the two high-intent paywall surfaces (the other is
+// PaywallModal). Both carry source + reason into /app/upgrade; PR #3 reads them.
+const SURFACE = 'persona_detail'
+const REASON = 'persona_locked'
 
 const TIER_LABELS: Record<Persona['tier'], string> = {
   free: 'FREE',
@@ -51,6 +57,14 @@ export default function PersonaDetailPage() {
       cancelled = true
     }
   }, [token, params.slug, router])
+
+  // Fires once the locked state is actually on screen — the persona-detail twin
+  // of the modal's paywall_viewed. Sits above the early returns below so the
+  // hook order stays fixed across the loading / error / not-found renders.
+  useEffect(() => {
+    if (!persona || persona.is_accessible) return
+    track('paywall_viewed', { surface: SURFACE, reason: REASON })
+  }, [persona])
 
   if (notFound) {
     return (
@@ -166,8 +180,13 @@ export default function PersonaDetailPage() {
                 <button
                   type="button"
                   onClick={() => {
-                    // Stripe wiring not yet implemented — placeholder
-                    alert('Stripe checkout coming soon.')
+                    track('upgrade_clicked', { surface: SURFACE, reason: REASON })
+                    const query = new URLSearchParams({
+                      source: SURFACE,
+                      reason: REASON,
+                      persona: persona.slug,
+                    })
+                    router.push(`/app/upgrade?${query.toString()}`)
                   }}
                   className="w-full h-[48px] rounded-sm font-cormorant text-[17px] font-medium bg-bronze text-vellum transition-colors"
                 >
