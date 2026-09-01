@@ -252,21 +252,39 @@ def test_the_non_council_cards_are_byte_identical_without_the_new_params():
 
 
 def test_the_theme_eyebrow_is_renderable():
-    """The theme line must not use _letterspace's default separator.
+    """The theme line must pass an explicit U+0020, not _letterspace's separator
+    by omission.
 
-    That default is U+2009 THIN SPACE. Lora-Regular has no glyph for it and draws
-    a tofu box, so the first rendered sample came out as
-    "L#E#A#V#I#N#G# #A# #S#T#A#B#L#E# #J#O#B". Every PNG-bytes assertion in this
-    file passed while that was on screen — bytes-valid is not the same as legible,
-    which is the whole reason this test measures glyphs instead.
+    WHY THIS IS A SOURCE ASSERTION AND NOT A RENDER ONE. It used to measure
+    glyphs: it asserted that U+2009 THIN SPACE draws a visible box in Lora and
+    that U+0020 draws nothing. That assertion is platform-dependent, and it made
+    Backend CI red from run #11 (the PR that added this test) through run #19 —
+    nine consecutive runs, four of them merged over.
+
+    The measured facts, taken from the shipped static/fonts/Lora-Regular.ttf:
+
+      * U+2009 has NO cmap entry, so it resolves to glyph 0, `.notdef`.
+      * `.notdef` in this font is a drawn rectangle (2 contours, xMin 50 →
+        xMax 464) — the tofu box.
+      * `space` (U+0020) has 0 contours, so it renders blank.
+
+    What varies is the LAYOUT ENGINE, not the font. Under basic layout (no
+    Raqm) a missing codepoint reaches `.notdef` and draws the box — that is
+    what Render rendered, and it is why the season eyebrow shipped as
+    "S#E#A#S#O#N# #.# #A#U#G#U#S#T" until #568. Under HarfBuzz (Pillow built
+    with Raqm) space characters absent from the font hit HarfBuzz's space
+    fallback and render blank instead, so `getbbox()` returns None and the old
+    assertion failed. Same font, same codepoint, opposite results.
+
+    So the render assertions were measuring the CI runner's Pillow build. What
+    is worth pinning is the decision #568 made — the theme call site passes an
+    explicit " " — and that is a fact about this repository's source, true on
+    every platform. The three assertions below check exactly that.
+
+    The default separator is covered separately, and still by measurement, in
+    test_the_letterspace_default_is_renderable.
     """
-    _require_fonts()
-    font = _load_font("Lora-Regular.ttf", COUNCIL_THEME_FONT_SIZE)
     thin = chr(0x2009)
-    assert font.getmask(thin).getbbox() is not None, (
-        "U+2009 now renders blank in Lora — the hazard this test guards is gone"
-    )
-    assert font.getmask(" ").getbbox() is None
     src = (Path(__file__).resolve().parents[2] / "services" / "image_service.py").read_text(encoding="utf-8")
     call = [ln for ln in src.splitlines() if "_letterspace(theme" in ln]
     assert call, "the theme _letterspace call moved"
