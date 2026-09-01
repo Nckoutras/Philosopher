@@ -3,6 +3,7 @@ import { Cormorant_Garamond, Lora } from 'next/font/google'
 import { ThemeProvider } from 'next-themes'
 import { Toaster } from 'react-hot-toast'
 import QueryProvider from '@/components/ui/QueryProvider'
+import AnalyticsProvider from '@/components/analytics/AnalyticsProvider'
 import './globals.css'
 
 const cormorant = Cormorant_Garamond({
@@ -75,6 +76,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ThemeProvider attribute="class" forcedTheme="light" enableSystem={false}>
           <QueryProvider>
             {children}
+            {/* Consent-gated: loads no SDK and sets no cookie until Accept. */}
+            <AnalyticsProvider />
             <Toaster
               position="bottom-right"
               toastOptions={{

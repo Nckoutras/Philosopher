@@ -5,7 +5,7 @@ logger = logging.getLogger(__name__)
 
 try:
     from posthog import Posthog
-    _ph = Posthog(project_api_key=config.POSTHOG_API_KEY, host="https://app.posthog.com") if config.POSTHOG_API_KEY else None
+    _ph = Posthog(project_api_key=config.POSTHOG_API_KEY, host=config.POSTHOG_HOST) if config.POSTHOG_API_KEY else None
 except ImportError:
     _ph = None
 
