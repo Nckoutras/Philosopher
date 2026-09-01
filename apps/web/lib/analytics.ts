@@ -90,6 +90,21 @@ export async function initAnalytics(): Promise<void> {
   try {
     const mod = await import('posthog-js')
     const posthog = mod.default
+    // EVERY AUTOMATIC CAPTURE IS OFF, AND MUST STAY OFF. Analytics here is the
+    // explicit track() calls in this repository and nothing else — no listener
+    // the product did not ask for.
+    //
+    // This is a privacy constraint, not a preference. Autocapture records the
+    // TEXT of the element clicked ("clicked button with text …", "clicked span
+    // with text …"), and in this product the things people click are saved
+    // lines, memory entries and conversation titles. That ships user writing to
+    // an analytics processor, and the privacy policy (v1.2 §1) states in as many
+    // words that analytics events never contain the text of conversations,
+    // reflections or letters. Autocapture was on in production and was doing
+    // exactly this.
+    //
+    // Adding an option here is fine. Removing one needs a privacy-policy read
+    // first — the test pins the whole object so a silent drop fails CI.
     posthog.init(key, {
       api_host: apiHost,
       // Anonymous visitors still produce $pageview (the landing half of the
@@ -100,6 +115,33 @@ export async function initAnalytics(): Promise<void> {
       // page load on navigation, so the SDK's own autocapture would record
       // only the first route of a session.
       capture_pageview: false,
+      // The one that was leaking element text.
+      autocapture: false,
+      // Replay of the actual session — the strongest form of the same problem.
+      disable_session_recording: true,
+      // Network timing AND Web Vitals (the "$web_vitals" events seen in
+      // production). Left undefined it falls back to REMOTE config, so an
+      // explicit false is the only way to keep it off from here.
+      capture_performance: false,
+      // Click coordinates and the elements under them.
+      capture_heatmaps: false,
+      // Survey display and response capture — not a measurement surface we run.
+      disable_surveys: true,
+      // Defaults to TRUE — the only option in this list that was on by its own
+      // default rather than by remote config. Rage clicks are detected inside
+      // the autocapture click path, so autocapture:false very likely stops them
+      // already; this makes it independent of that rather than contingent on it.
+      rageclick: false,
+      // Records the element under a click that did nothing. Same element data,
+      // same hazard as autocapture. Falls back to REMOTE config when undefined.
+      capture_dead_clicks: false,
+      // Unhandled errors, rejections and console errors — message and stack,
+      // neither of which we control the contents of. Falls back to REMOTE
+      // config when undefined. This top-level switch governs the whole feature;
+      // capture_unhandled_errors and friends are properties of
+      // ExceptionAutoCaptureConfig, only consulted when an object is passed
+      // here instead of false.
+      capture_exceptions: false,
     })
     // posthog-js PERSISTS an opt-out (a __ph_opt_in_out_<token> cookie), and
     // init() restores it. Without this, a user who switched Analytics off and

@@ -97,15 +97,64 @@ describe('consent gate', () => {
     await a.initAnalytics()
 
     expect(mockInit).toHaveBeenCalledTimes(1)
+    // The WHOLE options object, asserted by equality rather than by picking out
+    // the keys we care about today. toHaveBeenCalledWith is exact for object
+    // arguments, so dropping any line below — or adding an option nobody
+    // reviewed — fails here. That is deliberate: every entry after
+    // capture_pageview is a privacy control, and autocapture shipped ON to
+    // production recording the text of clicked elements.
     expect(mockInit).toHaveBeenCalledWith('phc_test', {
       api_host: 'https://eu.i.posthog.com',
       person_profiles: 'identified_only',
       capture_pageview: false,
+      autocapture: false,
+      disable_session_recording: true,
+      capture_performance: false,
+      capture_heatmaps: false,
+      disable_surveys: true,
+      rageclick: false,
+      capture_dead_clicks: false,
+      capture_exceptions: false,
     })
     expect(a.isInitialized()).toBe(true)
     // Proves importCount is live, which is what gives the Decline case below
     // its teeth — an always-0 counter would make that assertion vacuous.
     expect(importCount).toBe(1)
+  })
+
+  it('turns every automatic capture off', async () => {
+    // Named separately from the init-options assertion above so a regression
+    // reports as a PRIVACY failure rather than as a config mismatch. Each of
+    // these captures something the user did not ask us to record; autocapture
+    // in particular records the text of the clicked element, which in this
+    // product means saved lines, memory entries and conversation titles.
+    const a = await loadModule()
+    a.setConsent('granted')
+    await a.initAnalytics()
+
+    const opts = mockInit.mock.calls[0][1] as Record<string, unknown>
+    expect(opts.autocapture).toBe(false)
+    expect(opts.disable_session_recording).toBe(true)
+    expect(opts.capture_performance).toBe(false)
+    expect(opts.capture_heatmaps).toBe(false)
+    expect(opts.disable_surveys).toBe(true)
+    expect(opts.rageclick).toBe(false)
+    expect(opts.capture_dead_clicks).toBe(false)
+    expect(opts.capture_exceptions).toBe(false)
+    // THE REMOTE-CONFIG TRAP. These four are optional in PostHogConfig and
+    // documented as falling back to PostHog's REMOTE configuration when
+    // undefined — so for them "absent" is not "off", and the server can switch
+    // them on without a code change. Presence is asserted separately from
+    // value: a refactor that dropped the key would otherwise read as `undefined
+    // === not enabled`, which is exactly backwards.
+    for (const key of [
+      'capture_performance',
+      'capture_heatmaps',
+      'capture_dead_clicks',
+      'capture_exceptions',
+    ]) {
+      expect(Object.prototype.hasOwnProperty.call(opts, key)).toBe(true)
+    }
   })
 
   it('loads no SDK at all after Decline', async () => {
