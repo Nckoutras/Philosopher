@@ -32,7 +32,7 @@ export function useInsightDoors() {
   function primary(insight: Insight) {
     if (insight.insight_type === 'dilemma') {
       if (!isPro) {
-        router.push('/app/upgrade')
+        router.push('/app/upgrade?source=insight_door')
         return
       }
       sessionStorage.setItem('council_prefill', insight.content.slice(0, 600))
@@ -49,7 +49,7 @@ export function useInsightDoors() {
     }
     if (insight.insight_type === 'aspiration') {
       if (!isPro) {
-        router.push('/app/upgrade')
+        router.push('/app/upgrade?source=insight_door')
         return
       }
       router.push('/app/rituals?open=future-self')

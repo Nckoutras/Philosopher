@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Image from 'next/image'
+import { track } from '@/lib/analytics'
 import { useRouter } from 'next/navigation'
 import { api, type Persona } from '@/lib/api'
 import BottomSheet from '@/components/ui/BottomSheet'
@@ -56,7 +57,10 @@ export default function AnotherMindSheet({ open, onClose, excludeSlugs, onSelect
                 if (p.is_accessible) {
                   onSelect(p.slug)
                 } else {
-                  router.push('/app/upgrade')
+                  track('upgrade_clicked', { surface: 'persona_locked', reason: 'persona_locked' })
+                  router.push(
+                    `/app/upgrade?source=persona_locked&persona=${encodeURIComponent(p.slug)}`,
+                  )
                 }
               }}
               className="w-full text-left p-3 rounded-md border-[0.5px] border-edge bg-linen

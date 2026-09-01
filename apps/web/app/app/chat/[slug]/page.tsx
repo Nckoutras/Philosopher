@@ -77,7 +77,7 @@ export default function ChatPage() {
   const lastUserMessage = [...messages].reverse().find((m) => m.role === 'user')?.content ?? ''
   function handleTakeToCouncil() {
     if (!isPro) {
-      router.push('/app/upgrade')
+      router.push('/app/upgrade?source=council')
       return
     }
     if (!lastUserMessage.trim()) return

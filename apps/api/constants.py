@@ -91,11 +91,13 @@ ANALYTICS_EVENTS = {
     "letter_delivered":       ["week", "host", "reading_label"],
 
     # ── Monetisation ─────────────────────────────────────────────────────────
-    # `source` is absent by design: it lands in PR #3, which teaches the upgrade
-    # page to read ?source= and stashes it in the Stripe checkout session
-    # metadata so the webhook can put it on subscription_activated too.
-    "checkout_started":       ["plan", "interval"],
-    "subscription_activated": ["plan", "interval"],
+    # `source` is the paywall the checkout came from. It reaches the webhook
+    # through Stripe metadata — session metadata for checkout.session.completed,
+    # subscription_data.metadata for customer.subscription.*, because those two
+    # webhook cases receive different objects and both fire
+    # subscription_activated. None for a checkout that carried no source.
+    "checkout_started":       ["plan", "interval", "source"],
+    "subscription_activated": ["plan", "interval", "source"],
     # last_14d_features and reason are deferred to PR #5 (grace/dunning), which
     # touches the billing lifecycle anyway. When `reason` ships it is an enum,
     # never typed text.

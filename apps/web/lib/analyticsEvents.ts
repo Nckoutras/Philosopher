@@ -44,6 +44,15 @@ export const ANALYTICS_EVENTS = {
   // ── Monetisation ─────────────────────────────────────────────────────────
   // Shipped in #576, before this taxonomy existed. Listed here because the
   // registry test requires every fired name to be declared.
+  //
+  // upgrade_clicked fires from DELIBERATE CTAs only — a button or link whose
+  // whole purpose is "upgrade": PaywallModal, the persona detail page, and the
+  // account / counterview / self_portrait / share / locked-mind CTAs. It does
+  // NOT fire from the ten guard redirects that push a user to /app/upgrade
+  // because they tried to do something else. Those are the user being STOPPED,
+  // not choosing; counting them would inflate the numerator of the
+  // upgrade_clicked → checkout_started ratio this exists to measure. They stay
+  // visible through $pageview's $current_url, which carries ?source=.
   paywall_viewed: ['surface', 'reason'],
   upgrade_clicked: ['surface', 'reason'],
 } as const

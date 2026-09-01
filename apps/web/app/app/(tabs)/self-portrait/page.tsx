@@ -5,6 +5,7 @@ import toast from 'react-hot-toast'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
+import { track } from '@/lib/analytics'
 import { useStore } from '@/lib/store'
 import { api } from '@/lib/api'
 import type { SelfPortraitQuestion, SelfPortraitPortrait } from '@/lib/api'
@@ -855,7 +856,8 @@ export default function SelfPortraitPage() {
                     of life.
                   </p>
                   <Link
-                    href="/app/upgrade"
+                    href="/app/upgrade?source=self_portrait"
+                    onClick={() => track('upgrade_clicked', { surface: 'self_portrait', reason: 'none' })}
                     className="inline-block font-cormorant text-[16px] font-medium text-ink underline decoration-bronze/60 underline-offset-4"
                   >
                     See Pro

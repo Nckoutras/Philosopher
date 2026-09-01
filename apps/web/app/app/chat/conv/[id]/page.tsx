@@ -133,7 +133,7 @@ export default function ExistingConversationPage() {
   // existing Council wall (/app/upgrade), same as rituals' Council entry.
   function handleTakeToCouncil() {
     if (!isPro) {
-      router.push('/app/upgrade')
+      router.push('/app/upgrade?source=council')
       return
     }
     if (!lastUserMessage.trim()) return

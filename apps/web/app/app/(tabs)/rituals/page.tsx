@@ -38,14 +38,14 @@ export default function RitualsPage() {
 
   function handleBeginLetter() {
     if (!isPro) {
-      router.push('/app/upgrade')
+      router.push('/app/upgrade?source=letter')
       return
     }
     setScheduleOpen(true)
   }
 
   function handleOpenCouncil() {
-    if (!isPro) { router.push('/app/upgrade'); return }
+    if (!isPro) { router.push('/app/upgrade?source=council'); return }
     router.push('/app/council')
   }
 

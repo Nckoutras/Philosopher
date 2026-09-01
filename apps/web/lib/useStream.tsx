@@ -293,7 +293,9 @@ export function useStream() {
           personaVoice: err.personaVoice,
         })
       } else if (err instanceof Error && err.message === 'upgrade_required') {
-        router.push('/app/upgrade')
+        // Same condition as AnotherMindSheet's client-side guard: the backend's
+        // is_persona_accessible check on /another-mind. One name for one thing.
+        router.push(`/app/upgrade?source=persona_locked&persona=${encodeURIComponent(personaSlug)}`)
       } else {
         toast.error('Something went wrong. Please try again.')
       }
@@ -412,7 +414,11 @@ export function useStream() {
           personaVoice: err.personaVoice,
         })
       } else if (err instanceof Error && err.message === 'upgrade_required') {
-        router.push('/app/upgrade')
+        // NOTE: /go-deeper never returns upgrade_required — its only error_code
+        // is rate_limited (verified against routers/conversations.py). This branch
+        // is therefore unreachable today. Tagged anyway so it is correct if the
+        // guard is ever added; expect zero traffic on source=go_deeper until then.
+        router.push('/app/upgrade?source=go_deeper')
       } else {
         toast.error('Something went wrong. Please try again.')
       }
