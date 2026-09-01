@@ -1368,6 +1368,7 @@ async def _maybe_send_weekly_letter_email(db, user, letter, payload, persona, re
     one /unsubscribe/weekly endpoint (v1)."""
     from datetime import datetime, timezone
     from services.email_service import send_email
+    from services.analytics_service import analytics_service
     from services.unsubscribe_token import make_token
 
     try:
@@ -1414,6 +1415,15 @@ async def _maybe_send_weekly_letter_email(db, user, letter, payload, persona, re
         letter.email_sent_at = datetime.now(timezone.utc)
         await db.commit()
         logger.info("%s email sent user=%s letter=%s", reading_label, user.id, letter.id)
+        # After the send and the commit, never before: this event means an email
+        # left the building, not that one was composed. `week` is the ISO week of
+        # period_start (a bucket, not a date), `host` is the voice persona's slug.
+        # No subject, no body, no recipient -- letter text never leaves as a prop.
+        analytics_service.track("letter_delivered", str(user.id), {
+            "week": letter.period_start.strftime("%G-W%V") if letter.period_start else None,
+            "host": persona.slug if persona is not None else None,
+            "reading_label": reading_label,
+        })
     except Exception as e:
         logger.error("%s email failed user=%s: %s", reading_label, getattr(user, "id", "?"), e, exc_info=True)
 

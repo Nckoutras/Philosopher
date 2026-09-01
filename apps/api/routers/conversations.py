@@ -14,6 +14,7 @@ from schemas import (
 )
 from auth import get_current_user, get_current_user_plan, get_user_plan_streaming
 from services.conversation_service import conversation_service
+from services.analytics_service import analytics_service
 from services.tier_service import get_user_tier
 from services.persona_voice import get_error_voice
 import services.rate_limit_service as rate_limit_service
@@ -121,6 +122,21 @@ async def create_conversation(
     await db.refresh(conv, ["persona"])
     persona_config = get_persona(conv.persona.slug)
 
+    # The single instrumentation point for "a conversation began". The web app
+    # calls createConversation from nine places and there are two further
+    # creation endpoints; one server-side site cannot drift out of sync with
+    # eight others. The cost is `source`, which is not knowable here — the
+    # funnel gets it from the $pageview preceding this event.
+    #
+    # seeded_topic is the skip_opening flag: the caller supplied an opening
+    # thought instead of taking the persona's. A boolean, never the text.
+    analytics_service.track("conversation_started", user.id, {
+        "persona_slug": conv.persona.slug,
+        "ritual_id": body.ritual_id,
+        "seeded_topic": bool(body.skip_opening),
+        "via": "direct",
+    })
+
     return ConversationOut(
         id=conv.id,
         persona=PersonaOut(
@@ -161,6 +177,18 @@ async def create_cross_persona_conversation(
     await db.commit()
     await db.refresh(conv, ["persona"])
 
+    # Same event, other doors. /cross-persona and /reading-revisit also create
+    # conversations; leaving them silent would undercount the top of the funnel,
+    # which is the one number a funnel cannot afford to be wrong about. `via`
+    # separates them without needing three event names.
+    analytics_service.track("conversation_started", user.id, {
+        "persona_slug": conv.persona.slug,
+        "ritual_id": None,
+        "seeded_topic": True,
+        "via": "cross_persona",
+    })
+
+
     source_contents = await _build_source_contents(db, [conv])
     return _conv_out(conv, source_contents)
 
@@ -191,6 +219,18 @@ async def create_reading_revisit_conversation(
         raise HTTPException(status_code=403, detail=str(e))
 
     await db.refresh(conv, ["persona"])
+
+    # Same event, other doors. /cross-persona and /reading-revisit also create
+    # conversations; leaving them silent would undercount the top of the funnel,
+    # which is the one number a funnel cannot afford to be wrong about. `via`
+    # separates them without needing three event names.
+    analytics_service.track("conversation_started", user.id, {
+        "persona_slug": conv.persona.slug,
+        "ritual_id": None,
+        "seeded_topic": True,
+        "via": "reading_revisit",
+    })
+
     persona_config = get_persona(conv.persona.slug)
 
     return ConversationOut(

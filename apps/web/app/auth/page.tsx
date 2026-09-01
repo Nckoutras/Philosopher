@@ -4,6 +4,8 @@ import { Suspense, useState, useEffect, type FormEvent } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import toast from 'react-hot-toast'
 import { api } from '@/lib/api'
+import { track } from '@/lib/analytics'
+import { deviceClass } from '@/lib/analyticsEvents'
 
 export const dynamic = 'force-dynamic'
 
@@ -55,6 +57,11 @@ function AuthForm() {
 
     const trimmedEmail = email.trim().toLowerCase()
     setIsLoading(true)
+
+    // Before the request, not after: this measures INTENT to sign up, and an
+    // OTP request that fails is exactly the drop-off worth seeing. The email is
+    // not a property and never will be.
+    track('signup_started', { source: searchParams.get('mode') ?? 'direct', device: deviceClass() })
 
     try {
       await api.requestOtp(trimmedEmail)

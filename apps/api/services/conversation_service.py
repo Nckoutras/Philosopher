@@ -826,7 +826,11 @@ class ConversationService:
             user_msg_created_at = user_msg.created_at
             retrieval_ids = [str(p.id) for p in passages]
             retrieval_hit = len(passages) > 0
-            memory_hit = len(memories) > 0
+            # Count, not a boolean: the Blueprint asked for memory_reference_rendered
+            # with a memory_ids_count. Nothing RENDERS a memory reference (the SSE
+            # stream carries no memory event and "brought in" is another persona), so
+            # the count rides on the event that already knew the answer.
+            memory_count = len(memories)
             conv_message_count = conv.message_count
             conv_title = conv.title
             conv_ritual_id = conv.ritual_id
@@ -1123,7 +1127,7 @@ class ConversationService:
             "conversation_id": conversation_id,
             "safety_level": safety_in.level,
             "retrieval_hit": retrieval_hit,
-            "memory_hit": memory_hit,
+            "memory_count": memory_count,
             "latency_ms": latency_ms,
         })
 

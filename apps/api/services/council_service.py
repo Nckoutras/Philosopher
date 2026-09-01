@@ -1,5 +1,7 @@
 import asyncio
 import json
+from time import perf_counter
+from services.analytics_service import analytics_service
 import logging
 from datetime import datetime, timedelta, timezone
 from typing import AsyncGenerator
@@ -34,6 +36,18 @@ COUNCIL_MEMBERS = [
     "simone_de_beauvoir",
 ]
 WEEKLY_LIMIT_PER_SOURCE = 1
+
+
+def _latency_bucket(seconds: float) -> str:
+    """Coarse buckets, deliberately not milliseconds. Analytics answers "is this
+    too slow to sit through", which a bucket answers and a raw number does not."""
+    if seconds < 10:
+        return "under_10s"
+    if seconds < 30:
+        return "10_30s"
+    if seconds < 60:
+        return "30_60s"
+    return "over_60s"
 
 
 def _iso_week_start() -> datetime:
@@ -205,6 +219,7 @@ class CouncilService:
         db.add(session)
         await db.flush()
 
+        _t0 = perf_counter()
         yield f"data: {json.dumps({'type': 'convening'})}\n\n"
 
         # ── 3. FOUR MEMBER VERDICTS ───────────────────────────────────────
@@ -371,6 +386,21 @@ class CouncilService:
                 )
             except Exception as exc:
                 logger.error(f"Council edit-to-memory enqueue failed for user={user_id}: {exc}")
+
+        # Fired where the stream actually completes, not where it starts: a
+        # council that dies mid-synthesis produces council_started with no
+        # council_completed, which is exactly the gap worth seeing.
+        #
+        # member_count is how many of the four members returned a verdict --
+        # member_unavailable is yielded per slug, so this is a real measurement
+        # rather than a constant 4. latency_bucket is a bucket, not milliseconds:
+        # the decision it informs is "is the council too slow to sit through",
+        # which a bucket answers and a raw number obscures. No used_memory --
+        # this service passes memories=[] unconditionally.
+        analytics_service.track("council_completed", user_id, {
+            "member_count": len(verdicts),
+            "latency_bucket": _latency_bucket(perf_counter() - _t0),
+        })
 
         yield f"data: {json.dumps({'type': 'done', 'case_id': case.id, 'session_id': session.id})}\n\n"
 

@@ -13,6 +13,7 @@ import services.rate_limit_service as rate_limit_service
 from models import CouncilCase, CouncilSave, CouncilSession
 from schemas import CouncilCreate
 from services.council_service import council_service, _iso_week_start
+from services.analytics_service import analytics_service
 from services.image_service import generate_council_share_image
 
 FREE_SHARE_LIMIT  = 3
@@ -43,6 +44,20 @@ async def create_council(
     matter = (body.matter or "").strip()
     if not matter:
         return JSONResponse(status_code=400, content={"error_code": "empty_matter"})
+
+    # `matter` is the user's question, in their own words. It is the single most
+    # sensitive string on this route and it NEVER becomes a property — not
+    # truncated, not hashed, not "just the first few words". source and
+    # used_memory are the whole payload.
+    # `used_memory` is deliberately NOT here. council_service passes
+    # memories=[] unconditionally (council_service.py:227) — the council never
+    # consults memory — so the property would be a hardcoded False on every
+    # event. A constant is not a measurement; worse, a dashboard reading
+    # "used_memory: false, 100%" invites the conclusion that memory does not
+    # help the council, when the truth is that the council never asks.
+    # used_memory returns with Memory v2 (P1), when the council actually
+    # consults memory.
+    analytics_service.track("council_started", user.id, {"source": body.source})
     if len(matter) > MATTER_MAX_CHARS:
         return JSONResponse(status_code=400, content={"error_code": "matter_too_long"})
 
@@ -142,6 +157,7 @@ async def save_council_session(
         row.deleted_at = None
 
     await db.commit()
+    analytics_service.track("council_saved", user.id, {})
     return {"saved": True}
 
 
@@ -204,5 +220,8 @@ async def share_council_session(
         )
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
+
+    # See routers/share.py for why artifact_type is the only property.
+    analytics_service.track("share_created", user.id, {"artifact_type": "council"})
 
     return Response(content=png_bytes, media_type="image/png")

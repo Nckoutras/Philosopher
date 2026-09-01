@@ -1,3 +1,4 @@
+from services.analytics_service import analytics_service
 from typing import Optional
 from uuid import UUID
 
@@ -70,6 +71,13 @@ async def create_share_screenshot(
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
+    # One event for every artifact a person chose to share. artifact_type is
+    # the only property: there is no share_id yet (all six endpoints return raw
+    # PNG bytes and persist nothing) and no channel (the OS share sheet never
+    # tells us where it went). Both arrive with the P3 public share page, which
+    # is also what makes share_landing_view and share_signup possible.
+    analytics_service.track("share_created", user.id, {"artifact_type": "screenshot"})
+
     return Response(content=png_bytes, media_type="image/png")
 
 
@@ -108,6 +116,13 @@ async def create_share_counterview(
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
+    # One event for every artifact a person chose to share. artifact_type is
+    # the only property: there is no share_id yet (all six endpoints return raw
+    # PNG bytes and persist nothing) and no channel (the OS share sheet never
+    # tells us where it went). Both arrive with the P3 public share page, which
+    # is also what makes share_landing_view and share_signup possible.
+    analytics_service.track("share_created", user.id, {"artifact_type": "counterview"})
+
     return Response(content=png_bytes, media_type="image/png")
 
 
@@ -145,5 +160,12 @@ async def create_share_quote(
         )
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
+
+    # One event for every artifact a person chose to share. artifact_type is
+    # the only property: there is no share_id yet (all six endpoints return raw
+    # PNG bytes and persist nothing) and no channel (the OS share sheet never
+    # tells us where it went). Both arrive with the P3 public share page, which
+    # is also what makes share_landing_view and share_signup possible.
+    analytics_service.track("share_created", user.id, {"artifact_type": "quote"})
 
     return Response(content=png_bytes, media_type="image/png")

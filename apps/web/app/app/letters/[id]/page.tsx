@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation'
 import Image from 'next/image'
 import { ChevronLeft } from 'lucide-react'
 import { useStore } from '@/lib/store'
+import { track } from '@/lib/analytics'
 import { api } from '@/lib/api'
 import type { WeeklyLetter, Persona } from '@/lib/api'
 import { RITUALS, RITUAL_INFO } from '@/lib/rituals'
@@ -94,8 +95,25 @@ export default function LetterReadPage() {
     load()
   }, [token, isPro, id, router, markLetterRead])
 
+  // ISO week of the letter's period, a bucket rather than a date, plus the
+  // voice persona's slug. Never the letter's title or body.
+  function letterProps(action: string) {
+    const d = letter?.period_start ? new Date(letter.period_start) : null
+    let week = 'unknown'
+    if (d && !Number.isNaN(d.getTime())) {
+      const t = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()))
+      const day = t.getUTCDay() || 7
+      t.setUTCDate(t.getUTCDate() + 4 - day)
+      const yearStart = new Date(Date.UTC(t.getUTCFullYear(), 0, 1))
+      const n = Math.ceil(((t.getTime() - yearStart.getTime()) / 86400000 + 1) / 7)
+      week = `${t.getUTCFullYear()}-W${String(n).padStart(2, '0')}`
+    }
+    return { week, host: letter?.voice_persona_slug ?? 'unknown', action }
+  }
+
   async function handleStartConversation(slug: string) {
     if (startingConv) return
+    track('letter_action', letterProps('discuss'))
     setStartingConv(true)
     try {
       const conv = await api.createConversation(slug)
@@ -308,7 +326,10 @@ export default function LetterReadPage() {
             </p>
             <button
               type="button"
-              onClick={() => router.push(ritualHref(ritualMeta.slug))}
+              onClick={() => {
+                track('letter_action', letterProps('ritual'))
+                router.push(ritualHref(ritualMeta.slug))
+              }}
               className="w-full flex items-center gap-[14px] text-left"
             >
               <div className="w-[48px] h-[48px] rounded-[8px] overflow-hidden flex-shrink-0 bg-linen border border-edge">
@@ -385,7 +406,10 @@ export default function LetterReadPage() {
         {payload.pull_quote && (
           <button
             type="button"
-            onClick={() => setShareOpen(true)}
+            onClick={() => {
+            track('letter_action', letterProps('share'))
+            setShareOpen(true)
+          }}
             className="mt-[12px] w-full h-[48px] rounded-sm border border-[0.5px] border-ink font-cormorant text-[17px] font-medium text-ink transition-colors"
           >
             Share this letter

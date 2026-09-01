@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { api, Message, RateLimitError, SSEEvent, SSEEventStart } from '@/lib/api'
 import { useStore } from '@/lib/store'
+import { track } from '@/lib/analytics'
+import { latencyBucket } from '@/lib/analyticsEvents'
 import toast from 'react-hot-toast'
 
 export function useStream() {
@@ -28,6 +30,9 @@ export function useStream() {
   useEffect(() => () => controllerRef.current?.abort(), [])
 
   const send = useCallback(async (content: string, seededOpening: boolean = false) => {
+    // Clock for first_reply_rendered, started at the send rather than at the
+    // request: what the user experiences as latency begins when they tap.
+    const _t0 = Date.now()
     if (!activeConversationId) return
 
     // Abort any prior in-flight stream before starting a new one.
@@ -116,6 +121,15 @@ export function useStream() {
               useStore.getState().setStreamingContent('')
               break
             case 'done': {
+              // first_reply_rendered: the reply is on screen NOW. The server
+              // knows when it finished streaming; only the browser knows when
+              // the user could read it, which is the number that matters for
+              // "is this too slow to wait through". A bucket, never raw ms.
+              track('first_reply_rendered', {
+                persona: useStore.getState().activePersonaSlug ?? 'unknown',
+                latency_bucket: latencyBucket(Date.now() - _t0),
+                origin: 'send',
+              })
               // Skip appending an empty assistant message when safety fired;
               // SafetyBubble represents that response in the UI.
               if (!useStore.getState().safetyActive) {
@@ -174,6 +188,9 @@ export function useStream() {
   }, [activeConversationId, appendMessage, setStreaming, appendStreamingContent, resetStreaming, setSafetyActive, setStreamError, setShowPaywall, setCorrection, appendCorrectionContent])
 
   const sendAnotherMind = useCallback(async (personaSlug: string) => {
+    // Clock for first_reply_rendered, started at the send rather than at the
+    // request: what the user experiences as latency begins when they tap.
+    const _t0 = Date.now()
     if (!activeConversationId) return
 
     controllerRef.current?.abort()
@@ -228,6 +245,15 @@ export function useStream() {
               appendStreamingContent(event.data)
               break
             case 'done': {
+              // first_reply_rendered: the reply is on screen NOW. The server
+              // knows when it finished streaming; only the browser knows when
+              // the user could read it, which is the number that matters for
+              // "is this too slow to wait through". A bucket, never raw ms.
+              track('first_reply_rendered', {
+                persona: useStore.getState().activePersonaSlug ?? 'unknown',
+                latency_bucket: latencyBucket(Date.now() - _t0),
+                origin: 'another_mind',
+              })
               const assistantMsg: Message = {
                 id: event.message_id ?? crypto.randomUUID(),
                 role: 'assistant',
@@ -276,6 +302,9 @@ export function useStream() {
   }, [activeConversationId, appendMessage, setStreaming, appendStreamingContent, resetStreaming, setSafetyActive, setStreamError, setShowPaywall, setStreamingBroughtIn, router])
 
   const sendGoDeeper = useCallback(async () => {
+    // Clock for first_reply_rendered, started at the send rather than at the
+    // request: what the user experiences as latency begins when they tap.
+    const _t0 = Date.now()
     if (!activeConversationId) return
 
     controllerRef.current?.abort()
@@ -324,6 +353,15 @@ export function useStream() {
               appendStreamingContent(event.data)
               break
             case 'done': {
+              // first_reply_rendered: the reply is on screen NOW. The server
+              // knows when it finished streaming; only the browser knows when
+              // the user could read it, which is the number that matters for
+              // "is this too slow to wait through". A bucket, never raw ms.
+              track('first_reply_rendered', {
+                persona: useStore.getState().activePersonaSlug ?? 'unknown',
+                latency_bucket: latencyBucket(Date.now() - _t0),
+                origin: 'go_deeper',
+              })
               const assistantMsg: Message = {
                 id: event.message_id ?? crypto.randomUUID(),
                 role: 'assistant',
