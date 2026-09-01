@@ -1,4 +1,5 @@
 import logging
+from services.analytics_service import analytics_service
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
@@ -232,5 +233,12 @@ async def share_weekly_letter(
         )
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
+
+    # One event for every artifact a person chose to share. artifact_type is
+    # the only property: there is no share_id yet (all six endpoints return raw
+    # PNG bytes and persist nothing) and no channel (the OS share sheet never
+    # tells us where it went). Both arrive with the P3 public share page, which
+    # is also what makes share_landing_view and share_signup possible.
+    analytics_service.track("share_created", user.id, {"artifact_type": "letter"})
 
     return Response(content=png_bytes, media_type="image/png")

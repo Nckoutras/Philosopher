@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime, timezone
 
 import stripe
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -11,6 +12,35 @@ from auth import get_current_user
 from services.analytics_service import analytics_service
 from constants import PLAN_FEATURES, TIER_ORDER
 from config import config
+
+def _tenure_days(sub) -> int | None:
+    """Whole days from subscription row creation to now. None if unknown.
+
+    Analytics-only, and never allowed to raise: a webhook that 500s because a
+    tenure could not be computed would cost a real subscription update.
+    """
+    try:
+        created = sub.created_at
+        if created is None:
+            return None
+        if created.tzinfo is None:
+            created = created.replace(tzinfo=timezone.utc)
+        return max(0, (datetime.now(timezone.utc) - created).days)
+    except Exception:
+        return None
+
+
+def _interval_of(stripe_sub) -> str | None:
+    """'month' | 'year' from the Stripe subscription's first price. None if the
+    payload shape is not what we expect — same fail-quiet rule as above."""
+    try:
+        items = (stripe_sub or {}).get("items", {}).get("data", [])
+        if not items:
+            return None
+        return items[0].get("price", {}).get("recurring", {}).get("interval")
+    except Exception:
+        return None
+
 
 router = APIRouter(prefix="/billing", tags=["billing"])
 stripe.api_key = config.STRIPE_SECRET_KEY
@@ -196,7 +226,10 @@ async def stripe_webhook(request: Request, db: AsyncSession = Depends(get_db)):
                         sub.current_period_end = _ts(_period_end_from_stripe(stripe_sub))
                         sub.cancel_at_period_end = stripe_sub.get("cancel_at_period_end", False)
                         analytics_service.track(
-                            "subscription_activated", sub.user_id, {"plan": sub.plan}
+                            "subscription_activated", sub.user_id, {
+                                "plan": sub.plan,
+                                "interval": _interval_of(stripe_sub),
+                            },
                         )
 
         case "invoice.payment_succeeded":
@@ -249,7 +282,14 @@ async def stripe_webhook(request: Request, db: AsyncSession = Depends(get_db)):
                 # inventing a date here would revoke access somebody chose to give.
 
                 sub.cancel_at_period_end = obj.get("cancel_at_period_end", False)
-                analytics_service.track("subscription_activated", sub.user_id, {"plan": sub.plan})
+                # interval comes off the Stripe price, not the local row: the row
+                # records WHAT was bought, the price records HOW OFTEN. `source`
+                # is absent by design — PR #3 stashes it in the checkout session
+                # metadata, which is where this webhook will read it from.
+                analytics_service.track("subscription_activated", sub.user_id, {
+                    "plan": sub.plan,
+                    "interval": _interval_of(obj),
+                })
 
         case "customer.subscription.deleted":
             result = await db.execute(
@@ -257,9 +297,21 @@ async def stripe_webhook(request: Request, db: AsyncSession = Depends(get_db)):
             )
             sub = result.scalar_one_or_none()
             if sub:
+                canceled_plan = sub.plan
                 sub.status = "canceled"
                 sub.plan = "free"
-                analytics_service.track("subscription_canceled", sub.user_id, {"plan": sub.plan})
+                # tenure_days is the whole point of the event: a cancel at day 3
+                # and a cancel at day 300 are different products failing. Read
+                # BEFORE plan is overwritten to "free" above would be wrong —
+                # the plan they cancelled is what we want, so it is captured
+                # into a local first.
+                #
+                # last_14d_features and reason are deferred to PR #5
+                # (grace/dunning); reason will be an enum, never typed text.
+                analytics_service.track("subscription_canceled", sub.user_id, {
+                    "plan": canceled_plan,
+                    "tenure_days": _tenure_days(sub),
+                })
 
         case "invoice.payment_failed":
             result = await db.execute(

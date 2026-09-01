@@ -35,33 +35,74 @@ PLAN_FEATURES: dict[str, dict] = {
 
 # Analytics event names — single source of truth
 ANALYTICS_EVENTS = {
-    # Acquisition
-    "user_registered":        ["source", "plan"],
-    "onboarding_completed":   ["persona_slug", "time_to_complete_s"],
-    # Engagement
-    "persona_selected":       ["persona_slug", "tier", "source"],
-    "conversation_started":   ["persona_slug", "ritual_id"],
+    # THE BACKEND HALF OF THE TAXONOMY, AND ITS SOURCE OF TRUTH.
+    #
+    # This dict used to be inert: 21 names, 15 of which no code had ever fired,
+    # one name that fired without being declared (user_signed_in), and nothing
+    # anywhere that imported it. It documented an intention and drifted from the
+    # code for months without anything noticing.
+    #
+    # It is now enforced, by tests rather than at runtime — see
+    # tests/test_analytics_registry.py, which walks the AST of every module and
+    # asserts BOTH directions: every analytics_service.track("...") literal
+    # appears here, and every name here has at least one call site. A name with
+    # no caller is deleted, not left as an aspiration.
+    #
+    # Enforcement is deliberately not a runtime check. An unknown event name
+    # must never raise inside a request that was otherwise going to succeed;
+    # analytics is an observer and may not change what the product does.
+    #
+    # The web half lives in apps/web/lib/analyticsEvents.ts under the same rule.
+    # Names shared by both halves must carry the same property list.
+    #
+    # Property values are ids, enums, counts and buckets. Never conversation
+    # text, memory text, letter text, an email, or the council `matter`.
+
+    # ── Acquisition ──────────────────────────────────────────────────────────
+    # Renamed from user_registered: one conversion, one name, matching the web
+    # side's signup_started. No web twin — double-counting a signup is worse
+    # than missing `source` on it.
+    "signup_completed":       ["method", "plan"],
+    "user_signed_in":         ["method"],
+
+    # ── Engagement ───────────────────────────────────────────────────────────
+    # Fired server-side at all THREE creation endpoints — /conversations,
+    # /cross-persona and /reading-revisit — because an undercounted top of
+    # funnel is the one number a funnel cannot afford to be wrong about. `via`
+    # tells them apart without three event names. Server-side rather than at the
+    # nine web createConversation call sites: one route cannot drift out of sync
+    # with eight others. The cost is `source`, which is not knowable here.
+    "conversation_started":   ["persona_slug", "ritual_id", "seeded_topic", "via"],
+    # memory_count replaces the former memory_hit boolean. The Blueprint asked
+    # for memory_reference_rendered; nothing renders a memory reference (the SSE
+    # stream has no memory event and `brought in` is another persona), so the
+    # count rides on the event that already knew the answer.
     "message_sent":           ["persona_slug", "conversation_id", "safety_level",
-                               "retrieval_hit", "memory_hit", "latency_ms"],
-    "conversation_ended":     ["persona_slug", "turn_count", "duration_s"],
-    "ritual_started":         ["ritual_slug", "persona_slug"],
-    "ritual_completed":       ["ritual_slug", "persona_slug", "streak_count"],
-    "insight_viewed":         ["insight_type", "persona_slug"],
-    "insight_dismissed":      ["insight_type"],
-    "memory_deleted":         [],
-    # Monetisation
-    "upgrade_banner_viewed":  ["source_page", "plan"],
-    "upgrade_cta_clicked":    ["source_page", "plan"],
+                               "retrieval_hit", "memory_count", "latency_ms"],
+    # No `used_memory` on either: council_service passes memories=[]
+    # unconditionally (council_service.py), so the property would be a hardcoded
+    # False on every event. A constant is not a measurement — and a dashboard
+    # reading "used_memory: false, 100%" invites the conclusion that memory does
+    # not help the council, when the truth is the council never asks.
+    "council_started":        ["source"],
+    "council_completed":      ["member_count", "latency_bucket"],
+    "council_saved":          [],
+    "share_created":          ["artifact_type"],
+    "letter_delivered":       ["week", "host", "reading_label"],
+
+    # ── Monetisation ─────────────────────────────────────────────────────────
+    # `source` is absent by design: it lands in PR #3, which teaches the upgrade
+    # page to read ?source= and stashes it in the Stripe checkout session
+    # metadata so the webhook can put it on subscription_activated too.
     "checkout_started":       ["plan", "interval"],
-    "subscription_activated": ["plan", "trial"],
-    "subscription_canceled":  ["plan", "reason"],
-    "subscription_reactivated": ["plan"],
-    # Safety (no PII)
+    "subscription_activated": ["plan", "interval"],
+    # last_14d_features and reason are deferred to PR #5 (grace/dunning), which
+    # touches the billing lifecycle anyway. When `reason` ships it is an enum,
+    # never typed text.
+    "subscription_canceled":  ["plan", "tenure_days"],
+
+    # ── Safety (no PII) ──────────────────────────────────────────────────────
     "safety_event_pre":       ["risk_level", "category"],
-    "safety_event_post":      ["risk_level", "category"],
-    # Retention
-    "session_started":        ["day_of_week", "hour"],
-    "streak_milestone":       ["days"],
 }
 
 # Safety risk levels in ascending severity

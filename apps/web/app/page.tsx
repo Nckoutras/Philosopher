@@ -7,6 +7,7 @@ import { BronzeDivider } from '@/components/ui/BronzeDivider'
 import { LandingSections } from '@/components/landing/LandingSections'
 import { LANDING_COPY } from '@/lib/landing-copy'
 import { useStore } from '@/lib/store'
+import { track } from '@/lib/analytics'
 
 // Real LQIP for the hero, minted from public/personas/wise-room-hero-v2.webp (16px
 // wide, WebP) — shown as a blurred placeholder so there's no empty-box pop-in
@@ -26,6 +27,17 @@ export default function RootPage() {
       setAuthChecked(true)
     }
   }, [token, router])
+
+  // The top of the funnel. Fired only for a signed-OUT visitor: a signed-in
+  // user is redirected to /app/today above and never sees the landing page, so
+  // counting them would inflate the denominator of every conversion below it.
+  //
+  // No utm_* or referrer props — posthog-js attaches both to every event on its
+  // own (save_campaign_params / save_referrer, unaffected by autocapture:false).
+  useEffect(() => {
+    if (!authChecked) return
+    track('landing_view')
+  }, [authChecked])
 
   // W4: pure vellum background only during auth check — no spinner, no wordmark
   if (!authChecked) {

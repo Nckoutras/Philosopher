@@ -158,7 +158,7 @@ async def google_oauth_callback(
             # No email property — see routers/auth.py.
             analytics_service.identify(user.id, {"plan": "free"})
             analytics_service.track(
-                "user_registered", user.id, {"plan": "free", "method": "google"}
+                "signup_completed", user.id, {"plan": "free", "method": "google"}
             )
         except Exception:
             logger.warning("OAuth signup analytics failed (non-fatal)", exc_info=True)

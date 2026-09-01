@@ -56,7 +56,15 @@ async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
     # No email property: distinct_id is the internal user id and person
     # profiles carry no direct identifier (data minimization, GDPR Art. 5(1)(c)).
     analytics_service.identify(user.id, {"plan": "free"})
-    analytics_service.track("user_registered", user.id, {"plan": "free"})
+    # Renamed from user_registered: one conversion, one event name,
+    # paired with the web-side signup_started. `method` is explicit rather
+    # than omitted so the registry's property list holds at every site.
+    #
+    # NOTE: this route has no web caller. api.register() exists in
+    # apps/web/lib/api.ts but no page or component invokes it — the app signs
+    # in through OTP and Google only. The label is still "password" so the
+    # property holds, but the route itself is a deletion candidate.
+    analytics_service.track("signup_completed", user.id, {"plan": "free", "method": "password"})
 
     token = create_token(user.id, user.email, user.token_version)
     needs_disclaimer = await user_needs_acceptance(user.id, db)
@@ -216,7 +224,7 @@ async def otp_verify(body: OtpVerifyRequest, db: AsyncSession = Depends(get_db))
         await db.commit()
         # No email property — see the signup path above.
         analytics_service.identify(user.id, {"plan": "free"})
-        analytics_service.track("user_registered", user.id, {"plan": "free", "method": "otp"})
+        analytics_service.track("signup_completed", user.id, {"plan": "free", "method": "otp"})
     else:
         analytics_service.track("user_signed_in", user.id, {"method": "otp"})
 
