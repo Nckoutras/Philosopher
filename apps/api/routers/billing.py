@@ -4,9 +4,10 @@ from datetime import datetime, timezone
 import stripe
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, delete
+from sqlalchemy.exc import IntegrityError
 from db.session import get_db
-from models import User, Subscription
+from models import User, Subscription, StripeEvent, SubscriptionEvent
 from schemas import CheckoutRequest, CheckoutResponse, PortalResponse, SubscriptionOut
 from auth import get_current_user
 from services.analytics_service import analytics_service
@@ -14,18 +15,29 @@ from constants import PLAN_FEATURES, TIER_ORDER
 from config import config
 
 def _tenure_days(sub) -> int | None:
-    """Whole days from subscription row creation to now. None if unknown.
+    """Whole days of PAID tenure, from pro_since to now. None when never paid.
+
+    NOT created_at. That column is stamped at signup, when every subscriptions
+    row is created on the free plan, so a tenure computed from it measured
+    account age — which is the exact distinction this number exists to make. A
+    cancel at day 3 of paying and a cancel at day 300 of paying are different
+    products failing, and both looked identical when the user had held a free
+    account for a year first.
+
+    NULL pro_since means the row never became paying Pro, or predates the column
+    (no backfill — see migration 055). None, not zero: zero days of tenure is a
+    real and different answer.
 
     Analytics-only, and never allowed to raise: a webhook that 500s because a
     tenure could not be computed would cost a real subscription update.
     """
     try:
-        created = sub.created_at
-        if created is None:
+        started = sub.pro_since
+        if started is None:
             return None
-        if created.tzinfo is None:
-            created = created.replace(tzinfo=timezone.utc)
-        return max(0, (datetime.now(timezone.utc) - created).days)
+        if started.tzinfo is None:
+            started = started.replace(tzinfo=timezone.utc)
+        return max(0, (datetime.now(timezone.utc) - started).days)
     except Exception:
         return None
 
@@ -226,9 +238,131 @@ async def stripe_webhook(request: Request, db: AsyncSession = Depends(get_db)):
         event = stripe.Webhook.construct_event(payload, sig, config.STRIPE_WEBHOOK_SECRET)
     except stripe.error.SignatureVerificationError:
         raise HTTPException(status_code=400, detail="Invalid signature")
+    except ValueError:
+        # Malformed body — not JSON, or not the shape construct_event expects.
+        # A 400 rather than an unhandled 500: Stripe retries a 5xx, and retrying
+        # garbage forever costs deliveries against a payload that can never be
+        # parsed. Nothing is recorded, because there is no event id to record.
+        raise HTTPException(status_code=400, detail="Invalid payload")
 
     obj = event["data"]["object"]
+    event_id = event.get("id")
+    event_created = _ts(event.get("created"))
 
+    # ── IDEMPOTENCY ─────────────────────────────────────────────────────────
+    # Stripe retries on any non-2xx and guarantees at-least-once, not
+    # exactly-once. Before this, a retried delivery re-ran every side effect:
+    # a duplicate checkout.session.completed fired subscription_activated twice,
+    # and a retried subscription.deleted could land after a newer .updated and
+    # flip a paying user to free.
+    #
+    # The INSERT is the lock, and it must FLUSH before any processing. Without
+    # the flush, two concurrent deliveries of the same event both pass this
+    # point and both run their side effects; one then dies at commit — after the
+    # damage. With it, the loser hits the primary key here and returns 200
+    # having done nothing.
+    stripe_event = StripeEvent(
+        id=event_id,
+        type=event["type"],
+        created=event_created or datetime.now(timezone.utc),
+    )
+    db.add(stripe_event)
+    try:
+        await db.flush()
+    except IntegrityError:
+        await db.rollback()
+        logger.info("Duplicate Stripe delivery ignored: event=%s type=%s", event_id, event["type"])
+        return {"received": True, "duplicate": True}
+
+    try:
+        result = await _process_webhook_event(db, event, obj, event_id, event_created)
+    except Exception:
+        # Delete the row so Stripe's retry gets a clean insert rather than a
+        # permanent duplicate-conflict that can never be processed. Then re-raise
+        # for the 500 that asks Stripe to retry at all.
+        await db.rollback()
+        await db.execute(delete(StripeEvent).where(StripeEvent.id == event_id))
+        await db.commit()
+        logger.error(
+            "Stripe webhook processing failed, row deleted for retry: event=%s type=%s",
+            event_id, event["type"], exc_info=True,
+        )
+        raise
+
+    stripe_event.processed_at = datetime.now(timezone.utc)
+    stripe_event.skipped = result.get("skipped", False)
+    await db.commit()
+    return {"received": True}
+
+
+def _record_transition(
+    db, sub, stripe_event_id, event_type, *,
+    to_status=None, to_plan=None, interval=None,
+):
+    """Append one row to subscription_events. Captures from_* BEFORE the caller
+    mutates the row, so every call site must invoke this first.
+
+    A transition where from == to is still recorded: "Stripe told us again" is
+    information, and dropping it would make a retry storm invisible.
+    """
+    db.add(SubscriptionEvent(
+        user_id=sub.user_id,
+        subscription_id=sub.id,
+        stripe_event_id=stripe_event_id,
+        event_type=event_type,
+        from_status=sub.status,
+        to_status=to_status if to_status is not None else sub.status,
+        from_plan=sub.plan,
+        to_plan=to_plan if to_plan is not None else sub.plan,
+        interval=interval if interval is not None else sub.interval,
+    ))
+
+
+def _is_stale(sub, event_created) -> bool:
+    """True when this event predates the newest one already applied to the row.
+
+    NULL last_stripe_event_at means APPLY, never skip. The 6-hourly reconcile
+    cron (workers/cron.py) writes `status` without going through the webhook, so
+    a row it has touched has no baseline and never will; treating NULL as
+    "everything is stale" would freeze those rows permanently.
+
+    Equal timestamps apply. Stripe's `created` has one-second resolution, so two
+    genuinely distinct events can share it, and refusing the second would drop a
+    real transition to save a redundant one.
+    """
+    if event_created is None or sub.last_stripe_event_at is None:
+        return False
+    last = sub.last_stripe_event_at
+    if last.tzinfo is None:
+        last = last.replace(tzinfo=timezone.utc)
+    return event_created < last
+
+
+def _mark_applied(sub, event_created) -> None:
+    """Advance the ordering baseline. Only ever moves forward."""
+    if event_created is None:
+        return
+    last = sub.last_stripe_event_at
+    if last is not None and last.tzinfo is None:
+        last = last.replace(tzinfo=timezone.utc)
+    if last is None or event_created > last:
+        sub.last_stripe_event_at = event_created
+
+
+def _mark_pro_since(sub) -> None:
+    """Stamp the start of PAID tenure, once, on the first transition into an
+    active Pro state. Idempotent: a later .updated on an already-Pro row must not
+    restart the clock, or every renewal would reset the tenure to zero."""
+    if sub.plan == "pro" and sub.status == "active" and sub.pro_since is None:
+        sub.pro_since = datetime.now(timezone.utc)
+
+
+async def _process_webhook_event(db, event, obj, event_id, event_created) -> dict:
+    """Apply one verified, de-duplicated Stripe event. Returns {"skipped": bool}.
+
+    Split out of stripe_webhook so the idempotency and crash handling above read
+    as one thing, and so an exception anywhere in here reaches exactly one place.
+    """
     match event["type"]:
         case "checkout.session.completed":
             result = await db.execute(
@@ -258,10 +392,27 @@ async def stripe_webhook(request: Request, db: AsyncSession = Depends(get_db)):
                             "%s for user %s: %s", stripe_sub_id, sub.user_id, e, exc_info=True,
                         )
                     else:
-                        sub.plan = _plan_from_stripe(stripe_sub)
+                        if _is_stale(sub, event_created):
+                            logger.warning(
+                                "Stale checkout.session.completed ignored: event=%s "
+                                "created=%s is older than last applied %s (subscription=%s)",
+                                event_id, event_created, sub.last_stripe_event_at, sub.id,
+                            )
+                            return {"skipped": True}
+                        new_plan = _plan_from_stripe(stripe_sub)
+                        new_interval = _interval_of(stripe_sub)
+                        _record_transition(
+                            db, sub, event_id, event["type"],
+                            to_status=stripe_sub["status"], to_plan=new_plan,
+                            interval=new_interval,
+                        )
+                        sub.plan = new_plan
                         sub.status = stripe_sub["status"]
                         sub.current_period_end = _ts(_period_end_from_stripe(stripe_sub))
                         sub.cancel_at_period_end = stripe_sub.get("cancel_at_period_end", False)
+                        sub.interval = new_interval
+                        _mark_pro_since(sub)
+                        _mark_applied(sub, event_created)
                         analytics_service.track(
                             "subscription_activated", sub.user_id, {
                                 "plan": sub.plan,
@@ -277,8 +428,28 @@ async def stripe_webhook(request: Request, db: AsyncSession = Depends(get_db)):
                 select(Subscription).where(Subscription.stripe_subscription_id == obj.get("subscription"))
             )
             sub = result.scalar_one_or_none()
-            if sub and sub.status != "active":
-                sub.status = "active"
+            if sub:
+                if _is_stale(sub, event_created):
+                    logger.warning(
+                        "Stale invoice.payment_succeeded ignored: event=%s created=%s "
+                        "is older than last applied %s (subscription=%s)",
+                        event_id, event_created, sub.last_stripe_event_at, sub.id,
+                    )
+                    return {"skipped": True}
+
+                if sub.status != "active":
+                    # Status heal only, exactly as before. current_period_end keeps
+                    # its SINGLE writer in customer.subscription.*, which already
+                    # carries the whole renewal — a second writer here would be two
+                    # paths to the field this codebase deliberately kept to one.
+                    _record_transition(db, sub, event_id, event["type"], to_status="active")
+                    sub.status = "active"
+
+                # OUTSIDE the status check, deliberately. An event that was applied
+                # and found nothing to change is still an event applied to this row,
+                # and the baseline must move or a later stale delivery would be
+                # judged against a stale high-water mark.
+                _mark_applied(sub, event_created)
 
         case "customer.subscription.created" | "customer.subscription.updated":
             result = await db.execute(
@@ -286,9 +457,25 @@ async def stripe_webhook(request: Request, db: AsyncSession = Depends(get_db)):
             )
             sub = result.scalar_one_or_none()
             if sub:
+                if _is_stale(sub, event_created):
+                    logger.warning(
+                        "Stale customer.subscription.%s ignored: event=%s created=%s "
+                        "is older than last applied %s (subscription=%s)",
+                        event["type"].rsplit(".", 1)[-1], event_id, event_created,
+                        sub.last_stripe_event_at, sub.id,
+                    )
+                    return {"skipped": True}
+
+                new_plan = _plan_from_stripe(obj)
+                new_interval = _interval_of(obj)
+                _record_transition(
+                    db, sub, event_id, event["type"],
+                    to_status=obj["status"], to_plan=new_plan, interval=new_interval,
+                )
                 sub.stripe_subscription_id = obj["id"]
-                sub.plan = _plan_from_stripe(obj)
+                sub.plan = new_plan
                 sub.status = obj["status"]
+                sub.interval = new_interval
 
                 # This handler carries the ENTIRE renewal: invoice.payment_succeeded
                 # only heals status, and the 6-hourly reconcile cron syncs status
@@ -322,6 +509,8 @@ async def stripe_webhook(request: Request, db: AsyncSession = Depends(get_db)):
                 # inventing a date here would revoke access somebody chose to give.
 
                 sub.cancel_at_period_end = obj.get("cancel_at_period_end", False)
+                _mark_pro_since(sub)
+                _mark_applied(sub, event_created)
                 # interval comes off the Stripe price, not the local row: the row
                 # records WHAT was bought, the price records HOW OFTEN. `source`
                 # is absent by design — PR #3 stashes it in the checkout session
@@ -340,9 +529,28 @@ async def stripe_webhook(request: Request, db: AsyncSession = Depends(get_db)):
             )
             sub = result.scalar_one_or_none()
             if sub:
+                if _is_stale(sub, event_created):
+                    logger.warning(
+                        "Stale customer.subscription.deleted ignored: event=%s created=%s "
+                        "is older than last applied %s (subscription=%s). This is the "
+                        "delivery that used to flip a paying user to free.",
+                        event_id, event_created, sub.last_stripe_event_at, sub.id,
+                    )
+                    return {"skipped": True}
+
                 canceled_plan = sub.plan
+                # tenure_days is read from pro_since BEFORE it is cleared below.
+                tenure = _tenure_days(sub)
+                _record_transition(
+                    db, sub, event_id, event["type"],
+                    to_status="canceled", to_plan="free",
+                )
                 sub.status = "canceled"
                 sub.plan = "free"
+                # Cleared so a re-subscribe starts a fresh tenure rather than
+                # inheriting the length of the subscription they already ended.
+                sub.pro_since = None
+                _mark_applied(sub, event_created)
                 # tenure_days is the whole point of the event: a cancel at day 3
                 # and a cancel at day 300 are different products failing. Read
                 # BEFORE plan is overwritten to "free" above would be wrong —
@@ -353,7 +561,7 @@ async def stripe_webhook(request: Request, db: AsyncSession = Depends(get_db)):
                 # (grace/dunning); reason will be an enum, never typed text.
                 analytics_service.track("subscription_canceled", sub.user_id, {
                     "plan": canceled_plan,
-                    "tenure_days": _tenure_days(sub),
+                    "tenure_days": tenure,
                 })
 
         case "invoice.payment_failed":
@@ -362,10 +570,26 @@ async def stripe_webhook(request: Request, db: AsyncSession = Depends(get_db)):
             )
             sub = result.scalar_one_or_none()
             if sub:
-                sub.status = "past_due"
+                # THE SAME BUG CLASS AS THE CANCEL PATH, and just as expensive.
+                # Without this guard: payment_failed(t1) -> subscription.updated
+                # past_due(t2) -> card fixed -> subscription.updated active(t3) ->
+                # Stripe retries payment_failed from t1 at t4, and an active paying
+                # subscriber is marked past_due by a delivery about a payment that
+                # was already resolved.
+                if _is_stale(sub, event_created):
+                    logger.warning(
+                        "Stale invoice.payment_failed ignored: event=%s created=%s "
+                        "is older than last applied %s (subscription=%s). This is the "
+                        "delivery that used to past_due an already-recovered account.",
+                        event_id, event_created, sub.last_stripe_event_at, sub.id,
+                    )
+                    return {"skipped": True}
 
-    await db.commit()
-    return {"received": True}
+                _record_transition(db, sub, event_id, event["type"], to_status="past_due")
+                sub.status = "past_due"
+                _mark_applied(sub, event_created)
+
+    return {"skipped": False}
 
 
 def _plan_from_stripe(sub_obj: dict) -> str:

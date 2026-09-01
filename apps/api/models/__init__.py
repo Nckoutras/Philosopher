@@ -56,10 +56,98 @@ class Subscription(Base):
     status: Mapped[str] = mapped_column(String(50), default="active")      # active | trialing | past_due | canceled
     current_period_end: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     cancel_at_period_end: Mapped[bool] = mapped_column(Boolean, default=False)
+    # 'month' | 'year'. Stored so the database can answer "how often is this
+    # billed" without a Stripe API call — PR #5's grace window and #11's fair-use
+    # both need it. Analytics still derives it from the Stripe object at event
+    # time (_interval_of); this column is for everything that is not analytics.
+    interval: Mapped[str | None] = mapped_column(String(10))
+    # When this row FIRST became a paying Pro row, and NULL again after a cancel
+    # so a re-subscribe starts a fresh tenure. NOT created_at: that is stamped at
+    # signup, when every row is created on the free plan, so it measures account
+    # age. tenure_days was reading it and reporting the wrong number.
+    pro_since: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # `created` of the newest Stripe event applied to this row. The ordering
+    # guard compares against it and refuses anything older. NULL means no event
+    # has been applied yet — apply, do not skip: the 6-hourly reconcile cron
+    # writes `status` without going through the webhook, so a row it touched
+    # would otherwise be frozen behind a baseline that never gets set.
+    last_stripe_event_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     user: Mapped["User"] = relationship("User", back_populates="subscription")
+
+
+class StripeEvent(Base):
+    """Every webhook delivery Stripe has made, by its own event id.
+
+    THIS TABLE IS THE IDEMPOTENCY KEY. Stripe retries on any non-2xx and can
+    deliver out of order, and the handler had no memory: a retried
+    subscription.deleted could overwrite a newer .updated, and a duplicate
+    checkout.session.completed fired subscription_activated twice.
+
+    The primary key IS the Stripe event id, so a duplicate delivery is a
+    constraint violation rather than a decision.
+
+    processed_at NULL means in flight or crashed. A crashed delivery has its row
+    deleted before the 500 is returned, so Stripe's retry gets a clean insert
+    rather than a permanent conflict — a row that stays NULL means the process
+    died between the flush and the delete, which is exactly what wants finding.
+    """
+    __tablename__ = "stripe_events"
+
+    # evt_1Abc… — Stripe's id, not ours. Text, because Stripe does not document
+    # a maximum length for it.
+    id: Mapped[str] = mapped_column(Text, primary_key=True)
+    type: Mapped[str] = mapped_column(String(100), nullable=False)
+    # event.created from the payload — Stripe's clock, which is what ordering
+    # must be judged on. received_at is ours, and is only for forensics.
+    created: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    received_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    processed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # True when the event was recorded but deliberately not applied because it
+    # was older than the row's last applied event. Distinct from processed_at
+    # being NULL, which means something went wrong.
+    skipped: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
+
+
+class SubscriptionEvent(Base):
+    """One row per state-changing webhook: what the row was, and what it became.
+
+    Nothing reads this yet. It exists because the subscriptions table records
+    only the CURRENT state, so a user who reports "I was charged and then lost
+    access" leaves no trace to read back. PR #5 builds the cancel reason and the
+    last-14-days feature summary on top of it.
+
+    from_* are captured BEFORE the mutation. A transition where from == to is
+    still recorded: "Stripe told us again" is information.
+    """
+    __tablename__ = "subscription_events"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=gen_uuid)
+    user_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=False), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    subscription_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=False), ForeignKey("subscriptions.id", ondelete="CASCADE"), nullable=False
+    )
+    # No ondelete cascade: the stripe_events row is deleted when processing
+    # crashes, and a half-written history row must not take the audit trail with
+    # it. SET NULL keeps the transition on record with its provenance lost.
+    stripe_event_id: Mapped[str | None] = mapped_column(
+        Text, ForeignKey("stripe_events.id", ondelete="SET NULL")
+    )
+    event_type: Mapped[str] = mapped_column(String(100), nullable=False)
+    from_status: Mapped[str | None] = mapped_column(String(50))
+    to_status: Mapped[str | None] = mapped_column(String(50))
+    from_plan: Mapped[str | None] = mapped_column(String(50))
+    to_plan: Mapped[str | None] = mapped_column(String(50))
+    interval: Mapped[str | None] = mapped_column(String(10))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
 
 
 # ── Personas ─────────────────────────────────────────────────────────────────
