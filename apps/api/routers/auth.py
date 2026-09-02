@@ -5,8 +5,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from db.session import get_db
 from models import User, Subscription
-from schemas import RegisterRequest, LoginRequest, TokenResponse, UserOut, OtpRequest, OtpVerifyRequest, UpdateMeRequest
-from auth import hash_password, verify_password, create_token, get_current_user
+from schemas import TokenResponse, UserOut, OtpRequest, OtpVerifyRequest, UpdateMeRequest
+from auth import create_token, get_current_user
 from services.analytics_service import analytics_service
 from services.otp_service import (
     create_and_send_otp,
@@ -23,65 +23,6 @@ from config import config
 router = APIRouter(prefix="/auth", tags=["auth"])
 stripe.api_key = config.STRIPE_SECRET_KEY
 logger = logging.getLogger(__name__)
-
-
-@router.post("/register", response_model=TokenResponse, status_code=201)
-async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
-    # Check duplicate
-    existing = await db.execute(select(User).where(User.email == body.email))
-    if existing.scalar_one_or_none():
-        raise HTTPException(status_code=409, detail="Email already registered")
-
-    user = User(
-        email=body.email,
-        hashed_password=hash_password(body.password),
-        full_name=body.full_name,
-    )
-    db.add(user)
-    await db.flush()
-
-    # Create Stripe customer
-    customer = stripe.Customer.create(email=body.email, name=body.full_name or "")
-
-    # Create free subscription record
-    sub = Subscription(
-        user_id=user.id,
-        stripe_customer_id=customer.id,
-        plan="free",
-        status="active",
-    )
-    db.add(sub)
-    await db.commit()
-
-    # No email property: distinct_id is the internal user id and person
-    # profiles carry no direct identifier (data minimization, GDPR Art. 5(1)(c)).
-    analytics_service.identify(user.id, {"plan": "free"})
-    # Renamed from user_registered: one conversion, one event name,
-    # paired with the web-side signup_started. `method` is explicit rather
-    # than omitted so the registry's property list holds at every site.
-    #
-    # NOTE: this route has no web caller. api.register() exists in
-    # apps/web/lib/api.ts but no page or component invokes it — the app signs
-    # in through OTP and Google only. The label is still "password" so the
-    # property holds, but the route itself is a deletion candidate.
-    analytics_service.track("signup_completed", user.id, {"plan": "free", "method": "password"})
-
-    token = create_token(user.id, user.email, user.token_version)
-    needs_disclaimer = await user_needs_acceptance(user.id, db)
-    user_out = UserOut.model_validate(user).model_copy(update={"needs_disclaimer": needs_disclaimer})
-    return TokenResponse(access_token=token, user=user_out)
-
-
-@router.post("/login", response_model=TokenResponse)
-async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(User).where(User.email == body.email))
-    user = result.scalar_one_or_none()
-    if not user or not verify_password(body.password, user.hashed_password or ""):
-        raise HTTPException(status_code=401, detail="Invalid credentials")
-    token = create_token(user.id, user.email, user.token_version)
-    needs_disclaimer = await user_needs_acceptance(user.id, db)
-    user_out = UserOut.model_validate(user).model_copy(update={"needs_disclaimer": needs_disclaimer})
-    return TokenResponse(access_token=token, user=user_out)
 
 
 @router.post("/refresh", response_model=TokenResponse)
@@ -222,7 +163,8 @@ async def otp_verify(body: OtpVerifyRequest, db: AsyncSession = Depends(get_db))
         )
         db.add(sub)
         await db.commit()
-        # No email property — see the signup path above.
+        # No email property: distinct_id is the internal user id and person
+        # profiles carry no direct identifier (data minimization, GDPR Art. 5(1)(c)).
         analytics_service.identify(user.id, {"plan": "free"})
         analytics_service.track("signup_completed", user.id, {"plan": "free", "method": "otp"})
     else:

@@ -665,24 +665,6 @@ class ApiClient {
 
   // ── Auth ──────────────────────────────────────────────────────────────────
 
-  async register(email: string, password: string, full_name?: string): Promise<AuthResponse> {
-    const data = await this.request<AuthResponse>('/auth/register', {
-      method: 'POST',
-      body: JSON.stringify({ email, password, full_name }),
-    })
-    this.setToken(data.access_token)
-    return data
-  }
-
-  async login(email: string, password: string): Promise<AuthResponse> {
-    const data = await this.request<AuthResponse>('/auth/login', {
-      method: 'POST',
-      body: JSON.stringify({ email, password }),
-    })
-    this.setToken(data.access_token)
-    return data
-  }
-
   // A11 — sliding session. JWT expiry runs from ISSUE, not from last use, so an
   // active user was still logged out on day 7 and had to fetch an email code.
   // This exchanges a still-valid token for a fresh one, called on app load and on
