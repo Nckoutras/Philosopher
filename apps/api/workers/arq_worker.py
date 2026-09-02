@@ -4,6 +4,7 @@ import logging
 from arq import create_pool
 from arq.connections import RedisSettings
 from config import config
+from text_utils import dominant_language as _dominant_language
 from observability import init_sentry
 
 # `arq workers.arq_worker.WorkerSettings` runs as its own process and never
@@ -159,32 +160,11 @@ Rules:
 
 
 # The letter's language is COMPUTED, not inferred. Both letter prompts take a
-# {language} directive; this is what fills it.
+# {language} directive; dominant_language fills it.
 #
-# The 2026-08-24 incident: a weekly letter came back with its body in English and
-# practical_takeaway + ritual_proposal in Greek. Neither prompt stated a language
-# for the letter — LETTER_PROMPT's only language reference was on ritual_proposal
-# ("the SAME language as the rest of this letter"), which presupposes a letter
-# language that was never established, and MONTHLY_PROMPT said nothing at all. With
-# no anchor the model picked a language per FIELD from mixed-language input, and the
-# Greek it produced was ungrammatical ("Θα σε κάλεσα").
-#
-# Characters, not words: a week's messages mix languages inside single sentences, and
-# a word-splitter has to decide what a word is in two scripts. Codepoint ranges follow
-# the _renderable_original precedent in services/image_service.py — no new dependency.
-
-def _dominant_language(texts: list[str]) -> str:
-    """Return 'Greek' or 'English' by counting Greek vs Latin letters
-    across the user's own words for the period. Ties -> 'English'."""
-    greek = latin = 0
-    for t in texts:
-        for ch in t:
-            if '\u0370' <= ch <= '\u03ff' or '\u1f00' <= ch <= '\u1fff':
-                greek += 1
-            elif ch.isascii() and ch.isalpha():
-                latin += 1
-    return "Greek" if greek > latin else "English"
-
+# Promoted to text_utils.py so the safety layer can route crisis copy with the
+# same detector rather than a second, subtly different one. Behaviour unchanged —
+# same codepoint counting, same Ties -> 'English'.
 
 MIRROR_PROMPT = """You are {persona_name}{persona_tradition_clause}. Once a week you hold up a mirror to a person — not to summarize their week, but to show them the deeper meaning beneath their own words, seen through your distinct way of understanding.
 

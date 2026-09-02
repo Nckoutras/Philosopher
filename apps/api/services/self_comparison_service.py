@@ -12,6 +12,7 @@ from models import SelfComparison, Message, Conversation, UserPreference, Memory
 from services.llm_client import llm_client
 from services.prompt_builder import prompt_builder
 from services.safety_service import safety_service
+from text_utils import dominant_language
 from services.safety_event_log import log_safety_event, STAGE_SELF_COMPARISON_INPUT
 from services.self_model_service import self_model_service
 from services.self_portrait import answers_to_statements
@@ -177,7 +178,9 @@ class SelfComparisonService:
             await log_safety_event(db, user_id, safety_in, STAGE_SELF_COMPARISON_INPUT)
         if safety_in.should_suppress_persona:
             yield f"data: {json.dumps({'type': 'safety', 'level': safety_in.level})}\n\n"
-            safe = prompt_builder.build_safety_response(level=safety_in.level)
+            safe = prompt_builder.build_safety_response(
+                level=safety_in.level, language=dominant_language([prompt]),
+            )
             yield f"data: {json.dumps({'type': 'chunk', 'which': 'safety', 'data': safe})}\n\n"
             yield f"data: {json.dumps({'type': 'done'})}\n\n"
             return
