@@ -8,7 +8,7 @@ was set to on Render, because `config` had no such field to read.
 
 HOW THESE CAN FAIL. The first test reloads the module with a key present and
 asserts on the host actually handed to the Posthog constructor, so a reinstated
-literal fails it. The identify tests assert on the payload dicts at the three
+literal fails it. The identify tests assert on the payload dicts at the two
 call sites; re-adding `"email": ...` to any of them fails one.
 """
 import ast
@@ -65,11 +65,11 @@ def _identify_payloads(relative_path: str) -> list[ast.Dict]:
 
 
 def test_identify_never_sends_an_email_property():
-    # Read as source, not by calling the endpoints: these three sites sit behind
-    # OTP, signup and OAuth flows, and the property list is what is being
+    # Read as source, not by calling the endpoints: these two sites sit behind
+    # the OTP and OAuth flows, and the property list is what is being
     # asserted — not the routing that reaches it.
     call_sites = {
-        "routers/auth.py": 2,
+        "routers/auth.py": 1,
         "routers/auth_oauth.py": 1,
     }
     total = 0
@@ -80,4 +80,4 @@ def test_identify_never_sends_an_email_property():
             keys = [k.value for k in payload.keys if isinstance(k, ast.Constant)]
             assert "email" not in keys, f"{path}: identify() must not send an email property"
             total += 1
-    assert total == 3
+    assert total == 2

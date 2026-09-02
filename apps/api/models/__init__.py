@@ -21,6 +21,8 @@ class User(Base):
 
     id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=gen_uuid)
     email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
+    # Legacy password auth (POST /auth/register, /auth/login) removed 2026-09-02;
+    # column retained, always None for OTP/Google accounts.
     hashed_password: Mapped[str | None] = mapped_column(Text)
     full_name: Mapped[str | None] = mapped_column(String(255))
     avatar_url: Mapped[str | None] = mapped_column(Text)
