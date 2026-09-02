@@ -43,6 +43,11 @@ class Settings(BaseSettings):
     FROM_EMAIL: str = "noreply@philosopher.app"
     PUBLIC_ASSET_BASE_URL: str = "https://thinkalike.netlify.app"
 
+    # Error monitoring (Sentry). Empty = disabled, a clean no-op for local and
+    # CI — same convention as POSTHOG_API_KEY above. Set on BOTH Render services
+    # (api and worker); they are separate processes.
+    SENTRY_DSN: str = ""
+
     # Analytics
     POSTHOG_API_KEY: str = ""
     # EU-hosted by default. The project is EU-hosted and the privacy policy

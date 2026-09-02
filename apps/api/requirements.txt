@@ -20,6 +20,10 @@ stripe==10.11.0
 resend==2.3.0
 jinja2==3.1.4
 posthog==3.7.0
+# Error monitoring. Pinned, not floored: the privacy posture depends on option
+# defaults (max_request_body_size, the auto-enabling LLM integrations) that a
+# major bump could change under us. test_observability.py pins the kwargs.
+sentry-sdk==2.68.1
 python-dotenv==1.0.1
 pytest==8.3.3
 pytest-asyncio==0.24.0
