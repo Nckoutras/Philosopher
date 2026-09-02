@@ -105,6 +105,22 @@ ANALYTICS_EVENTS = {
     "subscription_canceled":  ["plan", "tenure_days", "reason",
                                "cancel_feedback", "last_14d_features"],
 
+    # ── Lifecycle ────────────────────────────────────────────────────────────
+    # Fired from services/account_deletion_service.py AFTER the delete commits.
+    #
+    # Its distinct_id is the literal string "deleted_account", NOT the user id.
+    # This is the one event in either registry that is deliberately not
+    # attributable: the person it describes has just exercised Art. 17, and
+    # attaching their id to a new analytics record would undo the erasure the
+    # event is reporting. The churn count survives; the person profile stops
+    # accumulating and no id links the two.
+    #
+    # tenure_days may be None — routers/billing.py::_tenure_days returns None
+    # rather than 0 when a row never became paying, and this event reuses that
+    # function rather than reimplementing it, so the property means the same
+    # thing here as it does on subscription_canceled.
+    "account_deleted":        ["plan", "tenure_days", "had_active_subscription"],
+
     # ── Safety (no PII) ──────────────────────────────────────────────────────
     "safety_event_pre":       ["risk_level", "category"],
 }

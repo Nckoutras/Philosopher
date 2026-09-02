@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 interface Props {
   open: boolean
@@ -11,6 +11,16 @@ interface Props {
   error: string | null
   onConfirm: () => void
   onClose: () => void
+  /** When set, the confirm button stays disabled until the user types this
+   *  string EXACTLY (case-sensitive). Used only by account deletion, which is
+   *  the one irreversible action in the app — a misclick there cannot be
+   *  undone by any support action, because there is nothing left to restore.
+   *  Omitted everywhere else: a conversation delete does not earn this much
+   *  friction, and adding it would train people to type through the prompt. */
+  requireTypedConfirmation?: string
+  /** Label rendered above the input. Only read when requireTypedConfirmation
+   *  is set. */
+  typedConfirmationLabel?: string
 }
 
 export default function DeleteConfirmModal({
@@ -22,8 +32,17 @@ export default function DeleteConfirmModal({
   error,
   onConfirm,
   onClose,
+  requireTypedConfirmation,
+  typedConfirmationLabel,
 }: Props) {
   const cancelRef = useRef<HTMLButtonElement>(null)
+  const [typed, setTyped] = useState('')
+
+  // Case-sensitive equality, not trim() or toLowerCase(). The point of typing
+  // the word is that it cannot happen by accident, and every softening of the
+  // comparison moves it back toward something a stray paste satisfies.
+  const confirmBlocked =
+    requireTypedConfirmation !== undefined && typed !== requireTypedConfirmation
 
   // Keyboard (Escape + Tab trap) handlers
   useEffect(() => {
@@ -33,7 +52,12 @@ export default function DeleteConfirmModal({
       if (e.key !== 'Tab') return
       const modal = cancelRef.current?.closest('[role="dialog"]') as HTMLElement | null
       if (!modal) return
-      const focusable = Array.from(modal.querySelectorAll<HTMLElement>('button:not([disabled])'))
+      // Inputs included: with typed confirmation the field is inside the trap,
+      // and a Tab cycle that skipped it would strand keyboard users on a
+      // disabled confirm button with no way to reach what enables it.
+      const focusable = Array.from(
+        modal.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled])'),
+      )
       if (!focusable.length) return
       const first = focusable[0]
       const last = focusable[focusable.length - 1]
@@ -49,9 +73,16 @@ export default function DeleteConfirmModal({
     }
   }, [open, loading, onClose])
 
-  // Initial focus on Cancel button
+  // Initial focus on Cancel button. Deliberately Cancel and not the input:
+  // the safe action is the one that should be one keystroke away.
   useEffect(() => {
     if (open) cancelRef.current?.focus()
+  }, [open])
+
+  // A reopened modal starts empty. Without this, cancelling a deletion and
+  // reopening it would present an already-satisfied confirmation.
+  useEffect(() => {
+    if (!open) setTyped('')
   }, [open])
 
   if (!open) return null
@@ -80,6 +111,29 @@ export default function DeleteConfirmModal({
           {body}
         </p>
 
+        {requireTypedConfirmation !== undefined && (
+          <div className="mb-6">
+            <label
+              htmlFor="delete-confirm-input"
+              className="block font-lora text-[12px] text-charcoal mb-2"
+            >
+              {typedConfirmationLabel}
+            </label>
+            <input
+              id="delete-confirm-input"
+              type="text"
+              value={typed}
+              onChange={(e) => setTyped(e.target.value)}
+              disabled={loading}
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="none"
+              spellCheck={false}
+              className="w-full font-lora text-[13px] text-ink bg-vellum border border-edge rounded-sm py-2 px-3 disabled:opacity-50"
+            />
+          </div>
+        )}
+
         <div className="flex gap-3">
           <button
             ref={cancelRef}
@@ -93,7 +147,7 @@ export default function DeleteConfirmModal({
           <button
             type="button"
             onClick={onConfirm}
-            disabled={loading}
+            disabled={loading || confirmBlocked}
             className="flex-1 font-lora text-[13px] text-vellum bg-danger rounded-sm py-2.5 px-4 flex items-center justify-center disabled:opacity-70"
           >
             {loading ? (

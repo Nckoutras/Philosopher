@@ -665,6 +665,17 @@ class ApiClient {
 
   // ── Auth ──────────────────────────────────────────────────────────────────
 
+  // GDPR Art. 17. Hard delete: 21 tables cascade server-side and the safety
+  // audit trail is anonymised. 204 on success.
+  //
+  // Does NOT clear the session here. The caller signs out explicitly after a
+  // success, so that the one place that tears down local state stays the one
+  // place — and so a 502 (Stripe refused to cancel; nothing was deleted)
+  // leaves the user signed in to the account they still have.
+  async deleteAccount(): Promise<void> {
+    await this.request<null>('/auth/me', { method: 'DELETE' })
+  }
+
   // A11 — sliding session. JWT expiry runs from ISSUE, not from last use, so an
   // active user was still logged out on day 7 and had to fetch an email code.
   // This exchanges a still-valid token for a fresh one, called on app load and on

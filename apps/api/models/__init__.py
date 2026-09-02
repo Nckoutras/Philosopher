@@ -246,7 +246,7 @@ class Message(Base):
 
     id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=gen_uuid)
     conversation_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("conversations.id", ondelete="CASCADE"), nullable=False)
-    user_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("users.id"), nullable=False)
+    user_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     role: Mapped[str] = mapped_column(String(20), nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
     tokens_used: Mapped[int | None] = mapped_column(Integer)
@@ -409,7 +409,7 @@ class UserRitualCompletion(Base):
     __tablename__ = "user_ritual_completions"
 
     id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=gen_uuid)
-    user_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("users.id"), nullable=False)
+    user_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     ritual_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("rituals.id"), nullable=False)
     conversation_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), ForeignKey("conversations.id", ondelete="SET NULL"))
     completed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
@@ -439,9 +439,11 @@ class SafetyEvent(Base):
     __tablename__ = "safety_events"
 
     id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=gen_uuid)
-    user_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), ForeignKey("users.id"))
+    # 056: SET NULL, not CASCADE — this is the self-harm/crisis audit trail and
+    # a row with every id nulled is no longer personal data. See the migration.
+    user_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), ForeignKey("users.id", ondelete="SET NULL"))
     conversation_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), ForeignKey("conversations.id", ondelete="SET NULL"))
-    message_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), ForeignKey("messages.id"))
+    message_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), ForeignKey("messages.id", ondelete="SET NULL"))
     trigger_stage: Mapped[str] = mapped_column(String(50), nullable=False)   # pre_generation | post_generation
     risk_level: Mapped[str] = mapped_column(String(50), nullable=False)      # low | medium | high | critical
     category: Mapped[str | None] = mapped_column(String(100))
