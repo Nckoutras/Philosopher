@@ -148,7 +148,12 @@ async def google_oauth_callback(
             await db.commit()
         except Exception:
             await db.rollback()
-            logger.exception(f"OAuth user creation failed for {email}")
+            # google_sub is an opaque provider id and is the identifier to log;
+            # the address is not. See routers/auth.py for the same rule.
+            logger.exception(
+                "OAuth user creation failed for provider_id=%s domain=%s",
+                google_sub, email.rsplit("@", 1)[-1],
+            )
             return RedirectResponse(
                 f"{frontend_error_url}oauth_signup_failed", status_code=302
             )

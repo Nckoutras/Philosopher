@@ -115,7 +115,11 @@ async def otp_request(body: OtpRequest, db: AsyncSession = Depends(get_db)):
     try:
         await create_and_send_otp(db, email)
     except Exception as e:
-        logger.exception(f"OTP request failed for {email}: {e}")
+        # Domain, not the address: no user row exists yet at this point, and the
+        # domain is what distinguishes a provider-wide delivery outage from one
+        # bad address. Logs carry ids only — and this line becomes a Sentry
+        # issue TITLE via LoggingIntegration.
+        logger.exception("OTP request failed for domain=%s: %s", email.rsplit("@", 1)[-1], e)
         raise HTTPException(
             status_code=500,
             detail="Could not send code. Please try again.",

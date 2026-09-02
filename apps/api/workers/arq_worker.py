@@ -4,6 +4,12 @@ import logging
 from arq import create_pool
 from arq.connections import RedisSettings
 from config import config
+from observability import init_sentry
+
+# `arq workers.arq_worker.WorkerSettings` runs as its own process and never
+# imports main, so it needs its own init. Without this the 13 task handlers —
+# every letter, mirror and memory job — report nothing.
+init_sentry()
 
 logger = logging.getLogger(__name__)
 

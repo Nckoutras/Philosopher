@@ -4,6 +4,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from db.session import engine, Base
 from config import config
+from observability import init_sentry
+
+# Before the routers import, so an error raised while building the app is itself
+# reported. No-op without SENTRY_DSN.
+init_sentry()
 
 # Import all models so Alembic sees them
 import models  # noqa: F401
@@ -56,7 +61,13 @@ async def lifespan(app: FastAPI):
         setup_cron(arq_queue)
         logger.info("ARQ queue and cron scheduler ready")
     except Exception as e:
+        # warning for dev ergonomics; Sentry event because a silently dead
+        # queue+cron is the 0/22 letters failure class. The API boots healthy
+        # either way, which is exactly why the log line alone was never seen.
+        # capture_exception is a no-op when Sentry was not initialised.
         logger.warning(f"ARQ/cron startup failed (non-fatal in dev without Redis): {e}")
+        import sentry_sdk
+        sentry_sdk.capture_exception(e)
 
     yield
 
