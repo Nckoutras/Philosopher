@@ -8,7 +8,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from auth import get_current_user
 from db.session import get_db
 from models import Counterview, CounterviewResponse, CounterviewSave, CounterviewTurn, Persona, User
-from services.rate_limit_service import check_counterview_limit
+from services.rate_limit_service import check_counterview_limit, check_fair_use_limit
+from services.safety_service import safety_service
+from services.analytics_service import analytics_service
+from services.tier_service import get_user_tier
 from schemas import (
     CounterviewCreate,
     CounterviewDeeperRequest,
@@ -144,6 +147,38 @@ async def create_counterview(
                 "X-RateLimit-Reset": rl.reset_at.isoformat(),
             },
         )
+
+    # ── PRO FAIR-USE CAP ──────────────────────────────────────────────────────
+    # A direct counterview is five persona generations, and it is counted BY the
+    # fair-use check (its rows are one of that check's two sources). Counting a
+    # path without enforcing on it would leave the cap with an open door beside
+    # it — the abuse channel that exists is the one that gets used.
+    #
+    # No crisis gate: the belief text IS safety-checked, but inside
+    # generate_counterview, which this blocks before reaching. That is the
+    # ordering #591 fixed, in reverse — so the check runs here first, and a
+    # crisis belief is never answered with a quota.
+    safety_in = await safety_service.check_input(belief, user.id)
+    if not safety_in.should_suppress_persona and not user.is_admin:
+        # This endpoint authenticates with get_current_user, so the tier is
+        # resolved here and passed in rather than looked up twice inside the check.
+        tier = await get_user_tier(db, user.id)
+        fair_use = await check_fair_use_limit(db, user.id, user_tier=tier)
+        if not fair_use.allowed:
+            analytics_service.track("usage_cap_hit", user.id, {
+                "tier": tier,
+                "cap_kind": "pro_fair_use",
+                "path": "counterview",
+            })
+            return JSONResponse(
+                status_code=429,
+                content={"error_code": "fair_use_limit"},
+                headers={
+                    "X-RateLimit-Limit": str(fair_use.limit),
+                    "X-RateLimit-Remaining": "0",
+                    "X-RateLimit-Reset": fair_use.reset_at.isoformat(),
+                },
+            )
 
     cv = await generate_counterview(
         db, user.id, belief=belief, insight_id=None, source="direct"

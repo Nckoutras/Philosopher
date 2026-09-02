@@ -404,6 +404,37 @@ async def send_message(
                     },
                 )
 
+        # ── PRO FAIR-USE CAP ─────────────────────────────────────────────
+        # Cost protection for Pro; free users are bounded by check_rate_limit
+        # above and this returns allowed for them unconditionally.
+        #
+        # AFTER the safety gate, never before. A crisis message reaches the
+        # service whatever the counter says — the ordering #591 established is
+        # not undone by adding a second limit behind it.
+        #
+        # error_code is fair_use_limit, NOT rate_limited: the web client turns
+        # rate_limited into the PaywallModal, and a Pro subscriber has nothing
+        # to be sold. The distinct code routes to a plain notice instead.
+        if not crisis.should_suppress_persona and not user.is_admin:
+            fair_use = await rate_limit_service.check_fair_use_limit(
+                db, user.id, user_tier=plan
+            )
+            if not fair_use.allowed:
+                analytics_service.track("usage_cap_hit", user.id, {
+                    "tier": plan,
+                    "cap_kind": "pro_fair_use",
+                    "path": "chat",
+                })
+                return JSONResponse(
+                    status_code=429,
+                    content={"error_code": "fair_use_limit"},
+                    headers={
+                        "X-RateLimit-Limit": str(fair_use.limit),
+                        "X-RateLimit-Remaining": "0",
+                        "X-RateLimit-Reset": fair_use.reset_at.isoformat(),
+                    },
+                )
+
     response_headers = {
         "Cache-Control": "no-cache",
         "X-Accel-Buffering": "no",
@@ -489,6 +520,29 @@ async def another_mind(
                     "X-RateLimit-Limit": str(rate_limit_result.limit),
                     "X-RateLimit-Remaining": "0",
                     "X-RateLimit-Reset": rate_limit_result.reset_at.isoformat(),
+                },
+            )
+
+    # ── PRO FAIR-USE CAP ─────────────────────────────────────────────────
+    # No crisis gate here: this path carries no user text (see the note above),
+    # so there is no crisis message that could be blocked by it.
+    if not user.is_admin:
+        fair_use = await rate_limit_service.check_fair_use_limit(
+            db, user.id, user_tier=plan
+        )
+        if not fair_use.allowed:
+            analytics_service.track("usage_cap_hit", user.id, {
+                "tier": plan,
+                "cap_kind": "pro_fair_use",
+                "path": "another_mind",
+            })
+            return JSONResponse(
+                status_code=429,
+                content={"error_code": "fair_use_limit"},
+                headers={
+                    "X-RateLimit-Limit": str(fair_use.limit),
+                    "X-RateLimit-Remaining": "0",
+                    "X-RateLimit-Reset": fair_use.reset_at.isoformat(),
                 },
             )
 
@@ -670,6 +724,29 @@ async def go_deeper(
                     "X-RateLimit-Limit": str(rate_limit_result.limit),
                     "X-RateLimit-Remaining": "0",
                     "X-RateLimit-Reset": rate_limit_result.reset_at.isoformat(),
+                },
+            )
+
+    # ── PRO FAIR-USE CAP ─────────────────────────────────────────────────
+    # No crisis gate here: this path carries no user text (see the note above),
+    # so there is no crisis message that could be blocked by it.
+    if not user.is_admin:
+        fair_use = await rate_limit_service.check_fair_use_limit(
+            db, user.id, user_tier=plan
+        )
+        if not fair_use.allowed:
+            analytics_service.track("usage_cap_hit", user.id, {
+                "tier": plan,
+                "cap_kind": "pro_fair_use",
+                "path": "go_deeper",
+            })
+            return JSONResponse(
+                status_code=429,
+                content={"error_code": "fair_use_limit"},
+                headers={
+                    "X-RateLimit-Limit": str(fair_use.limit),
+                    "X-RateLimit-Remaining": "0",
+                    "X-RateLimit-Reset": fair_use.reset_at.isoformat(),
                 },
             )
 

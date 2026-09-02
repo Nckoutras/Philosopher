@@ -88,12 +88,17 @@ def _make_usage(count, persona_id=PERSONA_ID):
 def _make_db(conv, persona=None, subscription=None, usage=None):
     """Build mock AsyncSession for send_message.
 
-    Execute call order:
-      1. select(Conversation) — ownership check → scalar_one_or_none
-      2. select(Persona)      — error voice     → scalar_one
-      3. select(Subscription) — get_user_tier   → scalar_one_or_none
-      4. select(DailyUsage)   — check_rate_limit → scalar_one_or_none
-    For admin/ritual: only calls 1-2 are consumed.
+    Dispatches on the STATEMENT, not on call order. It used to be an ordered
+    side_effect list documenting "1. Conversation, 2. Persona, 3. Subscription,
+    4. DailyUsage", which broke the moment the Pro fair-use cap added two count
+    queries: Pro skips the DailyUsage read inside check_rate_limit, so the
+    4th entry was consumed by a COUNT and returned a Mock where an int was
+    needed. Order-based dispatch is what made 17 tests in this repo fail for
+    months (TD-45); this answers by shape so a new query cannot shift the
+    others.
+
+    Unmatched statements return an empty result rather than raising, so a query
+    a given test does not care about is simply absent instead of fatal.
     """
     if persona is None:
         persona = _make_persona()
@@ -113,12 +118,35 @@ def _make_db(conv, persona=None, subscription=None, usage=None):
         r.scalar_one.return_value = val
         return r
 
-    db.execute = AsyncMock(side_effect=[
-        _or_none(conv),          # select(Conversation)
-        _one(persona),           # select(Persona)
-        _or_none(subscription),  # select(Subscription) via get_user_tier
-        _or_none(usage),         # select(DailyUsage) via check_rate_limit
-    ])
+    def _count(val):
+        r = MagicMock()
+        r.scalar_one.return_value = val
+        return r
+
+    usage_count = usage.message_count if usage is not None else 0
+
+    async def _execute(stmt, *a, **kw):
+        text = str(stmt).lower()
+        if "from conversations" in text:
+            return _or_none(conv)
+        if "from personas" in text:
+            r = MagicMock()
+            r.scalar_one.return_value = persona
+            r.scalar_one_or_none.return_value = persona
+            return r
+        if "from subscriptions" in text:
+            return _or_none(subscription)
+        if "from daily_usage" in text:
+            # check_rate_limit selects the row; check_fair_use_limit sums the
+            # column. Told apart by the aggregate, so one table serves both.
+            if "sum(" in text or "count(" in text:
+                return _count(usage_count)
+            return _or_none(usage)
+        if "from counterviews" in text:
+            return _count(0)
+        return _or_none(None)
+
+    db.execute = AsyncMock(side_effect=_execute)
     return db
 
 

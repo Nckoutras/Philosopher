@@ -134,6 +134,17 @@ ANALYTICS_EVENTS = {
     # than a message count anyway.
     "data_exported":          ["conversation_count", "record_count", "size_bucket"],
 
+    # ── Limits ───────────────────────────────────────────────────────────────
+    # Fired when a cap REFUSES a request, from the four token-spending paths.
+    # Three closed enums and nothing else: tier is free|pro|premium, cap_kind
+    # names which ceiling was hit, path names the door. The user's text is not
+    # here and cannot be — a cap event describes the refusal, not the request.
+    #
+    # cap_kind exists so the free daily cap and the Pro fair-use cap stay
+    # separable in the dashboard: one is a conversion signal, the other is a
+    # cost signal, and averaging them together would hide both.
+    "usage_cap_hit":          ["tier", "cap_kind", "path"],
+
     # ── Safety (no PII) ──────────────────────────────────────────────────────
     "safety_event_pre":       ["risk_level", "category"],
 }

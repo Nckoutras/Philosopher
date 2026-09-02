@@ -26,6 +26,7 @@ from services.profile_text import profile_to_display
 from services.analytics_service import analytics_service
 from services.persona_voice import get_error_voice
 import services.rate_limit_service as rate_limit_service
+from services.rate_limit_service import utc_today
 from text_utils import dominant_language
 from services.postprocessing_service import (
     POSTPROCESSING_ENABLED,
@@ -1061,7 +1062,13 @@ class ConversationService:
             # ── INCREMENT DAILY USAGE ────────────────────────────────────────
             # Skip for admins, ritual conversations, and safety-suppressed responses.
             if not is_admin and conv_ritual_id is None and not safety_out.should_suppress_persona:
-                today = date.today()
+                # utc_today(), not date.today(): the READ side
+                # (rate_limit_service) counts against the UTC day and resets at
+                # next_utc_midnight(). date.today() is the server's LOCAL date, so
+                # on any non-UTC host the write and the read disagree for the
+                # length of the offset each midnight. Latent on Render (UTC), not
+                # absent.
+                today = utc_today()
                 usage_result = await db.execute(
                     select(DailyUsage).where(
                         DailyUsage.user_id == user_id,
@@ -1618,7 +1625,8 @@ class ConversationService:
         # failed go-deeper never consumes the user's daily allowance. Skipped for
         # admins and ritual conversations, matching the check.
         if not is_admin and conv.ritual_id is None:
-            today = date.today()
+            # utc_today() — see the note at the other daily_usage write site.
+            today = utc_today()
             gd_usage_result = await db.execute(
                 select(DailyUsage).where(
                     DailyUsage.user_id == user_id,
