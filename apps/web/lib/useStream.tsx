@@ -5,6 +5,7 @@ import { useStore } from '@/lib/store'
 import { track } from '@/lib/analytics'
 import { latencyBucket } from '@/lib/analyticsEvents'
 import toast from 'react-hot-toast'
+import { fairUseMessage } from '@/lib/fairUseCopy'
 
 export function useStream() {
   const router = useRouter()
@@ -172,7 +173,11 @@ export function useStream() {
       // flow owns the streaming state, so do not reset it or toast here.
       if (err instanceof DOMException && err.name === 'AbortError') return
       resetStreaming()
-      if (err instanceof RateLimitError) {
+      if (err instanceof RateLimitError && err.errorCode === 'fair_use_limit') {
+        // Pro fair-use cap. NEVER the paywall: this user is already a
+        // subscriber and there is nothing to sell them. Plain notice only.
+        toast(fairUseMessage(err.resetAt))
+      } else if (err instanceof RateLimitError) {
         // RF-02: show paywall modal instead of toast
         setShowPaywall(true, {
           upgradeTarget: err.upgradeTarget,
@@ -285,7 +290,11 @@ export function useStream() {
     } catch (err: unknown) {
       if (err instanceof DOMException && err.name === 'AbortError') return
       resetStreaming()
-      if (err instanceof RateLimitError) {
+      if (err instanceof RateLimitError && err.errorCode === 'fair_use_limit') {
+        // Pro fair-use cap. NEVER the paywall: this user is already a
+        // subscriber and there is nothing to sell them. Plain notice only.
+        toast(fairUseMessage(err.resetAt))
+      } else if (err instanceof RateLimitError) {
         setShowPaywall(true, {
           upgradeTarget: err.upgradeTarget,
           resetAt: err.resetAt,
@@ -406,7 +415,11 @@ export function useStream() {
     } catch (err: unknown) {
       if (err instanceof DOMException && err.name === 'AbortError') return
       resetStreaming()
-      if (err instanceof RateLimitError) {
+      if (err instanceof RateLimitError && err.errorCode === 'fair_use_limit') {
+        // Pro fair-use cap. NEVER the paywall: this user is already a
+        // subscriber and there is nothing to sell them. Plain notice only.
+        toast(fairUseMessage(err.resetAt))
+      } else if (err instanceof RateLimitError) {
         setShowPaywall(true, {
           upgradeTarget: err.upgradeTarget,
           resetAt: err.resetAt,
