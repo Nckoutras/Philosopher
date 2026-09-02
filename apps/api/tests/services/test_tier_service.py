@@ -88,8 +88,43 @@ async def test_expired_subscription_returns_free():
 # ── past_due subscription ─────────────────────────────────────────────────────
 
 @pytest.mark.asyncio
-async def test_past_due_subscription_returns_free():
+async def test_past_due_keeps_pro_during_dunning():
+    """INVERTED from test_past_due_subscription_returns_free.
+
+    A failed payment used to drop a paying user to free mid-cycle, silently and
+    with no email — a recoverable card problem turned into a churn event. Stripe
+    is still retrying at this point; access continues until Stripe gives up and
+    sends customer.subscription.deleted.
+    """
     sub = _make_sub(status="past_due", current_period_end=_future())
+    db = _make_db(sub)
+    assert await get_user_tier(db, USER_ID) == "pro"
+
+
+@pytest.mark.asyncio
+async def test_past_due_keeps_pro_even_after_the_period_end_has_passed():
+    """THE CASE THAT MAKES GRACE REAL, and the one a status-tuple-only change
+    would have missed. Stripe does not advance current_period_end on a failed
+    renewal, so a dunning row's period end is already in the past. If the expiry
+    gate applied here, grace would last hours instead of the dunning window."""
+    sub = _make_sub(status="past_due", current_period_end=_past())
+    db = _make_db(sub)
+    assert await get_user_tier(db, USER_ID) == "pro"
+
+
+@pytest.mark.asyncio
+async def test_past_due_on_a_free_row_is_still_free():
+    """Grace extends a Pro entitlement; it does not invent one."""
+    sub = _make_sub(status="past_due", current_period_end=_future(), plan="free")
+    db = _make_db(sub)
+    assert await get_user_tier(db, USER_ID) == "free"
+
+
+@pytest.mark.asyncio
+async def test_canceled_after_dunning_ends_access():
+    """The bound on the grace above: when Stripe gives up it cancels, the
+    deleted webhook writes status='canceled', and access ends."""
+    sub = _make_sub(status="canceled", current_period_end=_future())
     db = _make_db(sub)
     assert await get_user_tier(db, USER_ID) == "free"
 

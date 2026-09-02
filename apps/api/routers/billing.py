@@ -275,7 +275,7 @@ async def stripe_webhook(request: Request, db: AsyncSession = Depends(get_db)):
         return {"received": True, "duplicate": True}
 
     try:
-        result = await _process_webhook_event(db, event, obj, event_id, event_created)
+        result = await _process_webhook_event(db, event, obj, event_id, event_created, request)
     except Exception:
         # Delete the row so Stripe's retry gets a clean insert rather than a
         # permanent duplicate-conflict that can never be processed. Then re-raise
@@ -293,6 +293,156 @@ async def stripe_webhook(request: Request, db: AsyncSession = Depends(get_db)):
     stripe_event.skipped = result.get("skipped", False)
     await db.commit()
     return {"received": True}
+
+
+# The fixed vocabulary for last_14d_features, and the single place the mapping
+# lives. feature_key -> (model, user column, time column, extra filter).
+#
+# self_portrait has no table of its own: answers merge into
+# user_preferences.profile.answers, a JSONB blob with no per-answer timestamp.
+# The ARQ seed writes one memory_entries row per answered question instead
+# (arq_worker: entry_type="self_portrait"), which IS timestamped. It lands
+# seconds after the answer — immaterial in a 14-day window.
+FEATURE_WINDOW_DAYS = 14
+
+
+def _feature_sources():
+    """Imported lazily so this module keeps its current import surface."""
+    from models import (
+        Message, CouncilCase, Counterview, Mirror, SelfComparison,
+        WeeklyLetter, MemoryEntry, ScheduledEmail,
+    )
+    return [
+        ("chat", Message, Message.created_at, Message.role == "user"),
+        ("council", CouncilCase, CouncilCase.created_at, None),
+        ("counterview", Counterview, Counterview.created_at, None),
+        ("mirror", Mirror, Mirror.created_at, None),
+        ("you_vs_you", SelfComparison, SelfComparison.created_at, None),
+        ("letter", WeeklyLetter, WeeklyLetter.created_at, None),
+        ("self_portrait", MemoryEntry, MemoryEntry.created_at,
+         MemoryEntry.entry_type == "self_portrait"),
+        ("future_self", ScheduledEmail, ScheduledEmail.created_at, None),
+    ]
+
+
+FEATURE_VOCABULARY = (
+    "chat", "council", "counterview", "letter", "mirror",
+    "self_portrait", "future_self", "you_vs_you",
+)
+
+
+async def _last_14d_features(db, user_id) -> list:
+    """Sorted distinct feature keys with activity in the last 14 days.
+
+    From OUR database, not PostHog: this must be true at the moment of
+    cancellation, and it must be answerable for a user who never consented to
+    analytics. An EMPTY LIST is a valid and interesting answer — it says they
+    cancelled having used nothing, which is the most actionable churn signal
+    there is, and it must never be confused with "we failed to look".
+
+    Values come only from FEATURE_VOCABULARY, never from user content. Analytics
+    only, and never allowed to raise inside a webhook.
+    """
+    from datetime import timedelta
+
+    try:
+        cutoff = datetime.now(timezone.utc) - timedelta(days=FEATURE_WINDOW_DAYS)
+        found = []
+        for key, model, time_col, extra in _feature_sources():
+            conditions = [model.user_id == str(user_id), time_col >= cutoff]
+            if extra is not None:
+                conditions.append(extra)
+            row = await db.execute(select(model.id).where(*conditions).limit(1))
+            if row.first() is not None:
+                found.append(key)
+        return sorted(found)
+    except Exception:
+        logger.error("last_14d_features failed for user=%s", user_id, exc_info=True)
+        return []
+
+
+async def _send_recovery_email(request, db, user_id) -> None:
+    """Queue the dunning recovery email, or send it inline if there is no queue.
+
+    ARQ first so a slow Resend cannot add latency to a Stripe webhook and turn a
+    successful billing update into a retry.
+
+    The fallback is a SYNCHRONOUS send, not a silent drop: a misconfigured queue
+    must not quietly eat a revenue-recovery email. Both paths log ERROR on
+    failure and return normally — this function never raises, because the
+    webhook has already applied a billing state change by the time it runs.
+    """
+    queue = getattr(request.app.state, "arq_queue", None)
+    if queue is not None:
+        try:
+            await queue.enqueue_job("send_payment_recovery_email_task", str(user_id))
+            return
+        except Exception as e:
+            logger.error(
+                "Payment recovery email: enqueue failed for user=%s, falling back "
+                "to a synchronous send: %s", user_id, e, exc_info=True,
+            )
+
+    try:
+        from models import User
+        from services.email_service import send_email
+        from services.template_service import (
+            render_payment_recovery_email, PAYMENT_RECOVERY_SUBJECT,
+        )
+
+        result = await db.execute(select(User).where(User.id == str(user_id)))
+        user = result.scalar_one_or_none()
+        if user is None or not user.email:
+            logger.error("Payment recovery email: no user/email for %s", user_id)
+            return
+        send_email(
+            to=user.email,
+            subject=PAYMENT_RECOVERY_SUBJECT,
+            html=render_payment_recovery_email(
+                portal_link=f"{config.FRONTEND_URL.rstrip('/')}/app/account",
+            ),
+        )
+    except Exception as e:
+        logger.error(
+            "Payment recovery email FAILED for user=%s: %s", user_id, e, exc_info=True,
+        )
+
+
+def _cancel_reason(obj) -> str:
+    """Why Stripe says this subscription ended, as one of three enum values.
+
+    Stripe's cancellation_details.reason is
+    Literal["cancellation_requested", "payment_disputed", "payment_failed"].
+    Both payment shapes collapse to payment_failed — a dispute and a decline are
+    the same story for churn analysis.
+
+    NEVER reads cancellation_details.comment, which is free text the customer
+    typed and sits one attribute away from here.
+    """
+    try:
+        details = (obj or {}).get("cancellation_details") or {}
+        reason = details.get("reason")
+    except Exception:
+        return "other"
+    if reason in ("payment_failed", "payment_disputed"):
+        return "payment_failed"
+    if reason == "cancellation_requested":
+        return "user_requested"
+    return "other"
+
+
+def _cancel_feedback(obj) -> str | None:
+    """The customer's survey answer, passed through verbatim.
+
+    Safe to pass through because it is a CLOSED Stripe enum — customer_service,
+    low_quality, missing_features, other, switched_service, too_complex,
+    too_expensive, unused — with zero free text. Its sibling `comment` is the
+    free-text field and is never read.
+    """
+    try:
+        return ((obj or {}).get("cancellation_details") or {}).get("feedback") or None
+    except Exception:
+        return None
 
 
 def _record_transition(
@@ -357,7 +507,7 @@ def _mark_pro_since(sub) -> None:
         sub.pro_since = datetime.now(timezone.utc)
 
 
-async def _process_webhook_event(db, event, obj, event_id, event_created) -> dict:
+async def _process_webhook_event(db, event, obj, event_id, event_created, request) -> dict:
     """Apply one verified, de-duplicated Stripe event. Returns {"skipped": bool}.
 
     Split out of stripe_webhook so the idempotency and crash handling above read
@@ -557,11 +707,16 @@ async def _process_webhook_event(db, event, obj, event_id, event_created) -> dic
                 # the plan they cancelled is what we want, so it is captured
                 # into a local first.
                 #
-                # last_14d_features and reason are deferred to PR #5
-                # (grace/dunning); reason will be an enum, never typed text.
+                # reason, cancel_feedback and last_14d_features all land here.
+                # reason and cancel_feedback are Stripe enums; the free-text
+                # sibling cancellation_details.comment is never read.
+                features = await _last_14d_features(db, sub.user_id)
                 analytics_service.track("subscription_canceled", sub.user_id, {
                     "plan": canceled_plan,
                     "tenure_days": tenure,
+                    "reason": _cancel_reason(obj),
+                    "cancel_feedback": _cancel_feedback(obj),
+                    "last_14d_features": features,
                 })
 
         case "invoice.payment_failed":
@@ -585,9 +740,20 @@ async def _process_webhook_event(db, event, obj, event_id, event_created) -> dic
                     )
                     return {"skipped": True}
 
+                # ONE EMAIL PER DUNNING EPISODE. Stripe retries a failed payment
+                # several times and sends payment_failed each time; a row already
+                # past_due has been told, so only the entering transition sends.
+                # Duplicate DELIVERIES of one event are already dead at the
+                # stripe_events lock — this guards the different case of several
+                # DISTINCT failures within one episode.
+                entering_dunning = sub.status != "past_due"
+
                 _record_transition(db, sub, event_id, event["type"], to_status="past_due")
                 sub.status = "past_due"
                 _mark_applied(sub, event_created)
+
+                if entering_dunning:
+                    await _send_recovery_email(request, db, sub.user_id)
 
     return {"skipped": False}
 
