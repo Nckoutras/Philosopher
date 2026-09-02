@@ -18,6 +18,7 @@ from services.analytics_service import analytics_service
 from services.tier_service import get_user_tier
 from services.persona_voice import get_error_voice
 import services.rate_limit_service as rate_limit_service
+from services.safety_service import safety_service
 from personas import get_persona, is_persona_accessible
 
 router = APIRouter(prefix="/conversations", tags=["conversations"])
@@ -361,8 +362,30 @@ async def send_message(
         persona_result = await db.execute(select(Persona).where(Persona.id == responder_persona_id))
         persona = persona_result.scalar_one()
 
+        # ── SAFETY BEFORE THE LIMIT ──────────────────────────────────────
+        # A person in crisis who has used their daily allowance used to get a
+        # 429 here, which the web client turns into the PaywallModal — an
+        # UPGRADE PROMPT in answer to "I want to kill myself". The safety gate
+        # lives inside the service, so returning 429 from the router meant it
+        # never ran: no crisis response, no safety_events row, nothing.
+        #
+        # The fix is an ordering one. When the input trips the gate, the
+        # rate-limit check is SKIPPED ENTIRELY — no 429, and no allowance
+        # consumed (the daily_usage increment lives in Phase C2, which the
+        # service's crisis branch returns before reaching). The service then
+        # re-runs check_input and does the real work: saves both messages, logs
+        # the safety event, and answers in the user's own language (#589).
+        #
+        # This check therefore runs TWICE on the happy path, here and at
+        # conversation_service.py:623. That duplication is DELIBERATE and ruled
+        # on 2026-09-02: check_input is ~82 microseconds against a multi-second
+        # LLM call, and on the crisis path correctness beats elegance. Do not
+        # refactor the service-side check away to remove it — dedup is future
+        # work, and the service must stay correct when called directly.
+        crisis = await safety_service.check_input(body.content, user.id)
+
         rate_limit_result = None
-        if not user.is_admin and conv.ritual_id is None:
+        if not crisis.should_suppress_persona and not user.is_admin and conv.ritual_id is None:
             user_tier = await get_user_tier(db, user.id)
             rate_limit_result = await rate_limit_service.check_rate_limit(
                 db, UUID(user.id), UUID(responder_persona_id), user_tier=user_tier
@@ -447,6 +470,8 @@ async def another_mind(
     if not target_persona:
         raise HTTPException(status_code=404, detail="Persona not found")
 
+    # No user text on this path; safety ordering enforced at send-message
+    # (fix/safety-before-limits ruling).
     rate_limit_result = None
     if not user.is_admin and conv.ritual_id is None:
         user_tier = await get_user_tier(db, user.id)
@@ -626,6 +651,8 @@ async def go_deeper(
     home_persona = home_persona_result.scalar_one()
     home_config = get_persona(home_persona.slug)
 
+    # No user text on this path; safety ordering enforced at send-message
+    # (fix/safety-before-limits ruling).
     rate_limit_result = None
     if not user.is_admin and conv.ritual_id is None:
         user_tier = await get_user_tier(db, user.id)
