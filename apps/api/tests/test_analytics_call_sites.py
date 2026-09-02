@@ -38,6 +38,13 @@ _SAFE_CALL_NAMES = {
     "_source_of",       # allow-listed enum from Stripe metadata
     "_cancel_reason",   # closed 3-value enum derived from Stripe
     "_cancel_feedback", # closed Stripe enum, never the free-text `comment`
+    # Data export. Both read the assembled payload, and both are registered
+    # here rather than allowed implicitly: _export_record_count SUMS list
+    # lengths and never reads a value, _export_size_bucket measures the
+    # serialised length and returns one of four fixed strings. Neither can
+    # return anything a user wrote.
+    "_export_record_count",  # int, sum of section lengths
+    "_export_size_bucket",   # closed 4-value enum
 }
 
 
@@ -204,6 +211,7 @@ def test_the_council_matter_never_becomes_a_property():
                                    "cancel_feedback", "last_14d_features"}),
         ("subscription_activated", {"plan", "interval", "source"}),
         ("checkout_started", {"plan", "interval", "source"}),
+        ("data_exported", {"conversation_count", "record_count", "size_bucket"}),
     ],
 )
 def test_specific_sites_send_the_expected_keys(event, expected):

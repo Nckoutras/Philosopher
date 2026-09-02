@@ -665,6 +665,19 @@ class ApiClient {
 
   // ── Auth ──────────────────────────────────────────────────────────────────
 
+  // GDPR Art. 15/20. Returns the whole account as one JSON document.
+  //
+  // Returns the PARSED object, not a Blob: request() already parses, the
+  // payload is JSON either way, and the caller stringifies it for download.
+  // Adding a raw-response branch to request() to save one re-serialisation
+  // would put a second code path through the 401 self-heal for no gain.
+  //
+  // Errors carry the server's detail — 429 (once an hour) and 413 (too large,
+  // with the support address) both say something the caller cannot infer.
+  async exportData(): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('/auth/me/export')
+  }
+
   // GDPR Art. 17. Hard delete: 21 tables cascade server-side and the safety
   // audit trail is anonymised. 204 on success.
   //
