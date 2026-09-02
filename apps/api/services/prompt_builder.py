@@ -80,9 +80,32 @@ class PromptBuilder:
             {"type": "text", "text": system, "cache_control": {"type": "ephemeral"}},
         ]
 
-    def build_safety_response(self, level: str = "high") -> str:
-        """Render the generic app-voice safety response. No persona, no user context."""
-        template = jinja_env.get_template("safety_response.jinja2")
+    # Language -> template. Anything not listed falls back to English, which is
+    # the safe default: an English crisis response is worse than a Greek one for
+    # a Greek speaker, but it is far better than none, and an unknown language
+    # must never produce an empty response on this path.
+    _SAFETY_TEMPLATES = {
+        "Greek": "safety_response_el.jinja2",
+        "English": "safety_response.jinja2",
+    }
+
+    def build_safety_response(self, level: str = "high", language: str = "English") -> str:
+        """Render the generic app-voice safety response. No persona, no user context.
+
+        `language` comes from text_utils.dominant_language, run over the user's
+        own text at the call site. If a Greek speaker in crisis receives the
+        English response, the safety response itself has failed the person it
+        exists to protect — the conversation has visibly stopped and then not
+        communicated. Greeklish routes to English by design: that detector counts
+        codepoints, and a greeklish typist is reading an English UI already.
+
+        Still no user_name parameter, and there must never be one — a name in
+        this response would be persona leakage on the one path that must carry
+        none.
+        """
+        template = jinja_env.get_template(
+            self._SAFETY_TEMPLATES.get(language, "safety_response.jinja2")
+        )
         return template.render(level=level).strip()
 
     def build_ritual_opener(self, ritual_template: str, user_name: str | None = None) -> str:

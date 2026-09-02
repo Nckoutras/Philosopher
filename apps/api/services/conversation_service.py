@@ -26,6 +26,7 @@ from services.profile_text import profile_to_display
 from services.analytics_service import analytics_service
 from services.persona_voice import get_error_voice
 import services.rate_limit_service as rate_limit_service
+from text_utils import dominant_language
 from services.postprocessing_service import (
     POSTPROCESSING_ENABLED,
     check_universal_forbidden,
@@ -567,7 +568,9 @@ class ConversationService:
                 },
             )
             await self._log_safety_event(db, user_id, conv.id, None, safety_out, "post_generation")
-            text = prompt_builder.build_safety_response(level=safety_out.level)
+            text = prompt_builder.build_safety_response(
+                level=safety_out.level, language=dominant_language([user_text]),
+            )
 
         await self._save_message(
             db, conv, user_id, "assistant", text,
@@ -623,7 +626,11 @@ class ConversationService:
             if safety_in.should_suppress_persona:
                 # Save user message first
                 user_msg = await self._save_message(db, conv, user_id, "user", user_text, safety_level=safety_in.level)
-                safe_text = prompt_builder.build_safety_response(level=safety_in.level)
+                # The user just wrote this; answer the crisis response in the
+                # language they wrote it in.
+                safe_text = prompt_builder.build_safety_response(
+                    level=safety_in.level, language=dominant_language([user_text]),
+                )
                 await self._save_message(db, conv, user_id, "assistant", safe_text, safety_level=safety_in.level, persona_override=True)
                 await db.commit()
                 analytics_service.track("safety_event_pre", user_id, {"risk_level": safety_in.level, "category": safety_in.category})
@@ -924,7 +931,9 @@ class ConversationService:
                 },
             )
             yield f"data: {json.dumps({'type': 'safety_override', 'level': safety_out.level})}\n\n"
-            safe_text = prompt_builder.build_safety_response(level=safety_out.level)
+            safe_text = prompt_builder.build_safety_response(
+                level=safety_out.level, language=dominant_language([user_text]),
+            )
             for chunk in self._chunk_text(safe_text):
                 yield f"data: {json.dumps({'type': 'chunk', 'data': chunk})}\n\n"
             full_response = safe_text

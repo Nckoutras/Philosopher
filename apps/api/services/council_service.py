@@ -22,6 +22,7 @@ from services.council_prompts import (
 from services.llm_client import llm_client
 from services.prompt_builder import prompt_builder
 from services.safety_service import safety_service
+from text_utils import dominant_language
 from services.safety_event_log import log_safety_event, STAGE_COUNCIL_INPUT
 
 logger = logging.getLogger(__name__)
@@ -178,7 +179,9 @@ class CouncilService:
             await log_safety_event(db, user_id, safety_in, STAGE_COUNCIL_INPUT)
         if safety_in.should_suppress_persona:
             yield f"data: {json.dumps({'type': 'safety', 'level': safety_in.level})}\n\n"
-            safe = prompt_builder.build_safety_response(level=safety_in.level)
+            safe = prompt_builder.build_safety_response(
+                level=safety_in.level, language=dominant_language([matter]),
+            )
             for chunk in _chunk_text(safe):
                 yield f"data: {json.dumps({'type': 'chunk', 'data': chunk})}\n\n"
             yield f"data: {json.dumps({'type': 'done'})}\n\n"
