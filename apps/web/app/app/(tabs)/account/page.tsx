@@ -9,6 +9,8 @@ import { api } from '@/lib/api'
 import { signOut } from '@/lib/auth'
 import AppHeader from '@/components/layout/AppHeader'
 import Switch from '@/components/ui/Switch'
+import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal'
+import { DELETE_ACCOUNT_COPY } from '@/lib/accountDeletionCopy'
 import {
   getConsent,
   setConsent,
@@ -106,6 +108,34 @@ export default function AccountPage() {
     else optOutAnalytics()
   }
 
+  // ── Account deletion ──────────────────────────────────────────────────────
+  const [deleteOpen, setDeleteOpen] = useState(false)
+  const [deleteLoading, setDeleteLoading] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+
+  async function handleDeleteConfirm() {
+    setDeleteLoading(true)
+    setDeleteError(null)
+    try {
+      await api.deleteAccount()
+      // Only after a 204. A 502 means Stripe refused to cancel and NOTHING was
+      // deleted, so the account is still there and signing out would hide that.
+      signOut()
+    } catch (e) {
+      // The server's message is shown as-is: it distinguishes "your account was
+      // not deleted" (502) from a generic failure, and that difference is the
+      // only thing the user needs from this screen.
+      setDeleteError(e instanceof Error ? e.message : DELETE_ACCOUNT_COPY.genericError)
+      setDeleteLoading(false)
+    }
+  }
+
+  function handleDeleteClose() {
+    if (deleteLoading) return
+    setDeleteOpen(false)
+    setDeleteError(null)
+  }
+
   function handleSignOut() {
     // Shared helper clears all three token stores (cookie + localStorage + Zustand)
     // and redirects to sign-in — the same definition the 401 self-heal handler uses.
@@ -190,7 +220,31 @@ export default function AccountPage() {
         >
           Sign out
         </button>
+
+        {/* ── Delete account ── */}
+        {/* Below Sign out, and visually quieter than it: this is not a thing to
+            reach for by accident, and it is not a thing to hide either. */}
+        <button
+          type="button"
+          onClick={() => setDeleteOpen(true)}
+          className="w-full mt-3 py-[14px] text-center font-lora text-[13px] text-danger"
+        >
+          {DELETE_ACCOUNT_COPY.trigger}
+        </button>
       </div>
+
+      <DeleteConfirmModal
+        open={deleteOpen}
+        title={DELETE_ACCOUNT_COPY.title}
+        body={DELETE_ACCOUNT_COPY.body}
+        confirmLabel={DELETE_ACCOUNT_COPY.confirmLabel}
+        requireTypedConfirmation={DELETE_ACCOUNT_COPY.typedToken}
+        typedConfirmationLabel={DELETE_ACCOUNT_COPY.typedLabel}
+        loading={deleteLoading}
+        error={deleteError}
+        onConfirm={handleDeleteConfirm}
+        onClose={handleDeleteClose}
+      />
     </main>
   )
 }

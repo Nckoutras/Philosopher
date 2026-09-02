@@ -1,12 +1,12 @@
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from db.session import get_db
 from models import User, Subscription
 from schemas import TokenResponse, UserOut, OtpRequest, OtpVerifyRequest, UpdateMeRequest
-from auth import create_token, get_current_user
+from auth import create_token, get_current_user, get_current_user_plan
 from services.analytics_service import analytics_service
 from services.otp_service import (
     create_and_send_otp,
@@ -17,6 +17,7 @@ from services.otp_service import (
 )
 from services.rate_limit_service import check_and_increment, check_deep_mode_limit
 from services.disclaimer_service import user_needs_acceptance
+from services.account_deletion_service import delete_account, StripeCancelFailed
 import stripe
 from config import config
 
@@ -98,6 +99,44 @@ async def update_me(
     await db.refresh(user)
     needs_disclaimer = await user_needs_acceptance(user.id, db)
     return UserOut.model_validate(user).model_copy(update={"needs_disclaimer": needs_disclaimer})
+
+
+@router.delete("/me", status_code=204)
+async def delete_me(
+    user_and_plan: tuple[User, str] = Depends(get_current_user_plan),
+    db: AsyncSession = Depends(get_db),
+):
+    """Delete this account and everything it owns. GDPR Art. 17.
+
+    HARD delete. There is no grace period and no recovery: 21 tables cascade
+    from a single DELETE, and the safety-event audit trail is anonymised rather
+    than destroyed (migration 056 explains why).
+
+    NO token_version bump is needed and none is done. get_current_user loads the
+    user row and 401s with "User not found" before it ever reaches the "ver"
+    check, so the row's absence revokes every token on every device by
+    construction. Incrementing a column on a row we are about to delete would be
+    theatre.
+
+    502, not 500, when Stripe refuses to cancel a billable subscription: nothing
+    has been deleted at that point, the account is intact, and the failure is
+    upstream. A deleted account that keeps charging is the one outcome that
+    cannot be undone, so this route declines to create it.
+
+    Depends on get_current_user_plan rather than get_current_user because the
+    account_deleted event carries the plan, and it has to be read while the
+    subscription row still exists.
+    """
+    user, plan = user_and_plan
+    try:
+        await delete_account(db, user, plan=plan)
+    except StripeCancelFailed as e:
+        raise HTTPException(
+            status_code=502,
+            detail="Could not cancel your subscription with our payment provider. "
+                   "Your account has NOT been deleted. Please try again shortly.",
+        ) from e
+    return Response(status_code=204)
 
 
 @router.post("/otp/request", status_code=202)

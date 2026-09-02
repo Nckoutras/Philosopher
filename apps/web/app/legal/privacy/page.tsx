@@ -21,7 +21,7 @@ export default function PrivacyPage() {
               Privacy Policy
             </h1>
             <p className="font-lora text-[12px] text-sepia">
-              Effective: 1 September 2026 · Version 1.2
+              Effective: 2 September 2026 · Version 1.3
             </p>
           </header>
 
@@ -60,7 +60,7 @@ export default function PrivacyPage() {
           <Section title="6. Retention">
             Account data and conversation messages: until you delete your account. OTP codes: up to 1 hour. Disclaimer acceptance audit trail: kept until account deletion. Server logs: up to 30 days.
             {' '}
-            When you delete your account, we initiate a soft-delete and retain data for a short grace period (during which you can recover the account), after which we proceed with hard deletion. Aggregated, non-identifying analytics may be retained.
+            When you delete your account, your account and all personal data associated with it are deleted immediately and permanently. This cannot be undone. We retain only: anonymized safety records with all personal identifiers removed, billing records required for financial compliance, and aggregated, non-identifying analytics.
           </Section>
 
           <Section title="7. Your Rights (GDPR)">
