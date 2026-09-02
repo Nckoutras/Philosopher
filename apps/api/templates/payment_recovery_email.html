@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Your Wise Room payment didn't go through</title>
+</head>
+<body style="margin: 0; padding: 40px 20px; background-color: #FAF4E6; font-family: Georgia, 'Times New Roman', serif;">
+  <div style="max-width: 480px; margin: 0 auto; background-color: #FFFFFF; padding: 40px 32px; border-radius: 4px;">
+
+    <!-- EVERY WORD HERE IS THE APPROVED COPY (2026-09-02), verbatim. This template
+         adds markup and nothing else: no wordmark heading, no footer line, no
+         call-to-action label. The copy already signs off "— The Wise Room", so a
+         wordmark would duplicate it, and the link's visible text is the URL
+         itself rather than an invented label like "update your card". If this
+         email ever needs a word that is not below, that is a copy decision, not
+         a template edit. -->
+
+    <p style="font-size: 15px; color: #1F1B14; line-height: 1.7; margin: 0 0 20px 0;">
+      Your latest payment for The Wise Room didn't go through &mdash; this
+      usually means an expired or declined card.
+    </p>
+
+    <p style="font-size: 15px; color: #1F1B14; line-height: 1.7; margin: 0 0 20px 0;">
+      Your access continues for now. To keep it, update your payment method here:
+    </p>
+
+    <p style="font-size: 15px; line-height: 1.7; margin: 0 0 20px 0; word-break: break-all;">
+      <a href="{{ portal_link }}" style="color: #8A7340;">{{ portal_link }}</a>
+    </p>
+
+    <p style="font-size: 15px; color: #1F1B14; line-height: 1.7; margin: 0 0 20px 0;">
+      Stripe will retry automatically over the next few days. If the payment
+      can't be completed, your account will return to the free plan &mdash;
+      your conversations and reflections stay saved either way.
+    </p>
+
+    <p style="font-size: 15px; color: #1F1B14; line-height: 1.7; margin: 0;">
+      &mdash; The Wise Room
+    </p>
+  </div>
+</body>
+</html>

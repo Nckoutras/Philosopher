@@ -251,3 +251,52 @@ async def test_summary_counts_synced_and_skipped_separately():
     summary = m_logger.info.call_args.args
     assert summary[1] == 1   # synced
     assert summary[2] == 2   # skipped
+
+
+@pytest.mark.asyncio
+async def test_the_cron_does_not_undo_dunning_grace():
+    """GRACE SURVIVES THE 6-HOURLY SYNC.
+
+    tier_service now treats past_due as entitled, and the grace is bounded by
+    Stripe rather than by a timer of ours. This cron is the other half of that
+    bound: it re-reads status from Stripe every six hours. The risk it has to
+    NOT create is undoing the grace — writing something other than past_due, or
+    dropping the plan — while Stripe is still retrying the payment.
+
+    Stripe reports past_due during dunning, the row already says past_due, so
+    the sync finds nothing to change and writes nothing at all.
+    """
+    sub = _make_sub(sub_id=LIVE_ID, plan="pro", status="past_due")
+    db = _make_db([sub])
+
+    with (
+        patch("db.session.AsyncSessionLocal", return_value=db),
+        patch("config.config.STRIPE_SECRET_KEY", "sk_test_dummy"),
+        patch("stripe.Subscription.retrieve", return_value=MagicMock(status="past_due")),
+        patch("workers.cron.logger"),
+    ):
+        await _get_cron_fn()()
+
+    assert sub.status == "past_due"
+    assert sub.plan == "pro"
+    db.commit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_the_cron_ends_grace_when_stripe_says_canceled():
+    """The backstop half. If the customer.subscription.deleted webhook is ever
+    missed, grace must still end — within six hours, from Stripe's own answer."""
+    sub = _make_sub(sub_id=LIVE_ID, plan="pro", status="past_due")
+    db = _make_db([sub])
+
+    with (
+        patch("db.session.AsyncSessionLocal", return_value=db),
+        patch("config.config.STRIPE_SECRET_KEY", "sk_test_dummy"),
+        patch("stripe.Subscription.retrieve", return_value=MagicMock(status="canceled")),
+        patch("workers.cron.logger"),
+    ):
+        await _get_cron_fn()()
+
+    assert sub.status == "canceled"
+    assert sub.plan == "free"
+    db.commit.assert_awaited_once()

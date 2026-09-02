@@ -2198,6 +2198,42 @@ async def generate_monthly_letter_task(ctx, user_id: str, voice_persona_slug: st
             logger.error(f"MonthlyLetter task failed: {e}", exc_info=True)
 
 
+async def send_payment_recovery_email_task(ctx, user_id: str):
+    """Dunning recovery email — the one message a failed payment produces.
+
+    Enqueued by the Stripe webhook on the active->past_due transition only, so a
+    dunning episode sends exactly one. Never raises: the webhook has already
+    committed a billing state change by the time this runs, and a send failure
+    must not look like a billing failure.
+
+    The link is the durable in-app account page, NOT a Stripe portal session —
+    portal sessions expire in minutes and this email is read hours later.
+    """
+    from db.session import AsyncSessionLocal
+    from models import User
+    from services.email_service import send_email
+    from services.template_service import (
+        render_payment_recovery_email, PAYMENT_RECOVERY_SUBJECT,
+    )
+
+    try:
+        async with AsyncSessionLocal() as db:
+            result = await db.execute(select(User).where(User.id == str(user_id)))
+            user = result.scalar_one_or_none()
+            if user is None or not user.email:
+                logger.error("Payment recovery email: no user/email for %s", user_id)
+                return
+            html = render_payment_recovery_email(
+                portal_link=f"{config.FRONTEND_URL.rstrip('/')}/app/account",
+            )
+            send_email(to=user.email, subject=PAYMENT_RECOVERY_SUBJECT, html=html)
+            logger.info("Payment recovery email sent user=%s", user_id)
+    except Exception as e:
+        logger.error(
+            "Payment recovery email FAILED user=%s: %s", user_id, e, exc_info=True,
+        )
+
+
 # ── Worker settings ───────────────────────────────────────────────────────────
 
 class WorkerSettings:
@@ -2214,6 +2250,7 @@ class WorkerSettings:
         generate_weekly_mirror_task,
         generate_weekly_letter_task,
         generate_monthly_letter_task,
+        send_payment_recovery_email_task,
     ]
     redis_settings = RedisSettings.from_dsn(config.REDIS_URL)
     max_jobs = 10

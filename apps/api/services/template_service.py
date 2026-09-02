@@ -26,6 +26,22 @@ def render_otp_email(*, code: str, image_url: str) -> str:
     return template.render(code=code, image_url=image_url)
 
 
+PAYMENT_RECOVERY_SUBJECT = "Your Wise Room payment didn't go through"
+
+
+def render_payment_recovery_email(*, portal_link: str) -> str:
+    """Render the dunning recovery email — the only thing sent when a payment fails.
+
+    portal_link must be a durable in-app URL, NOT a Stripe billing-portal session
+    URL: portal sessions expire within minutes, and an email is read hours later.
+    The account page's Subscription row opens the real portal on demand.
+
+    Every word of the body is the copy approved 2026-09-02. The template adds
+    markup only.
+    """
+    return _env.get_template("payment_recovery_email.html").render(portal_link=portal_link)
+
+
 def render_future_self_email(
     *,
     persona_name: str,

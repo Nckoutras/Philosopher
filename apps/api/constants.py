@@ -98,10 +98,12 @@ ANALYTICS_EVENTS = {
     # subscription_activated. None for a checkout that carried no source.
     "checkout_started":       ["plan", "interval", "source"],
     "subscription_activated": ["plan", "interval", "source"],
-    # last_14d_features and reason are deferred to PR #5 (grace/dunning), which
-    # touches the billing lifecycle anyway. When `reason` ships it is an enum,
-    # never typed text.
-    "subscription_canceled":  ["plan", "tenure_days"],
+    # reason and cancel_feedback are Stripe enums read off
+    # cancellation_details; its free-text sibling `comment` is never read.
+    # last_14d_features is a sorted list drawn from a FIXED vocabulary in
+    # routers/billing.py — user content can never enter it.
+    "subscription_canceled":  ["plan", "tenure_days", "reason",
+                               "cancel_feedback", "last_14d_features"],
 
     # ── Safety (no PII) ──────────────────────────────────────────────────────
     "safety_event_pre":       ["risk_level", "category"],

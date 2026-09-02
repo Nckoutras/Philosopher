@@ -25,6 +25,20 @@ from sqlalchemy.exc import IntegrityError
 
 from models import StripeEvent, SubscriptionEvent
 
+# feature_key -> the table its existence probe queries. Mirrors
+# routers.billing._feature_sources; asserted against it below so the two cannot
+# drift apart silently.
+_FEATURE_TABLES = {
+    "chat": "messages",
+    "council": "council_cases",
+    "counterview": "counterviews",
+    "mirror": "mirrors",
+    "you_vs_you": "self_comparisons",
+    "letter": "weekly_letters",
+    "self_portrait": "memory_entries",
+    "future_self": "scheduled_emails",
+}
+
 WEBHOOK_URL = "/api/v1/billing/webhook"
 USER_ID = "11111111-1111-1111-1111-111111111111"
 SUB_ROW_ID = "22222222-2222-2222-2222-222222222222"
@@ -64,8 +78,9 @@ class FakeDb:
     """AsyncSession double that RECORDS what was added, so the tests can assert
     on the stripe_events and subscription_events rows the handler writes."""
 
-    def __init__(self, sub, flush_raises=False):
+    def __init__(self, sub, flush_raises=False, features_present=()):
         self.sub = sub
+        self.features_present = set(features_present)
         self.added = []
         self.flush_raises = flush_raises
         self.committed = 0
@@ -77,8 +92,20 @@ class FakeDb:
         if stmt.__class__.__name__ == "Delete":
             self.deletes.append(stmt)
             return MagicMock()
+        # The eight last_14d_features probes are SELECT model.id … LIMIT 1, and
+        # the handler reads them with .first(). `features_present` names which
+        # feature tables should answer "yes"; everything else answers None, so
+        # an empty list is produced by a real absence rather than by a stub that
+        # cannot answer at all.
+        text = str(stmt)
+        for key, table in _FEATURE_TABLES.items():
+            if f"FROM {table}" in text:
+                result = MagicMock()
+                result.first.return_value = (1,) if key in self.features_present else None
+                return result
         result = MagicMock()
         result.scalar_one_or_none.return_value = self.sub
+        result.first.return_value = None
         return result
 
     def add(self, obj):
@@ -495,6 +522,236 @@ def test_tenure_days_no_longer_reads_created_at():
 
     sub.pro_since = datetime.now(timezone.utc) - timedelta(days=7)
     assert _tenure_days(sub) == 7
+
+
+# ── Grace: the recovery email ────────────────────────────────────────────────
+
+def _deleted_event(details=None, created=NOW):
+    obj = {"id": SUB_ID, "customer": CUSTOMER_ID, "status": "canceled"}
+    if details is not None:
+        obj["cancellation_details"] = details
+    return _event("customer.subscription.deleted", obj, created=created)
+
+
+def test_entering_dunning_queues_exactly_one_recovery_email(client):
+    """A recoverable card problem used to become a churn event in silence."""
+    sub = FakeSub(plan="pro", status="active")
+    client._db[0] = FakeDb(sub)
+
+    with patch("routers.billing._send_recovery_email") as send:
+        _post(client, _event("invoice.payment_failed", {"subscription": SUB_ID}))
+
+    assert sub.status == "past_due"
+    assert send.await_count == 1
+    assert send.await_args[0][2] == USER_ID
+
+
+def test_a_second_failure_in_the_same_episode_sends_nothing(client):
+    """Stripe retries a failed payment several times and sends payment_failed
+    each time. The row is already past_due, so the user has been told."""
+    sub = FakeSub(plan="pro", status="past_due")
+    client._db[0] = FakeDb(sub)
+
+    with patch("routers.billing._send_recovery_email") as send:
+        _post(client, _event(
+            "invoice.payment_failed", {"subscription": SUB_ID}, event_id="evt_2",
+        ))
+
+    send.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_the_sender_prefers_the_queue_and_never_raises():
+    from routers.billing import _send_recovery_email
+
+    request = MagicMock()
+    request.app.state.arq_queue = AsyncMock()
+    await _send_recovery_email(request, FakeDb(FakeSub()), USER_ID)
+
+    request.app.state.arq_queue.enqueue_job.assert_awaited_once_with(
+        "send_payment_recovery_email_task", USER_ID,
+    )
+
+
+@pytest.mark.asyncio
+async def test_no_queue_falls_back_to_a_synchronous_send_not_to_silence():
+    """A misconfigured queue must not quietly eat a revenue-recovery email."""
+    from routers.billing import _send_recovery_email
+
+    request = MagicMock()
+    request.app.state.arq_queue = None
+    db = FakeDb(FakeSub())
+    user = MagicMock()
+    user.email = "reader@example.test"
+    result = MagicMock()
+    result.scalar_one_or_none.return_value = user
+    db.execute = AsyncMock(return_value=result)
+
+    with patch("services.email_service.send_email") as send:
+        await _send_recovery_email(request, db, USER_ID)
+
+    send.assert_called_once()
+    assert send.call_args.kwargs["to"] == "reader@example.test"
+
+
+@pytest.mark.asyncio
+async def test_a_failing_queue_also_falls_back_to_a_synchronous_send():
+    """A queue that EXISTS but rejects the job is the same failure as no queue at
+    all, from the user's side: the recovery email either goes or it does not.
+    Covered separately because the absent-queue test cannot see this branch."""
+    from routers.billing import _send_recovery_email
+
+    request = MagicMock()
+    request.app.state.arq_queue = AsyncMock()
+    request.app.state.arq_queue.enqueue_job.side_effect = RuntimeError("redis down")
+
+    db = FakeDb(FakeSub())
+    user = MagicMock()
+    user.email = "reader@example.test"
+    result = MagicMock()
+    result.scalar_one_or_none.return_value = user
+    db.execute = AsyncMock(return_value=result)
+
+    with patch("services.email_service.send_email") as send:
+        await _send_recovery_email(request, db, USER_ID)
+
+    send.assert_called_once()
+    assert send.call_args.kwargs["to"] == "reader@example.test"
+
+
+@pytest.mark.asyncio
+async def test_a_send_failure_never_propagates():
+    """The webhook has already applied a billing state change by this point. A
+    failed email must not turn that into a 500 and a Stripe retry."""
+    from routers.billing import _send_recovery_email
+
+    request = MagicMock()
+    request.app.state.arq_queue = AsyncMock()
+    request.app.state.arq_queue.enqueue_job.side_effect = RuntimeError("redis down")
+    db = FakeDb(FakeSub())
+    db.execute = AsyncMock(side_effect=RuntimeError("db down too"))
+
+    await _send_recovery_email(request, db, USER_ID)  # must not raise
+
+
+# ── Cancel reason, feedback, and the 14-day feature window ───────────────────
+
+@pytest.mark.parametrize("stripe_reason,expected", [
+    ("payment_failed", "payment_failed"),
+    ("payment_disputed", "payment_failed"),   # a dispute and a decline are one story
+    ("cancellation_requested", "user_requested"),
+    ("something_new_stripe_added", "other"),
+    (None, "other"),
+])
+def test_the_cancel_reason_mapping(client, stripe_reason, expected):
+    sub = FakeSub(plan="pro", status="active", pro_since=NOW - timedelta(days=10))
+    client._db[0] = FakeDb(sub)
+    details = {"reason": stripe_reason} if stripe_reason else {}
+
+    _, analytics = _post(client, _deleted_event(details))
+
+    assert analytics.track.call_args[0][2]["reason"] == expected
+
+
+def test_a_deleted_event_with_no_cancellation_details_maps_to_other(client):
+    sub = FakeSub(plan="pro", status="active")
+    client._db[0] = FakeDb(sub)
+
+    _, analytics = _post(client, _deleted_event(None))
+
+    assert analytics.track.call_args[0][2]["reason"] == "other"
+
+
+def test_the_feedback_enum_is_passed_through(client):
+    sub = FakeSub(plan="pro", status="active")
+    client._db[0] = FakeDb(sub)
+
+    _, analytics = _post(client, _deleted_event(
+        {"reason": "cancellation_requested", "feedback": "too_expensive"},
+    ))
+
+    assert analytics.track.call_args[0][2]["cancel_feedback"] == "too_expensive"
+
+
+def test_feedback_is_none_when_absent(client):
+    sub = FakeSub(plan="pro", status="active")
+    client._db[0] = FakeDb(sub)
+
+    _, analytics = _post(client, _deleted_event({"reason": "payment_failed"}))
+
+    assert analytics.track.call_args[0][2]["cancel_feedback"] is None
+
+
+def test_the_free_text_comment_is_never_read(client):
+    """cancellation_details.comment is text the customer typed, and it sits one
+    attribute away from `reason`. Nothing in the props may be derived from it."""
+    sub = FakeSub(plan="pro", status="active")
+    client._db[0] = FakeDb(sub)
+    secret = "I am cancelling because my colleague Dana said it was rubbish"
+
+    _, analytics = _post(client, _deleted_event({
+        "reason": "cancellation_requested",
+        "feedback": "low_quality",
+        "comment": secret,
+    }))
+
+    props = analytics.track.call_args[0][2]
+    assert "comment" not in props
+    blob = repr(props)
+    assert secret not in blob
+    assert "Dana" not in blob
+    assert "rubbish" not in blob
+
+
+def test_last_14d_features_is_sorted_and_only_the_features_present(client):
+    sub = FakeSub(plan="pro", status="active")
+    client._db[0] = FakeDb(sub, features_present={"council", "chat", "letter"})
+
+    _, analytics = _post(client, _deleted_event({"reason": "payment_failed"}))
+
+    assert analytics.track.call_args[0][2]["last_14d_features"] == [
+        "chat", "council", "letter",
+    ]
+
+
+def test_an_empty_feature_list_is_a_real_answer(client):
+    """A cancel having used nothing is the most actionable churn signal there
+    is, and it must never be confused with a failure to look."""
+    sub = FakeSub(plan="pro", status="active")
+    client._db[0] = FakeDb(sub, features_present=set())
+
+    _, analytics = _post(client, _deleted_event({"reason": "payment_failed"}))
+
+    assert analytics.track.call_args[0][2]["last_14d_features"] == []
+
+
+def test_the_feature_values_come_only_from_the_fixed_vocabulary(client):
+    """THE LEAK GUARD for a list-valued property. The AST value check cannot see
+    inside a list at runtime, so nothing else stops a future edit putting user
+    content in here."""
+    from routers.billing import FEATURE_VOCABULARY
+
+    sub = FakeSub(plan="pro", status="active")
+    client._db[0] = FakeDb(sub, features_present=set(_FEATURE_TABLES))
+
+    _, analytics = _post(client, _deleted_event({"reason": "payment_failed"}))
+
+    values = analytics.track.call_args[0][2]["last_14d_features"]
+    assert set(values) <= set(FEATURE_VOCABULARY)
+    assert values == sorted(values)
+    for v in values:
+        assert v.islower() and " " not in v and len(v) <= 32
+
+
+def test_the_test_table_map_matches_the_implementation():
+    """Guard on the guard: if _feature_sources gains a feature and this file's
+    _FEATURE_TABLES does not, the probe stub silently answers None for it and
+    every feature test above would keep passing while covering less."""
+    from routers.billing import _feature_sources, FEATURE_VOCABULARY
+
+    keys = {k for k, _m, _t, _e in _feature_sources()}
+    assert keys == set(_FEATURE_TABLES)
+    assert keys == set(FEATURE_VOCABULARY)
 
 
 # ── E. Lifecycle history ─────────────────────────────────────────────────────

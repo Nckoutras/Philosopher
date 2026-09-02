@@ -35,7 +35,9 @@ _SAFE_CALL_NAMES = {
     "_interval_of",  # 'month' | 'year'
     "_latency_bucket",
     "strftime",      # ISO week bucket
-    "_source_of",    # allow-listed enum from Stripe metadata
+    "_source_of",       # allow-listed enum from Stripe metadata
+    "_cancel_reason",   # closed 3-value enum derived from Stripe
+    "_cancel_feedback", # closed Stripe enum, never the free-text `comment`
 }
 
 
@@ -159,6 +161,13 @@ def test_no_property_value_can_be_free_text():
                     if len(value.value) > 32 or " " in value.value:
                         offenders.append(f"{where} is a prose literal")
                 continue
+            # `await f()` is ast.Await wrapping ast.Call. Unwrapped here because
+            # the bare isinstance(value, ast.Call) below did not match it, so an
+            # awaited helper reached the permissive tail and was never checked —
+            # a hole this PR would have been the first to walk through.
+            if isinstance(value, ast.Await):
+                value = value.value
+
             if isinstance(value, ast.Call):
                 fn = value.func
                 fname = fn.attr if isinstance(fn, ast.Attribute) else getattr(fn, "id", "?")
@@ -191,7 +200,8 @@ def test_the_council_matter_never_becomes_a_property():
         ("council_completed", {"member_count", "latency_bucket"}),
         ("share_created", {"artifact_type"}),
         ("letter_delivered", {"week", "host", "reading_label"}),
-        ("subscription_canceled", {"plan", "tenure_days"}),
+        ("subscription_canceled", {"plan", "tenure_days", "reason",
+                                   "cancel_feedback", "last_14d_features"}),
         ("subscription_activated", {"plan", "interval", "source"}),
         ("checkout_started", {"plan", "interval", "source"}),
     ],
