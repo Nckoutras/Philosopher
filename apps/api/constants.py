@@ -120,6 +120,19 @@ ANALYTICS_EVENTS = {
     # function rather than reimplementing it, so the property means the same
     # thing here as it does on subscription_canceled.
     "account_deleted":        ["plan", "tenure_days", "had_active_subscription"],
+    # Fired from routers/auth.py after a successful export. Counts and a bucket,
+    # never the contents — the one event whose subject is the user's entire
+    # dataset must not carry any of it. size_bucket informs exactly one
+    # decision, "is a synchronous download still viable", which a bucket answers
+    # and a byte count would only pretend to answer more precisely.
+    #
+    # record_count, not message_count: test_no_property_name_suggests_free_text
+    # bans "message" in a property name, and that guard is right to be blunt —
+    # a privacy smoke alarm that carves out exceptions for the event that
+    # happens to need one stops being a smoke alarm. record_count is the total
+    # rows across every section, which answers the viability question better
+    # than a message count anyway.
+    "data_exported":          ["conversation_count", "record_count", "size_bucket"],
 
     # ── Safety (no PII) ──────────────────────────────────────────────────────
     "safety_event_pre":       ["risk_level", "category"],

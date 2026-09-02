@@ -11,6 +11,7 @@ import AppHeader from '@/components/layout/AppHeader'
 import Switch from '@/components/ui/Switch'
 import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal'
 import { DELETE_ACCOUNT_COPY } from '@/lib/accountDeletionCopy'
+import { DATA_EXPORT_COPY, exportFilename } from '@/lib/dataExportCopy'
 import {
   getConsent,
   setConsent,
@@ -106,6 +107,38 @@ export default function AccountPage() {
     // — that is an erasure request, which §7 (Your Rights) of the policy covers.
     if (next) void initAnalytics()
     else optOutAnalytics()
+  }
+
+  // ── Data export ───────────────────────────────────────────────────────────
+  const [exportLoading, setExportLoading] = useState(false)
+
+  async function handleExport() {
+    if (exportLoading) return
+    setExportLoading(true)
+    try {
+      const data = await api.exportData()
+      // Same download mechanism as the portrait share card
+      // (lib/portraitShareCard.ts): object URL, synthetic anchor, revoke.
+      const blob = new Blob([JSON.stringify(data, null, 2)], {
+        type: 'application/json',
+      })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = exportFilename()
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch (e) {
+      // The server's message is shown as-is where it has one: 429 and 413 both
+      // say something specific (once an hour / too large, contact support) that
+      // a generic string would throw away.
+      const message = e instanceof Error && e.message ? e.message : DATA_EXPORT_COPY.genericError
+      toast.error(message)
+    } finally {
+      setExportLoading(false)
+    }
   }
 
   // ── Account deletion ──────────────────────────────────────────────────────
@@ -220,6 +253,26 @@ export default function AccountPage() {
         >
           Sign out
         </button>
+
+        {/* ── Data export ── */}
+        <div className="bg-paper border border-bronze/70 rounded-md overflow-hidden">
+          <div className="px-[16px] pt-[14px] pb-[2px]">
+            <p className="font-lora text-[12px] uppercase tracking-[0.18em] text-charcoal">
+              {DATA_EXPORT_COPY.sectionLabel}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleExport}
+            disabled={exportLoading}
+            className="w-full flex items-center justify-between px-[16px] py-[14px] disabled:opacity-60"
+          >
+            <span className="font-cormorant text-[17px] font-medium text-ink">
+              {exportLoading ? DATA_EXPORT_COPY.loading : DATA_EXPORT_COPY.trigger}
+            </span>
+            <ChevronRight size={16} strokeWidth={1.5} className="text-sepia" />
+          </button>
+        </div>
 
         {/* ── Delete account ── */}
         {/* Below Sign out, and visually quieter than it: this is not a thing to

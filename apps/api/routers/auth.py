@@ -18,6 +18,7 @@ from services.otp_service import (
 from services.rate_limit_service import check_and_increment, check_deep_mode_limit
 from services.disclaimer_service import user_needs_acceptance
 from services.account_deletion_service import delete_account, StripeCancelFailed
+from services.data_export_service import build_export, count_messages
 import stripe
 from config import config
 
@@ -99,6 +100,93 @@ async def update_me(
     await db.refresh(user)
     needs_disclaimer = await user_needs_acceptance(user.id, db)
     return UserOut.model_validate(user).model_copy(update={"needs_disclaimer": needs_disclaimer})
+
+
+# Above the guard so both the limit and the cap are visible at the top of the
+# route rather than buried in it.
+EXPORT_MAX_MESSAGES = 25_000
+EXPORT_RATE_LIMIT_PER_HOUR = 1
+EXPORT_TOO_LARGE_DETAIL = (
+    "Your data export is too large for automatic download. Contact "
+    "support@thewiseroom.app and we will prepare it for you."
+)
+
+
+@router.get("/me/export")
+async def export_my_data(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Everything we hold about this user, as one JSON document. GDPR Art. 15/20.
+
+    Synchronous. Measured against production, the heaviest real user holds 380
+    messages and 68KB of content, so there is no case for a background job, an
+    email, or object storage — each of which would add a failure mode to a right
+    that currently has none.
+
+    RATE LIMITED to one per hour. This endpoint dumps an entire account in one
+    response; without a limit it is the cheapest way to generate load and the
+    cheapest way to exfiltrate a compromised session's full history. Same
+    mechanism as otp_request, and fail-CLOSED for the same reason: if Redis is
+    unreachable check_and_increment raises, the request 500s, and one behaviour
+    covers both routes. An export delayed by an infra incident is a delayed
+    right; an unbounded dump endpoint during one is a worse problem.
+
+    413 above EXPORT_MAX_MESSAGES rather than a hung request. The cap is 65x
+    above the current heaviest user — it exists for the SHAPE of the problem
+    (messages dominate the payload and grow without bound) so that the failure,
+    if it ever arrives, is an error a person can act on rather than a timeout.
+    """
+    allowed = await check_and_increment(
+        f"data_export:{user.id}",
+        max_count=EXPORT_RATE_LIMIT_PER_HOUR,
+        window_seconds=3600,
+    )
+    if not allowed:
+        raise HTTPException(
+            status_code=429,
+            detail="You can download your data once an hour. Please try again shortly.",
+        )
+
+    # Counted BEFORE assembling anything: the guard exists to avoid building a
+    # payload we cannot send, so checking after the build would defeat it.
+    message_count = await count_messages(db, user.id)
+    if message_count > EXPORT_MAX_MESSAGES:
+        logger.warning(
+            "Data export refused as too large: user=%s messages=%d cap=%d",
+            user.id, message_count, EXPORT_MAX_MESSAGES,
+        )
+        raise HTTPException(status_code=413, detail=EXPORT_TOO_LARGE_DETAIL)
+
+    payload = await build_export(db, user)
+
+    analytics_service.track("data_exported", user.id, {
+        "conversation_count": len(payload["conversations"]),
+        "record_count": _export_record_count(payload),
+        "size_bucket": _export_size_bucket(payload),
+    })
+    return payload
+
+
+def _export_record_count(payload: dict) -> int:
+    """Total rows across every list section. Counts only — nothing here reads a
+    value, so no content can reach the event through this path."""
+    return sum(len(v) for v in payload.values() if isinstance(v, list))
+
+
+def _export_size_bucket(payload: dict) -> str:
+    """Coarse bucket, not a byte count — the registry rule is ids, enums, counts
+    and buckets, and the decision this informs is "is synchronous still viable",
+    which a bucket answers."""
+    import json
+    size = len(json.dumps(payload, default=str))
+    if size < 1_000_000:
+        return "under_1mb"
+    if size < 5_000_000:
+        return "1_5mb"
+    if size < 10_000_000:
+        return "5_10mb"
+    return "over_10mb"
 
 
 @router.delete("/me", status_code=204)
