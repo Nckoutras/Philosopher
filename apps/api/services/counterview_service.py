@@ -127,7 +127,28 @@ async def generate_counterview(
 
     # Insight path: the source conversation may carry a high/critical user message
     # even if the distilled insight text reads clean — suppress on that too.
-    if source == "insight" and insight is not None and insight.conversation_id is not None:
+    if source == "insight" and insight is not None:
+        if insight.conversation_id is None:
+            # FAIL CLOSED (F-15, MEMORY_V2_DESIGN_2026-09-03 §4c). A NULL
+            # conversation_id means the source thread is gone, so the check below
+            # cannot run and the insight's provenance cannot be verified.
+            #
+            # Unreachable TODAY: the FK is ON DELETE CASCADE, so an insight dies
+            # with its conversation and this endpoint 404s. Migration 057 changes
+            # it to SET NULL (design §0b), and from then on an orphaned insight IS
+            # reachable — it stays in GET /insights, whose base query filters only
+            # user_id and is_dismissed, and POST /insights/{id}/counterview
+            # resolves it by id + user_id alone.
+            #
+            # Skipping instead of suppressing would drop the layer written for
+            # exactly this case, letting a clean-reading insight distilled from a
+            # conversation in crisis be counterviewed. insight_mirror_service has
+            # the identical guard and is safe only because an empty message list
+            # trips its INSIGHT_MIRROR_MIN_MESSAGES floor before generation; there
+            # is no such floor here, so the guard has to do the work itself.
+            return await _write_counterview(
+                db, user_id, source, insight_id, anchor_text, status="suppressed"
+            )
         messages = (
             await db.execute(
                 select(Message).where(
