@@ -485,32 +485,4 @@ class MemoryService:
         except Exception as e:
             logger.error("detect_recurrence failed for conv=%s: %s", conversation_id, e, exc_info=True)
 
-    async def get_user_memories(
-        self,
-        db: AsyncSession,
-        user_id: str,
-        limit: int = 50,
-    ) -> list[MemoryEntry]:
-        result = await db.execute(
-            select(MemoryEntry)
-            .where(MemoryEntry.user_id == user_id, MemoryEntry.is_active == True)
-            .order_by(MemoryEntry.created_at.desc())
-            .limit(limit)
-        )
-        return result.scalars().all()
-
-    async def deactivate(self, db: AsyncSession, memory_id: str, user_id: str) -> bool:
-        result = await db.execute(
-            select(MemoryEntry).where(
-                MemoryEntry.id == memory_id,
-                MemoryEntry.user_id == user_id,
-            )
-        )
-        memory = result.scalar_one_or_none()
-        if not memory:
-            return False
-        memory.is_active = False
-        return True
-
-
 memory_service = MemoryService()
