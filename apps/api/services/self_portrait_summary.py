@@ -1,8 +1,8 @@
 """Self-Portrait "Your portrait" payoff: present-tense summary + persona best-fit.
 
 The summary is a kind, plain mirror of HOW a user answers — generated once and
-cached on user_preferences.portrait_cache (migration 039), regenerated only after
-PORTRAIT_REGEN_DELTA new answers. Best-fit personas are chosen rule-based via
+cached on user_preferences.portrait_cache (migration 039), regenerated whenever the
+ANSWER SET changes (see answers_fingerprint). Best-fit personas are chosen rule-based via
 matching_service.compute_matches, fed by a frequency-ranked set of themes derived
 from the user's answered questions through the approved bridge map below; the LLM
 authors only the prose (summary + per-persona "why" lines), never the selection.
@@ -12,6 +12,7 @@ forming preview and still returns 200. Never raises into the request path.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 from collections import Counter
@@ -155,6 +156,30 @@ def _parse_json(raw: str) -> dict | None:
         return None
 
 
+def answers_fingerprint(answers: dict | None) -> str:
+    """Stable fingerprint of the answer SET — its identity, not its size.
+
+    WHY THIS REPLACED A COUNT. Both cache gates used to ask "have
+    PORTRAIT_REGEN_DELTA NEW answers arrived since the cache was written", read as
+    `len(answers) - watermark`. Re-answering an existing question rewrites a value
+    under a key that already exists, so `len(answers)` does not move and the delta
+    stays where it was. A user who revised every one of their answers therefore
+    saw the same summary and the same forming lines forever: the prose half of the
+    "portrait never changes" report.
+
+    Deterministic and order-free: the pairs are sorted by question id, so two
+    dicts that differ only in insertion order fingerprint identically. Values are
+    included, which is the entire point — a changed pill changes the hash.
+
+    Truncated to 32 hex chars (128 bits): this is a change detector, not a
+    security primitive, and it lives in a JSONB blob that is read on every
+    portrait open.
+    """
+    pairs = [[str(qid), (answers or {})[qid]] for qid in sorted(answers or {})]
+    payload = json.dumps(pairs, separators=(",", ":"), ensure_ascii=False)
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:32]
+
+
 def in_failure_cooldown(cache: dict | None) -> bool:
     """True if a recent generation failure is still within the retry cooldown, so
     the caller should NOT re-attempt (avoids hammering a down LLM on every open).
@@ -188,7 +213,11 @@ async def generate_portrait(
 ) -> dict | None:
     """Generate the cached portrait payload, or None on any failure (caller falls
     back to the forming preview). Returns the exact cache shape:
-    {text, best_fit, answer_count_watermark, generated_at}."""
+    {text, best_fit, answers_fingerprint, generated_at}.
+
+    Returning a FRESH dict (not a merge) is deliberate and unchanged: it drops any
+    `last_failed_at` marker and any stale `forming` sub-key, which is the self-heal
+    mark_failed's docstring describes."""
     statements = answers_to_statements(answers, limit=12)
     if not statements:
         return None
@@ -251,6 +280,6 @@ async def generate_portrait(
     return {
         "text": summary.strip(),
         "best_fit": best_fit,
-        "answer_count_watermark": len(answers),
+        "answers_fingerprint": answers_fingerprint(answers),
         "generated_at": datetime.now(timezone.utc).isoformat(),
     }

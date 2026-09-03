@@ -101,11 +101,6 @@ def total_category_count() -> int:
 # NEVER exposed to the client (the endpoint surfaces just "forming" | "ready").
 READY_CATEGORY_THRESHOLD = 10  # of the 12 categories
 
-# Cache regenerates only after this many NEW answers since the cached watermark, so
-# the Sonnet summary is minted rarely (never on every open). Used by 5b; the cache
-# shape is {text, best_fit, answer_count_watermark, generated_at}. Scaffold only in 5a.
-PORTRAIT_REGEN_DELTA = 8
-
 
 def answered_category_count(answers: dict) -> int:
     """Number of DISTINCT bank categories the user has answered at least one
