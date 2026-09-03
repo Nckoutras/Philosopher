@@ -5,7 +5,7 @@ The "Self-Portrait" is a perpetual self-knowledge quiz. A canonical question ban
 AGNOSTIC — it is built against the bank SCHEMA, never against specific questions:
 
     { "questions": [ { "id", "category", "question", "pills": [...],
-                       "theme_tags": [...], "feeds": [...],
+                       "theme_tags": [...],
                        "pill_weights": [ {tag: 0|1|2}, ... ]  # OPTIONAL
                      }, ... ] }
 
@@ -13,7 +13,7 @@ AGNOSTIC — it is built against the bank SCHEMA, never against specific questio
 scoring a subset of that question's own theme_tags. Present → the octagon reads the
 answer; absent → that question scores by legacy counting (weight 1 per tag, the same
 for every pill). Never leaves the API: `_public_question` strips it alongside
-theme_tags and feeds.
+theme_tags.
 
 (A bare top-level list of question objects is also accepted, so the real bank file
 can drop in with or without the wrapper.)
@@ -384,8 +384,8 @@ def is_free_question(question_id: str) -> bool:
 
 def _public_question(q: dict) -> dict:
     """Project a bank question to its PUBLIC shape — {id, category, question, pills}.
-    Strips the internal `theme_tags` and `feeds` (matching/seeding routing detail
-    that must never leave the API)."""
+    Strips the internal `theme_tags` (matching/scoring detail that must never
+    leave the API)."""
     return {
         "id": q["id"],
         "category": q["category"],

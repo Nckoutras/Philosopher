@@ -59,34 +59,6 @@ def setup_cron(arq_queue):
         except Exception as e:
             logger.error(f"Cron ritual reminders failed: {e}", exc_info=True)
 
-    @scheduler.scheduled_job(CronTrigger(day_of_week="sun", hour=3, minute=0), id="stale_memory")
-    async def deactivate_stale_memories():
-        """Sunday 03:00 UTC — prune low-confidence memories older than 90 days."""
-        logger.info("Cron: pruning stale memories")
-        try:
-            from db.session import AsyncSessionLocal
-            from models import MemoryEntry
-            from sqlalchemy import update
-            from datetime import datetime, timezone, timedelta
-
-            cutoff = datetime.now(timezone.utc) - timedelta(days=90)
-            async with AsyncSessionLocal() as db:
-                result = await db.execute(
-                    update(MemoryEntry)
-                    .where(
-                        MemoryEntry.created_at < cutoff,
-                        MemoryEntry.confidence < 0.6,
-                        MemoryEntry.is_active == True,
-                    )
-                    .values(is_active=False)
-                    .returning(MemoryEntry.id)
-                )
-                deactivated = len(result.fetchall())
-                await db.commit()
-            logger.info(f"Cron: deactivated {deactivated} stale memory entries")
-        except Exception as e:
-            logger.error(f"Cron stale memory failed: {e}", exc_info=True)
-
     @scheduler.scheduled_job(IntervalTrigger(hours=6), id="stripe_reconcile")
     async def reconcile_stripe_subscriptions():
         """Every 6h — catch any Stripe events the webhook may have missed."""
@@ -518,7 +490,9 @@ def setup_cron(arq_queue):
             logger.error(f"Cron preview mirrors failed: {e}", exc_info=True)
 
     scheduler.start()
-    logger.info("Cron scheduler started with 8 jobs")
+    logger.info("Cron scheduler started with %d jobs", len(scheduler.get_jobs()))
+    # Counted, not hardcoded: the literal "8" here was correct until the
+    # stale-memory job was removed, and nothing would have caught it.
 
 
 def shutdown_cron():

@@ -832,93 +832,6 @@ async def seed_self_portrait_memory_task(ctx, user_id: str, question_id: str, pr
             logger.error(f"Self-portrait memory seed failed: {e}", exc_info=True)
 
 
-async def generate_insight_task(ctx, user_id: str, conversation_id: str):
-    """Generates an insight from recent memory entries."""
-    from db.session import AsyncSessionLocal
-    from models import MemoryEntry, Insight
-    from sqlalchemy import select
-    from services.llm_client import llm_client
-
-    async with AsyncSessionLocal() as db:
-        try:
-            result = await db.execute(
-                select(MemoryEntry)
-                .where(MemoryEntry.user_id == user_id, MemoryEntry.is_active == True)
-                .order_by(MemoryEntry.created_at.desc())
-                .limit(15)
-            )
-            memories = result.scalars().all()
-            if len(memories) < 4:
-                return  # Not enough signal yet
-
-            memory_text = "\n".join(
-                f"[{m.entry_type}] {m.content}" for m in memories
-            )
-            raw = await llm_client.complete(
-                system=INSIGHT_PROMPT,
-                user=memory_text,
-                max_tokens=256,
-            )
-            if raw.strip().lower() == "null":
-                return
-
-            # A17b — the sentinel above stays FIRST and untouched. INSIGHT_PROMPT tells
-            # the model to return bare null when there is nothing worth surfacing, which
-            # is a valid outcome, not a failure. json.loads("null") is None — the same
-            # value this helper returns on a parse failure — so a null reply must be
-            # answered before the parse, or every quiet day becomes a wasted retry.
-            data = _parse_letter_payload(raw, label="Insight")
-
-            # A latent fix rides along: this site had no fence-strip, so a fenced reply
-            # died here even though INSIGHT_PROMPT says "Return JSON only". The helper
-            # strips fences for all four JSON sites uniformly.
-            if data is None and not _is_null_reply(raw):
-                logger.warning(f"Insight parse failed for user={user_id}, retrying once")
-                raw = await llm_client.complete(
-                    system=INSIGHT_PROMPT,
-                    user=memory_text + JSON_RETRY_DIRECTIVE,
-                    max_tokens=256,
-                )
-                if _is_null_reply(raw):
-                    return
-                data = _parse_letter_payload(raw, label="Insight")
-
-            # A parsed-null reaches here as None, indistinguishable from a parse failure.
-            # It is the model saying there is nothing worth surfacing — a clean return.
-            if _is_null_reply(raw):
-                return
-
-            # No row on double failure — an Insight has no status column, and insights are
-            # opportunistic: returning without one is already this task's vocabulary for
-            # "nothing today".
-            if data is None:
-                logger.error(
-                    f"Insight FAILED for user={user_id} conv={conversation_id}: both the "
-                    f"initial reply and the retry were unparseable JSON "
-                    f"(see the two preceding parse warnings for each error)"
-                )
-                return
-
-            # Minimal shape guard: content is the one field the row cannot be built
-            # without (it is NOT NULL and subscripted below). A parsed-but-shapeless
-            # payload took a KeyError into the swallowing except before A17b.
-            content = (data.get("content") or "").strip() if isinstance(data, dict) else ""
-            if not content:
-                logger.error(f"Insight FAILED for user={user_id}: parsed payload has no usable content")
-                return
-            insight = Insight(
-                user_id=user_id,
-                conversation_id=conversation_id,
-                content=data["content"],
-                insight_type=data.get("insight_type"),
-            )
-            db.add(insight)
-            await db.commit()
-            logger.info(f"Insight generated for user={user_id}")
-        except Exception as e:
-            logger.error(f"Insight task failed: {e}", exc_info=True)
-
-
 async def assess_conclusion_task(ctx, conversation_id: str, user_id: str):
     """Gravity-gated conclusion: assess whether the conversation has surfaced a
     save-worthy theme and, if so, distill it into a <=2-sentence conclusion in
@@ -2229,7 +2142,6 @@ class WorkerSettings:
         distill_user_text_to_memory_task,
         seed_profile_memory_task,
         seed_self_portrait_memory_task,
-        generate_insight_task,
         assess_conclusion_task,
         generate_conversation_title,
         send_ritual_reminder_task,

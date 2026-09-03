@@ -408,8 +408,8 @@ class SelfPortraitAnswerIn(BaseModel):
 
 
 class SelfPortraitQuestionOut(BaseModel):
-    """One Self-Portrait question in its PUBLIC shape — the internal theme_tags and
-    feeds are stripped server-side (see services.self_portrait.visible_questions)."""
+    """One Self-Portrait question in its PUBLIC shape — the internal theme_tags are
+    stripped server-side (see services.self_portrait.visible_questions)."""
     id: str
     category: str
     question: str

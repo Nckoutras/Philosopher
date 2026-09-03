@@ -37,11 +37,6 @@
         {"power": 0, "resentment": 2, "doubt": 2},
         {"power": 2, "resentment": 1, "doubt": 1},
         {"power": 1, "resentment": 1, "doubt": 0}
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -58,11 +53,6 @@
         "envy",
         "identity",
         "desire"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -79,11 +69,6 @@
         "desire",
         "freedom",
         "dilemma"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -100,11 +85,6 @@
         "fear",
         "freedom",
         "control"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -121,11 +101,6 @@
         "power",
         "resentment",
         "doubt"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -142,11 +117,6 @@
         "discipline",
         "desire",
         "doubt"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -163,10 +133,6 @@
         "power",
         "duty",
         "dilemma"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading"
       ]
     },
     {
@@ -183,11 +149,6 @@
         "identity",
         "resentment",
         "power"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -204,10 +165,6 @@
         "control",
         "discipline",
         "freedom"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading"
       ]
     },
     {
@@ -224,11 +181,6 @@
         "fear",
         "desire",
         "identity"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -245,10 +197,6 @@
         "power",
         "identity",
         "doubt"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading"
       ]
     },
     {
@@ -265,11 +213,6 @@
         "identity",
         "desire",
         "fear"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -286,10 +229,6 @@
         "control",
         "doubt",
         "power"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading"
       ]
     },
     {
@@ -306,11 +245,6 @@
         "desire",
         "fear",
         "power"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -327,10 +261,6 @@
         "doubt",
         "resentment",
         "discipline"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading"
       ]
     },
     {
@@ -347,11 +277,6 @@
         "meaning",
         "identity",
         "freedom"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -368,11 +293,6 @@
         "power",
         "resentment",
         "dilemma"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -389,11 +309,6 @@
         "fear",
         "duty",
         "identity"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -410,10 +325,6 @@
         "guilt",
         "discipline",
         "freedom"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading"
       ]
     },
     {
@@ -430,11 +341,6 @@
         "power",
         "resentment",
         "control"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -451,11 +357,6 @@
         "desire",
         "freedom",
         "meaning"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -472,10 +373,6 @@
         "duty",
         "control",
         "resentment"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading"
       ]
     },
     {
@@ -492,11 +389,6 @@
         "desire",
         "doubt",
         "identity"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -513,11 +405,6 @@
         "duty",
         "power",
         "freedom"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -534,11 +421,6 @@
         "envy",
         "power",
         "doubt"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -555,11 +437,6 @@
         "desire",
         "meaning",
         "dilemma"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -576,10 +453,6 @@
         "guilt",
         "duty",
         "control"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading"
       ]
     },
     {
@@ -596,10 +469,6 @@
         "power",
         "identity",
         "dilemma"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading"
       ]
     },
     {
@@ -616,11 +485,6 @@
         "desire",
         "fear",
         "identity"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -637,11 +501,6 @@
         "freedom",
         "desire",
         "dilemma"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -664,10 +523,6 @@
         {"freedom": 1, "guilt": 1, "dilemma": 1},
         {"freedom": 0, "guilt": 2, "dilemma": 2},
         {"freedom": 1, "guilt": 1, "dilemma": 1}
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading"
       ]
     },
     {
@@ -684,11 +539,6 @@
         "fear",
         "desire",
         "duty"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -705,11 +555,6 @@
         "guilt",
         "duty",
         "resentment"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -726,11 +571,6 @@
         "envy",
         "desire",
         "doubt"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -747,10 +587,6 @@
         "desire",
         "doubt",
         "identity"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading"
       ]
     },
     {
@@ -767,10 +603,6 @@
         "freedom",
         "guilt",
         "control"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading"
       ]
     },
     {
@@ -787,10 +619,6 @@
         "guilt",
         "control",
         "doubt"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading"
       ]
     },
     {
@@ -807,11 +635,6 @@
         "freedom",
         "fear",
         "loneliness"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -828,11 +651,6 @@
         "fear",
         "freedom",
         "duty"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -849,11 +667,6 @@
         "identity",
         "desire",
         "power"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -870,10 +683,6 @@
         "control",
         "guilt",
         "discipline"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading"
       ]
     },
     {
@@ -890,10 +699,6 @@
         "parents",
         "identity",
         "doubt"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading"
       ]
     },
     {
@@ -910,10 +715,6 @@
         "guilt",
         "duty",
         "fear"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading"
       ]
     },
     {
@@ -930,11 +731,6 @@
         "meaning",
         "desire",
         "dilemma"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -951,10 +747,6 @@
         "friendship",
         "guilt",
         "dilemma"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading"
       ]
     },
     {
@@ -971,10 +763,6 @@
         "desire",
         "discipline",
         "doubt"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading"
       ]
     },
     {
@@ -991,10 +779,6 @@
         "envy",
         "power",
         "identity"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading"
       ]
     },
     {
@@ -1011,11 +795,6 @@
         "fear",
         "control",
         "freedom"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -1032,10 +811,6 @@
         "guilt",
         "power",
         "control"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading"
       ]
     },
     {
@@ -1052,11 +827,6 @@
         "parents",
         "fear",
         "identity"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -1073,11 +843,6 @@
         "desire",
         "fear",
         "control"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -1094,11 +859,6 @@
         "identity",
         "desire",
         "doubt"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -1115,11 +875,6 @@
         "guilt",
         "identity",
         "power"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -1136,10 +891,6 @@
         "freedom",
         "guilt",
         "identity"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading"
       ]
     },
     {
@@ -1156,10 +907,6 @@
         "duty",
         "resentment",
         "dilemma"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading"
       ]
     },
     {
@@ -1176,11 +923,6 @@
         "fear",
         "identity",
         "control"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -1197,11 +939,6 @@
         "meaning",
         "friendship",
         "freedom"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -1218,11 +955,6 @@
         "discipline",
         "duty",
         "doubt"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -1239,11 +971,6 @@
         "identity",
         "guilt",
         "doubt"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -1260,11 +987,6 @@
         "fear",
         "freedom",
         "desire"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -1287,11 +1009,6 @@
         {"parents": 2, "guilt": 1, "duty": 1},
         {"parents": 2, "guilt": 2, "duty": 2},
         {"parents": 2, "guilt": 0, "duty": 1}
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -1314,11 +1031,6 @@
         {"parents": 2, "identity": 1, "doubt": 1},
         {"parents": 2, "identity": 1, "doubt": 2},
         {"parents": 1, "identity": 2, "doubt": 0}
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -1335,11 +1047,6 @@
         "parents",
         "duty",
         "aging"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -1356,11 +1063,6 @@
         "parents",
         "grief",
         "resentment"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -1377,11 +1079,6 @@
         "parents",
         "envy",
         "resentment"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -1398,11 +1095,6 @@
         "parents",
         "identity",
         "control"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -1419,11 +1111,6 @@
         "parents",
         "freedom",
         "doubt"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -1440,10 +1127,6 @@
         "parents",
         "identity",
         "freedom"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading"
       ]
     },
     {
@@ -1460,11 +1143,6 @@
         "resentment",
         "duty",
         "dilemma"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -1481,11 +1159,6 @@
         "parents",
         "desire",
         "identity"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -1502,11 +1175,6 @@
         "duty",
         "freedom",
         "dilemma"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -1523,11 +1191,6 @@
         "parents",
         "aging",
         "death"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -1544,11 +1207,6 @@
         "identity",
         "freedom",
         "guilt"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -1565,11 +1223,6 @@
         "parents",
         "doubt",
         "identity"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -1586,11 +1239,6 @@
         "death",
         "meaning",
         "identity"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -1607,11 +1255,6 @@
         "parents",
         "duty",
         "identity"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -1628,11 +1271,6 @@
         "parents",
         "identity",
         "resentment"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -1649,11 +1287,6 @@
         "parents",
         "aging",
         "death"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -1670,11 +1303,6 @@
         "parents",
         "identity",
         "loneliness"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -1691,11 +1319,6 @@
         "parents",
         "resentment",
         "control"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -1712,11 +1335,6 @@
         "parents",
         "identity",
         "fear"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -1733,10 +1351,6 @@
         "parents",
         "duty",
         "resentment"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading"
       ]
     },
     {
@@ -1753,11 +1367,6 @@
         "parents",
         "duty",
         "dilemma"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -1774,11 +1383,6 @@
         "parents",
         "freedom",
         "resentment"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -1795,11 +1399,6 @@
         "parents",
         "aging",
         "death"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -1816,11 +1415,6 @@
         "parents",
         "duty",
         "guilt"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -1837,11 +1431,6 @@
         "parents",
         "grief",
         "resentment"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -1858,11 +1447,6 @@
         "parents",
         "loneliness",
         "duty"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -1879,11 +1463,6 @@
         "parents",
         "identity",
         "freedom"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -1900,11 +1479,6 @@
         "parents",
         "duty",
         "dilemma"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -1927,11 +1501,6 @@
         {"fear": 2, "identity": 1, "loneliness": 1},
         {"fear": 2, "identity": 1, "loneliness": 1},
         {"fear": 1, "identity": 2, "loneliness": 2}
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -1948,11 +1517,6 @@
         "fear",
         "freedom",
         "desire"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -1969,11 +1533,6 @@
         "desire",
         "doubt",
         "control"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -1990,11 +1549,6 @@
         "power",
         "control",
         "fear"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -2011,11 +1565,6 @@
         "resentment",
         "doubt",
         "duty"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -2032,11 +1581,6 @@
         "fear",
         "grief",
         "control"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -2053,11 +1597,6 @@
         "identity",
         "fear",
         "loneliness"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -2074,11 +1613,6 @@
         "identity",
         "resentment",
         "desire"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -2095,11 +1629,6 @@
         "desire",
         "doubt",
         "loneliness"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -2116,11 +1645,6 @@
         "desire",
         "fear",
         "doubt"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -2137,11 +1661,6 @@
         "guilt",
         "duty",
         "resentment"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -2158,11 +1677,6 @@
         "fear",
         "freedom",
         "desire"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -2179,11 +1693,6 @@
         "control",
         "fear",
         "freedom"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -2200,11 +1709,6 @@
         "envy",
         "desire",
         "doubt"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -2221,11 +1725,6 @@
         "fear",
         "doubt",
         "control"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -2242,11 +1741,6 @@
         "resentment",
         "duty",
         "dilemma"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -2263,11 +1757,6 @@
         "freedom",
         "desire",
         "dilemma"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -2284,11 +1773,6 @@
         "doubt",
         "identity",
         "resentment"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -2305,11 +1789,6 @@
         "fear",
         "freedom",
         "resentment"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -2326,11 +1805,6 @@
         "desire",
         "loneliness",
         "duty"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -2347,11 +1821,6 @@
         "envy",
         "resentment",
         "friendship"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -2368,11 +1837,6 @@
         "fear",
         "identity",
         "control"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -2389,11 +1853,6 @@
         "guilt",
         "desire",
         "duty"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -2410,11 +1869,6 @@
         "resentment",
         "control",
         "doubt"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -2431,11 +1885,6 @@
         "loneliness",
         "freedom",
         "fear"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -2452,11 +1901,6 @@
         "fear",
         "freedom",
         "desire"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -2473,11 +1917,6 @@
         "identity",
         "loneliness",
         "resentment"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -2494,11 +1933,6 @@
         "grief",
         "doubt",
         "identity"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -2515,11 +1949,6 @@
         "desire",
         "doubt",
         "loneliness"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -2536,11 +1965,6 @@
         "fear",
         "desire",
         "freedom"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -2563,11 +1987,6 @@
         {"friendship": 0, "loneliness": 1, "doubt": 1},
         {"friendship": 1, "loneliness": 2, "doubt": 2},
         {"friendship": 1, "loneliness": 1, "doubt": 2}
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -2584,11 +2003,6 @@
         "envy",
         "friendship",
         "resentment"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -2605,11 +2019,6 @@
         "friendship",
         "resentment",
         "duty"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -2626,11 +2035,6 @@
         "friendship",
         "duty",
         "freedom"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -2647,11 +2051,6 @@
         "friendship",
         "identity",
         "freedom"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -2668,11 +2067,6 @@
         "friendship",
         "resentment",
         "control"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -2689,11 +2083,6 @@
         "friendship",
         "loneliness",
         "doubt"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -2710,11 +2099,6 @@
         "loneliness",
         "friendship",
         "identity"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -2731,10 +2115,6 @@
         "friendship",
         "doubt",
         "resentment"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading"
       ]
     },
     {
@@ -2751,11 +2131,6 @@
         "friendship",
         "duty",
         "fear"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -2772,11 +2147,6 @@
         "envy",
         "friendship",
         "dilemma"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -2793,11 +2163,6 @@
         "friendship",
         "identity",
         "grief"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -2814,11 +2179,6 @@
         "duty",
         "loneliness",
         "resentment"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -2835,11 +2195,6 @@
         "friendship",
         "grief",
         "doubt"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -2856,11 +2211,6 @@
         "envy",
         "friendship",
         "resentment"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -2877,11 +2227,6 @@
         "friendship",
         "loneliness",
         "doubt"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -2898,11 +2243,6 @@
         "friendship",
         "duty",
         "dilemma"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -2919,11 +2259,6 @@
         "friendship",
         "doubt",
         "envy"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -2940,11 +2275,6 @@
         "friendship",
         "duty",
         "resentment"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -2961,11 +2291,6 @@
         "friendship",
         "freedom",
         "guilt"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -2982,11 +2307,6 @@
         "loneliness",
         "friendship",
         "identity"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -3003,11 +2323,6 @@
         "friendship",
         "duty",
         "doubt"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -3024,11 +2339,6 @@
         "friendship",
         "guilt",
         "freedom"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -3045,11 +2355,6 @@
         "friendship",
         "resentment",
         "doubt"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -3066,11 +2371,6 @@
         "loneliness",
         "duty",
         "control"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -3087,11 +2387,6 @@
         "envy",
         "doubt",
         "identity"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -3108,11 +2403,6 @@
         "friendship",
         "resentment",
         "dilemma"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -3129,11 +2419,6 @@
         "identity",
         "friendship",
         "loneliness"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -3150,11 +2435,6 @@
         "friendship",
         "duty",
         "dilemma"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -3171,11 +2451,6 @@
         "friendship",
         "guilt",
         "power"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -3198,11 +2473,6 @@
         {"fear": 2, "control": 0, "doubt": 2},
         {"fear": 2, "control": 1, "doubt": 2},
         {"fear": 1, "control": 2, "doubt": 1}
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -3219,11 +2489,6 @@
         "fear",
         "discipline",
         "control"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -3240,11 +2505,6 @@
         "fear",
         "freedom",
         "power"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -3261,11 +2521,6 @@
         "fear",
         "control",
         "doubt"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -3282,11 +2537,6 @@
         "fear",
         "identity",
         "loneliness"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -3303,11 +2553,6 @@
         "fear",
         "freedom",
         "discipline"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -3324,11 +2569,6 @@
         "fear",
         "identity",
         "doubt"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -3345,11 +2585,6 @@
         "fear",
         "discipline",
         "doubt"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -3366,10 +2601,6 @@
         "fear",
         "identity",
         "doubt"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading"
       ]
     },
     {
@@ -3386,11 +2617,6 @@
         "fear",
         "control",
         "doubt"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -3407,11 +2633,6 @@
         "fear",
         "desire",
         "dilemma"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -3428,11 +2649,6 @@
         "fear",
         "doubt",
         "control"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -3449,11 +2665,6 @@
         "fear",
         "freedom",
         "control"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -3470,11 +2681,6 @@
         "fear",
         "identity",
         "freedom"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -3491,11 +2697,6 @@
         "fear",
         "control",
         "freedom"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -3512,11 +2713,6 @@
         "fear",
         "desire",
         "dilemma"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -3533,11 +2729,6 @@
         "control",
         "fear",
         "discipline"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -3554,11 +2745,6 @@
         "fear",
         "identity",
         "control"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -3575,11 +2761,6 @@
         "fear",
         "freedom",
         "discipline"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -3596,11 +2777,6 @@
         "fear",
         "control",
         "freedom"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -3617,11 +2793,6 @@
         "fear",
         "desire",
         "control"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -3638,11 +2809,6 @@
         "fear",
         "envy",
         "doubt"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -3659,10 +2825,6 @@
         "fear",
         "desire",
         "doubt"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading"
       ]
     },
     {
@@ -3679,11 +2841,6 @@
         "fear",
         "desire",
         "doubt"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -3700,11 +2857,6 @@
         "fear",
         "freedom",
         "resentment"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -3721,11 +2873,6 @@
         "fear",
         "freedom",
         "control"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -3742,11 +2889,6 @@
         "fear",
         "desire",
         "doubt"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -3763,11 +2905,6 @@
         "fear",
         "identity",
         "control"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -3784,11 +2921,6 @@
         "fear",
         "doubt",
         "discipline"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -3805,11 +2937,6 @@
         "fear",
         "freedom",
         "dilemma"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -3832,11 +2959,6 @@
         {"meaning": 1, "doubt": 1, "freedom": 0},
         {"meaning": 2, "doubt": 2, "freedom": 1},
         {"meaning": 2, "doubt": 1, "freedom": 0}
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -3853,11 +2975,6 @@
         "meaning",
         "desire",
         "doubt"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -3874,11 +2991,6 @@
         "meaning",
         "identity",
         "freedom"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -3895,11 +3007,6 @@
         "meaning",
         "doubt",
         "death"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -3916,11 +3023,6 @@
         "meaning",
         "desire",
         "freedom"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -3937,11 +3039,6 @@
         "meaning",
         "identity",
         "doubt"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -3958,11 +3055,6 @@
         "meaning",
         "identity",
         "duty"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -3979,11 +3071,6 @@
         "meaning",
         "identity",
         "grief"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -4000,11 +3087,6 @@
         "meaning",
         "desire",
         "death"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -4021,11 +3103,6 @@
         "meaning",
         "desire",
         "doubt"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -4042,11 +3119,6 @@
         "meaning",
         "grief",
         "doubt"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -4063,11 +3135,6 @@
         "meaning",
         "freedom",
         "identity"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -4084,11 +3151,6 @@
         "meaning",
         "desire",
         "death"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -4105,11 +3167,6 @@
         "meaning",
         "freedom",
         "discipline"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -4126,11 +3183,6 @@
         "meaning",
         "death",
         "desire"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -4147,11 +3199,6 @@
         "meaning",
         "fear",
         "freedom"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -4168,11 +3215,6 @@
         "meaning",
         "fear",
         "dilemma"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -4189,11 +3231,6 @@
         "meaning",
         "identity",
         "discipline"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -4210,11 +3247,6 @@
         "meaning",
         "grief",
         "doubt"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -4231,11 +3263,6 @@
         "meaning",
         "control",
         "doubt"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -4252,11 +3279,6 @@
         "meaning",
         "duty",
         "freedom"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -4273,11 +3295,6 @@
         "meaning",
         "identity",
         "duty"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -4294,11 +3311,6 @@
         "meaning",
         "control",
         "doubt"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -4315,11 +3327,6 @@
         "meaning",
         "discipline",
         "dilemma"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -4336,11 +3343,6 @@
         "meaning",
         "identity",
         "freedom"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -4357,11 +3359,6 @@
         "meaning",
         "desire",
         "dilemma"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -4378,11 +3375,6 @@
         "meaning",
         "fear",
         "freedom"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -4399,11 +3391,6 @@
         "meaning",
         "identity",
         "fear"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -4420,11 +3407,6 @@
         "meaning",
         "death",
         "identity"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -4441,11 +3423,6 @@
         "meaning",
         "death",
         "identity"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -4468,11 +3445,6 @@
         {"identity": 1, "loneliness": 1, "doubt": 0},
         {"identity": 2, "loneliness": 1, "doubt": 0},
         {"identity": 2, "loneliness": 1, "doubt": 2}
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -4489,11 +3461,6 @@
         "identity",
         "freedom",
         "doubt"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -4510,11 +3477,6 @@
         "identity",
         "resentment",
         "freedom"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -4531,11 +3493,6 @@
         "identity",
         "loneliness",
         "doubt"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -4552,11 +3509,6 @@
         "identity",
         "guilt",
         "discipline"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -4573,11 +3525,6 @@
         "identity",
         "doubt",
         "power"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -4594,11 +3541,6 @@
         "identity",
         "fear",
         "freedom"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -4615,11 +3557,6 @@
         "identity",
         "doubt",
         "control"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -4636,11 +3573,6 @@
         "identity",
         "freedom",
         "resentment"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -4657,11 +3589,6 @@
         "identity",
         "meaning",
         "freedom"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -4678,11 +3605,6 @@
         "identity",
         "fear",
         "loneliness"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -4699,11 +3621,6 @@
         "identity",
         "doubt",
         "meaning"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -4720,11 +3637,6 @@
         "identity",
         "freedom",
         "loneliness"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -4741,11 +3653,6 @@
         "identity",
         "loneliness",
         "fear"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -4762,11 +3669,6 @@
         "identity",
         "power",
         "loneliness"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -4783,11 +3685,6 @@
         "identity",
         "doubt",
         "freedom"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -4804,11 +3701,6 @@
         "identity",
         "grief",
         "fear"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -4825,11 +3717,6 @@
         "identity",
         "duty",
         "freedom"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -4846,11 +3733,6 @@
         "identity",
         "loneliness",
         "fear"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -4867,11 +3749,6 @@
         "identity",
         "doubt",
         "control"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -4888,11 +3765,6 @@
         "identity",
         "fear",
         "freedom"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -4909,11 +3781,6 @@
         "identity",
         "freedom",
         "meaning"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -4930,11 +3797,6 @@
         "identity",
         "doubt",
         "meaning"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -4951,11 +3813,6 @@
         "identity",
         "fear",
         "loneliness"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -4972,11 +3829,6 @@
         "identity",
         "freedom",
         "control"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -4993,11 +3845,6 @@
         "identity",
         "doubt",
         "fear"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -5014,11 +3861,6 @@
         "identity",
         "freedom",
         "fear"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -5035,11 +3877,6 @@
         "identity",
         "freedom",
         "guilt"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -5056,11 +3893,6 @@
         "identity",
         "desire",
         "freedom"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -5077,11 +3909,6 @@
         "identity",
         "fear",
         "loneliness"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -5104,11 +3931,6 @@
         {"power": 0, "resentment": 2, "control": 1},
         {"power": 1, "resentment": 2, "control": 2},
         {"power": 0, "resentment": 1, "control": 2}
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -5131,11 +3953,6 @@
         {"power": 0, "control": 2, "resentment": 2},
         {"power": 1, "control": 0, "resentment": 1},
         {"power": 1, "control": 2, "resentment": 2}
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -5152,11 +3969,6 @@
         "power",
         "dilemma",
         "control"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -5173,11 +3985,6 @@
         "power",
         "control",
         "resentment"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -5194,11 +4001,6 @@
         "fear",
         "control",
         "power"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -5215,11 +4017,6 @@
         "power",
         "dilemma",
         "resentment"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -5236,11 +4033,6 @@
         "resentment",
         "power",
         "dilemma"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -5257,11 +4049,6 @@
         "guilt",
         "power",
         "duty"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -5278,11 +4065,6 @@
         "power",
         "resentment",
         "control"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -5299,11 +4081,6 @@
         "power",
         "control",
         "resentment"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -5320,11 +4097,6 @@
         "fear",
         "control",
         "duty"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -5341,11 +4113,6 @@
         "power",
         "freedom",
         "dilemma"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -5362,11 +4129,6 @@
         "resentment",
         "control",
         "doubt"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -5383,11 +4145,6 @@
         "power",
         "resentment",
         "control"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -5404,11 +4161,6 @@
         "resentment",
         "duty",
         "dilemma"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -5425,11 +4177,6 @@
         "power",
         "guilt",
         "freedom"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -5446,11 +4193,6 @@
         "resentment",
         "control",
         "duty"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -5467,11 +4209,6 @@
         "power",
         "resentment",
         "control"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -5488,11 +4225,6 @@
         "control",
         "fear",
         "freedom"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -5509,11 +4241,6 @@
         "power",
         "dilemma",
         "resentment"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -5530,11 +4257,6 @@
         "resentment",
         "control",
         "power"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -5551,11 +4273,6 @@
         "power",
         "freedom",
         "resentment"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -5572,11 +4289,6 @@
         "resentment",
         "power",
         "control"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -5593,11 +4305,6 @@
         "power",
         "resentment",
         "control"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -5614,11 +4321,6 @@
         "fear",
         "duty",
         "control"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -5635,11 +4337,6 @@
         "power",
         "duty",
         "control"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -5656,11 +4353,6 @@
         "power",
         "identity",
         "freedom"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -5677,11 +4369,6 @@
         "resentment",
         "duty",
         "dilemma"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -5698,11 +4385,6 @@
         "power",
         "freedom",
         "dilemma"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -5719,11 +4401,6 @@
         "power",
         "fear",
         "dilemma"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -5746,11 +4423,6 @@
         {"loneliness": 1, "freedom": 0, "desire": 2},
         {"loneliness": 0, "freedom": 2, "desire": 1},
         {"loneliness": 2, "freedom": 0, "desire": 1}
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -5767,11 +4439,6 @@
         "loneliness",
         "fear",
         "desire"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -5788,11 +4455,6 @@
         "loneliness",
         "identity",
         "freedom"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -5809,11 +4471,6 @@
         "loneliness",
         "identity",
         "fear"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -5830,11 +4487,6 @@
         "loneliness",
         "control",
         "freedom"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -5851,11 +4503,6 @@
         "loneliness",
         "fear",
         "control"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -5872,11 +4519,6 @@
         "freedom",
         "loneliness",
         "identity"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -5893,11 +4535,6 @@
         "loneliness",
         "freedom",
         "desire"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -5914,11 +4551,6 @@
         "loneliness",
         "fear",
         "control"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -5935,11 +4567,6 @@
         "loneliness",
         "desire",
         "identity"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -5956,11 +4583,6 @@
         "loneliness",
         "freedom",
         "fear"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -5977,11 +4599,6 @@
         "loneliness",
         "control",
         "fear"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -5998,11 +4615,6 @@
         "loneliness",
         "identity",
         "meaning"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -6019,11 +4631,6 @@
         "loneliness",
         "fear",
         "desire"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -6040,11 +4647,6 @@
         "loneliness",
         "freedom",
         "doubt"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -6061,11 +4663,6 @@
         "loneliness",
         "control",
         "identity"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -6082,11 +4679,6 @@
         "loneliness",
         "identity",
         "meaning"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -6103,11 +4695,6 @@
         "loneliness",
         "fear",
         "control"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -6124,11 +4711,6 @@
         "loneliness",
         "freedom",
         "desire"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -6145,11 +4727,6 @@
         "loneliness",
         "identity",
         "fear"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -6166,11 +4743,6 @@
         "loneliness",
         "fear",
         "desire"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -6187,11 +4759,6 @@
         "loneliness",
         "freedom",
         "control"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -6208,10 +4775,6 @@
         "loneliness",
         "freedom",
         "desire"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading"
       ]
     },
     {
@@ -6228,11 +4791,6 @@
         "loneliness",
         "duty",
         "identity"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -6249,11 +4807,6 @@
         "loneliness",
         "identity",
         "fear"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -6270,11 +4823,6 @@
         "loneliness",
         "freedom",
         "meaning"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -6291,11 +4839,6 @@
         "loneliness",
         "fear",
         "desire"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -6312,11 +4855,6 @@
         "loneliness",
         "grief",
         "desire"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -6333,11 +4871,6 @@
         "loneliness",
         "freedom",
         "control"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -6354,11 +4887,6 @@
         "loneliness",
         "fear",
         "freedom"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -6381,11 +4909,6 @@
         {"desire": 1, "guilt": 2, "identity": 0},
         {"desire": 2, "guilt": 2, "identity": 0},
         {"desire": 1, "guilt": 1, "identity": 2}
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -6408,11 +4931,6 @@
         {"desire": 2, "discipline": 0, "control": 0},
         {"desire": 2, "discipline": 1, "control": 1},
         {"desire": 2, "discipline": 1, "control": 0}
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -6429,11 +4947,6 @@
         "desire",
         "doubt",
         "discipline"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -6450,11 +4963,6 @@
         "desire",
         "discipline",
         "dilemma"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -6471,11 +4979,6 @@
         "desire",
         "discipline",
         "freedom"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -6492,11 +4995,6 @@
         "desire",
         "control",
         "freedom"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -6513,11 +5011,6 @@
         "desire",
         "identity",
         "loneliness"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -6534,11 +5027,6 @@
         "desire",
         "guilt",
         "discipline"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -6555,11 +5043,6 @@
         "desire",
         "guilt",
         "dilemma"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -6576,11 +5059,6 @@
         "desire",
         "control",
         "doubt"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -6597,11 +5075,6 @@
         "desire",
         "fear",
         "freedom"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -6618,11 +5091,6 @@
         "discipline",
         "desire",
         "freedom"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -6639,11 +5107,6 @@
         "desire",
         "identity",
         "duty"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -6660,11 +5123,6 @@
         "desire",
         "discipline",
         "doubt"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -6681,11 +5139,6 @@
         "desire",
         "guilt",
         "discipline"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -6702,11 +5155,6 @@
         "desire",
         "guilt",
         "freedom"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -6723,11 +5171,6 @@
         "desire",
         "fear",
         "freedom"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -6744,11 +5187,6 @@
         "desire",
         "control",
         "doubt"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -6765,11 +5203,6 @@
         "desire",
         "discipline",
         "dilemma"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -6786,11 +5219,6 @@
         "desire",
         "discipline",
         "identity"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -6807,11 +5235,6 @@
         "desire",
         "guilt",
         "freedom"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -6828,11 +5251,6 @@
         "desire",
         "guilt",
         "freedom"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -6849,11 +5267,6 @@
         "desire",
         "identity",
         "meaning"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -6870,11 +5283,6 @@
         "desire",
         "control",
         "identity"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -6891,11 +5299,6 @@
         "discipline",
         "freedom",
         "desire"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -6912,11 +5315,6 @@
         "desire",
         "fear",
         "identity"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -6933,11 +5331,6 @@
         "discipline",
         "desire",
         "doubt"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -6954,11 +5347,6 @@
         "desire",
         "identity",
         "duty"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -6975,11 +5363,6 @@
         "desire",
         "control",
         "discipline"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -6996,11 +5379,6 @@
         "desire",
         "fear",
         "guilt"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -7023,11 +5401,6 @@
         {"death": 2, "fear": 2, "meaning": 0},
         {"death": 2, "fear": 2, "meaning": 1},
         {"death": 1, "fear": 0, "meaning": 2}
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -7044,11 +5417,6 @@
         "aging",
         "fear",
         "identity"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -7065,11 +5433,6 @@
         "grief",
         "death",
         "meaning"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -7086,11 +5449,6 @@
         "death",
         "meaning",
         "desire"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -7107,11 +5465,6 @@
         "aging",
         "grief",
         "meaning"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -7128,11 +5481,6 @@
         "death",
         "fear",
         "freedom"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -7149,11 +5497,6 @@
         "death",
         "fear",
         "freedom"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -7170,10 +5513,6 @@
         "aging",
         "meaning",
         "identity"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading"
       ]
     },
     {
@@ -7190,11 +5529,6 @@
         "death",
         "meaning",
         "doubt"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -7211,11 +5545,6 @@
         "death",
         "meaning",
         "freedom"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -7232,11 +5561,6 @@
         "death",
         "fear",
         "duty"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -7253,11 +5577,6 @@
         "aging",
         "death",
         "fear"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -7274,11 +5593,6 @@
         "death",
         "meaning",
         "identity"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -7295,11 +5609,6 @@
         "aging",
         "death",
         "meaning"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -7316,11 +5625,6 @@
         "death",
         "freedom",
         "meaning"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -7337,11 +5641,6 @@
         "grief",
         "death",
         "meaning"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -7358,11 +5657,6 @@
         "death",
         "fear",
         "freedom"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -7379,11 +5673,6 @@
         "aging",
         "identity",
         "meaning"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -7400,11 +5689,6 @@
         "death",
         "fear",
         "meaning"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -7421,11 +5705,6 @@
         "death",
         "meaning",
         "identity"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -7442,11 +5721,6 @@
         "death",
         "grief",
         "fear"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -7463,11 +5737,6 @@
         "death",
         "meaning",
         "aging"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -7484,11 +5753,6 @@
         "death",
         "meaning",
         "grief"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -7505,11 +5769,6 @@
         "death",
         "fear",
         "control"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -7526,11 +5785,6 @@
         "aging",
         "freedom",
         "identity"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -7547,11 +5801,6 @@
         "death",
         "meaning",
         "doubt"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -7568,11 +5817,6 @@
         "death",
         "resentment",
         "duty"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -7589,11 +5833,6 @@
         "death",
         "meaning",
         "identity"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -7610,11 +5849,6 @@
         "death",
         "meaning",
         "grief"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     },
     {
@@ -7631,11 +5865,6 @@
         "death",
         "meaning",
         "freedom"
-      ],
-      "feeds": [
-        "persona_context",
-        "sunday_reading",
-        "you_vs_you"
       ]
     }
   ]
