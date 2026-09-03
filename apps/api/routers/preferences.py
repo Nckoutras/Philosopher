@@ -34,7 +34,6 @@ from services.self_portrait import (
     is_free_question,
     portrait_state,
     portrait_theme_scores,
-    PORTRAIT_REGEN_DELTA,
     total_category_count,
     total_question_count,
     visible_questions,
@@ -183,11 +182,12 @@ async def read_self_portrait_portrait(
     carries a count/%/fraction — only `state` plus the surfaced content.
 
     Ready path (5b): serve the cached Sonnet summary + persona best-fit; regenerate
-    synchronously only when the cache is missing or >= PORTRAIT_REGEN_DELTA new
-    answers stale, then write `portrait_cache`. A valid/fresh cache is served WITHOUT
-    calling forming_reflection — a ready open never pays for both LLM paths. Summary
-    generation is best-effort: any failure falls back to a prior cache or the forming
-    preview and still returns 200 (a summary failure never 500s the portrait).
+    synchronously only when the cache is missing or its `answers_fingerprint` no
+    longer matches the current answer set, then write `portrait_cache`. A valid/fresh
+    cache is served WITHOUT calling forming_reflection — a ready open never pays for
+    both LLM paths. Summary generation is best-effort: any failure falls back to a
+    prior cache or the forming preview and still returns 200 (a summary failure never
+    500s the portrait).
 
     Forming path: `state` + observation lines from the user's OWN answers via the
     cheap forming_reflection — describes HOW they answered, never a diagnosis.
@@ -201,12 +201,18 @@ async def read_self_portrait_portrait(
     # on the wire), identical in every branch below.
     scores = portrait_theme_scores(answers)
 
+    # Cache validity is the IDENTITY of the answer set, not its size. The count
+    # delta this replaced could not see a re-answer at all: revising a question
+    # rewrites a value under an existing key, so len(answers) never moved and the
+    # prose was frozen for anyone who edited rather than added. Computed once and
+    # used by BOTH gates below. A legacy cache row has no such key, so .get()
+    # returns None, never matches, and self-heals on the next open.
+    fingerprint = self_portrait_summary.answers_fingerprint(answers)
+
     if state == "ready":
-        watermark = (cache or {}).get("answer_count_watermark")
         fresh = (
             cache is not None
-            and isinstance(watermark, int)
-            and (len(answers) - watermark) < PORTRAIT_REGEN_DELTA
+            and cache.get("answers_fingerprint") == fingerprint
             and isinstance(cache.get("text"), str)
             and cache["text"].strip()
         )
@@ -245,15 +251,14 @@ async def read_self_portrait_portrait(
     # ready path exactly: serve verbatim when fresh, else regenerate (unless a recent
     # failure is still in the shared cooldown), write, serve; on failure mark_failed +
     # serve any stale preview. This keeps forming lines STABLE on reopen — they change
-    # only after >= PORTRAIT_REGEN_DELTA new answers, never on wording-resample. The
-    # `forming` and ready sub-keys are independent; neither stomps the other.
+    # only when the ANSWER SET changes, never on wording-resample. The `forming` and
+    # ready sub-keys are independent; neither stomps the other, and each carries its
+    # own fingerprint because each is written at its own moment.
     forming = (cache or {}).get("forming") if isinstance(cache, dict) else None
-    f_watermark = (forming or {}).get("answer_count_watermark")
     f_preview = (forming or {}).get("preview")
     f_fresh = (
         isinstance(forming, dict)
-        and isinstance(f_watermark, int)
-        and (len(answers) - f_watermark) < PORTRAIT_REGEN_DELTA
+        and forming.get("answers_fingerprint") == fingerprint
         and isinstance(f_preview, list)
         and len(f_preview) > 0
     )
@@ -274,7 +279,7 @@ async def read_self_portrait_portrait(
             merged = dict(cache) if isinstance(cache, dict) else {}
             merged["forming"] = {
                 "preview": preview,
-                "answer_count_watermark": len(answers),
+                "answers_fingerprint": fingerprint,
                 "generated_at": datetime.now(timezone.utc).isoformat(),
             }
             prefs.portrait_cache = merged
