@@ -72,6 +72,79 @@ def test_system_prompt_without_memories_has_no_memory_section(builder, marcus):
     assert "WHAT YOU KNOW" not in prompt
 
 
+# ── The memory use-directive (Memory-v2 Ruling #6) ───────────────────────────
+#
+# WHAT WAS WRONG. The memory block's only instruction was
+# "(Extracted from prior conversations. Hold probabilistically.)" — a hedge, and
+# the sole guidance the model got about memory. The adjacent GROUNDING PASSAGES
+# block carried three explicit use directives by comparison, so the one section
+# describing the person was also the one the model was told to hold loosely.
+# MEMORY_V2_INVESTIGATION_2026-09-03 §2b traced part of the "council/chat feels
+# generic" finding to exactly this asymmetry.
+#
+# THIS IS FOUNDER-APPROVED COPY. The literal below is deliberately a SECOND,
+# independent copy of the string rather than an import of whatever the template
+# holds — an assertion that imported its subject could not detect a rewording,
+# because both sides would move together. A silent edit to system_base.jinja2
+# fails here. If the copy is ever revised, it is revised in both places, on
+# purpose, with the founder's sign-off — which is the point.
+APPROVED_MEMORY_DIRECTIVE = (
+    "These are things you know of this person from earlier conversations. Let them inform "
+    "how you meet what they bring today. Never recite them, never list them, never announce "
+    "that you remember — familiarity shows in how you speak, not in repeating what was said."
+)
+
+
+def test_the_memory_block_carries_the_approved_use_directive_verbatim(builder, marcus):
+    """Character-for-character. A paraphrase is a copy change, and copy changes on
+    this surface are the founder's call, not a refactor's side effect."""
+    prompt = builder.build_system(persona=marcus, memories=[FakeMemory()])
+    assert APPROVED_MEMORY_DIRECTIVE in prompt
+
+
+def test_the_memory_block_no_longer_tells_the_model_to_hold_memory_loosely(builder, marcus):
+    """THE REGRESSION. The dampening instruction must be gone, not merely joined."""
+    prompt = builder.build_system(persona=marcus, memories=[FakeMemory()])
+    assert "probabilistic" not in prompt.lower()
+    assert "Hold probabilistically" not in prompt
+    assert "Extracted from prior conversations" not in prompt
+
+
+def test_the_dampening_phrasing_survives_nowhere_in_the_prompt_templates(builder):
+    """Not just in one render — the phrasing is gone from the prompt source itself,
+    so it cannot return through a template this test does not happen to compose."""
+    from pathlib import Path
+
+    from services.prompt_builder import PROMPTS_DIR
+
+    for template in Path(PROMPTS_DIR).glob("*.jinja2"):
+        text = template.read_text(encoding="utf-8")
+        assert "probabilistic" not in text.lower(), template.name
+
+
+def test_the_directive_appears_only_when_there_is_memory_to_direct(builder, marcus):
+    """The instruction lives inside the {% if memories %} block, so a turn that
+    recalled nothing must not carry an instruction about memories it does not have."""
+    prompt = builder.build_system(persona=marcus, memories=[])
+    assert APPROVED_MEMORY_DIRECTIVE not in prompt
+
+
+def test_the_directive_does_not_leak_into_councils_memory_free_prompt(builder, marcus):
+    """Council passes memories=[] unconditionally (council_service.py:245); its
+    memory is a separate ruling and a separate PR. Pinned here so this change is
+    provably inert for that path."""
+    prompt = builder.build_system(persona=marcus, memories=[], passages=[])
+    assert "WHAT YOU KNOW" not in prompt
+    assert APPROVED_MEMORY_DIRECTIVE not in prompt
+
+
+def test_the_memory_block_still_renders_the_memories_themselves(builder, marcus):
+    """The directive replaced an instruction, not the content: entries still land."""
+    prompt = builder.build_system(persona=marcus, memories=[FakeMemory()])
+    assert "procrastination" in prompt
+    assert "[STRUGGLE]" in prompt
+
+
 def test_system_prompt_with_passages(builder, marcus):
     passages = [FakePassage()]
     prompt = builder.build_system(persona=marcus, passages=passages)
