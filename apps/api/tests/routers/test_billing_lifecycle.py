@@ -86,8 +86,13 @@ class FakeDb:
         self.committed = 0
         self.rolled_back = 0
         self.deletes = []
+        # Every statement this session was asked to run, as SQL text. Additive:
+        # nothing existing reads it. The Basil guard tests need it to assert the
+        # NEGATIVE — that the Subscription lookup was never issued at all.
+        self.executes = []
 
     async def execute(self, stmt):
+        self.executes.append(str(stmt))
         # DELETE FROM stripe_events … — record it, return nothing useful.
         if stmt.__class__.__name__ == "Delete":
             self.deletes.append(stmt)
@@ -819,3 +824,224 @@ def test_an_unknown_event_type_is_recorded_and_changes_nothing(client):
     analytics.track.assert_not_called()
     # Still recorded, so a retry of it is also a no-op.
     assert len(db.stripe_events()) == 1
+
+
+# ── F. The Basil invoice-subscription relocation ─────────────────────────────
+#
+# WHAT WAS WRONG. Both invoice handlers keyed their Subscription lookup on
+# obj.get("subscription"). Stripe API version 2025-03-31.basil REMOVED that
+# field from Invoice and moved it to parent.subscription_details.subscription
+# (changelog: "Invoicing resources now specify how they were generated"), so on
+# a Basil-or-later payload the expression evaluates to None.
+#
+# subscriptions.stripe_subscription_id is NULLABLE and every signup leaves it
+# unset, so a None key renders IS NULL and matches EVERY never-subscribed row —
+# scalar_one_or_none() then raises MultipleResultsFound, the catch-all deletes
+# the stripe_events row, and Stripe's retries fail identically forever.
+#
+# WHAT THESE TESTS CAN AND CANNOT PIN (TD-57). The real defect is a WHERE-clause
+# result over multi-row NULL state. A mocked AsyncSession returns whatever the
+# test author configured, so it CANNOT reproduce the MultipleResultsFound — no
+# test in this repository opens a database connection. What is pinned here is
+# the GUARD: that the id is resolved from both payload shapes, and that an
+# unresolved id short-circuits to {"skipped": True} without the lookup ever
+# being issued. The exception these tests never see is unreachable precisely
+# because the query is never built.
+
+
+def _invoice_basil(sub_id=SUB_ID, parent_type="subscription_details"):
+    """An Invoice as Basil renders it: no top-level subscription field, the id
+    nested under parent.subscription_details."""
+    return {
+        "id": "in_test_1",
+        "parent": {
+            "type": parent_type,
+            "subscription_details": {"subscription": sub_id},
+        },
+    }
+
+
+# ── F1. The helper, in isolation ─────────────────────────────────────────────
+
+def test_the_helper_reads_the_legacy_top_level_subscription():
+    from routers.billing import _invoice_subscription_id
+
+    assert _invoice_subscription_id({"subscription": SUB_ID}) == SUB_ID
+
+
+def test_the_helper_reads_the_basil_nested_subscription():
+    from routers.billing import _invoice_subscription_id
+
+    assert _invoice_subscription_id(_invoice_basil()) == SUB_ID
+
+
+def test_the_helper_refuses_a_parent_that_is_not_subscription_details():
+    """The changelog requires verifying parent.type before reading it. An invoice
+    parented by a quote carries no subscription, and guessing would key the
+    lookup on a quote id."""
+    from routers.billing import _invoice_subscription_id
+
+    quote_parented = {
+        "id": "in_test_1",
+        "parent": {"type": "quote_details", "quote_details": {"quote": "qt_1"}},
+    }
+    assert _invoice_subscription_id(quote_parented) is None
+
+
+def test_the_helper_returns_none_when_both_shapes_are_absent():
+    from routers.billing import _invoice_subscription_id
+
+    assert _invoice_subscription_id({"id": "in_test_1"}) is None
+
+
+def test_the_helper_prefers_the_top_level_id_when_both_are_present():
+    """A transitional payload carrying both must not depend on ordering."""
+    from routers.billing import _invoice_subscription_id
+
+    both = dict(_invoice_basil(sub_id="sub_nested"), subscription=SUB_ID)
+    assert _invoice_subscription_id(both) == SUB_ID
+
+
+def test_the_helper_treats_an_empty_top_level_subscription_as_absent():
+    """An empty string is not a usable key — fall through to parent, not through
+    to the query."""
+    from routers.billing import _invoice_subscription_id
+
+    assert _invoice_subscription_id({"subscription": "", **_invoice_basil()}) == SUB_ID
+    assert _invoice_subscription_id({"subscription": ""}) is None
+
+
+# ── F2. payment_succeeded ────────────────────────────────────────────────────
+
+def test_a_basil_shaped_payment_succeeded_finds_the_row_and_heals_status():
+    sub = FakeSub(plan="pro", status="past_due")
+    db = FakeDb(sub)
+    from main import app
+    from db.session import get_db
+
+    async def override_db():
+        yield db
+
+    app.dependency_overrides[get_db] = override_db
+    try:
+        tc = TestClient(app, raise_server_exceptions=False)
+        resp, _ = _post(tc, _event("invoice.payment_succeeded", _invoice_basil()))
+    finally:
+        app.dependency_overrides.clear()
+
+    assert resp.status_code == 200
+    assert sub.status == "active"
+    # _mark_applied ran: the ordering baseline moved to this event's timestamp.
+    assert sub.last_stripe_event_at == NOW
+    assert db.stripe_events()[0].skipped is False
+    # THE SHAPE OF THE QUERY, not just its result. FakeDb.execute returns the row
+    # regardless of the WHERE clause, so the two assertions above pass against the
+    # PRE-FIX code too — verified by reverting. What actually distinguishes fixed
+    # from broken under a mock is the emitted SQL: pre-fix this payload resolved to
+    # None and rendered `IS NULL`, which on the real table matches every
+    # never-subscribed row. Assert the bound-parameter form instead.
+    lookup = [s for s in db.executes if "FROM subscriptions" in s]
+    assert len(lookup) == 1
+    assert "stripe_subscription_id IS NULL" not in lookup[0]
+    assert "stripe_subscription_id = " in lookup[0]
+
+
+def test_a_payment_succeeded_with_no_subscription_anywhere_skips_without_querying():
+    """THE REGRESSION. No lookup may be issued with an unresolved id."""
+    sub = FakeSub(plan="pro", status="past_due")
+    db = FakeDb(sub)
+    from main import app
+    from db.session import get_db
+
+    async def override_db():
+        yield db
+
+    app.dependency_overrides[get_db] = override_db
+    try:
+        tc = TestClient(app, raise_server_exceptions=False)
+        resp, analytics = _post(
+            tc, _event("invoice.payment_succeeded", {"id": "in_test_1"}),
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert resp.status_code == 200
+    # Recorded as processed-and-skipped, NOT as a failure.
+    assert db.stripe_events()[0].skipped is True
+    assert db.stripe_events()[0].processed_at is not None
+    # The event row survives: this is not the crash path, so Stripe must not be
+    # asked to retry a payload that can never resolve.
+    assert db.deletes == []
+    assert db.rolled_back == 0
+    # The Subscription SELECT was never built at all — the whole point.
+    assert not any("FROM subscriptions" in sql for sql in db.executes)
+    # Nothing was touched.
+    assert sub.status == "past_due"
+    assert sub.last_stripe_event_at is None
+    assert db.history() == []
+    analytics.track.assert_not_called()
+
+
+# ── F3. payment_failed ───────────────────────────────────────────────────────
+
+def test_a_basil_shaped_payment_failed_past_dues_the_row():
+    sub = FakeSub(plan="pro", status="active")
+    db = FakeDb(sub)
+    from main import app
+    from db.session import get_db
+
+    async def override_db():
+        yield db
+
+    app.dependency_overrides[get_db] = override_db
+    try:
+        tc = TestClient(app, raise_server_exceptions=False)
+        with patch("routers.billing._send_recovery_email", new=AsyncMock()):
+            resp, _ = _post(tc, _event("invoice.payment_failed", _invoice_basil()))
+    finally:
+        app.dependency_overrides.clear()
+
+    assert resp.status_code == 200
+    assert sub.status == "past_due"
+    assert sub.last_stripe_event_at == NOW
+    assert db.stripe_events()[0].skipped is False
+    # Same reasoning as the payment_succeeded sibling: pin the emitted SQL, because
+    # the mock's return value cannot tell a keyed lookup from an IS NULL sweep.
+    lookup = [s for s in db.executes if "FROM subscriptions" in s]
+    assert len(lookup) == 1
+    assert "stripe_subscription_id IS NULL" not in lookup[0]
+    assert "stripe_subscription_id = " in lookup[0]
+
+
+def test_a_payment_failed_with_no_subscription_anywhere_skips_and_sends_no_email():
+    """Same guard, plus the consequence that matters on this path: an invoice we
+    cannot attribute must never trigger a dunning email."""
+    sub = FakeSub(plan="pro", status="active")
+    db = FakeDb(sub)
+    from main import app
+    from db.session import get_db
+
+    async def override_db():
+        yield db
+
+    app.dependency_overrides[get_db] = override_db
+    try:
+        tc = TestClient(app, raise_server_exceptions=False)
+        with patch("routers.billing._send_recovery_email", new=AsyncMock()) as send:
+            resp, analytics = _post(
+                tc, _event("invoice.payment_failed", {"id": "in_test_1"}),
+            )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert resp.status_code == 200
+    assert db.stripe_events()[0].skipped is True
+    assert db.stripe_events()[0].processed_at is not None
+    assert db.deletes == []
+    assert db.rolled_back == 0
+    assert not any("FROM subscriptions" in sql for sql in db.executes)
+    assert sub.status == "active"
+    assert sub.last_stripe_event_at is None
+    assert db.history() == []
+    send.assert_not_awaited()
+    analytics.track.assert_not_called()
