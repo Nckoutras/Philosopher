@@ -18,6 +18,24 @@ PROMPTS_DIR = Path(__file__).parent.parent / "prompts"
 # line's own newline lives in the suffix — see split_system_for_cache).
 CACHE_SPLIT_SENTINEL = "<<<PHILOSOPHER_CACHE_BREAKPOINT>>>"
 
+# Founder-approved copy (#597, Memory-v2 Ruling #6). It replaced the old
+# "(Extracted from prior conversations. Hold probabilistically.)" hedge, which was
+# the only instruction the model got about memory while the adjacent passages block
+# carried three explicit use directives.
+#
+# WHY IT IS A PYTHON CONSTANT AND ALSO LITERAL TEXT IN system_base.jinja2. The
+# template cannot import Python, and giving build_system a parameter for one string
+# would be machinery for nothing. So the two live side by side and a test asserts
+# they agree (tests/test_prompts.py). That test is the thing that makes this ONE
+# piece of copy rather than two that drift: the Council synthesis composes its own
+# prompt without Jinja, and Ruling #4 is explicit that a third wording may not
+# appear anywhere.
+MEMORY_USE_DIRECTIVE = (
+    "These are things you know of this person from earlier conversations. Let them inform "
+    "how you meet what they bring today. Never recite them, never list them, never announce "
+    "that you remember — familiarity shows in how you speak, not in repeating what was said."
+)
+
 jinja_env = Environment(
     loader=FileSystemLoader(str(PROMPTS_DIR)),
     autoescape=select_autoescape([]),

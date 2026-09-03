@@ -20,7 +20,8 @@ from services.council_prompts import (
     COUNCIL_DISPLAY_BRIEF_PROMPT,
 )
 from services.llm_client import llm_client
-from services.prompt_builder import prompt_builder
+from services.memory_service import memory_service
+from services.prompt_builder import MEMORY_USE_DIRECTIVE, prompt_builder
 from services.safety_service import safety_service
 from text_utils import dominant_language
 from services.safety_event_log import log_safety_event, STAGE_COUNCIL_INPUT
@@ -242,6 +243,14 @@ class CouncilService:
             system = (
                 prompt_builder.build_system(
                     persona=persona,
+                    # DELIBERATE, and load-bearing — Memory-v2 Ruling #4. The four
+                    # members meet the matter COLD: they debate the thing brought
+                    # before them, not the person's history. Memory enters at the
+                    # SYNTHESIS step only (see section 4). This empty list is also
+                    # what makes the member prompt static per (persona, role), which
+                    # is what cache_whole_system below is built on — passing memories
+                    # here would carry per-user text into a cached prefix and forfeit
+                    # the cache across all four calls. Do not "fix" this.
                     memories=[],
                     passages=[],
                     phenomenology_bridge=None,
@@ -325,7 +334,33 @@ class CouncilService:
         yield f"data: {json.dumps({'type': 'synthesis_start'})}\n\n"
 
         verdicts_block = "\n\n".join(f"[{name}]: {text}" for name, text in verdicts)
-        synthesis_user_content = f"The matter:\n{effective_matter}\n\nThe four verdicts:\n{verdicts_block}"
+
+        # ── MEMORY, SYNTHESIS ONLY (Ruling #4) ────────────────────────────
+        # The verdict that ties the chamber together may speak to THIS person;
+        # the members above may not. Reuses the chat paths' recall EXACTLY —
+        # flat top-6, 0.70 cosine cut (memory_service.recall) — with the matter
+        # as the query. Hybrid recall (type quotas, always-include stated /
+        # self_portrait) is Ruling #5 and is deliberately NOT pre-empted here.
+        #
+        # BEST-EFFORT, like every other recall call site: a council must never
+        # fail because memory retrieval did. Any exception (and any empty result)
+        # leaves memory_block empty and the synthesis composes exactly as before.
+        # No embedding is reused here — unlike a chat turn, nothing else in this
+        # request has already embedded the matter.
+        memory_block = ""
+        try:
+            memories = await memory_service.recall(db, user_id, effective_matter, top_k=6)
+            if memories:
+                lines = "\n".join(f"[{m.entry_type.upper()}] {m.content}" for m in memories)
+                memory_block = (
+                    f"\n\nWHAT YOU KNOW ABOUT THIS PERSON\n{MEMORY_USE_DIRECTIVE}\n\n{lines}"
+                )
+        except Exception as exc:
+            logger.warning(f"Council synthesis memory recall failed for user={user_id}: {exc}")
+
+        synthesis_user_content = (
+            f"The matter:\n{effective_matter}\n\nThe four verdicts:\n{verdicts_block}{memory_block}"
+        )
 
         structured = None
         try:
@@ -398,8 +433,11 @@ class CouncilService:
         # member_unavailable is yielded per slug, so this is a real measurement
         # rather than a constant 4. latency_bucket is a bucket, not milliseconds:
         # the decision it informs is "is the council too slow to sit through",
-        # which a bucket answers and a raw number obscures. No used_memory --
-        # this service passes memories=[] unconditionally.
+        # which a bucket answers and a raw number obscures.
+        #
+        # Still no used_memory property. The service is no longer memory-free --
+        # members stay cold, the synthesis recalls (Ruling #4) -- but adding a
+        # property means a taxonomy change, which is its own PR.
         analytics_service.track("council_completed", user_id, {
             "member_count": len(verdicts),
             "latency_bucket": _latency_bucket(perf_counter() - _t0),

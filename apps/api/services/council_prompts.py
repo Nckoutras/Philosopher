@@ -92,5 +92,8 @@ COUNCIL_SYNTHESIS_PROMPT = (
     "stranger reading it learns the theme, nothing else. Same language as the verdict. "
     "If no honest neutral title fits, use null.\n"
     "\n"
-    "Do not quote. Second person (\"you\"). Ground everything STRICTLY in the matter and the four verdicts."
+    "Do not quote. Second person (\"you\"). Ground every CLAIM strictly in the matter and the four "
+    "verdicts. You may also receive a block of things known about this person from earlier "
+    "conversations; it may shape how you speak to them, never what you assert — it is not evidence "
+    "about this matter and adds no facts to it."
 )
