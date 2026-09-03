@@ -141,10 +141,12 @@ jobs:
       # regression must block, which is the whole reason this job exists.
       #
       # The fixture builds the schema by MIGRATION, in three stages — upgrade to
-      # 048, run db/seed_quotes.py, upgrade to head. `alembic upgrade head` alone
-      # does not run on an empty database: 049_quotes_expand updates the 88 seeded
-      # quotes and raises when an update matches no row, and those rows come from a
-      # seed SCRIPT rather than a migration. See tests/db_live/conftest.py.
+      # 048, insert the pre-049 quotes corpus, upgrade to head. `alembic upgrade
+      # head` alone does not run on an empty database: 049_quotes_expand updates 88
+      # quote rows and raises when an update matches no row, and no migration
+      # inserts them. db/seed_quotes.py cannot be that stage either — its data file
+      # has since grown to the current 198-row corpus, so it inserts 049's own rows
+      # ahead of it. See tests/db_live/conftest.py.
       - name: pytest (live Postgres)
         working-directory: apps/api
         run: python -m pytest tests/db_live -v
