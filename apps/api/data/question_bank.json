@@ -32,6 +32,12 @@
         "resentment",
         "doubt"
       ],
+      "pill_weights": [
+        {"power": 1, "resentment": 0, "doubt": 1},
+        {"power": 0, "resentment": 2, "doubt": 2},
+        {"power": 2, "resentment": 1, "doubt": 1},
+        {"power": 1, "resentment": 1, "doubt": 0}
+      ],
       "feeds": [
         "persona_context",
         "sunday_reading",
@@ -653,6 +659,12 @@
         "guilt",
         "dilemma"
       ],
+      "pill_weights": [
+        {"freedom": 2, "guilt": 0, "dilemma": 0},
+        {"freedom": 1, "guilt": 1, "dilemma": 1},
+        {"freedom": 0, "guilt": 2, "dilemma": 2},
+        {"freedom": 1, "guilt": 1, "dilemma": 1}
+      ],
       "feeds": [
         "persona_context",
         "sunday_reading"
@@ -1270,6 +1282,12 @@
         "guilt",
         "duty"
       ],
+      "pill_weights": [
+        {"parents": 1, "guilt": 0, "duty": 0},
+        {"parents": 2, "guilt": 1, "duty": 1},
+        {"parents": 2, "guilt": 2, "duty": 2},
+        {"parents": 2, "guilt": 0, "duty": 1}
+      ],
       "feeds": [
         "persona_context",
         "sunday_reading",
@@ -1290,6 +1308,12 @@
         "parents",
         "identity",
         "doubt"
+      ],
+      "pill_weights": [
+        {"parents": 1, "identity": 2, "doubt": 0},
+        {"parents": 2, "identity": 1, "doubt": 1},
+        {"parents": 2, "identity": 1, "doubt": 2},
+        {"parents": 1, "identity": 2, "doubt": 0}
       ],
       "feeds": [
         "persona_context",
@@ -1897,6 +1921,12 @@
         "fear",
         "identity",
         "loneliness"
+      ],
+      "pill_weights": [
+        {"fear": 0, "identity": 2, "loneliness": 0},
+        {"fear": 2, "identity": 1, "loneliness": 1},
+        {"fear": 2, "identity": 1, "loneliness": 1},
+        {"fear": 1, "identity": 2, "loneliness": 2}
       ],
       "feeds": [
         "persona_context",
@@ -2528,6 +2558,12 @@
         "loneliness",
         "doubt"
       ],
+      "pill_weights": [
+        {"friendship": 2, "loneliness": 0, "doubt": 0},
+        {"friendship": 0, "loneliness": 1, "doubt": 1},
+        {"friendship": 1, "loneliness": 2, "doubt": 2},
+        {"friendship": 1, "loneliness": 1, "doubt": 2}
+      ],
       "feeds": [
         "persona_context",
         "sunday_reading",
@@ -3157,6 +3193,12 @@
         "control",
         "doubt"
       ],
+      "pill_weights": [
+        {"fear": 1, "control": 1, "doubt": 0},
+        {"fear": 2, "control": 0, "doubt": 2},
+        {"fear": 2, "control": 1, "doubt": 2},
+        {"fear": 1, "control": 2, "doubt": 1}
+      ],
       "feeds": [
         "persona_context",
         "sunday_reading",
@@ -3784,6 +3826,12 @@
         "meaning",
         "doubt",
         "freedom"
+      ],
+      "pill_weights": [
+        {"meaning": 1, "doubt": 0, "freedom": 2},
+        {"meaning": 1, "doubt": 1, "freedom": 0},
+        {"meaning": 2, "doubt": 2, "freedom": 1},
+        {"meaning": 2, "doubt": 1, "freedom": 0}
       ],
       "feeds": [
         "persona_context",
@@ -4415,6 +4463,12 @@
         "loneliness",
         "doubt"
       ],
+      "pill_weights": [
+        {"identity": 2, "loneliness": 0, "doubt": 0},
+        {"identity": 1, "loneliness": 1, "doubt": 0},
+        {"identity": 2, "loneliness": 1, "doubt": 0},
+        {"identity": 2, "loneliness": 1, "doubt": 2}
+      ],
       "feeds": [
         "persona_context",
         "sunday_reading",
@@ -5045,6 +5099,12 @@
         "resentment",
         "control"
       ],
+      "pill_weights": [
+        {"power": 2, "resentment": 0, "control": 1},
+        {"power": 0, "resentment": 2, "control": 1},
+        {"power": 1, "resentment": 2, "control": 2},
+        {"power": 0, "resentment": 1, "control": 2}
+      ],
       "feeds": [
         "persona_context",
         "sunday_reading",
@@ -5065,6 +5125,12 @@
         "power",
         "control",
         "resentment"
+      ],
+      "pill_weights": [
+        {"power": 2, "control": 2, "resentment": 0},
+        {"power": 0, "control": 2, "resentment": 2},
+        {"power": 1, "control": 0, "resentment": 1},
+        {"power": 1, "control": 2, "resentment": 2}
       ],
       "feeds": [
         "persona_context",
@@ -5674,6 +5740,12 @@
         "loneliness",
         "freedom",
         "desire"
+      ],
+      "pill_weights": [
+        {"loneliness": 0, "freedom": 2, "desire": 0},
+        {"loneliness": 1, "freedom": 0, "desire": 2},
+        {"loneliness": 0, "freedom": 2, "desire": 1},
+        {"loneliness": 2, "freedom": 0, "desire": 1}
       ],
       "feeds": [
         "persona_context",
@@ -6304,6 +6376,12 @@
         "guilt",
         "identity"
       ],
+      "pill_weights": [
+        {"desire": 2, "guilt": 0, "identity": 2},
+        {"desire": 1, "guilt": 2, "identity": 0},
+        {"desire": 2, "guilt": 2, "identity": 0},
+        {"desire": 1, "guilt": 1, "identity": 2}
+      ],
       "feeds": [
         "persona_context",
         "sunday_reading",
@@ -6324,6 +6402,12 @@
         "desire",
         "discipline",
         "control"
+      ],
+      "pill_weights": [
+        {"desire": 1, "discipline": 2, "control": 2},
+        {"desire": 2, "discipline": 0, "control": 0},
+        {"desire": 2, "discipline": 1, "control": 1},
+        {"desire": 2, "discipline": 1, "control": 0}
       ],
       "feeds": [
         "persona_context",
@@ -6933,6 +7017,12 @@
         "death",
         "fear",
         "meaning"
+      ],
+      "pill_weights": [
+        {"death": 1, "fear": 0, "meaning": 2},
+        {"death": 2, "fear": 2, "meaning": 0},
+        {"death": 2, "fear": 2, "meaning": 1},
+        {"death": 1, "fear": 0, "meaning": 2}
       ],
       "feeds": [
         "persona_context",

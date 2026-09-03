@@ -5,7 +5,15 @@ The "Self-Portrait" is a perpetual self-knowledge quiz. A canonical question ban
 AGNOSTIC — it is built against the bank SCHEMA, never against specific questions:
 
     { "questions": [ { "id", "category", "question", "pills": [...],
-                       "theme_tags": [...], "feeds": [...] }, ... ] }
+                       "theme_tags": [...], "feeds": [...],
+                       "pill_weights": [ {tag: 0|1|2}, ... ]  # OPTIONAL
+                     }, ... ] }
+
+`pill_weights` is optional and per-question: one dict per pill, in pill order,
+scoring a subset of that question's own theme_tags. Present → the octagon reads the
+answer; absent → that question scores by legacy counting (weight 1 per tag, the same
+for every pill). Never leaves the API: `_public_question` strips it alongside
+theme_tags and feeds.
 
 (A bare top-level list of question objects is also accepted, so the real bank file
 can drop in with or without the wrapper.)
@@ -23,8 +31,11 @@ memory recall and the Sunday/season letters — never into the turn-1 prompt.
 from __future__ import annotations
 
 import json
+import logging
 import zlib
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 # Fixed theme vocabulary. Every theme_tag on every question MUST be in this set;
 # the loader fails fast at import otherwise, so a typo never reaches production.
@@ -42,9 +53,59 @@ _BANK_PATH = Path(__file__).resolve().parent.parent / "data" / "question_bank.js
 MAX_LETTER_STATEMENTS = 12
 
 
+PILL_WEIGHT_VALUES = (0, 1, 2)
+
+
+def _validate_pill_weights(qid: str, q: dict) -> None:
+    """Validate an OPTIONAL per-question `pill_weights` block, or return silently.
+
+    Shape: one dict per pill, in pill order, mapping a subset of that question's own
+    theme_tags to an int in PILL_WEIGHT_VALUES. Absent is legal and means "score this
+    question by legacy counting" (weight 1 per tag) — see portrait_theme_scores.
+
+    FAIL FAST, at import, for the reason #589's lexicon does: this data decides what
+    the octagon says about a person, it is hand-authored, and a typo in it is invisible
+    at every later layer. A wrong length silently drops a pill's signal; a stray tag
+    silently scores an axis the question was never about; a 3 silently skews an axis
+    beyond every other question. None of those raise anywhere downstream — so they
+    raise here, and the app does not boot.
+    """
+    weights = q.get("pill_weights")
+    if weights is None:
+        return
+
+    pills = q.get("pills") or []
+    if not isinstance(weights, list) or len(weights) != len(pills):
+        raise ValueError(
+            f"question_bank: question {qid!r} has {len(weights) if isinstance(weights, list) else '?'} "
+            f"pill_weights entries but {len(pills)} pills — one dict per pill, in pill order."
+        )
+
+    tags = set(q.get("theme_tags") or [])
+    for i, entry in enumerate(weights):
+        if not isinstance(entry, dict):
+            raise ValueError(
+                f"question_bank: question {qid!r} pill_weights[{i}] is {type(entry).__name__}, expected an object."
+            )
+        stray = set(entry) - tags
+        if stray:
+            raise ValueError(
+                f"question_bank: question {qid!r} pill_weights[{i}] scores tag(s) {sorted(stray)} "
+                f"that are not in its theme_tags {sorted(tags)}."
+            )
+        for tag, value in entry.items():
+            # bool is an int subclass; True would otherwise pass as 1.
+            if isinstance(value, bool) or not isinstance(value, int) or value not in PILL_WEIGHT_VALUES:
+                raise ValueError(
+                    f"question_bank: question {qid!r} pill_weights[{i}][{tag!r}] = {value!r}; "
+                    f"expected one of {list(PILL_WEIGHT_VALUES)}."
+                )
+
+
 def _load_bank(path: Path) -> dict[str, dict]:
     """Load + validate the question bank into an {id: question} map. Raises at import
-    on a malformed bank or an out-of-vocabulary theme_tag (fail fast)."""
+    on a malformed bank, an out-of-vocabulary theme_tag, or a malformed optional
+    `pill_weights` block (fail fast)."""
     raw = json.loads(path.read_text(encoding="utf-8"))
     questions = raw["questions"] if isinstance(raw, dict) else raw
     if not isinstance(questions, list):
@@ -65,6 +126,7 @@ def _load_bank(path: Path) -> dict[str, dict]:
                     f"question_bank: question {qid!r} has out-of-vocabulary theme_tag {tag!r}. "
                     f"Allowed: {sorted(THEME_VOCABULARY)}"
                 )
+        _validate_pill_weights(qid, q)
         bank[qid] = q
     return bank
 
@@ -149,61 +211,103 @@ _TAG_TO_AXIS: dict[str, str] = {
 }
 
 
-def _axis_prevalence() -> dict[str, int]:
-    """Per-axis prevalence denominator P_A: how many theme_tag instances across the
-    WHOLE bank land on each axis. Derived AT IMPORT from the live bank, so if the bank
-    ever changes the denominators self-correct — no hardcoded magic numbers. Bigger
-    clusters have a larger P_A, which is exactly what divides out the cluster-size bias
-    in portrait_theme_scores (so a wide axis isn't inherently 'higher' for everyone)."""
-    counts: dict[str, int] = {key: 0 for key, _l, _t in PORTRAIT_AXES}
-    for q in _BANK.values():
+def _pill_axis_sums(q: dict, pill_index: int) -> dict[str, int]:
+    """Per-axis weight this question contributes when `pill_index` is the chosen pill.
+
+    Weighted questions read their authored `pill_weights[pill_index]`. Unweighted ones
+    fall back to LEGACY COUNTING — weight 1 for each of the question's theme_tags,
+    identical for every pill. That fallback is what keeps the 345 unauthored questions
+    contributing exactly what they contribute today, so a Pro user's octagon does not
+    lose its Pro half while the rest of the bank is being authored.
+    """
+    sums: dict[str, int] = {key: 0 for key, _l, _t in PORTRAIT_AXES}
+    weights = q.get("pill_weights")
+    if isinstance(weights, list) and 0 <= pill_index < len(weights):
+        for tag, value in (weights[pill_index] or {}).items():
+            axis = _TAG_TO_AXIS.get(tag)
+            if axis is not None:
+                sums[axis] += value
+    else:
         for tag in (q.get("theme_tags") or []):
             axis = _TAG_TO_AXIS.get(tag)
             if axis is not None:
-                counts[axis] += 1
-    return counts
-
-
-_AXIS_PREVALENCE: dict[str, int] = _axis_prevalence()
+                sums[axis] += 1
+    return sums
 
 
 def portrait_theme_scores(answers: dict) -> list[dict]:
     """Per-axis normalized radar scores for the curated octagon, computed ON READ from
-    profile.answers. The raw-tag sibling of self_portrait_summary.themes_from_answers,
-    WITHOUT the matching bridge — it counts the raw 20-tag vocab straight onto the axes.
+    profile.answers.
 
-    For each axis A:
-      raw_A   = # of the user's answered-question theme_tags that fall on A
-      rate_A  = raw_A / P_A                 (P_A from the bank → de-biases cluster size)
-      score_A = rate_A / max_B(rate_B)      (per-user max-normalize: strongest axis = 1.0
-                                             so the polygon fills the frame)
+    ANSWER-SENSITIVE. The previous version counted each answered question's theme_tags
+    and never read the chosen pill, so the polygon was a function of WHICH questions a
+    person answered and not of HOW — every free user, whose slice is a fixed 15, drew
+    the identical octagon no matter what they said. Scoring now reads the answer.
+
+    For each axis A, over the answered questions:
+      raw_A        = sum of the CHOSEN pill's weights landing on A
+      achievable_A = sum, per question, of the MAX any of its pills could put on A
+      score_A      = raw_A / achievable_A            ("how far toward this axis did
+                                                       their answers actually go")
+      output_A     = score_A / max_B(score_B)        (render-only max-normalize: the
+                                                       strongest axis reads 1.0 so the
+                                                       polygon fills the frame)
+
+    Share-of-achievable is what makes the number mean something per person: a bank-wide
+    prevalence denominator (what this replaced) divides by a constant and so cannot
+    express "they leaned hard toward duty" — only "duty is a big cluster". The final
+    max-normalize is a positive monotone scaling, so it preserves the API's
+    frame-filling contract WITHOUT reordering axes: the caption, top-axis key and
+    observation cards all key off that ordering.
+
     All-zero answers (no curated hits, e.g. a brand-new user) → every score 0.0; the
     frontend then renders bare spokes + a 'keep answering' line, never a count.
 
     Returns the axes in FROZEN PORTRAIT_AXES order: [{key, label, score}], score ∈ [0,1].
     NEVER emits raw counts — only the normalized shape crosses the wire (no-count rule).
-    Unknown question ids are skipped (the bank may change under stored answers)."""
+    Unknown question ids are skipped (the bank may change under stored answers), as are
+    answers whose pill index is out of range for their question — skipped from BOTH the
+    numerator and the achievable max, so a stale answer cannot inflate a denominator it
+    contributes nothing to."""
     raw: dict[str, int] = {key: 0 for key, _l, _t in PORTRAIT_AXES}
+    achievable: dict[str, int] = {key: 0 for key, _l, _t in PORTRAIT_AXES}
+
     for qid in answers or {}:
         q = _BANK.get(qid)
         if q is None:
             continue
-        for tag in (q.get("theme_tags") or []):
-            axis = _TAG_TO_AXIS.get(tag)
-            if axis is not None:
-                raw[axis] += 1
+        pills = q.get("pills") or []
+        pill_index = (answers or {})[qid]
+        if not isinstance(pill_index, int) or isinstance(pill_index, bool) \
+                or not (0 <= pill_index < len(pills)):
+            logger.warning(
+                "portrait_theme_scores: skipping %r — stored answer %r is not a valid "
+                "pill index for its %d pills.", qid, pill_index, len(pills),
+            )
+            continue
 
-    rates: dict[str, float] = {}
-    for key, _label, _tags in PORTRAIT_AXES:
-        p = _AXIS_PREVALENCE.get(key, 0)
-        rates[key] = (raw[key] / p) if p > 0 else 0.0
+        chosen = _pill_axis_sums(q, pill_index)
+        best = {key: 0 for key, _l, _t in PORTRAIT_AXES}
+        for i in range(len(pills)):
+            for key, value in _pill_axis_sums(q, i).items():
+                if value > best[key]:
+                    best[key] = value
 
-    max_rate = max(rates.values()) if rates else 0.0
+        for key in raw:
+            raw[key] += chosen[key]
+            achievable[key] += best[key]
+
+    shares: dict[str, float] = {
+        key: (raw[key] / achievable[key]) if achievable[key] > 0 else 0.0
+        for key, _label, _tags in PORTRAIT_AXES
+    }
+
+    max_share = max(shares.values()) if shares else 0.0
     return [
         {
             "key": key,
             "label": label,
-            "score": round(rates[key] / max_rate, 4) if max_rate > 0 else 0.0,
+            "score": round(shares[key] / max_share, 4) if max_share > 0 else 0.0,
         }
         for key, label, _tags in PORTRAIT_AXES
     ]
