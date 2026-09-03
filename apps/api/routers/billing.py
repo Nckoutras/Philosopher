@@ -574,8 +574,21 @@ async def _process_webhook_event(db, event, obj, event_id, event_created, reques
                         )
 
         case "invoice.payment_succeeded":
+            # NEVER query with an unresolved id: the column is nullable, so a
+            # None key becomes `IS NULL` and matches every never-subscribed row.
+            # See _invoice_subscription_id.
+            subscription_id = _invoice_subscription_id(obj)
+            if subscription_id is None:
+                logger.warning(
+                    "invoice.payment_succeeded carried no subscription id in either "
+                    "the top-level or the Basil parent shape — skipping. event=%s "
+                    "type=%s. A one-off (non-subscription) invoice is expected here; "
+                    "a recurring one means the payload shape changed again.",
+                    event_id, event["type"],
+                )
+                return {"skipped": True}
             result = await db.execute(
-                select(Subscription).where(Subscription.stripe_subscription_id == obj.get("subscription"))
+                select(Subscription).where(Subscription.stripe_subscription_id == subscription_id)
             )
             sub = result.scalar_one_or_none()
             if sub:
@@ -720,8 +733,20 @@ async def _process_webhook_event(db, event, obj, event_id, event_created, reques
                 })
 
         case "invoice.payment_failed":
+            # Same guard as invoice.payment_succeeded, and for the same reason —
+            # a None key here would `IS NULL` across every never-subscribed row.
+            subscription_id = _invoice_subscription_id(obj)
+            if subscription_id is None:
+                logger.warning(
+                    "invoice.payment_failed carried no subscription id in either "
+                    "the top-level or the Basil parent shape — skipping. event=%s "
+                    "type=%s. No dunning email is sent for an invoice we cannot "
+                    "attribute to a subscription.",
+                    event_id, event["type"],
+                )
+                return {"skipped": True}
             result = await db.execute(
-                select(Subscription).where(Subscription.stripe_subscription_id == obj.get("subscription"))
+                select(Subscription).where(Subscription.stripe_subscription_id == subscription_id)
             )
             sub = result.scalar_one_or_none()
             if sub:
@@ -756,6 +781,45 @@ async def _process_webhook_event(db, event, obj, event_id, event_created, reques
                     await _send_recovery_email(request, db, sub.user_id)
 
     return {"skipped": False}
+
+
+def _invoice_subscription_id(obj: dict) -> "str | None":
+    """Resolve the subscription id off an Invoice across the Basil relocation.
+
+    Stripe API version 2025-03-31.basil REMOVED the top-level `subscription`
+    field from Invoice and moved it under `parent`:
+
+        invoice.parent.subscription_details.subscription
+
+    and the changelog is explicit that `parent.type` must be verified as
+    "subscription_details" before reading it — an invoice can be parented by a
+    quote or by nothing at all, and those shapes carry no subscription.
+
+    WHY THIS IS NOT COSMETIC. `subscriptions.stripe_subscription_id` is
+    NULLABLE, and every signup creates a row with it unset. SQLAlchemy renders
+    `col == None` as `IS NULL`, so passing an unresolved id into the lookup does
+    not match zero rows — it matches EVERY never-subscribed user, and
+    scalar_one_or_none() then raises MultipleResultsFound. That exception
+    reaches the handler's catch-all, which deletes the stripe_events row and
+    re-raises for a 500; Stripe retries, and every retry fails identically. The
+    event never processes.
+
+    Returns None when no subscription id is present in either shape. Callers
+    MUST treat None as "skip", never as a query key — see both invoice sites.
+
+    Precedent: `_period_end_from_stripe` below already absorbs the sibling
+    relocation from this SAME Basil release (subscription-level period ->
+    item-level). One of the two moves was absorbed and this one was not.
+    """
+    top_level = obj.get("subscription")
+    if top_level:
+        return top_level
+
+    parent = obj.get("parent") or {}
+    if parent.get("type") == "subscription_details":
+        return (parent.get("subscription_details") or {}).get("subscription")
+
+    return None
 
 
 def _plan_from_stripe(sub_obj: dict) -> str:
