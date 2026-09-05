@@ -451,7 +451,9 @@ async def test_an_orphaned_memory_is_not_counted_as_a_prior_conversation(db):
             ),
             {"uid": user_id, "cid": current},
         )).scalars().all()
-        return set(rows)
+        # asyncpg decodes uuid columns to uuid.UUID; the helpers above hand back
+        # str, so normalize here or the set comparison fails on type, not content.
+        return {str(r) for r in rows}
 
     assert await _prior_conversations() == {other, doomed}
 
