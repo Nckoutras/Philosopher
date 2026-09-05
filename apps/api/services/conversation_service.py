@@ -655,7 +655,7 @@ class ConversationService:
             # ── 2. RECALL MEMORY ─────────────────────────────────────────────
             memories = []
             try:
-                memories = await memory_service.recall(db, user_id, user_text, top_k=6, query_embedding=query_vec)
+                memories = await memory_service.recall(db, user_id, user_text, query_embedding=query_vec)
             except Exception as e:
                 logger.warning(f"Memory recall failed: {e}")
                 await db.rollback()
@@ -1197,7 +1197,7 @@ class ConversationService:
         # ── 1. RECALL MEMORY ─────────────────────────────────────────────────
         memories = []
         try:
-            memories = await memory_service.recall(db, user_id, last_user_text, top_k=6, query_embedding=query_vec)
+            memories = await memory_service.recall(db, user_id, last_user_text, query_embedding=query_vec)
         except Exception as e:
             logger.warning(f"Memory recall failed (another_mind): {e}")
             await db.rollback()
@@ -1459,7 +1459,7 @@ class ConversationService:
         # ── 1. RECALL MEMORY ─────────────────────────────────────────────────
         memories = []
         try:
-            memories = await memory_service.recall(db, user_id, last_user_text, top_k=6, query_embedding=query_vec)
+            memories = await memory_service.recall(db, user_id, last_user_text, query_embedding=query_vec)
         except Exception as e:
             logger.warning(f"Memory recall failed (go_deeper): {e}")
             await db.rollback()

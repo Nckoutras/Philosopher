@@ -151,15 +151,27 @@ async def test_the_synthesis_carries_the_approved_use_directive_verbatim():
 
 @pytest.mark.asyncio
 async def test_recall_is_the_shared_one_queried_with_the_matter():
-    """Reuses the chat paths' recall EXACTLY — flat top-6, its own 0.70 cut. This
-    PR must not pre-empt Ruling #5's hybrid recall, so the call shape is pinned."""
+    """Still the chat paths' recall, still queried with the matter — and now with
+    NO top_k, so the shared default (RECALL_TOTAL_BUDGET) governs.
+
+    THE PIN THIS REPLACES DID ITS JOB. It read `kwargs == {"top_k": 6}` under the
+    docstring "Reuses the chat paths' recall EXACTLY — flat top-6, its own 0.70
+    cut. This PR must not pre-empt Ruling #5's hybrid recall, so the call shape is
+    pinned." That was #598 guarding against a premature hybrid. PR-2 IS Ruling #5,
+    so the thing it was guarding has arrived and the pin's job is done.
+
+    What is still worth pinning is the SHARING: the council must keep calling the
+    same function as chat, with the matter as the query, so that a future change
+    to recall reaches the council too rather than leaving it on a private path.
+    Passing no top_k is exactly what makes that true — the four callers now inherit
+    the budget instead of each naming one."""
     _systems, _turns, _synthesis, mem = await _run_council(recall_result=RECALLED)
 
     mem.recall.assert_awaited_once()
     args, kwargs = mem.recall.await_args
     assert args[1] == USER_ID
     assert args[2] == MATTER
-    assert kwargs == {"top_k": 6}
+    assert kwargs == {}
 
 
 @pytest.mark.asyncio

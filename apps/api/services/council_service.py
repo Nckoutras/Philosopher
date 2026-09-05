@@ -337,10 +337,13 @@ class CouncilService:
 
         # ── MEMORY, SYNTHESIS ONLY (Ruling #4) ────────────────────────────
         # The verdict that ties the chamber together may speak to THIS person;
-        # the members above may not. Reuses the chat paths' recall EXACTLY —
-        # flat top-6, 0.70 cosine cut (memory_service.recall) — with the matter
-        # as the query. Hybrid recall (type quotas, always-include stated /
-        # self_portrait) is Ruling #5 and is deliberately NOT pre-empted here.
+        # the members above may not. Reuses the chat paths' recall EXACTLY, with
+        # the matter as the query — which since PR-2 means HYBRID recall (type
+        # quotas, always-include stated / self_portrait, Ruling #5). This comment
+        # previously said "flat top-6, 0.70 cosine cut … Ruling #5 is deliberately
+        # NOT pre-empted here": true when #598 shipped, false from PR-2 onward.
+        # The call site did not change — the shared function did, which is the
+        # whole point of the four callers sharing it.
         #
         # BEST-EFFORT, like every other recall call site: a council must never
         # fail because memory retrieval did. Any exception (and any empty result)
@@ -349,7 +352,7 @@ class CouncilService:
         # request has already embedded the matter.
         memory_block = ""
         try:
-            memories = await memory_service.recall(db, user_id, effective_matter, top_k=6)
+            memories = await memory_service.recall(db, user_id, effective_matter)
             if memories:
                 lines = "\n".join(f"[{m.entry_type.upper()}] {m.content}" for m in memories)
                 memory_block = (
