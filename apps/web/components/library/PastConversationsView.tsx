@@ -206,7 +206,7 @@ export default function PastConversationsView({
       <DeleteConfirmModal
         open={pendingDelete !== null}
         title="Delete conversation?"
-        body="This can't be undone."
+        body="This can't be undone. Insights and memories from this conversation will be kept."
         loading={deleteLoading}
         error={deleteError}
         onConfirm={handleDeleteConfirm}

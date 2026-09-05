@@ -280,7 +280,9 @@ class MemoryEntry(Base):
     id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=gen_uuid)
     user_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     persona_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), ForeignKey("personas.id"))
-    conversation_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), ForeignKey("conversations.id", ondelete="CASCADE"))
+    # SET NULL, not CASCADE (migration 057): deleting a thread must not destroy
+    # what the room learned in it. The row survives, orphaned.
+    conversation_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), ForeignKey("conversations.id", ondelete="SET NULL"))
     entry_type: Mapped[str] = mapped_column(String(50), nullable=False)  # belief | value | struggle | pattern | milestone
     content: Mapped[str] = mapped_column(Text, nullable=False)
     embedding: Mapped[list | None] = mapped_column(Vector(1536))
@@ -300,7 +302,9 @@ class Insight(Base):
 
     id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=gen_uuid)
     user_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    conversation_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), ForeignKey("conversations.id", ondelete="CASCADE"))
+    # SET NULL, not CASCADE (migration 057): the "what the room noticed" spine of
+    # every letter outlives the thread it was raised in.
+    conversation_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), ForeignKey("conversations.id", ondelete="SET NULL"))
     persona_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), ForeignKey("personas.id"))
     content: Mapped[str] = mapped_column(Text, nullable=False)
     insight_type: Mapped[str | None] = mapped_column(String(50))  # pattern | shift | question | challenge
