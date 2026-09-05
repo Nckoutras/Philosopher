@@ -7,12 +7,19 @@ configured, so a mock can only assert that a statement was issued, never that it
 returned the right rows.
 
   1. recall's 0.70 cut and distance ordering — pgvector arithmetic.
-  2. Deleting a conversation DESTROYS its memories — an ON DELETE clause.
-  3. Deleting a user reaches memory_entries — the account-deletion cascade.
+  2. Deleting a conversation KEEPS its memories and its insights, orphaning both
+     — an ON DELETE clause (SET NULL since migration 057; this said DESTROYS
+     before it, and the flip is Memory-v2 Ruling #7c).
+  3. Deleting a user reaches memory_entries AND insights — the account-deletion
+     cascade, which 057 deliberately did not touch.
+  4. An orphaned memory drops out of detect_recurrence's candidate set, because
+     `conversation_id != :cid` is NULL for it — three-valued logic, which is
+     precisely what a mocked session cannot enforce (T-5).
 
-Tests 2, 5, 6 and 7 from that list (recurrence exclusion, the insight gate,
-self_portrait source_turn dedup, seed-task atomicity) are a deliberate follow-up
-once this lands green.
+Recurrence exclusion was on that list and is now covered, in the one respect
+057 makes live: an orphaned row's NULL conversation_id drops it from the
+candidate set (T-5). The insight gate, self_portrait source_turn dedup and
+seed-task atomicity remain a deliberate follow-up.
 
 NO EMBEDDING API CALLS. Vectors are constructed arithmetically and inserted as
 literals, and recall is handed its query vector directly via query_embedding.
@@ -106,6 +113,49 @@ async def _memory_exists(db, memory_id: str) -> bool:
         text("SELECT 1 FROM memory_entries WHERE id = :id"), {"id": memory_id},
     )).first()
     return row is not None
+
+
+async def _memory_conversation_id(db, memory_id: str):
+    """The FK itself, so a test can tell "survived, orphaned" from "survived,
+    still attached" — under CASCADE the row is gone and under SET NULL it is
+    here with a NULL, and only reading the column distinguishes them."""
+    return (await db.execute(
+        text("SELECT conversation_id FROM memory_entries WHERE id = :id"),
+        {"id": memory_id},
+    )).scalar_one()
+
+
+async def _make_insight(db, user_id: str, content: str,
+                        conversation_id: str | None = None,
+                        insight_type: str = "pattern") -> str:
+    """The insights half of the cascade. Nothing in apps/api/tests touched this
+    table before 057 — the design's §4c enumeration found zero tests referencing
+    the Insight model in either direction, which is why the cascade could change
+    under it unnoticed."""
+    iid = str(uuid.uuid4())
+    await db.execute(
+        text(
+            "INSERT INTO insights (id, user_id, conversation_id, content, insight_type) "
+            "VALUES (:id, :uid, :cid, :content, :itype)"
+        ),
+        {"id": iid, "uid": user_id, "cid": conversation_id,
+         "content": content, "itype": insight_type},
+    )
+    return iid
+
+
+async def _insight_exists(db, insight_id: str) -> bool:
+    row = (await db.execute(
+        text("SELECT 1 FROM insights WHERE id = :id"), {"id": insight_id},
+    )).first()
+    return row is not None
+
+
+async def _insight_conversation_id(db, insight_id: str):
+    return (await db.execute(
+        text("SELECT conversation_id FROM insights WHERE id = :id"),
+        {"id": insight_id},
+    )).scalar_one()
 
 
 # ── 1. recall: the 0.70 cut and distance ordering ───────────────────────────
@@ -209,22 +259,31 @@ async def test_recall_respects_top_k(db):
     assert len(rows) == 2
 
 
-# ── 3. Conversation delete CASCADEs into memory_entries ─────────────────────
+# ── 3. Conversation delete SETs NULL on memory_entries and insights ─────────
 
 @pytest.mark.asyncio
-async def test_deleting_a_conversation_destroys_the_memories_extracted_from_it(db):
-    """PINS TODAY'S BEHAVIOUR, WHICH IS A KNOWN PROBLEM, NOT A GOOD ONE.
+async def test_deleting_a_conversation_keeps_the_memories_extracted_from_it(db):
+    """THE FLIP THIS TEST WAS WRITTEN TO RECEIVE. Migration 057, Memory-v2
+    Ruling #7c (MEMORY_V2_DESIGN_2026-09-03 §4a).
 
-    memory_entries.conversation_id is ON DELETE CASCADE (migration 013, reasoned
-    then as "derived data, safe to lose with parent"), and DELETE /conversations
-    is a hard delete. So tidying an old thread silently destroys what the room
-    learned in it — while the product copy promises the opposite
+    Its previous form pinned the opposite — `_memory_exists(...) is False`,
+    carrying a docstring that said in as many words: "THE v2 MIGRATION WILL FLIP
+    THIS TEST, DELIBERATELY. When conversation_id becomes SET NULL, this
+    assertion inverts to 'the row survives with a NULL conversation_id'. That is
+    the point of pinning it now: the change becomes a visible, intentional edit
+    to this file rather than a silent behaviour swap."
+
+    This is that edit. 013 set memory_entries.conversation_id to CASCADE as
+    "derived data, safe to lose with parent"; 057 moves it into the category 013
+    gave safety_events, "preserve the row, null out the conversation ref",
+    because memory is no longer derived data that dies with one thread — it is
+    the spine of chat recall, the letters, You-vs-You and the recurrence
+    detector, and the explore copy promises the room carries it forward
     (MEMORY_V2_INVESTIGATION §2d).
 
-    THE v2 MIGRATION WILL FLIP THIS TEST, DELIBERATELY. When conversation_id
-    becomes SET NULL, this assertion inverts to "the row survives with a NULL
-    conversation_id". That is the point of pinning it now: the change becomes a
-    visible, intentional edit to this file rather than a silent behaviour swap.
+    SURVIVING IS NOT ENOUGH TO ASSERT — the FK is read too. A row that survived
+    still attached would mean the DELETE never happened; only conversation_id
+    IS NULL proves SET NULL fired rather than nothing at all.
     """
     user_id = await _make_user(db)
     conversation_id = await _make_conversation(db, user_id)
@@ -239,9 +298,40 @@ async def test_deleting_a_conversation_destroys_the_memories_extracted_from_it(d
     )
     await db.flush()
 
-    assert await _memory_exists(db, from_conversation) is False  # ← flips under v2
+    assert await _memory_exists(db, from_conversation) is True       # ← flipped by 057
+    assert await _memory_conversation_id(db, from_conversation) is None
     # Rows with a NULL conversation_id were never at risk, and must not be.
     assert await _memory_exists(db, standalone) is True
+
+
+@pytest.mark.asyncio
+async def test_deleting_a_conversation_keeps_the_insights_raised_in_it(db):
+    """T-4, the insights half — and the half that had NO test at all before 057
+    (design §4c: a repo-wide grep for the Insight model across apps/api/tests
+    returned zero files). The memory half above could at least flip visibly; this
+    one could have changed under everybody in silence.
+
+    Same 013 category move, same reason, and a sharper one: insights are the
+    "what the room noticed" block in every weekly and monthly letter, selected by
+    user_id + is_dismissed + a created_at window and never by conversation_id, so
+    a deleted thread used to silently thin future letters.
+    """
+    user_id = await _make_user(db)
+    conversation_id = await _make_conversation(db, user_id)
+    from_conversation = await _make_insight(
+        db, user_id, "keeps circling the same decision", conversation_id=conversation_id,
+    )
+    standalone = await _make_insight(db, user_id, "raised outside any thread")
+    await db.flush()
+
+    await db.execute(
+        text("DELETE FROM conversations WHERE id = :id"), {"id": conversation_id},
+    )
+    await db.flush()
+
+    assert await _insight_exists(db, from_conversation) is True
+    assert await _insight_conversation_id(db, from_conversation) is None
+    assert await _insight_exists(db, standalone) is True
 
 
 # ── 4. User hard-delete reaches memory_entries ──────────────────────────────
@@ -283,3 +373,97 @@ async def test_deleting_one_user_leaves_another_users_memories_alone(db):
     await db.flush()
 
     assert await _memory_exists(db, survivor) is True
+
+
+@pytest.mark.asyncio
+async def test_deleting_a_user_still_destroys_their_insights(db):
+    """The F-10 analogue for insights. 057 loosened the CONVERSATION FK on this
+    table and must not have touched the USER one: erasure (GDPR Art. 17) runs
+    through insights.user_id, which stays CASCADE.
+
+    The orphaned insight is the case that matters. It has no conversation left to
+    be deleted through, so if user_id did not reach it, it would outlive the
+    account with the person's content in it — a row 057 newly makes possible and
+    the exact thing that must not survive."""
+    user_id = await _make_user(db)
+    conversation_id = await _make_conversation(db, user_id)
+    attached = await _make_insight(
+        db, user_id, "raised in a thread", conversation_id=conversation_id,
+    )
+    standalone = await _make_insight(db, user_id, "raised outside any thread")
+    await db.flush()
+
+    # Orphan one FIRST, so the account delete has to reach a row whose only
+    # remaining link to the user is user_id itself.
+    await db.execute(
+        text("DELETE FROM conversations WHERE id = :id"), {"id": conversation_id},
+    )
+    await db.flush()
+    assert await _insight_exists(db, attached) is True  # orphaned, not gone
+
+    await db.execute(text("DELETE FROM users WHERE id = :id"), {"id": user_id})
+    await db.flush()
+
+    assert await _insight_exists(db, attached) is False
+    assert await _insight_exists(db, standalone) is False
+    survivors = (await db.execute(
+        text("SELECT count(*) FROM insights WHERE user_id = :id"), {"id": user_id},
+    )).scalar_one()
+    assert survivors == 0
+
+
+# ── 5. Orphans and detect_recurrence (T-5) ──────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_an_orphaned_memory_is_not_counted_as_a_prior_conversation(db):
+    """T-5. detect_recurrence looks for the same theme in the user's OTHER
+    conversations, excluding the current one with `AND conversation_id != :cid`.
+    For an orphan that predicate is NULL, not TRUE, so SQL's three-valued logic
+    drops the row — orphans are invisible as recurrence evidence.
+
+    That is the SAFE direction and it is why source_count stays honest: the
+    count is "distinct prior conversations + 1", so a row with no conversation
+    has no conversation to contribute. Before 057 these rows did not exist at
+    all, so this is an opportunity not taken rather than a regression — but it
+    is now a property of live data, and it is asserted here rather than reasoned
+    about.
+
+    The query is reproduced rather than driven through detect_recurrence: that
+    method makes LLM calls and commits, and what T-5 is about is the WHERE
+    clause's NULL semantics, which is exactly the part a mock cannot enforce.
+    """
+    user_id = await _make_user(db)
+    current = await _make_conversation(db, user_id)
+    other = await _make_conversation(db, user_id)
+    doomed = await _make_conversation(db, user_id)
+
+    await _make_memory(db, user_id, "in the current thread", IDENTICAL, conversation_id=current)
+    await _make_memory(db, user_id, "in another thread", IDENTICAL, conversation_id=other)
+    await _make_memory(db, user_id, "in a thread about to go", IDENTICAL, conversation_id=doomed)
+    await db.flush()
+
+    async def _prior_conversations() -> set:
+        rows = (await db.execute(
+            text(
+                "SELECT conversation_id FROM memory_entries "
+                "WHERE user_id = :uid AND is_active = TRUE AND embedding IS NOT NULL "
+                "  AND conversation_id != :cid"
+            ),
+            {"uid": user_id, "cid": current},
+        )).scalars().all()
+        return set(rows)
+
+    assert await _prior_conversations() == {other, doomed}
+
+    await db.execute(text("DELETE FROM conversations WHERE id = :id"), {"id": doomed})
+    await db.flush()
+
+    # The row survived 057's SET NULL — and dropped out of the candidate set,
+    # because NULL != :cid is NULL, not TRUE.
+    assert (await db.execute(
+        text("SELECT count(*) FROM memory_entries WHERE user_id = :uid"), {"uid": user_id},
+    )).scalar_one() == 3
+    assert await _prior_conversations() == {other}
+    # source_count is distinct prior conversations + 1: 2 before, 1 after. The
+    # orphan cannot inflate it, and cannot be double-counted against NULL.
+    assert len(await _prior_conversations()) + 1 == 2
