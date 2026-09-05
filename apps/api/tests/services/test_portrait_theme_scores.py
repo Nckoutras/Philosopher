@@ -297,13 +297,34 @@ def test_the_bank_carries_exactly_the_approved_weights():
         assert sp._BANK[qid].get("pill_weights") == expected, qid
 
 
-def test_weights_are_authored_for_the_free_slice_and_nothing_else_yet():
-    """Scope pin: the 15 free-slice questions are authored, the other 345 are not.
-    When Pro weights are authored this test is the one that must be updated, which is
-    the point — the scope change becomes explicit rather than incidental."""
+# Pro authoring, batch 1 of 8 (Ruling #3, "οι 345 αργότερα, σταδιακά"):
+# work_and_ambition 002-030, founder-approved 2026-09-05. Listed as a range rather
+# than 29 literals because the batch IS the contiguous range — a gap here would be
+# a real finding, not a formatting choice.
+BATCH1_WORK = {f"work_and_ambition_{n:03d}" for n in range(2, 31)}
+
+
+def test_weights_are_authored_for_the_free_slice_and_the_batches_landed_so_far():
+    """Scope pin. It read "…and nothing else yet" until Pro authoring began, with a
+    docstring saying "When Pro weights are authored this test is the one that must be
+    updated, which is the point — the scope change becomes explicit rather than
+    incidental." This is that update, and the property is unchanged: authoring scope
+    is stated here explicitly, so every batch is a visible edit to this line rather
+    than a number that quietly drifts.
+
+    15 free + 29 in batch 1 = 44 authored, 316 still on the legacy per-tag fallback.
+    """
     weighted = {qid for qid, q in sp._BANK.items() if "pill_weights" in q}
-    assert weighted == set(FREE) == set(APPROVED_PILL_WEIGHTS)
-    assert len(sp._BANK) - len(weighted) == 345
+    assert weighted == set(FREE) | BATCH1_WORK
+    assert len(sp._BANK) - len(weighted) == 316
+
+
+def test_the_free_slice_is_still_exactly_the_verbatim_pinned_table():
+    """The batches must not disturb the 15. APPROVED_PILL_WEIGHTS covers the free
+    slice only — see the note above it — so this is what keeps "we added Pro weights"
+    from silently meaning "we also nudged a free one"."""
+    assert set(APPROVED_PILL_WEIGHTS) == set(FREE)
+    assert not (set(APPROVED_PILL_WEIGHTS) & BATCH1_WORK)
 
 
 def test_every_authored_weight_block_agrees_with_its_questions_pills_and_tags():
