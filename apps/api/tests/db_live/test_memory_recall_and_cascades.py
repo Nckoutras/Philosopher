@@ -372,6 +372,81 @@ async def test_the_default_budget_fills_both_lanes(db):
     assert not any(t in STANDING_TYPES for t in types[STANDING_CAP:])
 
 
+# ── 1c. standing_memories: the query-free lane (PR-3) ───────────────────────
+
+@pytest.mark.asyncio
+async def test_standing_memories_returns_only_stated_rows_newest_first(db):
+    """F-13, PROVEN WHERE IT LIVES. The letters' <what_you_know> block can never
+    carry a self_portrait row, and the reason is a WHERE clause — which is exactly
+    what a mocked session cannot assert, because it returns whatever the test
+    author invented.
+
+    It matters because the letters ALREADY render those quiz answers, as
+    <self_portrait> built from profile.answers. A `stated`-only filter is the one
+    thing keeping one set of answers from appearing twice in a single prompt.
+
+    Ordering is recency, not relevance: a letter covers a whole week or month and
+    has no single text to embed, so there is no query to be relevant to.
+
+    Note every row here carries the SAME vector — it is never read on this path.
+    No embedding is computed and no distance is taken."""
+    user_id = await _make_user(db)
+    await _make_memory(db, user_id, "portrait answer", IDENTICAL, entry_type="self_portrait")
+    await _make_memory(db, user_id, "a shift", IDENTICAL, entry_type="self_portrait_shift")
+    await _make_memory(db, user_id, "an inference", IDENTICAL, entry_type="belief")
+    await _make_memory(db, user_id, "older words", IDENTICAL, entry_type="stated")
+    await _make_memory(db, user_id, "newer words", IDENTICAL, entry_type="stated")
+    await db.flush()
+
+    # created_at is a server default, so both `stated` rows share a timestamp on a
+    # fast insert. Age one explicitly rather than trusting insert order to be the
+    # ordering — the assertion is about ORDER BY, so the input has to make the
+    # order real.
+    await db.execute(
+        text("UPDATE memory_entries SET created_at = now() - interval '1 day' "
+             "WHERE user_id = :uid AND content = 'older words'"),
+        {"uid": user_id},
+    )
+    await db.flush()
+
+    rows = await memory_service.standing_memories(db, user_id, limit=4)
+
+    assert [r.content for r in rows] == ["newer words", "older words"]
+    assert all(r.entry_type == "stated" for r in rows)
+
+
+@pytest.mark.asyncio
+async def test_standing_memories_honours_its_limit_and_skips_inactive_rows(db):
+    """The cap is what keeps the block from crowding out the period's own words,
+    and `is_active` is the soft-delete the /memory endpoints write."""
+    user_id = await _make_user(db)
+    for i in range(6):
+        await _make_memory(db, user_id, f"said {i}", IDENTICAL, entry_type="stated")
+    gone = await _make_memory(db, user_id, "retracted", IDENTICAL, entry_type="stated")
+    await db.execute(
+        text("UPDATE memory_entries SET is_active = FALSE WHERE id = :id"), {"id": gone},
+    )
+    await db.flush()
+
+    rows = await memory_service.standing_memories(db, user_id, limit=4)
+
+    assert len(rows) == 4
+    assert "retracted" not in [r.content for r in rows]
+
+
+@pytest.mark.asyncio
+async def test_standing_memories_never_crosses_users(db):
+    mine = await _make_user(db)
+    theirs = await _make_user(db)
+    await _make_memory(db, mine, "mine", IDENTICAL, entry_type="stated")
+    await _make_memory(db, theirs, "theirs", IDENTICAL, entry_type="stated")
+    await db.flush()
+
+    rows = await memory_service.standing_memories(db, mine, limit=4)
+
+    assert [r.content for r in rows] == ["mine"]
+
+
 # ── 2. The query plan (T-9) ─────────────────────────────────────────────────
 
 @pytest.mark.asyncio

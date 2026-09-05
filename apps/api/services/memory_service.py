@@ -448,6 +448,52 @@ class MemoryService:
         )
         return compose_recall(result.fetchall(), total_budget=top_k)
 
+    async def standing_memories(
+        self,
+        db: AsyncSession,
+        user_id: str,
+        *,
+        limit: int,
+    ) -> list[MemoryEntry]:
+        """The standing lane WITHOUT a query — most recent `stated` rows first.
+
+        WHY THIS EXISTS SEPARATELY FROM recall(). A chat turn has a query: the
+        user's message. A LETTER DOES NOT. It covers a week or a month, and there
+        is no single text to embed. Lane A is the half of hybrid recall that never
+        needed one — its members are chosen by TYPE and bounded by COUNT, and
+        cosine only orders them. Drop the ordering and the lane still stands, which
+        is what makes it the right thing to give a query-free surface.
+
+        `stated` ONLY, deliberately. The other standing type, `self_portrait`, is
+        already rendered into both letters as the <self_portrait> block, built from
+        profile.answers via answers_to_statements — including it here would put the
+        same quiz answers in one prompt twice, in two different sentence shapes.
+        `stated` is the person's own words from Council, mirrors, counterview and
+        future-self notes, and it is the material a letter has no other route to.
+
+        A NARROWING OF DESIGN §3a, RECORDED AS SUCH. The design specified one
+        dual-mode accessor — `standing_memories(..., query_embedding=None)` falling
+        back to recency, cosine-ranked when given a vector. PR-2 shipped only the
+        query-driven half (inside recall's windowed SQL), and PR-3 may not reopen
+        recall, so the query-driven mode has no implementation to delegate to and
+        no caller that wants it. Building a second cosine path here to satisfy a
+        signature would be machinery for nobody. Ruled 2026-09-03; goes to the next
+        docs rotation as a correction to §3a rather than an edit to the design doc.
+
+        Ordinary ORM query: no embedding, no vector maths, no LLM, no cost.
+        """
+        result = await db.execute(
+            select(MemoryEntry)
+            .where(
+                MemoryEntry.user_id == user_id,
+                MemoryEntry.entry_type == "stated",
+                MemoryEntry.is_active == True,  # noqa: E712 — SQL, not Python truth
+            )
+            .order_by(MemoryEntry.created_at.desc())
+            .limit(limit)
+        )
+        return list(result.scalars().all())
+
     async def _insight_gate_blocked(
         self,
         db: AsyncSession,
