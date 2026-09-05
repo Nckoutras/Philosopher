@@ -1,5 +1,6 @@
 import json
 import logging
+from collections import Counter
 from datetime import datetime, timedelta, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, text
@@ -10,6 +11,165 @@ from services.embedding_client import embedding_client
 from config import config
 
 logger = logging.getLogger(__name__)
+
+# ── Hybrid recall (Memory-v2 Ruling #5, design §2) ────────────────────────────
+# Memory rows differ in one way that matters more than any other: SOME ARE THE
+# PERSON'S OWN WORDS, THE REST ARE A MODEL'S INFERENCE ABOUT THEM. `stated` is
+# text they typed, distilled; `self_portrait` is a pill they tapped. Neither can
+# be wrong ABOUT them the way `belief`/`pattern`/`struggle` can — those are an
+# LLM's reading, written at confidence >= 0.65, and a confident wrong one is the
+# "λάθος μνήμη" Ruling #5 forbids. So the two kinds get two lanes, and the whole
+# precision budget is spent on the lane where wrongness lives.
+#
+# Lane A (standing): exempt from the relevance floor — self-authored material
+# does not have to earn its place by cosine score — but bounded, so it cannot
+# flood the block.
+#
+# Lane A IS A CLOSED TWO-TYPE SET (Ruling #5; O-2 declined to widen it for
+# `onboarding_profile`). Everything else is inferred BY CONSTRUCTION — the lane
+# test is `entry_type NOT IN standing`, never an allow-list. That matters
+# because `entry_type` is not validated on write: extraction stores the LLM's
+# `type` field verbatim (`entry.get("type", "pattern")` below is a fallback for
+# a MISSING key, not a whitelist), so an unrecognised or future type can exist
+# in the table. With a catch-all it lands in Lane B, floor-gated and quota'd.
+# With an allow-list it would be silently dropped from recall. `self_portrait_shift`
+# is the live example and is Lane B by this rule (design §2b, ruled 2026-09-03).
+STANDING_TYPES = ("stated", "self_portrait")
+
+RECALL_TOTAL_BUDGET = 8      # rows in the prompt block, both lanes together
+STANDING_CAP = 3             # Lane A, all standing types together
+STANDING_PER_TYPE = 2        # Lane A, any one type
+INFERRED_CAP = 5             # Lane B before Lane A's unfilled slots spill in
+INFERRED_PER_TYPE = 2        # Lane B, any one type — stops one prolific type
+
+# Lane B's relevance floor, replacing the 0.70 literal that had stood unmeasured
+# since the initial commit. Ruling #5 buys precision with recall in as many words
+# ("never a wrong memory in, even if one goes missing"), so the floor rises.
+# 0.75 is a SHIP-AND-TUNE value (O-1): no measurement of either number against
+# real embeddings exists, and a synthetic-vector test can pin that the floor is
+# ENFORCED but not where it belongs. Named so it moves without touching the query.
+INFERRED_SCORE_FLOOR = 0.75
+
+# Candidates, not the answer. ROW_NUMBER ranks WITHIN each entry_type so one
+# prolific type cannot crowd the others out before Python ever sees the rows,
+# and the floor is applied to the inferred branch only. `compose_recall` then
+# applies the caps and the spillover.
+#
+# The lane test is `entry_type = ANY(:standing_types)` / `<> ALL(...)` — the
+# catch-all form, for the reason given on STANDING_TYPES.
+#
+# Module-level so tests can EXPLAIN the REAL query rather than a copy that can
+# drift from it (T-9).
+RECALL_SQL = """
+    WITH scored AS (
+        SELECT id, entry_type, content, confidence, created_at,
+               1 - (embedding <=> CAST(:query_vec AS vector)) AS score,
+               ROW_NUMBER() OVER (
+                   PARTITION BY entry_type
+                   ORDER BY embedding <=> CAST(:query_vec AS vector),
+                            created_at DESC, id
+               ) AS rank_in_type
+        FROM memory_entries
+        WHERE user_id = :user_id
+          AND is_active = TRUE
+          AND embedding IS NOT NULL
+    )
+    SELECT id, entry_type, content, confidence, created_at, score
+    FROM scored
+    WHERE (entry_type = ANY(CAST(:standing_types AS text[]))
+           AND rank_in_type <= :standing_per_type)
+       OR (entry_type <> ALL(CAST(:standing_types AS text[]))
+           AND rank_in_type <= :inferred_per_type
+           AND score > :floor)
+"""
+
+
+def _ordered(rows: list) -> list:
+    """Score DESC, then created_at DESC, then id ASC.
+
+    Three stable sorts rather than one composite key, because the key would have
+    to negate a datetime to sort it descending alongside an ascending id. Python's
+    sort is stable, so sorting by the LEAST significant field first and the most
+    significant last produces the lexicographic order without that trick.
+
+    The tie-break is not decoration: identical inputs must render an identical
+    block. A prompt that reorders between two identical turns is untestable, and
+    it moves text that sits after the cache breakpoint for no reason.
+    """
+    xs = sorted(rows, key=lambda r: str(r.id))
+    xs.sort(key=lambda r: r.created_at, reverse=True)
+    xs.sort(key=lambda r: r.score, reverse=True)
+    return xs
+
+
+def _take_per_type(rows: list, per_type: int) -> list:
+    """First `per_type` of each entry_type, preserving the given order."""
+    seen: Counter = Counter()
+    kept = []
+    for r in rows:
+        if seen[r.entry_type] >= per_type:
+            continue
+        seen[r.entry_type] += 1
+        kept.append(r)
+    return kept
+
+
+def compose_recall(
+    rows: list,
+    *,
+    standing_types: tuple = STANDING_TYPES,
+    standing_cap: int = STANDING_CAP,
+    standing_per_type: int = STANDING_PER_TYPE,
+    inferred_cap: int = INFERRED_CAP,
+    inferred_per_type: int = INFERRED_PER_TYPE,
+    floor: float = INFERRED_SCORE_FLOOR,
+    total_budget: int = RECALL_TOTAL_BUDGET,
+) -> list:
+    """Candidate rows in → the block's rows out. PURE: no session, no query.
+
+    This is where Ruling #5 actually lives, and it is a plain function on purpose
+    — the SQL is what needs a live Postgres to verify, while the caps, the quota,
+    the spillover and the ordering are arithmetic and belong in unit tests.
+
+    Lane A (standing) is taken first: per-type capped, then capped in total, with
+    NO floor. Lane B (everything else) must clear `floor`, is per-type capped, and
+    receives Lane A's unfilled slots — one way only. A floor-less lane has to stay
+    bounded, so nothing ever spills from B back into A.
+
+    Rows are re-filtered and re-ranked here rather than trusted from the query:
+    the SQL's window is an optimisation that fetches fewer rows, not the authority
+    on the answer. That keeps this function meaningful against any input a test
+    hands it.
+    """
+    standing_set = set(standing_types)
+
+    standing_rows = [r for r in rows if r.entry_type in standing_set]
+    inferred_rows = [
+        r for r in rows
+        if r.entry_type not in standing_set and r.score > floor
+    ]
+
+    # Lane A is clamped by the BUDGET as well as by its own cap. Without the
+    # min, a caller asking for fewer rows than the person has standing rows would
+    # get more than it asked for: Lane B's room would clamp to 0 while Lane A had
+    # already overshot. total_budget is the total, including Lane A.
+    standing = _take_per_type(_ordered(standing_rows), standing_per_type)[
+        : min(standing_cap, total_budget)
+    ]
+
+    # Spillover, expressed both ways and clamped by the smaller. The two agree
+    # whenever STANDING_CAP + INFERRED_CAP == RECALL_TOTAL_BUDGET; the min is what
+    # keeps the total honest if one constant is later tuned without the others.
+    inferred_room = min(
+        inferred_cap + (standing_cap - len(standing)),
+        total_budget - len(standing),
+    )
+    inferred = _take_per_type(_ordered(inferred_rows), inferred_per_type)[:max(inferred_room, 0)]
+
+    # Standing first: it is the stable frame the persona reads the topical matches
+    # against. The reverse buries that frame under whatever this turn matched.
+    return standing + inferred
+
 
 # ── Recurrence detection (Insight Slice 1) ─────────────────────────────────────
 # A factual recurrence detector: when a memory the user just raised has surfaced
@@ -254,10 +414,19 @@ class MemoryService:
         db: AsyncSession,
         user_id: str,
         query: str,
-        top_k: int = 6,
+        top_k: int = RECALL_TOTAL_BUDGET,
         query_embedding: list[float] | None = None,
     ) -> list[MemoryEntry]:
-        """Retrieve semantically relevant memories for a query.
+        """Retrieve semantically relevant memories for a query — HYBRID (Ruling #5).
+
+        Two lanes, described on STANDING_TYPES above: standing rows enter without
+        clearing the floor, inferred rows must clear INFERRED_SCORE_FLOOR and are
+        quota'd per type. The SQL fetches CANDIDATES; `compose_recall` decides
+        which of them survive, so caps, spillover and ordering are a pure function
+        over rows and unit-testable without a database.
+
+        top_k is the TOTAL budget across both lanes, defaulting to
+        RECALL_TOTAL_BUDGET. The four callers no longer pass it.
 
         query_embedding: an optional precomputed embedding of ``query``. When the
         caller already embedded the same text (e.g. the chat turn reuses one vector
@@ -266,27 +435,18 @@ class MemoryService:
         """
         query_vec = query_embedding if query_embedding is not None else await embedding_client.embed(query)
 
-        # pgvector cosine similarity search
         result = await db.execute(
-            text("""
-                SELECT id, entry_type, content, confidence, created_at,
-                       1 - (embedding <=> CAST(:query_vec AS vector)) AS score
-                FROM memory_entries
-                WHERE user_id = :user_id
-                  AND is_active = TRUE
-                  AND embedding IS NOT NULL
-                ORDER BY embedding <=> CAST(:query_vec AS vector)
-                LIMIT :top_k
-            """),
+            text(RECALL_SQL),
             {
                 "query_vec": str(query_vec),
                 "user_id": user_id,
-                "top_k": top_k,
+                "standing_types": list(STANDING_TYPES),
+                "standing_per_type": STANDING_PER_TYPE,
+                "inferred_per_type": INFERRED_PER_TYPE,
+                "floor": INFERRED_SCORE_FLOOR,
             }
         )
-        rows = result.fetchall()
-        # Filter by score threshold
-        return [r for r in rows if r.score > 0.70]
+        return compose_recall(result.fetchall(), total_budget=top_k)
 
     async def _insight_gate_blocked(
         self,

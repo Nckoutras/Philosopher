@@ -6,7 +6,10 @@ behaviour IS the query result — a mocked session returns whatever the test aut
 configured, so a mock can only assert that a statement was issued, never that it
 returned the right rows.
 
-  1. recall's 0.70 cut and distance ordering — pgvector arithmetic.
+  1. recall's Lane B floor, its per-type quota and its distance ordering —
+     pgvector arithmetic plus a ROW_NUMBER window. (Was "the 0.70 cut" before
+     PR-2 made recall hybrid: Ruling #5, INFERRED_SCORE_FLOOR = 0.75.)
+  1b. The plan SHAPE of that query — one scan, one window, no timing (T-9).
   2. Deleting a conversation KEEPS its memories and its insights, orphaning both
      — an ON DELETE clause (SET NULL since migration 057; this said DESTROYS
      before it, and the flip is Memory-v2 Ruling #7c).
@@ -30,7 +33,16 @@ import uuid
 import pytest
 from sqlalchemy import text
 
-from services.memory_service import memory_service
+from services.memory_service import (
+    INFERRED_PER_TYPE,
+    INFERRED_SCORE_FLOOR,
+    RECALL_SQL,
+    RECALL_TOTAL_BUDGET,
+    STANDING_CAP,
+    STANDING_PER_TYPE,
+    STANDING_TYPES,
+    memory_service,
+)
 
 DIM = 1536  # Vector(1536) on memory_entries — text-embedding-3-small
 
@@ -95,15 +107,22 @@ async def _make_conversation(db, user_id: str) -> str:
 
 
 async def _make_memory(db, user_id: str, content: str, vector: list[float],
-                       conversation_id: str | None = None) -> str:
+                       conversation_id: str | None = None,
+                       entry_type: str = "struggle") -> str:
+    """entry_type is a parameter since PR-2: recall is lane-aware, so a test that
+    wants the FLOOR to be the binding constraint has to spread its rows across
+    types — otherwise the per-type quota caps them first and the test passes for
+    a reason it never meant to check. 'struggle' stays the default (Lane B), so
+    every cascade test above reads exactly as it did."""
     mid = str(uuid.uuid4())
     await db.execute(
         text(
             "INSERT INTO memory_entries "
             "  (id, user_id, conversation_id, entry_type, content, embedding, confidence) "
-            f"VALUES (:id, :uid, :cid, 'struggle', :content, '{_vec(vector)}'::vector, 0.9)"
+            f"VALUES (:id, :uid, :cid, :etype, :content, '{_vec(vector)}'::vector, 0.9)"
         ),
-        {"id": mid, "uid": user_id, "cid": conversation_id, "content": content},
+        {"id": mid, "uid": user_id, "cid": conversation_id,
+         "content": content, "etype": entry_type},
     )
     return mid
 
@@ -158,18 +177,26 @@ async def _insight_conversation_id(db, insight_id: str):
     )).scalar_one()
 
 
-# ── 1. recall: the 0.70 cut and distance ordering ───────────────────────────
+# ── 1. recall: the Lane B floor and distance ordering ───────────────────────
 
 @pytest.mark.asyncio
 async def test_recall_keeps_only_matches_above_the_threshold_in_distance_order(db):
     """THE ASSERTION NO MOCK CAN MAKE. Four rows at similarities 1.00 / 0.80 /
     0.60 / 0.00 to the query; recall must return exactly the first two, in that
-    order, because it orders by `embedding <=> query` and cuts at score > 0.70."""
+    order, because it orders by `embedding <=> query` and cuts at
+    INFERRED_SCORE_FLOOR.
+
+    Rewritten for PR-2 in two ways. The cut moved from a 0.70 literal to the named
+    Lane B floor (0.75, Ruling #5 / O-1) — 0.80 still clears it and 0.60 still does
+    not, so the expected output is unchanged. And the four rows now carry FOUR
+    DISTINCT inferred types: left all on 'struggle' they would hit the per-type
+    quota of 2 first, and this test would pass while measuring the quota instead of
+    the floor it is named for."""
     user_id = await _make_user(db)
-    await _make_memory(db, user_id, "identical", IDENTICAL)
-    await _make_memory(db, user_id, "near", NEAR)
-    await _make_memory(db, user_id, "below the cut", BELOW_CUT)
-    await _make_memory(db, user_id, "orthogonal", ORTHOGONAL)
+    await _make_memory(db, user_id, "identical", IDENTICAL, entry_type="belief")
+    await _make_memory(db, user_id, "near", NEAR, entry_type="value")
+    await _make_memory(db, user_id, "below the cut", BELOW_CUT, entry_type="struggle")
+    await _make_memory(db, user_id, "orthogonal", ORTHOGONAL, entry_type="pattern")
     await db.flush()
 
     rows = await memory_service.recall(
@@ -183,19 +210,24 @@ async def test_recall_keeps_only_matches_above_the_threshold_in_distance_order(d
 
 @pytest.mark.asyncio
 async def test_the_threshold_is_pinned_from_both_sides(db):
-    """0.69 out, 0.71 in — the cut is where the code says it is.
+    """T-1. 0.74 out, 0.76 in — the Lane B floor is where the constant says it is.
 
-    DELIBERATELY NOT TESTED AT EXACTLY 0.70. pgvector's `vector` is float4, so
-    0.7 is not representable: it stores as 0.6999999880..., and whether the
-    resulting similarity lands above or below the `> 0.70` comparison is a
-    property of single-precision rounding rather than of the product. A test on
-    that knife-edge would be a coin flip dressed as an assertion. A +/-0.01
-    margin pins the threshold just as tightly and cannot flake."""
+    DELIBERATELY NOT TESTED AT EXACTLY THE FLOOR. pgvector's `vector` is float4,
+    so a component written as 0.75 is stored at single precision and the resulting
+    similarity lands a hair either side of the `> :floor` comparison by rounding
+    rather than by product behaviour. (0.75 is exactly representable in binary
+    where 0.70 was not, but the OTHER component of these unit vectors is an
+    irrational square root, so the dot product is not exact regardless — the
+    hazard is unchanged.) A test on that knife-edge would be a coin flip dressed
+    as an assertion. A +/-0.01 margin pins the threshold just as tightly and
+    cannot flake.
+
+    Two distinct types, so the per-type quota cannot be what excludes the loser."""
     user_id = await _make_user(db)
-    below = _unit(0.69, (1 - 0.69 ** 2) ** 0.5)
-    above = _unit(0.71, (1 - 0.71 ** 2) ** 0.5)
-    await _make_memory(db, user_id, "below the cut", below)
-    await _make_memory(db, user_id, "above the cut", above)
+    below = _unit(0.74, (1 - 0.74 ** 2) ** 0.5)
+    above = _unit(0.76, (1 - 0.76 ** 2) ** 0.5)
+    await _make_memory(db, user_id, "below the cut", below, entry_type="belief")
+    await _make_memory(db, user_id, "above the cut", above, entry_type="value")
     await db.flush()
 
     rows = await memory_service.recall(
@@ -203,6 +235,52 @@ async def test_the_threshold_is_pinned_from_both_sides(db):
     )
 
     assert [r.content for r in rows] == ["above the cut"]
+
+
+@pytest.mark.asyncio
+async def test_a_standing_row_below_the_floor_is_still_recalled(db):
+    """T-3. Lane A has NO floor, and only a live query proves the SQL agrees with
+    compose_recall about that: the standing branch of the WHERE has no `score >`
+    clause at all.
+
+    The `stated` row here is at similarity 0.20 — far below anything Lane B could
+    survive — and the identically-scored `belief` row beside it is dropped. That
+    pairing is the test: same score, opposite outcome, decided only by lane."""
+    user_id = await _make_user(db)
+    faint = _unit(0.20, (1 - 0.20 ** 2) ** 0.5)
+    await _make_memory(db, user_id, "their own words", faint, entry_type="stated")
+    await _make_memory(db, user_id, "an inference", faint, entry_type="belief")
+    await db.flush()
+
+    rows = await memory_service.recall(db, user_id, query="unused", query_embedding=QUERY)
+
+    assert [r.content for r in rows] == ["their own words"]
+
+
+@pytest.mark.asyncio
+async def test_one_prolific_type_cannot_crowd_out_the_others(db):
+    """T-2. A lopsided corpus: six 'pattern' rows, every one of them a closer match
+    than the single 'milestone'. Under the old flat top-k the block would have been
+    six patterns and nothing else — the failure mode Ruling #5's per-type quota
+    exists for.
+
+    This needs the database because the quota is a ROW_NUMBER() window: a mock
+    returns whatever the author invented, so 'the query ranked within type' is
+    exactly what it cannot assert."""
+    user_id = await _make_user(db)
+    for i in range(6):
+        a = 0.99 - i * 0.01
+        await _make_memory(db, user_id, f"pattern {i}", _unit(a, (1 - a ** 2) ** 0.5),
+                           entry_type="pattern")
+    await _make_memory(db, user_id, "the milestone", _unit(0.80, (1 - 0.80 ** 2) ** 0.5),
+                       entry_type="milestone")
+    await db.flush()
+
+    rows = await memory_service.recall(db, user_id, query="unused", query_embedding=QUERY)
+    types = [r.entry_type for r in rows]
+
+    assert types.count("pattern") == INFERRED_PER_TYPE
+    assert "the milestone" in [r.content for r in rows]
 
 
 @pytest.mark.asyncio
@@ -246,10 +324,15 @@ async def test_recall_skips_inactive_rows_and_rows_without_an_embedding(db):
 
 @pytest.mark.asyncio
 async def test_recall_respects_top_k(db):
-    """top_k is a LIMIT, applied before the Python-side threshold filter."""
+    """top_k is the TOTAL budget across both lanes since PR-2 — no longer a SQL
+    LIMIT, since the caps and quotas decide the block and the query only fetches
+    candidates. Five distinct types, so the per-type quota is not what holds the
+    result to two."""
     user_id = await _make_user(db)
-    for i in range(5):
-        await _make_memory(db, user_id, f"m{i}", IDENTICAL)
+    for i, etype in enumerate(("belief", "value", "struggle", "pattern", "milestone")):
+        a = 0.99 - i * 0.01
+        await _make_memory(db, user_id, f"m{i}", _unit(a, (1 - a ** 2) ** 0.5),
+                           entry_type=etype)
     await db.flush()
 
     rows = await memory_service.recall(
@@ -257,6 +340,95 @@ async def test_recall_respects_top_k(db):
     )
 
     assert len(rows) == 2
+
+
+@pytest.mark.asyncio
+async def test_the_default_budget_fills_both_lanes(db):
+    """The default is RECALL_TOTAL_BUDGET (8), not the 6 the four callers used to
+    pass. Two standing types and six inferred types, all well above the floor: the
+    block should be 3 standing + 5 inferred, standing first.
+
+    This is the assertion that would have caught shipping the design's lanes with
+    the old budget still in force at the call sites."""
+    user_id = await _make_user(db)
+    for i, etype in enumerate(("stated", "stated", "self_portrait", "self_portrait")):
+        a = 0.99 - i * 0.001
+        await _make_memory(db, user_id, f"standing {i}", _unit(a, (1 - a ** 2) ** 0.5),
+                           entry_type=etype)
+    for i, etype in enumerate(("belief", "value", "struggle", "pattern",
+                               "milestone", "counterview_belief")):
+        a = 0.95 - i * 0.01
+        await _make_memory(db, user_id, f"inferred {i}", _unit(a, (1 - a ** 2) ** 0.5),
+                           entry_type=etype)
+    await db.flush()
+
+    rows = await memory_service.recall(db, user_id, query="unused", query_embedding=QUERY)
+    types = [r.entry_type for r in rows]
+
+    assert len(rows) == RECALL_TOTAL_BUDGET
+    assert sum(t in STANDING_TYPES for t in types) == STANDING_CAP
+    # Standing leads, and it is contiguous — not interleaved by score.
+    assert all(t in STANDING_TYPES for t in types[:STANDING_CAP])
+    assert not any(t in STANDING_TYPES for t in types[STANDING_CAP:])
+
+
+# ── 2. The query plan (T-9) ─────────────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_the_recall_query_plans_as_one_scan_with_one_window(db):
+    """T-9. PLAN SHAPE, NEVER TIMING.
+
+    Two structural claims, both stable at any table size:
+
+      1. A WindowAgg node exists — the per-type ranking happens IN THE DATABASE,
+         once, rather than by fetching everything and ranking in Python.
+      2. `memory_entries` is scanned exactly once — the CTE did not become a
+         self-join.
+
+    WHAT THIS DELIBERATELY DOES NOT ASSERT: index usage. The design flagged
+    (§2e) that HNSW is an ANN index over the whole table while recall is
+    user-scoped, and that the window rewrite forecloses any ANN top-k shortcut.
+    On a test table of a handful of rows Postgres will correctly choose a
+    sequential scan, so asserting `Index Scan` would pin the planner's
+    size-dependent choice rather than anything about the product. Nor does it
+    assert a duration: a timing assertion on a CI runner is a flake generator.
+
+    EXPLAIN runs the REAL query text (memory_service.RECALL_SQL), not a copy —
+    a copy could drift from the query it claims to describe."""
+    import json as _json
+
+    user_id = await _make_user(db)
+    await _make_memory(db, user_id, "one", IDENTICAL, entry_type="belief")
+    await db.flush()
+
+    plan_rows = await db.execute(
+        text("EXPLAIN (FORMAT JSON) " + RECALL_SQL),
+        {
+            "query_vec": _vec(QUERY),
+            "user_id": user_id,
+            "standing_types": list(STANDING_TYPES),
+            "standing_per_type": STANDING_PER_TYPE,
+            "inferred_per_type": INFERRED_PER_TYPE,
+            "floor": INFERRED_SCORE_FLOOR,
+        },
+    )
+    raw = plan_rows.scalar_one()
+    plan = _json.loads(raw) if isinstance(raw, str) else raw
+
+    node_types = []
+    relations = []
+
+    def _walk(node):
+        node_types.append(node.get("Node Type"))
+        if node.get("Relation Name"):
+            relations.append(node["Relation Name"])
+        for child in node.get("Plans", []) or []:
+            _walk(child)
+
+    _walk(plan[0]["Plan"])
+
+    assert "WindowAgg" in node_types, node_types
+    assert relations.count("memory_entries") == 1, relations
 
 
 # ── 3. Conversation delete SETs NULL on memory_entries and insights ─────────
