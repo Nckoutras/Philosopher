@@ -366,7 +366,13 @@ class WeeklyLetter(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
     __table_args__ = (
-        CheckConstraint("status IN ('generated', 'empty', 'suppressed')", name="ck_weekly_letters_status"),
+        # 'failed' added by migration 058. Both generators already wrote it; the
+        # CHECK from 022 rejected it, so the row that was meant to record a lost
+        # letter never landed. Kept in step with the migration deliberately — a
+        # db_live test compares this constraint's literals against
+        # pg_get_constraintdef, because this declaration is DDL metadata and the
+        # ORM does not enforce it on insert.
+        CheckConstraint("status IN ('generated', 'empty', 'suppressed', 'failed')", name="ck_weekly_letters_status"),
         CheckConstraint("kind IN ('weekly', 'monthly')", name="ck_weekly_letters_kind"),
         Index("uq_weekly_letters_user_period", "user_id", "period_start", "kind", unique=True),
         Index("ix_weekly_letters_user_id", "user_id"),
