@@ -40,6 +40,18 @@ R9. Failed job_run → sentry capture_exception.
 R10. This rulings block is committed verbatim as
     docs/reports/LETTER_DURABILITY_RULINGS_2026-09-07.md in this PR.
 
+R2a (refinement, locked 2026-09-07, added in PR-A). PR-A is DDL + model only.
+    R2 put the email_suppressed_reason COLUMN and the guard that WRITES it in
+    one PR; they are split. 059 adds the nullable column and nothing reads or
+    writes it. The guard, and the test pinning its five values
+    (localhost | no_email | opt_out | already_sent | send_failed), move to PR-B
+    — the guard lives in arq_worker.py, which PR-B already opens, and shipping
+    it in PR-A would put a behaviour change in a schema PR (P-02).
+    The column carries NO CHECK constraint, in PR-A or after: the five reasons
+    are an application vocabulary, so a sixth must stay a code change and never
+    become a production migration. R2's substance is unchanged — (iii)+(i)
+    stands, (ii) stays ruled out, no backdated batch resend, ever.
+
 ---
 
 ## Decomposition

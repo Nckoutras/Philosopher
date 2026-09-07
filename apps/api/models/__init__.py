@@ -363,6 +363,13 @@ class WeeklyLetter(Base):
     write_back_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     write_back_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     email_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Why the email did NOT go out, when it did not (059). NULL means it was sent,
+    # or that the row predates this column. The guard that writes it lands in PR-B
+    # and writes one of: localhost | no_email | opt_out | already_sent |
+    # send_failed. Deliberately NO CheckConstraint — those five are an application
+    # vocabulary pinned in PR-B's test, so a sixth reason stays a code change and
+    # never becomes a production migration (R2a).
+    email_suppressed_reason: Mapped[str | None] = mapped_column(String(32), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
     __table_args__ = (
@@ -855,4 +862,61 @@ class MirrorSave(Base):
     __table_args__ = (
         UniqueConstraint("user_id", "mirror_id", name="uq_mirror_saves_user_mirror"),
         Index("ix_mirror_saves_user", "user_id"),
+    )
+
+
+# ── Job Runs (scheduled-run audit) ────────────────────────────────────────────
+
+class JobRun(Base):
+    """One row per scheduled run: which job, which period, how it ended.
+
+    NOTHING WRITES THIS YET. Migration 059 creates the table; PR-B opens a row
+    per dispatch. It exists because a scheduled letter run currently leaves no
+    trace of itself — if Sunday's dispatch never fires, the only evidence is the
+    absence of letters, which is indistinguishable from a week where nobody
+    qualified. weekly_letters.status='failed' (058) records a letter that was
+    attempted and lost; it cannot record a run that never happened.
+
+    run_key is the PERIOD, never the execution time: ISO week '2026-W36' for
+    weekly, 'YYYY-MM' for monthly, both derived from period_start. A Tuesday
+    catch-up for last Sunday therefore carries last Sunday's key and collides
+    with the run that already covered it — which is what uq_job_run_name_key is
+    for, and what makes PR-C's explicit-run_key catch-up safe to invoke twice.
+
+    finished_at NULL with status='running' is the crash signature: a process that
+    dies mid-run never comes back to close its row. That pair is the query an
+    operator runs to find a run nobody noticed dying, so finished_at carries no
+    default.
+
+    The three counts are nullable because a run that crashes before counting must
+    not claim zero. NULL is "never got that far", 0 is "counted, and there were
+    none" — without the distinction, "nobody qualified" and "dispatch died" read
+    identically.
+
+    The CheckConstraint below is DDL metadata; the ORM does not evaluate it on
+    insert, so a db_live test compares its literals against pg_get_constraintdef
+    to catch drift from the migration.
+    """
+    __tablename__ = "job_run"
+
+    id: Mapped[str] = mapped_column(
+        UUID(as_uuid=False), primary_key=True, default=gen_uuid,
+        server_default=text("gen_random_uuid()"),
+    )
+    job_name: Mapped[str] = mapped_column(String(64), nullable=False)
+    run_key: Mapped[str] = mapped_column(String(32), nullable=False)
+    started_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    status: Mapped[str] = mapped_column(String(16), nullable=False)  # running | succeeded | failed
+    candidate_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    selected_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    enqueued_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    __table_args__ = (
+        CheckConstraint("status IN ('running', 'succeeded', 'failed')", name="ck_job_run_status"),
+        Index("uq_job_run_name_key", "job_name", "run_key", unique=True),
+        Index("ix_job_run_started_at", "started_at"),
     )
