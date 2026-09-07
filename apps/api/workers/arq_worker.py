@@ -1,14 +1,19 @@
 import html
 import json
 import logging
-from arq import create_pool
+from datetime import timezone as dt_timezone
+from arq import create_pool, cron, func
 from arq.connections import RedisSettings
 from config import config
+# Module-level, and the direction matters: letter_dispatch imports THIS module
+# only inside its function bodies, so this cannot cycle. WorkerSettings needs
+# the two coroutines by reference.
+from workers.letter_dispatch import dispatch_weekly_letters, dispatch_monthly_letters
 from text_utils import dominant_language as _dominant_language
 from observability import init_sentry
 
 # `arq workers.arq_worker.WorkerSettings` runs as its own process and never
-# imports main, so it needs its own init. Without this the 13 task handlers —
+# imports main, so it needs its own init. Without this the 12 task handlers —
 # every letter, mirror and memory job — report nothing.
 init_sentry()
 
@@ -1282,6 +1287,21 @@ async def _maybe_send_weekly_letter_email(db, user, letter, payload, persona, re
     from services.analytics_service import analytics_service
     from services.unsubscribe_token import make_token
 
+    async def _suppress(reason: str) -> None:
+        """Record WHY no email went out, on the letter row (R2, migration 059).
+
+        Its own commit, because both callers commit the letter BEFORE calling this
+        helper and nothing commits after it — the success path below does exactly
+        the same for email_sent_at.
+
+        The five reasons are an APPLICATION vocabulary, not a database rule: the
+        column carries no CHECK, so a sixth reason stays a code change and never
+        becomes a production migration. They are pinned instead in
+        tests/workers/test_letter_email_suppression.py.
+        """
+        letter.email_suppressed_reason = reason
+        await db.commit()
+
     try:
         # Guard: if API_BASE_URL is still localhost, the unsubscribe link would be
         # broken for a real recipient — refuse to send. Logged at ERROR because on a
@@ -1296,13 +1316,17 @@ async def _maybe_send_weekly_letter_email(db, user, letter, payload, persona, re
                 "user=%s letter=%s",
                 reading_label, getattr(user, "id", "?"), getattr(letter, "id", "?"),
             )
+            await _suppress("localhost")
             return
         if user is None or not user.email:
+            await _suppress("no_email")
             return
         if user.weekly_email_opt_out:
             logger.info("%s email skipped (opted out) user=%s", reading_label, user.id)
+            await _suppress("opt_out")
             return
         if letter.email_sent_at is not None:
+            await _suppress("already_sent")
             return
 
         persona_name = persona.name if persona else "the Wise Room"
@@ -1322,7 +1346,17 @@ async def _maybe_send_weekly_letter_email(db, user, letter, payload, persona, re
             unsubscribe_url=unsubscribe_url,
             reading_label=reading_label,
         )
-        send_email(to=user.email, subject=title, html=body_html)
+        # Scoped to the SEND alone, not to the whole body: the outer try also
+        # covers token minting and HTML rendering, and a template crash is not a
+        # send failure. Re-raised rather than swallowed here, so the outer
+        # handler's logger.error(..., exc_info=True) still runs — that line is
+        # the Sentry path (observability.py:37-46), and eating it would delete
+        # the alert this reason exists to explain.
+        try:
+            send_email(to=user.email, subject=title, html=body_html)
+        except Exception:
+            await _suppress("send_failed")
+            raise
         letter.email_sent_at = datetime.now(timezone.utc)
         await db.commit()
         logger.info("%s email sent user=%s letter=%s", reading_label, user.id, letter.id)
@@ -2205,11 +2239,43 @@ class WorkerSettings:
         generate_conversation_title,
         send_ritual_reminder_task,
         generate_weekly_mirror_task,
-        generate_weekly_letter_task,
-        generate_monthly_letter_task,
+        # A letter is a Sonnet call over a week or a month of material and does
+        # not finish inside the 90s default — the two that need longer say so
+        # here rather than raising the ceiling for every job (R5). A per-function
+        # timeout REPLACES job_timeout for that function; it does not add to it
+        # (arq/worker.py:574). Note one global side effect: the worker's
+        # in-progress key TTL is max(all timeouts) + 10 (worker.py:276), so this
+        # moves it from 100s to 310s for every job — after a worker dies
+        # mid-job, any job becomes re-runnable in 310s rather than 100s.
+        func(generate_weekly_letter_task, timeout=300),
+        func(generate_monthly_letter_task, timeout=300),
         send_payment_recovery_email_task,
     ]
+    # Letter dispatch, moved off APScheduler (R4). It runs HERE, in the worker,
+    # because dispatch in the API process left no trace of itself and died with
+    # any lifespan that failed to start. Each run writes a job_run row.
+    #
+    # unique=True and max_tries=1 are arq's defaults for cron() and both are
+    # wanted: unique means N workers enqueue one job, and a half-finished
+    # dispatch must not silently re-run. run_at_startup stays False — True would
+    # dispatch letters on every deploy.
+    #
+    # The monthly schedule is day={28,29,30,31}, NOT the last day: arq's cron
+    # matches a field against an int or a set and raises on anything else
+    # (arq/cron.py:_get_next_dt), so APScheduler's day='last' cannot be
+    # expressed. dispatch_monthly_letters guards on the real last day before it
+    # touches the database, and uq_job_run_name_key is the backstop.
+    cron_jobs = [
+        cron(dispatch_weekly_letters, weekday="sun", hour=18, minute=0),
+        cron(dispatch_monthly_letters, day={28, 29, 30, 31}, hour=17, minute=0),
+    ]
     redis_settings = RedisSettings.from_dsn(config.REDIS_URL)
+    # True by construction, not by container default. arq evaluates cron against
+    # the worker's SYSTEM timezone when this is unset (arq/worker.py:305), which
+    # made "Sunday 18:00 UTC" a property of the Render container rather than of
+    # this file — and made a local worker fire at a different hour than
+    # production. Render is already UTC, so this changes nothing there.
+    timezone = dt_timezone.utc
     max_jobs = 10
     job_timeout = 90
     keep_result = 300

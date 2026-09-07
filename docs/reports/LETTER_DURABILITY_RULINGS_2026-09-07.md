@@ -52,6 +52,11 @@ R2a (refinement, locked 2026-09-07, added in PR-A). PR-A is DDL + model only.
     become a production migration. R2's substance is unchanged — (iii)+(i)
     stands, (ii) stays ruled out, no backdated batch resend, ever.
 
+R9a (2026-09-08). R9's "capture_exception" is satisfied by the existing
+    LoggingIntegration path (logger.error with exc_info=True); an explicit
+    capture_exception would double-report. The durable failure record is
+    job_run.status='failed' + error, not the Sentry event.
+
 ---
 
 ## Decomposition
