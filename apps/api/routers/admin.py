@@ -162,7 +162,20 @@ async def trigger_weekly_letter_generate(
     if voice_persona_slug is None:
         voice_persona_slug = "carl_jung"  # safe fallback; task will gate on <5 messages
 
-    await arq_queue.enqueue_job("generate_weekly_letter_task", str(admin.id), voice_persona_slug)
+    # The CURRENT week's period, computed the same way the Sunday dispatch does
+    # (D-2, PR-C). Passing it explicitly keeps this trigger and the real dispatch
+    # on one arithmetic — without it, the admin smoke test would silently exercise
+    # the pre-PR-C fallback window and report on a different week than production.
+    from datetime import datetime, timezone
+
+    from workers.letter_dispatch import week_period, weekly_run_key
+
+    _now = datetime.now(timezone.utc)
+    _start, _ = week_period(weekly_run_key(_now))
+    await arq_queue.enqueue_job(
+        "generate_weekly_letter_task", str(admin.id), voice_persona_slug,
+        _start.isoformat(), _now.isoformat(),
+    )
     return {"enqueued": True, "voice_persona_slug": voice_persona_slug}
 
 
@@ -212,7 +225,17 @@ async def trigger_monthly_letter_generate(
     if voice_persona_slug is None:
         voice_persona_slug = "marcus_aurelius"  # safe fallback; task gates on MONTHLY_MIN_MESSAGES
 
-    await arq_queue.enqueue_job("generate_monthly_letter_task", str(admin.id), voice_persona_slug)
+    # The CURRENT month's period, same reasoning as the weekly trigger above.
+    from datetime import datetime, timezone
+
+    from workers.letter_dispatch import month_period, monthly_run_key
+
+    _now = datetime.now(timezone.utc)
+    _start, _ = month_period(monthly_run_key(_now))
+    await arq_queue.enqueue_job(
+        "generate_monthly_letter_task", str(admin.id), voice_persona_slug,
+        _start.isoformat(), _now.isoformat(),
+    )
     return {"enqueued": True, "voice_persona_slug": voice_persona_slug}
 
 

@@ -8,7 +8,12 @@ from config import config
 # Module-level, and the direction matters: letter_dispatch imports THIS module
 # only inside its function bodies, so this cannot cycle. WorkerSettings needs
 # the two coroutines by reference.
-from workers.letter_dispatch import dispatch_weekly_letters, dispatch_monthly_letters
+from workers.letter_dispatch import (
+    catch_up_monthly_letters,
+    catch_up_weekly_letters,
+    dispatch_monthly_letters,
+    dispatch_weekly_letters,
+)
 from text_utils import dominant_language as _dominant_language
 from observability import init_sentry
 
@@ -1425,8 +1430,21 @@ async def _clean_avoidance(value) -> str | None:
     return text
 
 
-async def generate_weekly_letter_task(ctx, user_id: str, voice_persona_slug: str):
-    """Generates a weekly epistolary letter in the voice of the user's most-conversed persona."""
+async def generate_weekly_letter_task(ctx, user_id: str, voice_persona_slug: str,
+                                      period_start: str | None = None,
+                                      period_end: str | None = None):
+    """Generates a weekly epistolary letter in the voice of the user's most-conversed persona.
+
+    period_start / period_end are ISO-8601 strings computed ONCE by the dispatcher
+    (D-2, PR-C) so that the eligibility window and the letter's window are the same
+    window rather than two that happen to agree. Strings rather than datetimes
+    because they cross Redis; arq pickles job args, so datetimes would survive, but
+    a queued job is far easier to read and to reason about as text.
+
+    BOTH DEFAULT TO None, which reproduces the pre-PR-C arithmetic exactly. That is
+    what lets a job enqueued by the old code — one already sitting in Redis across
+    the deploy — still run correctly instead of raising on an unexpected signature.
+    """
     from datetime import datetime, timedelta, timezone
     from db.session import AsyncSessionLocal
     from models import WeeklyLetter, Persona, User, Message, Conversation, Insight, UserPreference
@@ -1438,8 +1456,15 @@ async def generate_weekly_letter_task(ctx, user_id: str, voice_persona_slug: str
 
     async with AsyncSessionLocal() as db:
         try:
-            period_end = datetime.now(timezone.utc)
-            period_start = (period_end - timedelta(days=7)).replace(hour=0, minute=0, second=0, microsecond=0)
+            # PR-C: the dispatcher computes the period and passes it. The fallback
+            # is the pre-PR-C arithmetic, kept ONLY for a job enqueued by older
+            # code and still in Redis across the deploy.
+            if period_start is not None and period_end is not None:
+                period_start = datetime.fromisoformat(period_start)
+                period_end = datetime.fromisoformat(period_end)
+            else:
+                period_end = datetime.now(timezone.utc)
+                period_start = (period_end - timedelta(days=7)).replace(hour=0, minute=0, second=0, microsecond=0)
 
             # Load voice persona
             persona_result = await db.execute(
@@ -1453,6 +1478,17 @@ async def generate_weekly_letter_task(ctx, user_id: str, voice_persona_slug: str
             # 1st of a month is a Sunday) cannot suppress the weekly one.
             # A17: a 'failed' row records a lost letter — it must NOT block a later
             # re-run, or the failure becomes permanent for that period.
+            #
+            # PR-C MOVED period_start BY ONE DAY, and this predicate is an equality,
+            # so the two arithmetics do not dedup against each other. Concretely:
+            # the last pre-PR-C run was Sun 2026-09-06 (period_start Aug 30, a
+            # Sunday); the first aligned run is Sun 2026-09-13 (period_start Sep 7,
+            # a Monday). Those windows do not overlap and neither value collides, so
+            # the transition needs no backfill — it leaves a one-off six-hour seam,
+            # 2026-09-06 18:00 to 2026-09-07 00:00, covered by neither letter.
+            # The catch-up floor (min(job_run.started_at)) is what stops a catch-up
+            # from ever reaching back across that boundary and generating a second
+            # letter for a week that was already delivered under the old arithmetic.
             existing = await db.execute(
                 select(WeeklyLetter.id).where(
                     WeeklyLetter.user_id == user_id,
@@ -1821,10 +1857,16 @@ async def generate_weekly_letter_task(ctx, user_id: str, voice_persona_slug: str
             logger.error(f"WeeklyLetter task failed: {e}", exc_info=True)
 
 
-async def generate_monthly_letter_task(ctx, user_id: str, voice_persona_slug: str):
-    """Generates a monthly 'season' letter (kind='monthly') over the current
-    calendar month, reusing the weekly engine's spine + render/email helpers.
-    Mirrors generate_weekly_letter_task's flow; never raises."""
+async def generate_monthly_letter_task(ctx, user_id: str, voice_persona_slug: str,
+                                       period_start: str | None = None,
+                                       period_end: str | None = None):
+    """Generates a monthly 'season' letter (kind='monthly') over a calendar month,
+    reusing the weekly engine's spine + render/email helpers. Mirrors
+    generate_weekly_letter_task's flow; never raises.
+
+    period_start / period_end are ISO-8601 strings from the dispatcher (D-2,
+    PR-C), defaulting to None so a job enqueued by older code still runs — see
+    generate_weekly_letter_task for the full reasoning."""
     import calendar
     from datetime import datetime, timedelta, timezone
     from db.session import AsyncSessionLocal
@@ -1837,11 +1879,21 @@ async def generate_monthly_letter_task(ctx, user_id: str, voice_persona_slug: st
 
     async with AsyncSessionLocal() as db:
         try:
-            # Period = the current calendar month [1st 00:00, last-day 23:59:59].
-            now = datetime.now(timezone.utc)
-            period_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-            last_day = calendar.monthrange(now.year, now.month)[1]
-            period_end = now.replace(day=last_day, hour=23, minute=59, second=59, microsecond=0)
+            # Period = the calendar month [1st 00:00, last-day 23:59:59], computed
+            # by the dispatcher and passed in (D-2, PR-C). The monthly period
+            # already satisfied R7 before PR-C — run_key IS the month of
+            # period_start — so nothing about the arithmetic changed here; it only
+            # moved, so that dispatch and generator share one expression.
+            # The fallback is the identical pre-PR-C computation, kept ONLY for a
+            # job enqueued by older code and still in Redis across the deploy.
+            if period_start is not None and period_end is not None:
+                period_start = datetime.fromisoformat(period_start)
+                period_end = datetime.fromisoformat(period_end)
+            else:
+                now = datetime.now(timezone.utc)
+                period_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+                last_day = calendar.monthrange(now.year, now.month)[1]
+                period_end = now.replace(day=last_day, hour=23, minute=59, second=59, microsecond=0)
 
             persona_result = await db.execute(
                 select(Persona).where(Persona.slug == voice_persona_slug)
@@ -2265,9 +2317,18 @@ class WorkerSettings:
     # (arq/cron.py:_get_next_dt), so APScheduler's day='last' cannot be
     # expressed. dispatch_monthly_letters guards on the real last day before it
     # touches the database, and uq_job_run_name_key is the backstop.
+    #
+    # The two catch-up passes (PR-C, R8) run the morning after the run they
+    # check: they re-dispatch a period whose job_run never reached 'succeeded',
+    # reclaiming the failed or crashed row. ONE period of lookback only (R8a) —
+    # older gaps are repaired by hand with an explicit run_key, because three
+    # backdated letters arriving together reads as a broken product rather than
+    # as a repair.
     cron_jobs = [
         cron(dispatch_weekly_letters, weekday="sun", hour=18, minute=0),
         cron(dispatch_monthly_letters, day={28, 29, 30, 31}, hour=17, minute=0),
+        cron(catch_up_weekly_letters, weekday="mon", hour=9, minute=0),
+        cron(catch_up_monthly_letters, day=2, hour=9, minute=0),
     ]
     redis_settings = RedisSettings.from_dsn(config.REDIS_URL)
     # True by construction, not by container default. arq evaluates cron against

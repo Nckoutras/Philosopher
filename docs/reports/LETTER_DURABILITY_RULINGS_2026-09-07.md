@@ -57,6 +57,25 @@ R9a (2026-09-08). R9's "capture_exception" is satisfied by the existing
     capture_exception would double-report. The durable failure record is
     job_run.status='failed' + error, not the Sentry event.
 
+R8a (2026-09-08, added in PR-C). Automatic catch-up looks back exactly ONE
+    period — last week on Monday 09:00 UTC, last month on the 2nd at 09:00 UTC.
+    Older gaps are repaired by hand with an explicit run_key (R8, and the Ops
+    section below). This is a product decision, not a technical limit: three
+    backdated letters arriving together on a Monday morning reads as a broken
+    product rather than as a repair, and the letters carry their own dates, so
+    a reader can see they are stale. The floor is min(job_run.started_at) per
+    job_name — no job_run row predates PR-B, so nothing before it can be
+    "missed", and a catch-up can never reach back across the PR-C period
+    realignment.
+
+    RECLAIM. A missed period is one whose job_run never reached 'succeeded' —
+    which includes 'failed' rows and 'running' rows that never closed. Because
+    uq_job_run_name_key would otherwise make the re-dispatch answer "already
+    ran", catch-up (and ONLY catch-up) may take over the existing row:
+    succeeded → skip; failed → reclaim; running older than 2h → reclaim
+    (crashed); running newer than 2h → skip (in flight). Reclaiming resets the
+    counts to NULL, per 059's NULL-vs-0 rule. The live cron never reclaims.
+
 ---
 
 ## Decomposition
@@ -112,3 +131,70 @@ takes no period; it computes `period_start` from `datetime.now()` at execution
 different `period_start`, misses the unique index, and writes a **second letter
 for an overlapping week**. Catch-up is not implementable until the period is an
 explicit argument — which is what R7 settles.
+
+---
+
+## Ops — manual catch-up
+
+R8: there is NO admin endpoint for this, deliberately. The manual trigger is the
+same dispatch function the cron calls, invoked with an explicit `run_key`. Run it
+in the **worker** service's Render shell (the worker runs
+`arq workers.arq_worker.WorkerSettings`; see README and
+`infra/docker-compose.prod.yml`), from the app directory:
+
+```bash
+python -c "
+import asyncio
+from arq import create_pool
+from arq.connections import RedisSettings
+from config import config
+from workers.letter_dispatch import dispatch_weekly_letters
+async def main():
+    pool = await create_pool(RedisSettings.from_dsn(config.REDIS_URL))
+    await dispatch_weekly_letters({'redis': pool}, run_key='2026-W37')
+asyncio.run(main())
+"
+```
+
+For a month, swap the import and the key:
+
+```bash
+python -c "
+import asyncio
+from arq import create_pool
+from arq.connections import RedisSettings
+from config import config
+from workers.letter_dispatch import dispatch_monthly_letters
+async def main():
+    pool = await create_pool(RedisSettings.from_dsn(config.REDIS_URL))
+    await dispatch_monthly_letters({'redis': pool}, run_key='2026-09')
+asyncio.run(main())
+"
+```
+
+Notes, all of them load-bearing:
+
+- **`run_key` format is exact**: `%G-W%V` for weeks (`2026-W36`, zero-padded —
+  `2026-W6` is not a key) and `%Y-%m` for months (`2026-09`). The period is
+  derived FROM the key, so a malformed key is a malformed period.
+- **Passing a `run_key` enables reclaim.** A `failed` or crashed-`running` row for
+  that key is taken over; a `succeeded` row is left alone and the command is a
+  no-op. Running it twice is safe.
+- **It does not bypass the per-user dedup.** Users who already have a letter for
+  that period are skipped inside the generator, before any LLM call or email, so
+  nobody is emailed twice (R2 (i)).
+- **It bypasses the floor and the one-period lookback** — that is the whole point
+  of the manual path. An arbitrarily old `run_key` will be dispatched, including
+  one from before the PR-C period realignment, which would write a second letter
+  for a week already delivered under the old arithmetic. **Do not use a weekly
+  `run_key` earlier than `2026-W37`** (the first aligned week; the last pre-PR-C
+  run was Sunday 2026-09-06 and the first aligned run is Sunday 2026-09-13).
+- **Run it on the worker, not the API.** Both would work, but the worker is where
+  this code and its Redis settings live, and the API service has no reason to
+  hold a dispatch.
+- **The first period has no automatic catch-up.** The floor is
+  min(job_run.started_at) per job, so if the very first scheduled run
+  (weekly: Sunday 2026-09-13; monthly: 2026-09-30) never opens a row at
+  all, Monday's catch-up sees no history and skips. From the second period
+  on, catch-up covers a fully missed run. Remedy for the first: the manual
+  command above with run_key='2026-W37' (or '2026-09').
