@@ -303,6 +303,14 @@ def test_the_bank_carries_exactly_the_approved_weights():
 # a real finding, not a formatting choice.
 BATCH1_WORK = {f"work_and_ambition_{n:03d}" for n in range(2, 31)}
 
+# Pro authoring, batch 2 of 8 (Ruling #3): tranche A — money 002-030,
+# family 003-030, relationships 002-030, friendship 002-030,
+# founder-approved 2026-09-08. Ranges, not literals, for the reason above.
+TRANCHE_A = ({f"money_{n:03d}"         for n in range(2, 31)}
+           | {f"family_{n:03d}"        for n in range(3, 31)}
+           | {f"relationships_{n:03d}" for n in range(2, 31)}
+           | {f"friendship_{n:03d}"    for n in range(2, 31)})
+
 
 def test_weights_are_authored_for_the_free_slice_and_the_batches_landed_so_far():
     """Scope pin. It read "…and nothing else yet" until Pro authoring began, with a
@@ -312,11 +320,12 @@ def test_weights_are_authored_for_the_free_slice_and_the_batches_landed_so_far()
     is stated here explicitly, so every batch is a visible edit to this line rather
     than a number that quietly drifts.
 
-    15 free + 29 in batch 1 = 44 authored, 316 still on the legacy per-tag fallback.
+    15 free + 29 in batch 1 + 115 in tranche A = 159 authored, 201 still on the
+    legacy per-tag fallback.
     """
     weighted = {qid for qid, q in sp._BANK.items() if "pill_weights" in q}
-    assert weighted == set(FREE) | BATCH1_WORK
-    assert len(sp._BANK) - len(weighted) == 316
+    assert weighted == set(FREE) | BATCH1_WORK | TRANCHE_A
+    assert len(sp._BANK) - len(weighted) == 201
 
 
 def test_the_free_slice_is_still_exactly_the_verbatim_pinned_table():
