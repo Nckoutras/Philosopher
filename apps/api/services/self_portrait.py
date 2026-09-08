@@ -216,9 +216,11 @@ def _pill_axis_sums(q: dict, pill_index: int) -> dict[str, int]:
 
     Weighted questions read their authored `pill_weights[pill_index]`. Unweighted ones
     fall back to LEGACY COUNTING — weight 1 for each of the question's theme_tags,
-    identical for every pill. That fallback is what keeps the 345 unauthored questions
-    contributing exactly what they contribute today, so a Pro user's octagon does not
-    lose its Pro half while the rest of the bank is being authored.
+    identical for every pill. It kept the then-unauthored questions contributing
+    exactly what they contributed before weights existed, so a Pro user's octagon did
+    not lose its Pro half while the bank was being authored. As of tranche C the bank
+    is fully authored (360/360), so this branch is unreachable for every real question
+    and is kept as deliberate tolerance for a question authored before its weights.
     """
     sums: dict[str, int] = {key: 0 for key, _l, _t in PORTRAIT_AXES}
     weights = q.get("pill_weights")

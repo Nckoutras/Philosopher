@@ -9,7 +9,9 @@ the code that relies on them:
      POST /conversations/{id}/messages on the next 500, silently, and no test
      that merely called init() would notice.
 
-  2. "LoggingIntegration covers the 22 swallowing handlers." True today, and
+  2. "LoggingIntegration covers the 22 logger.error(..., exc_info=True) call
+     sites under workers/" — see observability.py for the exact grep. True today,
+     and
      true only because the SDK defaults event_level to ERROR. An upgrade that
      changed that default, or an edit that passed integrations=[...] explicitly,
      would leave every ARQ task and cron job reporting nothing — which is the
@@ -107,7 +109,8 @@ def test_release_is_none_when_render_does_not_inject_a_sha():
 
 
 def test_logging_integration_still_turns_logger_error_into_an_event():
-    """The load-bearing default. 22 swallowing handlers depend on it.
+    """The load-bearing default. 22 logger.error(..., exc_info=True) call sites
+    under workers/ depend on it — observability.py carries the exact grep.
 
     Asserted against the installed SDK, not against a comment: if a future
     version stops defaulting event_level to ERROR, every ARQ task and cron job
