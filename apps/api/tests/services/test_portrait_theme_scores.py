@@ -109,13 +109,18 @@ def test_a_single_answer_change_is_visible_on_a_minimal_answer_set():
 
 # ── (c) Fallback equivalence for unweighted questions ────────────────────────
 
-def test_an_unweighted_question_contributes_its_legacy_per_tag_count():
+def test_an_unweighted_question_contributes_its_legacy_per_tag_count(tmp_path, monkeypatch):
     """The 345 unauthored questions must keep contributing exactly what they do
     today: weight 1 per theme_tag, the same for every pill, on BOTH sides of the
     ratio. Equal numerator and achievable per axis ⇒ share 1.0 on every axis the
-    question touches, and identical whichever pill was chosen."""
-    unweighted = next(
-        qid for qid in sorted(sp._BANK) if "pill_weights" not in sp._BANK[qid]
+    question touches, and identical whichever pill was chosen.
+
+    The specimen is synthetic because the real bank is fully authored as of tranche
+    C, so it no longer holds an unweighted question to borrow one from.
+    """
+    unweighted = "t_001"
+    monkeypatch.setitem(
+        sp._BANK, unweighted, _load_bank(_bank_file(tmp_path, dict(BASE_Q)))["t_001"]
     )
     q = sp._BANK[unweighted]
     touched = {sp._TAG_TO_AXIS[t] for t in q["theme_tags"] if t in sp._TAG_TO_AXIS}
@@ -130,15 +135,20 @@ def test_an_unweighted_question_contributes_its_legacy_per_tag_count():
         assert score == (1.0 if key in touched else 0.0)
 
 
-def test_the_fallback_contributes_to_the_achievable_max_too_not_just_the_numerator():
+def test_the_fallback_contributes_to_the_achievable_max_too_not_just_the_numerator(
+    tmp_path, monkeypatch
+):
     """If the fallback fed only the numerator, adding an unweighted question would
     inflate its axes without inflating the denominator. Mixing one weighted and one
-    unweighted question must leave the unweighted question's axes at full share."""
-    unweighted = next(
-        qid for qid in sorted(sp._BANK)
-        if "pill_weights" not in sp._BANK[qid]
-        and not ({sp._TAG_TO_AXIS[t] for t in sp._BANK[qid]["theme_tags"] if t in sp._TAG_TO_AXIS}
-                 & {"freedom", "connection", "desire"})
+    unweighted question must leave the unweighted question's axes at full share.
+
+    The specimen is synthetic because the real bank is fully authored as of tranche C;
+    BASE_Q lands on {meaning, doubt}, which satisfies what the old bank search required
+    — disjoint from freedom/connection/desire, so the max-normalize still divides by 1.0.
+    """
+    unweighted = "t_001"
+    monkeypatch.setitem(
+        sp._BANK, unweighted, _load_bank(_bank_file(tmp_path, dict(BASE_Q)))["t_001"]
     )
     mixed = portrait_theme_scores({unweighted: 0, "solitude_001": 0})
     by_key = {d["key"]: d["score"] for d in mixed}
@@ -319,6 +329,13 @@ TRANCHE_B = ({f"fear_{n:03d}"     for n in range(2, 31)}
            | {f"identity_{n:03d}" for n in range(2, 31)}
            | {f"conflict_{n:03d}" for n in range(3, 31)})
 
+# Pro authoring, batch 4 of 4 (Ruling #3, FINAL): tranche C — solitude 002-030,
+# desire 003-030 (desire_002 is free), mortality 002-030, founder-approved
+# 2026-09-08. Ranges, not literals, for the reason above. This closes the bank.
+TRANCHE_C = ({f"solitude_{n:03d}"  for n in range(2, 31)}
+           | {f"desire_{n:03d}"    for n in range(3, 31)}
+           | {f"mortality_{n:03d}" for n in range(2, 31)})
+
 
 def test_weights_are_authored_for_the_free_slice_and_the_batches_landed_so_far():
     """Scope pin. It read "…and nothing else yet" until Pro authoring began, with a
@@ -328,12 +345,12 @@ def test_weights_are_authored_for_the_free_slice_and_the_batches_landed_so_far()
     is stated here explicitly, so every batch is a visible edit to this line rather
     than a number that quietly drifts.
 
-    15 free + 29 in batch 1 + 115 in tranche A + 115 in tranche B = 274 authored,
-    86 still on the legacy per-tag fallback.
+    15 free + 29 in batch 1 + 115 in tranche A + 115 in tranche B + 86 in tranche C
+    = 360 authored, 0 still on the legacy per-tag fallback. The bank is complete.
     """
     weighted = {qid for qid, q in sp._BANK.items() if "pill_weights" in q}
-    assert weighted == set(FREE) | BATCH1_WORK | TRANCHE_A | TRANCHE_B
-    assert len(sp._BANK) - len(weighted) == 86
+    assert weighted == set(FREE) | BATCH1_WORK | TRANCHE_A | TRANCHE_B | TRANCHE_C
+    assert len(sp._BANK) - len(weighted) == 0
 
 
 def test_the_free_slice_is_still_exactly_the_verbatim_pinned_table():
