@@ -3353,6 +3353,12 @@
         "fear",
         "discipline",
         "control"
+      ],
+      "pill_weights": [
+        {"fear": 1, "discipline": 2, "control": 1},
+        {"fear": 2, "discipline": 0, "control": 0},
+        {"fear": 1, "discipline": 1, "control": 1},
+        {"fear": 2, "discipline": 0, "control": 0}
       ]
     },
     {
@@ -3369,6 +3375,12 @@
         "fear",
         "freedom",
         "power"
+      ],
+      "pill_weights": [
+        {"fear": 1, "freedom": 2, "power": 2},
+        {"fear": 2, "freedom": 0, "power": 0},
+        {"fear": 1, "freedom": 1, "power": 1},
+        {"fear": 2, "freedom": 1, "power": 0}
       ]
     },
     {
@@ -3385,6 +3397,12 @@
         "fear",
         "control",
         "doubt"
+      ],
+      "pill_weights": [
+        {"fear": 1, "control": 1, "doubt": 0},
+        {"fear": 2, "control": 0, "doubt": 2},
+        {"fear": 2, "control": 0, "doubt": 0},
+        {"fear": 1, "control": 1, "doubt": 1}
       ]
     },
     {
@@ -3401,6 +3419,12 @@
         "fear",
         "identity",
         "loneliness"
+      ],
+      "pill_weights": [
+        {"fear": 1, "identity": 2, "loneliness": 0},
+        {"fear": 2, "identity": 1, "loneliness": 2},
+        {"fear": 1, "identity": 1, "loneliness": 1},
+        {"fear": 2, "identity": 1, "loneliness": 1}
       ]
     },
     {
@@ -3417,6 +3441,12 @@
         "fear",
         "freedom",
         "discipline"
+      ],
+      "pill_weights": [
+        {"fear": 1, "freedom": 2, "discipline": 2},
+        {"fear": 2, "freedom": 0, "discipline": 0},
+        {"fear": 1, "freedom": 1, "discipline": 1},
+        {"fear": 2, "freedom": 0, "discipline": 0}
       ]
     },
     {
@@ -3433,6 +3463,12 @@
         "fear",
         "identity",
         "doubt"
+      ],
+      "pill_weights": [
+        {"fear": 1, "identity": 1, "doubt": 0},
+        {"fear": 2, "identity": 1, "doubt": 2},
+        {"fear": 1, "identity": 2, "doubt": 1},
+        {"fear": 2, "identity": 0, "doubt": 1}
       ]
     },
     {
@@ -3449,6 +3485,12 @@
         "fear",
         "discipline",
         "doubt"
+      ],
+      "pill_weights": [
+        {"fear": 1, "discipline": 2, "doubt": 0},
+        {"fear": 2, "discipline": 0, "doubt": 2},
+        {"fear": 1, "discipline": 1, "doubt": 1},
+        {"fear": 2, "discipline": 0, "doubt": 2}
       ]
     },
     {
@@ -3465,6 +3507,12 @@
         "fear",
         "identity",
         "doubt"
+      ],
+      "pill_weights": [
+        {"fear": 1, "identity": 1, "doubt": 0},
+        {"fear": 2, "identity": 1, "doubt": 1},
+        {"fear": 1, "identity": 1, "doubt": 0},
+        {"fear": 2, "identity": 2, "doubt": 1}
       ]
     },
     {
@@ -3481,6 +3529,12 @@
         "fear",
         "control",
         "doubt"
+      ],
+      "pill_weights": [
+        {"fear": 1, "control": 0, "doubt": 0},
+        {"fear": 2, "control": 2, "doubt": 1},
+        {"fear": 2, "control": 1, "doubt": 0},
+        {"fear": 1, "control": 1, "doubt": 2}
       ]
     },
     {
@@ -3497,6 +3551,12 @@
         "fear",
         "desire",
         "dilemma"
+      ],
+      "pill_weights": [
+        {"fear": 0, "desire": 2, "dilemma": 1},
+        {"fear": 2, "desire": 0, "dilemma": 1},
+        {"fear": 1, "desire": 1, "dilemma": 2},
+        {"fear": 2, "desire": 1, "dilemma": 2}
       ]
     },
     {
@@ -3513,6 +3573,12 @@
         "fear",
         "doubt",
         "control"
+      ],
+      "pill_weights": [
+        {"fear": 1, "doubt": 0, "control": 1},
+        {"fear": 2, "doubt": 1, "control": 1},
+        {"fear": 1, "doubt": 2, "control": 1},
+        {"fear": 2, "doubt": 0, "control": 2}
       ]
     },
     {
@@ -3529,6 +3595,12 @@
         "fear",
         "freedom",
         "control"
+      ],
+      "pill_weights": [
+        {"fear": 1, "freedom": 2, "control": 2},
+        {"fear": 2, "freedom": 0, "control": 0},
+        {"fear": 2, "freedom": 1, "control": 0},
+        {"fear": 2, "freedom": 0, "control": 0}
       ]
     },
     {
@@ -3545,6 +3617,12 @@
         "fear",
         "identity",
         "freedom"
+      ],
+      "pill_weights": [
+        {"fear": 1, "identity": 2, "freedom": 2},
+        {"fear": 2, "identity": 1, "freedom": 0},
+        {"fear": 1, "identity": 1, "freedom": 1},
+        {"fear": 2, "identity": 1, "freedom": 0}
       ]
     },
     {
@@ -3561,6 +3639,12 @@
         "fear",
         "control",
         "freedom"
+      ],
+      "pill_weights": [
+        {"fear": 1, "control": 0, "freedom": 2},
+        {"fear": 2, "control": 2, "freedom": 0},
+        {"fear": 1, "control": 1, "freedom": 1},
+        {"fear": 2, "control": 1, "freedom": 0}
       ]
     },
     {
@@ -3577,6 +3661,12 @@
         "fear",
         "desire",
         "dilemma"
+      ],
+      "pill_weights": [
+        {"fear": 1, "desire": 2, "dilemma": 1},
+        {"fear": 2, "desire": 0, "dilemma": 0},
+        {"fear": 1, "desire": 1, "dilemma": 2},
+        {"fear": 2, "desire": 1, "dilemma": 2}
       ]
     },
     {
@@ -3593,6 +3683,12 @@
         "control",
         "fear",
         "discipline"
+      ],
+      "pill_weights": [
+        {"control": 1, "fear": 1, "discipline": 1},
+        {"control": 2, "fear": 2, "discipline": 1},
+        {"control": 1, "fear": 1, "discipline": 2},
+        {"control": 2, "fear": 2, "discipline": 0}
       ]
     },
     {
@@ -3609,6 +3705,12 @@
         "fear",
         "identity",
         "control"
+      ],
+      "pill_weights": [
+        {"fear": 1, "identity": 2, "control": 0},
+        {"fear": 2, "identity": 1, "control": 2},
+        {"fear": 1, "identity": 1, "control": 1},
+        {"fear": 2, "identity": 1, "control": 1}
       ]
     },
     {
@@ -3625,6 +3727,12 @@
         "fear",
         "freedom",
         "discipline"
+      ],
+      "pill_weights": [
+        {"fear": 1, "freedom": 2, "discipline": 2},
+        {"fear": 2, "freedom": 0, "discipline": 0},
+        {"fear": 1, "freedom": 1, "discipline": 1},
+        {"fear": 2, "freedom": 0, "discipline": 0}
       ]
     },
     {
@@ -3641,6 +3749,12 @@
         "fear",
         "control",
         "freedom"
+      ],
+      "pill_weights": [
+        {"fear": 1, "control": 1, "freedom": 2},
+        {"fear": 2, "control": 0, "freedom": 0},
+        {"fear": 1, "control": 1, "freedom": 1},
+        {"fear": 2, "control": 1, "freedom": 0}
       ]
     },
     {
@@ -3657,6 +3771,12 @@
         "fear",
         "desire",
         "control"
+      ],
+      "pill_weights": [
+        {"fear": 1, "desire": 2, "control": 0},
+        {"fear": 2, "desire": 1, "control": 2},
+        {"fear": 2, "desire": 0, "control": 2},
+        {"fear": 1, "desire": 1, "control": 1}
       ]
     },
     {
@@ -3673,6 +3793,12 @@
         "fear",
         "envy",
         "doubt"
+      ],
+      "pill_weights": [
+        {"fear": 0, "envy": 1, "doubt": 0},
+        {"fear": 2, "envy": 1, "doubt": 2},
+        {"fear": 2, "envy": 0, "doubt": 1},
+        {"fear": 1, "envy": 1, "doubt": 1}
       ]
     },
     {
@@ -3689,6 +3815,12 @@
         "fear",
         "desire",
         "doubt"
+      ],
+      "pill_weights": [
+        {"fear": 1, "desire": 2, "doubt": 0},
+        {"fear": 2, "desire": 0, "doubt": 1},
+        {"fear": 1, "desire": 1, "doubt": 2},
+        {"fear": 2, "desire": 0, "doubt": 1}
       ]
     },
     {
@@ -3705,6 +3837,12 @@
         "fear",
         "desire",
         "doubt"
+      ],
+      "pill_weights": [
+        {"fear": 1, "desire": 2, "doubt": 0},
+        {"fear": 2, "desire": 1, "doubt": 1},
+        {"fear": 1, "desire": 1, "doubt": 2},
+        {"fear": 2, "desire": 0, "doubt": 2}
       ]
     },
     {
@@ -3721,6 +3859,12 @@
         "fear",
         "freedom",
         "resentment"
+      ],
+      "pill_weights": [
+        {"fear": 1, "freedom": 2, "resentment": 0},
+        {"fear": 2, "freedom": 0, "resentment": 0},
+        {"fear": 1, "freedom": 1, "resentment": 0},
+        {"fear": 2, "freedom": 0, "resentment": 2}
       ]
     },
     {
@@ -3737,6 +3881,12 @@
         "fear",
         "freedom",
         "control"
+      ],
+      "pill_weights": [
+        {"fear": 1, "freedom": 1, "control": 1},
+        {"fear": 2, "freedom": 0, "control": 2},
+        {"fear": 1, "freedom": 1, "control": 1},
+        {"fear": 2, "freedom": 1, "control": 0}
       ]
     },
     {
@@ -3753,6 +3903,12 @@
         "fear",
         "desire",
         "doubt"
+      ],
+      "pill_weights": [
+        {"fear": 1, "desire": 2, "doubt": 0},
+        {"fear": 2, "desire": 1, "doubt": 0},
+        {"fear": 2, "desire": 2, "doubt": 1},
+        {"fear": 1, "desire": 1, "doubt": 2}
       ]
     },
     {
@@ -3769,6 +3925,12 @@
         "fear",
         "identity",
         "control"
+      ],
+      "pill_weights": [
+        {"fear": 1, "identity": 1, "control": 0},
+        {"fear": 2, "identity": 1, "control": 2},
+        {"fear": 1, "identity": 1, "control": 1},
+        {"fear": 1, "identity": 0, "control": 2}
       ]
     },
     {
@@ -3785,6 +3947,12 @@
         "fear",
         "doubt",
         "discipline"
+      ],
+      "pill_weights": [
+        {"fear": 1, "doubt": 0, "discipline": 2},
+        {"fear": 2, "doubt": 2, "discipline": 0},
+        {"fear": 1, "doubt": 1, "discipline": 2},
+        {"fear": 2, "doubt": 2, "discipline": 0}
       ]
     },
     {
@@ -3801,6 +3969,12 @@
         "fear",
         "freedom",
         "dilemma"
+      ],
+      "pill_weights": [
+        {"fear": 1, "freedom": 2, "dilemma": 0},
+        {"fear": 2, "freedom": 1, "dilemma": 1},
+        {"fear": 1, "freedom": 1, "dilemma": 2},
+        {"fear": 2, "freedom": 0, "dilemma": 1}
       ]
     },
     {
@@ -3839,6 +4013,12 @@
         "meaning",
         "desire",
         "doubt"
+      ],
+      "pill_weights": [
+        {"meaning": 2, "desire": 1, "doubt": 1},
+        {"meaning": 0, "desire": 2, "doubt": 0},
+        {"meaning": 0, "desire": 0, "doubt": 1},
+        {"meaning": 2, "desire": 0, "doubt": 2}
       ]
     },
     {
@@ -3855,6 +4035,12 @@
         "meaning",
         "identity",
         "freedom"
+      ],
+      "pill_weights": [
+        {"meaning": 2, "identity": 2, "freedom": 1},
+        {"meaning": 1, "identity": 0, "freedom": 0},
+        {"meaning": 1, "identity": 1, "freedom": 0},
+        {"meaning": 2, "identity": 1, "freedom": 2}
       ]
     },
     {
@@ -3871,6 +4057,12 @@
         "meaning",
         "doubt",
         "death"
+      ],
+      "pill_weights": [
+        {"meaning": 2, "doubt": 1, "death": 1},
+        {"meaning": 1, "doubt": 2, "death": 1},
+        {"meaning": 0, "doubt": 1, "death": 0},
+        {"meaning": 2, "doubt": 1, "death": 1}
       ]
     },
     {
@@ -3887,6 +4079,12 @@
         "meaning",
         "desire",
         "freedom"
+      ],
+      "pill_weights": [
+        {"meaning": 2, "desire": 0, "freedom": 1},
+        {"meaning": 0, "desire": 2, "freedom": 0},
+        {"meaning": 1, "desire": 1, "freedom": 1},
+        {"meaning": 2, "desire": 1, "freedom": 1}
       ]
     },
     {
@@ -3903,6 +4101,12 @@
         "meaning",
         "identity",
         "doubt"
+      ],
+      "pill_weights": [
+        {"meaning": 2, "identity": 1, "doubt": 1},
+        {"meaning": 0, "identity": 1, "doubt": 1},
+        {"meaning": 1, "identity": 1, "doubt": 2},
+        {"meaning": 1, "identity": 2, "doubt": 1}
       ]
     },
     {
@@ -3919,6 +4123,12 @@
         "meaning",
         "identity",
         "duty"
+      ],
+      "pill_weights": [
+        {"meaning": 2, "identity": 0, "duty": 0},
+        {"meaning": 2, "identity": 2, "duty": 0},
+        {"meaning": 2, "identity": 1, "duty": 0},
+        {"meaning": 2, "identity": 0, "duty": 2}
       ]
     },
     {
@@ -3935,6 +4145,12 @@
         "meaning",
         "identity",
         "grief"
+      ],
+      "pill_weights": [
+        {"meaning": 2, "identity": 1, "grief": 0},
+        {"meaning": 0, "identity": 0, "grief": 1},
+        {"meaning": 1, "identity": 1, "grief": 2},
+        {"meaning": 1, "identity": 2, "grief": 1}
       ]
     },
     {
@@ -3951,6 +4167,12 @@
         "meaning",
         "desire",
         "death"
+      ],
+      "pill_weights": [
+        {"meaning": 1, "desire": 0, "death": 1},
+        {"meaning": 1, "desire": 2, "death": 2},
+        {"meaning": 1, "desire": 1, "death": 1},
+        {"meaning": 2, "desire": 0, "death": 0}
       ]
     },
     {
@@ -3967,6 +4189,12 @@
         "meaning",
         "desire",
         "doubt"
+      ],
+      "pill_weights": [
+        {"meaning": 2, "desire": 2, "doubt": 0},
+        {"meaning": 0, "desire": 0, "doubt": 1},
+        {"meaning": 1, "desire": 1, "doubt": 2},
+        {"meaning": 1, "desire": 1, "doubt": 2}
       ]
     },
     {
@@ -3983,6 +4211,12 @@
         "meaning",
         "grief",
         "doubt"
+      ],
+      "pill_weights": [
+        {"meaning": 2, "grief": 1, "doubt": 0},
+        {"meaning": 0, "grief": 2, "doubt": 1},
+        {"meaning": 1, "grief": 1, "doubt": 2},
+        {"meaning": 1, "grief": 1, "doubt": 0}
       ]
     },
     {
@@ -3999,6 +4233,12 @@
         "meaning",
         "freedom",
         "identity"
+      ],
+      "pill_weights": [
+        {"meaning": 2, "freedom": 2, "identity": 1},
+        {"meaning": 0, "freedom": 0, "identity": 1},
+        {"meaning": 1, "freedom": 1, "identity": 1},
+        {"meaning": 1, "freedom": 1, "identity": 2}
       ]
     },
     {
@@ -4015,6 +4255,12 @@
         "meaning",
         "desire",
         "death"
+      ],
+      "pill_weights": [
+        {"meaning": 1, "desire": 2, "death": 0},
+        {"meaning": 0, "desire": 0, "death": 0},
+        {"meaning": 2, "desire": 0, "death": 1},
+        {"meaning": 1, "desire": 1, "death": 2}
       ]
     },
     {
@@ -4031,6 +4277,12 @@
         "meaning",
         "freedom",
         "discipline"
+      ],
+      "pill_weights": [
+        {"meaning": 2, "freedom": 1, "discipline": 1},
+        {"meaning": 0, "freedom": 0, "discipline": 2},
+        {"meaning": 1, "freedom": 0, "discipline": 1},
+        {"meaning": 1, "freedom": 2, "discipline": 0}
       ]
     },
     {
@@ -4047,6 +4299,12 @@
         "meaning",
         "death",
         "desire"
+      ],
+      "pill_weights": [
+        {"meaning": 2, "death": 1, "desire": 1},
+        {"meaning": 1, "death": 2, "desire": 0},
+        {"meaning": 1, "death": 1, "desire": 1},
+        {"meaning": 2, "death": 2, "desire": 2}
       ]
     },
     {
@@ -4063,6 +4321,12 @@
         "meaning",
         "fear",
         "freedom"
+      ],
+      "pill_weights": [
+        {"meaning": 1, "fear": 0, "freedom": 2},
+        {"meaning": 1, "fear": 2, "freedom": 0},
+        {"meaning": 0, "fear": 1, "freedom": 0},
+        {"meaning": 2, "fear": 1, "freedom": 1}
       ]
     },
     {
@@ -4079,6 +4343,12 @@
         "meaning",
         "fear",
         "dilemma"
+      ],
+      "pill_weights": [
+        {"meaning": 2, "fear": 0, "dilemma": 1},
+        {"meaning": 0, "fear": 2, "dilemma": 1},
+        {"meaning": 1, "fear": 1, "dilemma": 2},
+        {"meaning": 1, "fear": 1, "dilemma": 2}
       ]
     },
     {
@@ -4095,6 +4365,12 @@
         "meaning",
         "identity",
         "discipline"
+      ],
+      "pill_weights": [
+        {"meaning": 2, "identity": 0, "discipline": 0},
+        {"meaning": 2, "identity": 1, "discipline": 1},
+        {"meaning": 2, "identity": 1, "discipline": 0},
+        {"meaning": 1, "identity": 1, "discipline": 2}
       ]
     },
     {
@@ -4111,6 +4387,12 @@
         "meaning",
         "grief",
         "doubt"
+      ],
+      "pill_weights": [
+        {"meaning": 2, "grief": 1, "doubt": 0},
+        {"meaning": 1, "grief": 2, "doubt": 1},
+        {"meaning": 1, "grief": 0, "doubt": 1},
+        {"meaning": 2, "grief": 1, "doubt": 2}
       ]
     },
     {
@@ -4127,6 +4409,12 @@
         "meaning",
         "control",
         "doubt"
+      ],
+      "pill_weights": [
+        {"meaning": 2, "control": 1, "doubt": 1},
+        {"meaning": 0, "control": 2, "doubt": 0},
+        {"meaning": 1, "control": 1, "doubt": 1},
+        {"meaning": 0, "control": 1, "doubt": 1}
       ]
     },
     {
@@ -4143,6 +4431,12 @@
         "meaning",
         "duty",
         "freedom"
+      ],
+      "pill_weights": [
+        {"meaning": 2, "duty": 2, "freedom": 0},
+        {"meaning": 1, "duty": 0, "freedom": 2},
+        {"meaning": 1, "duty": 1, "freedom": 1},
+        {"meaning": 1, "duty": 1, "freedom": 1}
       ]
     },
     {
@@ -4159,6 +4453,12 @@
         "meaning",
         "identity",
         "duty"
+      ],
+      "pill_weights": [
+        {"meaning": 2, "identity": 2, "duty": 0},
+        {"meaning": 2, "identity": 0, "duty": 2},
+        {"meaning": 2, "identity": 1, "duty": 1},
+        {"meaning": 1, "identity": 1, "duty": 0}
       ]
     },
     {
@@ -4175,6 +4475,12 @@
         "meaning",
         "control",
         "doubt"
+      ],
+      "pill_weights": [
+        {"meaning": 2, "control": 1, "doubt": 0},
+        {"meaning": 0, "control": 0, "doubt": 1},
+        {"meaning": 1, "control": 2, "doubt": 1},
+        {"meaning": 1, "control": 1, "doubt": 0}
       ]
     },
     {
@@ -4191,6 +4497,12 @@
         "meaning",
         "discipline",
         "dilemma"
+      ],
+      "pill_weights": [
+        {"meaning": 2, "discipline": 2, "dilemma": 1},
+        {"meaning": 0, "discipline": 0, "dilemma": 1},
+        {"meaning": 1, "discipline": 1, "dilemma": 2},
+        {"meaning": 0, "discipline": 0, "dilemma": 2}
       ]
     },
     {
@@ -4207,6 +4519,12 @@
         "meaning",
         "identity",
         "freedom"
+      ],
+      "pill_weights": [
+        {"meaning": 2, "identity": 2, "freedom": 2},
+        {"meaning": 0, "identity": 1, "freedom": 0},
+        {"meaning": 1, "identity": 1, "freedom": 1},
+        {"meaning": 1, "identity": 1, "freedom": 1}
       ]
     },
     {
@@ -4223,6 +4541,12 @@
         "meaning",
         "desire",
         "dilemma"
+      ],
+      "pill_weights": [
+        {"meaning": 2, "desire": 0, "dilemma": 1},
+        {"meaning": 0, "desire": 2, "dilemma": 1},
+        {"meaning": 1, "desire": 1, "dilemma": 2},
+        {"meaning": 1, "desire": 1, "dilemma": 2}
       ]
     },
     {
@@ -4239,6 +4563,12 @@
         "meaning",
         "fear",
         "freedom"
+      ],
+      "pill_weights": [
+        {"meaning": 2, "fear": 0, "freedom": 2},
+        {"meaning": 0, "fear": 2, "freedom": 0},
+        {"meaning": 1, "fear": 1, "freedom": 1},
+        {"meaning": 1, "fear": 1, "freedom": 1}
       ]
     },
     {
@@ -4255,6 +4585,12 @@
         "meaning",
         "identity",
         "fear"
+      ],
+      "pill_weights": [
+        {"meaning": 2, "identity": 1, "fear": 0},
+        {"meaning": 1, "identity": 1, "fear": 1},
+        {"meaning": 1, "identity": 1, "fear": 2},
+        {"meaning": 2, "identity": 2, "fear": 1}
       ]
     },
     {
@@ -4271,6 +4607,12 @@
         "meaning",
         "death",
         "identity"
+      ],
+      "pill_weights": [
+        {"meaning": 2, "death": 2, "identity": 1},
+        {"meaning": 1, "death": 1, "identity": 1},
+        {"meaning": 2, "death": 1, "identity": 1},
+        {"meaning": 0, "death": 2, "identity": 0}
       ]
     },
     {
@@ -4287,6 +4629,12 @@
         "meaning",
         "death",
         "identity"
+      ],
+      "pill_weights": [
+        {"meaning": 2, "death": 1, "identity": 1},
+        {"meaning": 2, "death": 1, "identity": 2},
+        {"meaning": 2, "death": 1, "identity": 2},
+        {"meaning": 2, "death": 1, "identity": 1}
       ]
     },
     {
@@ -4325,6 +4673,12 @@
         "identity",
         "freedom",
         "doubt"
+      ],
+      "pill_weights": [
+        {"identity": 2, "freedom": 2, "doubt": 0},
+        {"identity": 1, "freedom": 0, "doubt": 1},
+        {"identity": 1, "freedom": 1, "doubt": 0},
+        {"identity": 2, "freedom": 1, "doubt": 2}
       ]
     },
     {
@@ -4341,6 +4695,12 @@
         "identity",
         "resentment",
         "freedom"
+      ],
+      "pill_weights": [
+        {"identity": 1, "resentment": 1, "freedom": 1},
+        {"identity": 0, "resentment": 0, "freedom": 0},
+        {"identity": 1, "resentment": 2, "freedom": 1},
+        {"identity": 1, "resentment": 2, "freedom": 0}
       ]
     },
     {
@@ -4357,6 +4717,12 @@
         "identity",
         "loneliness",
         "doubt"
+      ],
+      "pill_weights": [
+        {"identity": 2, "loneliness": 0, "doubt": 0},
+        {"identity": 1, "loneliness": 0, "doubt": 0},
+        {"identity": 1, "loneliness": 1, "doubt": 1},
+        {"identity": 2, "loneliness": 2, "doubt": 2}
       ]
     },
     {
@@ -4373,6 +4739,12 @@
         "identity",
         "guilt",
         "discipline"
+      ],
+      "pill_weights": [
+        {"identity": 1, "guilt": 1, "discipline": 2},
+        {"identity": 1, "guilt": 1, "discipline": 0},
+        {"identity": 2, "guilt": 2, "discipline": 0},
+        {"identity": 1, "guilt": 1, "discipline": 0}
       ]
     },
     {
@@ -4389,6 +4761,12 @@
         "identity",
         "doubt",
         "power"
+      ],
+      "pill_weights": [
+        {"identity": 1, "doubt": 1, "power": 1},
+        {"identity": 1, "doubt": 1, "power": 0},
+        {"identity": 1, "doubt": 1, "power": 2},
+        {"identity": 2, "doubt": 2, "power": 0}
       ]
     },
     {
@@ -4405,6 +4783,12 @@
         "identity",
         "fear",
         "freedom"
+      ],
+      "pill_weights": [
+        {"identity": 2, "fear": 0, "freedom": 2},
+        {"identity": 2, "fear": 1, "freedom": 0},
+        {"identity": 2, "fear": 1, "freedom": 1},
+        {"identity": 2, "fear": 2, "freedom": 0}
       ]
     },
     {
@@ -4421,6 +4805,12 @@
         "identity",
         "doubt",
         "control"
+      ],
+      "pill_weights": [
+        {"identity": 1, "doubt": 1, "control": 0},
+        {"identity": 2, "doubt": 0, "control": 2},
+        {"identity": 2, "doubt": 2, "control": 0},
+        {"identity": 1, "doubt": 1, "control": 1}
       ]
     },
     {
@@ -4437,6 +4827,12 @@
         "identity",
         "freedom",
         "resentment"
+      ],
+      "pill_weights": [
+        {"identity": 2, "freedom": 2, "resentment": 0},
+        {"identity": 1, "freedom": 0, "resentment": 0},
+        {"identity": 1, "freedom": 1, "resentment": 2},
+        {"identity": 1, "freedom": 1, "resentment": 0}
       ]
     },
     {
@@ -4453,6 +4849,12 @@
         "identity",
         "meaning",
         "freedom"
+      ],
+      "pill_weights": [
+        {"identity": 2, "meaning": 2, "freedom": 1},
+        {"identity": 2, "meaning": 2, "freedom": 0},
+        {"identity": 2, "meaning": 1, "freedom": 0},
+        {"identity": 2, "meaning": 1, "freedom": 2}
       ]
     },
     {
@@ -4469,6 +4871,12 @@
         "identity",
         "fear",
         "loneliness"
+      ],
+      "pill_weights": [
+        {"identity": 2, "fear": 1, "loneliness": 0},
+        {"identity": 1, "fear": 2, "loneliness": 2},
+        {"identity": 1, "fear": 1, "loneliness": 1},
+        {"identity": 2, "fear": 1, "loneliness": 2}
       ]
     },
     {
@@ -4485,6 +4893,12 @@
         "identity",
         "doubt",
         "meaning"
+      ],
+      "pill_weights": [
+        {"identity": 2, "doubt": 0, "meaning": 1},
+        {"identity": 1, "doubt": 1, "meaning": 0},
+        {"identity": 2, "doubt": 1, "meaning": 2},
+        {"identity": 2, "doubt": 2, "meaning": 0}
       ]
     },
     {
@@ -4501,6 +4915,12 @@
         "identity",
         "freedom",
         "loneliness"
+      ],
+      "pill_weights": [
+        {"identity": 1, "freedom": 1, "loneliness": 0},
+        {"identity": 2, "freedom": 2, "loneliness": 1},
+        {"identity": 1, "freedom": 1, "loneliness": 1},
+        {"identity": 2, "freedom": 0, "loneliness": 2}
       ]
     },
     {
@@ -4517,6 +4937,12 @@
         "identity",
         "loneliness",
         "fear"
+      ],
+      "pill_weights": [
+        {"identity": 1, "loneliness": 1, "fear": 1},
+        {"identity": 1, "loneliness": 1, "fear": 2},
+        {"identity": 1, "loneliness": 2, "fear": 1},
+        {"identity": 1, "loneliness": 1, "fear": 2}
       ]
     },
     {
@@ -4533,6 +4959,12 @@
         "identity",
         "power",
         "loneliness"
+      ],
+      "pill_weights": [
+        {"identity": 2, "power": 1, "loneliness": 0},
+        {"identity": 1, "power": 2, "loneliness": 0},
+        {"identity": 1, "power": 0, "loneliness": 2},
+        {"identity": 2, "power": 1, "loneliness": 1}
       ]
     },
     {
@@ -4549,6 +4981,12 @@
         "identity",
         "doubt",
         "freedom"
+      ],
+      "pill_weights": [
+        {"identity": 2, "doubt": 1, "freedom": 2},
+        {"identity": 1, "doubt": 1, "freedom": 0},
+        {"identity": 1, "doubt": 2, "freedom": 1},
+        {"identity": 1, "doubt": 2, "freedom": 0}
       ]
     },
     {
@@ -4565,6 +5003,12 @@
         "identity",
         "grief",
         "fear"
+      ],
+      "pill_weights": [
+        {"identity": 2, "grief": 1, "fear": 0},
+        {"identity": 1, "grief": 1, "fear": 2},
+        {"identity": 1, "grief": 2, "fear": 0},
+        {"identity": 2, "grief": 0, "fear": 0}
       ]
     },
     {
@@ -4581,6 +5025,12 @@
         "identity",
         "duty",
         "freedom"
+      ],
+      "pill_weights": [
+        {"identity": 2, "duty": 0, "freedom": 2},
+        {"identity": 1, "duty": 2, "freedom": 0},
+        {"identity": 1, "duty": 1, "freedom": 1},
+        {"identity": 1, "duty": 1, "freedom": 1}
       ]
     },
     {
@@ -4597,6 +5047,12 @@
         "identity",
         "loneliness",
         "fear"
+      ],
+      "pill_weights": [
+        {"identity": 2, "loneliness": 0, "fear": 1},
+        {"identity": 1, "loneliness": 1, "fear": 2},
+        {"identity": 1, "loneliness": 2, "fear": 1},
+        {"identity": 1, "loneliness": 1, "fear": 2}
       ]
     },
     {
@@ -4613,6 +5069,12 @@
         "identity",
         "doubt",
         "control"
+      ],
+      "pill_weights": [
+        {"identity": 2, "doubt": 1, "control": 0},
+        {"identity": 1, "doubt": 1, "control": 2},
+        {"identity": 1, "doubt": 1, "control": 1},
+        {"identity": 1, "doubt": 2, "control": 1}
       ]
     },
     {
@@ -4629,6 +5091,12 @@
         "identity",
         "fear",
         "freedom"
+      ],
+      "pill_weights": [
+        {"identity": 2, "fear": 1, "freedom": 2},
+        {"identity": 1, "fear": 2, "freedom": 0},
+        {"identity": 1, "fear": 1, "freedom": 1},
+        {"identity": 1, "fear": 2, "freedom": 0}
       ]
     },
     {
@@ -4645,6 +5113,12 @@
         "identity",
         "freedom",
         "meaning"
+      ],
+      "pill_weights": [
+        {"identity": 2, "freedom": 1, "meaning": 1},
+        {"identity": 1, "freedom": 0, "meaning": 1},
+        {"identity": 1, "freedom": 0, "meaning": 2},
+        {"identity": 1, "freedom": 1, "meaning": 1}
       ]
     },
     {
@@ -4661,6 +5135,12 @@
         "identity",
         "doubt",
         "meaning"
+      ],
+      "pill_weights": [
+        {"identity": 1, "doubt": 0, "meaning": 1},
+        {"identity": 1, "doubt": 2, "meaning": 1},
+        {"identity": 1, "doubt": 1, "meaning": 1},
+        {"identity": 2, "doubt": 1, "meaning": 1}
       ]
     },
     {
@@ -4677,6 +5157,12 @@
         "identity",
         "fear",
         "loneliness"
+      ],
+      "pill_weights": [
+        {"identity": 2, "fear": 1, "loneliness": 0},
+        {"identity": 1, "fear": 1, "loneliness": 2},
+        {"identity": 1, "fear": 1, "loneliness": 1},
+        {"identity": 1, "fear": 2, "loneliness": 2}
       ]
     },
     {
@@ -4693,6 +5179,12 @@
         "identity",
         "freedom",
         "control"
+      ],
+      "pill_weights": [
+        {"identity": 2, "freedom": 2, "control": 0},
+        {"identity": 2, "freedom": 0, "control": 0},
+        {"identity": 1, "freedom": 1, "control": 2},
+        {"identity": 1, "freedom": 1, "control": 1}
       ]
     },
     {
@@ -4709,6 +5201,12 @@
         "identity",
         "doubt",
         "fear"
+      ],
+      "pill_weights": [
+        {"identity": 2, "doubt": 0, "fear": 0},
+        {"identity": 1, "doubt": 1, "fear": 2},
+        {"identity": 1, "doubt": 1, "fear": 1},
+        {"identity": 1, "doubt": 1, "fear": 2}
       ]
     },
     {
@@ -4725,6 +5223,12 @@
         "identity",
         "freedom",
         "fear"
+      ],
+      "pill_weights": [
+        {"identity": 2, "freedom": 2, "fear": 0},
+        {"identity": 1, "freedom": 0, "fear": 2},
+        {"identity": 1, "freedom": 1, "fear": 1},
+        {"identity": 1, "freedom": 1, "fear": 1}
       ]
     },
     {
@@ -4741,6 +5245,12 @@
         "identity",
         "freedom",
         "guilt"
+      ],
+      "pill_weights": [
+        {"identity": 2, "freedom": 2, "guilt": 0},
+        {"identity": 1, "freedom": 0, "guilt": 1},
+        {"identity": 1, "freedom": 1, "guilt": 2},
+        {"identity": 1, "freedom": 1, "guilt": 1}
       ]
     },
     {
@@ -4757,6 +5267,12 @@
         "identity",
         "desire",
         "freedom"
+      ],
+      "pill_weights": [
+        {"identity": 1, "desire": 0, "freedom": 2},
+        {"identity": 1, "desire": 2, "freedom": 0},
+        {"identity": 2, "desire": 1, "freedom": 1},
+        {"identity": 2, "desire": 1, "freedom": 0}
       ]
     },
     {
@@ -4773,6 +5289,12 @@
         "identity",
         "fear",
         "loneliness"
+      ],
+      "pill_weights": [
+        {"identity": 1, "fear": 1, "loneliness": 2},
+        {"identity": 1, "fear": 2, "loneliness": 0},
+        {"identity": 1, "fear": 1, "loneliness": 1},
+        {"identity": 2, "fear": 1, "loneliness": 0}
       ]
     },
     {
@@ -4833,6 +5355,12 @@
         "power",
         "dilemma",
         "control"
+      ],
+      "pill_weights": [
+        {"power": 2, "dilemma": 1, "control": 1},
+        {"power": 0, "dilemma": 1, "control": 1},
+        {"power": 1, "dilemma": 2, "control": 1},
+        {"power": 1, "dilemma": 1, "control": 2}
       ]
     },
     {
@@ -4849,6 +5377,12 @@
         "power",
         "control",
         "resentment"
+      ],
+      "pill_weights": [
+        {"power": 2, "control": 2, "resentment": 0},
+        {"power": 0, "control": 0, "resentment": 1},
+        {"power": 2, "control": 1, "resentment": 2},
+        {"power": 0, "control": 1, "resentment": 2}
       ]
     },
     {
@@ -4865,6 +5399,12 @@
         "fear",
         "control",
         "power"
+      ],
+      "pill_weights": [
+        {"fear": 1, "control": 1, "power": 1},
+        {"fear": 2, "control": 0, "power": 0},
+        {"fear": 2, "control": 0, "power": 0},
+        {"fear": 2, "control": 2, "power": 1}
       ]
     },
     {
@@ -4881,6 +5421,12 @@
         "power",
         "dilemma",
         "resentment"
+      ],
+      "pill_weights": [
+        {"power": 2, "dilemma": 1, "resentment": 0},
+        {"power": 0, "dilemma": 1, "resentment": 1},
+        {"power": 1, "dilemma": 2, "resentment": 0},
+        {"power": 1, "dilemma": 1, "resentment": 2}
       ]
     },
     {
@@ -4897,6 +5443,12 @@
         "resentment",
         "power",
         "dilemma"
+      ],
+      "pill_weights": [
+        {"resentment": 1, "power": 1, "dilemma": 1},
+        {"resentment": 0, "power": 0, "dilemma": 1},
+        {"resentment": 2, "power": 1, "dilemma": 0},
+        {"resentment": 1, "power": 0, "dilemma": 1}
       ]
     },
     {
@@ -4913,6 +5465,12 @@
         "guilt",
         "power",
         "duty"
+      ],
+      "pill_weights": [
+        {"guilt": 1, "power": 0, "duty": 2},
+        {"guilt": 0, "power": 2, "duty": 0},
+        {"guilt": 2, "power": 0, "duty": 0},
+        {"guilt": 1, "power": 1, "duty": 0}
       ]
     },
     {
@@ -4929,6 +5487,12 @@
         "power",
         "resentment",
         "control"
+      ],
+      "pill_weights": [
+        {"power": 2, "resentment": 1, "control": 1},
+        {"power": 0, "resentment": 0, "control": 1},
+        {"power": 1, "resentment": 1, "control": 2},
+        {"power": 0, "resentment": 2, "control": 0}
       ]
     },
     {
@@ -4945,6 +5509,12 @@
         "power",
         "control",
         "resentment"
+      ],
+      "pill_weights": [
+        {"power": 2, "control": 1, "resentment": 0},
+        {"power": 0, "control": 0, "resentment": 0},
+        {"power": 0, "control": 1, "resentment": 2},
+        {"power": 2, "control": 2, "resentment": 1}
       ]
     },
     {
@@ -4961,6 +5531,12 @@
         "fear",
         "control",
         "duty"
+      ],
+      "pill_weights": [
+        {"fear": 1, "control": 1, "duty": 2},
+        {"fear": 2, "control": 0, "duty": 0},
+        {"fear": 2, "control": 2, "duty": 1},
+        {"fear": 2, "control": 0, "duty": 0}
       ]
     },
     {
@@ -4977,6 +5553,12 @@
         "power",
         "freedom",
         "dilemma"
+      ],
+      "pill_weights": [
+        {"power": 2, "freedom": 2, "dilemma": 1},
+        {"power": 0, "freedom": 0, "dilemma": 1},
+        {"power": 1, "freedom": 1, "dilemma": 2},
+        {"power": 0, "freedom": 0, "dilemma": 1}
       ]
     },
     {
@@ -4993,6 +5575,12 @@
         "resentment",
         "control",
         "doubt"
+      ],
+      "pill_weights": [
+        {"resentment": 0, "control": 0, "doubt": 0},
+        {"resentment": 1, "control": 2, "doubt": 1},
+        {"resentment": 2, "control": 0, "doubt": 0},
+        {"resentment": 1, "control": 2, "doubt": 1}
       ]
     },
     {
@@ -5009,6 +5597,12 @@
         "power",
         "resentment",
         "control"
+      ],
+      "pill_weights": [
+        {"power": 1, "resentment": 0, "control": 2},
+        {"power": 2, "resentment": 2, "control": 0},
+        {"power": 0, "resentment": 0, "control": 0},
+        {"power": 2, "resentment": 1, "control": 1}
       ]
     },
     {
@@ -5025,6 +5619,12 @@
         "resentment",
         "duty",
         "dilemma"
+      ],
+      "pill_weights": [
+        {"resentment": 0, "duty": 1, "dilemma": 1},
+        {"resentment": 2, "duty": 0, "dilemma": 0},
+        {"resentment": 1, "duty": 1, "dilemma": 2},
+        {"resentment": 2, "duty": 0, "dilemma": 1}
       ]
     },
     {
@@ -5041,6 +5641,12 @@
         "power",
         "guilt",
         "freedom"
+      ],
+      "pill_weights": [
+        {"power": 2, "guilt": 1, "freedom": 2},
+        {"power": 0, "guilt": 2, "freedom": 0},
+        {"power": 1, "guilt": 1, "freedom": 1},
+        {"power": 1, "guilt": 2, "freedom": 1}
       ]
     },
     {
@@ -5057,6 +5663,12 @@
         "resentment",
         "control",
         "duty"
+      ],
+      "pill_weights": [
+        {"resentment": 1, "control": 1, "duty": 1},
+        {"resentment": 2, "control": 0, "duty": 0},
+        {"resentment": 1, "control": 2, "duty": 0},
+        {"resentment": 2, "control": 1, "duty": 0}
       ]
     },
     {
@@ -5073,6 +5685,12 @@
         "power",
         "resentment",
         "control"
+      ],
+      "pill_weights": [
+        {"power": 2, "resentment": 1, "control": 1},
+        {"power": 0, "resentment": 2, "control": 0},
+        {"power": 1, "resentment": 1, "control": 2},
+        {"power": 1, "resentment": 1, "control": 2}
       ]
     },
     {
@@ -5089,6 +5707,12 @@
         "control",
         "fear",
         "freedom"
+      ],
+      "pill_weights": [
+        {"control": 2, "fear": 2, "freedom": 0},
+        {"control": 0, "fear": 0, "freedom": 2},
+        {"control": 1, "fear": 1, "freedom": 1},
+        {"control": 1, "fear": 2, "freedom": 0}
       ]
     },
     {
@@ -5105,6 +5729,12 @@
         "power",
         "dilemma",
         "resentment"
+      ],
+      "pill_weights": [
+        {"power": 0, "dilemma": 1, "resentment": 0},
+        {"power": 2, "dilemma": 0, "resentment": 0},
+        {"power": 1, "dilemma": 2, "resentment": 0},
+        {"power": 1, "dilemma": 1, "resentment": 2}
       ]
     },
     {
@@ -5121,6 +5751,12 @@
         "resentment",
         "control",
         "power"
+      ],
+      "pill_weights": [
+        {"resentment": 0, "control": 1, "power": 0},
+        {"resentment": 2, "control": 1, "power": 1},
+        {"resentment": 2, "control": 0, "power": 0},
+        {"resentment": 1, "control": 2, "power": 2}
       ]
     },
     {
@@ -5137,6 +5773,12 @@
         "power",
         "freedom",
         "resentment"
+      ],
+      "pill_weights": [
+        {"power": 2, "freedom": 2, "resentment": 0},
+        {"power": 0, "freedom": 0, "resentment": 0},
+        {"power": 1, "freedom": 1, "resentment": 0},
+        {"power": 0, "freedom": 0, "resentment": 2}
       ]
     },
     {
@@ -5153,6 +5795,12 @@
         "resentment",
         "power",
         "control"
+      ],
+      "pill_weights": [
+        {"resentment": 1, "power": 0, "control": 2},
+        {"resentment": 2, "power": 2, "control": 1},
+        {"resentment": 2, "power": 0, "control": 1},
+        {"resentment": 1, "power": 2, "control": 1}
       ]
     },
     {
@@ -5169,6 +5817,12 @@
         "power",
         "resentment",
         "control"
+      ],
+      "pill_weights": [
+        {"power": 1, "resentment": 0, "control": 2},
+        {"power": 2, "resentment": 2, "control": 0},
+        {"power": 0, "resentment": 1, "control": 1},
+        {"power": 1, "resentment": 1, "control": 2}
       ]
     },
     {
@@ -5185,6 +5839,12 @@
         "fear",
         "duty",
         "control"
+      ],
+      "pill_weights": [
+        {"fear": 1, "duty": 2, "control": 1},
+        {"fear": 2, "duty": 0, "control": 0},
+        {"fear": 2, "duty": 1, "control": 2},
+        {"fear": 2, "duty": 0, "control": 2}
       ]
     },
     {
@@ -5201,6 +5861,12 @@
         "power",
         "duty",
         "control"
+      ],
+      "pill_weights": [
+        {"power": 1, "duty": 2, "control": 1},
+        {"power": 2, "duty": 0, "control": 2},
+        {"power": 0, "duty": 1, "control": 0},
+        {"power": 1, "duty": 1, "control": 0}
       ]
     },
     {
@@ -5217,6 +5883,12 @@
         "power",
         "identity",
         "freedom"
+      ],
+      "pill_weights": [
+        {"power": 2, "identity": 2, "freedom": 2},
+        {"power": 0, "identity": 1, "freedom": 0},
+        {"power": 1, "identity": 1, "freedom": 1},
+        {"power": 1, "identity": 1, "freedom": 1}
       ]
     },
     {
@@ -5233,6 +5905,12 @@
         "resentment",
         "duty",
         "dilemma"
+      ],
+      "pill_weights": [
+        {"resentment": 0, "duty": 1, "dilemma": 1},
+        {"resentment": 1, "duty": 0, "dilemma": 1},
+        {"resentment": 1, "duty": 0, "dilemma": 1},
+        {"resentment": 1, "duty": 0, "dilemma": 0}
       ]
     },
     {
@@ -5249,6 +5927,12 @@
         "power",
         "freedom",
         "dilemma"
+      ],
+      "pill_weights": [
+        {"power": 2, "freedom": 2, "dilemma": 1},
+        {"power": 0, "freedom": 0, "dilemma": 1},
+        {"power": 1, "freedom": 1, "dilemma": 2},
+        {"power": 1, "freedom": 1, "dilemma": 2}
       ]
     },
     {
@@ -5265,6 +5949,12 @@
         "power",
         "fear",
         "dilemma"
+      ],
+      "pill_weights": [
+        {"power": 2, "fear": 1, "dilemma": 1},
+        {"power": 0, "fear": 2, "dilemma": 1},
+        {"power": 1, "fear": 1, "dilemma": 2},
+        {"power": 0, "fear": 2, "dilemma": 2}
       ]
     },
     {
