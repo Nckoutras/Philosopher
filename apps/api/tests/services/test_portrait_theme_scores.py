@@ -110,8 +110,8 @@ def test_a_single_answer_change_is_visible_on_a_minimal_answer_set():
 # ── (c) Fallback equivalence for unweighted questions ────────────────────────
 
 def test_an_unweighted_question_contributes_its_legacy_per_tag_count(tmp_path, monkeypatch):
-    """The 345 unauthored questions must keep contributing exactly what they do
-    today: weight 1 per theme_tag, the same for every pill, on BOTH sides of the
+    """An unweighted question must contribute weight 1 per theme_tag, the same for
+    every pill, on BOTH sides of the
     ratio. Equal numerator and achievable per axis ⇒ share 1.0 on every axis the
     question touches, and identical whichever pill was chosen.
 

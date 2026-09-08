@@ -43,6 +43,16 @@ logger.error(..., exc_info=True) into an event carrying its stack trace. Those
 22 sites are therefore covered with no code change, and test_observability.py
 pins that reliance so an SDK upgrade cannot quietly remove it.
 
+THE COUNT IS THE OUTPUT OF THIS COMMAND, run from apps/api/:
+
+    grep -h "exc_info=True" workers/{arq_worker,cron,letter_dispatch}.py | grep -vc "^[[:space:]]*#"
+
+22 at #587, 22 at #611, 22 today. The second grep matters: two COMMENTS mention
+exc_info=True while describing this mechanism, and counting them turns 22 into 24.
+This is NOT the task-plus-cron-job figure above (12 + 9 = 21) — a different
+quantity, since one handler can carry more than one logged branch. Re-measure with
+the command, not with a plausible reading of this sentence.
+
 NO TRACING. traces_sample_rate=0 — this is error monitoring, not the
 performance product. It also means no spans exist for an LLM integration to
 attach prompt data to.
