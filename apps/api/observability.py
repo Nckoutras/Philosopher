@@ -34,7 +34,8 @@ mechanisms below enforce it because `send_default_pii=False` alone does NOT:
 
   4. before_send + before_breadcrumb, below. The net, not the fix.
 
-WHY LOGGING IS THE MECHANISM. Every ARQ task (13) and cron job (8) catches its
+WHY LOGGING IS THE MECHANISM. Every ARQ task (12) and cron job (7 — five
+APScheduler, two ARQ since the letter dispatch moved) catches its
 own Exception and logs rather than re-raising, so ArqIntegration — which only
 sees exceptions that ESCAPE a task — would report nothing at all. What does
 report them is the default LoggingIntegration: event_level=ERROR turns every
@@ -187,8 +188,8 @@ def init_sentry() -> bool:
 
     A no-op when SENTRY_DSN is unset, which is the case for local development
     and CI — same convention as analytics_service and the POSTHOG_API_KEY gate.
-    Called from BOTH entrypoints: main.py (the API, which also runs the eight
-    APScheduler cron jobs in-process) and workers/arq_worker.py (a separate
+    Called from BOTH entrypoints: main.py (the API, which also runs the five
+    remaining APScheduler cron jobs in-process) and workers/arq_worker.py (a separate
     process that never imports main).
     """
     if not config.SENTRY_DSN:
