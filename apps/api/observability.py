@@ -34,8 +34,8 @@ mechanisms below enforce it because `send_default_pii=False` alone does NOT:
 
   4. before_send + before_breadcrumb, below. The net, not the fix.
 
-WHY LOGGING IS THE MECHANISM. Every ARQ task (12) and cron job (7 — five
-APScheduler, two ARQ since the letter dispatch moved) catches its
+WHY LOGGING IS THE MECHANISM. Every ARQ task (12) and cron job (9 — five
+APScheduler, four ARQ since the letter dispatch and its catch-up moved) catches its
 own Exception and logs rather than re-raising, so ArqIntegration — which only
 sees exceptions that ESCAPE a task — would report nothing at all. What does
 report them is the default LoggingIntegration: event_level=ERROR turns every
