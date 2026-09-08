@@ -2,9 +2,12 @@
 
 import { useEffect, useState } from 'react'
 import Image from 'next/image'
+import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
+import { track } from '@/lib/analytics'
 import { api, type Persona, type Conversation } from '@/lib/api'
 import BottomSheet from '@/components/ui/BottomSheet'
+import { isPersonaLockedError, lockedPersonaUpgradeHref } from '@/lib/personaLock'
 
 interface Props {
   open: boolean
@@ -27,6 +30,7 @@ export default function PersonaPickerSheet({
   onCreated,
   onSelect,
 }: Props) {
+  const router = useRouter()
   const [personas, setPersonas] = useState<Persona[] | null>(null)
   const [loadingSlug, setLoadingSlug] = useState<string | null>(null)
   const [error, setError] = useState(false)
@@ -45,8 +49,23 @@ export default function PersonaPickerSheet({
     }
   }, [open])
 
-  async function handleSelect(slug: string) {
+  async function handleSelect(persona: Persona) {
     if (loadingSlug) return
+    const slug = persona.slug
+
+    // A locked mind is a conversion moment, not an error. Gate on `is_accessible`
+    // — the server's entitlement answer — and NOT on `tier !== 'free'`, which is
+    // only the badge: a Pro subscriber has is_accessible true on a Pro mind and
+    // must open it normally. Routing before the API call also means the free user
+    // never waits on a request that exists to refuse them. Same destination and
+    // same event as AnotherMindSheet, which had this wired already.
+    if (!persona.is_accessible) {
+      track('upgrade_clicked', { surface: 'persona_locked', reason: 'persona_locked' })
+      onClose()
+      router.push(lockedPersonaUpgradeHref(slug))
+      return
+    }
+
     if (onSelect) {
       onSelect(slug)
       onClose()
@@ -69,6 +88,14 @@ export default function PersonaPickerSheet({
       }
       onCreated!(conv.id)
     } catch (err) {
+      // Fallback for a race: the list said accessible, the server disagreed (tier
+      // changed under a loaded sheet). Still the paywall, never a toast quoting the
+      // refusal — which is where the raw slug came from.
+      if (isPersonaLockedError(err)) {
+        track('upgrade_clicked', { surface: 'persona_locked', reason: 'persona_locked' })
+        router.push(lockedPersonaUpgradeHref(slug))
+        return
+      }
       toast.error('Could not open conversation. Try again.')
       // eslint-disable-next-line no-console
       console.error('persona picker create failed:', err)
@@ -105,7 +132,7 @@ export default function PersonaPickerSheet({
             <button
               key={p.slug}
               type="button"
-              onClick={() => handleSelect(p.slug)}
+              onClick={() => handleSelect(p)}
               disabled={loadingSlug !== null}
               className="w-full text-left p-3 rounded-md border-[0.5px] border-edge bg-linen
                          flex items-center gap-3 transition-colors active:bg-linen-deep
