@@ -10,7 +10,8 @@ persona immersion instead of the grounded crisis mode §10.3 mandates. Greeklish
 
 THREE THINGS MAKE GREEK WORK, and they are separable on purpose:
 
-  1. _normalize(), below. casefold + NFD + drop combining marks + final sigma.
+  1. _normalize(), from text_utils. casefold + NFD + drop combining marks and
+     final sigma.
      Greek is written with accents that users routinely omit — `θέλω` and
      `θελω` are the same word to a reader and different strings to Python — and
      `.lower()` does not touch them. Without this, a lexicon would catch only
@@ -44,9 +45,9 @@ lexicon over an LLM classifier here.
 from dataclasses import dataclass, field
 from typing import Optional
 import logging
-import unicodedata
 
 from constants import RISK_LEVELS
+from text_utils import normalize
 from config import config
 from services.safety_lexicons import (
     ALL_BANDS,
@@ -62,22 +63,11 @@ logger = logging.getLogger(__name__)
 
 # ── Normalisation ─────────────────────────────────────────────────────────────
 
-def _normalize(text: str) -> str:
-    """Fold away the differences a reader does not see.
-
-    casefold() rather than lower(): it is the aggressive form, and it already
-    maps final sigma to sigma. NFD then splits accented characters into base +
-    combining mark so the marks can be dropped — this is what makes `θέλω` and
-    `θελω` the same string. The explicit ς→σ at the end is redundant after
-    casefold and kept deliberately: it states the intent where a reader looks
-    for it, and it survives a future change to casefold's behaviour.
-
-    Latin text is unaffected in practice — the English lexicon entries are all
-    equal to their own normalised form, which the assertion below proves.
-    """
-    folded = unicodedata.normalize("NFD", text.casefold())
-    stripped = "".join(c for c in folded if not unicodedata.combining(c))
-    return stripped.replace("ς", "σ")
+# Moved to text_utils (TD-60) so postprocessing's voice checks fold Greek the
+# same way these gates do. Imported under the same name, so every call site and
+# the import-time assertion below are unchanged. ONE definition, deliberately:
+# two copies of a safety normaliser is the drift CLAUDE.md's failure log is about.
+_normalize = normalize
 
 
 def _assert_lexicons_are_prenormalised() -> None:
