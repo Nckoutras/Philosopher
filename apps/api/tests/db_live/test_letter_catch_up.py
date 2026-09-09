@@ -135,6 +135,21 @@ class CommittedRows:
         await self._session.commit()
         self._seeded.append((job_name, run_key))
 
+    def track(self, run_key: str, *, job_name: str = ld.JOB_WEEKLY) -> None:
+        """Register a key for cleanup WITHOUT writing anything.
+
+        For the one test whose row is committed by the CODE UNDER TEST rather
+        than seeded here: _open_job_run calls db.commit(), and the `db` fixture
+        rolls back a transaction that no longer owns the row. Something has to
+        delete it, and seeding it first would defeat the test — the whole point
+        is that the insert does NOT collide.
+
+        Call this BEFORE the code under test runs, so the row is removed even if
+        an assertion after it fails. Deleting a key that was never written is a
+        no-op, so registering early costs nothing.
+        """
+        self._seeded.append((job_name, run_key))
+
     async def fetch(self, run_key: str, *, job_name: str = ld.JOB_WEEKLY):
         await self._session.rollback()
         return (await self._session.execute(
@@ -316,8 +331,27 @@ async def test_the_live_path_does_not_reclaim_a_failed_run(db, committed):
 
 
 @pytest.mark.asyncio
-async def test_opening_a_fresh_period_still_inserts_normally(db):
-    """The reclaim path must not have broken the ordinary case."""
+async def test_opening_a_fresh_period_still_inserts_normally(db, committed):
+    """The reclaim path must not have broken the ordinary case.
+
+    THIS TEST COMMITS, AND MUST CLEAN UP AFTER ITSELF (TD-64). It is the only
+    _open_job_run call in this file that does NOT collide, so it is the only one
+    whose db.commit() actually inserts — and a committed row outlives the `db`
+    fixture's rollback. On CI that is invisible, because each run gets a fresh
+    Postgres container. On any PERSISTENT database the row is permanent, and the
+    second run would hit uq_job_run_name_key, take the IntegrityError path and
+    reclaim the leftover row instead of inserting. The assertions below would
+    still pass — status "running", finished_at NULL are true of a reclaimed row
+    too — so the test would go on reporting green while exercising the RECLAIM
+    branch under a name that says "inserts normally". That is worse than a
+    failure: a test that quietly stops testing what it claims.
+
+    `committed.track` registers the key before the insert rather than seeding
+    it, because seeding would create the very collision this test exists to
+    avoid. The fixture's cleanup() then deletes it in a finally.
+    """
+    committed.track("2026-W40")
+
     run = await ld._open_job_run(db, ld.JOB_WEEKLY, "2026-W40", reclaim=True)
 
     assert run is not None
