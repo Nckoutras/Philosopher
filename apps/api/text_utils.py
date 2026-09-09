@@ -3,6 +3,55 @@
 Kept at the API root with zero app imports so both the DTO layer (schemas) and
 the image renderer can import it without creating an import cycle.
 """
+import unicodedata
+
+
+def normalize_with_map(text: str) -> tuple[str, list[int]]:
+    """Normalise, and report where every output character came from.
+
+    Returns (normalised_text, index_map) where index_map[i] is the index in
+    `text` of the character that produced normalised_text[i].
+
+    THE MAP IS WHY THIS EXISTS. Normalisation changes length — NFD splits one
+    accented character into two and the combining mark is then dropped, and
+    casefold can turn one character into two ('ß' -> 'ss'). So a span found in
+    the normalised text cannot be applied to the original by arithmetic. Any
+    caller that MATCHES on normalised text but must EDIT the original needs
+    this map; see postprocessing_service._deterministic_strip, which would
+    otherwise have to return de-accented text to the reader.
+
+    Per-character rather than whole-string so the mapping is exact. A test
+    pins that it agrees with normalize() on the whole safety lexicon.
+    """
+    out: list[str] = []
+    index_map: list[int] = []
+    for i, ch in enumerate(text):
+        for c in unicodedata.normalize("NFD", ch.casefold()):
+            if unicodedata.combining(c):
+                continue
+            out.append("σ" if c == "ς" else c)
+            index_map.append(i)
+    return "".join(out), index_map
+
+
+def normalize(text: str) -> str:
+    """Fold away the differences a reader does not see.
+
+    casefold() rather than lower(): it is the aggressive form, and it already
+    maps final sigma to sigma. NFD then splits accented characters into base +
+    combining mark so the marks can be dropped — this is what makes `θέλω` and
+    `θελω` the same string. The explicit ς→σ is redundant after casefold and
+    kept deliberately: it states the intent where a reader looks for it, and it
+    survives a future change to casefold's behaviour.
+
+    Latin text is unaffected in practice — the English lexicon entries are all
+    equal to their own normalised form, which safety_service's import-time
+    assertion proves.
+
+    Defined in terms of normalize_with_map so the two can never disagree: one
+    algorithm, two views of its output.
+    """
+    return normalize_with_map(text)[0]
 
 
 def shorten_source(s: str, cap: int = 35) -> str:

@@ -1,4 +1,4 @@
-"""Section 5.7 post-generation quality checks.
+r"""Section 5.7 post-generation quality checks.
 
 Runs on every assistant reply AFTER the LLM stream completes,
 BEFORE the buffered text is yielded to the client. Three checks:
@@ -8,6 +8,32 @@ On hit: regenerate up to 3 times. On persistent failure:
 deterministic strip + log + send.
 
 Feature flag: POSTPROCESSING_ENABLED env var (default true).
+
+GREEK, AND THE ONE ASYMMETRY IN HOW IT IS HANDLED (TD-60).
+
+Matching folds the REPLY through text_utils.normalize — casefold, NFD, drop
+combining marks, final sigma — because `.lower()` does not touch Greek accents
+and these checks would otherwise be blind to a Greek reply entirely. The safety
+gates were taught this in #589; these were not, and were the last English-only
+matcher in the reply path.
+
+PHRASES ARE NORMALISED. PATTERNS ARE NOT — and that asymmetry is deliberate,
+because casefold lowercases regex metacharacters and hex escapes. Measured
+against the shipped lexicon, normalising the pattern STRING would break four:
+
+  pattern                            normalised            effect
+  ---------------------------------  --------------------  --------------------
+  [\U0001F300-\U0001F9FF]|...        [\u0001f300-...]      emoji detection dies:
+                                                           \U (8-digit) becomes
+                                                           \u (4) + literal f300
+  ^#{1,6}\s+\S                       ^#{1,6}\s+\s          meaning INVERTS
+  [:;]-?[\)\(D/\\PpO]                [\)\(d/\\ppo]         :D :P :O stop matching
+  <3|...|T_T|;_;                     ...|t_t|;_;           survives only because
+                                                           IGNORECASE is kept
+
+Applying an English pattern to a normalised reply is safe — zero of the 32
+shipped patterns contain Greek — and it is what lets a Greek pattern work when
+one is added. Normalising the pattern itself is never safe.
 """
 from __future__ import annotations
 
@@ -22,6 +48,7 @@ from pathlib import Path
 from typing import Optional
 
 from personas._base import PersonaConfig
+from text_utils import normalize, normalize_with_map
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +84,69 @@ def _load_universal_forbidden() -> dict:
 
 
 _UNIVERSAL_FORBIDDEN = _load_universal_forbidden()
+
+
+def _phrase_index(categories: dict) -> list[tuple[str, str, str, str]]:
+    """(category, phrase, NORMALISED phrase, reason), built once.
+
+    Normalising 123 phrases on every reply would be waste; normalising them
+    here means the per-reply cost is one pass over the reply itself.
+
+    THE SOURCE LEXICON IS NOT REQUIRED TO BE PRE-NORMALISED, and deliberately
+    is not. 57 of its 123 phrases carry capitals that are correct and
+    load-bearing — `Instagram`, `TikTok`, `Match.com` are brand names a reader
+    must be able to recognise. This differs from the safety lexicons, whose
+    Greek entries ARE authored pre-normalised (#589) so that a contributor's
+    stray accent cannot ship a silently dead entry. Here the fold happens on
+    the way in, and the assertion below is on the DERIVED form.
+    """
+    out: list[tuple[str, str, str, str]] = []
+    for name, data in (categories or {}).items():
+        reason = data.get("description", "")
+        for phrase in data.get("phrases", []):
+            out.append((name, phrase, normalize(phrase), reason))
+    return out
+
+
+_UNIVERSAL_PHRASES = _phrase_index(_UNIVERSAL_FORBIDDEN.get("categories", {}))
+
+# Fail loudly on a derived form that cannot match. Idempotence is the real
+# check: normalize(normalize(x)) != normalize(x) would mean the reply and the
+# phrase are folded to different depths and a phrase could never fire.
+for _cat, _raw, _norm, _reason in _UNIVERSAL_PHRASES:
+    if not _norm or normalize(_norm) != _norm:
+        raise ValueError(
+            f"universal_forbidden_lexicon: {_cat}/{_raw!r} normalises to "
+            f"{_norm!r}, which is empty or not idempotent — it could never "
+            f"match a reply."
+        )
+# Non-empty only when the JSON actually loaded: _load_universal_forbidden
+# degrades to {} on a missing or malformed file BY DESIGN (postprocessing then
+# becomes a no-op rather than taking the app down), and this must not undo that.
+if _UNIVERSAL_FORBIDDEN.get("categories") and not _UNIVERSAL_PHRASES:
+    raise ValueError(
+        "universal_forbidden_lexicon loaded categories but produced no phrases"
+    )
+
+
+def _persona_phrase_index(persona: PersonaConfig, lex) -> list[tuple[str, str, str, str]]:
+    """Same fold as _phrase_index, computed PER CALL and deliberately not cached.
+
+    A persona's lexicon is an attribute of a mutable config object, and tests
+    swap it in place to exercise the populated path. A cache keyed on the slug
+    would answer from the previous lexicon and the check would silently score
+    the wrong phrases — the cache is invisible, so the failure looks like the
+    matcher being wrong. One persona is in play per reply and the largest
+    lexicon here is 40 phrases, so the fold costs nothing worth that risk.
+
+    The universal lexicon IS cached at import because it is module-level JSON
+    that nothing can replace at runtime.
+    """
+    return [
+        ("persona_specific", p, normalize(p),
+         f"persona-specific forbidden phrase ({persona.slug})")
+        for p in (lex.phrases or [])
+    ]
 
 
 # Feature flag (read once at import time, not per-request)
@@ -105,34 +195,37 @@ def check_universal_forbidden(reply: str) -> CheckResult:
     """Scan reply against universal forbidden lexicon.
 
     Loads from philosopher_brain/maps/universal_forbidden_lexicon.json
-    (cached at import). Checks both `phrases` (case-insensitive substring)
-    and `patterns` (regex) per category.
+    (cached at import). Checks both `phrases` (normalised substring) and
+    `patterns` (regex) per category.
+
+    MATCHES ON THE NORMALISED REPLY (TD-60). `.lower()` does not touch Greek
+    accents, so before this a Greek reply could not trip the voice checks at
+    all — the safety gates were fixed for Greek in #589 and these were not.
 
     Returns CheckResult with action=REGENERATE if any hit, else PASS.
     """
     hits: list[CheckHit] = []
-    reply_lower = reply.lower()
+    norm_reply = normalize(reply)
     categories = _UNIVERSAL_FORBIDDEN.get("categories", {})
 
-    for category_name, category_data in categories.items():
-        # Phrases: case-insensitive substring match
-        for phrase in category_data.get("phrases", []):
-            if phrase.lower() in reply_lower:
-                hits.append(CheckHit(
-                    category=category_name,
-                    matched_text=phrase,
-                    pattern=phrase,
-                    reason=category_data.get("description", ""),
-                ))
+    # Phrases: normalised substring, folded once at import.
+    for category_name, phrase, norm_phrase, reason in _UNIVERSAL_PHRASES:
+        if norm_phrase in norm_reply:
+            hits.append(CheckHit(
+                category=category_name,
+                matched_text=phrase,
+                pattern=phrase,
+                reason=reason,
+            ))
 
+    for category_name, category_data in categories.items():
         # Patterns: regex match
         for pattern_obj in category_data.get("patterns", []):
             regex_str = pattern_obj.get("regex", "")
             if not regex_str:
                 continue
             try:
-                # Use IGNORECASE for consistency with phrase matching
-                match = re.search(regex_str, reply, flags=re.IGNORECASE)
+                match = re.search(regex_str, norm_reply, flags=re.IGNORECASE)
             except re.error as e:
                 logger.warning(
                     f"Invalid regex in universal forbidden category "
@@ -242,16 +335,16 @@ def check_persona_forbidden(reply: str, persona: PersonaConfig) -> CheckResult:
         )
 
     hits: list[CheckHit] = []
-    reply_lower = reply.lower()
+    norm_reply = normalize(reply)
 
-    # Phrases (case-insensitive substring)
-    for phrase in lex.phrases or []:
-        if phrase.lower() in reply_lower:
+    # Phrases: normalised substring (TD-60) — see check_universal_forbidden.
+    for category, phrase, norm_phrase, reason in _persona_phrase_index(persona, lex):
+        if norm_phrase in norm_reply:
             hits.append(CheckHit(
-                category="persona_specific",
+                category=category,
                 matched_text=phrase,
                 pattern=phrase,
-                reason=f"persona-specific forbidden phrase ({persona.slug})",
+                reason=reason,
             ))
 
     # Patterns (regex with reason metadata)
@@ -261,7 +354,7 @@ def check_persona_forbidden(reply: str, persona: PersonaConfig) -> CheckResult:
         if not regex_str:
             continue
         try:
-            match = re.search(regex_str, reply, flags=re.IGNORECASE)
+            match = re.search(regex_str, norm_reply, flags=re.IGNORECASE)
         except re.error as e:
             logger.warning(
                 f"Invalid regex in persona '{persona.slug}' forbidden lexicon: "
@@ -474,6 +567,23 @@ def _deterministic_strip(reply: str, results: list[CheckResult]) -> str:
     because mechanical regex stripping is unsafe (could cut sentences
     in half). If a pattern hits after 3 regens, we send the reply with
     a logged warning rather than mangling it.
+
+    STRIPS WHAT WAS FOUND, NOT WHAT WAS LISTED (TD-60). The check matches on a
+    NORMALISED reply, so the text present may be an accented or differently
+    cased form of the lexicon entry. `re.sub(re.escape(entry), ...)` with
+    IGNORECASE cannot see that — IGNORECASE folds case, never accents — so a
+    Greek hit would be detected and then not removed: the reply ships with the
+    forbidden phrase in it and the log claims it was stripped.
+
+    So the span is located in the normalised text and mapped back through
+    normalize_with_map to the characters of the RAW reply. Normalising the
+    reply and stripping from that would be simpler and is wrong: this string
+    is returned to the reader, and `Ο Σωκράτης` would reach them as
+    `ο σωκρατησ`.
+
+    Re-located per occurrence rather than from a span stored on the hit,
+    because every removal shifts the text after it — a stored span is correct
+    only until the first strip.
     """
     stripped = reply
     for r in results:
@@ -481,10 +591,19 @@ def _deterministic_strip(reply: str, results: list[CheckResult]) -> str:
             continue
         for h in r.hits:
             if h.matched_text and h.pattern == h.matched_text:
-                # This was a phrase hit (pattern == matched_text)
-                # Use case-insensitive replace
-                pat = re.escape(h.matched_text)
-                stripped = re.sub(pat, "", stripped, flags=re.IGNORECASE)
+                # A phrase hit (pattern == matched_text). Remove every
+                # occurrence, re-normalising after each because the text moved.
+                needle = normalize(h.matched_text)
+                if not needle:
+                    continue
+                while True:
+                    norm_text, index_map = normalize_with_map(stripped)
+                    pos = norm_text.find(needle)
+                    if pos == -1:
+                        break
+                    start = index_map[pos]
+                    end = index_map[pos + len(needle) - 1] + 1
+                    stripped = stripped[:start] + stripped[end:]
     # Collapse double spaces created by stripping
     stripped = re.sub(r"\s{2,}", " ", stripped).strip()
     # Brevity trim — handles regen3-still-over-length case
