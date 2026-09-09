@@ -1,10 +1,12 @@
 {
   "_meta": {
     "version": "1.0.0",
-    "last_reviewed": "2026-04-27",
+    "last_reviewed": "2026-09-09",
     "purpose": "Universal forbidden lexicon — applies to ALL personas regardless of register. Checked in post-processing. A hit triggers regeneration with a directive to remove the offending phrase.",
     "reference_spec_section": "5.6.9",
-    "enforcement": "Post-processing regex / string match against generated reply. On hit: regenerate (max 3 attempts). On persistent failure: deterministic strip + log."
+    "enforcement": "Post-processing regex / string match against generated reply. On hit: regenerate (max 3 attempts). On persistent failure: deterministic strip + log.",
+    "_review": "Greek entries added 2026-09-09; names and titles deliberately excluded — see _rule",
+    "_rule": "bare proper names and work titles are NOT forbidden (the check is unconditional; §5.7.6 gates them on the user asking) — only self-reference phrasings and method explanations"
   },
 
   "categories": {
@@ -24,7 +26,31 @@
         "I'm a chatbot",
         "I'm an artificial",
         "based on my training",
-        "I don't have personal experiences"
+        "I don't have personal experiences",
+        "ως τεχνητή νοημοσύνη",
+        "σαν τεχνητή νοημοσύνη",
+        "ως μοντέλο γλώσσας",
+        "σαν μοντέλο γλώσσας",
+        "ως γλωσσικό μοντέλο",
+        "σαν γλωσσικό μοντέλο",
+        "είμαι ένα γλωσσικό μοντέλο",
+        "είμαι γλωσσικό μοντέλο",
+        "είμαι τεχνητή νοημοσύνη",
+        "είμαι μια τεχνητή νοημοσύνη",
+        "είμαι AI",
+        "είμαι ένα πρόγραμμα",
+        "είμαι πρόγραμμα",
+        "είμαι ένα chatbot",
+        "είμαι chatbot",
+        "είμαι τσατμποτ",
+        "δεν έχω συναισθήματα",
+        "δεν μπορώ να νιώσω πραγματικά",
+        "δεν μπορώ να αισθανθώ πραγματικά",
+        "δεν έχω προσωπικές εμπειρίες",
+        "δεν έχω προσωπική εμπειρία",
+        "τα δεδομένα εκπαίδευσής μου",
+        "με βάση την εκπαίδευσή μου",
+        "εκπαιδεύτηκα σε δεδομένα"
       ],
       "patterns": [
         {
@@ -173,7 +199,23 @@
         "gaslighting",
         "trauma dumping",
         "weaponized incompetence",
-        "boundaries"
+        "boundaries",
+        "στυλ προσκόλλησης",
+        "αγχώδης προσκόλληση",
+        "αποφευκτική προσκόλληση",
+        "ασφαλής προσκόλληση",
+        "τραυματική αντίδραση",
+        "τραυματικός δεσμός",
+        "δεσμός τραύματος",
+        "συναισθηματική ρύθμιση",
+        "συνεξάρτηση",
+        "ναρκισσιστική κακοποίηση",
+        "να βάλεις όρια",
+        "βάλε όρια",
+        "υγιή όρια",
+        "θέσε όρια",
+        "ενεργοποιεί το τραύμα σου",
+        "να επεξεργαστείς το τραύμα"
       ],
       "patterns": [
         {
@@ -227,7 +269,21 @@
         "just be yourself",
         "be the best version of yourself",
         "your authentic self",
-        "find your why"
+        "find your why",
+        "εμπιστεύσου τη διαδικασία",
+        "όλα γίνονται για κάποιο λόγο",
+        "το σύμπαν συνωμοτεί",
+        "ζήσε την αλήθεια σου",
+        "μίλα την αλήθεια σου",
+        "κυνήγα τα όνειρά σου",
+        "ζήσε την καλύτερη ζωή σου",
+        "μόνο θετική ενέργεια",
+        "θετικές δονήσεις",
+        "η καλύτερη εκδοχή του εαυτού σου",
+        "απλά να είσαι ο εαυτός σου",
+        "σκέψου θετικά",
+        "πίστεψε στον εαυτό σου",
+        "βγες από τη ζώνη άνεσής σου"
       ]
     },
 
@@ -255,6 +311,17 @@
 
     "throat_clearing_openers": {
       "description": "Filler at the start of a reply that adds nothing. The persona begins with substance.",
+      "phrases": [
+        "είναι ενδιαφέρον που αναφέρεις",
+        "ενδιαφέρουσα ερώτηση",
+        "πολύ καλή ερώτηση",
+        "ωραία ερώτηση",
+        "σε ευχαριστώ που μοιράστηκες",
+        "σε ευχαριστώ που το μοιράζεσαι",
+        "ευχαριστώ που μοιράζεσαι",
+        "ευχαριστώ που το μοιράστηκες",
+        "χαίρομαι που ρωτάς"
+      ],
       "patterns": [
         {
           "regex": "^(That's|That is) (a |an )?(great|good|interesting|profound|fascinating|important|excellent) (question|point|observation)",
@@ -281,6 +348,11 @@
 
     "summary_of_user": {
       "description": "Restating what the user just said before responding. The user knows what they said.",
+      "phrases": [
+        "αυτό που λες είναι ότι",
+        "με άλλα λόγια, λες ότι",
+        "απ' ό,τι καταλαβαίνω, νιώθεις"
+      ],
       "patterns": [
         {
           "regex": "^(So |So,) (you|what you're saying|what I'm hearing) (is|are)",
@@ -308,7 +380,18 @@
         "Take care of yourself",
         "Sending you love",
         "Sending you light",
-        "Wishing you well"
+        "Wishing you well",
+        "ελπίζω να βοήθησα",
+        "ελπίζω αυτό να βοηθάει",
+        "είμαι εδώ για σένα",
+        "είμαι εδώ αν με χρειαστείς",
+        "είμαι εδώ αν χρειαστείς",
+        "σου στέλνω αγάπη",
+        "σου στέλνω φως",
+        "σου εύχομαι τα καλύτερα",
+        "μη διστάσεις να μοιραστείς",
+        "καλή συνέχεια",
+        "να είσαι καλά"
       ]
     },
 
@@ -321,7 +404,17 @@
         "please consult a professional",
         "this is not medical advice",
         "this is not therapy",
-        "please consult with a qualified"
+        "please consult with a qualified",
+        "δεν είμαι ψυχολόγος",
+        "δεν είμαι θεραπευτής",
+        "δεν είμαι θεραπεύτρια",
+        "δεν είμαι γιατρός",
+        "δεν είμαι ειδικός",
+        "δεν είμαι ειδική",
+        "αυτό δεν είναι ιατρική συμβουλή",
+        "δεν αποτελεί ιατρική συμβουλή",
+        "αυτό δεν είναι θεραπεία",
+        "δεν αποτελεί θεραπεία"
       ],
       "note": "These reminders are appropriate when the safety classifier triggers crisis-mode or when the user explicitly asks for clinical guidance. They are NOT to appear in every persona reply as boilerplate."
     },

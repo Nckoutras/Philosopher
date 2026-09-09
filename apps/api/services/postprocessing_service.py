@@ -89,11 +89,11 @@ _UNIVERSAL_FORBIDDEN = _load_universal_forbidden()
 def _phrase_index(categories: dict) -> list[tuple[str, str, str, str]]:
     """(category, phrase, NORMALISED phrase, reason), built once.
 
-    Normalising 123 phrases on every reply would be waste; normalising them
+    Normalising 210 phrases on every reply would be waste; normalising them
     here means the per-reply cost is one pass over the reply itself.
 
     THE SOURCE LEXICON IS NOT REQUIRED TO BE PRE-NORMALISED, and deliberately
-    is not. 57 of its 123 phrases carry capitals that are correct and
+    is not. 58 of its 210 phrases carry capitals that are correct and
     load-bearing — `Instagram`, `TikTok`, `Match.com` are brand names a reader
     must be able to recognise. This differs from the safety lexicons, whose
     Greek entries ARE authored pre-normalised (#589) so that a contributor's
