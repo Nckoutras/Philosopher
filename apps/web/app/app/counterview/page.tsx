@@ -7,15 +7,18 @@ import { MessageCircle, Loader2, Bookmark, BookmarkCheck, Share2, CornerDownLeft
 import { track } from '@/lib/analytics'
 import { useStore } from '@/lib/store'
 import { api, RateLimitError } from '@/lib/api'
+import { fairUseMessage } from '@/lib/fairUseCopy'
+import toast from 'react-hot-toast'
 import type { Counterview, CounterviewListItem } from '@/lib/api'
 import SubPageNav from '@/components/layout/SubPageNav'
 import SharePreviewModal from '@/components/share/SharePreviewModal'
 import AutoGrowTextarea from '@/components/ui/AutoGrowTextarea'
 
-// The Counterview reader (DS v5). Reached from an insight card's "Doubt this":
-// the insight id rides in the query string (?insightId=…). Insight-path only for
-// now — voluntary (typed-belief) input is a later slice. No reveal animation, no
-// save/share/go-deeper yet.
+// The Counterview reader (DS v5). Two ways in: an insight card's "Doubt this",
+// where the insight id rides in the query string (?insightId=…), and the
+// voluntary form, where the user types the belief themselves. Both land on the
+// same reader, which has the staged reveal, save, share, go-deeper and
+// per-persona rebuttal.
 export default function CounterviewPage() {
   const router = useRouter()
   const token = useStore((s) => s.token)
@@ -115,9 +118,19 @@ export default function CounterviewPage() {
     try {
       setCounterview(await api.createCounterview(b))
     } catch (e) {
-      // Free daily cap → show the upgrade wall; other errors fall through to the
-      // neutral "no clear case" state (prior behaviour was .catch(() => null)).
-      if (e instanceof RateLimitError) setLimitResetAt(e.resetAt)
+      // TWO CAPS ARRIVE AS THE SAME 429 and only error_code separates them.
+      // fair_use_limit is the Pro cost cap: that user is already a subscriber, so
+      // the upgrade wall sells them a tier they own and files a false
+      // upgrade_clicked against it. Plain notice instead, in the same approved
+      // words the chat paths use.
+      if (e instanceof RateLimitError && e.errorCode === 'fair_use_limit') {
+        toast(fairUseMessage(e.resetAt))
+      } else if (e instanceof RateLimitError) {
+        // Free daily cap → the upgrade wall, which is the right thing to show a
+        // free user. Other errors fall through to the neutral "no clear case"
+        // state (prior behaviour was .catch(() => null)).
+        setLimitResetAt(e.resetAt)
+      }
     } finally {
       setLoading(false)
     }
