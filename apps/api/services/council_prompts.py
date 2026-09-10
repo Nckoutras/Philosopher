@@ -27,14 +27,19 @@ COUNCIL_DISTILL_PROMPT = (
     "- Just the matter, framed for a panel to weigh. Output only the brief — no preamble."
 )
 
+# THE BRIEF'S LANGUAGE IS COMPUTED, NOT INFERRED — the same doctrine the letter
+# prompts adopted after the 2026-08-24 wrong-language incident (arq_worker.py:176).
+# This prompt is a TEMPLATE: {language} is filled by council_service.display_brief
+# from dominant_language() over the person's OWN turns. Asking the model to infer
+# the language is what produced an Indonesian brief for an English conversation —
+# it reads a transcript that is majority persona output and picks from that.
 COUNCIL_DISPLAY_BRIEF_PROMPT = (
     "You rewrite a person's chat conversation into a short summary of the matter they are\n"
     "bringing before a council — written in THEIR OWN VOICE, as if they are stating it themselves.\n"
     "\n"
     "Write in the FIRST person (\"I'm weighing whether…\", \"Με απασχολεί το…\"), as the person speaking.\n"
-    "Write in the SAME language the person used. If their messages are predominantly Greek, write in\n"
-    "Greek; if predominantly English, write in English. For mixed-language input, follow the DOMINANT\n"
-    "language of the person's own turns. NEVER translate to the other language.\n"
+    "LANGUAGE: Write the summary in {language}. Never write in any other language, and never\n"
+    "translate. {language} governs the whole summary even if the conversation mixes languages.\n"
     "\n"
     "Hard limits:\n"
     "- At most TWO sentences, 50 words or fewer.\n"
