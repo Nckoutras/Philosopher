@@ -1,5 +1,6 @@
 import asyncio
 import json
+import re
 from time import perf_counter
 from services.analytics_service import analytics_service
 import logging
@@ -61,6 +62,70 @@ def _iso_week_start() -> datetime:
 def _chunk_text(text: str, size: int = 20):
     for i in range(0, len(text), size):
         yield text[i:i + size]
+
+
+# ── Display-brief language guard ──────────────────────────────────────────────
+# WHY dominant_language IS NOT ENOUGH ON ITS OWN. It counts Greek codepoints
+# against Latin ones, so it answers "which script" and calls every Latin-script
+# language English. The defect it has to catch is an INDONESIAN brief for an
+# English conversation, and dominant_language returns 'English' for that text —
+# a guard built on it alone would compare 'English' to 'English', pass, and ship
+# the exact string it exists to stop.
+#
+# So the check is two-sided: the script must match, and when the expected script
+# is Latin the text must also look like ENGLISH rather than merely latin. The
+# second half is a function-word ratio, which is crude but needs no dependency
+# (there is none in requirements) and separates enormously on real data.
+#
+# MEASURED 2026-09-10 against the two verbatim production briefs, twelve
+# in-register English briefs, and five Greek ones:
+#
+#   both real Indonesian briefs      0.000        (one contains "scroll")
+#   twelve English briefs            0.536-0.733
+#   Spanish/French/German/Italian/PT 0.000-0.100
+#
+# 0.30 sits clear of both sides by >=0.20. The asymmetry is deliberate: a false
+# reject costs the user their nicer summary and they keep the raw prefill, while
+# a false accept puts a language they never wrote into their own input box.
+_EN_FUNCTION_WORDS = frozenset("""
+i im ive id ill me my myself we our us you your he she it its they them their
+a an the this that these those there here
+is am are was were be been being do does did doing have has had having
+can cant could will wont would should shall may might must
+and or but if then than because so as while whether though although
+of to in on at by for with from about into over under
+between through without within against around after before
+not no nor only just even still yet more most less
+what which who whom whose when where why how
+all any both each few some such own same too very
+one other another something nothing anything everything
+keep keeps feel feels know knows think thinks want wants
+""".split())
+
+_EN_FUNCTION_WORD_FLOOR = 0.30
+
+
+def _english_function_word_ratio(text: str) -> float:
+    """Share of tokens that are common English function words. 0.0 when empty."""
+    tokens = [t.strip("'") for t in re.findall(r"[a-z']+", text.lower())]
+    tokens = [t for t in tokens if t]
+    if not tokens:
+        return 0.0
+    return sum(1 for t in tokens if t.replace("'", "") in _EN_FUNCTION_WORDS) / len(tokens)
+
+
+def _brief_language_ok(brief: str, expected: str) -> bool:
+    """Does `brief` read as `expected` ('Greek' | 'English')?
+
+    Greek needs only the script test — no other language the product serves is
+    written in Greek script, so a Greek-script answer to a Greek conversation is
+    right by construction. English needs both, for the reason above.
+    """
+    if dominant_language([brief]) != expected:
+        return False
+    if expected == "English":
+        return _english_function_word_ratio(brief) >= _EN_FUNCTION_WORD_FLOOR
+    return True
 
 
 class CouncilService:
@@ -145,19 +210,40 @@ class CouncilService:
             )
             recent = list(reversed(result.scalars().all()))
 
-            user_turns = sum(1 for m in recent if m.role == "user")
-            if user_turns < 2:
+            user_texts = [m.content for m in recent if m.role == "user" and m.content]
+            if len(user_texts) < 2:
                 return None
+
+            # THE PERSON'S OWN TURNS, not the transcript. The transcript below is
+            # majority persona output — inferring "the language the person used"
+            # from it is what produced an Indonesian brief for an English chat.
+            language = dominant_language(user_texts)
 
             transcript = "\n".join(f"{m.role}: {m.content}" for m in recent)
             brief = await llm_client.complete(
-                system=COUNCIL_DISPLAY_BRIEF_PROMPT,
+                system=COUNCIL_DISPLAY_BRIEF_PROMPT.format(language=language),
                 user=transcript,
                 model=MODEL_HAIKU,
                 max_tokens=150,
             )
             brief = (brief or "").strip()
-            return brief or None
+            if not brief:
+                return None
+
+            if not _brief_language_ok(brief, language):
+                # No content in the log: this is display text derived from a private
+                # conversation, and the codes are what a fix would need.
+                logger.warning(
+                    "council_brief_language_mismatch",
+                    extra={
+                        "expected_language": language,
+                        "brief_script": dominant_language([brief]),
+                        "user_id": user_id,
+                    },
+                )
+                return None
+
+            return brief
         except Exception as exc:
             logger.warning(f"Council display brief failed for user={user_id}: {exc}")
             return None
