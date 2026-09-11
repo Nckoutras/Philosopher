@@ -162,6 +162,13 @@ def test_every_prompt_in_the_product_is_enumerated_here_or_already_done():
     )
 
 
+def test_the_dead_insight_prompt_is_gone():
+    """INSIGHT_PROMPT was defined in arq_worker and referenced only by a docstring
+    describing a call site that no longer existed. Deleted in its own commit; this
+    pins that it does not come back unused."""
+    assert not hasattr(aw, "INSIGHT_PROMPT")
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # (2) The weekly / preview mirror
 # ═══════════════════════════════════════════════════════════════════════════

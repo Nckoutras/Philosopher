@@ -31,18 +31,6 @@ logger = logging.getLogger(__name__)
 
 # ── Prompts ───────────────────────────────────────────────────────────────────
 
-INSIGHT_PROMPT = """You are an insight generation system for a philosophical companion app.
-
-Given a list of memory entries about a user, identify one meaningful pattern, contradiction, or shift
-worth surfacing to the user.
-
-Return JSON only: {"content": "...", "insight_type": "pattern|shift|question|challenge"}
-- content: 1-3 sentences. Thoughtful, non-clinical, grounded. No therapy-speak.
-- insight_type: choose the most accurate.
-
-Return null if there is no meaningful insight to surface.
-Example: {"content": "You often describe ambition as a burden rather than a desire. That tension may be worth examining.", "insight_type": "pattern"}"""
-
 LETTER_PROMPT = """You are {persona_name}{persona_tradition_clause}. Once a week you write a personal letter to someone whose inner life you've been quietly witnessing through their own words. This is NOT a reflection or a confrontation — it is a letter: warm, epistolary, written in your voice, addressed directly to them.
 
 You may also receive a record of letters you wrote to this person in earlier weeks. If so, this is your ongoing correspondence: pick up the thread, notice what keeps returning, and mark honestly what has shifted. If there is none, simply begin.
@@ -297,12 +285,20 @@ JSON_RETRY_DIRECTIVE = (
 def _is_null_reply(text: str) -> bool:
     """True when the model deliberately said "there is nothing here" (A17b).
 
-    INSIGHT_PROMPT asks for bare `null` when no insight is worth surfacing. That is a
+    A generator may answer bare `null` to mean "there is nothing here". That is a
     VALID outcome, but json.loads("null") returns None — the same value
     _parse_letter_payload returns on a parse FAILURE. The two are indistinguishable
-    downstream, so the null case must be recognised from the raw reply instead, before
-    any retry decision. Fence-tolerant: the strict `== "null"` sentinel at the insight
-    call site catches the bare form, this also catches a fenced one."""
+    downstream, so the null case must be recognised from the raw reply instead,
+    before any retry decision. Fence-tolerant: it catches the bare form and a
+    fenced one.
+
+    THIS DOCSTRING USED TO NAME INSIGHT_PROMPT AND "the insight call site". Both
+    were gone: INSIGHT_PROMPT was defined in this module and referenced by nothing
+    but this paragraph, and the call site it described had already been removed.
+    The prompt is deleted; the description is rewritten in terms of what this
+    function actually does. NOTE for whoever reads this next: _is_null_reply has
+    no production caller either — only tests — and is left in place rather than
+    removed alongside, because that is a separate decision about its tests."""
     t = text.strip()
     if t.startswith("```"):
         t = t.split("\n", 1)[1] if "\n" in t else ""
