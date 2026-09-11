@@ -12,13 +12,23 @@ from models import SelfComparison, Message, Conversation, UserPreference, Memory
 from services.llm_client import llm_client
 from services.prompt_builder import prompt_builder
 from services.safety_service import safety_service
-from text_utils import dominant_language
+from text_utils import dominant_language, language_directive, language_matches
 from services.safety_event_log import log_safety_event, STAGE_SELF_COMPARISON_INPUT
 from services.self_model_service import self_model_service
 from services.self_portrait import answers_to_statements
 from services.self_comparison_prompts import SELF_SYSTEM_PROMPT, CLOSING_PROMPT, FORMING_REFLECTION_PROMPT
 
 logger = logging.getLogger(__name__)
+
+
+class _ClosingLanguageMismatch(Exception):
+    """Raised to abandon a wrong-language closing, caught by the closing block's
+    own `except`. An exception rather than a flag because the assignments it must
+    skip are a dozen lines long and already sit inside a try whose whole purpose
+    is "any failure here leaves the defaults" — this is one more such failure, and
+    routing it through the same door keeps one exit path instead of two. It is
+    logged at WARNING before it is raised, so the ERROR the handler writes is not
+    the only record."""
 
 MODEL_PRO = "claude-sonnet-4-6"   # same model Council uses
 WEEKLY_LIMIT_BY_TIER = {"pro": 5, "premium": 30}   # asks/week; premium capped (cost safety)
@@ -49,7 +59,7 @@ def _format_signals(by_type: dict) -> str:
 
 class SelfComparisonService:
 
-    async def forming_reflection(self, signals: list[str]) -> list[str]:
+    async def forming_reflection(self, signals: list[str], *, language: str) -> list[str]:
         """Synthesize the raw recent memory signals into a short, warm, second-person
         reflection for the "what's beginning to take shape" block.
 
@@ -58,6 +68,16 @@ class SelfComparisonService:
         short bullet observations (or [] on failure), in which case the block hides
         rather than show raw, third-person ("user") text. Uses the default memory-tier model (fast/cheap)
         since this fires on each forming-state status load.
+
+        `language` IS AN ARGUMENT AND NOT DERIVED FROM `signals`, because two of the
+        three callers pass signals that carry no language information at all: the
+        onboarding reflection passes profile_to_statements (hardcoded English built
+        from enum slugs) and the forming preview passes answer_statement output
+        (templated from a question bank that is English in 360 of 360 questions,
+        founder decision 2026-09-11). Reading the language off those would answer
+        "English" for a Greek person every time, and be right often enough never to
+        look broken. Only the /status caller passes real memory rows. Each caller
+        knows what it holds; this function cannot.
         """
         cleaned = [s.strip() for s in signals if s and s.strip()]
         if not cleaned:
@@ -65,7 +85,11 @@ class SelfComparisonService:
         user_block = "Observations:\n" + "\n".join(f"- {s}" for s in cleaned)
         try:
             raw = await llm_client.complete(
-                system=FORMING_REFLECTION_PROMPT,
+                # The only one of the seven with no braces at all, so
+                # .format() would in fact work here — appended anyway, so all
+                # seven read the same way and a JSON example added later cannot
+                # break it.
+                system=FORMING_REFLECTION_PROMPT + language_directive(language),
                 user=user_block,
                 max_tokens=FORMING_REFLECTION_MAX_TOKENS,
             )
@@ -78,6 +102,24 @@ class SelfComparisonService:
             for ln in text.splitlines()
         ]
         bullets = [b for b in bullets if b][:3]
+
+        # Checked JOINED, not per bullet. Each is a phrase under ~12 words and often
+        # under EN_MIN_TOKENS on its own, where only the script test would run; the
+        # three together carry enough tokens for the ratio to mean something. They
+        # are one response in one language, so one verdict over them is also honest.
+        #
+        # [] is the caller's existing failure path, and it is not free at every
+        # caller: routers/preferences treats an empty return as a generation failure
+        # and stamps the shared cooldown marker, so the preview is not retried until
+        # it elapses. That is the same handling an LLM outage gets and it self-heals
+        # — a wrong-language bullet list would not.
+        if bullets and not language_matches("\n".join(bullets), language):
+            logger.warning(
+                "forming_reflection_language_mismatch",
+                extra={"expected_language": language,
+                       "got_script": dominant_language(bullets)},
+            )
+            return []
         return bullets
 
     async def weekly_remaining(self, db: AsyncSession, user_id: str, plan: str) -> int:
@@ -210,16 +252,28 @@ class SelfComparisonService:
         await db.flush()
 
         # 5. Stream the two selves
+        #
+        # THE QUESTION THEY JUST TYPED is the language source, for both selves and
+        # for the closing below. Not `signals` — those are memory rows written at
+        # other times, and the person is asking THIS in the language they are
+        # reading the page in. The safety branch at the top of this method already
+        # reads the language the same way (dominant_language([prompt])); this is the
+        # same source, not a second mechanism.
+        language = dominant_language([prompt])
         standing_block, shifts_block = await self._self_portrait_context(db, user_id)
         answers: dict[str, str] = {}
         for which, label, win in (("then", "earlier", then_w), ("now", "more recent", now_w)):
+            # Appended AFTER .format(), so the directive never passes through the
+            # substitution: this prompt's three braces are all real fields, but a
+            # JSON example added to it later would make format() the wrong tool, and
+            # the directive should not be what discovers that.
             system = SELF_SYSTEM_PROMPT.format(
                 which_label=label,
                 signals=_format_signals(win["by_type"]),
                 # Current self-report → the "now" self only; the earlier self stays
                 # window-pure so the then/now contrast is preserved.
                 self_portrait=(standing_block if which == "now" else ""),
-            )
+            ) + language_directive(language)
             yield f"data: {json.dumps({'type': 'self', 'which': which, 'start': win['start'].isoformat(), 'end': win['end'].isoformat()})}\n\n"
             buf: list[str] = []
             chunks_yielded = False
@@ -249,6 +303,23 @@ class SelfComparisonService:
                 yield f"data: {json.dumps({'type': 'error', 'error_code': 'self_unavailable', 'which': which})}\n\n"
             answers[which] = "".join(buf)
 
+            # LOG-ONLY, AND STRUCTURALLY SO. Every chunk above was already yielded
+            # to the client as it arrived, so by the time an answer can be read as a
+            # whole the person has watched it type itself out. There is nothing left
+            # to block: the directive in the system prompt is the entire protection
+            # on this path, and this line only makes a failure visible. DO NOT "fix"
+            # this later by adding a guard here — it would be dead code. Blocking
+            # would mean buffering the stream, which is a product decision about
+            # You-vs-You, not a language fix.
+            if answers[which] and not language_matches(answers[which], language):
+                logger.warning(
+                    "self_comparison_language_mismatch",
+                    extra={"expected_language": language,
+                           "got_script": dominant_language([answers[which]]),
+                           "which": which,
+                           "user_id": user_id},
+                )
+
         # ── 6. App-voice closing + evidence ──────────────────────────────
         candidates = {
             "then": await self._candidates(db, user_id, then_w["start"], then_w["end"]),
@@ -276,13 +347,41 @@ class SelfComparisonService:
             "hidden_continuity": None, "sentence_owed": None,
         }
         try:
-            raw = await llm_client.complete(system=CLOSING_PROMPT, user=closing_user, model=MODEL_PRO, max_tokens=512)
+            # Appended: CLOSING_PROMPT ends on a literal JSON shape, so .format()
+            # would raise KeyError on '"observation"' rather than fill anything.
+            raw = await llm_client.complete(
+                system=CLOSING_PROMPT + language_directive(language),
+                user=closing_user, model=MODEL_PRO, max_tokens=512,
+            )
             ctext = raw.strip()
             if ctext.startswith("```"):
                 ctext = ctext.split("\n", 1)[1] if "\n" in ctext else ""
             if ctext.endswith("```"):
                 ctext = ctext[:-3].rstrip()
             data = json.loads(ctext)
+
+            # ── Output language gate: block, by leaving `closing` at its defaults.
+            # Unlike the two selves this is a single complete() call, so it CAN be
+            # checked before anything is shown. The frontend already guards the whole
+            # block on a truthy observation, so the defaults render as no closing at
+            # all — exactly what the except branch below has always produced.
+            # Checked over the model's own prose joined together; the two quote ids
+            # are ids, not language, and are carried by the loop below either way.
+            probe = " ".join(
+                str(data.get(k) or "")
+                for k in ("observation", "question", "hidden_continuity", "sentence_owed")
+            ).strip()
+            if probe and not language_matches(probe, language):
+                logger.warning(
+                    "self_comparison_closing_language_mismatch",
+                    extra={"expected_language": language,
+                           "got_script": dominant_language([probe]),
+                           "user_id": user_id},
+                )
+                raise _ClosingLanguageMismatch(
+                    f"closing was not in {language}; defaults kept"
+                )
+
             closing["observation"] = data.get("observation", "")
             closing["question"] = data.get("question", "")
             for side, key in (("then", "then_quote_id"), ("now", "now_quote_id")):

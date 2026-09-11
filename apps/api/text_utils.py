@@ -145,10 +145,35 @@ keep keeps feel feels know knows think thinks want wants
 EN_FUNCTION_WORD_FLOOR = 0.30
 
 
+# THE RATIO NEEDS ENOUGH TOKENS TO MEAN ANYTHING. Below this count the test is
+# not merely weaker, it is wrong: terse English simply may contain no function
+# word at all. Measured 2026-09-11 on 40 in-register strings written to these
+# prompts' own caps (2-4 word titles, <=10 word verdicts, <=12 word bullets):
+#
+#   tokens >= 6   23 English samples, min ratio 0.333, NONE below the floor
+#                 11 wrong-language samples, max ratio 0.125  -> margin >= 0.208
+#   tokens <  6   6 of 40 English samples fall below the floor, including
+#                 "Quiet ambition" and "Choosing badly" at 0.000 exactly
+#
+# So above the threshold the separation matches the >=0.20 that #626 measured on
+# briefs, and below it the test rejects one legitimate English title in four.
+#
+# THE TRADE, STATED: under six tokens only the script test runs, so a SHORT
+# Latin-script non-English string passes. That is accepted. The alternative is
+# nulling a quarter of correct English titles, and the directive in the system
+# prompt — not this check — is the actual protection; this is the backstop.
+EN_MIN_TOKENS = 6
+
+
+def _en_tokens(text: str) -> list[str]:
+    """The token list both the ratio and the minimum-length test count, so the
+    two can never disagree about what a token is."""
+    return [t for t in (x.strip("'") for x in re.findall(r"[a-z']+", text.lower())) if t]
+
+
 def english_function_word_ratio(text: str) -> float:
     """Share of tokens that are common English function words. 0.0 when empty."""
-    tokens = [t.strip("'") for t in re.findall(r"[a-z']+", text.lower())]
-    tokens = [t for t in tokens if t]
+    tokens = _en_tokens(text)
     if not tokens:
         return 0.0
     return sum(1 for t in tokens if t.replace("'", "") in EN_FUNCTION_WORDS) / len(tokens)
@@ -164,6 +189,10 @@ def language_matches(text: str, expected: str) -> bool:
     if dominant_language([text]) != expected:
         return False
     if expected == "English":
+        if len(_en_tokens(text)) < EN_MIN_TOKENS:
+            # Too little text to read a ratio from. The script test above already
+            # passed, so this is "not shown to be wrong", not "verified right".
+            return True
         return english_function_word_ratio(text) >= EN_FUNCTION_WORD_FLOOR
     return True
 
