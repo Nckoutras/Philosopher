@@ -14,7 +14,12 @@ from workers.letter_dispatch import (
     dispatch_monthly_letters,
     dispatch_weekly_letters,
 )
-from text_utils import dominant_language as _dominant_language
+from text_utils import (
+    dominant_language as _dominant_language,
+    language_directive,
+    language_matches,
+)
+from services.insight_mirror_service import payload_language_matches
 from observability import init_sentry
 
 # `arq workers.arq_worker.WorkerSettings` runs as its own process and never
@@ -25,18 +30,6 @@ init_sentry()
 logger = logging.getLogger(__name__)
 
 # ── Prompts ───────────────────────────────────────────────────────────────────
-
-INSIGHT_PROMPT = """You are an insight generation system for a philosophical companion app.
-
-Given a list of memory entries about a user, identify one meaningful pattern, contradiction, or shift
-worth surfacing to the user.
-
-Return JSON only: {"content": "...", "insight_type": "pattern|shift|question|challenge"}
-- content: 1-3 sentences. Thoughtful, non-clinical, grounded. No therapy-speak.
-- insight_type: choose the most accurate.
-
-Return null if there is no meaningful insight to surface.
-Example: {"content": "You often describe ambition as a burden rather than a desire. That tension may be worth examining.", "insight_type": "pattern"}"""
 
 LETTER_PROMPT = """You are {persona_name}{persona_tradition_clause}. Once a week you write a personal letter to someone whose inner life you've been quietly witnessing through their own words. This is NOT a reflection or a confrontation — it is a letter: warm, epistolary, written in your voice, addressed directly to them.
 
@@ -292,12 +285,20 @@ JSON_RETRY_DIRECTIVE = (
 def _is_null_reply(text: str) -> bool:
     """True when the model deliberately said "there is nothing here" (A17b).
 
-    INSIGHT_PROMPT asks for bare `null` when no insight is worth surfacing. That is a
+    A generator may answer bare `null` to mean "there is nothing here". That is a
     VALID outcome, but json.loads("null") returns None — the same value
     _parse_letter_payload returns on a parse FAILURE. The two are indistinguishable
-    downstream, so the null case must be recognised from the raw reply instead, before
-    any retry decision. Fence-tolerant: the strict `== "null"` sentinel at the insight
-    call site catches the bare form, this also catches a fenced one."""
+    downstream, so the null case must be recognised from the raw reply instead,
+    before any retry decision. Fence-tolerant: it catches the bare form and a
+    fenced one.
+
+    THIS DOCSTRING USED TO NAME INSIGHT_PROMPT AND "the insight call site". Both
+    were gone: INSIGHT_PROMPT was defined in this module and referenced by nothing
+    but this paragraph, and the call site it described had already been removed.
+    The prompt is deleted; the description is rewritten in terms of what this
+    function actually does. NOTE for whoever reads this next: _is_null_reply has
+    no production caller either — only tests — and is left in place rather than
+    removed alongside, because that is a separate decision about its tests."""
     t = text.strip()
     if t.startswith("```"):
         t = t.split("\n", 1)[1] if "\n" in t else ""
@@ -583,12 +584,18 @@ async def extract_memory_task(
 
             # Recurrence detection (Insight Slice 1): same session, after commit.
             # Self-contained try/except inside — never raises into this task.
+            # The language from the PERSON'S OWN MESSAGE, not from the entries
+            # that were just extracted from it. Same argument, same text, as the
+            # directive extract_and_store computed for the extraction itself — so
+            # the memory row and the insight derived from it can never disagree
+            # about what language this person writes in.
             await memory_service.detect_recurrence(
                 db=db,
                 user_id=user_id,
                 conversation_id=conversation_id,
                 persona_id=persona_id,
                 new_entries=entries,
+                language=_dominant_language([user_text]),
             )
         except Exception as e:
             logger.error(f"Memory task failed: {e}", exc_info=True)
@@ -623,12 +630,17 @@ async def counterview_belief_task(ctx, user_id: str, belief: str):
             # NULL conversation_id: detect_recurrence excludes by the entry's own id
             # and skips the per-conversation dedup (the 6h throttle still applies).
             # Self-contained inside — never raises into this task.
+            # `belief` is the person's typed text, stored verbatim as the entry's
+            # content above — the one case where the memory row IS the user's own
+            # words. Read from `belief` regardless, so this call site does not
+            # depend on that staying true.
             await memory_service.detect_recurrence(
                 db=db,
                 user_id=user_id,
                 conversation_id=None,
                 persona_id=None,
                 new_entries=[entry],
+                language=_dominant_language([belief]),
             )
             await db.commit()
             logger.info("Counterview belief task: stored belief + ran recurrence for user=%s", user_id)
@@ -936,10 +948,24 @@ async def assess_conclusion_task(ctx, conversation_id: str, user_id: str):
             persona_tradition_clause = (
                 (", " + persona.tradition) if persona and persona.tradition else ""
             )
+            # LANGUAGE — FROM THE PERSON'S TURNS ONLY, never from `window`.
+            #
+            # WHY A TRANSCRIPT IS NEVER A LANGUAGE SOURCE HERE. `window` is
+            # role.in_(("user", "assistant")) and is rendered PERSON:/YOU: below, so
+            # roughly half its ROWS are the persona's. But dominant_language counts
+            # CHARACTERS, not turns, and a persona reply is several times longer than
+            # the message that prompted it — so across a 14-turn window the model's
+            # own output outvotes the person's by a wide margin. A Greek user talking
+            # to a persona that answered in English once would be read as English.
+            # That is the #627 defect exactly: inferring a language from a transcript
+            # that is majority model output.
+            user_turns = [m.content for m in window if m.role == "user" and m.content]
+            conclusion_language = _dominant_language(user_turns)
+
             system = CONCLUSION_PROMPT.format(
                 persona_name=persona.name if persona else "A thoughtful observer",
                 persona_tradition_clause=persona_tradition_clause,
-            )
+            ) + language_directive(conclusion_language)
             transcript = "\n".join(
                 f"{'PERSON' if m.role == 'user' else 'YOU'}: {m.content}" for m in window
             )
@@ -957,6 +983,30 @@ async def assess_conclusion_task(ctx, conversation_id: str, user_id: str):
 
             if not text or text.upper() == "NOT_YET":
                 logger.info("Conclusion: not yet for conv=%s", conversation_id)
+                return
+
+            # ── OUTPUT LANGUAGE GATE ─────────────────────────────────────────
+            # Writing nothing is this path's ORDINARY outcome, not its failure mode:
+            # NOT_YET returns here on most turns. So the block costs almost nothing
+            # and self-heals — the cadence gate counts messages since the last
+            # conclusion, and no row means that counter keeps climbing, so the next
+            # turn re-triggers.
+            #
+            # THE ONE PLACE EN_MIN_TOKENS ENGAGES IN THIS PR, and it is worth saying
+            # where a reader will look. A conclusion is aphoristic and capped at two
+            # sentences: measured on ten in-register samples, two came in under six
+            # tokens ("Gravity, not cleverness." at three). Under that threshold
+            # text_utils.language_matches runs the script test only, so a SHORT
+            # Latin-script wrong-language conclusion passes. Accepted, for the reason
+            # given in text_utils: the alternative rejects correct terse English, and
+            # the directive above is the actual protection.
+            if not language_matches(text, conclusion_language):
+                logger.warning(
+                    "conclusion_language_mismatch",
+                    extra={"expected_language": conclusion_language,
+                           "got_script": _dominant_language([text]),
+                           "conversation_id": conversation_id},
+                )
                 return
 
             # ── PERSIST as a conclusion row. NOTE: deliberately does NOT touch
@@ -1015,13 +1065,22 @@ async def generate_conversation_title(ctx, conversation_id: str):
                 "no preamble, no closing punctuation, no roleplay, do not "
                 "continue the conversation."
             )
+            # The title is USER-VISIBLE — it labels the thread in the conversation
+            # list — so it gets a language like every other generated surface. Same
+            # rule as the conclusion above: `messages` here is unfiltered by role and
+            # `context` renders both, so the language comes from the person's turns
+            # alone. With no user turn yet (possible: this fires on the first pair)
+            # dominant_language ties to English, which is today's behaviour.
+            title_language = _dominant_language(
+                [m.content for m in messages if m.role == "user" and m.content]
+            )
             raw_title = await llm_client.complete(
                 system=(
                     "You are a title-generation utility. You receive conversation "
                     "transcripts wrapped in <conversation_transcript> tags and "
                     "respond with a single short title phrase. You never roleplay, "
                     "never continue the conversation, never add commentary."
-                ),
+                ) + language_directive(title_language),
                 user=user_prompt,
                 model="claude-haiku-4-5-20251001",
                 max_tokens=20,
@@ -1038,6 +1097,12 @@ async def generate_conversation_title(ctx, conversation_id: str):
                 or len(cleaned) > 60
                 or cleaned.endswith((",", ":", ";"))
                 or not cleaned
+                # A wrong-language title joins the existing reject list rather than
+                # getting its own branch: the outcome is identical (title stays NULL,
+                # recoverable via backfill) and one exit keeps the logging together.
+                # At <= 4 words this is the script test in practice, which is the half
+                # that catches a Greek title on an English thread.
+                or not language_matches(cleaned, title_language)
             ):
                 logger.warning(
                     "Rejected suspicious title for %s: %r",
@@ -1168,10 +1233,22 @@ async def generate_weekly_mirror_task(ctx, user_id: str, persona_slug: str, kind
             persona_tradition_clause = (
                 (", " + persona.tradition) if persona and persona.tradition else ""
             )
+            # LANGUAGE — computed, and the source needs no filtering here: the
+            # query above already carries Message.role == "user", so `messages` is
+            # the person's own words with no persona output mixed in. Stated because
+            # the neighbouring generators are NOT like this — assess_conclusion_task
+            # and generate_conversation_title both read both roles and have to take
+            # the user subset explicitly. Whoever edits that query must keep the
+            # filter or move this line.
+            mirror_language = _dominant_language([m.content for m in messages if m.content])
+
+            # APPENDED AFTER .format(), never inside it: MIRROR_PROMPT carries three
+            # DOUBLED brace pairs for its JSON shape alongside the two real fields,
+            # so the directive has no business going through the same call.
             system = MIRROR_PROMPT.format(
                 persona_name=persona.name if persona else "A thoughtful observer",
                 persona_tradition_clause=persona_tradition_clause,
-            )
+            ) + language_directive(mirror_language)
 
             raw = await llm_client.complete(
                 system=system,
@@ -1222,6 +1299,35 @@ async def generate_weekly_mirror_task(ctx, user_id: str, persona_slug: str, kind
                 "thread": data.get("thread"),
                 "moments": data.get("moments"),
             }
+
+            # ── OUTPUT LANGUAGE GATE ─────────────────────────────────────────
+            # NO ROW, deliberately, and NOT status='empty' — for two reasons.
+            #
+            # 1. The A18 1.3 reason the branch above already gives: 'empty' asserts
+            #    "the week held nothing" about a week that plainly held something.
+            #    The model wrote a mirror; it wrote it in the wrong language.
+            # 2. The non-obvious one. dispatch_preview_mirrors (workers/cron.py)
+            #    selects users who have NO Mirror row AT ALL — it filters on
+            #    Mirror.user_id with no status condition. So an 'empty' row written
+            #    here would disqualify this person from EVER receiving a preview
+            #    mirror. Writing nothing leaves them eligible, and that cron runs
+            #    HOURLY, so on the preview path this block self-heals within the
+            #    hour. On the weekly path (Mondays 06:00) this week's mirror is lost
+            #    and the next comes next Monday. That is the whole cost.
+            #
+            # `thread` is why this blocks rather than logs: the Mirror page writes it
+            # into sessionStorage 'council_prefill', which lands in the Council matter
+            # TEXTAREA ("Take it to the Council"). That is the editable-input line
+            # memory_service.VERBATIM_INPUT_SIGNAL_TYPES draws, and this is the only
+            # one of this PR's prompts that crosses it.
+            if not payload_language_matches(payload, mirror_language):
+                logger.warning(
+                    "mirror_language_mismatch",
+                    extra={"expected_language": mirror_language,
+                           "user_id": user_id, "kind": kind},
+                )
+                return
+
             db.add(Mirror(
                 user_id=user_id,
                 host_persona_id=host_persona_id,

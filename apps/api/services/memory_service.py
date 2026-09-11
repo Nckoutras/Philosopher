@@ -635,6 +635,8 @@ class MemoryService:
         conversation_id: str,
         persona_id: str,
         new_entries: list[MemoryEntry],
+        *,
+        language: str,
     ) -> None:
         """Factual recurrence detector. If a memory the user just raised echoes
         memories from OTHER conversations, write a durable 'pattern' Insight
@@ -643,6 +645,21 @@ class MemoryService:
         Safe by construction: wrapped in try/except, NEVER raises into the caller
         (the memory task). Reuses the entries' already-computed embeddings — the
         session uses expire_on_commit=False, so they remain readable post-commit.
+
+        `language` IS AN ARGUMENT, keyword-only and undefaulted, and it is NOT
+        derived from the material this function holds. THE MEMORY ROWS ARE NOT A
+        SAFE SOURCE: `recurring_entry.content` and every `prior_matches` row is
+        model-written, and the guard that watches that writing LOGS RATHER THAN
+        BLOCKS (see extract_and_store) — so a wrong-language row is not a legacy
+        artifact being aged out, it is a state this system still deliberately
+        produces. No floor on row age or count can separate them, and reading a
+        language off them would let one wrong row seed a wrong insight.
+
+        Both callers hold something better and free: the person's VERBATIM own
+        words — `user_text` in extract_memory_task, `belief` in
+        counterview_belief_task. Passing it in also means the insight inherits the
+        same language decision extract_and_store already made from the same text,
+        rather than a second one derived downstream.
         """
         try:
             if not new_entries:
@@ -728,8 +745,11 @@ class MemoryService:
                 f"Echoed earlier (other conversations):\n{prior_text}"
             )
 
+            # APPENDED: SHIFT_CLASSIFY_PROMPT carries three literal JSON brace
+            # pairs and no real fields, so .format() would raise KeyError on
+            # '"insight_type"' rather than fill anything.
             raw = await llm_client.complete(
-                system=SHIFT_CLASSIFY_PROMPT,
+                system=SHIFT_CLASSIFY_PROMPT + language_directive(language),
                 user=user_prompt,
                 max_tokens=160,
             )
@@ -746,20 +766,57 @@ class MemoryService:
                 candidate_type = data.get("insight_type")
                 candidate_content = (data.get("content") or "").strip()
                 if candidate_type in ("pattern", "shift") and candidate_content:
-                    insight_type = candidate_type
-                    content = candidate_content
+                    # A wrong-language classification FALLS THROUGH to the plain
+                    # recurrence phrasing below rather than dropping out — the same
+                    # door a parse failure already takes, and for the same reason
+                    # ("never lose the insight, never surface an unvalidated
+                    # 'shift'"). The fallback gets its own directive and its own
+                    # check, so this is a second chance and not a bypass. Leaving
+                    # `content` None is what routes it there.
+                    if not language_matches(candidate_content, language):
+                        logger.warning(
+                            "shift_classify_language_mismatch",
+                            extra={"expected_language": language,
+                                   "got_script": dominant_language([candidate_content]),
+                                   "user_id": user_id,
+                                   "conversation_id": conversation_id},
+                        )
+                    else:
+                        insight_type = candidate_type
+                        content = candidate_content
             except Exception:
                 content = None  # fall through to plain-phrasing fallback
 
             if content is None:
                 # Safe fallback: slice-1 plain recurrence phrasing, always 'pattern'.
+                # The only brace-free prompt of the six; appended anyway so every
+                # generator in this file reads the same way.
                 fallback = await llm_client.complete(
-                    system=RECURRENCE_PROMPT,
+                    system=RECURRENCE_PROMPT + language_directive(language),
                     user=user_prompt,
                     max_tokens=80,
                 )
                 insight_type = "pattern"
                 content = (fallback or "").strip()
+                # Last chance used up: write nothing. An Insight is a card the
+                # person reads, and unlike a memory row it is NOT the only record of
+                # anything — the memory rows this was detected from are untouched,
+                # so the theme simply re-triggers on a later conversation. Dropping
+                # also costs no budget: _insight_gate_blocked throttles on insights
+                # that EXIST, so writing none never starts the 6h window.
+                #
+                # (That is why the log-only ruling for memory rows does not transfer
+                # here. It rested on "nothing else records it", which is true of a
+                # memory row and false of an insight derived from one.)
+                if content and not language_matches(content, language):
+                    logger.warning(
+                        "recurrence_language_mismatch",
+                        extra={"expected_language": language,
+                               "got_script": dominant_language([content]),
+                               "user_id": user_id,
+                               "conversation_id": conversation_id},
+                    )
+                    return
 
             if len(content) >= 2 and content[0] in "\"'" and content[-1] in "\"'":
                 content = content[1:-1].strip()
