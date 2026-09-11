@@ -288,6 +288,20 @@ rather than loudly wrong**:
 | `SENTRY_DSN` | `""` (line 49) | `observability.py:195` returns early — **error reporting is off and nothing says so** |
 | `API_BASE_URL` | `http://localhost:8000` (line 68) | `arq_worker.py:1316` sees `localhost` and takes the **email-suppression** path; unsubscribe links at `:1341` would be unreachable anyway |
 | `FROM_EMAIL` | `noreply@philosopher.app` (line 43) | `email_service.py:20` and `arq_worker.py:1083` send **from a domain the product no longer uses** |
+| `PUBLIC_ASSET_BASE_URL` | `https://thinkalike.netlify.app` (line 44) | `otp_service.py:82` and `cron.py:159-188` embed it in outbound email — the OTP logo, the future-self portraits, and the future-self footer link, where it is **rendered as visible text**. **Confirmed unset on Render, 2026-09-11** |
+
+**Added as a fourth row 2026-09-11.** It belongs here more than the three above
+it, and its absence from this checklist is the reason it went unfixed: it was
+also missing from `.env.example` and from the DEPLOY_NOTES table, so no artefact
+in the repository told anyone the variable existed. The other three were at least
+visible somewhere. Both defaults have since been corrected in `config.py`, and
+both variables added to `.env.example` and DEPLOY_NOTES.
+
+It is also the sharpest illustration of this section's own closing point. The
+three rows above degrade in ways someone eventually notices — Sentry silence, a
+suppressed send with a log line, a bounced sender. This one **returned HTTP 200
+from the wrong domain**: images loaded, links worked, nothing was logged, and the
+only symptom was an earlier product name appearing in mail sent to real users.
 
 These three are the checklist's first three rows. **The rule the checklist encodes:
 the worker is a separate service and inherits nothing from the API.** Any variable
