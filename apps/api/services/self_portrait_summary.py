@@ -26,6 +26,7 @@ from services.llm_client import llm_client
 from services.matching_service import compute_matches
 from services.self_portrait import answers_to_statements, get_question
 from services.self_portrait_prompts import SELF_PORTRAIT_SUMMARY_PROMPT
+from text_utils import dominant_language, language_directive, language_matches
 
 logger = logging.getLogger(__name__)
 
@@ -244,9 +245,17 @@ async def generate_portrait(
     signals = await _recent_signals(db, user_id)
     user_block = _build_user_block(statements, signals, candidates)
 
+    # THE SIGNALS, NOT THE STATEMENTS. `statements` come from the question bank via
+    # answer_statement() and are English by construction for every user — the bank
+    # is English by design (founder decision 2026-09-11) and carries no language
+    # information about the person at all. The person's own language shows only in
+    # `signals`, which are their memory rows. With no signals yet there is nothing
+    # to read, and dominant_language's tie rule gives English, which is right here.
+    language = dominant_language(signals) if signals else "English"
+
     try:
         raw = await llm_client.complete(
-            system=SELF_PORTRAIT_SUMMARY_PROMPT,
+            system=SELF_PORTRAIT_SUMMARY_PROMPT + language_directive(language),
             user=user_block,
             model=MODEL_PRO,
             max_tokens=SUMMARY_MAX_TOKENS,
@@ -259,6 +268,20 @@ async def generate_portrait(
     summary = (data or {}).get("summary")
     if not data or not isinstance(summary, str) or not summary.strip():
         logger.warning(f"Self-portrait summary unparseable for user={user_id}")
+        return None
+
+    # ENFORCED here, unlike the memory writers. This is display text, and returning
+    # None is a path the caller already has: routers/preferences stamps the
+    # negative-cache marker, serves any prior good summary or the forming preview,
+    # and retries after the cooldown. Nothing is lost, so a wrong-language portrait
+    # is not worth showing.
+    if not language_matches(summary, language):
+        logger.warning(
+            "portrait_language_mismatch",
+            extra={"expected_language": language,
+                   "got_script": dominant_language([summary]),
+                   "user_id": user_id},
+        )
         return None
 
     why_by_slug = {

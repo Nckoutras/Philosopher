@@ -3,6 +3,7 @@
 Kept at the API root with zero app imports so both the DTO layer (schemas) and
 the image renderer can import it without creating an import cycle.
 """
+import re
 import unicodedata
 
 
@@ -99,3 +100,84 @@ def dominant_language(texts: list[str]) -> str:
             elif ch.isascii() and ch.isalpha():
                 latin += 1
     return "Greek" if greek > latin else "English"
+
+
+# ── Output-language checking ──────────────────────────────────────────────────
+# Promoted here from services/council_service.py (#626), where it was written for
+# the display-brief guard. Same reason dominant_language was promoted out of
+# arq_worker: four call sites should share ONE detector rather than grow four
+# subtly different ones.
+#
+# WHY dominant_language IS NOT ENOUGH ON ITS OWN. It counts Greek codepoints
+# against Latin ones — it answers "which script", and calls every Latin-script
+# language English. The first defect it had to catch was an INDONESIAN summary
+# for an English conversation, and dominant_language returns 'English' for that
+# text: a check built on it alone compares 'English' to 'English', passes, and
+# ships the exact string it exists to stop. So Latin-script output must also look
+# like ENGLISH, by function-word ratio — crude, but it needs no dependency (there
+# is no language detector in requirements) and it separates enormously on real
+# data.
+#
+# CALIBRATED 2026-09-10 on two verbatim production strings, twelve in-register
+# English ones and five Greek; re-verified unchanged on promotion:
+#
+#   both real Indonesian strings     0.000        (one contains "scroll")
+#   twelve English strings           0.536-0.733
+#   Spanish/French/German/Italian/PT 0.000-0.100
+#
+# 0.30 is clear of both sides by >=0.20. tests/test_council_display_brief.py
+# holds the sample-by-sample calibration and a separation test.
+EN_FUNCTION_WORDS = frozenset("""
+i im ive id ill me my myself we our us you your he she it its they them their
+a an the this that these those there here
+is am are was were be been being do does did doing have has had having
+can cant could will wont would should shall may might must
+and or but if then than because so as while whether though although
+of to in on at by for with from about into over under
+between through without within against around after before
+not no nor only just even still yet more most less
+what which who whom whose when where why how
+all any both each few some such own same too very
+one other another something nothing anything everything
+keep keeps feel feels know knows think thinks want wants
+""".split())
+
+EN_FUNCTION_WORD_FLOOR = 0.30
+
+
+def english_function_word_ratio(text: str) -> float:
+    """Share of tokens that are common English function words. 0.0 when empty."""
+    tokens = [t.strip("'") for t in re.findall(r"[a-z']+", text.lower())]
+    tokens = [t for t in tokens if t]
+    if not tokens:
+        return 0.0
+    return sum(1 for t in tokens if t.replace("'", "") in EN_FUNCTION_WORDS) / len(tokens)
+
+
+def language_matches(text: str, expected: str) -> bool:
+    """Does `text` read as `expected` ('Greek' | 'English')?
+
+    Greek needs only the script test — no other language the product serves is
+    written in Greek script, so a Greek-script answer to a Greek input is right by
+    construction. English needs both tests, for the reason above.
+    """
+    if dominant_language([text]) != expected:
+        return False
+    if expected == "English":
+        return english_function_word_ratio(text) >= EN_FUNCTION_WORD_FLOOR
+    return True
+
+
+def language_directive(language: str) -> str:
+    """The one sentence every generator appends to say which language to write in.
+
+    APPENDED, never .format()ed. Three of the four prompts that need this carry
+    literal braces (JSON shapes in MEMORY_EXTRACTION_PROMPT and
+    SELF_PORTRAIT_SUMMARY_PROMPT), so a format call would raise KeyError on the
+    JSON rather than fill anything. One injection style for all of them.
+    """
+    return (
+        f"\n\nLANGUAGE: Write in {language}. Never write in any other language, and "
+        f"never translate. {language} governs the whole output even if the input "
+        f"mixes languages."
+    )
