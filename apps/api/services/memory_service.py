@@ -307,6 +307,31 @@ Example output:
 ]"""
 
 
+# ── Signal types whose content lands in the user's OWN INPUT FIELD ────────────
+# EDITABLE INPUT IS THE LINE, not verbatim display, and only one of the three
+# signal types crosses it:
+#
+#   dilemma     content -> sessionStorage 'council_prefill' (useInsightDoors.ts)
+#               -> setMatter(prefill) (council/page.tsx) -> the matter TEXTAREA.
+#               The user can submit it as their own words without noticing.
+#   belief      content -> the counterview anchor, generated from server-side and
+#               rendered read-only in a <p> labelled "Your insight". The page's
+#               `belief` state is written only by the user typing.
+#   aspiration  routes to the Future Self ritual and carries no content at all.
+#
+# So belief and aspiration keep the log-only path the other extraction types
+# have: a wrong-language card is a visible glitch, while wrong-language text in
+# an input box is something a person may submit believing they wrote it. That
+# distinction is what made #626 a P0.
+#
+# THE COST IS REAL AND NOT RECOVERABLE, and it is the accepted trade. A dropped
+# dilemma is not deferred or retried — the exchange has passed, and the person
+# loses that Council door until the same dilemma resurfaces in a later one. We
+# would rather lose the door than put a sentence they never wrote in the box
+# they type into.
+VERBATIM_INPUT_SIGNAL_TYPES = ("dilemma",)
+
+
 class MemoryService:
 
     async def extract_and_store(
@@ -403,16 +428,48 @@ class MemoryService:
         if safety_ok:
             try:
                 _SIGNAL_MIN_CONF = {"dilemma": 0.8, "belief": 0.8, "aspiration": 0.7}
+
+                def _eligible(e: dict, want: str, thr: float) -> bool:
+                    """Candidate test, INSIDE the selection rather than after it.
+
+                    Filtering a chosen signal afterwards would collapse the whole
+                    promotion when the top-priority candidate fails: a mismatching
+                    dilemma would take the slot and then be discarded, and the
+                    Greek belief behind it would never be reached. Rejecting here
+                    lets `next()` fall through to the next candidate and the loop
+                    advance to the next type, which is the behaviour the priority
+                    order already promises.
+
+                    The language test applies ONLY to the types that reach an
+                    input field (VERBATIM_INPUT_SIGNAL_TYPES). Everything else is
+                    log-only, handled in the memory-row loop above.
+                    """
+                    if e.get("type") != want:
+                        return False
+                    if e.get("confidence", 0) < thr:
+                        return False
+                    content = (e.get("content") or "").strip()
+                    if not content:
+                        return False
+                    if want in VERBATIM_INPUT_SIGNAL_TYPES and not language_matches(
+                        content, language
+                    ):
+                        logger.warning(
+                            "memory_language_mismatch",
+                            extra={"site": "extract_and_store",
+                                   "entry_type": want,
+                                   "expected_language": language,
+                                   "got_script": dominant_language([content]),
+                                   "dropped": True},
+                        )
+                        return False
+                    return True
+
                 signal = None
                 for want in ("dilemma", "belief", "aspiration"):
                     thr = _SIGNAL_MIN_CONF[want]
                     signal = next(
-                        (
-                            e for e in entries_data
-                            if e.get("type") == want
-                            and e.get("confidence", 0) >= thr
-                            and (e.get("content") or "").strip()
-                        ),
+                        (e for e in entries_data if _eligible(e, want, thr)),
                         None,
                     )
                     if signal is not None:
