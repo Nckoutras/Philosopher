@@ -18,7 +18,6 @@ from workers.arq_worker import (
     _build_wrote_back_block,
     _parse_letter_payload,
     JSON_RETRY_DIRECTIVE,
-    _is_null_reply,
     _build_rituals_block,
     RITUALS_MAX_ENTRIES,
     RITUALS_MAX_ENTRY_CHARS,
@@ -348,49 +347,16 @@ def test_label_text_is_exactly_the_approved_wording():
 # mirror one matters twice over since A18: a lost mirror costs the mirror AND one of
 # the four ritual sources feeding the weekly letter, on the same weekly cron.
 #
-# The one behaviour A17b could plausibly BREAK is the insight null sentinel.
-# INSIGHT_PROMPT asks for bare `null` when nothing is worth surfacing — a valid,
-# probably common outcome. json.loads("null") returns None, the same value
-# _parse_letter_payload returns on a parse FAILURE, so the two are indistinguishable
-# downstream and must be told apart from the raw reply before any retry decision.
-#
 # NOT covered here: the retry loops and the no-row failure paths inside the three
 # tasks. Same limit as A17 — they need a session and a live LLM.
 
-def test_null_reply_is_recognised_in_its_bare_form():
-    """The form INSIGHT_PROMPT actually asks for. If this ever returns False, every
-    quiet day becomes a wasted retry and a spurious FAILED log."""
-    assert _is_null_reply("null") is True
-    assert _is_null_reply("  null  ") is True
-    assert _is_null_reply("NULL") is True
-
-
-def test_null_reply_is_recognised_when_fenced():
-    """The strict `== "null"` sentinel at the call site misses a fenced null; this is
-    why the check is fence-tolerant. A fenced null is still the model declining, not a
-    malformed payload."""
-    assert _is_null_reply("```json\nnull\n```") is True
-    assert _is_null_reply("```\nnull\n```") is True
-
-
-def test_real_payloads_are_not_mistaken_for_null():
-    """The other direction, and the more dangerous one: treating a real insight as
-    'nothing here' would silently discard it."""
-    assert _is_null_reply('{"content": "You circle the same question."}') is False
-    assert _is_null_reply("```json\n{\"content\": \"x\"}\n```") is False
-    assert _is_null_reply("") is False
-    assert _is_null_reply("nullify the assumption") is False
-
-
-def test_a_null_payload_parses_to_none_which_is_why_the_guard_exists():
-    """Pins the collision itself. json.loads("null") SUCCEEDS and yields None — the
-    exact value the helper returns on failure. This test is the reason _is_null_reply
-    exists at all; if json ever stopped doing this the guard could be simplified."""
+def test_a_bare_null_reply_is_indistinguishable_from_a_parse_failure():
+    """json.loads("null") SUCCEEDS and yields None — the same value this helper
+    returns on failure, with no warning logged. No prompt asks for a bare null
+    since INSIGHT_PROMPT was removed, so the six `if data is None` call sites
+    correctly treat one as a broken envelope: one retry, then a FAILED log. Pinned
+    because the only other record of this collision was _is_null_reply's docstring."""
     assert _parse_letter_payload("null") is None
-    assert _parse_letter_payload("{ broken") is None
-    # Indistinguishable by return value alone — only the raw reply separates them.
-    assert _is_null_reply("null") is True
-    assert _is_null_reply("{ broken") is False
 
 
 def test_label_threads_into_the_warning_line(caplog):

@@ -282,31 +282,6 @@ JSON_RETRY_DIRECTIVE = (
 )
 
 
-def _is_null_reply(text: str) -> bool:
-    """True when the model deliberately said "there is nothing here" (A17b).
-
-    A generator may answer bare `null` to mean "there is nothing here". That is a
-    VALID outcome, but json.loads("null") returns None — the same value
-    _parse_letter_payload returns on a parse FAILURE. The two are indistinguishable
-    downstream, so the null case must be recognised from the raw reply instead,
-    before any retry decision. Fence-tolerant: it catches the bare form and a
-    fenced one.
-
-    THIS DOCSTRING USED TO NAME INSIGHT_PROMPT AND "the insight call site". Both
-    were gone: INSIGHT_PROMPT was defined in this module and referenced by nothing
-    but this paragraph, and the call site it described had already been removed.
-    The prompt is deleted; the description is rewritten in terms of what this
-    function actually does. NOTE for whoever reads this next: _is_null_reply has
-    no production caller either — only tests — and is left in place rather than
-    removed alongside, because that is a separate decision about its tests."""
-    t = text.strip()
-    if t.startswith("```"):
-        t = t.split("\n", 1)[1] if "\n" in t else ""
-    if t.endswith("```"):
-        t = t[:-3].rstrip()
-    return t.strip().lower() == "null"
-
-
 def _parse_letter_payload(text: str, label: str = "Letter") -> dict | None:
     """`label` names the caller in the warning line only — A17b routes the mirror and
     insight tasks through this same helper. It is an optional kwarg precisely so the
