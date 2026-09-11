@@ -1275,7 +1275,35 @@ class ApiClient {
   // Synchronous on the server — the POST takes a few seconds. status may be
   // 'empty'/'suppressed' (no responses), which the reader handles gracefully.
   async counterviewFromInsight(id: string): Promise<Counterview> {
-    return this.request<Counterview>(`/insights/${id}/counterview`, { method: 'POST' })
+    // Direct fetch (not this.request) for the same reason createCounterview uses
+    // one: request() has no 429 branch at all, so a capped reply would arrive as a
+    // plain Error and the caller could not tell a cap from a network failure.
+    // TD-70 put a cap behind this door, so it needs the same treatment.
+    const res = await fetch(`${API_BASE}/insights/${id}/counterview`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(this.token ? { Authorization: `Bearer ${this.token}` } : {}),
+      },
+    })
+    if (!res.ok) {
+      if (res.status === 429) {
+        const body = await res.json().catch(() => ({} as LLMErrorResponse))
+        throw new RateLimitError({
+          resetAt: new Date(res.headers.get('X-RateLimit-Reset') ?? new Date().toISOString()),
+          limit: parseInt(res.headers.get('X-RateLimit-Limit') ?? '0', 10),
+          remaining: parseInt(res.headers.get('X-RateLimit-Remaining') ?? '0', 10),
+          // Only the Pro fair-use cap guards this door — the free daily cap counts
+          // source='direct' rows only and deliberately does not apply here. The
+          // fallback names the cap that CAN occur rather than one that cannot.
+          errorCode: body.error_code ?? 'fair_use_limit',
+          upgradeTarget: 'pro',
+        })
+      }
+      const error = await res.json().catch(() => ({ detail: res.statusText }))
+      throw new Error(typeof error.detail === 'string' ? error.detail : 'Request failed')
+    }
+    return res.json()
   }
 
   async getCounterview(id: string): Promise<Counterview> {
