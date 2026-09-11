@@ -197,6 +197,70 @@ def language_matches(text: str, expected: str) -> bool:
     return True
 
 
+def language_matches_set(
+    items: list[str], expected: str, *, joined_context: list[str] | None = None
+) -> bool:
+    """Does a SET of short outputs from one response read as `expected`?
+
+    SCRIPT PER ITEM, RATIO OVER THE JOIN. Not a variation on language_matches —
+    the two halves answer different questions and neither alone is safe on short
+    items, which is a thing measured twice now (the council synthesis in #631,
+    the counterview verdicts here).
+
+    WHY THE RATIO CANNOT BE PER ITEM. A function-word ratio over six to nine
+    tokens carries no signal in a compressed register, and these callers cap
+    their items hard — a counterview verdict is 10 words, "one clean cut".
+    Measured 2026-09-11 on 15 in-register English verdicts: three fall below the
+    floor, "Ambition dressed as duty exhausts everyone eventually." at 0.143. And
+    no floor rescues it, because at that length the distributions OVERLAP —
+    correct English bottoms out at 0.143 and wrong-language tops out at 0.125.
+    Joined, the same responses read 0.292-0.600 against 0.071 for wrong-language
+    ones, which is the separation #626 calibrated the floor on.
+
+    WHY THE SCRIPT TEST CANNOT BE OVER THE JOIN. The mirror image. One Greek item
+    among correct English ones is outvoted: language_matches counts characters, so
+    the joined text still reads English (measured 0.368, passes). Per item it is
+    caught every time, and at zero false-reject cost — the script test needs no
+    tokens.
+
+    `joined_context` is text from the SAME response that lends the ratio its
+    tokens but whose own failure the caller handles field-level (the counterview's
+    still_stands and title are nulled, not blocking). It is never script-tested
+    here; that is the caller's business.
+
+    THE ACCEPTED MISS, measured and deliberate: one LATIN-SCRIPT wrong item beside
+    correct ones is diluted away. Across 360 such combinations the joined ratio
+    blocks only 84 — 77% would ship. Taken knowingly. A whole response in one
+    wrong language, which is the failure this class was built from (#626), is
+    caught 45/45; a single item in a second Latin-script language is not something
+    one directive over one JSON response produces. The alternative was a 20%
+    false-reject rate on ordinary English output, which users met on every
+    counterview.
+    """
+    items = [i for i in items if i and i.strip()]
+    if not items:
+        return True
+    if any(dominant_language([i]) != expected for i in items):
+        return False
+    if expected != "English":
+        # Greek needs only the script test, for the reason language_matches gives:
+        # no other language this product serves is written in Greek script. Every
+        # item just passed it, so there is nothing left to ask.
+        return True
+
+    # THE RATIO ONLY, NOT language_matches(joined). Deliberate: calling
+    # language_matches here would re-run the SCRIPT test over the join, and a long
+    # Greek `joined_context` item could then tip the whole set Greek and block a
+    # response whose items are all correct English. The counterview's contract is
+    # that a wrong-language still_stands is NULLED and the counterview ships; a
+    # joined script test would quietly turn that into a block. Script stays strictly
+    # per item, which is also exactly what this function's name claims.
+    joined = " ".join(items + [c for c in (joined_context or []) if c and c.strip()])
+    if len(_en_tokens(joined)) < EN_MIN_TOKENS:
+        return True
+    return english_function_word_ratio(joined) >= EN_FUNCTION_WORD_FLOOR
+
+
 def language_directive(language: str) -> str:
     """The one sentence every generator appends to say which language to write in.
 

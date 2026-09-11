@@ -23,7 +23,12 @@ from services.llm_client import llm_client
 from services.memory_service import memory_service
 from services.prompt_builder import MEMORY_USE_DIRECTIVE, prompt_builder
 from services.safety_service import safety_service
-from text_utils import dominant_language, language_directive, language_matches
+from text_utils import (
+    dominant_language,
+    language_directive,
+    language_matches,
+    language_matches_set,
+)
 from services.safety_event_log import log_safety_event, STAGE_COUNCIL_INPUT
 
 logger = logging.getLogger(__name__)
@@ -527,42 +532,22 @@ def _parse_synthesis(raw: str) -> dict | None:
 def _synthesis_language_ok(structured: dict, language: str) -> bool:
     """Is the synthesis's own PROSE in the expected language?
 
-    TWO TESTS AT TWO GRANULARITIES, because neither alone is safe here. Both
-    failures below were found by writing the test, not by reasoning:
+    Thin now: the rule it used to spell out inline lives in
+    text_utils.language_matches_set, because the counterview round-0 check needed
+    exactly the same thing and two copies of a measured rule is how they drift.
+    What stays here is the part that is about THIS payload — which beats count as
+    prose, and which one does not.
 
-      SCRIPT, PER BEAT. Joining everything and testing once lets three correct
-      English beats outvote one Greek `verdict` — language_matches counts
-      characters. `verdict` is the beat stored flat as session.synthesis and shown
-      on the share card, so that is the exact field a joined test protects least.
-
-      FUNCTION-WORD RATIO, ON THE JOINED PROSE. The opposite error. Measured on
-      this prompt's own register, content-dense English beats fall well under the
-      0.30 floor on their own: "Ambition dressed as duty exhausts everyone
-      eventually." scores 0.143 and "Leaving costs security; staying costs the
-      years you cannot get back." 0.182 — both correct English, both 7-11 tokens
-      so EN_MIN_TOKENS does not exempt them. Applying the ratio per beat would
-      null real synthesis. Joined, the same four beats read 0.500-0.535, which is
-      the connective-prose profile #626 calibrated the floor on.
-
-    So: script per beat catches a single wrong-language field, and the ratio over
-    the whole catches a Latin-script drift without judging any beat on too few
-    words. Verified on five cases in tests/test_last_prompt_language.py.
-
-    `theme` is deliberately NOT here. At 3-6 words it is the field the deleted
-    "Same language as the verdict" line was written for, and it is nulled
+    `theme` is deliberately NOT among them. At 3-6 words it is the field the
+    deleted "Same language as the verdict" line was written for, and it is nulled
     field-level in _clean_field instead — a bad theme costs the share card's
     context line, not the whole instrument.
     """
-    beats = [
-        str(structured.get(k) or "").strip()
-        for k in ("verdict", "tension", "real_question", "next_move")
-    ]
-    beats = [b for b in beats if b]
-    if not beats:
-        return True
-    if any(dominant_language([b]) != language for b in beats):
-        return False
-    return language_matches(" ".join(beats), language)
+    return language_matches_set(
+        [str(structured.get(k) or "") for k in
+         ("verdict", "tension", "real_question", "next_move")],
+        language,
+    )
 
 
 async def _clean_field(value, *, cap_words: int, language: str | None = None) -> str | None:

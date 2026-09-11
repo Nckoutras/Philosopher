@@ -7,7 +7,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from config import config
 from models import Counterview, CounterviewResponse, CounterviewTurn, Insight, Message
-from text_utils import dominant_language, language_directive, language_matches
+from text_utils import (
+    dominant_language,
+    language_directive,
+    language_matches,
+    language_matches_set,
+)
 from services.llm_client import llm_client
 from services.safety_service import safety_service
 from services.safety_event_log import (
@@ -218,10 +223,22 @@ async def generate_counterview(
             )
 
     # ── 6b) Output language gate: a wrong-language SET blocks to 'empty' ──────
-    # Per-verdict rather than on the joined pair, matching the safety loop above:
-    # any bad line condemns the set. A short line is script-tested only
-    # (text_utils.EN_MIN_TOKENS), so a terse English cut is never nulled for want
-    # of function words.
+    # SCRIPT PER VERDICT, RATIO OVER THE WHOLE RESPONSE (language_matches_set).
+    #
+    # THIS WAS PER VERDICT ON BOTH HALVES AND IT WAS A DEFECT. A verdict is capped
+    # at 10 words in a deliberately compressed register, and a function-word ratio
+    # over six to nine tokens says nothing: three of fifteen in-register English
+    # verdicts measured below the floor, "Ambition dressed as duty exhausts
+    # everyone eventually." at 0.143. Those users were shown "There wasn't a clear
+    # case to make against this just yet." for a good answer, about one time in
+    # five. No floor fixes it — at that length correct English (min 0.143) and
+    # wrong-language (max 0.125) overlap.
+    #
+    # still_stands and the title ride along as `joined_context`: they are not
+    # script-tested here (each is nulled field-level in its own cleaner, which is
+    # the #630 behaviour and stays), but they lend the ratio their tokens. That is
+    # what moves the false-reject rate from 9% to 1% — with both of them null the
+    # join is the two verdicts alone and 9% is the honest worst case.
     #
     # BLOCKING IS PERMANENT ON THE INSIGHT PATH, and that is the accepted trade.
     # Step 2 returns any existing counterview for an insight regardless of status,
@@ -230,7 +247,11 @@ async def generate_counterview(
     # and can simply be re-submitted. We take it because the alternative is worse:
     # 'generated' PERSISTS, so a wrong-language card is not a glitch that passes,
     # it is stored once and re-served forever by that same dedup.
-    if any(not language_matches(vtext, language) for _slug, _pos, vtext in verdicts):
+    if not language_matches_set(
+        [v[2] for v in verdicts],
+        language,
+        joined_context=[still_stands or "", title or ""],
+    ):
         logger.warning(
             "counterview_language_mismatch",
             extra={"expected_language": language,
@@ -329,7 +350,13 @@ async def _clean_still_stands(value: str | None, language: str) -> str | None:
         return None
     if _word_count(text) >= STILL_STANDS_MAX_WORDS * 1.5:
         return None
-    if not language_matches(text, language):
+    # SCRIPT ONLY, not language_matches. At 14 words this line is as exposed to the
+    # function-word ratio as a verdict is — one of fourteen in-register English
+    # samples measured 0.273 and would be nulled for writing plainly. Its
+    # Latin-script drift is covered by the whole-response ratio in step 6b, which
+    # includes this text; what is left for the field to do is catch a Greek line
+    # among English ones, and the script test does that at any length.
+    if dominant_language([text]) != language:
         return None
     if (await safety_service.check_output(text)).should_suppress_persona:
         return None
@@ -343,9 +370,10 @@ async def _clean_title(value: str | None, language: str) -> str | None:
 
     The title is the field #626 named: its prompt line used to say "same language
     as the person's position", i.e. it asked the model to INFER. That line is
-    deleted and the language is now stated. A 2-4 word title is usually under
-    EN_MIN_TOKENS, so this check is in practice the script test — which is the
-    half that catches the Greek/English cross the deleted line was aiming at.
+    deleted and the language is now stated. The check here is the script test,
+    which is the half that catches the Greek/English cross the deleted line was
+    aiming at; the title's Latin-script drift rides the whole-response ratio in
+    generate_counterview, which the title is part of.
     Surrounding quotes and trailing sentence punctuation are stripped (a title is a
     heading, not a sentence). A flagged / over-length / empty title is nulled only —
     the counterview is never suppressed for it (field-level C-01)."""
@@ -357,7 +385,11 @@ async def _clean_title(value: str | None, language: str) -> str | None:
         return None
     if _word_count(text) > TITLE_MAX_WORDS:
         return None
-    if not language_matches(text, language):
+    # SCRIPT ONLY, for the same reason as still_stands — and here it is not even a
+    # behaviour change: a 2-4 word title is always under EN_MIN_TOKENS, so
+    # language_matches was already running the script test alone. Written out so
+    # the intent is on the page rather than implied by a threshold elsewhere.
+    if dominant_language([text]) != language:
         return None
     if (await safety_service.check_output(text)).should_suppress_persona:
         return None
