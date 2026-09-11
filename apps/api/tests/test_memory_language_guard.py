@@ -90,13 +90,31 @@ def test_the_directive_survives_prompts_containing_json_braces(prompt, name):
             prompt.format(language="Greek")
 
 
-def test_the_extraction_prompt_still_carries_no_language_of_its_own():
-    """The fix is the appended directive, not an edit to the prompt body. If
-    someone later writes a language rule INTO the prompt, the computed one and
-    the written one can disagree — which is the failure #626 was about."""
-    body = MEMORY_EXTRACTION_PROMPT.lower()
-    assert "same language" not in body
-    assert "write in greek" not in body and "write in english" not in body
+@pytest.mark.parametrize("prompt,name", [
+    (MEMORY_EXTRACTION_PROMPT, "MEMORY_EXTRACTION_PROMPT"),
+    (DISTILL_TO_MEMORY_PROMPT, "DISTILL_TO_MEMORY_PROMPT"),
+    (SELF_PORTRAIT_SUMMARY_PROMPT, "SELF_PORTRAIT_SUMMARY_PROMPT"),
+])
+def test_no_prompt_body_states_a_language_of_its_own(prompt, name):
+    """The computed directive must be the ONLY thing in the prompt that decides a
+    language. A body sentence saying something different is not redundancy — it
+    is two instructions that can disagree, which is the defect #626 removed from
+    the council prompt.
+
+    This test originally covered only MEMORY_EXTRACTION_PROMPT and so did not
+    notice that DISTILL_TO_MEMORY_PROMPT still carried "Write it in the SAME
+    language as the input" underneath the appended directive. Parametrised over
+    all three so the next prompt added here is held to it too.
+
+    Register instructions are a different thing and stay: the portrait prompt's
+    "Plain language" / "Everyday language a friend would use" say HOW to write,
+    not WHICH language to write in.
+    """
+    body = prompt.lower()
+    assert "same language" not in body, f"{name} still infers its own language"
+    assert "write in greek" not in body, f"{name} hardcodes a language"
+    assert "write in english" not in body, f"{name} hardcodes a language"
+    assert "predominantly greek" not in body, f"{name} still infers its own language"
 
 
 # ── distill_to_memory ─────────────────────────────────────────────────────────

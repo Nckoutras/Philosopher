@@ -234,7 +234,7 @@ MIN_DISTILL_WORDS = 6
 
 DISTILL_TO_MEMORY_PROMPT = """You convert a person's own words into ONE clean memory statement about them.
 
-You are given text the person wrote themselves — their own framing of a matter they wanted considered. Rewrite it as a single, third-person memory statement in the shape "User ..." — factual, grounded, one sentence, no interpretation beyond what they stated. Write it in the SAME language as the input.
+You are given text the person wrote themselves — their own framing of a matter they wanted considered. Rewrite it as a single, third-person memory statement in the shape "User ..." — factual, grounded, one sentence, no interpretation beyond what they stated.
 
 Return ONLY the statement, no preamble, no quotation marks. If the text holds nothing meaningful to remember, return exactly: NONE"""
 
