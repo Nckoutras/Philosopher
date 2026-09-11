@@ -19,7 +19,8 @@ values live only in the Render / Netlify dashboards.
 | `API_BASE_URL` | Weekly-letter email (unsubscribe link) | Defaults to `http://localhost:8000`. The worker **refuses to send** the weekly email when this is localhost (so no real user gets a broken unsubscribe link) and logs `Weekly email skipped (API_BASE_URL not configured for prod)`. Set to the public backend URL, e.g. `https://philosopher-api-z9l9.onrender.com`. |
 | `JWT_SECRET` | Auth **and** weekly-letter unsubscribe token (HMAC) | Must be a stable secret. Rotating it invalidates all previously emailed unsubscribe links (and all sessions). |
 | `FRONTEND_URL` | Email links ("Read it in the app"), OAuth redirects, Stripe return URLs | Defaults to `http://localhost:3000`; links point at localhost if unset. |
-| `RESEND_API_KEY` / `FROM_EMAIL` | All transactional email (OTP, ritual reminders, weekly letter) | No email is delivered if unset. |
+| `RESEND_API_KEY` / `FROM_EMAIL` | All transactional email (OTP, ritual reminders, weekly letter) | No email is delivered if `RESEND_API_KEY` is unset. `FROM_EMAIL` defaults to `hello@thewiseroom.app`; it must be a sender verified in Resend for the domain, or delivery fails. |
+| `PUBLIC_ASSET_BASE_URL` | Images and links embedded in outbound email — the OTP logo (`/self-portrait/appbutton.png`) and the future-self persona portraits (`/personas/<name>.webp`) and footer link | Defaults to `https://thewiseroom.app`. Must be the **public site**, not the API host. **Fails silently when wrong:** a stale value still returns 200, so no image breaks and nothing is logged — it was unset on both services until 2026-09-11 and every email carried `thinkalike.netlify.app`, visibly, in the future-self footer. |
 | `DATABASE_URL`, `REDIS_URL` | App + ARQ worker/cron | App/worker won't start. |
 
 > The list above is the operationally fragile subset. The full set of secrets

@@ -39,9 +39,27 @@ class Settings(BaseSettings):
     STRIPE_PRICE_PREMIUM_MONTHLY: str = ""
 
     # Email (Resend)
+    #
+    # BOTH DEFAULTS POINTED AT DEAD DOMAINS UNTIL 2026-09-11, and the second one
+    # was the live defect. `philosopher.app` and `thinkalike.netlify.app` are
+    # earlier names for this product.
+    #
+    # PUBLIC_ASSET_BASE_URL had never been set on Render, because it appeared in
+    # no .env.example, no DEPLOY_NOTES row and no ops checklist — nothing had
+    # ever told anyone it existed. So every OTP email loaded its logo from
+    # thinkalike.netlify.app, and every future-self email printed that hostname
+    # to the reader as visible link text (future_self_email.html renders this
+    # value in the footer, not just as an <img src>).
+    #
+    # It failed the way that is hardest to notice: the old Netlify site still
+    # answers 200, so nothing broke, no image 404'd and no log line fired. The
+    # neighbouring URL defaults degrade LOUDLY by comparison — API_BASE_URL at
+    # localhost suppresses the send and says so, FRONTEND_URL at localhost gives
+    # obviously dead links. A default that quietly succeeds at the wrong thing is
+    # worse than one that fails.
     RESEND_API_KEY: str = ""
-    FROM_EMAIL: str = "noreply@philosopher.app"
-    PUBLIC_ASSET_BASE_URL: str = "https://thinkalike.netlify.app"
+    FROM_EMAIL: str = "hello@thewiseroom.app"
+    PUBLIC_ASSET_BASE_URL: str = "https://thewiseroom.app"
 
     # Error monitoring (Sentry). Empty = disabled, a clean no-op for local and
     # CI — same convention as POSTHOG_API_KEY above. Set on BOTH Render services
