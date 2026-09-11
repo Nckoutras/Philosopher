@@ -11,6 +11,7 @@ from schemas import SelfModelStatusOut
 from auth import get_current_user, get_current_user_plan
 from services.self_model_service import self_model_service
 from services.self_comparison_service import self_comparison_service, weekly_limit, _week_start
+from services.self_portrait_summary import language_from_signals
 from services.safety_service import safety_service
 from services.safety_event_log import log_safety_event
 
@@ -53,7 +54,13 @@ async def get_self_comparison_status(
     elif data.get("forming_preview"):
         # Surface a warm, short, second-person reflection instead of the raw
         # third-person memory signals (which read robotically and say "user").
-        data["forming_preview"] = await self_comparison_service.forming_reflection(data["forming_preview"])
+        # The one caller whose signals ARE the person's own language: these are
+        # memory rows (self_model_service._forming reads MemoryEntry.content), so
+        # the language is read from the same list that is being rewritten.
+        data["forming_preview"] = await self_comparison_service.forming_reflection(
+            data["forming_preview"],
+            language=language_from_signals(data["forming_preview"]),
+        )
     return SelfModelStatusOut(**data)
 
 

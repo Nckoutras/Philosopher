@@ -87,8 +87,11 @@ def _insight(conversation_id):
     )
 
 
-def _message(safety_level):
-    return SimpleNamespace(role="user", safety_level=safety_level)
+def _message(safety_level, content="I keep putting off a decision I have already made."):
+    """`content` is set, not left off (C-06). These rows are now read twice: for
+    the safety level AND as the counterview's language source, so a namespace
+    without it raises AttributeError rather than quietly supplying a Mock."""
+    return SimpleNamespace(role="user", safety_level=safety_level, content=content)
 
 
 def _safety(suppress):

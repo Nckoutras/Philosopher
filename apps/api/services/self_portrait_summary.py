@@ -124,6 +124,30 @@ async def _recent_signals(db: AsyncSession, user_id: str, limit: int = 8) -> lis
     return [c for c in rows if c and c.strip()]
 
 
+def language_from_signals(signals: list[str]) -> str:
+    """The person's language, read from their own memory rows. "English" when
+    there are none.
+
+    ONE function so every caller answers this question the same way. The empty
+    case is a DOCUMENTED DEFAULT, not a derivation: a person with no memory rows
+    has written nothing this system can read, so there is no evidence either way
+    and dominant_language's own tie rule would say English regardless. Callers
+    that reach it should say so at the call site.
+    """
+    return dominant_language(signals) if signals else "English"
+
+
+async def person_language(db: AsyncSession, user_id: str) -> str:
+    """language_from_signals over the caller's own recent memory rows.
+
+    For callers that do NOT already hold signals — the onboarding reflection and
+    the forming preview, whose own material is English by construction. Callers
+    that have signals in hand use language_from_signals directly rather than
+    paying for this query twice.
+    """
+    return language_from_signals(await _recent_signals(db, user_id))
+
+
 def _build_user_block(
     statements: list[str], signals: list[str], candidates: list[tuple[str, str]]
 ) -> str:
@@ -251,7 +275,7 @@ async def generate_portrait(
     # information about the person at all. The person's own language shows only in
     # `signals`, which are their memory rows. With no signals yet there is nothing
     # to read, and dominant_language's tie rule gives English, which is right here.
-    language = dominant_language(signals) if signals else "English"
+    language = language_from_signals(signals)
 
     try:
         raw = await llm_client.complete(

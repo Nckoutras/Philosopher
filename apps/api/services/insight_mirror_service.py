@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from config import config
 from models import Insight, Message, Mirror, Persona, User
 from services.llm_client import llm_client
+from text_utils import dominant_language, language_directive, language_matches
 
 logger = logging.getLogger(__name__)
 
@@ -127,10 +128,24 @@ async def generate_insight_mirror(
     persona_tradition_clause = (
         (", " + persona.tradition) if persona and persona.tradition else ""
     )
+    # THE MESSAGES, NOT insight.content. The thread is model-written and #628
+    # enforces language on dilemma-typed insights only, so a belief- or
+    # aspiration-seeded thread can already be in the wrong language; anchoring on
+    # it would copy that into the mirror. `messages` is role == "user" throughout —
+    # the person's own words with no persona text mixed in, which is exactly what
+    # #627 found missing when a language was read off a whole transcript. The
+    # INSIGHT_MIRROR_MIN_MESSAGES floor above guarantees at least two of them here,
+    # so unlike counterview this path needs no fallback.
+    language = dominant_language([m.content for m in messages])
+
+    # APPENDED AFTER .format(), never inside it. This prompt is the one of the seven
+    # that really is formatted: it carries 3 DOUBLED brace pairs for its JSON shape
+    # alongside the two real fields, so the directive must not be routed through
+    # the same call — it has no braces to escape and no business being scanned.
     system = INSIGHT_MIRROR_PROMPT.format(
         persona_name=persona.name if persona else "A thoughtful observer",
         persona_tradition_clause=persona_tradition_clause,
-    )
+    ) + language_directive(language)
 
     convo_text = "\n".join(f"[{m.created_at:%b %d}] {m.content}" for m in messages)
     user_prompt = (
@@ -154,11 +169,25 @@ async def generate_insight_mirror(
         data = json.loads(text)
         if data.get("status") == "generated":
             payload = {"thread": data.get("thread"), "moments": data.get("moments")}
+            if payload is not None and not _payload_language_matches(payload, language):
+                logger.warning(
+                    "insight_mirror_language_mismatch",
+                    extra={"expected_language": language,
+                           "insight_id": insight_id,
+                           "user_id": user_id},
+                )
+                payload = None
     except Exception as e:
         # Degrade gracefully to 'empty' rather than surfacing a 500 to the user.
         logger.warning("Insight mirror generation failed insight=%s: %s", insight_id, e)
         payload = None
 
+    # 'empty' is a first-class path: routers/memory.reflect_insight returns it as a
+    # clean 200 with a null payload. It is also PERMANENT for this insight — the
+    # dedup at the top returns any existing mirror regardless of status, so this is
+    # never regenerated. Accepted for the same reason as the counterview: a
+    # 'generated' wrong-language mirror would be stored and re-served by that same
+    # dedup forever, which is worse than the empty state the frontend already draws.
     if payload is None:
         return await _write_mirror(
             db, user_id, insight_id, host_persona_id, now, status="empty"
@@ -168,6 +197,27 @@ async def generate_insight_mirror(
         db, user_id, insight_id, host_persona_id, now,
         status="generated", payload=payload,
     )
+
+
+def _payload_language_matches(payload: dict, language: str) -> bool:
+    """Is the model's OWN prose in the expected language?
+
+    Checks `thread` and every `meant` — the sentences the mirror writes. It does
+    NOT check `said`, and that is deliberate twice over: `said` is the person's own
+    charged phrase quoted back, so it is in their language by construction and a
+    mismatch there would mean the quote was fabricated, not mistranslated; and it
+    is trimmed to "one short line", which is usually under EN_MIN_TOKENS and so
+    carries no ratio signal anyway.
+
+    Missing or malformed fields are not a language failure — they are left to the
+    existing parse handling, which nulls the whole payload on its own terms.
+    """
+    texts = [payload.get("thread")]
+    for m in payload.get("moments") or []:
+        if isinstance(m, dict):
+            texts.append(m.get("meant"))
+    checkable = [t for t in texts if isinstance(t, str) and t.strip()]
+    return all(language_matches(t, language) for t in checkable)
 
 
 async def _write_mirror(

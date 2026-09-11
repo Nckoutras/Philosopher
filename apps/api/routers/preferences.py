@@ -111,7 +111,20 @@ async def profile_reflection(
     returns [] on failure so the frontend can skip the beat silently."""
     prefs = await get_user_preferences(user_id=user.id, db=db)
     statements = profile_to_statements(prefs.profile if prefs else None)
-    bullets = await self_comparison_service.forming_reflection(statements)
+    # `statements` are hardcoded English phrases built from enum slugs
+    # (services/profile_text.py), so they cannot supply the language. It is read
+    # from the person's own memory rows instead.
+    #
+    # AT ONBOARDING THAT LIST IS USUALLY EMPTY, and then "English" is a DOCUMENTED
+    # DEFAULT, NOT A DERIVATION: someone finishing the questionnaire has typed
+    # nothing this system has read yet, so there is no evidence of their language
+    # anywhere to consult. Closing that honestly needs a language the person
+    # chooses or the client reports — neither exists today (there is no language
+    # column on users), and inventing one here would hide the gap rather than fix
+    # it. This endpoint fires once, at the end of onboarding.
+    bullets = await self_comparison_service.forming_reflection(
+        statements, language=await self_portrait_summary.person_language(db, user.id),
+    )
     return ProfileReflectionOut(bullets=bullets)
 
 
@@ -274,7 +287,14 @@ async def read_self_portrait_portrait(
     # actually have statements AND a row to write the cache onto.
     statements = answers_to_statements(answers, limit=8)
     if prefs is not None and statements and not self_portrait_summary.in_failure_cooldown(cache):
-        preview = (await self_comparison_service.forming_reflection(statements))[:2]
+        # Same as /profile/reflection: `statements` come from answer_statement()
+        # over a question bank that is English in 360 of 360 questions, so the
+        # language comes from the person's memory rows, not from the material.
+        # Unlike onboarding, a user deep enough to have a forming preview usually
+        # HAS rows — this is the caller where reading them actually pays.
+        preview = (await self_comparison_service.forming_reflection(
+            statements, language=await self_portrait_summary.person_language(db, user.id),
+        ))[:2]
         if preview:
             merged = dict(cache) if isinstance(cache, dict) else {}
             merged["forming"] = {

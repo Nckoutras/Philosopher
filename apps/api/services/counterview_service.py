@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from config import config
 from models import Counterview, CounterviewResponse, CounterviewTurn, Insight, Message
+from text_utils import dominant_language, language_directive, language_matches
 from services.llm_client import llm_client
 from services.safety_service import safety_service
 from services.safety_event_log import (
@@ -61,7 +62,6 @@ Finally, name the TERRAIN of the belief in a TITLE of 2-4 words: the abstract do
 - Abstract and dignified: the ground the belief stands on, not the person standing on it.
 - The "X and Y" shape is one option, not a template — "The shape of ambition", "When to walk away" are equally valid. Vary the form.
 - If the position is too vague to name a clear terrain, choose the nearest honest theme rather than inventing drama.
-- Same language as the person's position — if they wrote in Greek, the title is in Greek.
 
 Return JSON only, no preamble, exactly:
 {"status":"generated","verdicts":[{"persona":"miyamoto_musashi","verdict":"..."},{"persona":"niccolo_machiavelli","verdict":"..."}],"still_stands":"<one sentence, or null>","title":"<2-4 words naming the terrain>"}
@@ -125,6 +125,18 @@ async def generate_counterview(
             db, user_id, source, insight_id, anchor_text, status="suppressed"
         )
 
+    # ── 3b) THE LANGUAGE SOURCE ────────────────────────────────────────────────
+    # Default: the anchor. On the direct path that IS the person's typed belief,
+    # so it is exactly right. On the insight path the anchor is insight.content,
+    # which is MODEL-WRITTEN, and #628 enforces language on dilemmas ONLY
+    # (memory_service.VERBATIM_INPUT_SIGNAL_TYPES) — a belief- or aspiration-typed
+    # insight is log-only and may already be in the wrong language. Reading the
+    # language off it would launder that mistake into a second artifact, which is
+    # the #627 defect one layer down. The conversation's own user messages are
+    # read instead, below, and they cost nothing: the safety gate has already
+    # loaded them.
+    language_source: list[str] = [anchor_text or ""]
+
     # Insight path: the source conversation may carry a high/critical user message
     # even if the distilled insight text reads clean — suppress on that too.
     if source == "insight" and insight is not None:
@@ -161,17 +173,26 @@ async def generate_counterview(
             return await _write_counterview(
                 db, user_id, source, insight_id, anchor_text, status="suppressed"
             )
+        # The person's own words, from the rows already in hand. Counterview has no
+        # minimum-message floor (see the orphan comment above), so this list CAN be
+        # empty — then the anchor stays the source, which is the best evidence left.
+        own_words = [m.content for m in messages if m.content and m.content.strip()]
+        if own_words:
+            language_source = own_words
 
     # ── 4-5) Generate (+ one tightening retry on over-length) ─────────────────
     # still_stands rides the same JSON as the verdicts; the tighten retry, when it
     # fires, adopts the retry response wholesale (both verdicts and its closing line).
+    language = dominant_language(language_source)
     verdicts = None
     still_stands = None
     title = None
     try:
-        verdicts, still_stands, title = await _call_llm(anchor_text)
+        verdicts, still_stands, title = await _call_llm(anchor_text, language)
         if verdicts is not None and any(_word_count(v[2]) > MAX_WORDS for v in verdicts):
-            retry_verdicts, retry_still, retry_title = await _call_llm(anchor_text, tighten=True)
+            retry_verdicts, retry_still, retry_title = await _call_llm(
+                anchor_text, language, tighten=True
+            )
             if retry_verdicts is not None:
                 verdicts = retry_verdicts
                 still_stands = retry_still
@@ -196,13 +217,38 @@ async def generate_counterview(
                 db, user_id, source, insight_id, anchor_text, status="suppressed"
             )
 
+    # ── 6b) Output language gate: a wrong-language SET blocks to 'empty' ──────
+    # Per-verdict rather than on the joined pair, matching the safety loop above:
+    # any bad line condemns the set. A short line is script-tested only
+    # (text_utils.EN_MIN_TOKENS), so a terse English cut is never nulled for want
+    # of function words.
+    #
+    # BLOCKING IS PERMANENT ON THE INSIGHT PATH, and that is the accepted trade.
+    # Step 2 returns any existing counterview for an insight regardless of status,
+    # so an 'empty' written here is never regenerated for that insight — the person
+    # sees the neutral "no clear case" copy for good. The direct path has no dedup
+    # and can simply be re-submitted. We take it because the alternative is worse:
+    # 'generated' PERSISTS, so a wrong-language card is not a glitch that passes,
+    # it is stored once and re-served forever by that same dedup.
+    if any(not language_matches(vtext, language) for _slug, _pos, vtext in verdicts):
+        logger.warning(
+            "counterview_language_mismatch",
+            extra={"expected_language": language,
+                   "got_script": dominant_language([v[2] for v in verdicts]),
+                   "source": source,
+                   "user_id": user_id},
+        )
+        return await _write_counterview(
+            db, user_id, source, insight_id, anchor_text, status="empty"
+        )
+
     # The closing line: cap-guarded + the SAME output-safety gate, nulled (not
     # suppressing) on failure — the verdicts already passed.
-    still_stands = await _clean_still_stands(still_stands)
+    still_stands = await _clean_still_stands(still_stands, language)
 
     # The terrain title: field-level (C-01) — a fail/empty/over-length/flagged title
     # is nulled only, never blocks the counterview whose verdicts already passed.
-    title = await _clean_title(title)
+    title = await _clean_title(title, language)
 
     # ── 7) Persist generated counterview + its two responses ──────────────────
     return await _write_counterview(
@@ -211,13 +257,20 @@ async def generate_counterview(
     )
 
 
-async def _call_llm(anchor_text: str, *, tighten: bool = False):
+async def _call_llm(anchor_text: str, language: str, *, tighten: bool = False):
     """One LLM call → (verdicts, still_stands, title): verdicts is a list of
     [slug, position, verdict] in COUNTERVIEW_PERSONAS order (or None if the model
     returned non-'generated' / unparseable / an incomplete persona set), still_stands
     is the raw closing line (or None), and title is the raw terrain heading (or None).
     still_stands and title are only meaningful when verdicts is not None."""
-    system = COUNTERVIEW_PROMPT + (TIGHTEN_DIRECTIVE if tighten else "")
+    # APPENDED, never .format()ed: COUNTERVIEW_PROMPT carries a literal JSON shape
+    # (4 unescaped brace pairs) and str.format would raise KeyError on it. The
+    # language directive goes LAST so the tighten retry cannot bury it.
+    system = (
+        COUNTERVIEW_PROMPT
+        + (TIGHTEN_DIRECTIVE if tighten else "")
+        + language_directive(language)
+    )
     raw = await llm_client.complete(
         system=system,
         user=f"<position>\n{anchor_text}\n</position>",
@@ -263,11 +316,12 @@ def _extract_verdicts(raw: str):
     return result, (still_stands or None), (title or None)
 
 
-async def _clean_still_stands(value: str | None) -> str | None:
+async def _clean_still_stands(value: str | None, language: str) -> str | None:
     """Normalize the "what still stands" closing line: None unless a non-empty
-    string within the gross word cap (>= 1.5x nulls; marginal ships) that passes
-    the SAME output-safety gate as the verdicts. A flagged line is nulled only —
-    the verdicts already passed, so the counterview is never suppressed for it."""
+    string within the gross word cap (>= 1.5x nulls; marginal ships), in the
+    expected language, that passes the SAME output-safety gate as the verdicts.
+    A flagged line is nulled only — the verdicts already passed, so the
+    counterview is never suppressed for it."""
     if not isinstance(value, str):
         return None
     text = value.strip()
@@ -275,14 +329,23 @@ async def _clean_still_stands(value: str | None) -> str | None:
         return None
     if _word_count(text) >= STILL_STANDS_MAX_WORDS * 1.5:
         return None
+    if not language_matches(text, language):
+        return None
     if (await safety_service.check_output(text)).should_suppress_persona:
         return None
     return text
 
 
-async def _clean_title(value: str | None) -> str | None:
+async def _clean_title(value: str | None, language: str) -> str | None:
     """Normalize the terrain TITLE: None unless a non-empty string of at most
-    TITLE_MAX_WORDS words that passes the SAME output-safety gate as the verdicts.
+    TITLE_MAX_WORDS words, in the expected language, that passes the SAME
+    output-safety gate as the verdicts.
+
+    The title is the field #626 named: its prompt line used to say "same language
+    as the person's position", i.e. it asked the model to INFER. That line is
+    deleted and the language is now stated. A 2-4 word title is usually under
+    EN_MIN_TOKENS, so this check is in practice the script test — which is the
+    half that catches the Greek/English cross the deleted line was aiming at.
     Surrounding quotes and trailing sentence punctuation are stripped (a title is a
     heading, not a sentence). A flagged / over-length / empty title is nulled only —
     the counterview is never suppressed for it (field-level C-01)."""
@@ -293,6 +356,8 @@ async def _clean_title(value: str | None) -> str | None:
     if not text:
         return None
     if _word_count(text) > TITLE_MAX_WORDS:
+        return None
+    if not language_matches(text, language):
         return None
     if (await safety_service.check_output(text)).should_suppress_persona:
         return None
@@ -437,12 +502,16 @@ async def generate_deeper(
     position = base.position
 
     # ── Generate the deeper line (+ one tightening retry on over-length) ──────
+    # The anchor is the only user-authored text this path has: a deeper line has
+    # no fresh input of its own. It is also what keeps the second cut in the same
+    # language as the first, which is already on screen above it.
+    language = dominant_language([cv.anchor_text or ""])
     line = None
     try:
-        line = await _call_deeper_llm(cv.anchor_text, persona_slug, prior_verdict)
+        line = await _call_deeper_llm(cv.anchor_text, persona_slug, prior_verdict, language)
         if line is not None and _word_count(line) > DEEPER_MAX_WORDS:
             retry = await _call_deeper_llm(
-                cv.anchor_text, persona_slug, prior_verdict, tighten=True
+                cv.anchor_text, persona_slug, prior_verdict, language, tighten=True
             )
             if retry is not None:
                 line = retry
@@ -459,6 +528,20 @@ async def generate_deeper(
     # ── Post-generation safety: a flagged deeper line is simply not added ──────
     out = await safety_service.check_output(line)
     if out.should_suppress_persona:
+        return cv
+
+    # ── Output language gate: the cheapest block of the three ─────────────────
+    # Nothing is written and nothing is spent. The cap counts PERSISTED rounds,
+    # so a dropped line leaves max_round at 0 and the person can simply tap
+    # "go deeper" again.
+    if not language_matches(line, language):
+        logger.warning(
+            "counterview_deeper_language_mismatch",
+            extra={"expected_language": language,
+                   "got_script": dominant_language([line]),
+                   "counterview_id": counterview_id,
+                   "persona_slug": persona_slug},
+        )
         return cv
 
     db.add(CounterviewResponse(
@@ -483,13 +566,20 @@ async def _call_deeper_llm(
     anchor_text: str | None,
     persona_slug: str,
     prior_verdict: str,
+    language: str,
     *,
     tighten: bool = False,
 ):
     """One LLM call for a single persona's deeper line → the verdict string, or
     None if the model returned non-'generated' / unparseable / empty."""
     voice = PERSONA_VOICE[persona_slug]
-    system = DEEPER_PROMPT.replace("{voice}", voice) + (DEEPER_TIGHTEN if tighten else "")
+    # .replace() for {voice} (the JSON shape below it would break .format()), then
+    # the directive is APPENDED — never routed through either substitution.
+    system = (
+        DEEPER_PROMPT.replace("{voice}", voice)
+        + (DEEPER_TIGHTEN if tighten else "")
+        + language_directive(language)
+    )
     user = f'<position>\n{anchor_text}\n</position>\nYour first cut: "{prior_verdict}"'
     raw = await llm_client.complete(
         system=system,
@@ -613,12 +703,20 @@ async def respond_to_rebuttal(
     # ── Build the bounded context for this persona (verdict + deeper + prior
     #    generated turns with this persona) and generate (+ one tighten retry) ──
     history = await _rebuttal_context(db, cv, persona_slug)
+    # BOTH of the person's own texts, and NOT `history`. history is this persona's
+    # own case so far — majority model output — and reading a language off it is
+    # precisely the #627 defect. The anchor joins user_text because a rebuttal can
+    # be very short ("ok, but why?"), and dominant_language counts characters, so
+    # the pair is steadier evidence than the pushback alone.
+    language = dominant_language([cv.anchor_text or "", user_text])
     line = None
     try:
-        line = await _call_respond_llm(cv.anchor_text, persona_slug, history, user_text)
+        line = await _call_respond_llm(
+            cv.anchor_text, persona_slug, history, user_text, language
+        )
         if line is not None and _word_count(line) > RESPOND_MAX_WORDS:
             retry = await _call_respond_llm(
-                cv.anchor_text, persona_slug, history, user_text, tighten=True
+                cv.anchor_text, persona_slug, history, user_text, language, tighten=True
             )
             if retry is not None:
                 line = retry
@@ -639,6 +737,26 @@ async def respond_to_rebuttal(
     if out.should_suppress_persona:
         return await _write_turn(
             db, counterview_id, persona_slug, user_text, response=None, status="suppressed"
+        )
+
+    # ── Output language gate ──────────────────────────────────────────────────
+    # The turn persists as 'empty', so the person's own words are kept and the cap
+    # is NOT consumed (count_generated_rebuttals counts 'generated' only) — they
+    # can push back again. One thing is genuinely lost and is named here so a later
+    # reader finds the trade rather than the symptom: the memory enqueue below runs
+    # only for a 'generated' turn, so this rebuttal is never distilled into memory.
+    # That is already true of every LLM failure on this path; it is not new, and it
+    # is the reason the block is not free.
+    if not language_matches(line, language):
+        logger.warning(
+            "counterview_rebuttal_language_mismatch",
+            extra={"expected_language": language,
+                   "got_script": dominant_language([line]),
+                   "counterview_id": counterview_id,
+                   "persona_slug": persona_slug},
+        )
+        return await _write_turn(
+            db, counterview_id, persona_slug, user_text, response=None, status="empty"
         )
 
     # ── Persist the generated turn, then distil the rebuttal → memory ─────────
@@ -713,13 +831,19 @@ async def _call_respond_llm(
     persona_slug: str,
     history: str,
     user_text: str,
+    language: str,
     *,
     tighten: bool = False,
 ):
     """One LLM call for the current speaker's reply to a rebuttal → the verdict
     string, or None if the model returned non-'generated' / unparseable / empty."""
     voice = PERSONA_VOICE[persona_slug]
-    system = RESPOND_PROMPT.replace("{voice}", voice) + (RESPOND_TIGHTEN if tighten else "")
+    # Same shape as the deeper call: .replace() for {voice}, directive APPENDED.
+    system = (
+        RESPOND_PROMPT.replace("{voice}", voice)
+        + (RESPOND_TIGHTEN if tighten else "")
+        + language_directive(language)
+    )
     user = (
         f"<position>\n{anchor_text}\n</position>\n"
         f"{history}\n"

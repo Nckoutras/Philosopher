@@ -59,11 +59,26 @@ class FakePrefs:
 
 
 class FakeDb:
+    """A user with NO memory rows, which is what these tests are about: they pin
+    fingerprint and cooldown behaviour, not language.
+
+    execute() exists because the forming-preview path now reads the person's own
+    memory rows to decide the reflection's language (self_portrait_summary
+    ._recent_signals). Empty is the honest answer for these fixtures and it
+    exercises the documented "English" default rather than a derivation."""
+
     def __init__(self):
         self.committed = 0
+        self.executed = 0
 
     async def commit(self):
         self.committed += 1
+
+    async def execute(self, *_a, **_kw):
+        self.executed += 1
+        r = MagicMock()
+        r.scalars.return_value.all.return_value = []
+        return r
 
 
 @pytest.fixture
