@@ -141,6 +141,13 @@ founder's locked bullets, *informed by* the external review — they are **not**
 transcribed from it. The review's own text was not in hand when they were drafted, so
 no sentence below should be attributed to it. They are locked as written.
 
+**Not to be confused with `P2_EXTERNAL_REVIEW_2026-09-09.md` §25, which is also
+titled "Success tests" and is a different set** — a tenure ladder (week 1, week 3,
+month 2, month 3, month 6, month 12) asking whether the product compounds. That set
+is the reviewer's and is preserved verbatim in that file. These five are the gate's
+metrics for the build order above. Both can be true; neither is a version of the
+other.
+
 They are stated as tests that can fail, not as targets to be reached.
 
 1. **Return without a prompt.** Does a person open the product on a day nothing was
@@ -174,14 +181,18 @@ without reconstruction from this summary:
   epistemic loop; the loop is one of the things it arrives at, not its subject.
 
 Read them in that order. The second supersedes the first wherever they differ, which
-is the point of committing both rather than only the conclusion.
+is the point of committing both rather than only the conclusion. Both are committed
+**exactly as received**, including one export artefact in the reply — a stray
+`id="..."` attribute on the flywheel code fence — left in place deliberately, because
+a verbatim record that has been tidied is no longer verbatim.
 
-> **⚠️ PENDING TEXT.** Both filenames are fixed and referenced above; **the founder
-> is placing both files in this directory, byte-identical, before the PR opens.**
-> This rotation deliberately creates **no stubs** — an empty or paraphrased file
-> under either name would be worse than an absent one, because a later reader would
-> take it for the source. If the PR merges without them, this block stays until they
-> land.
+**What the reply changed, in one line, since it is the document that governs:** the
+reviewer withdrew the ten evidence classes, the five-table model, the
+decision/outcome tables and the ritual router, and revised the position to *"The Wise
+Room already has most of the shared intelligence architecture. The missing piece is a
+trustworthy feedback loop that tells the system which of its own interpretations the
+user actually accepts or rejects."* That is the sentence item 2 of the build order
+above exists to answer.
 
 ---
 
