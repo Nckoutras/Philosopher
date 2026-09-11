@@ -8,6 +8,7 @@ from models import MemoryEntry, Insight
 from schemas import THEME_VALUES
 from services.llm_client import llm_client
 from services.embedding_client import embedding_client
+from text_utils import dominant_language, language_directive, language_matches
 from config import config
 
 logger = logging.getLogger(__name__)
@@ -233,7 +234,7 @@ MIN_DISTILL_WORDS = 6
 
 DISTILL_TO_MEMORY_PROMPT = """You convert a person's own words into ONE clean memory statement about them.
 
-You are given text the person wrote themselves — their own framing of a matter they wanted considered. Rewrite it as a single, third-person memory statement in the shape "User ..." — factual, grounded, one sentence, no interpretation beyond what they stated. Write it in the SAME language as the input.
+You are given text the person wrote themselves — their own framing of a matter they wanted considered. Rewrite it as a single, third-person memory statement in the shape "User ..." — factual, grounded, one sentence, no interpretation beyond what they stated.
 
 Return ONLY the statement, no preamble, no quotation marks. If the text holds nothing meaningful to remember, return exactly: NONE"""
 
@@ -249,8 +250,12 @@ async def distill_to_memory(text: str) -> str | None:
     text = (text or "").strip()
     if len(text.split()) < MIN_DISTILL_WORDS:
         return None
+    # The input IS the person's own words, so it is the language signal. Computed,
+    # not inferred — the prompt used to ask the model to match "the same language
+    # as the input" and it answered in English for Greek input 20 times out of 20.
+    language = dominant_language([text])
     raw = await llm_client.complete(
-        system=DISTILL_TO_MEMORY_PROMPT,
+        system=DISTILL_TO_MEMORY_PROMPT + language_directive(language),
         user=text,
         max_tokens=160,
     )
@@ -260,6 +265,17 @@ async def distill_to_memory(text: str) -> str | None:
         statement = statement[1:-1].strip()
     if not statement or statement.upper() == "NONE":
         return None
+    # OBSERVABILITY, NOT ENFORCEMENT — and the difference is deliberate. A council
+    # brief in the wrong language is display text and dropping it costs the reader
+    # nothing (they keep their raw prefill). Dropping a memory row loses a fact
+    # about the person that nothing else records. So this logs and keeps the write:
+    # the IN directive above is the fix, this is how we find out if it stops working.
+    if not language_matches(statement, language):
+        logger.warning(
+            "memory_language_mismatch",
+            extra={"site": "distill_to_memory", "expected_language": language,
+                   "got_script": dominant_language([statement])},
+        )
     return statement
 
 
@@ -309,9 +325,16 @@ class MemoryService:
         `safety_ok` (input+output both level 'none') gates ONLY the dilemma/belief
         signal-insight write below; memory-row persistence is unchanged by it.
         """
+        # The USER's turn only. The assistant's reply is in the user block below as
+        # context, but it is not evidence of what language the PERSON writes in —
+        # and this prompt never said anything about language at all, while every
+        # one of its worked examples is English. A model given English examples,
+        # an English output shape ("User ..."), and no instruction does the
+        # predictable thing: 20 of 20 Greek inputs produced English rows.
+        language = dominant_language([user_text])
         try:
             raw = await llm_client.complete(
-                system=MEMORY_EXTRACTION_PROMPT,
+                system=MEMORY_EXTRACTION_PROMPT + language_directive(language),
                 user=f"USER: {user_text}\n\nASSISTANT: {assistant_text}",
                 max_tokens=512,
             )
@@ -337,6 +360,18 @@ class MemoryService:
             content = entry.get("content", "").strip()
             if not content:
                 continue
+
+            # Logged, never blocking — see distill_to_memory. A row that arrives in
+            # the wrong language is still a true fact about the person; refusing to
+            # store it would lose the fact as well as the language.
+            if not language_matches(content, language):
+                logger.warning(
+                    "memory_language_mismatch",
+                    extra={"site": "extract_and_store",
+                           "entry_type": entry.get("type"),
+                           "expected_language": language,
+                           "got_script": dominant_language([content])},
+                )
 
             embedding = await embedding_client.embed(content)
 

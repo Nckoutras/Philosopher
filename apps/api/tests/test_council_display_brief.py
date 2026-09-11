@@ -38,11 +38,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from services.council_prompts import COUNCIL_DISPLAY_BRIEF_PROMPT
-from services.council_service import (
-    _EN_FUNCTION_WORD_FLOOR,
-    _brief_language_ok,
-    _english_function_word_ratio,
-    council_service,
+from services.council_service import council_service
+# Promoted to text_utils so four generators share one detector, not four.
+from text_utils import (
+    EN_FUNCTION_WORD_FLOOR as _EN_FUNCTION_WORD_FLOOR,
+    english_function_word_ratio as _english_function_word_ratio,
+    language_matches as _brief_language_ok,
 )
 
 
