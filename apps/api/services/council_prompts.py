@@ -15,6 +15,14 @@ COUNCIL_VERDICT_INSTRUCTION = (
     "  verbatim — paraphrase the idea in your own words instead. When unsure, paraphrase."
 )
 
+# NEITHER COUNCIL_DISTILL_PROMPT NOR COUNCIL_SYNTHESIS_PROMPT STATES ITS OWN
+# LANGUAGE, and that is deliberate rather than an omission: council_service
+# appends text_utils.language_directive to both, computed from the person's own
+# words. The synthesis prompt's `theme` rule used to end "Same language as the
+# verdict" — inference, and a worse form of it than the counterview title line
+# deleted in #630, because a verdict is ANOTHER MODEL'S OUTPUT rather than the
+# person's. It sat fourteen lines below the comment explaining why the display
+# brief's language is computed and not inferred.
 COUNCIL_DISTILL_PROMPT = (
     "You distil a person's chat conversation into the matter a four-member council will deliberate.\n"
     "Read the exchange and return ONE essence brief: at most two sentences, 50 words or fewer.\n"
@@ -94,7 +102,7 @@ COUNCIL_SYNTHESIS_PROMPT = (
     "- theme: a neutral thematic title for this matter, 3-6 words, in the form "
     "\"On ...\" (e.g. \"On permission and asking\", \"On leaving well\"). It names the "
     "TERRITORY, never the person's situation, decision, or any identifying detail — a "
-    "stranger reading it learns the theme, nothing else. Same language as the verdict. "
+    "stranger reading it learns the theme, nothing else. "
     "If no honest neutral title fits, use null.\n"
     "\n"
     "Do not quote. Second person (\"you\"). Ground every CLAIM strictly in the matter and the four "

@@ -57,12 +57,23 @@ def test_the_theme_spec_names_territory_not_the_persons_situation():
     spec = " ".join(
         ln for ln in COUNCIL_SYNTHESIS_PROMPT.splitlines()
         if ln.strip().startswith('"- theme:') or "TERRITORY" in ln
-        or "identifying detail" in ln or "Same language as the verdict" in ln
+        or "identifying detail" in ln
     )
     assert "neutral" in spec
     assert "TERRITORY" in spec
     assert "identifying detail" in spec
-    assert "Same language as the verdict" in spec
+
+    # THIS ASSERTION IS INVERTED FROM WHAT IT WAS, deliberately. It used to
+    # require "Same language as the verdict" in the theme spec. That line was an
+    # INFERENCE instruction — and a worse one than the counterview title's, since
+    # a verdict is another model's output rather than the person's words — so it
+    # is deleted and the language is stated by an appended directive instead
+    # (see _synthesis_language_ok and the theme's field-level check).
+    #
+    # The test is reversed rather than removed: the spec must now be silent about
+    # language, and a future edit that re-adds an inference sentence should fail
+    # here rather than pass quietly alongside the directive.
+    assert "same language" not in COUNCIL_SYNTHESIS_PROMPT.lower()
 
 
 def test_the_theme_examples_are_titles_not_situations():
@@ -168,9 +179,15 @@ def _synthesis_payload_source() -> str:
 
 
 def test_the_stored_payload_includes_theme_through_the_clean_path():
-    block = _synthesis_payload_source()
+    # Whitespace-collapsed before matching. The assertion below is a SOURCE-TEXT
+    # check, so it was sensitive to line wrapping: adding the language argument
+    # pushed the call across three lines and broke a match that was still true.
+    # Collapsing pins what the test means (theme goes through _clean_field with
+    # its cap) instead of how the call happens to be formatted today.
+    block = " ".join(_synthesis_payload_source().split())
     assert '"theme"' in block, "synthesis_structured payload does not carry theme"
-    assert "_clean_field(structured.get(\"theme\")" in block, (
+    assert "_clean_field( structured.get(\"theme\")" in block or \
+           "_clean_field(structured.get(\"theme\")" in block, (
         "theme must go through _clean_field, not be stored raw"
     )
     assert f"cap_words={THEME_CAP_WORDS}" in block

@@ -23,7 +23,7 @@ from services.llm_client import llm_client
 from services.memory_service import memory_service
 from services.prompt_builder import MEMORY_USE_DIRECTIVE, prompt_builder
 from services.safety_service import safety_service
-from text_utils import dominant_language, language_matches
+from text_utils import dominant_language, language_directive, language_matches
 from services.safety_event_log import log_safety_event, STAGE_COUNCIL_INPUT
 
 logger = logging.getLogger(__name__)
@@ -107,13 +107,33 @@ class CouncilService:
                 return None
 
             transcript = "\n".join(f"{m.role}: {m.content}" for m in recent)
+            # LANGUAGE — the person's turns only. `transcript` above renders BOTH
+            # roles, and dominant_language counts characters, so the personas' much
+            # longer replies would outvote the person's messages. `user_turns` is
+            # already counted above for the thinness gate; the texts are taken here.
+            distill_language = dominant_language(
+                [m.content for m in recent if m.role == "user" and m.content]
+            )
             brief = await llm_client.complete(
-                system=COUNCIL_DISTILL_PROMPT,
+                system=COUNCIL_DISTILL_PROMPT + language_directive(distill_language),
                 user=transcript,
                 model=MODEL_HAIKU,
                 max_tokens=150,
             )
             brief = (brief or "").strip()
+            if brief and not language_matches(brief, distill_language):
+                # Returning None is this function's documented failure path and the
+                # caller is built for it: effective_matter falls back to the RAW
+                # MATTER, which is the person's own words. So the block does not
+                # merely avoid a bad brief, it substitutes a better input than the
+                # brief would have been. Nothing is lost but one Haiku call.
+                logger.warning(
+                    "council_distill_language_mismatch",
+                    extra={"expected_language": distill_language,
+                           "got_script": dominant_language([brief]),
+                           "user_id": user_id},
+                )
+                return None
             return brief or None
         except Exception as exc:
             logger.warning(f"Council distill failed for user={user_id}: {exc}")
@@ -386,15 +406,32 @@ class CouncilService:
             f"The matter:\n{effective_matter}\n\nThe four verdicts:\n{verdicts_block}{memory_block}"
         )
 
+        # LANGUAGE — from `matter`, the person's own submitted text, and NOT from
+        # `effective_matter`: that is `brief or matter`, and the brief is model
+        # output. The safety branch at the top of this method already reads the
+        # language the same way (dominant_language([matter])).
+        synthesis_language = dominant_language([matter])
+
         structured = None
         try:
             raw = await llm_client.complete(
-                system=COUNCIL_SYNTHESIS_PROMPT,
+                # APPENDED: the prompt ends on a literal JSON shape, so .format()
+                # would raise KeyError on '"real_question"'.
+                system=COUNCIL_SYNTHESIS_PROMPT + language_directive(synthesis_language),
                 user=synthesis_user_content,
                 model=MODEL_PRO,
                 max_tokens=600,
             )
             structured = _parse_synthesis(raw)
+            if structured is not None and not _synthesis_language_ok(
+                structured, synthesis_language
+            ):
+                logger.warning(
+                    "council_synthesis_language_mismatch",
+                    extra={"expected_language": synthesis_language,
+                           "user_id": user_id},
+                )
+                structured = None
         except Exception as exc:
             logger.error(f"Council synthesis failed for user={user_id}: {exc}")
             structured = None
@@ -415,7 +452,9 @@ class CouncilService:
                 "tension": (structured.get("tension") or "").strip() or None,
                 "verdict": verdict_text,
                 "next_move": await _clean_field(structured.get("next_move"), cap_words=18),
-                "theme": await _clean_field(structured.get("theme"), cap_words=8),
+                "theme": await _clean_field(
+                    structured.get("theme"), cap_words=8, language=synthesis_language
+                ),
             }
             session.synthesis = verdict_text            # flat — MUST stay populated
             session.synthesis_structured = payload
@@ -485,17 +524,64 @@ def _parse_synthesis(raw: str) -> dict | None:
     return data if isinstance(data, dict) else None
 
 
-async def _clean_field(value, *, cap_words: int) -> str | None:
-    """Normalize a grounded synthesis beat (real_question / next_move): None unless
-    a non-empty string within the gross word cap (>= 1.5x nulls; marginal ships)
-    that passes the SAME output-safety gate. A flagged field is nulled only — the
-    rest of the synthesis (verdict, tension) is unaffected."""
+def _synthesis_language_ok(structured: dict, language: str) -> bool:
+    """Is the synthesis's own PROSE in the expected language?
+
+    TWO TESTS AT TWO GRANULARITIES, because neither alone is safe here. Both
+    failures below were found by writing the test, not by reasoning:
+
+      SCRIPT, PER BEAT. Joining everything and testing once lets three correct
+      English beats outvote one Greek `verdict` — language_matches counts
+      characters. `verdict` is the beat stored flat as session.synthesis and shown
+      on the share card, so that is the exact field a joined test protects least.
+
+      FUNCTION-WORD RATIO, ON THE JOINED PROSE. The opposite error. Measured on
+      this prompt's own register, content-dense English beats fall well under the
+      0.30 floor on their own: "Ambition dressed as duty exhausts everyone
+      eventually." scores 0.143 and "Leaving costs security; staying costs the
+      years you cannot get back." 0.182 — both correct English, both 7-11 tokens
+      so EN_MIN_TOKENS does not exempt them. Applying the ratio per beat would
+      null real synthesis. Joined, the same four beats read 0.500-0.535, which is
+      the connective-prose profile #626 calibrated the floor on.
+
+    So: script per beat catches a single wrong-language field, and the ratio over
+    the whole catches a Latin-script drift without judging any beat on too few
+    words. Verified on five cases in tests/test_last_prompt_language.py.
+
+    `theme` is deliberately NOT here. At 3-6 words it is the field the deleted
+    "Same language as the verdict" line was written for, and it is nulled
+    field-level in _clean_field instead — a bad theme costs the share card's
+    context line, not the whole instrument.
+    """
+    beats = [
+        str(structured.get(k) or "").strip()
+        for k in ("verdict", "tension", "real_question", "next_move")
+    ]
+    beats = [b for b in beats if b]
+    if not beats:
+        return True
+    if any(dominant_language([b]) != language for b in beats):
+        return False
+    return language_matches(" ".join(beats), language)
+
+
+async def _clean_field(value, *, cap_words: int, language: str | None = None) -> str | None:
+    """Normalize a grounded synthesis beat (real_question / next_move / theme): None
+    unless a non-empty string within the gross word cap (>= 1.5x nulls; marginal
+    ships) that passes the SAME output-safety gate. A flagged field is nulled only —
+    the rest of the synthesis (verdict, tension) is unaffected.
+
+    `language`, when given, adds the same field-level language test. Only `theme`
+    passes it: the other two ride the whole-synthesis check in
+    _synthesis_language_ok, which has more text to measure."""
     if not isinstance(value, str):
         return None
     text = value.strip()
     if not text or text.lower() == "null":
         return None
     if len(text.split()) >= cap_words * 1.5:
+        return None
+    if language is not None and not language_matches(text, language):
         return None
     if (await safety_service.check_output(text)).should_suppress_persona:
         return None

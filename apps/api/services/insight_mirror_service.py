@@ -169,7 +169,7 @@ async def generate_insight_mirror(
         data = json.loads(text)
         if data.get("status") == "generated":
             payload = {"thread": data.get("thread"), "moments": data.get("moments")}
-            if payload is not None and not _payload_language_matches(payload, language):
+            if payload is not None and not payload_language_matches(payload, language):
                 logger.warning(
                     "insight_mirror_language_mismatch",
                     extra={"expected_language": language,
@@ -199,8 +199,14 @@ async def generate_insight_mirror(
     )
 
 
-def _payload_language_matches(payload: dict, language: str) -> bool:
+def payload_language_matches(payload: dict, language: str) -> bool:
     """Is the model's OWN prose in the expected language?
+
+    PUBLIC, and shared by BOTH mirrors. The weekly/preview mirror in
+    workers/arq_worker.py produces a byte-identical payload shape from a
+    byte-identical prompt, so it imports this rather than growing a second copy
+    that can drift. If the shape ever diverges, this function splits — not the
+    rule it encodes.
 
     Checks `thread` and every `meant` — the sentences the mirror writes. It does
     NOT check `said`, and that is deliberate twice over: `said` is the person's own
