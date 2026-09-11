@@ -61,6 +61,10 @@ export default function CounterviewPage() {
   const [respondingSlug, setRespondingSlug] = useState<string | null>(null)
   // Free daily cap hit: the reset time from the 429 headers (null = not capped).
   const [limitResetAt, setLimitResetAt] = useState<Date | null>(null)
+  // Pro fair-use cap hit on the INSIGHT door (TD-70). Separate from
+  // limitResetAt because the two render differently: that one is the upgrade
+  // wall, and this reader already pays for Pro.
+  const [fairUseResetAt, setFairUseResetAt] = useState<Date | null>(null)
 
   useEffect(() => {
     if (token === null) {
@@ -80,8 +84,25 @@ export default function CounterviewPage() {
           return
         }
         setMode('insight')
-        const cv = await api.counterviewFromInsight(insightId).catch(() => null)
-        setCounterview(cv)
+        // TD-70. This used to be .catch(() => null), which swallowed the cap along
+        // with everything else: a refused Pro user fell through to the neutral
+        // "no clear case" state — the app telling them there was nothing to argue
+        // with, about their own insight, when it had simply declined to look. A
+        // cap must say it is a cap.
+        //
+        // Only fair_use_limit can arrive here (the free daily cap governs the
+        // direct door only), and it is never the upgrade wall: this user already
+        // pays for Pro. Same toast, same approved copy as handleSubmit. Anything
+        // else still degrades to the neutral state, exactly as before.
+        try {
+          setCounterview(await api.counterviewFromInsight(insightId))
+        } catch (e) {
+          if (e instanceof RateLimitError && e.errorCode === 'fair_use_limit') {
+            toast(fairUseMessage(e.resetAt))
+            setFairUseResetAt(e.resetAt)
+          }
+          setCounterview(null)
+        }
       } finally {
         setLoading(false)
       }
@@ -360,6 +381,31 @@ export default function CounterviewPage() {
             )}
           </section>
         )}
+      </main>
+    )
+  }
+
+  // ── Refused, not empty (TD-70) ──
+  // The neutral fallback below is a CLAIM — that there was no case to make
+  // against this insight. It is true for 'empty'/'suppressed' and false for a
+  // cap, where nothing was ever looked at. A toast alone does not fix that: the
+  // sentence underneath it would still be on the screen, and it would be wrong.
+  //
+  // The words are FAIR_USE_COPY, approved 2026-09-02 and used verbatim — the
+  // same sentence the toast carries and the chat paths show, not a new one
+  // written for this surface.
+  if (fairUseResetAt) {
+    return (
+      <main className="min-h-screen [min-height:100svh] flex flex-col bg-vellum px-[24px] pb-[60px]">
+        <SubPageNav fallbackHref="/app/today" />
+        <div className="flex-1 flex flex-col items-center justify-center text-center gap-[14px]">
+          <p className="font-lora text-[11px] uppercase tracking-[0.24em] text-bronze-dark">
+            The Wise Room
+          </p>
+          <p className="font-cormorant text-[24px] text-ink leading-snug max-w-[300px]">
+            {fairUseMessage(fairUseResetAt)}
+          </p>
+        </div>
       </main>
     )
   }

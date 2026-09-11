@@ -77,6 +77,55 @@ If there is genuinely nothing to push against, return exactly: {"status":"empty"
 TIGHTEN_DIRECTIVE = "\n\nYour previous attempt exceeded 10 words on at least one line. Rewrite BOTH lines to 10 words maximum each. Cut every non-essential word — keep the same meaning, the same two distinct angles, the same JSON shape."
 
 
+# ── The insight anchor, resolved once ─────────────────────────────────────────
+#
+# TD-70. Both of these were inline inside generate_counterview and are lifted out
+# UNCHANGED — same queries, same semantics — because the router now needs the same
+# two answers BEFORE it spends quota: it must 404 an insight that is not the
+# caller's, and it must know whether a counterview already exists so a second tap
+# costs nothing. Extracted rather than re-queried in the router, so there is one
+# source of truth per lookup and no second copy to drift (the convention stated at
+# the top of routers/memory.py for the serializers).
+
+
+async def resolve_insight_anchor(db: AsyncSession, user_id: str, insight_id: str | None) -> Insight:
+    """The insight this counterview is seeded from, scoped to its owner.
+
+    Raises ValueError("counterview anchor not found") — the error the routers turn
+    into a 404 — for a missing id, an id that does not exist, or one belonging to
+    somebody else. Ownership is enforced HERE and nowhere else, which is why
+    find_counterview_for_insight below can be user-agnostic.
+    """
+    if not insight_id:
+        raise ValueError("counterview anchor not found")
+    insight = (
+        await db.execute(
+            select(Insight).where(
+                Insight.id == insight_id,
+                Insight.user_id == user_id,
+            )
+        )
+    ).scalar_one_or_none()
+    if insight is None:
+        raise ValueError("counterview anchor not found")
+    return insight
+
+
+async def find_counterview_for_insight(db: AsyncSession, insight_id: str) -> Counterview | None:
+    """The existing counterview for this insight, or None. One per insight, forever.
+
+    NOT user-scoped, deliberately: it is only ever reached after
+    resolve_insight_anchor has established that the insight belongs to the caller,
+    and the insight_id is what ties the row to that owner. Callers must keep that
+    order — checking this first would answer a question about somebody else's row.
+    """
+    return (
+        await db.execute(
+            select(Counterview).where(Counterview.insight_id == insight_id)
+        )
+    ).scalar_one_or_none()
+
+
 async def generate_counterview(
     db: AsyncSession,
     user_id: str,
@@ -96,26 +145,11 @@ async def generate_counterview(
     # ── 1) Resolve the anchor (may raise ValueError) ──────────────────────────
     insight: Insight | None = None
     if source == "insight":
-        if not insight_id:
-            raise ValueError("counterview anchor not found")
-        insight = (
-            await db.execute(
-                select(Insight).where(
-                    Insight.id == insight_id,
-                    Insight.user_id == user_id,
-                )
-            )
-        ).scalar_one_or_none()
-        if insight is None:
-            raise ValueError("counterview anchor not found")
+        insight = await resolve_insight_anchor(db, user_id, insight_id)
         anchor_text = insight.content
 
         # ── 2) App-level dedup (insight only): one counterview per insight, no LLM
-        existing = (
-            await db.execute(
-                select(Counterview).where(Counterview.insight_id == insight_id)
-            )
-        ).scalar_one_or_none()
+        existing = await find_counterview_for_insight(db, insight_id)
         if existing is not None:
             return existing
     else:
