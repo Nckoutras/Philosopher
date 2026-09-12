@@ -79,6 +79,11 @@ def _fake_db(tables: dict):
     """
     db = MagicMock()
     db.seen_statements = []          # so tests can assert on the SQL, not just the rows
+    # The mapped classes the builder actually SELECTed. The completeness guard
+    # at the bottom of this file MEASURES the export against this rather than
+    # against a hand-kept list of section names, which would only assert that
+    # the list matches itself.
+    db.seen_entities = set()
 
     async def execute(stmt, *a, **kw):
         db.seen_statements.append(str(stmt))
@@ -88,6 +93,8 @@ def _fake_db(tables: dict):
             name = entity.__name__
         except Exception:
             name = None
+        if name is not None:
+            db.seen_entities.add(name)
         rows = tables.get(name, [])
         scalars = MagicMock()
         scalars.all.return_value = rows
@@ -126,8 +133,9 @@ async def test_an_empty_account_exports_every_section_as_an_empty_list():
     for section in (
         "conversations", "messages", "memories", "insights", "letters", "mirrors",
         "self_comparisons", "counterviews", "council_cases", "saved_lines",
-        "saved_quotes", "scheduled_emails", "ritual_completions", "daily_usage",
-        "disclaimer_acceptances",
+        "saved_quotes", "mirror_saves", "council_saves", "counterview_saves",
+        "self_comparison_saves", "scheduled_emails", "ritual_completions",
+        "daily_usage", "disclaimer_acceptances",
     ):
         assert payload[section] == [], section
     assert payload["preferences"] is None
@@ -317,3 +325,208 @@ def test_the_size_guard_constants_are_sane():
     # 65x above the heaviest measured real user (380 messages). A cap below the
     # observed maximum would refuse real exports.
     assert EXPORT_MAX_MESSAGES >= 10_000
+
+
+# ── The completeness guard (TD-62) ────────────────────────────────────────────
+#
+# WHAT BREAKS WITHOUT THIS. Everything above pins what the export CONTAINS and
+# what it must never contain. Nothing pinned what it MISSES. Add a migration
+# tomorrow that creates a user-scoped table, wire it to a feature, ship it — and
+# GET /auth/me/export keeps returning 200 with a full-looking document that is
+# now silently incomplete. That is a GDPR Art. 15 defect with no symptom: the
+# file looks right, the endpoint looks healthy, and the only way to notice is to
+# already know the table exists.
+#
+# So this guard asserts the one thing a reader cannot check by opening the file:
+#
+#     every user-scoped mapped class is EITHER exported OR documented as excluded
+#
+# IT MEASURES, IT DOES NOT LIST. The "exported" side is the set of mapped classes
+# build_export actually SELECTs, captured from the fake session. A hand-kept list
+# of exported names would assert that the list matches itself, and would go stale
+# in exactly the way the thing it guards goes stale.
+#
+# A NEW USER-SCOPED TABLE FAILS THIS TEST UNTIL SOMEONE DECIDES WHICH SIDE IT
+# BELONGS ON. That is the entire point. The failure is not a bug in the guard, and
+# it must not be silenced by appending the class to DOCUMENTED_EXCLUSIONS
+# reflexively — the reason line is the deliverable, and an exclusion nobody can
+# justify in one sentence is a defect to rule on, not a set to grow.
+#
+# THE BLIND SPOT, NAMED. This guard keys on user_id (directly, or through a FK
+# chain reaching users). A table holding user-identifying data with NO user_id is
+# invisible to it — otp_codes is the live example: it keys on email, carries a
+# hashed code and salt, and is correctly excluded from the export because handing
+# back credentials is not portability. A green run here is NOT proof of full
+# coverage; it is proof about user_id-reachable tables only.
+
+# Excluded on purpose. The one-line reason is load-bearing: it is what the next
+# reader checks the exclusion against, so it must say why the data is withheld
+# AND how the right is still served.
+DOCUMENTED_EXCLUSIONS = {
+    "SafetyEvent": (
+        "Security audit trail, withheld from bulk download on legitimate-interest "
+        "grounds (abuse and safety-incident prevention); the access right is served "
+        "through the individual-request route the Privacy Policy section 7 publishes."
+    ),
+    "SubscriptionEvent": (
+        "Another party's ledger — Stripe's record of what was billed, not data the "
+        "user authored; the user-facing facts (plan, status, interval, period end, "
+        "pro_since) are exported under `subscription`."
+    ),
+}
+
+# Exported, but never queried: the subject of the export arrives as
+# build_export's own `user` argument and is rendered as `profile`. Accounted for
+# here so it does not read as an omission.
+THE_SUBJECT = {"User"}
+
+
+def _user_scoped_class_names() -> set[str]:
+    """Every mapped class holding data about a user, by either route.
+
+    DIRECTLY — a user_id column. TRANSITIVELY — a FK chain reaching `users`
+    through user-scoped parents, which is how counterview_responses,
+    counterview_turns, council_sessions and council_responses are user data
+    despite carrying no user_id of their own. Both routes count: a table that
+    under-reports because it hangs off a parent is the same Art. 15 defect as one
+    that under-reports directly.
+
+    Walked to a fixpoint rather than one hop, because council_responses reaches
+    users only through council_sessions -> council_cases.
+
+    `users` itself is excluded here and accounted for by THE_SUBJECT above.
+    """
+    from models import Base
+
+    mappers = list(Base.registry.mappers)
+    by_table = {m.local_table.name: m for m in mappers}
+
+    scoped_tables = {
+        m.local_table.name for m in mappers
+        if "user_id" in {c.name for c in m.columns}
+    }
+
+    changed = True
+    while changed:
+        changed = False
+        for m in mappers:
+            table = m.local_table.name
+            if table in scoped_tables or table == "users":
+                continue
+            for col in m.columns:
+                if table in scoped_tables:
+                    break
+                for fk in col.foreign_keys:
+                    if fk.column.table.name in scoped_tables:
+                        scoped_tables.add(table)
+                        changed = True
+                        break
+
+    return {by_table[t].class_.__name__ for t in scoped_tables if t in by_table}
+
+
+def _unaccounted(universe: set[str], queried: set[str]) -> set[str]:
+    """The guard's comparison, kept pure so it can itself be tested.
+
+    ONE-WAY on purpose: every user-scoped class must be queried or excluded. NOT
+    set equality — the builder also selects Persona, Ritual, Quote and
+    DisclaimerVersion as lookup maps to resolve UUIDs into slugs and text, and
+    none of those is user-scoped. Requiring equality would fail correct behaviour.
+    """
+    return universe - queried - set(DOCUMENTED_EXCLUSIONS) - THE_SUBJECT
+
+
+def _seeded_tables() -> dict:
+    """One parent row per nested section, so the nested SELECTs are reached.
+
+    counterview_responses, counterview_turns and council_sessions are queried only
+    inside `if cv_ids:` / `if case_ids:`, and council_responses only inside
+    `if session_ids:` — so an EMPTY account selects none of the four, and the guard
+    would report them missing when they are exported perfectly well. These seeds
+    exist to make those branches fire, and for no other reason.
+
+    Plain _Row, not MagicMock: the builder reads every attribute below, and a Mock
+    would supply them all silently (C-06), hiding a column that stopped being read.
+    """
+    now = datetime(2026, 9, 1, tzinfo=timezone.utc)
+    return {
+        "Counterview": [_Row(
+            id="cv1", source="direct", anchor_text="a position", status="generated",
+            still_stands=None, title="Terrain", created_at=now,
+        )],
+        "CouncilCase": [_Row(
+            id="cc1", source="direct", status="open", session_count=1,
+            created_at=now, closed_at=None,
+        )],
+        "CouncilSession": [_Row(
+            id="cs1", case_id="cc1", session_number=1, input_text="the matter",
+            synthesis="a synthesis", synthesis_structured=None, matter_edited=False,
+            status="generated", created_at=now,
+        )],
+    }
+
+
+async def test_every_user_scoped_table_is_either_exported_or_documented_as_excluded():
+    """THE GUARD. See the block comment above for why it measures instead of listing.
+
+    If this fails naming a class you have just added: the export does not carry it.
+    Decide which side it belongs on — add it to build_export, or add it to
+    DOCUMENTED_EXCLUSIONS with a reason saying why it is withheld and how the access
+    right is served without it. Do not add it to the set to get green.
+    """
+    db = _fake_db(_seeded_tables())
+    await build_export(db, _user())
+
+    missing = _unaccounted(_user_scoped_class_names(), db.seen_entities)
+
+    assert not missing, (
+        "these user-scoped tables are neither exported nor documented as excluded, "
+        f"so GET /auth/me/export under-reports them: {sorted(missing)}"
+    )
+
+
+async def test_the_nested_four_are_actually_reached_by_the_seeds():
+    """The guard's own precondition. If a refactor moved the nested SELECTs behind a
+    different branch the seeds would stop firing them, and the guard would pass by
+    not looking — the worst failure mode a completeness test can have."""
+    db = _fake_db(_seeded_tables())
+    await build_export(db, _user())
+
+    for cls in (
+        "CounterviewResponse", "CounterviewTurn", "CouncilSession", "CouncilResponse",
+    ):
+        assert cls in db.seen_entities, f"{cls} was never selected — the seed stopped working"
+
+
+def test_the_guard_catches_a_new_user_scoped_table():
+    """The guard, guarded. A completeness test that cannot fail is decoration, and
+    this is the cheapest proof that it can: hand the comparison a universe carrying
+    one table the export knows nothing about, and it must be reported.
+
+    Uses the pure comparison rather than a real mapped class deliberately — defining
+    one would register it on models.Base for the remainder of the session and change
+    what every other test in the run sees.
+    """
+    universe = _user_scoped_class_names() | {"MoodCheckin"}
+    queried = _user_scoped_class_names() - set(DOCUMENTED_EXCLUSIONS) - THE_SUBJECT
+
+    assert _unaccounted(universe, queried) == {"MoodCheckin"}
+
+
+def test_every_documented_exclusion_is_real_and_reasoned():
+    """An exclusion naming a table that no longer exists is a carried claim, and a
+    thin reason is the thing this file exists to prevent."""
+    live = _user_scoped_class_names()
+    for name, reason in DOCUMENTED_EXCLUSIONS.items():
+        assert name in live, f"{name} is excluded but is no longer a user-scoped mapped class"
+        assert len(reason) > 60, f"{name}'s exclusion reason is too thin to check against"
+
+
+async def test_no_documented_exclusion_is_quietly_being_exported():
+    """The other direction: if a table listed as withheld starts being SELECTed, its
+    reason line has become false, and the module docstring's promise with it."""
+    db = _fake_db(_seeded_tables())
+    await build_export(db, _user())
+
+    leaked = set(DOCUMENTED_EXCLUSIONS) & db.seen_entities
+    assert not leaked, f"documented as excluded, but the export now queries them: {sorted(leaked)}"
