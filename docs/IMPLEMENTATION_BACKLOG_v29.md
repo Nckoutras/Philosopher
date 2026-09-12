@@ -255,6 +255,81 @@ It was left in place during #631 rather than removed alongside the dead
 `INSIGHT_PROMPT`, because removing it means deleting its tests and that is a separate
 decision, not one to fold into a prompt-language PR. The docstring now says so.
 
+### TD-73 — Production is not reconstructible from migrations alone — **NEW**
+**Status: OPEN. Disaster-recovery defect, not a test inconvenience. Higher
+severity than TD-57, which is where it was found.**
+
+**Verified independently of the docstring that reports it:**
+`db/migrations/data/quotes_049_data.json` carries `updates: 88` and
+`inserts: 110`; `049_quotes_expand`'s own docstring says "UPDATE the `context` of
+all 88 existing rows … Each update MUST touch exactly one row; a 0-row match
+means the live text_en drifted from the snapshot, so we RAISE"; and across every
+migration that mentions `quotes`, **049 is the only one carrying an insert
+operation**. So the 88 rows 049 reads back are inserted by nothing in the chain.
+
+**`alembic upgrade head` therefore does not run on an empty database.** It fails
+inside 049 on a 0-row match — by design, since that check exists to catch drift.
+This was not reasoned about; CI's first `db-tests` run proved it.
+
+**And the seed script can no longer stand in for the missing stage.**
+`db/seed_quotes.py` says "run once after migration 045", but
+`data/quotes_seed.json` now holds **198 rows across 11 personas** — the 88 that
+predate 049 plus the very 110 that 049 inserts. Run at 048-state it inserts 049's
+own rows ahead of it, and 049's `bulk_insert` dies on
+`uq_quotes_persona_locator_text`. The failing key in that CI run was
+`(socrates, "Plato, Apology 28b-d", "Count neither death nor anything else before
+disgrace.")` — row 0 of 049's insert list.
+
+**Why this is more serious than the item it came out of.** TD-57 is a testing
+boundary that costs nothing while it stands. This is a property of the production
+database: if it were lost, it cannot be rebuilt from the repository. The trigger
+is an event nobody schedules, the blast radius is the whole corpus, and nothing
+in the system exercises the path — it surfaced only because CI rebuilt from
+scratch for the first time. Left unnamed it stays invisible indefinitely, because
+every ordinary deploy migrates a database that already has the rows.
+
+**NO LOCAL POSTGRES FIXES THIS.** The `db_live` fixture works around it with a
+three-stage build (`conftest.py:210-212`: upgrade to 048, reconstruct the
+045-era corpus as the seed file minus 049's rows, upgrade to head). That makes
+the tests run; it does not make the chain sound, and the subtraction lives in a
+test fixture rather than anywhere a recovery would look.
+
+**WHAT WOULD DETECT A REGRESSION OF THIS SHAPE: nothing does today, and the
+`db-tests` job does not — it routes around the gap rather than testing it.**
+Verified: the only `alembic upgrade head` anywhere in the repository is
+`conftest.py:212`, and it runs from the **seeded 048 state**; the upgrade that
+runs against an empty database is `conftest.py:210`, which stops at 048. So the
+defect lives strictly between 048 and head, in exactly the interval the fixture
+steps over. If a future migration adds the same shape — reading rows back that
+no migration inserts — it fails the same way, and nothing warns first.
+
+A cheap guard is available: a CI step that creates an empty database and runs
+`alembic upgrade head`, asserting it succeeds. Note the ordering, because it
+decides when the guard can be written: **today that assertion would be red on
+arrival**, since `upgrade head` from empty does fail. So it is the regression
+test for fix 1 rather than something to add ahead of it. The alternative — a
+guard that pins the *current* failure — records the defect but would have to be
+inverted by the same PR that fixes it, which is a choice belonging with the fix.
+
+**Two candidate fixes, deliberately not chosen here — founder call:**
+  1. **Make the chain self-sufficient.** Add a migration before 049 that inserts
+     the 88 rows as a frozen literal snapshot (C-01), so `alembic upgrade head`
+     runs on an empty database. Costs one migration and a decision about what
+     047-era content was; buys a repository that rebuilds itself.
+     **CONSTRAINT, and it may be what decides between the two options:** 049's
+     downgrade "does NOT restore the pre-rewrite context text of the 88 rows —
+     the old contexts are not captured in the snapshot; this content change is
+     forward-only by design." The pre-049 contexts are therefore captured
+     nowhere. A self-sufficient chain would have to insert the 88 rows **with
+     their post-049 contexts and skip 049's update for them**, or reconstruct
+     text that may no longer exist anywhere.
+  2. **Document the staged rebuild as the supported path.** Write the three
+     stages into a recovery runbook and accept that `upgrade head` alone is not
+     the entry point. Costs nothing now; leaves the knowledge in prose, which is
+     what this file's own 2026-08-18 entry warns about.
+
+Not a rewrite of TD-57 and not a decision to be taken inside one.
+
 ---
 
 ## 3. Open decisions
