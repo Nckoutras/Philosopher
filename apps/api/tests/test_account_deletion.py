@@ -45,15 +45,23 @@ class FakeSubscription:
 
 
 class FakeUser:
-    def __init__(self, user_id="u1"):
+    def __init__(self, user_id="u1", email="someone@example.com"):
         self.id = user_id
+        # Read by _delete_otp_codes. Set explicitly (C-06): a MagicMock would
+        # have supplied it silently, and the resulting WHERE email = <Mock>
+        # would match no rows, commit cleanly, and pass.
+        self.email = email
 
 
-def _db_returning(sub, *, anonymised_rows=0):
+def _db_returning(sub, *, anonymised_rows=0, otp_rows=0):
     """An AsyncSession whose execute() answers by statement shape.
 
     Index-based dispatch is what made 17 tests in this repo fail for months
     (TD-45); this dispatches on what the statement IS.
+
+    DELETE answers a rowcount because _delete_otp_codes reads one. A bare
+    MagicMock would return a Mock there, which `or 0` accepts and then logs as a
+    count — so the branch exists to keep the deleted-row number a number.
     """
     db = MagicMock()
     db.commit = AsyncMock()
@@ -65,6 +73,8 @@ def _db_returning(sub, *, anonymised_rows=0):
             result.scalar_one_or_none.return_value = sub
         elif text.startswith("UPDATE"):
             result.fetchall.return_value = [("id",)] * anonymised_rows
+        elif text.startswith("DELETE FROM otp_codes"):
+            result.rowcount = otp_rows
         return result
 
     db.execute = AsyncMock(side_effect=execute)
@@ -250,3 +260,117 @@ async def test_raw_flags_carry_only_matcher_constants_on_output_checks():
     for flag in result.raw_flags:
         assert flag in set(OUTPUT_RISK_PHRASES), flag
     assert "my private notes about you" not in str(result.raw_flags)
+
+
+# ── otp_codes: the table the cascade cannot see (TD-72) ──────────────────────
+#
+# otp_codes carries no user_id, so migration 056 could not give it an ON DELETE
+# clause and `DELETE FROM users` leaves it alone. The rows hold the person's
+# email address, so before this it survived a deletion the privacy policy
+# promises is total. These pin the explicit delete that closes it.
+
+async def test_the_deletion_reaches_otp_codes_by_email():
+    db = _db_returning(None, otp_rows=3)
+
+    summary = await delete_account(db, FakeUser(email="someone@example.com"), plan="free")
+
+    statements = [str(c.args[0]) for c in db.execute.await_args_list]
+    assert any(s.startswith("DELETE FROM otp_codes") for s in statements), statements
+    assert summary["otp_codes_deleted"] == 3
+
+
+async def test_the_otp_delete_filters_on_email_not_user_id():
+    """The whole point: this table has no user_id to filter on. A delete written
+    against user_id would compile, match nothing, and leave the address behind."""
+    db = _db_returning(None, otp_rows=1)
+
+    await delete_account(db, FakeUser(), plan="free")
+
+    stmt = next(
+        s for s in (str(c.args[0]) for c in db.execute.await_args_list)
+        if s.startswith("DELETE FROM otp_codes")
+    )
+    assert "otp_codes.email" in stmt, stmt
+    assert "user_id" not in stmt, stmt
+
+
+async def test_a_user_with_no_otp_rows_is_a_clean_no_op():
+    """Every OAuth-only account. Zero rows is the ordinary case, not an error."""
+    db = _db_returning(None, otp_rows=0)
+
+    summary = await delete_account(db, FakeUser(), plan="free")
+
+    assert summary["otp_codes_deleted"] == 0
+    assert summary["had_active_subscription"] is False
+
+
+async def test_the_otp_delete_runs_after_the_stripe_cancel():
+    """Placement, asserted positively rather than left to the abort test alone.
+
+    test_a_stripe_failure_deletes_nothing already fails if this runs early, which
+    makes it a free ordering check — but it fails for a reason a reader has to
+    infer. This says the order out loud."""
+    db = _db_returning(FakeSubscription())
+    order: list[str] = []
+
+    original = db.execute.side_effect
+
+    async def track_execute(stmt, *a, **kw):
+        text = str(stmt)
+        if text.startswith("DELETE FROM otp_codes"):
+            order.append("otp_delete")
+        return await original(stmt, *a, **kw)
+
+    db.execute = AsyncMock(side_effect=track_execute)
+
+    with patch("stripe.Subscription.cancel") as cancel:
+        cancel.side_effect = lambda *a, **kw: order.append("stripe_cancel")
+        await delete_account(db, FakeUser(), plan="pro")
+
+    assert order == ["stripe_cancel", "otp_delete"], order
+
+
+async def test_a_stripe_failure_leaves_the_otp_rows_alone():
+    """The abort guarantee, restated for this table specifically: a deletion that
+    did not happen must not have destroyed the person's OTP history on the way to
+    failing."""
+    db = _db_returning(FakeSubscription())
+
+    with patch("stripe.Subscription.cancel", side_effect=Exception("boom")):
+        with pytest.raises(StripeCancelFailed):
+            await delete_account(db, FakeUser(), plan="pro")
+
+    statements = [str(c.args[0]) for c in db.execute.await_args_list]
+    assert not any(s.startswith("DELETE FROM otp_codes") for s in statements), statements
+
+
+def test_both_otp_write_paths_lower_the_email_they_store():
+    """THE ASSUMPTION THE DELETE RESTS ON, asserted instead of trusted.
+
+    _delete_otp_codes matches on exact equality. That is only correct while every
+    writer stores a lowered address — otp_request and otp_verify for otp_codes,
+    and the two account-creating doors for users.email. If any door stops
+    lowering, the delete matches nothing, commits cleanly and reports success: a
+    silent no-op that looks exactly like a working fix.
+
+    Source-level, deliberately. The alternative is a live round-trip per door,
+    and what must hold is a property of the code rather than of one request.
+    """
+    from pathlib import Path
+
+    api = Path(__file__).resolve().parents[1]
+    auth = (api / "routers" / "auth.py").read_text(encoding="utf-8")
+    oauth = (api / "routers" / "auth_oauth.py").read_text(encoding="utf-8")
+
+    # otp_codes writers: both handlers lower before calling into otp_service.
+    assert auth.count("email = body.email.lower()") == 2, (
+        "otp_request and otp_verify must each lower the address before it is "
+        "stored or looked up in otp_codes"
+    )
+    # users.email writers: the two account-creating doors.
+    assert 'userinfo.get("email", "").lower()' in oauth, (
+        "the OAuth door must lower the address before creating the user"
+    )
+    # And neither door may write a raw address.
+    assert "User(email=body.email" not in auth, auth
+    assert 'User(email=userinfo' not in oauth, oauth
