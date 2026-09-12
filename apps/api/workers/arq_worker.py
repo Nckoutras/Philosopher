@@ -2359,6 +2359,88 @@ async def send_payment_recovery_email_task(ctx, user_id: str):
         )
 
 
+# ── Retention: OTP codes ──────────────────────────────────────────────────────
+
+# The Privacy Policy §6 publishes "OTP codes: up to 1 hour". Until this existed,
+# nothing enforced it: OTP_EXPIRY_MINUTES = 10 decides whether a code still
+# VERIFIES, and no process deleted the row — so retention was unbounded, and
+# otp_codes went on holding an email address, a salted hash and timestamps for
+# the life of the database. A published retention window with nothing behind it
+# is the #588 defect class: a legal document describing behaviour nobody built.
+#
+# THE ARITHMETIC, because it is the part that looks right and is not. Honouring
+# "up to 1 hour" bounds the maximum AGE of a surviving row, which constrains
+#
+#     cutoff + interval <= 60 minutes
+#
+# not the cutoff alone. The obvious shape — hourly, deleting rows older than an
+# hour — misses by nearly 2x: a row created at 10:01 is younger than the 11:00
+# run's cutoff, survives it, and dies at 12:00 aged 119 minutes.
+#
+# At a 30-minute cutoff on a 10-minute interval: worst case 40 minutes. One
+# missed run, 50. Two consecutive missed runs, 60 — still inside the published
+# hour. Only a sustained worker outage breaches it, and that is independently
+# visible. 30 minutes is also 3x the 10-minute validity window, so no usable
+# code is ever in reach, with slack left for clock skew.
+#
+# IF YOU ARE HERE TO TIDY THIS TO HOURLY: that raises the worst case to ~2 hours
+# and makes the policy false again. Change the published window first, or leave
+# both numbers alone.
+OTP_PURGE_CUTOFF_MINUTES = 30
+OTP_PURGE_INTERVAL_MINUTES = 10
+
+
+async def purge_expired_otp_codes(ctx):
+    """Delete otp_codes rows past the published retention window.
+
+    FILTERS ON created_at, not expires_at. A retention claim is about how long a
+    row is KEPT, so the predicate says that in the same terms the policy does.
+    expires_at would express the identical boundary indirectly, through the
+    10-minute validity offset, and would silently change meaning if validity
+    ever moved.
+
+    NO job_run ROW, unlike the letter dispatches. Two reasons, and they are the
+    mirror image of why 059 exists: a purge is intrinsically idempotent — deleting
+    rows that are already gone is a no-op, so there is nothing for
+    uq_job_run_name_key to protect — and A PURGE IS SELF-EVIDENCING. If it stops
+    running, the surviving rows ARE the evidence. A missed letter dispatch leaves
+    no trace, which is the whole reason job_run was built; this leaves nothing but
+    trace.
+
+    Deletes nothing a caller could still be using: the cutoff is 3x the validity
+    window. Safe against both OTP controls, neither of which depends on row
+    retention — the request limit (5/hour/email) lives in Redis via
+    check_and_increment, and the attempt lockout reads `attempts` off the single
+    newest unused row rather than counting rows.
+
+    Never raises. A failed purge must not take the worker down; the next run in
+    OTP_PURGE_INTERVAL_MINUTES retries by construction, and the rows it failed to
+    delete are still visible to the run after that.
+    """
+    from datetime import datetime, timedelta
+    from sqlalchemy import delete as sa_delete
+
+    from db.session import AsyncSessionLocal
+    from models import OtpCode
+
+    cutoff = datetime.now(dt_timezone.utc) - timedelta(minutes=OTP_PURGE_CUTOFF_MINUTES)
+    try:
+        async with AsyncSessionLocal() as db:
+            result = await db.execute(
+                sa_delete(OtpCode).where(OtpCode.created_at < cutoff)
+            )
+            await db.commit()
+            deleted = result.rowcount or 0
+        if deleted:
+            logger.info(
+                "OTP purge: deleted %d code(s) created before %s",
+                deleted, cutoff.isoformat(),
+            )
+        return deleted
+    except Exception as e:
+        logger.error("OTP purge FAILED (cutoff=%s): %s", cutoff.isoformat(), e, exc_info=True)
+        return 0
+
 # ── Worker settings ───────────────────────────────────────────────────────────
 
 class WorkerSettings:
@@ -2410,6 +2492,11 @@ class WorkerSettings:
         cron(dispatch_monthly_letters, day={28, 29, 30, 31}, hour=17, minute=0),
         cron(catch_up_weekly_letters, weekday="mon", hour=9, minute=0),
         cron(catch_up_monthly_letters, day=2, hour=9, minute=0),
+        # Retention, not a letter. Every OTP_PURGE_INTERVAL_MINUTES — the
+        # interval is half of the cutoff+interval<=60 budget the task's
+        # docstring works through, so the two numbers move together or not at
+        # all.
+        cron(purge_expired_otp_codes, minute={0, 10, 20, 30, 40, 50}),
     ]
     redis_settings = RedisSettings.from_dsn(config.REDIS_URL)
     # True by construction, not by container default. arq evaluates cron against

@@ -410,13 +410,27 @@ def test_the_catch_up_passes_are_scheduled_the_morning_after():
     assert (monthly.day, monthly.hour, monthly.minute) == (2, 9, 0)
 
 
-def test_all_four_cron_jobs_are_registered():
+def test_the_whole_cron_inventory_is_exactly_these_five():
+    """The four letter jobs, in order, plus the one job that is not a letter.
+
+    Kept as a WHOLE-inventory assertion rather than four name lookups: its value
+    is catching a schedule that silently appears or disappears, which per-name
+    checks cannot do.
+
+    purge_expired_otp_codes (TD-72) is retention, not a letter — it enforces the
+    "OTP codes: up to 1 hour" window the Privacy Policy §6 publishes, and it lives
+    here only because this is where the worker's cron list lives. Its schedule and
+    the arithmetic behind it are pinned in tests/workers/test_otp_purge.py, not
+    here; this file only asserts that it exists and that nothing else has crept in
+    beside it.
+    """
     names = [c.coroutine.__name__ for c in WorkerSettings.cron_jobs]
     assert names == [
         "dispatch_weekly_letters",
         "dispatch_monthly_letters",
         "catch_up_weekly_letters",
         "catch_up_monthly_letters",
+        "purge_expired_otp_codes",
     ]
 
 

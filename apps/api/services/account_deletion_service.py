@@ -9,8 +9,9 @@ ORDER, and why it is this order:
 
   1. Cancel the Stripe subscription, if one is active.
   2. Anonymise the safety-event audit trail.
-  3. DELETE FROM users — one statement, 21 tables cascade.
-  4. Analytics, best effort, never blocking.
+  3. Delete otp_codes BY EMAIL — the cascade cannot reach it (see below).
+  4. DELETE FROM users — one statement, 21 tables cascade.
+  5. Analytics, best effort, never blocking.
 
 Stripe FIRST because the two failure directions are not symmetric. If the
 local delete succeeded and the Stripe cancel then failed, a person who no
@@ -35,6 +36,13 @@ WHAT SURVIVES A DELETION:
                      reasoning and for the raw_flags audit it depends on.
 Everything else owned by the user is destroyed by cascade.
 
+THE WORD "OWNED" IS DOING WORK IN THAT SENTENCE, and it used to hide a gap.
+otp_codes holds the person's email address and is owned by them in every sense
+that matters — but it carries NO user_id, so it is not owned in the FK sense,
+and 056's cascade cannot see it. The rows survived a deletion that the privacy
+policy promises is total, which made "everything else" true of the schema and
+false of the person. It is deleted explicitly below, by email.
+
 NOT a soft delete, and deliberately no grace period: the recovery window the
 old policy text described would require the account to stay functional-but-
 locked, which is a different feature. The policy sentence is being amended to
@@ -46,7 +54,7 @@ import stripe
 from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from models import SafetyEvent, Subscription, User
+from models import OtpCode, SafetyEvent, Subscription, User
 from services.analytics_service import analytics_service
 
 logger = logging.getLogger(__name__)
@@ -131,6 +139,39 @@ async def _anonymise_safety_events(db: AsyncSession, user_id: str) -> int:
     return rows
 
 
+async def _delete_otp_codes(db: AsyncSession, email: str) -> int:
+    """Delete this person's OTP rows. BY EMAIL, because nothing else can reach them.
+
+    otp_codes carries no user_id. It is the only user-scoped table in the schema
+    that does not, which is why migration 056 could not give it an ON DELETE
+    clause and why `DELETE FROM users` leaves it untouched. The rows hold the
+    person's email address, so a deletion that skipped them left the address
+    behind — against a privacy policy that promises the erasure is total.
+
+    CASE. Both writers lower the address before it is stored (routers/auth.py, in
+    otp_request and otp_verify), as do both account-creating doors (OTP verify and
+    the OAuth finish), and `git log -S` puts the .lower() in the same commits that
+    created each path — so there is no legacy window in which a mixed-case row
+    could have been written. The equality below is therefore exact rather than
+    case-folded. A test asserts that agreement rather than trusting this comment:
+    if a door ever stops lowering, this delete silently matches nothing, commits
+    cleanly, and reports success.
+
+    POSITION. Called AFTER _cancel_stripe_subscription, and that placement is
+    load-bearing rather than incidental: test_a_stripe_failure_deletes_nothing
+    asserts that a Stripe failure leaves no DELETE and no UPDATE in the session at
+    all. Run this before the cancel and that test fails — correctly, because OTP
+    rows would have been destroyed while the account survived. So the existing
+    test is a free ordering check on this line, and it is worth knowing that from
+    here rather than only from the test file.
+    """
+    result = await db.execute(delete(OtpCode).where(OtpCode.email == email))
+    rows = result.rowcount or 0
+    if rows:
+        logger.info("Account deletion: deleted %d otp_codes row(s)", rows)
+    return rows
+
+
 async def delete_account(db: AsyncSession, user: User, *, plan: str) -> dict:
     """Delete this user and everything they own. Returns a summary for logging.
 
@@ -146,6 +187,7 @@ async def delete_account(db: AsyncSession, user: User, *, plan: str) -> dict:
 
     had_active_subscription = await _cancel_stripe_subscription(db, user_id)
     anonymised = await _anonymise_safety_events(db, user_id)
+    otp_deleted = await _delete_otp_codes(db, user.email)
 
     # One statement. Migration 056 means every dependent row is now handled by
     # the schema: 21 tables CASCADE, safety_events SET NULL.
@@ -153,8 +195,9 @@ async def delete_account(db: AsyncSession, user: User, *, plan: str) -> dict:
     await db.commit()
 
     logger.info(
-        "Account deleted: user=%s had_active_subscription=%s safety_events_anonymised=%d",
-        user_id, had_active_subscription, anonymised,
+        "Account deleted: user=%s had_active_subscription=%s safety_events_anonymised=%d "
+        "otp_codes_deleted=%d",
+        user_id, had_active_subscription, anonymised, otp_deleted,
     )
 
     # Best effort, after the commit, never able to block or undo the deletion.
@@ -172,6 +215,7 @@ async def delete_account(db: AsyncSession, user: User, *, plan: str) -> dict:
     return {
         "had_active_subscription": had_active_subscription,
         "safety_events_anonymised": anonymised,
+        "otp_codes_deleted": otp_deleted,
         "tenure_days": tenure_days,
     }
 
