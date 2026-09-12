@@ -42,10 +42,23 @@ ALREADY PINNED ELSEWHERE, deliberately not duplicated here:
       tests/test_data_export.py::test_the_413_detail_names_the_published_support_address
 
 PROSE IS MATCHED AS LITTLE AS POSSIBLE. Each claim is identified by the shortest
-fragment that distinguishes it, never by its full sentence: a policy reworded for
-clarity must not redden this suite. When a fragment does stop matching, the
-failure says so and asks for the anchor to be re-pointed — it does not claim the
-code is broken.
+fragment that distinguishes it, never by its full sentence, so that an ordinary
+copy edit survives. When a fragment does stop matching, the failure says so and
+asks for the anchor to be re-pointed — it does not claim the code is broken.
+
+AND ONE TEST REDDENS ON A WHOLESALE REWORDING, DELIBERATELY. That is a decision,
+not a shortfall. Knowing a claim is still BEING MADE requires matching some
+string, and any string can be rewritten; the only way to zero is to stop reading
+the policy at all, which removes the cross-document link this file exists to
+create. Shortening the anchors further was considered and rejected — a shorter
+anchor identifies its claim less precisely and can start matching text elsewhere
+as the document grows, which is the worse trade.
+
+So a rewritten §6 puts a human back in the loop to confirm the code still matches
+the new words. That is #588's lesson pointed forward rather than a cost to be
+engineered away: the mismatch that PR had to fix survived precisely because
+nobody was ever made to re-read the promise beside the code. DO NOT "fix" this by
+loosening the anchors.
 """
 import os
 import sys
