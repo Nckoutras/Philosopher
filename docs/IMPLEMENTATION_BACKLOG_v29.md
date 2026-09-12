@@ -96,16 +96,66 @@ why the file sat tracked for months while the rule read as covering it.
 
 ## 2. Tech debt — OPEN, re-verified this rotation
 
-### TD-57 — Live-DB integration tests: PARTIALLY PAID
-**Status: OPEN, materially reduced.**
+### TD-57 — Live-DB integration tests are CI-only — **DECIDED 2026-09-12**
+**Status: DECIDED. Closed as debt, recorded as a boundary. Nothing was fixed —
+the item was reclassified, which is why this is not marked CLOSED.**
 **Verified:** `pytest tests/db_live --collect-only -q` reports **45 tests** across
 four files (`test_job_run.py`, `test_letter_catch_up.py`,
 `test_letter_failed_status.py`, `test_memory_recall_and_cascades.py`), run by the
-`db-tests` CI job against a Postgres service container.
+`db-tests` CI job (`pgvector/pgvector:pg16`, `DATABASE_URL_TEST` set in the job
+env) against a Postgres service container. The job carries no
+`continue-on-error`, so a schema regression blocks merges.
 
-**What remains open:** these run **in CI only**. There is no local Postgres here, so
-revert-verify legs needing a migrated schema cannot be executed locally and CI is the
-sole authority. The broad body of router and service tests still mocks the session.
+**`db_live` is CI-only by decision.** The configuration already exists in two
+places — `infra/docker-compose.yml:6-21` defines `db:` on the same
+`pgvector/pgvector:pg16` image CI uses, and `tests/db_live/conftest.py:22-27`
+carries a copy-paste `docker run` one-liner on port 5433. What is absent is
+Docker on the maintainer's machine, which makes this an install decision rather
+than engineering work. The pgvector image is not optional: `001_initial.py:19-20`
+runs `CREATE EXTENSION vector`, and `008_hnsw_vector_indexes` builds HNSW
+indexes that plain `postgres:16` cannot.
+
+**Nobody is taxed by leaving it.** The gate skips at module level rather than
+erroring (`conftest.py:197`), so a machine with no `DATABASE_URL_TEST` runs the
+suite green with 45 skips. There is no red state to remove.
+
+**The measurement, kept because a decision without it is what the next rotation
+re-opens.** Across the 23 PRs from #617 to #639 (2026-09-08 to 2026-09-12),
+**exactly one** touched `db_live` at all — #620, 36 lines in one file, authored
+and merged with CI as the authority. One further PR had a live-schema dimension
+that went partially verified: #637's OTP purge was checked at statement level
+against a fake session, not against a migrated schema. Every other PR in the
+window was prompts, lexicon, copy, web tests, mocked router tests or docs, and
+none had a revert-verify leg a local schema would have unblocked.
+
+**A local database would also be worse in one respect than CI's.** TD-64 (#620)
+exists because one test commits a row, and its docstring says why that was
+invisible: "On CI that is invisible, because each run gets a fresh Postgres
+container. On any PERSISTENT database the row is permanent."
+`infra/docker-compose.yml` is volume-backed (`postgres_data`), so a local setup
+is exactly the persistent case and would need its own cleanup discipline.
+
+**REVISIT CONDITION:** if schema-shaped PRs rise above roughly 1 in 23.
+Re-measure the same way — count PRs in the window that touch `tests/db_live`,
+migrations, or model FK/ON DELETE clauses — rather than re-arguing it from
+impressions.
+
+**THE PROPORTIONATE ANSWER TO #637's GAP, so nobody reaches for infrastructure
+instead:** one `db_live` test for the purge predicate — that `DELETE … WHERE
+created_at < cutoff` removes the intended rows and leaves in-window rows alone
+against a real schema. One test in the suite CI already runs. To be added
+whenever someone next opens `tests/db_live/`, not as a PR of its own.
+
+**Diagnosability of the `db-tests` job is deliberately left alone** — it has no
+`-ra`, no `--tb` setting, no artifact upload and no step summary. Those are cheap
+to add and their need is unproven (no `db-tests` failure has yet been hard to
+read), so they attach to the next change to that workflow rather than justifying
+one.
+
+**What came out of this investigation and is NOT this item:** the staged build
+the `db_live` fixture needs exists because production is not reconstructible from
+the migration chain alone. That is a disaster-recovery property at its own
+severity and is now **TD-73**.
 
 ### TD-59 — No test pins the privacy policy against the implemented rights
 **Status: OPEN. Re-verified, unchanged.**
