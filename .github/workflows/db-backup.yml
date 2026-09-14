@@ -1,0 +1,443 @@
+name: DB backup
+
+# Nightly encrypted pg_dump of the production database, kept as a 90-day
+# GitHub artifact. Restore procedure: docs/RUNBOOK_RESTORE.md.
+#
+# NOT A REQUIRED CHECK, and it must never become one. It runs on `schedule` and
+# `workflow_dispatch` only, so it never reports on a pull request. A required
+# check that never reports sits at "Expected - waiting for status to be
+# reported" forever and the merge button never opens (see backend-ci.yml's
+# header for the day that lesson was learned).
+#
+# NOTHING HERE CAN RUN IN CI WITHOUT PRODUCTION, and that is stated plainly
+# rather than papered over: there is no test for this workflow. Every guard
+# below is exercised for the first time against the real database. The
+# verification step is a founder-triggered `workflow_dispatch` run, read from
+# the Actions page, once the two secrets exist.
+#
+# The guiding rule for every guard: SILENCE IS NOT A BACKUP. A step that cannot
+# prove what it claims fails the job rather than passing quietly.
+
+on:
+  schedule:
+    # 03:00 UTC daily. GitHub's scheduler is best-effort and can drift or skip
+    # under load; that is acceptable for a daily backup and is the reason the
+    # shrink guard tolerates a missing predecessor instead of assuming one.
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read   # checkout, for the migration-head identity guard
+  actions: read    # gh api, for the previous run's artifact size
+
+concurrency:
+  # Never two dumps at once. cancel-in-progress is FALSE on purpose: a running
+  # backup is more valuable than a newly queued one.
+  group: db-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    name: nightly encrypted pg_dump
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    env:
+      # Production is PostgreSQL 17.6 (verified 2026-09-14). pg_dump refuses to
+      # dump a server newer than itself, and ubuntu-24.04 ships only
+      # postgresql-client-16, so PGDG is not optional here.
+      PG_MAJOR: '17'
+      DUMP: dump.pgc
+      ENCRYPTED: dump.pgc.gpg
+      # Fail if today's backup is smaller than this fraction of the last one.
+      SHRINK_FLOOR_PCT: '50'
+
+    steps:
+      # ── 0. Mask before anything can echo ────────────────────────────────────
+      # GitHub masks configured secrets in logs automatically. This is belt and
+      # braces for the DERIVED value: the password on its own never passes
+      # through the secrets machinery, so if a libpq error quotes it in
+      # isolation, only an explicit add-mask covers it.
+      - name: Mask secrets
+        env:
+          PROD_DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+          echo "::add-mask::$PROD_DATABASE_URL"
+          echo "::add-mask::$BACKUP_PASSPHRASE"
+          # userinfo component of postgresql://user:pass@host/... - masked on
+          # its own so a partial leak is covered too.
+          pw="$(printf '%s' "$PROD_DATABASE_URL" | sed -n 's|^[a-z+]*://[^:]*:\([^@]*\)@.*|\1|p')"
+          if [ -n "$pw" ]; then
+            echo "::add-mask::$pw"
+          fi
+          echo "masking configured"
+
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      # ── 1. Preflight on the secrets themselves ─────────────────────────────
+      # These fail in seconds with an explanation, instead of surfacing 20
+      # minutes later as an opaque libpq error.
+      - name: Validate secrets are present and well-formed
+        env:
+          PROD_DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${PROD_DATABASE_URL:-}" ]; then
+            echo "::error::secret PROD_DATABASE_URL is not set."
+            echo "Settings -> Secrets and variables -> Actions -> New repository secret."
+            exit 1
+          fi
+          if [ -z "${BACKUP_PASSPHRASE:-}" ]; then
+            echo "::error::secret BACKUP_PASSPHRASE is not set. A dump we cannot"
+            echo "encrypt is not going to be uploaded, so this stops here."
+            exit 1
+          fi
+
+          # The application's DATABASE_URL is a SQLAlchemy URL. libpq does not
+          # understand the driver suffix and the error it gives is unhelpful,
+          # so name the fix here.
+          case "$PROD_DATABASE_URL" in
+            *+asyncpg*|*+psycopg*)
+              echo "::error::PROD_DATABASE_URL carries a SQLAlchemy driver suffix"
+              echo "(e.g. postgresql+asyncpg://). pg_dump needs a plain libpq URI:"
+              echo "postgresql://USER:PASSWORD@HOST:5432/postgres?sslmode=require"
+              echo "Copy it from the Supabase connection page (Session pooler), not from Render."
+              exit 1
+              ;;
+            postgres://*|postgresql://*) ;;
+            *)
+              echo "::error::PROD_DATABASE_URL does not look like a postgresql:// URI."
+              exit 1
+              ;;
+          esac
+
+          # pg_dump needs a SESSION-mode connection: it sets session state and
+          # holds one repeatable-read snapshot across hundreds of statements.
+          # Supavisor's transaction pooler on 6543 gives neither, and the
+          # failure is a confusing mid-dump error rather than a refusal.
+          case "$PROD_DATABASE_URL" in
+            *:6543*)
+              echo "::error::PROD_DATABASE_URL points at port 6543, the TRANSACTION pooler."
+              echo "pg_dump cannot use transaction pooling. Use the SESSION pooler:"
+              echo "  aws-0-us-west-2.pooler.supabase.com:5432  (user postgres.<project-ref>)"
+              echo "The direct host db.<ref>.supabase.co is IPv6-only and unreachable"
+              echo "from a GitHub-hosted runner."
+              exit 1
+              ;;
+          esac
+
+          echo "secrets present; connection string shape OK"
+
+      # ── 2. pg_dump >= server major ─────────────────────────────────────────
+      - name: Install postgresql-client-17 (PGDG)
+        run: |
+          set -euo pipefail
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
+            https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" \
+            | sudo tee /etc/apt/sources.list.d/pgdg.list > /dev/null
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq "postgresql-client-${PG_MAJOR}"
+
+      - name: Assert pg_dump major is at least the server major
+        run: |
+          set -euo pipefail
+          # Do not trust the install step's exit code alone: ubuntu ships
+          # postgresql-client-16 and an earlier entry on PATH would silently win.
+          pg_dump --version
+          psql --version
+          have="$(pg_dump --version | sed -n 's/^pg_dump (PostgreSQL) \([0-9][0-9]*\).*/\1/p')"
+          if [ -z "$have" ]; then
+            echo "::error::could not parse pg_dump version"
+            exit 1
+          fi
+          if [ "$have" -lt "$PG_MAJOR" ]; then
+            echo "::error::pg_dump major $have < server major $PG_MAJOR."
+            echo "pg_dump refuses to dump a server newer than itself. The PGDG step did not take effect."
+            exit 1
+          fi
+          echo "OK - pg_dump major $have"
+
+      # ── 3. IDENTITY GUARD - am I talking to the right database? ────────────
+      # This runs BEFORE the dump, and it is the guard that would have caught
+      # the 2026-09-14 near-miss. Nothing in a connection string identifies
+      # which database is on the other end; the schema version does.
+      - name: Assert target schema matches this checkout
+        env:
+          PROD_DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+        run: |
+          set -euo pipefail
+
+          repo_head="$(python3 .github/scripts/repo_migration_head.py)"
+          echo "repo migration head : $repo_head"
+
+          rows="$(psql "$PROD_DATABASE_URL" -v ON_ERROR_STOP=1 -Atq \
+                    -c 'SELECT count(*) FROM public.alembic_version')"
+          if [ "$rows" != "1" ]; then
+            echo "::error::alembic_version holds $rows rows, expected exactly 1."
+            echo "Multiple heads applied, or the table is empty. Not dumping a database in that state."
+            exit 1
+          fi
+
+          db_head="$(psql "$PROD_DATABASE_URL" -v ON_ERROR_STOP=1 -Atq \
+                       -c 'SELECT version_num FROM public.alembic_version')"
+          echo "database migration head : $db_head"
+
+          if [ "$repo_head" != "$db_head" ]; then
+            echo "::error::migration head mismatch - refusing to dump."
+            echo "  repo     : $repo_head"
+            echo "  database : $db_head"
+            echo ""
+            echo "Either PROD_DATABASE_URL points at the wrong database, or a"
+            echo "migration was applied to the wrong project, or production is"
+            echo "simply behind main. All three are worth a human look before a"
+            echo "backup runs. For reference, the ABANDONED pre-Oregon project"
+            echo "sits at 015_add_fk_indexes."
+            exit 1
+          fi
+          echo "OK - target is the database this repository migrates"
+
+      # ── 4. Scope tripwire ──────────────────────────────────────────────────
+      # The dump is --schema=public. That is currently lossless: auth.users and
+      # storage.objects are both empty, there are no cross-schema foreign keys,
+      # and authentication is the app's own OTP flow in public.otp_codes.
+      #
+      # "Currently" is the whole risk. If the app ever adopts Supabase Auth or
+      # Storage, a public-only dump silently stops being a backup. So the
+      # assumption is asserted on every run rather than remembered.
+      - name: Tripwire - no user data outside public
+        env:
+          PROD_DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+        run: |
+          set -euo pipefail
+          auth_users="$(psql "$PROD_DATABASE_URL" -v ON_ERROR_STOP=1 -Atq -c 'SELECT count(*) FROM auth.users')"
+          storage_objects="$(psql "$PROD_DATABASE_URL" -v ON_ERROR_STOP=1 -Atq -c 'SELECT count(*) FROM storage.objects')"
+          echo "auth.users      : $auth_users"
+          echo "storage.objects : $storage_objects"
+
+          if [ "$auth_users" != "0" ] || [ "$storage_objects" != "0" ]; then
+            echo "::error::user data now exists OUTSIDE the public schema."
+            echo "This workflow dumps --schema=public only, so the backup is INCOMPLETE."
+            echo "Widen the dump scope (and update docs/RUNBOOK_RESTORE.md) before"
+            echo "trusting another run. Failing loudly is the point: the alternative"
+            echo "is a backup that silently stopped covering everything."
+            exit 1
+          fi
+          echo "OK - all user data is in public"
+
+      # ── 5. Dump-time facts the runbook verifies against ────────────────────
+      # The restore rehearsal compares its own counts to these. Without them the
+      # runbook has nothing to check a restore against, and "it restored" would
+      # mean only "pg_restore exited 0".
+      - name: Record dump-time state
+        env:
+          PROD_DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+        run: |
+          set -euo pipefail
+          echo "=== DUMP-TIME VERIFICATION COUNTS (compare these after a restore) ==="
+          psql "$PROD_DATABASE_URL" -v ON_ERROR_STOP=1 -P pager=off -c "
+            SELECT 'users' AS table, count(*) FROM public.users
+            UNION ALL SELECT 'memory_entries', count(*) FROM public.memory_entries
+            UNION ALL SELECT 'weekly_letters', count(*) FROM public.weekly_letters
+            ORDER BY 1;"
+
+          echo "=== INSTALLED EXTENSIONS (the runbook's CREATE EXTENSION step reads this) ==="
+          # pg_dump --schema=public does NOT emit CREATE EXTENSION: extensions
+          # are only dumped when no schema filter is given. So the restore has
+          # to create them by hand, and this is the source of truth for which.
+          psql "$PROD_DATABASE_URL" -v ON_ERROR_STOP=1 -P pager=off -c "
+            SELECT e.extname, e.extversion, n.nspname AS schema
+            FROM pg_extension e JOIN pg_namespace n ON n.oid = e.extnamespace
+            ORDER BY 1;"
+
+          echo "=== SIZE ==="
+          psql "$PROD_DATABASE_URL" -v ON_ERROR_STOP=1 -P pager=off -c "
+            SELECT pg_size_pretty(pg_database_size(current_database())) AS database_size;"
+
+      # ── 6. The dump ────────────────────────────────────────────────────────
+      - name: pg_dump
+        env:
+          PROD_DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+        run: |
+          set -euo pipefail
+          pg_dump \
+            --format=custom \
+            --no-owner \
+            --no-privileges \
+            --schema=public \
+            --verbose \
+            -f "$DUMP" \
+            "$PROD_DATABASE_URL"
+          ls -l "$DUMP"
+
+      - name: Guard - dump is non-empty
+        run: |
+          set -euo pipefail
+          if [ ! -f "$DUMP" ]; then
+            echo "::error::$DUMP does not exist after pg_dump reported success."
+            exit 1
+          fi
+          size="$(stat -c%s "$DUMP")"
+          echo "dump bytes: $size"
+          if [ "$size" -eq 0 ]; then
+            echo "::error::$DUMP is zero bytes."
+            exit 1
+          fi
+          # A custom-format archive always begins with the magic "PGDMP".
+          # A non-zero file of HTML error text would pass a size check.
+          if [ "$(head -c 5 "$DUMP")" != "PGDMP" ]; then
+            echo "::error::$DUMP is not a PostgreSQL custom-format archive (bad magic)."
+            exit 1
+          fi
+          echo "OK - non-empty custom-format archive"
+
+      # ── 7. Encrypt, then prove the ciphertext opens ────────────────────────
+      - name: Encrypt with GPG (AES256)
+        env:
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+          # Passphrase over a pipe, never as an argv element: command lines are
+          # world-readable via /proc on the runner.
+          printf '%s' "$BACKUP_PASSPHRASE" | gpg \
+            --batch --yes --quiet \
+            --pinentry-mode loopback --passphrase-fd 0 \
+            --symmetric --cipher-algo AES256 \
+            --s2k-mode 3 --s2k-digest-algo SHA512 --s2k-count 65011712 \
+            -o "$ENCRYPTED" "$DUMP"
+          ls -l "$ENCRYPTED"
+
+      - name: Guard - the artifact decrypts and is a valid archive
+        env:
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+          if [ ! -f "$ENCRYPTED" ]; then
+            echo "::error::$ENCRYPTED is missing after the encrypt step."
+            exit 1
+          fi
+          if [ "$(stat -c%s "$ENCRYPTED")" -eq 0 ]; then
+            echo "::error::$ENCRYPTED is zero bytes."
+            exit 1
+          fi
+
+          # The strongest check available without a database: decrypt in memory
+          # and read the archive's table of contents. This proves the passphrase
+          # round-trips AND that the ciphertext contains a well-formed dump.
+          # An artifact that cannot be opened is not a backup, and finding that
+          # out during an incident is the worst possible time.
+          # Count real TOC entries only. pg_restore --list prefixes every entry
+          # with "<id>; " and every header line with a bare ";", so a naive
+          # grep for ';' counts the comment block and can never reach zero.
+          entries="$(printf '%s' "$BACKUP_PASSPHRASE" \
+            | gpg --batch --quiet --pinentry-mode loopback --passphrase-fd 0 -d "$ENCRYPTED" \
+            | pg_restore --list \
+            | grep -cE '^[0-9]+;' || true)"
+          echo "archive TOC entries: ${entries:-0}"
+          if [ "${entries:-0}" -lt 1 ]; then
+            echo "::error::decrypted archive has an empty table of contents."
+            exit 1
+          fi
+          echo "OK - decrypts cleanly and reads as a custom-format archive"
+
+      # ── 8. Shrink guard ────────────────────────────────────────────────────
+      # Compares today's encrypted artifact against the most recent SUCCESSFUL
+      # run's artifact. The recorded size_in_bytes is the zip GitHub wraps the
+      # file in; GPG output is incompressible, so zip size and file size differ
+      # by a rounding error - fine for a 50% floor, and named here so nobody
+      # later mistakes it for an exact comparison.
+      - name: Guard - not a suspicious shrink
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          current="$(stat -c%s "$ENCRYPTED")"
+          echo "current encrypted bytes : $current"
+
+          prev_run="$(gh api \
+            "repos/$GITHUB_REPOSITORY/actions/workflows/db-backup.yml/runs?status=success&per_page=1" \
+            --jq '.workflow_runs[0].id // empty' 2>/dev/null || true)"
+
+          if [ -z "$prev_run" ]; then
+            echo "::notice::SHRINK GUARD SKIPPED - no previous successful run of this"
+            echo "workflow exists. This is the first run. Every subsequent run is compared."
+            exit 0
+          fi
+          echo "previous successful run : $prev_run"
+
+          prev_size="$(gh api \
+            "repos/$GITHUB_REPOSITORY/actions/runs/$prev_run/artifacts" \
+            --jq '[.artifacts[] | select(.expired == false) | .size_in_bytes] | max // empty' 2>/dev/null || true)"
+
+          if [ -z "$prev_size" ] || [ "$prev_size" -eq 0 ]; then
+            echo "::notice::SHRINK GUARD SKIPPED - run $prev_run has no retrievable"
+            echo "artifact (expired past its 90-day retention, or never uploaded one)."
+            echo "Skipping is deliberate: failing here on a retention rollover would be"
+            echo "a false alarm, and false alarms are how real ones get ignored."
+            exit 0
+          fi
+
+          echo "previous artifact bytes : $prev_size"
+          floor=$(( prev_size * SHRINK_FLOOR_PCT / 100 ))
+          echo "floor (${SHRINK_FLOOR_PCT}%)          : $floor"
+
+          if [ "$current" -lt "$floor" ]; then
+            echo "::error::backup shrank to below ${SHRINK_FLOOR_PCT}% of the previous one."
+            echo "  previous : $prev_size bytes (run $prev_run)"
+            echo "  current  : $current bytes"
+            echo ""
+            echo "Do not dismiss this. A dump that suddenly halves usually means"
+            echo "the dump was partial or the target changed - both of which look"
+            echo "like a successful backup from the outside."
+            exit 1
+          fi
+          echo "OK - within the floor"
+
+      # ── 9. Plaintext never leaves the runner ───────────────────────────────
+      - name: Delete the plaintext dump
+        run: |
+          set -euo pipefail
+          rm -f "$DUMP"
+          if [ -e "$DUMP" ]; then
+            echo "::error::failed to delete the plaintext dump; refusing to continue."
+            exit 1
+          fi
+          echo "plaintext removed; only $ENCRYPTED remains:"
+          ls -l
+
+      - name: Artifact name
+        id: meta
+        run: echo "name=db-backup-$(date -u +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
+
+      - name: Upload encrypted backup
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.meta.outputs.name }}
+          path: dump.pgc.gpg
+          retention-days: 90
+          if-no-files-found: error
+          # A manual dispatch on the same day as the nightly run would otherwise
+          # collide on the artifact name and fail AFTER a good dump. Overwriting
+          # is safe here because every guard above has already passed - nothing
+          # reaches this step unless it decrypted and read as a valid archive.
+          overwrite: true
+
+      - name: Summary
+        run: |
+          set -euo pipefail
+          {
+            echo "### Encrypted backup uploaded"
+            echo ""
+            echo "- artifact: \`${{ steps.meta.outputs.name }}\`"
+            echo "- retention: 90 days"
+            echo "- restore: [docs/RUNBOOK_RESTORE.md](docs/RUNBOOK_RESTORE.md)"
+            echo ""
+            echo "Decryption needs \`BACKUP_PASSPHRASE\`. It is in the founder's password"
+            echo "manager and nowhere else - it cannot be recovered from this repository."
+          } >> "$GITHUB_STEP_SUMMARY"
