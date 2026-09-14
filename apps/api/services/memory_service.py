@@ -703,7 +703,7 @@ class MemoryService:
                     exclude_param = {"self_id": entry.id}
                 result = await db.execute(
                     text(f"""
-                        SELECT content, conversation_id,
+                        SELECT id, content, conversation_id,
                                1 - (embedding <=> CAST(:query_vec AS vector)) AS score
                         FROM memory_entries
                         WHERE user_id = :user_id
@@ -733,6 +733,47 @@ class MemoryService:
             # Distinct conversations the theme was noticed across: the distinct
             # prior conversations that cleared the similarity bar, plus this one.
             source_count = len({m.conversation_id for m in prior_matches}) + 1
+
+            # ── EVIDENCE (060) ────────────────────────────────────────────────
+            # The rows this insight was derived from, kept instead of collapsed.
+            # Built HERE, from the same `prior_matches` source_count is computed
+            # from, so the two can never describe different match sets — a test
+            # pins them against each other for exactly that reason.
+            #
+            # Ids AND a text snippet, no foreign keys: a memory row can be
+            # deactivated and 057 lets its conversation be deleted, so a citation
+            # that resolved by id alone would stop rendering the thing it cites.
+            # Every match above the bar is stored; `shown_to_classifier` records
+            # how many of them the classifier below actually saw. The detector's
+            # constants are frozen at write time because they are ship-and-tune
+            # values, and a citation whose bar is unrecoverable cannot be read.
+            evidence = {
+                "recurring_entry": {
+                    "memory_entry_id": str(recurring_entry.id),
+                    "text": recurring_entry.content,
+                    "conversation_id": (
+                        str(recurring_entry.conversation_id)
+                        if recurring_entry.conversation_id else None
+                    ),
+                },
+                "prior_matches": [
+                    {
+                        "memory_entry_id": str(m.id),
+                        "text": m.content,
+                        "conversation_id": str(m.conversation_id) if m.conversation_id else None,
+                        "score": float(m.score),
+                    }
+                    for m in prior_matches
+                ],
+                "shown_to_classifier": len(prior_matches[:5]),
+                "detector": {
+                    "threshold": RECURRENCE_SIM_THRESHOLD,
+                    "limit": 20,
+                    # Reserved for the period-filtered caller (PR B). Null means
+                    # lifetime, which is what this detector is and must stay.
+                    "window": None,
+                },
+            }
 
             # ── CLASSIFY + PHRASE ─────────────────────────────────────────────
             # One call decides pattern vs shift and produces the phrasing. On any
@@ -831,6 +872,7 @@ class MemoryService:
                 content=content,
                 insight_type=insight_type,
                 source_count=source_count,
+                evidence=evidence,
             ))
             await db.commit()
             logger.info(

@@ -310,6 +310,12 @@ class Insight(Base):
     insight_type: Mapped[str | None] = mapped_column(String(50))  # pattern | shift | question | challenge
     source_count: Mapped[int | None] = mapped_column(Integer)  # distinct conversations a recurring theme was noticed across
     theme: Mapped[str | None] = mapped_column(Text, nullable=True)  # optional life-theme slug (THEME_VALUES) captured at signal-write
+    # The memory rows a RECURRENCE insight was derived from, with a text snippet
+    # beside each id so the citation still renders after its source is deactivated
+    # or its conversation deleted (057). NULL means one of two different things —
+    # written before migration 060, OR not a recurrence insight at all (the signal
+    # path has no match set by construction). See 060_insight_evidence.
+    evidence: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     is_dismissed: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
