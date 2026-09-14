@@ -137,21 +137,73 @@ older key would write a second letter for a week already delivered under the
 pre-PR-C arithmetic. The per-user dedup still holds inside the generator, but the
 period arithmetic changed and the unique index cannot see that.
 
-### RESULT: (not yet observed)
+### RESULT: observed 2026-09-13, verified by founder-run SQL 2026-09-14
 
-> **This section is deliberately empty. The run has not happened.**
->
-> Monday 2026-09-15, fill this in with **one paragraph**: did a `job_run` row open
-> for `('weekly_letter', '2026-W37')`, did it close `succeeded`, what were the three
-> counts, did any letter carry an `email_suppressed_reason` and which, and did a
-> letter arrive in a real inbox from `hello@thewiseroom.app`.
->
-> If the run was missed, record that instead, plus whether the manual remedy was
-> invoked and with which `run_key`.
->
-> **Do not write an expected outcome here.** The whole value of this gate is that it
-> can fail, and a pre-written result is indistinguishable from an observed one two
-> rotations later.
+**`job_run` — `('weekly_letter', '2026-W37')`**
+
+| field | value |
+|---|---|
+| `status` | `succeeded` |
+| `started_at` | 2026-09-13 18:00:01.098 UTC |
+| `finished_at` | 2026-09-13 18:00:02.726 UTC |
+| `candidate_count` | 3 |
+| `selected_count` | 2 |
+| `enqueued_count` | 2 |
+| `error` | NULL |
+
+Dispatch took **1.628 s**. `candidate > selected` (3 → 2) is the normal shape.
+`selected == enqueued` (2 = 2): **no enqueue failures**.
+
+**`weekly_letters` — 2 rows**
+
+| field | value |
+|---|---|
+| rows | 2 |
+| period | 2026-09-07 → 2026-09-13 18:00:01 |
+| `status` | `generated` (both) |
+| `email_suppressed_reason` | NULL (both) |
+| `email_sent_at` | 18:00:19, 18:00:29 UTC |
+
+Sent **18 s and 28 s** after dispatch opened. No suppression reason on either —
+so `localhost` / OPS-007 did not fire: `API_BASE_URL` was set on the worker.
+
+**These are the first delivered letters in the product's history.** The teardown
+of 2026-08-25 measured `email_sent_at` = 0 across all **22** prior rows.
+
+**Inbox (founder-observed, unverifiable from the repository):** letter received
+from `hello@thewiseroom.app`; voice Machiavelli; tied two separate conversations
+correctly; read as recognition.
+
+**TD-67 did not fire.** The run opened its own `job_run` row, so the catch-up
+floor exists and the manual `run_key='2026-W37'` remedy was never invoked.
+
+**R4's remainder is now open:** the other three dispatch jobs may move to ARQ,
+in one PR.
+
+### TD-72's purge: VERIFIED in production, by a three-point chain
+
+`otp_codes` = **0 rows** (2026-09-14). On its own that number proves nothing — it
+is equally what an empty window looks like. It is the *sequence* that is
+decisive, and both endpoints were observed:
+
+1. **2026-09-12 ~12:01 UTC, founder-run SQL:** `otp_codes` held **2 rows**, both
+   `created_at` 11:44 UTC that day — the founder's own login.
+2. **2026-09-14 07:20 UTC, Sentry:** `OTP purge FAILED … password authentication
+   failed`, from `cron:purge_expired_otp_codes` on the worker, captured during
+   the password-rotation window. The cron is therefore **provably firing on
+   schedule** — a failed run is still a run.
+3. **2026-09-14, founder-run SQL:** `otp_codes` = **0 rows**.
+
+Rows existed on Saturday; the only deleter besides the purge is account deletion,
+which did not run; the rows are gone. That is rows-present-then-gone, which is the
+observation a bare zero cannot supply.
+
+**The Sentry event is itself a first.** It is the first production proof that the
+worker's Sentry integration fires on a **cron** failure — `init_sentry()` is
+called in `workers/arq_worker.py` precisely because the worker process never
+imports `main`, and until this event nothing had demonstrated that the wiring
+works from a scheduled job. It arrived as the side effect of a credential
+rotation, which is not a test anyone would have written.
 
 **Only after a Sunday run proves the pattern** does R4's remainder open: the other
 three dispatch jobs move to ARQ, in one PR.
@@ -170,8 +222,12 @@ The start gate now reads:
 |---|---|---|
 | 1 | #6 letter delivery merged | ✅ met — #608–#611 |
 | 2 | Tranches merged | ✅ met — bank complete at 360/360 |
-| 3 | **Founder** post-v2 memory read | ⏳ pending |
-| 4 | First v2 Sunday letter | ⏳ pending |
+| 3 | **Founder** post-v2 memory read | ✅ met — 2026-09-13, "read as recognition" |
+| 4 | First v2 Sunday letter | ✅ met — 2026-09-13, 2 delivered (see §1) |
+
+**P2's start gate is met on all four conditions as of 2026-09-13.** The named
+weakness of condition 3 stands — the person who built it judged it — and that is
+recorded in the strategy document, not retired by this result.
 
 **Condition 3 changed hands.** Dimitris is unavailable, so this is explicitly a
 **founder** read. The strategy document names the bias rather than hiding it: the
@@ -187,11 +243,12 @@ a gate that can fail is that failing it changes what happens next.
 
 ## 3. Standing risks
 
-**The letter path has never completed a real delivery under the current arithmetic.**
-Every part is tested; the one production run so far correctly found no eligible
-users, which exercises dispatch and the `job_run` row but not generation, the send,
-or the suppression reasons. Sunday 2026-09-13 is the first run that can exercise the
-rest — and it is also the one period with no automatic catch-up.
+**The letter path has now completed a real delivery under the current arithmetic
+— 2026-09-13, 2 letters, both sent (§1).** What that retires is the risk that
+generation, the send and the suppression path had never run together in
+production. What it does not retire: the monthly path has still never run (first
+on 2026-09-30, and TD-67 applies to it), and one Sunday is one observation, not a
+rate.
 
 **The revenue path is blocked on a price mismatch that lives outside the
 repository.** The upgrade page says €99.99; the founder observed €149 charged.

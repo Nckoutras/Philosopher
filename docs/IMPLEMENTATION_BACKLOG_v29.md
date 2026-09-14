@@ -92,6 +92,34 @@ dead hosts for the next reader to believe.
 tracked file. `.gitignore`'s `.env.*` rule only ignores *untracked* files, which is
 why the file sat tracked for months while the rule read as covering it.
 
+### TD-72 — The published OTP retention window was not enforced — **CLOSED (#637)**
+**Status: CLOSED. Opened and closed after this rotation, so it appears here only as
+a closure.** Privacy Policy §6 publishes "OTP codes: up to 1 hour". Nothing enforced
+it — `OTP_EXPIRY_MINUTES = 10` gates whether a code still VERIFIES, and no process
+deleted the row, so retention was unbounded. Account deletion did not reach the table
+either: `otp_codes` carries no `user_id`, so 056's cascade cannot see it and the
+deleted person's email address survived.
+
+A 10-minute ARQ cron purging rows past a 30-minute cutoff enforces the published hour
+(worst case 40 minutes; 60 after two consecutive missed runs), and `delete_account`
+now deletes by email.
+
+**VERIFIED IN PRODUCTION, by sequence rather than by a single number** — a bare
+`otp_codes = 0` is equally what an empty window looks like:
+  1. **2026-09-12 ~12:01 UTC**, founder-run SQL: **2 rows**, both `created_at` 11:44
+     UTC that day (the founder's own login).
+  2. **2026-09-14 07:20 UTC**, Sentry: `OTP purge FAILED … password authentication
+     failed` from `cron:purge_expired_otp_codes` on the worker, during the
+     password-rotation window — so the cron is **provably firing on schedule**; a
+     failed run is still a run.
+  3. **2026-09-14**, founder-run SQL: **0 rows**.
+
+Rows present, then gone, with no account deletion in between. That Sentry event is
+also the first production proof that the worker's Sentry integration fires on a
+**cron** failure — `init_sentry()` exists in `workers/arq_worker.py` because the
+worker never imports `main`, and nothing had demonstrated the wiring from a scheduled
+job until a credential rotation did it by accident.
+
 ---
 
 ## 2. Tech debt — OPEN, re-verified this rotation
@@ -207,15 +235,19 @@ new unweighted question cannot ship silently.
 its weights are. What matters is that it is named as tolerance — an unreachable
 branch nobody has decided to keep is what becomes a stale claim two rotations later.
 
-### TD-67 — Catch-up cannot repair the very first run of a job
-**Status: OPEN. One-off, with a known manual remedy. LIVE THIS WEEKEND.**
+### TD-67 — Catch-up cannot repair the very first run of a job — **HALF CLOSED**
+**Status: OPEN for the monthly job only. The weekly instance passed 2026-09-13
+without the remedy.**
 **Verified by source read:** `workers/letter_dispatch.py:318` selects
 `func.min(JobRun.started_at)` per `job_name` as the catch-up floor. If the very first
 scheduled run never opens a row at all, the next catch-up sees no history and skips.
 
-Applies exactly twice: weekly on **Sunday 2026-09-13**, monthly on **2026-09-30**.
-From the second period onward, catch-up covers a fully missed run. Remedy: the manual
-command in the rulings doc's Ops section with `run_key='2026-W37'` or `'2026-09'`.
+Applied exactly twice. **Weekly, Sunday 2026-09-13: PASSED** — the run opened its
+own `job_run` row (`status=succeeded`, counts 3/2/2), so the floor exists and the
+manual remedy was never invoked. **Monthly, 2026-09-30: still open**, and it is now
+the only instance left. From the second period onward, catch-up covers a fully
+missed run. Remedy for the remaining case: the manual command in the rulings doc's
+Ops section with `run_key='2026-09'`.
 
 **See `HANDOFF_BRIEF_v29` §1 — this is the item most likely to matter first.**
 
@@ -426,23 +458,21 @@ and the safety net stays regardless of go-to-market (`PROJECT_STATE_v29` §3c).
 ## 6. NIKOS-ACTIONS — standing, outside the codebase
 
 1. **Stripe live switch** — the revenue gate. Sequence in OPS-006.
-2. **Sunday 2026-09-13 live watch.** The first run under the PR-C period arithmetic
-   and the gate on P0 #6. Queries and suppression reasons in `HANDOFF_BRIEF_v29` §1.
-   **Note TD-67: the first run has no automatic catch-up.**
-3. **Manual W37 remedy if needed** — `run_key='2026-W37'`. **Never a weekly key
-   earlier than `2026-W37`**; an older key writes a second letter for a week already
-   delivered under the pre-PR-C arithmetic.
-4. **≥5 acts** of real usage before the P2 gate reads.
-5. **`support@` mailbox.**
-6. **DMARC.**
-7. **PostHog erasure.**
-8. **The founder post-v2 memory read.** Dimitris is unavailable, so this is
-   explicitly a **founder** read — see `reports/STRATEGY_P2_RETENTION_2026-09.md`,
-   where the bias is named rather than hidden.
+2. **Monthly remedy if 2026-09-30 is missed** — `run_key='2026-09'` (TD-67's one
+   remaining instance). **Never a weekly key earlier than `2026-W37`**; an older key
+   writes a second letter for a week already delivered.
+3. **≥5 acts** of real usage — no longer a P2 gate blocker, but still the thinnest
+   evidence base under the retention work.
+4. **`support@` mailbox.**
+5. **DMARC.**
+6. **PostHog erasure.**
 
 **Closed this rotation:** the domain cutover (step 3, TD-69, #617); the TD-61 native
 Greek review (#618, #622); **the 26 stale branches** —
-`git ls-remote --heads origin | grep -v main | wc -l` returns **0**.
+`git ls-remote --heads origin | grep -v main | wc -l` returns **0**; **the Sunday
+2026-09-13 live watch** — first delivery in the product's history, 2 letters, no
+suppression (`HANDOFF_BRIEF_v29` §1); **the founder post-v2 memory read** —
+2026-09-13, read as recognition, completing the P2 start gate.
 
 ---
 
