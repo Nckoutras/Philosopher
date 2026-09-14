@@ -192,6 +192,55 @@ Lessons that updated this protocol:
   the SHA — a branch-SHA ancestry check will report a squash-merged fix as
   unmerged. Check by commit title.)
 
+- **2026-09-14**: **`main` had NO BRANCH PROTECTION AT ALL, and never had, since
+  the project started.** Every merge in this repository's history went in without
+  a required check. Discovered by the founder on 2026-09-14 and fixed the same
+  day at 13:30: a classic rule on `main` with three required checks — **pytest
+  (live Postgres)**, **pytest (baseline) + alembic single head**, and **C-04**
+  (revision id ≤ 32 chars, filename == revision id). The first PR governed by it
+  is the next one; nothing merged before that time was gated.
+
+  **This supersedes the diagnosis in the 2026-09-01 entry above.** That entry
+  concluded the gap was a habit — that the pre-merge step checked the branch and
+  never checked CI status, and that "a green merge button was read as a green
+  build". The reasoning was right and the conclusion was one level too shallow.
+  The button "reflects branch-protection settings" — it reflected *nothing*. It
+  was green because nothing could ever have made it red. So the eight-day red
+  window with four merges over it, and the later #643/#644 red merges, are not
+  two lapses of two habits. They are **one absent configuration**, with a habit
+  standing in for it and occasionally failing, which is what a habit does.
+
+  Lesson: **when a process gate keeps failing, check that the gate exists before
+  strengthening the discipline around it.** Three separate entries in this file
+  now describe people trying harder to do by hand what a setting does for free.
+  The corollary is a question worth asking of any recurring process failure:
+  *what is supposed to enforce this, and have I read it?* — not *who forgot?*
+
+  Two mechanical traps that survive the fix, because the rule does not touch
+  either:
+  - **"Re-run jobs" replays the same commit.** It does not pick up a new push.
+    After pushing a fix, read the run for the **new SHA**; re-running the old one
+    reproduces the old result and reads like a flake that did or didn't clear.
+  - **"No run" is still not "green"** — the `paths:` filter point from the
+    2026-09-01 entry is unchanged and is now the main way a PR page can look
+    gated while being ungated.
+
+  **A CC diff summary is no longer the merge gate.** The planning assistant now
+  verifies the pushed artefact directly: `curl` the codeload tarball for the
+  branch and `diff -rq` it against the stated base. A summary is a claim *about*
+  a diff, and this is the cycle in which a claim about a diff was the thing that
+  needed independent checking.
+
+  **And a fixture that is PRESENT is not a fixture that is CORRECT (TD-76).**
+  Three misses on one file, in sequence, each revealed only by fixing the one
+  before it: a missing column; then a column present with the wrong type; then a
+  `timestamptz` bound from an ISO string rather than a `datetime` (asyncpg
+  rejects it, and a naive datetime is read in the server's timezone). C-06 says a
+  mock must set every field the code under test reads. TD-76 extends it: **every
+  field, with the right TYPE, checked against the model** — not against whatever
+  the previous failure happened to demand. Repairing to the last error message
+  is how one fixture produced three consecutive red runs.
+
 ## Future-proof first, shortcuts second
 
 Every proposal — code, schema, architecture — must be evaluated against
