@@ -362,6 +362,43 @@ inverted by the same PR that fixes it, which is a choice belonging with the fix.
 
 Not a rewrite of TD-57 and not a decision to be taken inside one.
 
+### TD-74 — The export completeness guard is table-level, not column-level — **NEW**
+**Status: OPEN. Found by the defect it failed to catch, not by review.**
+
+**Verified:** `tests/test_data_export.py` builds its universe from
+`"user_id" in {c.name for c in m.columns}` — it asserts every user-scoped mapped
+CLASS is queried by `build_export` or documented as excluded. It says nothing about
+which COLUMNS of an exported class reach the file, because `build_export` assembles
+each section as an explicit dict of named fields.
+
+**The proof is a live under-report, not a hypothetical.** `insights.source_count`
+was absent from the export dict from the day the export shipped until migration 060. The
+guard passed the whole time — `Insight` was queried, so the class was accounted
+for — while an Art. 15 request returned insight rows with the recurrence strength
+silently missing. It was found while adding a *different* column, by reading the
+dict, which is exactly the review step a guard is supposed to replace.
+
+**Why this is the same shape as TD-62 one level down.** That entry closed "a new
+user-scoped TABLE is silently missing". This is "a new column on an already-exported
+table is silently missing", and the second is more likely than the first: tables
+arrive rarely and visibly, columns arrive constantly.
+
+**Two candidate shapes, neither chosen:**
+  1. **Per-class column enumeration.** Introspect each exported mapped class's
+     columns and assert every one is either present in its payload dict or in a
+     per-class documented-exclusion set with a reason — the same contract TD-62's
+     guard applies to classes. Strongest, and noisy: `embedding`, the telemetry
+     columns and the Stripe ids are all deliberate omissions that would each need a
+     line. That noise is arguably the point, since every one of them is a decision
+     somebody made once and nobody has re-read.
+  2. **A documented per-table field list** checked against the dict. Cheaper, but it
+     is a second list to maintain beside the dict itself — which is the tautology
+     TD-62's entry warns about: a hand-kept list asserting it matches itself.
+
+**Not built here.** Recorded because the instance that revealed it was fixed in the
+same PR, and a defect class whose only instance is closed is exactly the kind that
+stops being written down.
+
 ---
 
 ## 3. Open decisions

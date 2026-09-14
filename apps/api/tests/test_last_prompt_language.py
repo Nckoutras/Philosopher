@@ -468,13 +468,17 @@ async def _recurrence(monkeypatch, language, shift_reply, fallback_reply="Το �
         conversation_id=CONV_ID,
     )
     match = SimpleNamespace(content="another model-written row", conversation_id="other")
+    # `id` added for 060. C-06 CAUGHT ITS ABSENCE rather than absorbing it: this
+    # fixture is a SimpleNamespace, so the moment detect_recurrence read m.id all
+    # five tests below raised AttributeError. A MagicMock would have supplied a
+    # Mock, written it into the JSONB column, and passed.
 
     db = AsyncMock()
     db.add = MagicMock(side_effect=lambda o: added.append(o))
     db.commit = AsyncMock()
     gate = AsyncMock(return_value=None)
     rows = MagicMock()
-    rows.fetchall.return_value = [SimpleNamespace(score=0.99, content=match.content,
+    rows.fetchall.return_value = [SimpleNamespace(id="m1", score=0.99, content=match.content,
                                                  conversation_id="other")]
     db.execute = AsyncMock(return_value=rows)
 

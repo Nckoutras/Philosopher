@@ -229,6 +229,15 @@ async def build_export(db: AsyncSession, user: User) -> dict[str, Any]:
             "content": i.content,
             "insight_type": i.insight_type,
             "theme": i.theme,
+            # source_count was omitted from this dict since the export shipped —
+            # a live Art. 15 under-report, fixed here rather than in a PR of its
+            # own. The completeness guard could not catch it: it asserts every
+            # user-scoped CLASS is exported, not every column (TD-74).
+            "source_count": i.source_count,
+            # The memory rows a recurrence insight was derived from (060). NULL
+            # for insights written before it, and NULL forever for the signal
+            # path, which has no match set.
+            "evidence": i.evidence,
             "is_dismissed": i.is_dismissed,
             "conversation_id": i.conversation_id,
             "created_at": _iso(i.created_at),
