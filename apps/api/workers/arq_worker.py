@@ -59,6 +59,8 @@ You may also receive a <rituals> block — the person's own words from the other
 
 You may also receive a short list of what the Room has already noticed this week — recurring threads and shifts surfaced from their reflections. Treat these as the spine: let them anchor WHICH themes you name. The messages remain the texture; the noticings are orientation only — never quote or restate them.
 
+You may also receive an <also_last_week> block — a few of the person's own earlier words that they returned to this week and had also returned to the week before. This is a fact about timing, not a new noticing: an item here will often be the same thread the Room has already named above. Where it is, let it deepen that thread rather than appear a second time. Never list these, never count them, never quote them back, and never read a thread's absence from this block as their having let it go.
+
 Write a letter that does the following:
 1. Opens with "Dear {user_first_name}" and ONE short paragraph — intimate, not presumptuous. Do not summarize their week back to them; they lived it.
 2. Does not recount what they said — interprets it. Take 2-3 things they said or grappled with and go beneath them: name the pattern, the tension, the thing they were really reaching for. Hold their words as texture, but the work here is insight, not transcript.
@@ -529,6 +531,90 @@ def _build_rituals_block(rows, *, max_entries=RITUALS_MAX_ENTRIES,
         return ""
     body_text = "\n".join(reversed(kept))
     return "<rituals>\n" + body_text + "\n</rituals>\n\n"
+
+
+# ── <also_last_week>: the one thing the snapshot tells the letter (PR-D) ─────
+
+# Sized to its NEIGHBOURS, not to the snapshot's storage caps. 061 keeps up to 40
+# questions x 5 matches because the record must be complete; rendering that would
+# be ~9,000 tokens against a ~4,500-token prompt and would make this block the
+# largest input in the letter by a wide margin. Three lines puts it beside
+# <what_you_know> (4) and under <rituals> (12).
+ALSO_LAST_WEEK_MAX = 3
+
+# Memory statements are one sentence by construction, so this only bounds a tail.
+ALSO_LAST_WEEK_SNIPPET_MAX = 200
+
+
+def _build_also_last_week_block(payload) -> str:
+    """The person's earlier words they returned to BOTH this week and last.
+
+    THE ONE THING THE SNAPSHOT ADDS. The insight spine already tells the letter
+    what recurred this week — `detect_recurrence` writes those cards and
+    <what_the_room_noticed> carries them — so recurring_questions would say the
+    same thing twice, in worse prose. What the spine CANNOT express, because it
+    has no memory of last week, is that a thread is in its second week. That is
+    `still_recurring`, and it is all this block renders.
+
+    `new_since_prior` IS DELIBERATELY UNUSED: a new anchor this week is, in the
+    common case, the same fact as this week's spine card — overlap, not signal.
+
+    `absent_since_prior` IS NEVER RENDERED, and this is a constraint rather than
+    a preference. An anchor can leave that set by slipping out of the top-5 the
+    snapshot stores per question — a cap artefact — and not because the person
+    let anything go. Prose built on it would state a change in someone's inner
+    life that the data does not support. It stays data; the guardrail in
+    LETTER_PROMPT tells the model the same thing from the other side.
+
+    SELF-CONTAINED BY DESIGN. Snippets are resolved from the SAME payload's
+    recurring_questions[].prior_matches, never by reading memory_entries: 061
+    denormalises the text precisely so a citation still renders after its source
+    row is deactivated or its conversation deleted (057). A DB lookup here would
+    give that up for nothing.
+
+    Ordering is the parent question's top_score descending, tie-broken by id, so
+    a re-run of the same payload is byte-identical.
+
+    Returns "" for every case that is not "generated with a non-empty
+    still_recurring" — including the FIRST RUN, where changes_since_prior is None
+    because there was no prior week. The letter then says nothing about change at
+    all, which is the honest thing: it is not evidence that nothing changed, and
+    an absent block is indistinguishable from a week with no repeats, correctly.
+    """
+    payload = payload or {}
+    changes = payload.get("changes_since_prior") or {}
+    still = set(changes.get("still_recurring") or [])
+    if not still:
+        return ""
+
+    # id -> (rank, text). The rank is the best score among the questions that
+    # echo this anchor; an anchor reached by two questions takes the stronger.
+    best: dict[str, tuple[float, str]] = {}
+    for question in payload.get("recurring_questions") or []:
+        score = question.get("top_score") or 0.0
+        for match in question.get("prior_matches") or []:
+            mid = match.get("memory_entry_id")
+            if mid not in still:
+                continue
+            text = (match.get("text") or "").strip()
+            if not text:
+                continue
+            if mid not in best or score > best[mid][0]:
+                best[mid] = (score, text)
+
+    # A `still` id is by definition an anchor of THIS payload, so it should always
+    # resolve. Read as data rather than trusted as an invariant: the snapshot is a
+    # historical record that may have been written by an older version of the job.
+    if not best:
+        return ""
+
+    ordered = sorted(best.items(), key=lambda kv: (-kv[1][0], kv[0]))
+    lines = []
+    for _, (_, text) in ordered[:ALSO_LAST_WEEK_MAX]:
+        if len(text) > ALSO_LAST_WEEK_SNIPPET_MAX:
+            text = text[:ALSO_LAST_WEEK_SNIPPET_MAX].rstrip() + "…"
+        lines.append(f"- {text}")
+    return "<also_last_week>\n" + "\n".join(lines) + "\n</also_last_week>\n\n"
 
 
 # ── Tasks ─────────────────────────────────────────────────────────────────────
@@ -1533,10 +1619,26 @@ async def generate_weekly_letter_task(ctx, user_id: str, voice_persona_slug: str
     BOTH DEFAULT TO None, which reproduces the pre-PR-C arithmetic exactly. That is
     what lets a job enqueued by the old code — one already sitting in Redis across
     the deploy — still run correctly instead of raising on an unexpected signature.
+
+    PR-D: THE LETTER READS THE TRAJECTORY SNAPSHOT (061), AND ONLY READS IT. One
+    block, <also_last_week>, carrying the threads that are in their SECOND week —
+    the one thing the insight spine cannot express, because it has no memory of
+    last week. Never written, never repaired, never regenerated from here: a
+    missing, late or failed row leaves the block empty and this function behaves
+    exactly as it did before PR-D.
+
+    THE FIRST TWO SUNDAYS CARRY NOTHING FROM IT, BY CONSTRUCTION, and a quiet one
+    is the design working rather than failing. The snapshot job first runs Sunday
+    2026-09-20 17:00 (run_key 2026-W38); that week has no prior, so its
+    changes_since_prior is None and the 2026-09-20 letter renders no block at all.
+    2026-09-27 is the first letter that CAN carry one. Do not read an empty block
+    before that date as a defect, and do not add a backfill to fill it — a
+    snapshot is built against the memory corpus as it stood at its period
+    boundary, and that corpus has already moved.
     """
     from datetime import datetime, timedelta, timezone
     from db.session import AsyncSessionLocal
-    from models import WeeklyLetter, Persona, User, Message, Conversation, Insight, UserPreference
+    from models import WeeklyLetter, Persona, User, Message, Conversation, Insight, UserPreference, TrajectorySnapshot
     from sqlalchemy import select
     from services.llm_client import llm_client
     from services.safety_service import safety_service
@@ -1545,6 +1647,15 @@ async def generate_weekly_letter_task(ctx, user_id: str, voice_persona_slug: str
 
     async with AsyncSessionLocal() as db:
         try:
+            # PR-D: captured BEFORE the rebinding below, because both arms assign
+            # period_start and afterwards the two paths are indistinguishable. The
+            # fallback arithmetic floors to a SUNDAY; week_period floors to a
+            # MONDAY, so a legacy job's period_start can never equal a snapshot's.
+            # The snapshot read is skipped entirely on that path rather than run
+            # and silently matching nothing — a query that cannot succeed should
+            # not be issued at all.
+            period_is_aligned = period_start is not None and period_end is not None
+
             # PR-C: the dispatcher computes the period and passes it. The fallback
             # is the pre-PR-C arithmetic, kept ONLY for a job enqueued by older
             # code and still in Redis across the deploy.
@@ -1771,6 +1882,44 @@ async def generate_weekly_letter_task(ctx, user_id: str, voice_persona_slug: str
             else:
                 room_block = ""
 
+            # <also_last_week> (PR-D): the ONE thing the trajectory snapshot (061)
+            # tells the letter — which threads are in their SECOND week. The spine
+            # above already carries what recurred THIS week; it has no memory of
+            # last week, and that is the gap this closes. See
+            # _build_also_last_week_block for why still_recurring is the only field
+            # rendered, and why absent_since_prior never can be.
+            #
+            # THE SNAPSHOT IS READ, NEVER WRITTEN. No repair, no regeneration: a
+            # missing, late or failed row leaves the block empty and the letter
+            # composes exactly as it did before this PR. The snapshot job runs at
+            # 17:00 and this at 18:00, so a row that has not drained is simply
+            # absent — trajectory_snapshots has no 'running' status by construction
+            # (061's CHECK), so there is no partial row to misread.
+            #
+            # THE CHAIN CANNOT PRECEDE ITS SHIP DATE. The first snapshot week has no
+            # prior, so its changes_since_prior is None and this block is empty by
+            # construction. The first letter that can carry anything from here is
+            # the one a full week after the first snapshot run.
+            #
+            # BEST-EFFORT, the <what_you_know> shape: a letter must never fail to
+            # send because a snapshot read did.
+            also_last_week_block = ""
+            if period_is_aligned:
+                try:
+                    snap_result = await db.execute(
+                        select(TrajectorySnapshot).where(
+                            TrajectorySnapshot.user_id == user_id,
+                            TrajectorySnapshot.period_start == period_start,
+                            TrajectorySnapshot.kind == "weekly",
+                            TrajectorySnapshot.status == "generated",
+                        )
+                    )
+                    snapshot = snap_result.scalars().first()
+                    if snapshot is not None:
+                        also_last_week_block = _build_also_last_week_block(snapshot.payload)
+                except Exception as e:
+                    logger.warning(f"Letter trajectory-snapshot read failed user={user_id}: {e}")
+
             # Self-portrait spine: the person's own self-reported tendencies from the
             # perpetual quiz. MATERIAL only (see the <self_portrait> guardrail line in
             # LETTER_PROMPT) — bounded + deterministic (answers_to_statements caps at
@@ -1837,7 +1986,7 @@ async def generate_weekly_letter_task(ctx, user_id: str, voice_persona_slug: str
 
             rituals_block = _build_rituals_block(safe_entries)
 
-            user_msg = f"{prior_block}{wrote_back_block}{room_block}{portrait_block}{standing_block}{rituals_block}<week>\n{week_text}\n</week>"
+            user_msg = f"{prior_block}{wrote_back_block}{room_block}{also_last_week_block}{portrait_block}{standing_block}{rituals_block}<week>\n{week_text}\n</week>"
             raw = await llm_client.complete(
                 system=system,
                 user=user_msg,
