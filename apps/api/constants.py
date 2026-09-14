@@ -145,14 +145,16 @@ ANALYTICS_EVENTS = {
     "data_exported":          ["conversation_count", "record_count", "size_bucket"],
 
     # ── Limits ───────────────────────────────────────────────────────────────
-    # Fired when a cap REFUSES a request, from the four token-spending paths.
+    # Fired when a cap REFUSES a request, from SIX call sites across five paths.
     # Three closed enums and nothing else: tier is free|pro|premium, cap_kind
     # names which ceiling was hit, path names the door. The user's text is not
     # here and cannot be — a cap event describes the refusal, not the request.
     #
-    # cap_kind exists so the free daily cap and the Pro fair-use cap stay
-    # separable in the dashboard: one is a conversion signal, the other is a
-    # cost signal, and averaging them together would hide both.
+    # cap_kind exists so ceilings that mean different things stay separable in
+    # the dashboard rather than averaging into one meaningless rate. Two values
+    # today: "pro_fair_use" (five sites — a cost signal) and "council" (the
+    # weekly 1-per-source council limit — a product shape, not a cost control,
+    # and a conversion signal rather than a spend one).
     "usage_cap_hit":          ["tier", "cap_kind", "path"],
 
     # ── Safety (no PII) ──────────────────────────────────────────────────────

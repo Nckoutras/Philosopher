@@ -192,7 +192,19 @@ class ActiveMindSet(BaseModel):
 
 class CouncilCreate(BaseModel):
     matter: str
-    source: str = "direct"          # "direct" | "mirror" | "chat"
+    # Which door produced this council. SHAPE is validated here, not membership —
+    # the same rule, and the same reason, as CheckoutCreate.source below: the
+    # vocabulary lives where it is written (the web sets council_source in
+    # sessionStorage from four places) and duplicating it here would give two
+    # sources of truth that drift. This field is why that matters concretely: the
+    # comment it replaces listed three values and the code had grown a fourth
+    # ("nudge", from the insight card's Council door), so a membership check
+    # written from the comment would have refused a real, shipped door.
+    #
+    # The bound is what was missing. This is client-supplied and reached
+    # analytics unvalidated; the router normalises it to a four-value set before
+    # use, and the pattern stops anything unbounded arriving in the first place.
+    source: str = Field(default="direct", pattern="^[a-z_]{1,32}$")
     mirror_id: str | None = None
     conversation_id: str | None = None   # chat source only; drives the essence brief
     matter_edited: bool = False          # chat source only; user edited the auto-filled matter → skip re-distill

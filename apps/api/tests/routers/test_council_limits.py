@@ -128,3 +128,110 @@ def test_self_comparison_weekly_limit_429_sets_reset_header(client):
     assert "X-RateLimit-Limit" in resp.headers
 
     _assert_reset_header_is_sane(resp)
+
+
+# ── Γ-1b — the funnel, and what a refusal does and does not emit ─────────────
+#
+# council_started used to fire BEFORE the 400 (matter_too_long) and this 429, so
+# every refused attempt counted as a started council. The funnel it feeds is
+# council_started -> council_completed, and a numerator padded with requests the
+# server never attempted reads as a generation failure that is not happening.
+#
+# These pin the order. They live in this file rather than a new one because the
+# fixture that makes a refusal reachable without an LLM is already here.
+
+def test_a_rate_limited_council_emits_one_cap_hit_and_no_started(client):
+    """The refusal is a cap event, not a start. Both halves asserted together:
+    asserting only the absence of council_started would pass against a version
+    that had simply deleted the event."""
+    with patch(
+        "routers.council.council_service.weekly_remaining",
+        AsyncMock(return_value=0),
+    ), patch("routers.council.analytics_service") as analytics:
+        resp = client.post(COUNCIL_URL, json={"matter": "Should I take the job?"})
+
+    assert resp.status_code == 429
+
+    names = [c[0][0] for c in analytics.track.call_args_list]
+    assert names == ["usage_cap_hit"], (
+        f"a refused council must emit exactly one usage_cap_hit and nothing else; got {names}"
+    )
+
+    _, user_id, props = analytics.track.call_args_list[0][0]
+    assert user_id == USER_ID
+    assert props == {"tier": "pro", "cap_kind": "council", "path": "council"}
+
+
+def test_an_over_long_matter_emits_nothing_at_all(client):
+    """The other refusal path. No cap was hit — the request was malformed — so
+    this one emits nothing, and must still not count as a started council."""
+    with patch("routers.council.analytics_service") as analytics:
+        resp = client.post(COUNCIL_URL, json={"matter": "x" * 601})
+
+    assert resp.status_code == 400
+    assert resp.json()["error_code"] == "matter_too_long"
+    analytics.track.assert_not_called()
+
+
+def test_an_empty_matter_emits_nothing_at_all(client):
+    with patch("routers.council.analytics_service") as analytics:
+        resp = client.post(COUNCIL_URL, json={"matter": "   "})
+
+    assert resp.status_code == 400
+    assert resp.json()["error_code"] == "empty_matter"
+    analytics.track.assert_not_called()
+
+
+def test_an_admin_is_not_rate_limited_and_emits_no_cap_hit(client):
+    """Admins bypass weekly_remaining entirely, so they must emit no cap event —
+    a cap series padded with people who were never capped is the same defect in
+    the other direction."""
+    user = client._auth_holder[0][0]
+    user.is_admin = True
+
+    with patch("routers.council.analytics_service") as analytics, \
+         patch("routers.council.council_service.stream_council", MagicMock(return_value=iter([]))):
+        resp = client.post(COUNCIL_URL, json={"matter": "Should I take the job?"})
+
+    assert resp.status_code == 200
+    names = [c[0][0] for c in analytics.track.call_args_list]
+    assert "usage_cap_hit" not in names, f"an admin hit no cap; got {names}"
+    assert names == ["council_started"]
+
+
+@pytest.mark.parametrize("sent,expected", [
+    ("direct", "direct"),
+    ("mirror", "mirror"),
+    ("chat",   "chat"),
+    ("nudge",  "nudge"),      # the insight-card door; post-dates the schema comment
+    ("made_up", "direct"),    # shape-valid, not a door we ship -> normalised
+])
+def test_council_started_sends_the_normalised_source(client, sent, expected):
+    """The event now agrees with the rate limiter and the DB row, which both read
+    the normalised local. It used to send `body.source` — whatever the client put
+    in sessionStorage — while everything else in the request saw the checked value.
+    """
+    user = client._auth_holder[0][0]
+    user.is_admin = True      # skip the limiter; this is about the property
+
+    with patch("routers.council.analytics_service") as analytics, \
+         patch("routers.council.council_service.stream_council", MagicMock(return_value=iter([]))):
+        resp = client.post(COUNCIL_URL, json={"matter": "Should I take the job?", "source": sent})
+
+    assert resp.status_code == 200
+    _, _, props = analytics.track.call_args_list[0][0]
+    assert props == {"source": expected}
+
+
+@pytest.mark.parametrize("bad", ["Direct", "a b", "x" * 33, "chat!", ""])
+def test_a_source_that_breaks_the_pattern_is_refused_at_the_edge(client, bad):
+    """422 from pydantic, before any handler code. Unlike the letter's `src` query
+    marker, this is a body field our own frontend fills from a fixed set of four
+    writers — nothing external rewrites it — so a bound here costs no real request
+    and stops an unbounded string from reaching the router at all.
+    """
+    with patch("routers.council.analytics_service") as analytics:
+        resp = client.post(COUNCIL_URL, json={"matter": "Should I take the job?", "source": bad})
+
+    assert resp.status_code == 422, f"source={bad!r} should be refused by the schema"
+    analytics.track.assert_not_called()
