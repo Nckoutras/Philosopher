@@ -342,7 +342,7 @@ export default function YouVsYouPage() {
                     <div className="flex flex-col gap-[8px] mt-[2px]">
                       <p className="font-lora text-[11px] text-sepia">Does this ring true?</p>
                       <div className="flex gap-[8px]">
-                        {([['yes','Rings true'],['partly','Partly'],['no','Not really']] as const).map(([val, label]) => (
+                        {([['yes','Rings true'],['partly','Partly'],['no','No']] as const).map(([val, label]) => (
                           <button key={val} type="button" onClick={() => submitRingTrue(val)} disabled={ringSubmitting}
                             className={`flex-1 min-h-[40px] rounded-[6px] border-[0.5px] font-lora text-[12px] transition-colors disabled:opacity-50
                               ${ringTrue === val ? 'bg-ink text-vellum border-ink' : 'bg-paper text-charcoal border-edge active:bg-linen/60'}`}>

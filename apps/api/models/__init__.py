@@ -317,7 +317,23 @@ class Insight(Base):
     # path has no match set by construction). See 060_insight_evidence.
     evidence: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     is_dismissed: Mapped[bool] = mapped_column(Boolean, default=False)
+    # The reader's own verdict on what the room noticed (063). INDEPENDENT of
+    # is_dismissed: 'no' records "not true of me" and does NOT hide the card,
+    # because is_dismissed gates the 6h throttle and a verdict that dismissed
+    # would loosen how often the room may notice anything. Same vocabulary and
+    # same CHECK spelling as mirrors (017) and self_comparisons (021) — one
+    # speech act, one contract, three surfaces. NULL = not answered.
+    ring_true: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    ring_true_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (
+        # Kept in step with 063 deliberately: this declaration is DDL metadata and
+        # the ORM does not enforce it on insert, so a db_live test compares these
+        # literals against pg_get_constraintdef (the ck_weekly_letters_status
+        # precedent).
+        CheckConstraint("ring_true IN ('yes', 'partly', 'no')", name="ck_insights_ring_true"),
+    )
 
 
 # ── Mirrors ───────────────────────────────────────────────────────────────────

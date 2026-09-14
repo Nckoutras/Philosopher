@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Literal, Optional
 from datetime import datetime, timedelta, timezone
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -36,7 +36,13 @@ class SelfComparisonCreate(BaseModel):
 
 
 class RingTrueUpdate(BaseModel):
-    ring_true: str = Field(..., max_length=10)
+    # Literal, not `str(max_length=10)` (Γ-2). This accepted ANY ten-character
+    # string and wrote it straight to a column that — unlike mirrors — has no
+    # CHECK behind it, so self_comparisons.ring_true is the one surface of the
+    # three where an off-vocabulary verdict could actually land. Closing the input
+    # side needs no migration and no backfill; the missing DB constraint is
+    # tracked separately, because adding it means auditing rows already written.
+    ring_true: Literal["yes", "partly", "no"]
     note: Optional[str] = Field(None, max_length=280)
 
 
