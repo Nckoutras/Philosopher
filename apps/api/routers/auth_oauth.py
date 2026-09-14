@@ -1,6 +1,6 @@
 import logging
 import secrets
-from urllib.parse import urlencode
+from urllib.parse import unquote, urlencode
 
 import httpx
 import stripe
@@ -26,6 +26,51 @@ GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
 GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
 GOOGLE_USERINFO_URL = "https://www.googleapis.com/oauth2/v3/userinfo"
 
+# The value the CSRF state entry carries when there is no returnTo. It was the
+# literal "1" before Γ-1c and stays truthy for exactly the same reason: the
+# callback's existence check (`if not stored`) is the CSRF gate, and it must keep
+# failing closed for an unknown or expired state whatever the payload means.
+OAUTH_STATE_NO_RETURN = "1"
+
+# Mirrors apps/web/lib/safeReturnTo.ts. TWO COPIES OF A RULE IS A DRIFT WAITING
+# TO HAPPEN, and this one is deliberate: the ruling requires the value to be
+# validated server-side before it is stored, because the client cannot be trusted
+# to have validated it — the OAuth start endpoint is a plain GET that anyone can
+# call with any query string. The web copy still runs at the point of use. A test
+# pins the two against the same hostile table so they cannot drift in silence.
+_RETURN_TO_MAX = 512
+
+
+def _is_safe_return_to(value: str) -> bool:
+    r"""One relative path inside /app/, by allow-list. See the web twin for the
+    reasoning on each clause; the dangerous shapes are the protocol-relative ones
+    (`//host`, `/\host`), which browsers read as a host rather than a path."""
+    if not value or len(value) > _RETURN_TO_MAX:
+        return False
+    if value.startswith("//") or value.startswith("/\\"):
+        return False
+    if "\\" in value or "://" in value:
+        return False
+    return value.startswith("/app/")
+
+
+def safe_return_to(value: str | None) -> str | None:
+    """The validated path, or None. Checks the value AND one further unquote of
+    it, so a doubly-encoded payload cannot reach anywhere a single decode would
+    not already have reached. Never raises: a bad returnTo costs a destination,
+    never a sign-in."""
+    if not value:
+        return None
+    if not _is_safe_return_to(value):
+        return None
+    try:
+        decoded = unquote(value)
+    except Exception:
+        return None
+    if decoded != value and not _is_safe_return_to(decoded):
+        return None
+    return value
+
 
 @router.get("/methods")
 async def auth_methods():
@@ -35,13 +80,19 @@ async def auth_methods():
 
 
 @router.get("/oauth/google")
-async def google_oauth_start():
+async def google_oauth_start(next: str | None = None):
     if not config.GOOGLE_OAUTH_ENABLED or not config.GOOGLE_CLIENT_ID:
         raise HTTPException(status_code=404, detail="Google OAuth not enabled")
 
     state = secrets.token_urlsafe(32)
     r = await get_redis()
-    await r.set(f"oauth_state:{state}", "1", ex=300)
+    # The returnTo rides in the state entry's VALUE, not through Google. It never
+    # appears in the redirect URL, so nothing between here and the callback can
+    # read or rewrite it, and it expires with the state token on the same 300s
+    # TTL. Validated before it is stored — an unsafe or absent value degrades to
+    # the sentinel, so the worst a crafted start URL achieves is the default
+    # destination. The state MATCH in the callback is untouched by any of this.
+    await r.set(f"oauth_state:{state}", safe_return_to(next) or OAUTH_STATE_NO_RETURN, ex=300)
 
     params = {
         "client_id": config.GOOGLE_CLIENT_ID,
@@ -73,6 +124,12 @@ async def google_oauth_callback(
     if not stored:
         return RedirectResponse(f"{frontend_error_url}oauth_invalid_state", status_code=302)
     await r.delete(f"oauth_state:{state}")
+    # The state's value is the returnTo parked at start (or the sentinel). It was
+    # validated before storage; it is validated AGAIN on the way out, because a
+    # value read back from a store is an input like any other and this one decides
+    # a redirect. The CSRF check above is unchanged — an unknown or expired state
+    # still fails closed, whatever this value turns out to be.
+    return_to = safe_return_to(stored) if stored != OAUTH_STATE_NO_RETURN else None
 
     # Exchange code for access_token, then fetch verified user info
     try:
@@ -184,10 +241,16 @@ async def google_oauth_callback(
     #
     # The EMAIL is deliberately not added: /auth/welcome reads it from the store. A
     # boolean adds no exposure the token in this same query string does not already have.
-    finish_qs = urlencode({
+    finish_params = {
         "token": token,
         "needs_disclaimer": nd_param,
         "new_account": "1" if is_new_user else "0",
-    })
+    }
+    # Omitted entirely when there is none, so the finish page's searchParams.get
+    # returns null and falls through to its default — the same shape the OTP path
+    # sees. urlencode quotes it; the finish page revalidates after decoding.
+    if return_to:
+        finish_params["next"] = return_to
+    finish_qs = urlencode(finish_params)
     finish_url = f"{config.FRONTEND_URL}/auth/oauth/finish?{finish_qs}"
     return RedirectResponse(finish_url, status_code=302)

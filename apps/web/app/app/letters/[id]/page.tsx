@@ -53,6 +53,13 @@ export default function LetterReadPage() {
   const id = params.id as string
 
   const token = useStore((s) => s.token)
+  // P-04. The guard below reads `token` to decide whether to bounce to sign-in,
+  // and the persisted store is the only thing that knows the answer. Zustand's
+  // persist rehydrates synchronously today, so this is belt-and-braces rather
+  // than a live bug -- but the bounce is being touched here, PR4p is in the
+  // failure log for exactly this shape, and a spurious bounce would now carry a
+  // returnTo and loop. The store already publishes the flag; nothing new is added.
+  const hasHydrated = useStore((s) => s.hasHydrated)
   const subscription = useStore((s) => s.subscription)
   const isPro = subscription?.status === 'active' && subscription?.plan !== 'free'
   const markLetterRead = useStore((s) => s.markLetterRead)
@@ -66,8 +73,14 @@ export default function LetterReadPage() {
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
+    if (!hasHydrated) return
     if (token === null) {
-      router.replace('/auth?mode=signin')
+      // Carry the destination, query included. This is the path a reader takes
+      // when the cookie is still alive but the store is not; the middleware
+      // covers the commoner case (cookie expired) and builds the same shape.
+      // Suspense-safe (no useSearchParams): the effect is client-only.
+      const here = window.location.pathname + window.location.search
+      router.replace(`/auth?mode=signin&next=${encodeURIComponent(here)}`)
       return
     }
     if (!isPro) {
@@ -97,7 +110,7 @@ export default function LetterReadPage() {
     }
 
     load()
-  }, [token, isPro, id, router, markLetterRead])
+  }, [hasHydrated, token, isPro, id, router, markLetterRead])
 
   // ISO week of the letter's period, a bucket rather than a date, plus the
   // voice persona's slug. Never the letter's title or body.
