@@ -435,6 +435,51 @@ Recorded in `find_recurrences`'s own docstring as well, because a reader who mee
 the function should meet the limit without opening this file.
 
 
+### TD-76 — No local check that a `db_live` fixture can actually insert — **NEW**
+**Status: OPEN. Proposed, not built. Severity is measured in round-trips, not risk.**
+
+**Why it exists: three CI round-trips on one file.** `tests/db_live/`
+`test_period_recurrence_filter.py` failed three times in a row, each on the fixture
+layer rather than on the behaviour under test:
+
+  1. `from .conftest import *` — the directory is not a package. Caught locally, at
+     collection, before pushing.
+  2. `INSERT INTO conversations (id, user_id)` — `persona_id` is NOT NULL with no
+     default. **Caught by CI.**
+  3. `created_at='2026-09-10T10:00:00+00'` — asyncpg binds a `timestamptz`
+     parameter from a `date`/`datetime` only, and raises `DataError` at BIND time.
+     **Caught by CI.**
+
+None of the three was a defect in the code under test. All three were the fixture
+failing to produce a row, and **none was visible to the mocked layer**, because a
+mock accepts any parameter of any type and returns whatever it was told to.
+
+**The proposed guard, and it is cheap.** A mocked test that drives each `db_live`
+seeder against a recording fake, captures the emitted statement and its bound
+parameters, and asserts two things against `Base.metadata`:
+
+  - **column presence** — every NOT NULL column without a default appears in the
+    INSERT (catches miss 2);
+  - **parameter TYPE** — every parameter bound to a `DateTime` column is a
+    `date`/`datetime`, every one bound to a `UUID` column is a string of the right
+    shape, and so on (catches miss 3).
+
+The type half is the part that would not have been written without miss 3, and is
+the reason this entry says *types, not only presence*. Both checks were run by hand
+while fixing that miss and both pass; what is missing is that they run every time.
+
+**What it does NOT do, stated so a green run is not over-read.** It proves a fixture
+can insert a row. It proves nothing about whether the WHERE clause under test is
+obeyed — that is what `db_live` is for, and it remains CI-only by TD-57's recorded
+decision. This guard shortens the feedback loop on the fixture layer; it does not
+move the boundary.
+
+**Trigger to build it:** the next time a `db_live` fixture is written or a seeded
+table gains a column. Not worth a PR of its own today — the instance that motivated
+it is fixed, which is exactly the condition under which this kind of item stops
+being written down (see TD-74, same shape).
+
+
 ---
 
 ## 3. Open decisions

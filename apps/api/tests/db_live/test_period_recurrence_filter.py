@@ -15,6 +15,7 @@ locally it is invisible. That is TD-57's recorded decision, not an accident.
 import os
 import sys
 import uuid
+from datetime import datetime, timezone
 
 import pytest
 from sqlalchemy import text
@@ -46,12 +47,26 @@ from test_memory_recall_and_cascades import (  # noqa: E402
 # what decides these tests. The DATE is the only variable.
 IDENTICAL = [1.0] + [0.0] * 1535
 
+# DATETIME OBJECTS, NOT ISO STRINGS, and timezone-aware. asyncpg binds a
+# timestamptz parameter from a date/datetime only; a string raises DataError at
+# BIND time, before the statement ever reaches Postgres — so it fails identically
+# whether the column, the value or the query is at fault, and the message names
+# the argument position rather than the column. This applies to every parameter
+# compared against a timestamptz, which means the corpus bound below as much as
+# the inserted rows: passing the window as a string would fail the same way one
+# step later.
+PERIOD_START = datetime(2026, 9, 7, tzinfo=timezone.utc)
+BEFORE_PERIOD = datetime(2026, 8, 20, 10, 0, tzinfo=timezone.utc)
+INSIDE_PERIOD = datetime(2026, 9, 10, 10, 0, tzinfo=timezone.utc)
+QUERY_WRITTEN = datetime(2026, 9, 12, 10, 0, tzinfo=timezone.utc)
+
 
 def _vec(v) -> str:
     return "[" + ",".join(repr(float(x)) for x in v) + "]"
 
 
-async def _memory(db, user_id: str, conversation_id: str, content: str, created_at: str) -> str:
+async def _memory(db, user_id: str, conversation_id: str, content: str,
+                  created_at: datetime) -> str:
     """created_at is set EXPLICITLY — the column defaults to now(), and a test
     about a date filter that let the database choose its own dates would be
     testing nothing.
@@ -103,15 +118,15 @@ async def test_an_in_period_row_is_excluded_from_the_corpus(db):
     own = await _make_conversation(db, user_id)
     other = await _make_conversation(db, user_id)
 
-    before_id = await _memory(db, user_id, other, "raised in August", "2026-08-20T10:00:00+00")
-    await _memory(db, user_id, other, "raised again this week", "2026-09-10T10:00:00+00")
-    query_id = await _memory(db, user_id, own, "raised today", "2026-09-12T10:00:00+00")
+    before_id = await _memory(db, user_id, other, "raised in August", BEFORE_PERIOD)
+    await _memory(db, user_id, other, "raised again this week", INSIDE_PERIOD)
+    query_id = await _memory(db, user_id, own, "raised today", QUERY_WRITTEN)
     await db.flush()
 
     found = await find_recurrences(
         db, user_id, _Entry(query_id, own),
         exclude_conversation=own,
-        corpus_until="2026-09-07T00:00:00+00",
+        corpus_until=PERIOD_START,
     )
 
     assert found is not None, "the August row is a genuine pre-period echo"
@@ -133,9 +148,9 @@ async def test_with_no_bound_the_same_data_returns_both(db):
     own = await _make_conversation(db, user_id)
     other = await _make_conversation(db, user_id)
 
-    before_id = await _memory(db, user_id, other, "raised in August", "2026-08-20T10:00:00+00")
-    inside_id = await _memory(db, user_id, other, "raised again this week", "2026-09-10T10:00:00+00")
-    query_id = await _memory(db, user_id, own, "raised today", "2026-09-12T10:00:00+00")
+    before_id = await _memory(db, user_id, other, "raised in August", BEFORE_PERIOD)
+    inside_id = await _memory(db, user_id, other, "raised again this week", INSIDE_PERIOD)
+    query_id = await _memory(db, user_id, own, "raised today", QUERY_WRITTEN)
     await db.flush()
 
     found = await find_recurrences(
@@ -157,14 +172,14 @@ async def test_a_period_with_no_prior_echo_finds_nothing(db):
     own = await _make_conversation(db, user_id)
     other = await _make_conversation(db, user_id)
 
-    await _memory(db, user_id, other, "raised this week", "2026-09-10T10:00:00+00")
-    query_id = await _memory(db, user_id, own, "raised today", "2026-09-12T10:00:00+00")
+    await _memory(db, user_id, other, "raised this week", INSIDE_PERIOD)
+    query_id = await _memory(db, user_id, own, "raised today", QUERY_WRITTEN)
     await db.flush()
 
     found = await find_recurrences(
         db, user_id, _Entry(query_id, own),
         exclude_conversation=own,
-        corpus_until="2026-09-07T00:00:00+00",
+        corpus_until=PERIOD_START,
     )
 
     assert found is None
