@@ -77,6 +77,17 @@ async def list_weekly_letters(
 @router.get("/{letter_id}", response_model=WeeklyLetterOut)
 async def get_weekly_letter(
     letter_id: str,
+    # Attribution marker from the weekly-letter email's read link (062). Typed
+    # `str | None` and NOT a Literal/pattern on purpose: only the exact string
+    # "email" has any effect, and every other value is ignored in silence. The
+    # reason is the CheckoutCreate.source rationale one level up (schemas:263) --
+    # a value this endpoint does not recognise is a reporting gap, never a reason
+    # to refuse. A Literal here would answer 422 to a link an email client had
+    # rewritten, and the person would lose their letter to an analytics
+    # annotation. Analytics is an observer and may not change what the product
+    # does. No free text can reach PostHog through this: `src` is never sent as a
+    # property -- the event carries `week` and `host`, both read off the row.
+    src: str | None = None,
     db: AsyncSession = Depends(get_db),
     auth: tuple = Depends(get_current_user_plan),
 ):
@@ -94,15 +105,43 @@ async def get_weekly_letter(
     if letter is None:
         return JSONResponse(status_code=404, content={"error_code": "not_found"})
 
-    # Mark read on first fetch
+    now = datetime.now(timezone.utc)
+
+    # Mark read on first fetch. Unchanged: ANY door writes this, which is exactly
+    # why it cannot answer the §16 gate on its own.
+    touched = False
     if letter.read_at is None:
-        letter.read_at = datetime.now(timezone.utc)
+        letter.read_at = now
+        touched = True
+
+    # First email-attributed open. The NULL check is the idempotence: a second
+    # visit from the same email -- or a forwarded link opened weeks later -- finds
+    # a non-NULL column and changes nothing, so the timestamp keeps meaning "the
+    # first time this letter's email brought someone back".
+    email_open = src == "email" and letter.email_opened_at is None
+    if email_open:
+        letter.email_opened_at = now
+        touched = True
+
+    if touched:
         await db.commit()
 
     persona = None
     if letter.voice_persona_id:
         p_result = await db.execute(select(Persona).where(Persona.id == letter.voice_persona_id))
         persona = p_result.scalar_one_or_none()
+
+    # After the commit, never before: this event means a return was recorded, not
+    # that one was attempted. Fired SERVER-side deliberately -- its web twin would
+    # need the analytics cookie, and consent is exactly the variable a delivery
+    # gate must not depend on. `week` is the ISO week of period_start (the same
+    # bucket letter_delivered sends, so the two join in the dashboard) and `host`
+    # is the voice persona's slug. No letter text, no subject, no recipient.
+    if email_open:
+        analytics_service.track("letter_open_to_app", user.id, {
+            "week": letter.period_start.strftime("%G-W%V") if letter.period_start else None,
+            "host": persona.slug if persona is not None else None,
+        })
 
     return _to_out(letter, persona)
 

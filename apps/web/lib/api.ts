@@ -1507,8 +1507,12 @@ class ApiClient {
     return this.request<WeeklyLetter[]>('/weekly-letters')
   }
 
-  async getWeeklyLetter(id: string): Promise<WeeklyLetter> {
-    return this.request<WeeklyLetter>(`/weekly-letters/${id}`)
+  // `fromEmail` is a BOOLEAN, not the raw query value, on purpose: the caller
+  // decides whether the marker was present and this method emits the only string
+  // the API acts on. Whatever an email client did to the URL therefore cannot be
+  // forwarded verbatim -- the value is constructed here, never relayed.
+  async getWeeklyLetter(id: string, fromEmail = false): Promise<WeeklyLetter> {
+    return this.request<WeeklyLetter>(`/weekly-letters/${id}${fromEmail ? '?src=email' : ''}`)
   }
 
   async deleteWeeklyLetter(id: string): Promise<void> {

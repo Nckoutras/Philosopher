@@ -369,6 +369,12 @@ class WeeklyLetter(Base):
     write_back_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     write_back_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     email_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # First EMAIL-ATTRIBUTED open (062). Distinct from read_at, which ANY door
+    # writes -- the Home card and the letters list write read_at exactly as an
+    # email click does, so read_at alone over-counts the §16 gate. Written once,
+    # by GET /weekly-letters/{id} when the request carries ?src=email and this is
+    # still NULL; a second visit from the same email never moves it.
+    email_opened_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     # Why the email did NOT go out, when it did not (059). NULL means it was sent,
     # or that the row predates this column. The guard that writes it lands in PR-B
     # and writes one of: localhost | no_email | opt_out | already_sent |

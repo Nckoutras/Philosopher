@@ -1511,7 +1511,11 @@ async def _maybe_send_weekly_letter_email(db, user, letter, payload, persona, re
 
         persona_name = persona.name if persona else "the Wise Room"
         title = (payload.get("title") or "").strip() or f"A letter from {persona_name}"
-        read_url = f"{config.FRONTEND_URL}/app/letters/{letter.id}"
+        # ?src=email is the attribution marker the API stamps email_opened_at
+        # from (062). It is the ONLY change to this link -- no copy, no redirect
+        # hop, no per-user token: the letter id already identifies the row and the
+        # fetch behind it is authenticated, so a marker is all that is missing.
+        read_url = f"{config.FRONTEND_URL}/app/letters/{letter.id}?src=email"
         unsubscribe_url = (
             f"{config.API_BASE_URL}/api/v1/unsubscribe/weekly"
             f"?u={user.id}&t={make_token(user.id)}"
