@@ -23,8 +23,10 @@ Migration 061 is applied in production — `trajectory_snapshots` exists there w
 **0 rows** (read 2026-09-14). The first snapshot run is **Sunday 2026-09-20 17:00
 UTC**; the first letter that can carry `<also_last_week>` is **2026-09-27**. §2.
 
-**Build is frozen.** No new feature PRs until cold beta has users. Open items stay
-in the countdown; they do not get briefs. §7.
+**The build order is founder-locked**, 2026-09-14: docs v30 → B6 → A2 → B1 → Γ →
+D2 → D3 → **cold beta**. Beta is deferred past the three build phases by ruling,
+over a recorded objection that Blueprint §15 places it at days 0–30. Anything not
+on that list does not get a brief. §7.
 
 **Measured at `bc8cd090`, not carried:**
 
@@ -176,8 +178,8 @@ lifecycle is not. Recorded in 061's docstring.
 
 ## 4. Deferred — decided, not forgotten
 
-These are **not** backlog items that need briefs (see §7). They are recorded so the
-next reader finds the decision instead of rediscovering the question.
+None of these is on the §7 build order, so **none gets a brief**. They are recorded
+so the next reader finds the decision instead of rediscovering the question.
 
 1. **Spine ↔ snapshot dedup by `memory_entry_id`.** A real join exists: `insights.evidence`
    carries the ids since #642, and the snapshot payload carries them too. Deferred
@@ -248,13 +250,25 @@ into a chat, a screenshot, a log, a departing collaborator:
    Stripe webhook delivery, one worker log line.
 6. Record the rotation date here. Do not record the values.
 
-### 5c. Standing NIKOS-ACTIONS carried from `IMPLEMENTATION_BACKLOG_v29` §6
+### 5c. NIKOS-ACTIONS
 
-Stripe live switch (OPS-006, still blocked on the €99.99-vs-€149 price mismatch);
-monthly remedy if 2026-09-30 is missed (`run_key='2026-09'`; **never** a weekly key
-earlier than `2026-W37`); `support@` mailbox; DMARC; PostHog erasure. Carried
-forward — **not re-verified this rotation**, and marked as such rather than restated
-as fact.
+**New this rotation, both verified above rather than reported:**
+
+- **B7 — DELETE the eu-west-1 "Philosopher" Supabase project
+  `plecolxlzshkfvybszgs`.** Delete, **not** RLS-fix. Enabling RLS would clear the
+  advisory and leave the actual problem in place: a live, billable, writable
+  Postgres wearing the product's name next to the real one. Evidence in §5a — 20
+  tables, every one empty, on a pre-020 schema. Confirm the ref before deleting;
+  production is `bvzeuwzqgnqcghvqghtb`.
+- **Delete the stale remote branch `feat/period-recurrence`.** Proven to hold no
+  unmerged work — see the check quoted at the top of this document. It reads as
+  unmerged only because squash merges rewrite the SHA.
+
+**Carried from `IMPLEMENTATION_BACKLOG_v29` §6 — not re-verified this rotation, and
+marked as such rather than restated as fact:** Stripe live switch (OPS-006, still
+blocked on the €99.99-vs-€149 price mismatch); monthly remedy if 2026-09-30 is
+missed (`run_key='2026-09'`; **never** a weekly key earlier than `2026-W37`);
+`support@` mailbox; DMARC; PostHog erasure.
 
 ---
 
@@ -284,20 +298,89 @@ worker actually deployed and awake, `BETA_GRANT_PRO_TO_ALL`'s real value. Migrat
 applied is **no longer** in this list — `trajectory_snapshots` existing in production
 proves 061 landed.
 
+**The evidence base under the retention work is thin, and it has not thickened.**
+`IMPLEMENTATION_BACKLOG_v29` §6.3 named it: real usage is the weakest input. What
+production actually holds, read 2026-09-14: 22 user rows, 220 conversations, 1,389
+messages, 26 weekly letters — and the 2026-09-13 delivery reached **2** people. The
+P2 start gate's condition 3 was a **founder self-read**, with the bias named rather
+than hidden (`HANDOFF_BRIEF_v29` §2): the person who built the memory judged whether
+it reads as recognition. Nothing since has replaced that instrument. Every phase in
+§7 that lands before cold beta is designed against this same absence.
+
 ---
 
-## 7. BUILD FREEZE
+## 7. Build order (founder-locked 2026-09-14)
 
-**No new feature PRs until cold beta has users.**
+**docs v30 → B6 → A2 → B1 → Γ → D2 → D3 → cold beta.**
 
-Open items stay in the countdown; **they do not get briefs**. That includes
-everything in §4 above, every open TD in `IMPLEMENTATION_BACKLOG_v29` §2, and any
-improvement this document happens to make obvious.
+| # | Item | What it is |
+|---|---|---|
+| 1 | **docs v30** | this document |
+| 2 | **B6** | TD-59 privacy-rights pins |
+| 3 | **A2** | global free-cap decision |
+| 4 | **B1** | nightly encrypted `pg_dump`, GitHub Actions |
+| 5 | **Γ** | engagement loops — Blueprint §11, in the locked order below |
+| 6 | **D2** | sameness / anti-repetition (teardown churn #2) |
+| 7 | **D3** | verify memory-v2 dedup |
+| 8 | **cold beta** | |
 
-What is still in scope during the freeze: production defects, the 2026-09-20 and
-2026-09-27 observations, the 2026-09-30 monthly run, operational work in §5, and
-documentation. The distinction is whether a user is currently harmed or a scheduled
-run needs watching — not whether the work would be small.
+> ⚠️ **VERIFY B6 BEFORE BRIEFING IT — it appears to be already done.**
+> `IMPLEMENTATION_BACKLOG_v29` §TD-59 reads "**Status: OPEN. Re-verified,
+> unchanged.**" That backlog was written in **#633**. **#638** and **#639** merged
+> after it and added `apps/api/tests/test_privacy_policy_claims.py` — **15 tests**,
+> including one per Art. right at §7 (access, rectification, erasure,
+> portability), which is TD-59's description almost word for word.
+>
+> The same is true of **TD-62**, also marked "OPEN. Re-verified, unchanged." Its own
+> stated verification command —
+> `grep -c "completeness\|mapped class\|__mapper__" tests/test_data_export.py` —
+> was recorded as returning **0**. Re-run on 2026-09-14 it returns **9**: the
+> completeness guard landed in **#636**, and #646 extended it.
+>
+> Neither is dropped from this order here, because the order is the founder's. But
+> B6's brief must open by re-running TD-59's verification against the code, per
+> CLAUDE.md Rule 3 — and if it is closed, B6 is a backlog correction rather than a
+> build. This is the 2026-08-18 failure caught mid-flight: two items marked
+> "re-verified" by a document that predates the PRs that closed them.
+
+**Γ runs in this locked P2 order**, and it is an order rather than a list:
+
+1. epistemic loop
+2. Continue the Thread
+3. letter continuity
+4. loop-closure analytics
+5. Return to This
+6. Council v2
+7. portrait versions
+
+**The FIRST brief in Γ is an INVESTIGATION, not a build: enumerate the existing
+PostHog events.** Loop-closure analytics is item 4 and cannot be specified against
+an unknown event set, and CLAUDE.md Rule 1 requires the enumeration before the
+design in any case. Anything already instrumented that Γ would re-instrument is the
+finding that changes the work.
+
+### The disagreement, recorded
+
+**Cold beta is deferred past Γ, D2 and D3 by founder ruling.** The planning
+assistant disagreed: **Blueprint §15 places beta at days 0–30**, and this ordering
+puts it after three more build phases.
+
+This is recorded because it was a **choice**, not an oversight — the founder heard
+the objection and ruled. A future reader finding beta late should not reopen it as a
+mistake, and should not treat Blueprint §15 as having been forgotten.
+
+The standing counter-argument, for whenever it is next weighed, is the last
+paragraph of §6: the retention work's evidence base is one founder self-read plus a
+single Sunday that reached 2 people, and every phase added before beta is designed
+against that same absence. That is an argument about sequencing, not a reason to
+revisit a settled ruling on its own.
+
+### What this replaces
+
+Earlier drafts of this document carried a **BUILD FREEZE** — "no new feature PRs
+until cold beta has users". That is **superseded** by the order above. Feature work
+continues; it is sequenced rather than stopped. Anything not on the list still does
+not get a brief.
 
 ---
 
@@ -334,9 +417,24 @@ remain the current companions.
 This is deliberate and is the failure log's own rule applied to itself. Rotating 1,045
 lines by copying them forward is precisely what produced the 2026-08-18 entry — a
 closed tech-debt item carried as open through eight rotations, and "RLS DISABLED"
-carried from v8 to v24 while RLS was in fact enabled. Under a build freeze, with no
-new items being briefed, a copy-forward would add no information and would re-expose
-every claim in those files to being restated without evidence.
+carried from v8 to v24 while RLS was in fact enabled. With the next work already
+sequenced in §7, a copy-forward would add no information and would re-expose every
+claim in those files to being restated without evidence.
+
+**Founder approved this scope on 2026-09-14**, so it is a ruling rather than an
+executing agent's judgement call. `PROJECT_STATE_v29` and
+`IMPLEMENTATION_BACKLOG_v29` stay current until a rotation re-verifies them
+claim by claim.
+
+**And the backlog has already drifted, which is the argument for re-verifying rather
+than copying.** Two entries there read "Status: OPEN. Re-verified, unchanged." and
+are both closed: **TD-59** by #638/#639 and **TD-62** by #636 — all three merged
+after the backlog was written in #633. TD-62's own verification command, re-run
+today, returns **9** where the entry records **0**. A v30 backlog produced by
+copy-forward would have carried both as open, and B6 sits first in the §7 build
+order because of one of them. Whoever rotates the backlog next: re-run each entry's
+own stated command, and treat "re-verified" in the v29 text as a claim about
+2026-09-11, not about the code.
 
 **What was re-verified for this document**, each with the command in the table above
 or beside the claim: the six PR numbers, the backend suite, `alembic heads`, the
