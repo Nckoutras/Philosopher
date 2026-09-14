@@ -46,21 +46,12 @@ describe('the ring-true row asks the same question everywhere', () => {
     }
   })
 
-  // CONFIRMATION IS NOT YET UNIVERSAL, and that is recorded rather than fixed.
-  // Mirror and the insight card answer with "Noted."; You-vs-You shows only the
-  // selected button and says nothing. Adding the line there would be NEW copy on
-  // a surface this PR was not asked to change, so it is left alone and flagged.
-  // When the founder rules on it, move You-vs-You into CONFIRMS and delete this
-  // comment — the list is the record of which surfaces are settled.
-  const CONFIRMS: [string, string][] = SURFACES.filter(([name]) => name !== 'You-vs-You')
-
-  it.each(CONFIRMS)('%s confirms with the same word', (_name, path) => {
+  // All three confirm now. You-vs-You was the holdout — it showed only a
+  // selected button and said nothing — and gained the line on founder copy
+  // (2026-09-14). No surface is exempt from this list any more, which is the
+  // state the list is here to keep.
+  it.each(SURFACES)('%s confirms with the same word', (_name, path) => {
     expect(source(path)).toContain(CONFIRMATION)
-  })
-
-  it('You-vs-You still has no confirmation line — pinned so the gap stays visible', () => {
-    const yvy = SURFACES.find(([name]) => name === 'You-vs-You')![1]
-    expect(source(yvy)).not.toContain(CONFIRMATION)
   })
 })
 

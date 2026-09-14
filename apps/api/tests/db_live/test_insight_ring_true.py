@@ -172,3 +172,95 @@ async def test_an_unanswered_insight_stays_in_the_spine(db):
     )).scalars().all()
     assert rejected not in spine
     assert unanswered in spine
+
+
+# ── 4. The third table finally enforces it too (064) ─────────────────────────
+
+SC_CONSTRAINT = "ck_self_comparisons_ring_true"
+
+
+async def _make_self_comparison(db, user_id: str, ring_true=None) -> str:
+    sid = str(uuid.uuid4())
+    await db.execute(
+        text(
+            # `prompt` is NOT NULL (021). Omitting it would make every assertion
+            # below fail on a NOT NULL violation instead of on the constraint under
+            # test — TD-76: a fixture that is present is not a fixture that is
+            # correct. Columns checked against the migration, not against whatever
+            # the last error happened to demand.
+            "INSERT INTO self_comparisons (id, user_id, prompt, status, ring_true) "
+            "VALUES (:id, :uid, 'Then and now.', 'ready', :rt)"
+        ),
+        {"id": sid, "uid": user_id, "rt": ring_true},
+    )
+    return sid
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("verdict", sorted(EXPECTED_VERDICTS))
+async def test_self_comparisons_accepts_each_shipped_verdict(db, verdict):
+    user_id = await _make_user(db)
+    sid = await _make_self_comparison(db, user_id, verdict)
+    await db.flush()
+
+    row = (await db.execute(
+        text("SELECT ring_true FROM self_comparisons WHERE id = :id"), {"id": sid},
+    )).scalar_one()
+    assert row == verdict
+
+
+@pytest.mark.asyncio
+async def test_self_comparisons_refuses_an_off_vocabulary_verdict(db):
+    """THE GAP 064 CLOSES. This column was a bare VARCHAR(10) from 021 until now —
+    the one surface of the three where a verdict outside the vocabulary could
+    actually land. The founder counted the existing off-vocabulary rows before
+    the constraint was written (zero), which is why 064 could validate rather
+    than arrive NOT VALID."""
+    user_id = await _make_user(db)
+    with pytest.raises(Exception) as excinfo:
+        await _make_self_comparison(db, user_id, "maybe")
+        await db.flush()
+    assert SC_CONSTRAINT in str(excinfo.value)
+
+
+@pytest.mark.asyncio
+async def test_self_comparisons_null_is_still_allowed(db):
+    """Adding a CHECK must not have made the column required. NULL is 'not
+    answered' here exactly as it is on insights and mirrors."""
+    user_id = await _make_user(db)
+    sid = await _make_self_comparison(db, user_id, None)
+    await db.flush()
+
+    row = (await db.execute(
+        text("SELECT ring_true FROM self_comparisons WHERE id = :id"), {"id": sid},
+    )).scalar_one()
+    assert row is None
+
+
+@pytest.mark.asyncio
+async def test_all_three_tables_enforce_the_same_vocabulary(db):
+    """The point of 063 + 064 in one sentence: one speech act, one contract.
+
+    Compares the LIVE constraint on all three tables. Sets of literals rather than
+    raw text, because Postgres rewrites CHECK expressions when it stores them and
+    asserting on the text would pin its rendering rather than the product's rule.
+    """
+    from models import Mirror, SelfComparison
+
+    expected = {
+        "ck_mirrors_ring_true": Mirror,
+        "ck_insights_ring_true": Insight,
+        "ck_self_comparisons_ring_true": SelfComparison,
+    }
+    for name, model in expected.items():
+        live = (await db.execute(
+            text("SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = :n"),
+            {"n": name},
+        )).scalar_one_or_none()
+        assert live is not None, f"{name} is missing from the live schema"
+        assert _literals(live) == EXPECTED_VERDICTS, f"{name} enforces a different vocabulary"
+
+        declared = next(c for c in model.__table__.constraints if c.name == name)
+        assert _literals(str(declared.sqltext)) == EXPECTED_VERDICTS, (
+            f"{model.__name__} declares a different vocabulary than the live {name}"
+        )

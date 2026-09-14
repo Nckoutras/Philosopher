@@ -433,6 +433,13 @@ class SelfComparison(Base):
     ring_true_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
+    __table_args__ = (
+        # Added by 064, the last of the three tables to get it — 021 created this
+        # column without one. DDL metadata that the ORM does not enforce on insert,
+        # so a db_live test compares it against pg_get_constraintdef.
+        CheckConstraint("ring_true IN ('yes', 'partly', 'no')", name="ck_self_comparisons_ring_true"),
+    )
+
 
 # ── Rituals ───────────────────────────────────────────────────────────────────
 

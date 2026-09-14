@@ -350,6 +350,9 @@ export default function YouVsYouPage() {
                           </button>
                         ))}
                       </div>
+                      {ringTrue !== null && (
+                        <p className="font-lora text-[12px] text-sepia italic">Noted.</p>
+                      )}
                     </div>
                   )}
 
