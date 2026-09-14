@@ -410,12 +410,13 @@ def test_the_catch_up_passes_are_scheduled_the_morning_after():
     assert (monthly.day, monthly.hour, monthly.minute) == (2, 9, 0)
 
 
-def test_the_whole_cron_inventory_is_exactly_these_five():
-    """The four letter jobs, in order, plus the one job that is not a letter.
+def test_the_whole_cron_inventory_is_exactly_these_six():
+    """The four letter jobs, in order, plus the two jobs that are not letters.
 
-    Kept as a WHOLE-inventory assertion rather than four name lookups: its value
+    Kept as a WHOLE-inventory assertion rather than per-name lookups: its value
     is catching a schedule that silently appears or disappears, which per-name
-    checks cannot do.
+    checks cannot do. It did exactly that when the trajectory snapshot was added
+    — the entry below is a deliberate amendment, not a green-ing.
 
     purge_expired_otp_codes (TD-72) is retention, not a letter — it enforces the
     "OTP codes: up to 1 hour" window the Privacy Policy §6 publishes, and it lives
@@ -423,6 +424,11 @@ def test_the_whole_cron_inventory_is_exactly_these_five():
     the arithmetic behind it are pinned in tests/workers/test_otp_purge.py, not
     here; this file only asserts that it exists and that nothing else has crept in
     beside it.
+
+    snapshot_weekly_trajectories is the same kind of neighbour: not a letter, and
+    nothing in this file's subject depends on it. Its schedule — Sunday 17:00,
+    ONE HOUR BEFORE dispatch_weekly_letters, and the relationship is the point —
+    is pinned in tests/workers/test_trajectory_snapshot.py.
     """
     names = [c.coroutine.__name__ for c in WorkerSettings.cron_jobs]
     assert names == [
@@ -430,6 +436,7 @@ def test_the_whole_cron_inventory_is_exactly_these_five():
         "dispatch_monthly_letters",
         "catch_up_weekly_letters",
         "catch_up_monthly_letters",
+        "snapshot_weekly_trajectories",
         "purge_expired_otp_codes",
     ]
 

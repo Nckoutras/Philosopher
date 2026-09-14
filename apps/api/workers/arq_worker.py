@@ -14,6 +14,14 @@ from workers.letter_dispatch import (
     dispatch_monthly_letters,
     dispatch_weekly_letters,
 )
+# Same direction, same reason: trajectory_snapshot imports THIS module only
+# inside its function bodies (it needs ritual_counts_by_user), so this cannot
+# cycle. It imports workers.letter_dispatch at module level, which is safe
+# because letter_dispatch imports nothing from either of us.
+from workers.trajectory_snapshot import (
+    build_trajectory_snapshot_task,
+    snapshot_weekly_trajectories,
+)
 from text_utils import (
     dominant_language as _dominant_language,
     language_directive,
@@ -2465,6 +2473,11 @@ class WorkerSettings:
         func(generate_weekly_letter_task, timeout=300),
         func(generate_monthly_letter_task, timeout=300),
         send_payment_recovery_email_task,
+        # One user's week: up to MAX_QUERY_ENTRIES pgvector searches and one
+        # INSERT, no LLM call. Well inside the 90s default, which is precisely
+        # why the cron dispatches instead of looping inline — a cron_jobs entry
+        # cannot carry a per-function timeout override at all.
+        build_trajectory_snapshot_task,
     ]
     # Letter dispatch, moved off APScheduler (R4). It runs HERE, in the worker,
     # because dispatch in the API process left no trace of itself and died with
@@ -2492,6 +2505,10 @@ class WorkerSettings:
         cron(dispatch_monthly_letters, day={28, 29, 30, 31}, hour=17, minute=0),
         cron(catch_up_weekly_letters, weekday="mon", hour=9, minute=0),
         cron(catch_up_monthly_letters, day=2, hour=9, minute=0),
+        # ONE HOUR BEFORE the weekly letter, and the gap is the point: the
+        # snapshot fans out one job per eligible user, and that fan-out needs to
+        # drain before step D would read what it wrote. Nothing reads it yet.
+        cron(snapshot_weekly_trajectories, weekday="sun", hour=17, minute=0),
         # Retention, not a letter. Every OTP_PURGE_INTERVAL_MINUTES — the
         # interval is half of the cutoff+interval<=60 budget the task's
         # docstring works through, so the two numbers move together or not at
