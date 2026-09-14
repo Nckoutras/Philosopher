@@ -193,7 +193,7 @@ class ActiveMindSet(BaseModel):
 class CouncilCreate(BaseModel):
     matter: str
     # Which door produced this council. SHAPE is validated here, not membership —
-    # the same rule, and the same reason, as CheckoutCreate.source below: the
+    # the same rule, and the same reason, as CheckoutRequest.source below: the
     # vocabulary lives where it is written (the web sets council_source in
     # sessionStorage from four places) and duplicating it here would give two
     # sources of truth that drift. This field is why that matters concretely: the

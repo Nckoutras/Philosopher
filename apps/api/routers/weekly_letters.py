@@ -80,7 +80,7 @@ async def get_weekly_letter(
     # Attribution marker from the weekly-letter email's read link (062). Typed
     # `str | None` and NOT a Literal/pattern on purpose: only the exact string
     # "email" has any effect, and every other value is ignored in silence. The
-    # reason is the CheckoutCreate.source rationale one level up (schemas:263) --
+    # reason is the CheckoutRequest.source rationale in schemas/__init__.py --
     # a value this endpoint does not recognise is a reporting gap, never a reason
     # to refuse. A Literal here would answer 422 to a link an email client had
     # rewritten, and the person would lose their letter to an analytics

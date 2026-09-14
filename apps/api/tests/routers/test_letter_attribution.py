@@ -215,7 +215,7 @@ def test_an_unrecognised_src_is_ignored_not_refused(client, value):
     """Analytics is an observer and may not change what the product does.
 
     A Literal["email"] annotation would answer 422 here and the reader would lose
-    their letter to an analytics annotation. This is the CheckoutCreate.source
+    their letter to an analytics annotation. This is the CheckoutRequest.source
     rationale (schemas/__init__.py) applied one level up: a value this endpoint
     does not recognise is a reporting gap, never a reason to refuse.
     """
