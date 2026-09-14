@@ -2,7 +2,21 @@
 Rate limiting utilities.
 
 Redis-backed atomic counters for OTP/auth flows (check_and_increment).
-DB-backed daily message limits per (user, persona) for free tier (check_rate_limit).
+DB-backed daily limits for the free tier, read from daily_usage.
+
+WHICH BUDGETS ARE GLOBAL AND WHICH ARE PER-PERSONA — the distinction is the thing
+to get right when adding another, so it is stated once here rather than inferred
+from four function bodies:
+
+  check_rate_limit        replies       GLOBAL per user/day  (A2, was per-persona)
+  check_deep_mode_limit   deep replies  GLOBAL per user/day
+  check_counterview_limit counterviews  GLOBAL per user/day  (no persona exists)
+  check_go_deeper_limit   go-deepers    PER PERSONA per day
+
+Go-deeper is the odd one out on purpose: it measures how far a single thread has
+been pressed, which belongs to the thread. Everything else is a budget for the
+day. daily_usage remains keyed (user_id, persona_id, usage_date) either way —
+global budgets SUM those rows, they do not replace them.
 """
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
@@ -46,11 +60,31 @@ async def check_and_increment(
 
 # ── Daily message rate limit (free tier) ──────────────────────────────────────
 
-FREE_DAILY_LIMIT_PER_PERSONA = 5
+# A2 (Blueprint §3.4, founder-locked 2026-09-14). GLOBAL across all personas —
+# 10 replies/day, not 5 per persona. There is no monthly cap.
+#
+# WHAT CHANGED, IN BOTH DIRECTIONS, because "10 replacing 5" sounds purely like a
+# loosening and for one case it is not. There are 3 free personas, so the old
+# ceiling was 3 x 5 = 15/day for someone spreading across all of them, and 5/day
+# for someone staying with one mind. The new ceiling is 10 either way: DOUBLE for
+# the single-mind user, and a third less for the sampler. That is the intended
+# shape — the product's value is depth with one mind, not breadth across three,
+# and a ceiling that paid out for spreading thin was rewarding the wrong thing.
+# 10 still allows 3+3+4 across three personas for anyone who wants it.
+#
+# NOBODY LIVING IS AFFECTED. Measured against production 2026-09-14: no free user
+# has ever exceeded 9 messages in a day (6 free user-days on record, heaviest 9),
+# and every user-day above 10 belongs to a Pro account, which this cap never
+# touches.
+FREE_DAILY_LIMIT = 10
 
 # Free users get a taste of depth: N go-deepers per persona per day, then a
 # gentle upgrade wall. Pro/premium are unlimited. Quantity only — the depth of
 # each free go-deeper is identical to Pro (see _deepen_directive).
+#
+# STILL PER-PERSONA, deliberately, and A2 did not touch it: the go-deeper budget
+# is about how far one thread can be pressed, so it belongs to the thread rather
+# than to the day.
 FREE_DAILY_GO_DEEPER_LIMIT_PER_PERSONA = 3
 
 # Free sticky deep-mode allowance. Unlike go-deeper (per-persona), this is a
@@ -109,14 +143,31 @@ PRO_DAILY_FAIR_USE_LIMIT = 150
 
 async def check_rate_limit(
     db: AsyncSession,
-    user_id: UUID,
-    persona_id: UUID,
+    user_id: str | UUID,
     user_tier: str | None = None,
 ) -> RateLimitResult:
-    """Check whether the user may send another message to this persona today.
+    """Free daily reply allowance — GLOBAL across all personas (A2).
 
-    Passes user_tier through to avoid a redundant DB query when the caller
-    has already fetched the tier (e.g. for the persona-access check).
+    Reads SUM(daily_usage.message_count) for this user TODAY and compares against
+    FREE_DAILY_LIMIT. Pro/premium are unlimited (remaining -1). Does NOT
+    increment — conversation_service bumps message_count on the per-persona row
+    after a successful reply.
+
+    THE WRITE PATH IS UNCHANGED AND STAYS PER-PERSONA. daily_usage is keyed
+    (user_id, persona_id, usage_date) and still is; A2 changed only how the rows
+    are READ. Per-persona rows are what daily_usage is for elsewhere — go-deeper
+    meters one of them, and the export renders them — so collapsing the table
+    would have cost those for nothing.
+
+    NO persona_id PARAMETER, deliberately. It was here when the limit was
+    per-persona; a global check that still accepted one would be an unused
+    argument implying a per-persona rule, which is the exact confusion A2
+    removes. The signature now matches check_deep_mode_limit, the sibling this
+    mirrors — that one has been a global daily budget over the same table since
+    035.
+
+    The sum runs on ix_daily_usage_lookup (user_id, usage_date), which already
+    existed for precisely this shape of read.
     """
     if user_tier is None:
         from services.tier_service import get_user_tier
@@ -131,20 +182,18 @@ async def check_rate_limit(
         )
 
     result = await db.execute(
-        select(DailyUsage).where(
+        select(func.coalesce(func.sum(DailyUsage.message_count), 0)).where(
             DailyUsage.user_id == str(user_id),
-            DailyUsage.persona_id == str(persona_id),
             DailyUsage.usage_date == utc_today(),
         )
     )
-    usage = result.scalar_one_or_none()
-    count = usage.message_count if usage is not None else 0
-    remaining = max(0, FREE_DAILY_LIMIT_PER_PERSONA - count)
+    count = int(result.scalar_one() or 0)
+    remaining = max(0, FREE_DAILY_LIMIT - count)
 
     return RateLimitResult(
-        allowed=count < FREE_DAILY_LIMIT_PER_PERSONA,
+        allowed=count < FREE_DAILY_LIMIT,
         remaining=remaining,
-        limit=FREE_DAILY_LIMIT_PER_PERSONA,
+        limit=FREE_DAILY_LIMIT,
         reset_at=next_utc_midnight(),
     )
 
