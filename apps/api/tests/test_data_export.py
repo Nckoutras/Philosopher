@@ -132,6 +132,7 @@ async def test_an_empty_account_exports_every_section_as_an_empty_list():
     payload = await build_export(_fake_db({}), _user())
     for section in (
         "conversations", "messages", "memories", "insights", "letters", "mirrors",
+        "trajectory_snapshots",
         "self_comparisons", "counterviews", "council_cases", "saved_lines",
         "saved_quotes", "mirror_saves", "council_saves", "counterview_saves",
         "self_comparison_saves", "scheduled_emails", "ritual_completions",

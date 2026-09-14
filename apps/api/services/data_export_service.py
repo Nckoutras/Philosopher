@@ -76,6 +76,7 @@ from models import (
     SelfComparison,
     SelfComparisonSave,
     Subscription,
+    TrajectorySnapshot,
     User,
     UserPreference,
     UserRitualCompletion,
@@ -285,6 +286,27 @@ async def build_export(db: AsyncSession, user: User) -> dict[str, Any]:
         for m in await _scalars(
             db, select(Mirror).where(Mirror.user_id == user_id)
                 .order_by(Mirror.created_at)
+        )
+    ]
+
+    # Derived, never shown to the person, and exported anyway: Art. 15 asks what
+    # we HOLD about them, not what we have shown them. The payload is their own
+    # words quoted back — memory snippets with ids — so withholding it would be
+    # answering a narrower question than the one the right actually asks.
+    trajectory_snapshots = [
+        {
+            "id": t.id,
+            "period_start": _iso(t.period_start),
+            "period_end": _iso(t.period_end),
+            "kind": t.kind,
+            "status": t.status,
+            "payload": t.payload,
+            "created_at": _iso(t.created_at),
+        }
+        for t in await _scalars(
+            db, select(TrajectorySnapshot)
+                .where(TrajectorySnapshot.user_id == user_id)
+                .order_by(TrajectorySnapshot.period_start)
         )
     ]
 
@@ -567,6 +589,7 @@ async def build_export(db: AsyncSession, user: User) -> dict[str, Any]:
         "insights": insights,
         "letters": letters,
         "mirrors": mirrors,
+        "trajectory_snapshots": trajectory_snapshots,
         "self_comparisons": self_comparisons,
         "counterviews": counterviews,
         "council_cases": council_cases,

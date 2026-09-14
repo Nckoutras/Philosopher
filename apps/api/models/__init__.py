@@ -926,3 +926,73 @@ class JobRun(Base):
         Index("uq_job_run_name_key", "job_name", "run_key", unique=True),
         Index("ix_job_run_started_at", "started_at"),
     )
+
+
+# ── Trajectory Snapshots (weekly derived record) ─────────────────────────────
+
+class TrajectorySnapshot(Base):
+    """One week of "what kept returning", per user. Migration 061.
+
+    An INTERNAL derived record, not a user-facing artefact: no LLM call produces
+    it, no persona voices it, and no endpoint returns it. The Sunday letter
+    (step D) is the intended reader.
+
+    THE SHAPE IS `mirrors`, AND THAT IS A RULED DECISION, NOT AN ACCIDENT — see
+    061's docstring. The short version: `mirrors` is a live user-facing table
+    whose CHECK constraints would have to widen to admit a record with no host,
+    no insight and no ring-true triplet, and 'failed' is not a mirror state. A
+    mirror that fails is not shown; a snapshot that fails must still be recorded,
+    or the reader cannot tell "nothing happened" from "we did not run".
+
+    status is 'generated' | 'empty' | 'failed', and the FOURTH state is the
+    absence of a row: a user with zero acts in the period is never written. So
+    'empty' means we looked and found no recurrence, and no row means there was
+    nothing to look at.
+
+    payload carries memory ids AND denormalised snippets with NO foreign keys,
+    following 060_insight_evidence: a memory row can be deactivated and 057 lets
+    its conversation be deleted, so a citation resolved by id alone would stop
+    rendering the thing it cites. user_id CASCADEs, so erasure still takes it all.
+
+    The CheckConstraint below is DDL metadata; the ORM does not evaluate it on
+    insert, so a db_live test compares its literals against pg_get_constraintdef
+    to catch drift from the migration — the shape 059/JobRun established.
+    """
+
+    __tablename__ = "trajectory_snapshots"
+
+    id: Mapped[str] = mapped_column(
+        UUID(as_uuid=False), primary_key=True, default=gen_uuid,
+        server_default=text("gen_random_uuid()"),
+    )
+    user_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=False), ForeignKey("users.id", ondelete="CASCADE"), nullable=False,
+    )
+    # The ISO week covered. period_start is ALSO the corpus boundary the snapshot
+    # was built against: entries written in the period, echoing entries written
+    # strictly before it.
+    period_start: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    period_end: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    kind: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="weekly", server_default=text("'weekly'"),
+    )
+    status: Mapped[str] = mapped_column(String(20), nullable=False)  # generated | empty | failed
+    payload: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(),
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('generated', 'empty', 'failed')",
+            name="ck_trajectory_snapshots_status",
+        ),
+        Index(
+            "uq_trajectory_snapshots_user_period_kind",
+            "user_id", "period_start", "kind", unique=True,
+        ),
+        Index(
+            "ix_trajectory_snapshots_user_period",
+            "user_id", text("period_start DESC"),
+        ),
+    )
