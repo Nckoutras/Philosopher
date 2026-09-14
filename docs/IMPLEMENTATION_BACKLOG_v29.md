@@ -399,6 +399,42 @@ arrive rarely and visibly, columns arrive constantly.
 same PR, and a defect class whose only instance is closed is exactly the kind that
 stops being written down.
 
+### TD-75 — A period-bounded recurrence search can quietly under-recall — **NEW**
+**Status: OPEN. Low severity. Accepted deliberately, not undiscovered.**
+
+**Mechanism.** `find_recurrences` with `corpus_since`/`corpus_until` is a FILTERED
+nearest-neighbour search. Postgres applies the date clause DURING the HNSW index
+scan (`ix_memory_entries_embedding_hnsw_cosine`, migration 008) rather than after
+it, so when the filter is selective — a heavy week, most of the user's recent rows
+inside the period — the scan can exhaust `hnsw.ef_search` before it finds
+`RECURRENCE_LIMIT` rows that pass.
+
+**What that costs.** Rows returned are always genuine matches; the bound never
+invents one. The risk is the other direction: real pre-period echoes that exist and
+are not found. **The failure is silent** — a trajectory snapshot would simply say
+less than it should, and nothing would look broken.
+
+**Not tuned, for three reasons.** No measurement of either the current recall or
+the degraded recall exists. `hnsw.ef_search` is a GLOBAL knob whose only other
+consumer is the request-path `recall()`, so raising it for a weekly cron would
+change chat behaviour to fix a batch job. And at the scale this runs at today —
+three weekly candidates on 2026-09-13 — it is theoretical.
+
+**The two levers, recorded so the fix is not re-derived:** raise
+`RECURRENCE_LIMIT` on the bounded path only, or set `ef_search` for that statement
+(`SET LOCAL`) rather than globally.
+
+**TRIGGER CONDITION — the thing to watch for, since the failure is quiet:** a
+snapshot that reads thin on a week the person was demonstrably busy. Concretely,
+a period whose `recurring_questions` is empty or near-empty while the same user's
+in-period entry count is high. That asymmetry is the symptom; nothing alerts on it
+today, and the first instance will be noticed by a human reading their own
+snapshot rather than by a check.
+
+Recorded in `find_recurrences`'s own docstring as well, because a reader who meets
+the function should meet the limit without opening this file.
+
+
 ---
 
 ## 3. Open decisions
