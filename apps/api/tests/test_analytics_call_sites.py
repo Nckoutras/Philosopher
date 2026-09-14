@@ -256,3 +256,155 @@ def test_share_created_fires_from_every_share_endpoint():
                 assert isinstance(v, ast.Constant), f"{rel}: artifact_type must be a literal"
                 kinds.add(v.value)
     assert kinds == {"screenshot", "counterview", "quote", "mirror", "letter", "council"}, kinds
+
+
+# ── `source` is the one property name that has been a bare str twice ─────────
+
+_SOURCE_HELPERS = {
+    # Reads Stripe metadata, which is OUR OWN CheckoutRequest.source making a
+    # round trip — written at create_checkout from a pattern-bound field. Listed
+    # by name rather than allowed as "some call" so a future helper that reads an
+    # unvalidated field has to be added here deliberately.
+    "_source_of",
+}
+
+
+def _schema_classes():
+    """{class name: ClassDef} for apps/api/schemas/__init__.py."""
+    tree = ast.parse((API_ROOT / "schemas" / "__init__.py").read_text(encoding="utf-8"))
+    return {n.name: n for n in tree.body if isinstance(n, ast.ClassDef)}
+
+
+def _field_has_pattern(cls_node, field: str) -> bool:
+    for st in cls_node.body:
+        if isinstance(st, ast.AnnAssign) and getattr(st.target, "id", None) == field:
+            if not isinstance(st.value, ast.Call):
+                return False
+            return any(kw.arg == "pattern" for kw in st.value.keywords)
+    return False
+
+
+def _functions_with_track_calls():
+    """(rel, FunctionDef, track-call node) for every site, so a value that is a
+    bare local can be resolved against the function that bound it."""
+    for path in API_ROOT.rglob("*.py"):
+        rel = path.relative_to(API_ROOT).as_posix()
+        if rel.startswith("tests/") or rel.startswith(".venv/"):
+            continue
+        try:
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+        except SyntaxError:  # pragma: no cover
+            continue
+        for fn in ast.walk(tree):
+            if not isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            for node in ast.walk(fn):
+                if (
+                    isinstance(node, ast.Call)
+                    and isinstance(node.func, ast.Attribute)
+                    and node.func.attr == "track"
+                    and isinstance(node.func.value, ast.Name)
+                    and node.func.value.id == "analytics_service"
+                ):
+                    yield rel, fn, node
+
+
+def _local_is_membership_bound(fn, name: str) -> bool:
+    """True if `name` is assigned in `fn` from an expression that tests membership
+    against a literal collection — i.e. the value is one of a fixed set by the time
+    it is read, whatever arrived on the request."""
+    for st in ast.walk(fn):
+        if not isinstance(st, ast.Assign):
+            continue
+        if not any(isinstance(t, ast.Name) and t.id == name for t in st.targets):
+            continue
+        for sub in ast.walk(st.value):
+            if isinstance(sub, ast.Compare) and any(isinstance(o, ast.In) for o in sub.ops):
+                if all(isinstance(c, ast.Constant) for c in getattr(sub.comparators[0], "elts", [None])):
+                    return True
+    return False
+
+
+def _annotation_name(fn, arg_name: str) -> str | None:
+    for a in list(fn.args.args) + list(fn.args.kwonlyargs):
+        if a.arg == arg_name and isinstance(a.annotation, ast.Name):
+            return a.annotation.id
+    return None
+
+
+def test_every_source_property_is_shape_constrained():
+    """`source` is client-supplied at every door that has one, and the generic
+    value guard above cannot catch it: `body.source` is an ast.Attribute, which
+    that test's permissive tail waves through as "an id or slug off a model".
+
+    It was wrong twice for exactly that reason — council_started sent an
+    unbounded `body.source` straight to PostHog, and the field carried no bound
+    at all. So this pins the one property name with a history, at every site:
+
+      constant          — a server-side literal
+      local             — bound by a membership test in the same function
+      <body>.source     — annotated by a schema class whose field has a pattern
+      _source_of(...)   — an allow-listed server-side helper
+
+    Anything else is a new way for a user-supplied string to reach analytics.
+    """
+    schemas = _schema_classes()
+    offenders = []
+
+    for rel, fn, node in _functions_with_track_calls():
+        if len(node.args) < 3 or not isinstance(node.args[2], ast.Dict):
+            continue
+        for key, value in zip(node.args[2].keys, node.args[2].values):
+            if not (isinstance(key, ast.Constant) and key.value == "source"):
+                continue
+            where = f"{rel}:{node.lineno} {node.args[0].value}.source"
+
+            if isinstance(value, ast.Constant):
+                continue
+            if isinstance(value, ast.Name):
+                if not _local_is_membership_bound(fn, value.id):
+                    offenders.append(
+                        f"{where} is the local `{value.id}`, which is not bound by a "
+                        f"membership test in {fn.name}() — an unchecked local is a "
+                        f"bare str with extra steps"
+                    )
+                continue
+            if isinstance(value, ast.Attribute) and isinstance(value.value, ast.Name):
+                cls = _annotation_name(fn, value.value.id)
+                if cls is None or cls not in schemas:
+                    offenders.append(f"{where} reads `{value.value.id}`, whose schema could not be resolved")
+                elif not _field_has_pattern(schemas[cls], value.attr):
+                    offenders.append(
+                        f"{where} reads {cls}.{value.attr}, which has no pattern= — "
+                        f"a client may send any string and it reaches PostHog verbatim"
+                    )
+                continue
+            if isinstance(value, ast.Call):
+                fname = value.func.attr if isinstance(value.func, ast.Attribute) else getattr(value.func, "id", "?")
+                if fname not in _SOURCE_HELPERS:
+                    offenders.append(f"{where} calls {fname}(), which is not an allow-listed source helper")
+                continue
+            offenders.append(f"{where} has shape {type(value).__name__}, which is not one of the four safe forms")
+
+    assert not offenders, offenders
+
+
+def test_request_models_never_declare_source_as_a_bare_str():
+    """The same rule one level earlier, so a NEW request body with a `source`
+    fails here before it ever grows a call site.
+
+    Response models are exempt and named rather than pattern-matched: they carry
+    a source OUT of the system (a quote's locator, a counterview's origin) and
+    are never parsed from a request, so a pattern on them would constrain our own
+    output for no benefit.
+    """
+    response_models = {"CounterviewOut", "ReflectionFeedCounterview"}
+    offenders = []
+    for name, cls in _schema_classes().items():
+        if name in response_models:
+            continue
+        for st in cls.body:
+            if isinstance(st, ast.AnnAssign) and getattr(st.target, "id", None) == "source":
+                if not _field_has_pattern(cls, "source"):
+                    offenders.append(f"{name}.source (schemas:{st.lineno}) is not pattern-constrained")
+    assert not offenders, offenders

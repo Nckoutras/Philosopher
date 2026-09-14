@@ -45,19 +45,6 @@ async def create_council(
     if not matter:
         return JSONResponse(status_code=400, content={"error_code": "empty_matter"})
 
-    # `matter` is the user's question, in their own words. It is the single most
-    # sensitive string on this route and it NEVER becomes a property — not
-    # truncated, not hashed, not "just the first few words". source and
-    # used_memory are the whole payload.
-    # `used_memory` is deliberately NOT here. council_service passes
-    # memories=[] unconditionally (council_service.py:227) — the council never
-    # consults memory — so the property would be a hardcoded False on every
-    # event. A constant is not a measurement; worse, a dashboard reading
-    # "used_memory: false, 100%" invites the conclusion that memory does not
-    # help the council, when the truth is that the council never asks.
-    # used_memory returns with Memory v2 (P1), when the council actually
-    # consults memory.
-    analytics_service.track("council_started", user.id, {"source": body.source})
     if len(matter) > MATTER_MAX_CHARS:
         return JSONResponse(status_code=400, content={"error_code": "matter_too_long"})
 
@@ -71,6 +58,19 @@ async def create_council(
     if not user.is_admin:
         remaining = await council_service.weekly_remaining(db, user.id, source)
         if remaining <= 0:
+            # The sixth cap call site. cap_kind is "council", NOT "pro_fair_use":
+            # this is a different ceiling with different semantics — one council
+            # per source per week, a product shape rather than a cost control —
+            # and constants.py keeps cap_kind precisely so two ceilings that mean
+            # different things never average together in the dashboard. `tier` is
+            # the resolved plan from get_current_user_plan, the same value the
+            # other five sites pass. Admins bypass the limit entirely, so they
+            # emit nothing here, exactly as they trigger nothing.
+            analytics_service.track("usage_cap_hit", user.id, {
+                "tier": plan,
+                "cap_kind": "council",
+                "path": "council",
+            })
             return JSONResponse(
                 status_code=429,
                 content={"error_code": "council_weekly_limit"},
@@ -86,6 +86,34 @@ async def create_council(
         response_headers["X-RateLimit-Limit"] = "1"
         response_headers["X-RateLimit-Remaining"] = str(max(0, remaining - 1))
         response_headers["X-RateLimit-Reset"] = reset_at.isoformat()
+
+    # AFTER every refusal path, and after the normalisation above — both
+    # deliberate, and both fixes to this line rather than incidental placement.
+    #
+    # It used to fire before the 400 (matter_too_long) and the 429, so every
+    # refused attempt counted as a started council. The funnel this event exists
+    # to feed is council_started -> council_completed, and a numerator inflated
+    # by requests the server never even attempted makes that ratio read as a
+    # generation failure. A started council now means one that started.
+    #
+    # And it sends the NORMALISED `source`, not `body.source`. The raw field is
+    # client-supplied — the web writes it from sessionStorage — so the event used
+    # to carry whatever arrived, while the DB and the rate limiter saw the
+    # membership-checked value two lines up. The event now agrees with them.
+    #
+    # `matter` is the user's question, in their own words. It is the single most
+    # sensitive string on this route and it NEVER becomes a property — not
+    # truncated, not hashed, not "just the first few words". source is the whole
+    # payload.
+    # `used_memory` is deliberately NOT here. council_service passes
+    # memories=[] unconditionally (council_service.py:227) — the council never
+    # consults memory — so the property would be a hardcoded False on every
+    # event. A constant is not a measurement; worse, a dashboard reading
+    # "used_memory: false, 100%" invites the conclusion that memory does not
+    # help the council, when the truth is that the council never asks.
+    # used_memory returns with Memory v2 (P1), when the council actually
+    # consults memory.
+    analytics_service.track("council_started", user.id, {"source": source})
 
     arq_queue = getattr(request.app.state, "arq_queue", None)
 
