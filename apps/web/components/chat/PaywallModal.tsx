@@ -38,7 +38,6 @@ function upgradeHref(reason: string, personaSlug: string | null): string {
 
 export default function PaywallModal({ open, details, onClose }: Props) {
   const router = useRouter()
-  const personaName = useStore((s) => s.activePersonaName)
   // Slug, never the display name: the name is user-facing copy, the slug is an
   // internal id. Null on the quotes screen, where the paywall opens without an
   // active conversation — the key is then left out of the URL.
@@ -65,8 +64,6 @@ export default function PaywallModal({ open, details, onClose }: Props) {
   }, [open, onClose])
 
   if (!open || !details) return null
-
-  const personaLabel = personaName ?? 'this mind'
 
   return (
     <div
@@ -159,8 +156,14 @@ export default function PaywallModal({ open, details, onClose }: Props) {
               Daily limit reached.
             </h2>
 
+            {/* A2 (2026-09-14): the daily reply budget is GLOBAL across every
+                mind, so this sentence no longer names one. It used to read
+                "...with <the active persona>", which became false the moment the cap
+                stopped being per-persona: a user who spent the day across three
+                minds would have been told they had used up one of them. Founder
+                copy, approved verbatim. */}
             <p className="font-lora text-[13px] text-charcoal leading-relaxed mb-2">
-              You&apos;ve used today&apos;s reflections with {personaLabel}.
+              You&apos;ve used today&apos;s free reflections.
             </p>
 
             <p className="font-lora text-[13px] text-charcoal leading-relaxed mb-8">

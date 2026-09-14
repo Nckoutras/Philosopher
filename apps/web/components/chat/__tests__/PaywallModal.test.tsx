@@ -103,15 +103,26 @@ describe('PaywallModal', () => {
     expect(screen.queryByRole('tooltip')).toBeNull()
   })
 
-  it('renders persona name from store in body copy', () => {
+  // A2, 2026-09-14. These two used to pin "...reflections with Socrates." and its
+  // "with this mind" fallback. The daily reply budget is now GLOBAL across every
+  // persona, so naming one in this sentence would state something false to any
+  // user who spread their day across two or three minds. Amended deliberately;
+  // founder-approved copy.
+  it('states the daily wall without naming a persona', () => {
     render(<PaywallModal open details={baseDetails} onClose={vi.fn()} />)
-    expect(screen.getByText(/You've used today's reflections with Socrates\./)).toBeTruthy()
+    expect(screen.getByText(/You've used today's free reflections\./)).toBeTruthy()
   })
 
-  it('falls back to "this mind" when activePersonaName is null', () => {
-    useStore.setState({ activePersonaName: null })
+  it('names no persona even when one is active in the store', () => {
+    // The inverted half of the old pair. activePersonaName is set here — as it
+    // is in beforeEach — and the copy must STILL not mention it. Asserted as an
+    // absence because the regression would be additive: re-interpolating the
+    // name reads like a personalisation improvement.
+    useStore.setState({ activePersonaName: 'Socrates', activePersonaSlug: 'socrates' })
     render(<PaywallModal open details={baseDetails} onClose={vi.fn()} />)
-    expect(screen.getByText(/You've used today's reflections with this mind\./)).toBeTruthy()
+    expect(screen.getByText(/You've used today's free reflections\./)).toBeTruthy()
+    expect(screen.queryByText(/Socrates/)).toBeNull()
+    expect(screen.queryByText(/this mind/)).toBeNull()
   })
 
   it('renders the save-limit copy and no daily-limit copy when reason is save_limit', () => {

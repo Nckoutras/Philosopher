@@ -137,8 +137,11 @@ def _make_db(conv, persona=None, subscription=None, usage=None):
         if "from subscriptions" in text:
             return _or_none(subscription)
         if "from daily_usage" in text:
-            # check_rate_limit selects the row; check_fair_use_limit sums the
-            # column. Told apart by the aggregate, so one table serves both.
+            # A2 (2026-09-14): check_rate_limit now SUMS too — it used to
+            # select the per-persona row. Both free and Pro caps are aggregates
+            # over the same column, so the branch below serves both and the row
+            # branch survives only for check_go_deeper_limit, which stays
+            # per-persona.
             if "sum(" in text or "count(" in text:
                 return _count(usage_count)
             return _or_none(usage)
@@ -200,10 +203,11 @@ def client():
 
 # ── Rate limit — free user ────────────────────────────────────────────────────
 
-def test_free_user_5th_message_allowed_with_remaining_0(client):
-    """Free user with 4 prior messages: 5th allowed, X-RateLimit-Remaining is 0."""
+def test_free_user_tenth_message_allowed_with_remaining_0(client):
+    """A2, 2026-09-14: 9 prior replies (across ANY personas) — the 10th is
+    allowed and X-RateLimit-Remaining is 0. Was 4 prior / 5th allowed."""
     conv = _make_conv(ritual_id=None)
-    db = _make_db(conv=conv, subscription=None, usage=_make_usage(4))
+    db = _make_db(conv=conv, subscription=None, usage=_make_usage(9))
     client._db[0] = db
 
     with patch("routers.conversations.conversation_service.stream_response", _fake_stream):
@@ -211,14 +215,15 @@ def test_free_user_5th_message_allowed_with_remaining_0(client):
 
     assert resp.status_code == 200
     assert resp.headers["X-RateLimit-Remaining"] == "0"
-    assert resp.headers["X-RateLimit-Limit"] == "5"
+    assert resp.headers["X-RateLimit-Limit"] == "10"
     assert "X-RateLimit-Reset" in resp.headers
 
 
-def test_free_user_6th_message_blocked_returns_429(client):
-    """Free user with 5 prior messages: 6th returns 429 with LLMErrorResponse body."""
+def test_free_user_eleventh_message_blocked_returns_429(client):
+    """A2, 2026-09-14: 10 prior replies spend the day's budget — the 11th returns
+    429 with the LLMErrorResponse body. Was 5 prior / 6th blocked."""
     conv = _make_conv(ritual_id=None)
-    db = _make_db(conv=conv, subscription=None, usage=_make_usage(5))
+    db = _make_db(conv=conv, subscription=None, usage=_make_usage(10))
     client._db[0] = db
 
     with patch("routers.conversations.conversation_service.stream_response", _fake_stream) as mock_stream:
@@ -231,15 +236,18 @@ def test_free_user_6th_message_blocked_returns_429(client):
 
 
 def test_429_response_has_rate_limit_headers(client):
-    """429 response includes X-RateLimit-Limit, Remaining (0), and Reset headers."""
+    """429 response includes X-RateLimit-Limit, Remaining (0), and Reset headers.
+
+    A2, 2026-09-14: the advertised limit is now 10.
+    """
     conv = _make_conv(ritual_id=None)
-    db = _make_db(conv=conv, subscription=None, usage=_make_usage(5))
+    db = _make_db(conv=conv, subscription=None, usage=_make_usage(10))
     client._db[0] = db
 
     resp = client.post(ENDPOINT.format(conv_id=CONV_ID), json={"content": "Hello"})
 
     assert resp.status_code == 429
-    assert resp.headers["X-RateLimit-Limit"] == "5"
+    assert resp.headers["X-RateLimit-Limit"] == "10"
     assert resp.headers["X-RateLimit-Remaining"] == "0"
     assert "X-RateLimit-Reset" in resp.headers
 
@@ -257,9 +265,9 @@ def test_200_response_has_rate_limit_headers(client):
     assert "X-RateLimit-Limit" in resp.headers
     assert "X-RateLimit-Remaining" in resp.headers
     assert "X-RateLimit-Reset" in resp.headers
-    assert resp.headers["X-RateLimit-Limit"] == "5"
-    # 0 prior messages → remaining=5 before call → 4 after
-    assert resp.headers["X-RateLimit-Remaining"] == "4"
+    assert resp.headers["X-RateLimit-Limit"] == "10"
+    # A2: 0 prior replies → remaining=10 before the call → 9 after
+    assert resp.headers["X-RateLimit-Remaining"] == "9"
 
 
 # ── A15: the rate-limit headers must be READABLE cross-origin ────────────────
@@ -286,7 +294,7 @@ def test_429_exposes_rate_limit_headers_cross_origin(client):
     """The 429 that drives the paywall must expose all three headers, or the
     modal renders a fabricated reset time."""
     conv = _make_conv(ritual_id=None)
-    db = _make_db(conv=conv, subscription=None, usage=_make_usage(5))
+    db = _make_db(conv=conv, subscription=None, usage=_make_usage(10))
     client._db[0] = db
 
     resp = client.post(
@@ -329,7 +337,7 @@ def test_200_exposes_rate_limit_headers_cross_origin(client):
 def test_stream_response_not_called_on_429(client):
     """When rate limited, response is JSON (not streaming) — stream_response never called."""
     conv = _make_conv(ritual_id=None)
-    db = _make_db(conv=conv, subscription=None, usage=_make_usage(5))
+    db = _make_db(conv=conv, subscription=None, usage=_make_usage(10))
     client._db[0] = db
 
     resp = client.post(ENDPOINT.format(conv_id=CONV_ID), json={"content": "Hello"})
@@ -428,31 +436,64 @@ def test_blocked_on_regular_but_allowed_on_ritual(client):
     assert resp.status_code == 200
 
 
-# ── Per-persona isolation ──────────────────────────────────────────────────────
+# ── The budget is shared across personas (A2) ─────────────────────────────────
 
-def test_per_persona_marcus_blocked_socrates_allowed(client):
-    """Marcus (5/5) blocks; Socrates (0/5) on the same user still succeeds."""
-    # Marcus: blocked
+def test_switching_persona_does_not_refill_the_budget(client):
+    """A2, 2026-09-14. THIS TEST INVERTED, and it is the point of the change.
+
+    It was `test_per_persona_marcus_blocked_socrates_allowed`: Marcus at 5/5
+    blocked while Socrates on the same account still had a full allowance. That
+    was the rule, and it is the rule A2 removed — a user who had spent the day
+    could refill simply by opening a different mind.
+
+    Amended rather than deleted, at the ROUTER level rather than only in the
+    service, because this is the behaviour a person actually experiences: hit the
+    wall, switch mind, hit the wall again. Both halves are asserted so a
+    reintroduced persona filter fails here and not only in the unit test.
+
+    The usage row still carries a persona_id — daily_usage is still keyed that
+    way — but the check sums the day, so which persona owns the row no longer
+    changes the answer.
+    """
+    # Marcus: the day's 10 are spent.
     marcus_conv = _make_conv(ritual_id=None, persona_id=PERSONA_ID)
-    db_marcus = _make_db(conv=marcus_conv, subscription=None, usage=_make_usage(5, PERSONA_ID))
+    db_marcus = _make_db(conv=marcus_conv, subscription=None, usage=_make_usage(10, PERSONA_ID))
     client._db[0] = db_marcus
 
     resp_marcus = client.post(ENDPOINT.format(conv_id=CONV_ID), json={"content": "Hello"})
     assert resp_marcus.status_code == 429
 
-    # Socrates: allowed
+    # Socrates: same account, same day, same spent budget — also refused.
     socrates_conv = _make_conv(ritual_id=None, persona_id=SOCRATES_PERSONA_ID, conv_id=RITUAL_CONV_ID)
     db_socrates = _make_db(
         conv=socrates_conv, subscription=None,
-        usage=_make_usage(0, SOCRATES_PERSONA_ID),
+        usage=_make_usage(10, SOCRATES_PERSONA_ID),
     )
     client._db[0] = db_socrates
 
+    resp_socrates = client.post(
+        ENDPOINT.format(conv_id=RITUAL_CONV_ID), json={"content": "Hello"}
+    )
+    assert resp_socrates.status_code == 429
+
+
+def test_a_second_persona_still_works_while_the_budget_lasts(client):
+    """The other side of the same rule, so the test above cannot pass by the cap
+    simply blocking everything. With 4 replies spent, a different mind answers
+    normally — the budget is shared, not exhausted by switching."""
+    socrates_conv = _make_conv(ritual_id=None, persona_id=SOCRATES_PERSONA_ID, conv_id=RITUAL_CONV_ID)
+    db = _make_db(
+        conv=socrates_conv, subscription=None,
+        usage=_make_usage(4, SOCRATES_PERSONA_ID),
+    )
+    client._db[0] = db
+
     with patch("routers.conversations.conversation_service.stream_response", _fake_stream):
-        resp_socrates = client.post(
+        resp = client.post(
             ENDPOINT.format(conv_id=RITUAL_CONV_ID), json={"content": "Hello"}
         )
-    assert resp_socrates.status_code == 200
+    assert resp.status_code == 200
+    assert resp.headers["X-RateLimit-Remaining"] == "5"
 
 
 # ── Ownership ─────────────────────────────────────────────────────────────────

@@ -388,7 +388,7 @@ async def send_message(
         if not crisis.should_suppress_persona and not user.is_admin and conv.ritual_id is None:
             user_tier = await get_user_tier(db, user.id)
             rate_limit_result = await rate_limit_service.check_rate_limit(
-                db, UUID(user.id), UUID(responder_persona_id), user_tier=user_tier
+                db, UUID(user.id), user_tier=user_tier
             )
             if not rate_limit_result.allowed:
                 return JSONResponse(
@@ -507,7 +507,7 @@ async def another_mind(
     if not user.is_admin and conv.ritual_id is None:
         user_tier = await get_user_tier(db, user.id)
         rate_limit_result = await rate_limit_service.check_rate_limit(
-            db, UUID(user.id), UUID(target_persona.id), user_tier=user_tier
+            db, UUID(user.id), user_tier=user_tier
         )
         if not rate_limit_result.allowed:
             return JSONResponse(
@@ -711,7 +711,7 @@ async def go_deeper(
     if not user.is_admin and conv.ritual_id is None:
         user_tier = await get_user_tier(db, user.id)
         rate_limit_result = await rate_limit_service.check_rate_limit(
-            db, UUID(user.id), UUID(responder_persona_id), user_tier=user_tier
+            db, UUID(user.id), user_tier=user_tier
         )
         if not rate_limit_result.allowed:
             return JSONResponse(
