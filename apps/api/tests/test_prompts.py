@@ -294,3 +294,76 @@ def test_the_memory_use_directive_appears_in_NEITHER_letter_prompt():
 
     assert MEMORY_USE_DIRECTIVE not in LETTER_PROMPT
     assert MEMORY_USE_DIRECTIVE not in MONTHLY_PROMPT
+
+
+# ── PR-D: <also_last_week> ───────────────────────────────────────────────────
+# Founder-approved verbatim, 2026-09-14. NO monthly sibling, deliberately: 061's
+# kind is 'weekly' and the only writer is the weekly cron, so a monthly variant
+# would introduce a tag that is always empty. That is why this constant has no
+# _format(p=...) twin the way _WHAT_YOU_KNOW above does.
+APPROVED_ALSO_LAST_WEEK_WEEKLY = (
+    "You may also receive an <also_last_week> block — a few of the person's own "
+    "earlier words that they returned to this week and had also returned to the week "
+    "before. This is a fact about timing, not a new noticing: an item here will often "
+    "be the same thread the Room has already named above. Where it is, let it deepen "
+    "that thread rather than appear a second time. Never list these, never count them, "
+    "never quote them back, and never read a thread's absence from this block as their "
+    "having let it go."
+)
+
+
+def test_the_weekly_letter_carries_the_approved_also_last_week_guardrail():
+    """Character-for-character. Copy on a surface a subscriber reads is the
+    founder's call, not a refactor's side effect."""
+    from workers.arq_worker import LETTER_PROMPT
+    assert APPROVED_ALSO_LAST_WEEK_WEEKLY in LETTER_PROMPT
+
+
+def test_the_monthly_letter_does_not_carry_it():
+    """PR-D is the SUNDAY letter only. The monthly engine never reads a snapshot,
+    so a guardrail describing a block it cannot receive would be an instruction
+    about nothing."""
+    from workers.arq_worker import MONTHLY_PROMPT
+    assert APPROVED_ALSO_LAST_WEEK_WEEKLY not in MONTHLY_PROMPT
+    assert "<also_last_week>" not in MONTHLY_PROMPT
+
+
+def test_the_guardrail_never_supplies_the_words_for_returning():
+    """REGISTER BELONGS TO THE PERSONA; THE BLOCK SUPPLIES FACT ONLY. The one
+    sentence this whole step exists to make possible — that a thread is in its
+    second week — must be phrased by the voice writing the letter, in its own
+    idiom, not lifted from an instruction. So the guardrail states WHAT the block
+    is and never how to say it.
+
+    Pinned as an absence because the failure mode is additive: the natural edit
+    when a letter reads flat is to paste a suggested phrasing into the prompt,
+    and every persona would then say it the same way."""
+    from workers.arq_worker import LETTER_PROMPT
+
+    for phrasing in (
+        "second week running",
+        "two weeks in a row",
+        "again this week",
+        "keeps coming back",
+        "still returning",
+    ):
+        assert phrasing not in APPROVED_ALSO_LAST_WEEK_WEEKLY, phrasing
+        assert phrasing not in LETTER_PROMPT, phrasing
+
+
+def test_the_guardrail_forbids_reading_absence_as_letting_go():
+    """THE D-CONSTRAINT, stated to the model. The block is a capped top-3 view of
+    an intersection, so a thread missing from it carries no meaning at all. The
+    builder never sends absent_since_prior (asserted in
+    tests/workers/test_letter_standing_memory.py); this is the same guarantee
+    from the other side, in case the model reasons about what it does not see."""
+    assert "never read a thread's absence from this block as their having let it go" \
+        in APPROVED_ALSO_LAST_WEEK_WEEKLY
+
+
+def test_the_guardrail_tells_the_model_to_deepen_rather_than_repeat():
+    """The block overlaps <what_the_room_noticed> by construction — the spine
+    card and the snapshot anchor are frequently the same thread — so the one
+    thing the letter must not do is name it twice."""
+    assert "the same thread the Room has already named above" in APPROVED_ALSO_LAST_WEEK_WEEKLY
+    assert "rather than appear a second time" in APPROVED_ALSO_LAST_WEEK_WEEKLY

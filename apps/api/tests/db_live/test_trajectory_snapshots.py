@@ -380,3 +380,92 @@ async def test_created_at_and_kind_carry_server_defaults(db):
     assert row.id is not None
     assert row.kind == "weekly"
     assert row.created_at is not None
+
+
+# ── 7. The letter's read (PR-D) — the WHERE clause a fake cannot prove ───────
+#
+# generate_weekly_letter_task selects ONE snapshot by
+# (user_id, period_start, kind='weekly', status='generated'). Two of those four
+# predicates are the ones that can silently match the wrong thing, and both are
+# query results rather than code paths — which is why they are here and not in
+# tests/workers/test_letter_standing_memory.py, where the clause is only pinned
+# as source text.
+#
+# The read is reproduced rather than imported: it is written inline inside a
+# 400-line ARQ task and there is no seam to call. Reproduced from the source the
+# source-level test pins, so the two cannot drift apart without one of them
+# failing.
+
+
+async def _letter_read(db, user_id: str, period_start: datetime):
+    """The letter's snapshot lookup, exactly as generate_weekly_letter_task issues it."""
+    from sqlalchemy import select
+
+    return (await db.execute(
+        select(TrajectorySnapshot).where(
+            TrajectorySnapshot.user_id == user_id,
+            TrajectorySnapshot.period_start == period_start,
+            TrajectorySnapshot.kind == "weekly",
+            TrajectorySnapshot.status == "generated",
+        )
+    )).scalars().first()
+
+
+@pytest.mark.asyncio
+async def test_the_letter_finds_this_weeks_generated_snapshot(db):
+    """The precondition for every assertion below: the read works at all. A
+    negative test whose positive twin was never written proves nothing."""
+    user_id = await _make_user(db)
+    await _snapshot(db, user_id, W38, anchors=[str(uuid.uuid4())])
+
+    assert await _letter_read(db, user_id, W38) is not None
+
+
+@pytest.mark.asyncio
+async def test_a_misaligned_period_start_matches_nothing(db):
+    """THE EQUALITY, PROVEN RATHER THAN ASSUMED. The letter's legacy branch floors
+    to a SUNDAY and week_period floors to a MONDAY, so a legacy job's period_start
+    is one day off and can never name a real snapshot. The task skips the read on
+    that path — but the equality is what makes skipping it merely tidy rather than
+    load-bearing, and an accidental range predicate here would turn a near miss
+    into a wrong week's letter."""
+    user_id = await _make_user(db)
+    await _snapshot(db, user_id, W38)
+
+    sunday_before = W38 - timedelta(days=1)
+    assert await _letter_read(db, user_id, sunday_before) is None
+    assert await _letter_read(db, user_id, W37) is None
+
+
+@pytest.mark.asyncio
+async def test_a_failed_snapshot_is_invisible_to_the_letter(db):
+    """A 'failed' row records that we do not know what that week held; its payload
+    carries an error and no recurring_questions. Reading it would hand the builder
+    a payload it would have to defend against. The WHERE clause is what stops it
+    arriving, and the letter falls back to composing exactly as it did before."""
+    user_id = await _make_user(db)
+    await _snapshot(db, user_id, W38, status="failed")
+
+    assert await _letter_read(db, user_id, W38) is None
+
+
+@pytest.mark.asyncio
+async def test_an_empty_snapshot_is_invisible_too(db):
+    """'empty' means we looked and nothing echoed — a real observation, and the
+    right thing for _prior_snapshot to diff against next week (asserted above).
+    But it carries no recurring_questions, so there is nothing for the letter to
+    render and the row is excluded here. The two readers want different sets from
+    the same table, deliberately."""
+    user_id = await _make_user(db)
+    await _snapshot(db, user_id, W38, status="empty")
+
+    assert await _letter_read(db, user_id, W38) is None
+
+
+@pytest.mark.asyncio
+async def test_the_letter_never_reads_another_users_snapshot(db):
+    mine = await _make_user(db)
+    theirs = await _make_user(db)
+    await _snapshot(db, theirs, W38)
+
+    assert await _letter_read(db, mine, W38) is None
