@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import toast from 'react-hot-toast'
 import { api } from '@/lib/api'
 import { useStore } from '@/lib/store'
+import { safeReturnTo } from '@/lib/safeReturnTo'
 
 export const dynamic = 'force-dynamic'
 
@@ -49,7 +50,11 @@ function OAuthFinish() {
         } else if (needsDisclaimer) {
           router.replace('/auth/disclaimer')
         } else {
-          router.replace('/app/today')
+          // The LAST branch only, matching the OTP path exactly. `next` arrives
+          // from the API, which read it out of the Redis CSRF state entry and had
+          // already validated it before storing -- revalidated here regardless,
+          // because a query parameter is a query parameter wherever it came from.
+          router.replace(safeReturnTo(searchParams.get('next')))
         }
       } catch {
         api.setToken(null)

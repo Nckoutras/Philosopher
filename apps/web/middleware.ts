@@ -24,8 +24,20 @@ export function middleware(request: NextRequest) {
     if (!isAuthenticated) {
       const url = request.nextUrl.clone()
       url.pathname = '/auth'
+      // CLEAR BEFORE SETTING. clone() copies the whole URL, search included, so
+      // overwriting only `pathname` left the protected route's own query dangling
+      // on /auth -- a letter click arrived as /auth?src=email&mode=signin&next=...
+      // where `src` meant nothing and was read by nobody. The destination's query
+      // belongs inside `next`, not beside it.
+      url.search = ''
       url.searchParams.set('mode', 'signin')
-      url.searchParams.set('next', pathname)
+      // pathname + search, not pathname alone. The query IS the destination for a
+      // letter: ?src=email is what lets the API write email_opened_at, and a
+      // returnTo that drops it sends the reader to the right page as the wrong
+      // kind of visit -- read_at without the attribution, which reads downstream
+      // as organic in-app discovery. Read from `request.nextUrl`, which the line
+      // above has not touched (`url` is a copy).
+      url.searchParams.set('next', pathname + request.nextUrl.search)
       return NextResponse.redirect(url)
     }
   }

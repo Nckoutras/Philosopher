@@ -27,6 +27,14 @@ const OAUTH_ERROR_MESSAGES: Record<string, string> = {
 function AuthForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  // Relayed verbatim to both sign-in paths. Not validated here -- one validation,
+  // at the point of use, so there is never a second copy of the rule to drift.
+  const nextRaw = searchParams.get('next')
+  const nextParam = nextRaw ? `&next=${encodeURIComponent(nextRaw)}` : ''
+  // Google leaves the app entirely, so its returnTo makes a server-side round
+  // trip: the API validates it and parks it in the existing Redis CSRF state
+  // entry rather than carrying it through Google's redirect.
+  const googleHref = `${API_BASE}/auth/oauth/google${nextRaw ? `?next=${encodeURIComponent(nextRaw)}` : ''}`
   const errorParam = searchParams.get('error')
 
   const [email, setEmail] = useState('')
@@ -65,7 +73,11 @@ function AuthForm() {
 
     try {
       await api.requestOtp(trimmedEmail)
-      router.push(`/auth/verify?email=${encodeURIComponent(trimmedEmail)}`)
+      // `next` rides across the hop. Without this line the middleware's returnTo
+      // dies here -- it reached /auth and went no further, which is why the
+      // parameter existed for months while every sign-in still landed on Today.
+      // Validated at the point of USE (verify), not here: this page only relays.
+      router.push(`/auth/verify?email=${encodeURIComponent(trimmedEmail)}${nextParam}`)
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Something went wrong'
       if (message.toLowerCase().includes('rate') || message.includes('429')) {
@@ -100,7 +112,7 @@ function AuthForm() {
               <>
                 {/* Full-page navigation — intentionally leaves Next.js app to reach Google */}
                 <a
-                  href={`${API_BASE}/auth/oauth/google`}
+                  href={googleHref}
                   className="flex items-center justify-center gap-3 w-full h-[52px] rounded-sm bg-white border-[0.5px] border-edge font-lora text-[15px] text-ink transition-colors hover:bg-linen"
                 >
                   {/* Official Google "G" mark — inline SVG, no external CDN */}

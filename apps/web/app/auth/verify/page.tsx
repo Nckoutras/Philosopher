@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import toast from 'react-hot-toast'
 import { api } from '@/lib/api'
 import { useStore } from '@/lib/store'
+import { safeReturnTo } from '@/lib/safeReturnTo'
 
 export const dynamic = 'force-dynamic'
 
@@ -83,7 +84,10 @@ function VerifyForm() {
       } else if (data.user.needs_disclaimer) {
         router.replace('/auth/disclaimer')
       } else {
-        router.replace('/app/today')
+        // The LAST branch only. A brand-new account has no letter to return to,
+        // and the disclaimer branch is a consent gate that a returnTo must never
+        // jump -- both are left exactly as they were.
+        router.replace(safeReturnTo(searchParams.get('next')))
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Something went wrong'
