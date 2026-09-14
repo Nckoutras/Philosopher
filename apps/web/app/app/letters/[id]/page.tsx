@@ -77,8 +77,12 @@ export default function LetterReadPage() {
 
     async function load() {
       try {
+        // Suspense-safe (no useSearchParams): the effect is client-only. Only
+        // the exact marker the letter email writes counts; the boolean, not the
+        // raw value, is what travels on (lib/api.ts).
+        const fromEmail = new URLSearchParams(window.location.search).get('src') === 'email'
         const [letterRes, personasRes] = await Promise.allSettled([
-          api.getWeeklyLetter(id),
+          api.getWeeklyLetter(id, fromEmail),
           api.getPersonas(),
         ])
         setLetter(letterRes.status === 'fulfilled' ? letterRes.value : null)

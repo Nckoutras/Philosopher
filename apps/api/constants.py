@@ -89,6 +89,16 @@ ANALYTICS_EVENTS = {
     "council_saved":          [],
     "share_created":          ["artifact_type"],
     "letter_delivered":       ["week", "host", "reading_label"],
+    # The other half of the letter loop (062). letter_delivered says an email
+    # left the building; this says one brought a person back into the app, and
+    # the pair is the Blueprint §16 gate. Fired from the API rather than the web
+    # because a return that only counts for consenting users is not a delivery
+    # measurement -- and the API has the key whatever the cookie banner says.
+    # `week` and `host` match letter_delivered's so the two join on them; there
+    # is no reading_label because the opened row carries no equivalent and a
+    # property present on one side of a funnel and absent on the other is worse
+    # than no property at all.
+    "letter_open_to_app":     ["week", "host"],
 
     # ── Monetisation ─────────────────────────────────────────────────────────
     # `source` is the paywall the checkout came from. It reaches the webhook
