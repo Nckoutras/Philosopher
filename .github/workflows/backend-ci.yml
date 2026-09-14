@@ -1,17 +1,30 @@
 name: Backend CI
 
+# NO `paths:` FILTER, DELIBERATELY — every push to main and every PR runs this.
+#
+# There was one, narrowing to apps/api and this workflow's own files. It was
+# removed on 2026-09-14, the day branch protection was added to `main`, because
+# the two are incompatible in a way that only appears once protection exists.
+#
+# A required status check that never REPORTS does not resolve to "skipped". It
+# sits at "Expected — waiting for status to be reported", and the merge button
+# never opens. A docs-only or web-only PR triggers no backend run at all, so under
+# protection it would be blocked forever with nothing red to point at and nothing
+# to re-run. That is a worse failure than a slow CI: it looks like a bug in GitHub
+# rather than a filter doing exactly what it was told.
+#
+# The cost of removing it is minutes on runs that cannot fail. This is a public
+# repository, so Actions minutes are free, and the alternative fixes are all worse
+# — path-aware dummy jobs that report success without testing anything, or a
+# protection rule that lists no required checks.
+#
+# The other half of the 2026-09-01 lesson still stands and is now unreachable by
+# accident: "no run" was indistinguishable from "passed" on a PR page. With no
+# filter, every PR has runs to read.
 on:
   push:
     branches: [main]
-    paths:
-      - 'apps/api/**'
-      - '.github/workflows/backend-ci.yml'
-      - '.github/scripts/**'
   pull_request:
-    paths:
-      - 'apps/api/**'
-      - '.github/workflows/backend-ci.yml'
-      - '.github/scripts/**'
 
 concurrency:
   group: backend-ci-${{ github.ref }}

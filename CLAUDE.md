@@ -221,9 +221,15 @@ Lessons that updated this protocol:
   - **"Re-run jobs" replays the same commit.** It does not pick up a new push.
     After pushing a fix, read the run for the **new SHA**; re-running the old one
     reproduces the old result and reads like a flake that did or didn't clear.
-  - **"No run" is still not "green"** — the `paths:` filter point from the
-    2026-09-01 entry is unchanged and is now the main way a PR page can look
-    gated while being ungated.
+  - **"No run" under branch protection is not "waiting" — it is "blocked
+    forever".** A required check that never reports does not resolve to
+    "skipped"; it sits at *Expected — waiting for status to be reported* and the
+    merge button never opens. `backend-ci.yml`'s `paths:` filter meant a
+    docs-only or web-only PR produced no backend run at all, so under the new
+    rule such a PR could never merge. **Both filter blocks were removed the same
+    day, for this reason.** The repository is public, so the minutes are free —
+    and the 2026-09-01 "*no run is not green*" trap is now unreachable by
+    accident, because every PR has runs to read.
 
   **A CC diff summary is no longer the merge gate.** The planning assistant now
   verifies the pushed artefact directly: `curl` the codeload tarball for the

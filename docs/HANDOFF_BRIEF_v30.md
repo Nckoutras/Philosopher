@@ -23,10 +23,12 @@ Migration 061 is applied in production — `trajectory_snapshots` exists there w
 **0 rows** (read 2026-09-14). The first snapshot run is **Sunday 2026-09-20 17:00
 UTC**; the first letter that can carry `<also_last_week>` is **2026-09-27**. §2.
 
-**The build order is founder-locked**, 2026-09-14: docs v30 → B6 → A2 → B1 → Γ →
-D2 → D3 → **cold beta**. Beta is deferred past the three build phases by ruling,
-over a recorded objection that Blueprint §15 places it at days 0–30. Anything not
-on that list does not get a brief. §7.
+**The build order is founder-locked**, 2026-09-14: docs v30 → ~~B6~~ → **A2** → B1
+→ Γ → D2 → D3 → **cold beta**. B6 closed on verification rather than on a build
+(TD-59 and TD-62 were already done — §9), so **A2 is the first build item**. Beta is
+deferred past the three build phases by ruling, over a recorded objection that
+Blueprint §15 places it at days 0–30. Anything not on that list does not get a
+brief. §7.
 
 **Measured at `bc8cd090`, not carried:**
 
@@ -78,12 +80,20 @@ required checks:
 **The first PR governed by it is the next one.** Nothing merged before 2026-09-14
 13:30 was gated, this rotation's six PRs included.
 
-**Read this before trusting a green PR page.** Two things the rule does not change:
+**The `paths:` filter was removed the same day, and protection is why.** Until
+2026-09-14 `backend-ci.yml` filtered to `apps/api/**` and its own files, so a
+docs-only or web-only PR produced **no backend run at all**. Before protection that
+was merely confusing — the 2026-09-01 entry's "*no run is not green*", where a PR
+with no backend check looks identical to one that passed.
 
-- **"No run" is not "green".** `backend-ci.yml` has a `paths:` filter, so a
-  web-only or docs-only PR produces no backend run at all. A PR showing no backend
-  check looks identical to one that passed. Check against the runs the PR actually
-  triggered.
+Under protection it is fatal. **A required check that never reports does not
+resolve to "skipped": it sits at "Expected — waiting for status to be reported",
+and the merge button never opens.** A docs PR would be blocked forever, with
+nothing red to point at and nothing to re-run. So both filter blocks are gone and
+every PR runs the suite. The repository is public, so the minutes are free.
+
+**One thing the rule still does not change:**
+
 - **"Re-run jobs" replays the same commit.** It does not pick up a new push. After
   pushing a fix, read the run for the **new** SHA — a re-run of the old one will
   reproduce the old result and read like a flake that cleared or didn't.
@@ -311,37 +321,45 @@ it reads as recognition. Nothing since has replaced that instrument. Every phase
 
 ## 7. Build order (founder-locked 2026-09-14)
 
-**docs v30 → B6 → A2 → B1 → Γ → D2 → D3 → cold beta.**
+**docs v30 → ~~B6~~ → A2 → B1 → Γ → D2 → D3 → cold beta.**
 
-| # | Item | What it is |
-|---|---|---|
-| 1 | **docs v30** | this document |
-| 2 | **B6** | TD-59 privacy-rights pins |
-| 3 | **A2** | global free-cap decision |
-| 4 | **B1** | nightly encrypted `pg_dump`, GitHub Actions |
-| 5 | **Γ** | engagement loops — Blueprint §11, in the locked order below |
-| 6 | **D2** | sameness / anti-repetition (teardown churn #2) |
-| 7 | **D3** | verify memory-v2 dedup |
-| 8 | **cold beta** | |
+| # | Item | What it is | State |
+|---|---|---|---|
+| 1 | **docs v30** | this document | in flight |
+| 2 | ~~**B6**~~ | TD-59 privacy-rights pins | **CLOSED on verification — no build.** #638/#639 |
+| 3 | **A2** | global free-cap decision | **← first build item** |
+| 4 | **B1** | nightly encrypted `pg_dump`, GitHub Actions | |
+| 5 | **Γ** | engagement loops — Blueprint §11, in the locked order below | |
+| 6 | **D2** | sameness / anti-repetition (teardown churn #2) | |
+| 7 | **D3** | verify memory-v2 dedup | |
+| 8 | **cold beta** | | |
 
-> ⚠️ **VERIFY B6 BEFORE BRIEFING IT — it appears to be already done.**
-> `IMPLEMENTATION_BACKLOG_v29` §TD-59 reads "**Status: OPEN. Re-verified,
-> unchanged.**" That backlog was written in **#633**. **#638** and **#639** merged
-> after it and added `apps/api/tests/test_privacy_policy_claims.py` — **15 tests**,
-> including one per Art. right at §7 (access, rectification, erasure,
-> portability), which is TD-59's description almost word for word.
+> ✅ **B6 IS CLOSED. It was verified rather than briefed, and there is no build.**
+> Founder ruling 2026-09-14, on the evidence below. **The first build item is A2.**
 >
-> The same is true of **TD-62**, also marked "OPEN. Re-verified, unchanged." Its own
-> stated verification command —
-> `grep -c "completeness\|mapped class\|__mapper__" tests/test_data_export.py` —
-> was recorded as returning **0**. Re-run on 2026-09-14 it returns **9**: the
-> completeness guard landed in **#636**, and #646 extended it.
+> `IMPLEMENTATION_BACKLOG_v29` marks **TD-59** "*Status: OPEN. Re-verified,
+> unchanged.*" That backlog was written in **#633**; **#638** and **#639** merged
+> after it. TD-59's description is "No test pins the privacy policy against the
+> implemented rights". Fifteen now do, one per Art. right at §7 — access,
+> rectification, erasure, portability:
 >
-> Neither is dropped from this order here, because the order is the founder's. But
-> B6's brief must open by re-running TD-59's verification against the code, per
-> CLAUDE.md Rule 3 — and if it is closed, B6 is a backlog correction rather than a
-> build. This is the 2026-08-18 failure caught mid-flight: two items marked
-> "re-verified" by a document that predates the PRs that closed them.
+> ```
+> $ cd apps/api && python -m pytest tests/test_privacy_policy_claims.py -q
+> 15 passed, 21 warnings in 3.03s
+> ```
+>
+> **TD-62** is the same story, and its own entry supplies the command. The backlog
+> records the output as **0**; the completeness guard landed in **#636** and #646
+> extended it:
+>
+> ```
+> $ cd apps/api && grep -c "completeness\|mapped class\|__mapper__" tests/test_data_export.py
+> 9
+> ```
+>
+> Both re-run 2026-09-14 at `bc8cd090`. This is the 2026-08-18 failure caught
+> mid-flight — two items marked "re-verified" by a document that predates the PRs
+> that closed them — and it cost one grep instead of one brief. See §9.
 
 **Γ runs in this locked P2 order**, and it is an order rather than a list:
 
@@ -426,15 +444,31 @@ executing agent's judgement call. `PROJECT_STATE_v29` and
 `IMPLEMENTATION_BACKLOG_v29` stay current until a rotation re-verifies them
 claim by claim.
 
-**And the backlog has already drifted, which is the argument for re-verifying rather
-than copying.** Two entries there read "Status: OPEN. Re-verified, unchanged." and
-are both closed: **TD-59** by #638/#639 and **TD-62** by #636 — all three merged
-after the backlog was written in #633. TD-62's own verification command, re-run
-today, returns **9** where the entry records **0**. A v30 backlog produced by
-copy-forward would have carried both as open, and B6 sits first in the §7 build
-order because of one of them. Whoever rotates the backlog next: re-run each entry's
-own stated command, and treat "re-verified" in the v29 text as a claim about
-2026-09-11, not about the code.
+### Carried-claim correction: TD-59 and TD-62 are CLOSED
+
+Both are recorded in `IMPLEMENTATION_BACKLOG_v29` §2 as "**Status: OPEN.
+Re-verified, unchanged.**" Both are closed, and were already closed when that line
+was written forward. The backlog landed in **#633**; the PRs that closed them
+merged after it.
+
+| Item | Closed by | Verification command | Backlog says | 2026-09-14 at `bc8cd090` |
+|---|---|---|---|---|
+| **TD-59** — no test pins the privacy policy against the implemented rights | **#638**, **#639** | `cd apps/api && python -m pytest tests/test_privacy_policy_claims.py -q` | OPEN | **15 passed** — one per Art. right at §7 |
+| **TD-62** — no export completeness guard | **#636** (extended by #646) | `cd apps/api && grep -c "completeness\|mapped class\|__mapper__" tests/test_data_export.py` | **0** | **9** |
+
+TD-62 is the sharper of the two: the entry states its own falsifying command and
+records the output. Nobody re-ran it. That is the 2026-08-18 lesson in one line —
+**a doc claim repeated without re-verification is evidence about the previous doc,
+not about the system** — and "Re-verified, unchanged" is the exact phrase the lesson
+warns about, because it asserts the check happened.
+
+**Consequence:** B6 left the §7 build order without a brief being written; A2 is the
+first build item. A v30 backlog produced by copy-forward would have carried both as
+open and B6 would have been briefed.
+
+**For whoever rotates the backlog next:** re-run each entry's own stated command.
+Treat every "re-verified" in the v29 text as a claim about 2026-09-11, not about the
+code — the same way this document treats its own §5c carry-forwards.
 
 **What was re-verified for this document**, each with the command in the table above
 or beside the claim: the six PR numbers, the backend suite, `alembic heads`, the
