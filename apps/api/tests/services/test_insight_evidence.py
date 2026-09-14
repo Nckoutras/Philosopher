@@ -193,7 +193,10 @@ def test_the_recurrence_query_selects_the_id_and_a_mock_cannot_tell_you_that():
     """
     import inspect
 
-    src = inspect.getsource(ms.MemoryService.detect_recurrence)
+    # Re-pointed when the mechanics were extracted: the query now lives in
+    # find_recurrences, which detect_recurrence is one caller of. The assertion is
+    # unchanged — only its subject moved.
+    src = inspect.getsource(ms.find_recurrences)
     assert "SELECT id, content, conversation_id," in src, (
         "the recurrence query must fetch `id`: without it the evidence has no "
         "identities to cite, and no mocked test in this file can see the loss"

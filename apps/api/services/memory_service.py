@@ -332,6 +332,180 @@ Example output:
 VERBATIM_INPUT_SIGNAL_TYPES = ("dilemma",)
 
 
+RECURRENCE_LIMIT = 20             # candidates pulled per cosine search, before the threshold
+
+
+async def find_recurrences(
+    db: AsyncSession,
+    user_id: str,
+    query_entry,
+    *,
+    exclude_conversation: str | None = None,
+    corpus_since: datetime | None = None,
+    corpus_until: datetime | None = None,
+) -> tuple[list, dict] | None:
+    """Cosine-search one memory entry against the rest of this user's memories.
+
+    THE MECHANICS ONLY. No throttle, no classifier, no Insight row, no LLM call of
+    any kind — those belong to `detect_recurrence`, which is one caller of this.
+    The trajectory snapshot is the other, and it wants raw match sets rather than
+    a written card. A source-level test asserts this function stays free of all
+    three, because the value of the seam is exactly that it has no side effects.
+
+    Returns `(matches, evidence)` when at least RECURRENCE_MIN_PRIOR rows clear
+    RECURRENCE_SIM_THRESHOLD, else None. The caller owns the loop over entries:
+    `detect_recurrence` stops at the first hit because it writes one card, and the
+    snapshot wants every hit, so a loop in here would force one of them to discard
+    work the other needs.
+
+    THE CORPUS BOUNDS ARE NAMED `corpus_*` ON PURPOSE. A period-scoped caller has
+    TWO different date filters and conflating them is a silent wrong answer: which
+    entries are used as QUERIES (a caller-side selection, never in this SQL) and
+    which entries form the CORPUS (the clauses below). A weekly snapshot asks
+    "which entries written in W echo entries written BEFORE W", so it selects its
+    query entries by period and passes `corpus_until=period_start`. Passing a
+    window to the wrong side would compare a week against itself.
+
+    WITH NO BOUNDS THE SQL IS BYTE-IDENTICAL to what this query has always been —
+    the clauses are appended to `exclude_clause` rather than occupying a slot of
+    their own, because an empty slot leaves an indented blank line and that is not
+    the same string. A test pins the lifetime SQL against a frozen literal, and
+    that pin is the proof this extraction narrowed nothing.
+
+    `is_active = TRUE` BOUNDS BOTH CALLERS, and the limit is deliberate: THIS
+    CORPUS CANNOT SEE SUPERSESSION. A self-portrait re-answer deactivates the row
+    it replaces, so "what you used to think" is invisible here — which is exactly
+    what a trajectory view would want. That is the deferred version-chain question
+    (evolving_beliefs), not a bug, and the shape it would take is a third
+    parameter (`include_superseded=False`) that today's callers never pass. It is
+    not added now because an unused parameter is a claim about a decision nobody
+    has made.
+
+    FILTERED-ANN RECALL, accepted and recorded rather than tuned. A bounded corpus
+    turns this into a filtered nearest-neighbour search: Postgres applies the date
+    clause DURING the HNSW index scan (ix_memory_entries_embedding_hnsw_cosine,
+    migration 008), and if the filter is selective — a heavy week, most recent rows
+    in-period — the scan can exhaust `hnsw.ef_search` before finding
+    RECURRENCE_LIMIT rows that pass. Rows returned are always genuine matches; the
+    risk is QUIET UNDER-RECALL: real echoes that exist and are not found, with
+    nothing looking broken. Not tuned because no measurement exists, and because
+    `ef_search` is a global knob whose only other user is the request-path
+    `recall()`. The two levers, recorded for the day a snapshot reads thin on a
+    busy week: raise RECURRENCE_LIMIT on the bounded path, or set `ef_search` for
+    that statement. See TD-75.
+    """
+    if query_entry.embedding is None:
+        return None
+
+    # Build the pgvector literal explicitly. NOT str(embedding): if the
+    # value is ever a numpy array, str() truncates with "..." and uses
+    # space separators → an invalid literal that would be swallowed by
+    # the try/except and silently yield zero matches forever.
+    vec_literal = "[" + ",".join(repr(float(x)) for x in query_entry.embedding) + "]"
+
+    # Exclude the source's own context so an entry can never match itself.
+    # Chat path: exclude the whole source conversation. NULL-conversation
+    # source (voluntary belief): exclude only this entry by its own id —
+    # `conversation_id != NULL` would exclude every row (SQL 3-valued logic).
+    if exclude_conversation is not None:
+        filters = "AND conversation_id != :conversation_id"
+        params = {"conversation_id": exclude_conversation}
+    else:
+        filters = "AND id != :self_id"
+        params = {"self_id": query_entry.id}
+
+    # Appended to `filters`, never a slot of their own — see the byte-identical
+    # note above. Indentation matches the surrounding clauses so the emitted SQL
+    # reads the same whether or not the bounds are present.
+    if corpus_since is not None:
+        filters += "\n                          AND created_at >= :corpus_since"
+        params["corpus_since"] = corpus_since
+    if corpus_until is not None:
+        filters += "\n                          AND created_at < :corpus_until"
+        params["corpus_until"] = corpus_until
+
+    result = await db.execute(
+        text(f"""
+                        SELECT id, content, conversation_id,
+                               1 - (embedding <=> CAST(:query_vec AS vector)) AS score
+                        FROM memory_entries
+                        WHERE user_id = :user_id
+                          AND is_active = TRUE
+                          AND embedding IS NOT NULL
+                          {filters}
+                        ORDER BY embedding <=> CAST(:query_vec AS vector)
+                        LIMIT {RECURRENCE_LIMIT}
+                    """),
+        {
+            "query_vec": vec_literal,
+            "user_id": user_id,
+            **params,
+        },
+    )
+    rows = result.fetchall()
+    matches = [r for r in rows if r.score >= RECURRENCE_SIM_THRESHOLD]
+    if len(matches) < RECURRENCE_MIN_PRIOR:
+        return None
+
+    # ── EVIDENCE (060) ────────────────────────────────────────────────────────
+    # The rows a caller's insight or snapshot was derived from, kept instead of
+    # collapsed. Ids AND a text snippet, no foreign keys: a memory row can be
+    # deactivated and 057 lets its conversation be deleted, so a citation that
+    # resolved by id alone would stop rendering the thing it cites. Every match
+    # above the bar is stored; `shown_to_classifier` records how many of them
+    # detect_recurrence's classifier actually sees. The detector's constants are
+    # frozen at write time because they are ship-and-tune values, and a citation
+    # whose bar is unrecoverable cannot be read.
+    evidence = {
+        "recurring_entry": {
+            "memory_entry_id": str(query_entry.id),
+            "text": query_entry.content,
+            "conversation_id": (
+                str(query_entry.conversation_id)
+                if query_entry.conversation_id else None
+            ),
+        },
+        "prior_matches": [
+            {
+                "memory_entry_id": str(m.id),
+                "text": m.content,
+                "conversation_id": str(m.conversation_id) if m.conversation_id else None,
+                "score": float(m.score),
+            }
+            for m in matches
+        ],
+        "shown_to_classifier": len(matches[:5]),
+        "detector": {
+            "threshold": RECURRENCE_SIM_THRESHOLD,
+            "limit": RECURRENCE_LIMIT,
+            # NULL means lifetime, which is what detect_recurrence is and must
+            # stay. A bounded caller records the bounds it actually used.
+            "window": (
+                None if (corpus_since is None and corpus_until is None)
+                else {
+                    "since": _iso_z(corpus_since),
+                    "until": _iso_z(corpus_until),
+                }
+            ),
+        },
+    }
+    return matches, evidence
+
+
+def _iso_z(value: datetime | None) -> str | None:
+    """UTC ISO-8601 with an explicit Z, matching the export's convention.
+
+    Naive values are treated as UTC rather than dropped: every writer in this
+    codebase uses datetime.now(timezone.utc), so a naive value is a storage
+    artefact and not a different instant.
+    """
+    if value is None:
+        return None
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
 class MemoryService:
 
     async def extract_and_store(
@@ -683,47 +857,17 @@ class MemoryService:
             # vector serialization so the param format cannot silently mismatch).
             recurring_entry = None
             prior_matches: list = []
+            evidence: dict | None = None
             for entry in new_entries:
-                if entry.embedding is None:
-                    continue
-                # Build the pgvector literal explicitly. NOT str(embedding): if the
-                # value is ever a numpy array, str() truncates with "..." and uses
-                # space separators → an invalid literal that would be swallowed by
-                # the try/except and silently yield zero matches forever.
-                vec_literal = "[" + ",".join(repr(float(x)) for x in entry.embedding) + "]"
-                # Exclude the source's own context so an entry can never match itself.
-                # Chat path: exclude the whole source conversation. NULL-conversation
-                # source (voluntary belief): exclude only this entry by its own id —
-                # `conversation_id != NULL` would exclude every row (SQL 3-valued logic).
-                if conversation_id is not None:
-                    exclude_clause = "AND conversation_id != :conversation_id"
-                    exclude_param = {"conversation_id": conversation_id}
-                else:
-                    exclude_clause = "AND id != :self_id"
-                    exclude_param = {"self_id": entry.id}
-                result = await db.execute(
-                    text(f"""
-                        SELECT id, content, conversation_id,
-                               1 - (embedding <=> CAST(:query_vec AS vector)) AS score
-                        FROM memory_entries
-                        WHERE user_id = :user_id
-                          AND is_active = TRUE
-                          AND embedding IS NOT NULL
-                          {exclude_clause}
-                        ORDER BY embedding <=> CAST(:query_vec AS vector)
-                        LIMIT 20
-                    """),
-                    {
-                        "query_vec": vec_literal,
-                        "user_id": user_id,
-                        **exclude_param,
-                    },
+                # The loop lives HERE, not in find_recurrences: this caller writes
+                # ONE card, so it stops at the first entry that clears the bar.
+                # The snapshot caller wants every hit and keeps looping.
+                found = await find_recurrences(
+                    db, user_id, entry, exclude_conversation=conversation_id,
                 )
-                rows = result.fetchall()
-                matches = [r for r in rows if r.score >= RECURRENCE_SIM_THRESHOLD]
-                if len(matches) >= RECURRENCE_MIN_PRIOR:
+                if found is not None:
+                    prior_matches, evidence = found
                     recurring_entry = entry
-                    prior_matches = matches
                     break
 
             if recurring_entry is None:
@@ -733,47 +877,6 @@ class MemoryService:
             # Distinct conversations the theme was noticed across: the distinct
             # prior conversations that cleared the similarity bar, plus this one.
             source_count = len({m.conversation_id for m in prior_matches}) + 1
-
-            # ── EVIDENCE (060) ────────────────────────────────────────────────
-            # The rows this insight was derived from, kept instead of collapsed.
-            # Built HERE, from the same `prior_matches` source_count is computed
-            # from, so the two can never describe different match sets — a test
-            # pins them against each other for exactly that reason.
-            #
-            # Ids AND a text snippet, no foreign keys: a memory row can be
-            # deactivated and 057 lets its conversation be deleted, so a citation
-            # that resolved by id alone would stop rendering the thing it cites.
-            # Every match above the bar is stored; `shown_to_classifier` records
-            # how many of them the classifier below actually saw. The detector's
-            # constants are frozen at write time because they are ship-and-tune
-            # values, and a citation whose bar is unrecoverable cannot be read.
-            evidence = {
-                "recurring_entry": {
-                    "memory_entry_id": str(recurring_entry.id),
-                    "text": recurring_entry.content,
-                    "conversation_id": (
-                        str(recurring_entry.conversation_id)
-                        if recurring_entry.conversation_id else None
-                    ),
-                },
-                "prior_matches": [
-                    {
-                        "memory_entry_id": str(m.id),
-                        "text": m.content,
-                        "conversation_id": str(m.conversation_id) if m.conversation_id else None,
-                        "score": float(m.score),
-                    }
-                    for m in prior_matches
-                ],
-                "shown_to_classifier": len(prior_matches[:5]),
-                "detector": {
-                    "threshold": RECURRENCE_SIM_THRESHOLD,
-                    "limit": 20,
-                    # Reserved for the period-filtered caller (PR B). Null means
-                    # lifetime, which is what this detector is and must stay.
-                    "window": None,
-                },
-            }
 
             # ── CLASSIFY + PHRASE ─────────────────────────────────────────────
             # One call decides pattern vs shift and produces the phrasing. On any
