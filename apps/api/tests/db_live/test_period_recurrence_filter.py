@@ -12,6 +12,8 @@ prior echo when corpus_until is the period start.
 Skips without DATABASE_URL_TEST, like everything in this directory. CI runs it;
 locally it is invisible. That is TD-57's recorded decision, not an accident.
 """
+import os
+import sys
 import uuid
 
 import pytest
@@ -19,9 +21,26 @@ from sqlalchemy import text
 
 from services.memory_service import find_recurrences
 
-# No conftest import: pytest discovers tests/db_live/conftest.py automatically and
-# every other file here relies on that. An explicit relative import would also
-# fail — this directory is not a package.
+# REUSED, NOT RE-WRITTEN. The first version of this file seeded conversations with
+# (id, user_id) only and CI rejected all three cases on
+# NotNullViolationError: persona_id. `conversations` has exactly two required
+# columns without defaults — user_id and persona_id — and a seeder that knows that
+# already exists next door, together with the lookup that makes it work:
+# personas are inserted by the migration chain (006, 027), so a test points at a
+# real row rather than inventing one. Importing beats copying: a second seeder is
+# a second thing to be wrong about the schema.
+#
+# The sys.path line is required and was verified, not assumed: pytest does NOT put
+# this directory on the path for us here (the first attempt failed collection with
+# ModuleNotFoundError). No conftest import — pytest discovers
+# tests/db_live/conftest.py on its own, as every other file in this directory
+# relies on.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+from test_memory_recall_and_cascades import (  # noqa: E402
+    _make_conversation,
+    _make_user,
+)
 
 # Two identical unit vectors: cosine similarity 1.0, so the threshold is never
 # what decides these tests. The DATE is the only variable.
@@ -32,28 +51,15 @@ def _vec(v) -> str:
     return "[" + ",".join(repr(float(x)) for x in v) + "]"
 
 
-async def _user(db) -> str:
-    uid = str(uuid.uuid4())
-    await db.execute(
-        text("INSERT INTO users (id, email) VALUES (:id, :email)"),
-        {"id": uid, "email": f"{uid}@example.test"},
-    )
-    return uid
-
-
-async def _conversation(db, user_id: str) -> str:
-    cid = str(uuid.uuid4())
-    await db.execute(
-        text("INSERT INTO conversations (id, user_id) VALUES (:id, :uid)"),
-        {"id": cid, "uid": user_id},
-    )
-    return cid
-
-
 async def _memory(db, user_id: str, conversation_id: str, content: str, created_at: str) -> str:
     """created_at is set EXPLICITLY — the column defaults to now(), and a test
-    about a date filter that let the database choose the dates would be testing
-    nothing."""
+    about a date filter that let the database choose its own dates would be
+    testing nothing.
+
+    This one is NOT the neighbouring _make_memory: that helper cannot set
+    created_at, and created_at is the only variable these tests vary. The user,
+    persona and conversation seeders are imported rather than repeated.
+    """
     mid = str(uuid.uuid4())
     await db.execute(
         text(
@@ -93,9 +99,9 @@ async def test_an_in_period_row_is_excluded_from_the_corpus(db):
 
     With corpus_until = period start, only the pre-period row may come back.
     """
-    user_id = await _user(db)
-    own = await _conversation(db, user_id)
-    other = await _conversation(db, user_id)
+    user_id = await _make_user(db)
+    own = await _make_conversation(db, user_id)
+    other = await _make_conversation(db, user_id)
 
     before_id = await _memory(db, user_id, other, "raised in August", "2026-08-20T10:00:00+00")
     await _memory(db, user_id, other, "raised again this week", "2026-09-10T10:00:00+00")
@@ -123,9 +129,9 @@ async def test_with_no_bound_the_same_data_returns_both(db):
     """The other half, and the reason the first test proves something: WITHOUT the
     bound this corpus returns both rows. If it did not, the first test would pass
     for a reason unrelated to the filter."""
-    user_id = await _user(db)
-    own = await _conversation(db, user_id)
-    other = await _conversation(db, user_id)
+    user_id = await _make_user(db)
+    own = await _make_conversation(db, user_id)
+    other = await _make_conversation(db, user_id)
 
     before_id = await _memory(db, user_id, other, "raised in August", "2026-08-20T10:00:00+00")
     inside_id = await _memory(db, user_id, other, "raised again this week", "2026-09-10T10:00:00+00")
@@ -147,9 +153,9 @@ async def test_a_period_with_no_prior_echo_finds_nothing(db):
     """A person's first week. Everything they have written is inside the window,
     so there is nothing for it to echo — and that must read as "no recurrence",
     not as an error."""
-    user_id = await _user(db)
-    own = await _conversation(db, user_id)
-    other = await _conversation(db, user_id)
+    user_id = await _make_user(db)
+    own = await _make_conversation(db, user_id)
+    other = await _make_conversation(db, user_id)
 
     await _memory(db, user_id, other, "raised this week", "2026-09-10T10:00:00+00")
     query_id = await _memory(db, user_id, own, "raised today", "2026-09-12T10:00:00+00")
