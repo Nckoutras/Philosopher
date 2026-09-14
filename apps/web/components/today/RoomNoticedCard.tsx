@@ -52,6 +52,8 @@ export default function RoomNoticedCard() {
       </p>
       <InsightCard
         variant="today"
+        insightId={current.id}
+        ringTrue={current.ring_true}
         content={current.content}
         insightType={current.insight_type}
         sourceCount={current.source_count}

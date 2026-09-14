@@ -1,6 +1,18 @@
 'use client'
 
+import { useState } from 'react'
 import { Sparkle } from 'lucide-react'
+import { api } from '@/lib/api'
+
+// The verdict row, reusing the Mirror's shipped copy verbatim (mirror/page.tsx).
+// One speech act, one wording, three surfaces — Mirror, You-vs-You and now the
+// insight card. A fourth phrasing for the same question would make the three read
+// as three different questions.
+const RING_TRUE_OPTIONS = [
+  { value: 'yes' as const, label: 'Rings true' },
+  { value: 'partly' as const, label: 'Partly' },
+  { value: 'no' as const, label: 'No' },
+]
 
 // Frozen app-voice observation line shown above the quoted user statement for the
 // doorway insight types (Slice 2). Absent for pattern/shift, which render unchanged.
@@ -10,6 +22,12 @@ const OBSERVATION_LINES: Record<string, string> = {
 }
 
 interface Props {
+  // Needed only for the verdict PATCH. The card owns that call itself so both
+  // surfaces that render it get the row without either one wiring it up.
+  insightId: string
+  // The verdict already on the row, if the reader has answered before. Rendered
+  // as the selected option so an answered card never asks again as if new.
+  ringTrue?: 'yes' | 'partly' | 'no' | null
   content: string
   insightType: string | null
   // Distinct conversations a recurring theme was noticed across. The provenance
@@ -32,7 +50,23 @@ interface Props {
 // the card reads as distinct; bronze border + eyebrow carry the app-voice identity.
 // The primary action branches on insight type (Slice 2): a 'shift' sends the user
 // to You-vs-You; everything else reflects in the Mirror.
-export default function InsightCard({ content, insightType, sourceCount, onPrimary, onDoubt, onDiscard, variant = 'chat' }: Props) {
+export default function InsightCard({ insightId, ringTrue = null, content, insightType, sourceCount, onPrimary, onDoubt, onDiscard, variant = 'chat' }: Props) {
+  // Optimistic and local: the verdict is a one-tap answer and the row is the only
+  // thing that changes. A failed PATCH rolls the selection back rather than
+  // leaving the card claiming an answer the server never stored.
+  const [verdict, setVerdict] = useState<'yes' | 'partly' | 'no' | null>(ringTrue)
+  const [submitted, setSubmitted] = useState(ringTrue != null)
+
+  function handleRingTrue(value: 'yes' | 'partly' | 'no') {
+    const previous = verdict
+    setVerdict(value)
+    setSubmitted(true)
+    api.setInsightRingTrue(insightId, value).catch(() => {
+      setVerdict(previous)
+      setSubmitted(previous != null)
+    })
+  }
+
   const showProvenance = sourceCount != null && sourceCount >= 2
   // Doorway types (Slice 2): the user's own words get an app-voice observation line
   // above and are quoted below; the primary is a distinct door per type.
@@ -93,6 +127,38 @@ export default function InsightCard({ content, insightType, sourceCount, onPrima
         <p className="font-cormorant text-[19px] italic leading-[1.4] text-ink">
           {isDoorway ? `“${content}”` : content}
         </p>
+      </div>
+
+      {/* The verdict row (Γ-2). Above the doors, because it is a reply to the
+          claim rather than another place to go. Rendered for EVERY insight type
+          and every tier: correcting something the product asserted about you is
+          not type-specific and is not a paid feature. */}
+      <div className="flex flex-col items-center gap-[10px] pt-[12px] mt-[14px] border-t-[0.5px] border-edge">
+        <p className="font-lora text-[11px] font-semibold uppercase tracking-[0.18em] text-charcoal text-center">
+          Does this ring true?
+        </p>
+        <div className="flex gap-[8px] flex-wrap justify-center">
+          {RING_TRUE_OPTIONS.map(({ value, label }) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => handleRingTrue(value)}
+              aria-pressed={verdict === value}
+              className={[
+                'font-lora text-[13px] px-[16px] py-[8px] rounded-full transition-colors',
+                verdict === value
+                  ? 'border-[1.5px] border-bronze bg-bronze/10 text-bronze'
+                  : 'border-[1.5px] border-bronze text-charcoal',
+                submitted && verdict !== value ? 'opacity-40' : '',
+              ].join(' ')}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        {submitted && (
+          <p className="font-lora text-[12px] text-sepia italic">Noted.</p>
+        )}
       </div>
 
       <div className="flex flex-col gap-[8px] pt-[12px] mt-[14px] border-t-[0.5px] border-edge">

@@ -237,6 +237,40 @@ WRITE_BACK_WINDOW_DAYS_MONTHLY = 45
 WRITE_BACK_MAX_CARRIED = 2
 
 
+def _insight_spine_conditions(user_id, period_start, period_end):
+    """The rows a letter may anchor on. ONE definition, TWO call sites.
+
+    The weekly and monthly spines are separate blocks that have always carried
+    the same predicate copied out twice — exactly the shape where a filter gets
+    added to one and missed on the other, and where the miss is invisible because
+    both letters still generate and still read plausibly. Γ-2 adds a third
+    condition, so the predicate becomes a function rather than a convention.
+
+    THE 'no' EXCLUSION. A claim the reader has explicitly said is not true of them
+    must not be handed back to them next Sunday as "what the room noticed". That
+    is the one thing a recognition loop must not do.
+
+    IS DISTINCT FROM, NOT !=. This is the whole reason to read this docstring:
+    `ring_true != 'no'` evaluates to NULL for every unanswered insight, and SQL
+    drops NULL rows from a WHERE — so the obvious spelling would silently exclude
+    every insight nobody has voted on, which is nearly all of them. The letter
+    would keep generating, from a spine quietly reduced to answered rows only.
+    `IS DISTINCT FROM` treats NULL as a value and keeps them.
+    """
+    # Imported here, not at module scope: this file loads its models inside the
+    # functions that use them (see the lazy `from models import ...` throughout),
+    # and a module-level import would be the only one in the file.
+    from models import Insight
+
+    return (
+        Insight.user_id == user_id,
+        Insight.is_dismissed == False,
+        Insight.ring_true.is_distinct_from("no"),
+        Insight.created_at >= period_start,
+        Insight.created_at <= period_end,
+    )
+
+
 def _build_wrote_back_block(rows) -> str:
     """Render recent write-backs the CURRENT voice did not receive, with attribution.
 
@@ -1868,12 +1902,7 @@ async def generate_weekly_letter_task(ctx, user_id: str, voice_persona_slug: str
             # spine → raw-only input, exactly as before.
             spine_result = await db.execute(
                 select(Insight)
-                .where(
-                    Insight.user_id == user_id,
-                    Insight.is_dismissed == False,
-                    Insight.created_at >= period_start,
-                    Insight.created_at <= period_end,
-                )
+                .where(*_insight_spine_conditions(user_id, period_start, period_end))
                 .order_by(Insight.created_at.asc())
                 .limit(10)
             )
@@ -2310,12 +2339,7 @@ async def generate_monthly_letter_task(ctx, user_id: str, voice_persona_slug: st
             # Insight spine over the month (non-dismissed). Empty → raw-only.
             spine_result = await db.execute(
                 select(Insight)
-                .where(
-                    Insight.user_id == user_id,
-                    Insight.is_dismissed == False,
-                    Insight.created_at >= period_start,
-                    Insight.created_at <= period_end,
-                )
+                .where(*_insight_spine_conditions(user_id, period_start, period_end))
                 .order_by(Insight.created_at.asc())
                 .limit(20)
             )

@@ -157,6 +157,22 @@ ANALYTICS_EVENTS = {
     # and a conversion signal rather than a spend one).
     "usage_cap_hit":          ["tier", "cap_kind", "path"],
 
+    # ── Recognition (Γ-2) ────────────────────────────────────────────────────
+    # The epistemic loop's only event: the reader's verdict on a claim the product
+    # made about them. Two closed enums and nothing else — insight_type is the
+    # card's own type (None on rows written before the column, sent as None rather
+    # than a stand-in, the letter_delivered precedent) and verdict is
+    # yes|partly|no, bound by a Literal at the router's edge.
+    #
+    # The insight's CONTENT is the user's own material and is never a property —
+    # not truncated, not hashed. What this event answers is "how often is the room
+    # right", which two enums answer completely.
+    #
+    # Fired from the API after the explicit commit in routers/memory.py, not from
+    # the web: a recognition metric that counts only readers who accepted the
+    # analytics cookie would measure consent, not recognition.
+    "memory_feedback":        ["insight_type", "verdict"],
+
     # ── Safety (no PII) ──────────────────────────────────────────────────────
     "safety_event_pre":       ["risk_level", "category"],
 }

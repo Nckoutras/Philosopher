@@ -176,6 +176,8 @@ export default function InsightsPage() {
             <InsightCard
               key={insight.id}
               variant="today"
+              insightId={insight.id}
+              ringTrue={insight.ring_true}
               content={insight.content}
               insightType={insight.insight_type}
               sourceCount={insight.source_count}

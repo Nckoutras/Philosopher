@@ -227,6 +227,10 @@ export interface Insight {
   source_count?: number | null
   conversation_id: string | null
   is_dismissed: boolean
+  // The reader's verdict (Γ-2). null until answered. Independent of
+  // is_dismissed: a 'no' records disagreement and leaves the card in place.
+  ring_true?: 'yes' | 'partly' | 'no' | null
+  ring_true_at?: string | null
   created_at: string
 }
 
@@ -1260,6 +1264,17 @@ class ApiClient {
 
   async dismissInsight(id: string): Promise<void> {
     return this.request(`/insights/${id}/dismiss`, { method: 'PATCH' })
+  }
+
+  // The reader's verdict on what the room noticed. Returns the updated insight so
+  // a caller can render the answered state from the server's copy rather than its
+  // own optimistic guess. Not Pro-gated — correcting a claim the product made
+  // about you is not a paid feature.
+  async setInsightRingTrue(id: string, ringTrue: 'yes' | 'partly' | 'no'): Promise<Insight> {
+    return this.request<Insight>(`/insights/${id}/ring-true`, {
+      method: 'PATCH',
+      body: JSON.stringify({ ring_true: ringTrue }),
+    })
   }
 
   // Generate (or return the existing) insight-seeded mirror for this insight.

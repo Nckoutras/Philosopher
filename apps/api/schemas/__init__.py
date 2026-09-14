@@ -238,10 +238,28 @@ class InsightOut(BaseModel):
     source_count: Optional[int]
     conversation_id: Optional[str]
     is_dismissed: bool
+    # The reader's verdict (063), NULL until they answer. Returned so a card that
+    # has already been answered renders its own state rather than an empty row —
+    # the surfaces are stateless and the row is the only memory of the answer.
+    ring_true: Optional[str] = None
+    ring_true_at: Optional[datetime] = None
     created_at: datetime
 
     class Config:
         from_attributes = True
+
+
+class InsightRingTrueRequest(BaseModel):
+    """PATCH /insights/{id}/ring-true.
+
+    Literal, matching RingTrueRequest (mirrors) rather than a bare `str`: the
+    vocabulary is closed, the DB has a CHECK that would otherwise reject the write
+    as a 500, and this value reaches analytics — the Γ-1b rule that an enum
+    property must be bound at the edge applies to a `verdict` exactly as it did
+    to a `source`. No `note` in v1: migration 063 says why a third free-text
+    column with no reader is debt rather than a feature.
+    """
+    ring_true: Literal["yes", "partly", "no"]
 
 
 # ── Ritual ────────────────────────────────────────────────────────────────────

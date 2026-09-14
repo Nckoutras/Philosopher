@@ -1,10 +1,15 @@
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from db.session import get_db
 from models import User, MemoryEntry, Insight
-from schemas import MemoryEntryOut, MemoryEntryUpdate, InsightOut, MirrorOut, CounterviewOut
+from schemas import (
+    MemoryEntryOut, MemoryEntryUpdate, InsightOut, InsightRingTrueRequest,
+    MirrorOut, CounterviewOut,
+)
 from auth import get_current_user
 from services.safety_service import safety_service
 from services.analytics_service import analytics_service
@@ -111,6 +116,62 @@ async def dismiss_insight(
     if not insight:
         raise HTTPException(status_code=404)
     insight.is_dismissed = True
+
+
+@insights_router.patch("/{insight_id}/ring-true", response_model=InsightOut)
+async def set_insight_ring_true(
+    insight_id: str,
+    body: InsightRingTrueRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """The reader's verdict on what the room noticed.
+
+    NOT PRO-GATED, deliberately and unlike every other insight door here
+    (/reflect and /counterview both are). Saying "that is not true of me" is the
+    one thing a person must be able to do about a claim the product has made
+    about them, and putting it behind a subscription would make correction a paid
+    feature. get_current_user, not get_current_user_plan, for that reason.
+
+    DOES NOT TOUCH is_dismissed. A 'no' records disagreement and leaves the card
+    where it is; Discard remains the only dismissal. The reason is mechanical as
+    well as editorial: the 6h insight throttle counts non-dismissed insights
+    (services/memory_service.py), so a verdict that dismissed would quietly widen
+    how often the room may notice anything, as a side effect of someone
+    disagreeing with it.
+
+    OVERWRITE IS ALLOWED — a person may change their mind, and the timestamp
+    moves with the answer. There is no history table; the row holds the current
+    verdict, which is what every reader of it wants.
+    """
+    result = await db.execute(
+        select(Insight).where(Insight.id == insight_id, Insight.user_id == user.id)
+    )
+    insight = result.scalar_one_or_none()
+    if not insight:
+        raise HTTPException(status_code=404)
+
+    insight.ring_true = body.ring_true
+    insight.ring_true_at = datetime.now(timezone.utc)
+
+    # EXPLICIT commit, so the event below genuinely fires after one. get_db
+    # commits in its teardown (db/session.py), AFTER the handler returns — so a
+    # track() call placed here without this line would report a write that had
+    # not happened yet, and would still report it if the teardown commit failed.
+    # The Γ-1 rule (letter_open_to_app) is "after the commit, never before", and
+    # on this router that takes a line rather than an ordering.
+    await db.commit()
+
+    # insight_type may be None on rows written before the type existed; sent as
+    # None rather than a stand-in string, the letter_delivered precedent. verdict
+    # is safe by construction — a Literal at the edge, so no other value reaches
+    # here, and the request body never becomes a property in any other form.
+    analytics_service.track("memory_feedback", user.id, {
+        "insight_type": insight.insight_type,
+        "verdict": insight.ring_true,
+    })
+
+    return InsightOut.model_validate(insight)
 
 
 @insights_router.post("/{insight_id}/reflect", response_model=MirrorOut)
