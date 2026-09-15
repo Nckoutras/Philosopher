@@ -123,10 +123,24 @@ class ConversationCreate(BaseModel):
     persona_slug: str
     ritual_id: Optional[str] = None
     skip_opening: bool = False
+    # Γ-3. True ONLY from the bare persona-page open: hand back the last real
+    # conversation with this persona when one is still within the resume window,
+    # else create as before. Defaults False so every seeded door (letter discuss,
+    # quotes, self-portrait, Today nudge, cross-persona, rituals) keeps creating
+    # a fresh thread exactly as today — a seed belongs in a new conversation, not
+    # appended to an old one.
+    resume: bool = False
 
 
 class ConversationOut(BaseModel):
     id: str
+    # Γ-3. True when this open handed back an EXISTING thread rather than
+    # creating one. The client needs it for two reasons: /app/chat/[slug] holds
+    # no message history (the store clears `messages` on setActiveConversation),
+    # so a resumed thread must be handed to /app/chat/conv/{id}, which loads it;
+    # and the header's "Start fresh" escape hatch only appears on a resume.
+    # Default False keeps every other creation response byte-compatible.
+    resumed: bool = False
     persona: PersonaOut
     title: Optional[str]
     message_count: int
