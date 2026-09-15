@@ -13,7 +13,7 @@ from schemas import (
     AnotherMindCreate, ActiveMindSet, ReadingRevisitCreate,
 )
 from auth import get_current_user, get_current_user_plan, get_user_plan_streaming
-from services.conversation_service import conversation_service
+from services.conversation_service import conversation_service, gap_bucket
 from services.analytics_service import analytics_service
 from services.tier_service import get_user_tier
 from services.persona_voice import get_error_voice
@@ -106,15 +106,27 @@ async def create_conversation(
     auth: tuple = Depends(get_current_user_plan),
 ):
     user, plan = auth
+    resumed = False
     try:
-        conv = await conversation_service.create(
-            db=db,
-            user_id=user.id,
-            persona_slug=body.persona_slug,
-            ritual_id=body.ritual_id,
-            user_plan=plan,
-            skip_opening=body.skip_opening,
-        )
+        if body.resume:
+            # The bare persona-page open. ritual_id / skip_opening are not
+            # accepted here by construction: every caller that sets either is a
+            # seeded door, and a seed must never land in an existing thread.
+            conv, resumed = await conversation_service.create_or_resume(
+                db=db,
+                user_id=user.id,
+                persona_slug=body.persona_slug,
+                user_plan=plan,
+            )
+        else:
+            conv = await conversation_service.create(
+                db=db,
+                user_id=user.id,
+                persona_slug=body.persona_slug,
+                ritual_id=body.ritual_id,
+                user_plan=plan,
+                skip_opening=body.skip_opening,
+            )
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except PermissionError as e:
@@ -131,15 +143,26 @@ async def create_conversation(
     #
     # seeded_topic is the skip_opening flag: the caller supplied an opening
     # thought instead of taking the persona's. A boolean, never the text.
-    analytics_service.track("conversation_started", user.id, {
-        "persona_slug": conv.persona.slug,
-        "ritual_id": body.ritual_id,
-        "seeded_topic": bool(body.skip_opening),
-        "via": "direct",
-    })
+    # MUTUALLY EXCLUSIVE, and that is the point (Γ-3). A resumed thread did not
+    # START — counting it as a conversation_started would inflate the top of the
+    # funnel with returns and make the started -> completed ratio read worse
+    # every time the open-thread loop actually worked. One open, one event.
+    if resumed:
+        analytics_service.track("conversation_resumed", user.id, {
+            "persona_slug": conv.persona.slug,
+            "gap_bucket": gap_bucket(conv.last_message_at),
+        })
+    else:
+        analytics_service.track("conversation_started", user.id, {
+            "persona_slug": conv.persona.slug,
+            "ritual_id": body.ritual_id,
+            "seeded_topic": bool(body.skip_opening),
+            "via": "direct",
+        })
 
     return ConversationOut(
         id=conv.id,
+        resumed=resumed,
         persona=PersonaOut(
             id=conv.persona.id,
             slug=conv.persona.slug,

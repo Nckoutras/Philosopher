@@ -6,6 +6,10 @@ interface Props {
   originName?: string | null
   isGuestActive?: boolean
   onReturnToOrigin?: () => void
+  // Γ-3 escape hatch. Rendered only when this thread was RESUMED — a person who
+  // wanted a clean start would otherwise have no way to get one, which is worse
+  // than the old always-new behaviour. Founder-locked copy: "Start fresh".
+  onStartFresh?: () => void
 }
 
 export default function ChatHeader({
@@ -14,6 +18,7 @@ export default function ChatHeader({
   originName = null,
   isGuestActive = false,
   onReturnToOrigin,
+  onStartFresh,
 }: Props) {
   return (
     <header className="sticky top-0 z-10 flex items-center gap-3 px-4 py-3 bg-vellum border-b border-edge">
@@ -38,6 +43,15 @@ export default function ChatHeader({
             aria-label={`Return to ${originName}`}
           >
             ← Return to {originName}
+          </button>
+        )}
+        {onStartFresh && (
+          <button
+            type="button"
+            onClick={onStartFresh}
+            className="font-lora text-[12px] text-sepia text-left leading-tight mt-[1px]"
+          >
+            Start fresh
           </button>
         )}
       </div>

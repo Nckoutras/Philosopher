@@ -119,10 +119,23 @@ export default function ChatPage() {
       try {
         // Fetch conversation + full persona data in parallel (portrait_url not in create response)
         const [conv, personas] = await Promise.all([
-          api.createConversation(params.slug),
+          // resume=true — this is the bare persona open, the one entry point
+          // Γ-3 changes. Every seeded door still calls createConversation
+          // without it and still gets a fresh thread.
+          api.createConversation(params.slug, undefined, undefined, true),
           api.getPersonas(),
         ])
         if (cancelled) return
+
+        // A RESUMED thread is handed to /app/chat/conv/{id}, which is the only
+        // page that loads message history — this one reads `messages` from the
+        // store, and setActiveConversation clears it, so rendering a resumed
+        // thread here would show an empty conversation on top of a full one.
+        // ?resumed=1 is what tells that page to offer "Start fresh".
+        if (conv.resumed) {
+          router.replace(`/app/chat/conv/${conv.id}?resumed=1`)
+          return
+        }
         const personaFull = personas.find((p) => p.slug === params.slug)
         setActiveConversation(
           conv.id,

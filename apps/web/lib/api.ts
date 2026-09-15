@@ -184,6 +184,8 @@ export interface SuggestedQuote extends Quote {
 
 export interface Conversation {
   id: string
+  // Γ-3: this open handed back an existing thread rather than creating one.
+  resumed?: boolean
   // `persona` is the coalesced ACTIVE mind (sticky guest when set, else home).
   persona: Persona
   title: string | null
@@ -902,10 +904,19 @@ class ApiClient {
     })
   }
 
-  async createConversation(persona_slug: string, ritual_id?: string, skip_opening?: boolean): Promise<Conversation> {
+  // `resume` is for the BARE persona-page open only (Γ-3). Every seeded door
+  // leaves it false: a seed belongs in a fresh thread, not appended to an old
+  // one. The server decides whether a resumable thread exists and says so in
+  // `resumed` on the response.
+  async createConversation(
+    persona_slug: string,
+    ritual_id?: string,
+    skip_opening?: boolean,
+    resume?: boolean,
+  ): Promise<Conversation> {
     return this.request<Conversation>('/conversations', {
       method: 'POST',
-      body: JSON.stringify({ persona_slug, ritual_id, skip_opening }),
+      body: JSON.stringify({ persona_slug, ritual_id, skip_opening, resume }),
     })
   }
 
