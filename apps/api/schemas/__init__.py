@@ -842,6 +842,78 @@ class SelfModelStatusOut(BaseModel):
     plan: Optional[str] = None
 
 
+class SelfComparisonListItem(BaseModel):
+    """One row of the revisit list (Γ-8). Slim on purpose, exactly as
+    CounterviewListItem is: the list renders the question the person typed and a
+    date, and reopening pulls the rest via GET /{id}. `prompt` is their own text,
+    already bounded at 600 chars by SelfComparisonCreate."""
+    id: str
+    prompt: str
+    created_at: datetime
+
+
+class SelfComparisonQuoteOut(BaseModel):
+    """An evidence quote from the stored closing. `date` stays a STRING and is not
+    re-parsed to a datetime: the service wrote it with .isoformat() and the reader
+    only formats it for display, so parsing here would add a failure mode
+    (a legacy or malformed value) to a purely presentational field."""
+    text: str
+    date: str
+
+
+class SelfComparisonSideOut(BaseModel):
+    """One of the two selves as it was GENERATED. `start`/`end` come from the
+    stored payload, never recomputed — the 'now' window moves with every new
+    memory row, so recomputing would silently rewrite what the person was shown."""
+    answer: str = ""
+    start: Optional[str] = None
+    end: Optional[str] = None
+
+
+class SelfComparisonClosingOut(BaseModel):
+    """The app-voice closing, read back verbatim from the payload.
+
+    Every field is defaulted because this schema describes a HISTORICAL RECORD,
+    not a fresh generation: rows written before the R1a beats existed carry no
+    `hidden_continuity`/`sentence_owed` keys at all, and a strict model would 500
+    on them. Same reasoning trajectory_snapshot states for its own payload — read
+    it as data, not as an invariant.
+    """
+    observation: str = ""
+    question: str = ""
+    then_quote: Optional[SelfComparisonQuoteOut] = None
+    now_quote: Optional[SelfComparisonQuoteOut] = None
+    hidden_continuity: Optional[str] = None
+    sentence_owed: Optional[str] = None
+
+
+class SelfComparisonDetailOut(BaseModel):
+    """GET /self-comparison/{id} — a past run, reopened (Γ-8).
+
+    The payload has been written since 021 and read by nothing: Reflections pulls
+    only `closing.sentence_owed`, and only for saved runs. This schema is the read
+    path for the rest of it.
+
+    `ring_true` is returned for the reason InsightOut returns its own: the
+    surfaces are stateless and the row is the only memory of the answer, so a run
+    already judged must render that instead of an empty row. `ring_true_note` is
+    NOT returned — no surface collects or displays a note on this ritual, and a
+    field with no reader is debt rather than a feature.
+
+    `saved` reflects a live (non-soft-deleted) self_comparison_saves row, so the
+    Save affordance on a reopened run shows its real state.
+    """
+    id: str
+    prompt: str
+    created_at: datetime
+    then: SelfComparisonSideOut
+    now: SelfComparisonSideOut
+    closing: SelfComparisonClosingOut
+    ring_true: Optional[str] = None
+    ring_true_at: Optional[datetime] = None
+    saved: bool = False
+
+
 # ── Reflections feed (unified saved lines + mirror/council verdicts) ──────────
 
 class ReflectionFeedLine(BaseModel):

@@ -208,6 +208,31 @@ so the next reader finds the decision instead of rediscovering the question.
    invisible to it; the shape would be a third parameter no caller passes today.
 5. **`unresolved_threads`** — out. No signal for it exists.
 
+**Γ-8 (2026-09-15).** The Evolution loop was scoped against measured volume: 8
+You-vs-You runs ever, 2 users, **0 saves ever**, 3 prose portraits, 2
+`self_portrait_shift` rows across 1 user. v1 shipped the read path only — list past runs, reopen one; these
+four were deferred on the record, with the numbers that decided them:
+
+6. **Portrait-page shift surfacing.** `self_portrait_shift` rows already say "you used
+   to answer A and now answer B", and only the You-vs-You closing prompt reads them.
+   Deferred at **2 rows across 1 user** — there is nobody to show it to yet. Revisit
+   post-beta against the trigger in §5d.
+7. **The monthly letter mentioning the portrait / You-vs-You.** NOT before the
+   2026-09-30 run has fired under ARQ and the founder has read the letter it produced.
+   The 2026-09-01 rule: a prompt edited 15 days before the first run under a new path
+   would make that first letter the debut of untested copy. Note that the letter
+   already carries `<self_portrait>` (current answers) and `<rituals>` (You-vs-You
+   *prompts* only) — what it has never seen is any **change** artifact.
+8. **Monthly portrait versions + a voiced diff.** Rejected, not deferred. New storage
+   plus new LLM calls, and a regeneration *schedule* that does not exist today, for a
+   population of **3 prose portraits**. `portrait_cache` is a whole-dict overwrite
+   (`routers/preferences.py`), so there is no history to diff — though the raw
+   material to backfill one does exist, in the deactivated `self_portrait`
+   memory rows.
+9. **Surfacing the saved-run closing fields in Reflections.** Moot as specced: it was
+   scoped to *saved* runs and there have been **0 saves ever**. The §7 read screen
+   shows the same fields on *runs*, which is where the material actually lives.
+
 ---
 
 ## 5. Operations
@@ -280,13 +305,61 @@ blocked on the €99.99-vs-€149 price mismatch); monthly remedy if 2026-09-30 
 missed (`run_key='2026-09'`; **never** a weekly key earlier than `2026-W37`);
 `support@` mailbox; DMARC; PostHog erasure.
 
+### 5d. You-vs-You / portrait volume — the Γ-8 revisit trigger
+
+Γ-8 deferred four items (§4.6–9) on volume, not on merit. **Re-run this before
+reopening any of them**, so the next decision is made against a count rather than
+against this paragraph.
+
+```sql
+-- Runs, users, and the number that decided it: saves.
+SELECT count(*) AS runs,
+       count(DISTINCT user_id) AS users,
+       count(*) FILTER (WHERE status = 'ready') AS ready,
+       count(*) FILTER (WHERE ring_true IS NOT NULL) AS ring_true_answered
+FROM self_comparisons;
+
+SELECT count(*) AS saves
+FROM self_comparison_saves WHERE deleted_at IS NULL;
+
+-- Portraits, and re-answers (the only trace of a regeneration: portrait_cache is
+-- overwritten in place, so the deactivated memory rows ARE the history).
+SELECT count(*) FILTER (WHERE portrait_cache ? 'text') AS prose_portraits
+FROM user_preferences;
+
+SELECT count(*) AS shift_rows, count(DISTINCT user_id) AS users
+FROM memory_entries WHERE entry_type = 'self_portrait_shift' AND is_active = true;
+```
+
+**Baseline, 2026-09-15:** 8 runs / 2 users / **0 saves** / 2 ring-true answered;
+3 prose portraits; 2 shift rows across 1 user.
+
+**TRIGGER: revisit §4.6 and §4.7 when users > 10 OR saves > 0.** Either one means the
+surface has readers, which is the thing all four deferrals were actually waiting on.
+§4.8 stays rejected regardless of volume — it was rejected on cost, not on audience.
+
 ---
 
 ## 6. Standing risks
 
-**The monthly letter path has still never run in production.** First on 2026-09-30,
-and TD-67 applies to it. One Sunday delivery (2026-09-13, 2 letters) is one
-observation, not a rate.
+**CORRECTED 2026-09-15 (Γ-8). The monthly letter path HAS run in production — this
+document said it never had, and that was false.** Counted directly:
+`weekly_letters WHERE kind='monthly'` holds **Jun ×4, Jul ×3, Aug ×1 generated**.
+What is true, and what the claim had collapsed into "never", is narrower: **2026-09-30
+is the first monthly run under the ARQ cron path.** Dispatch moved out of the API
+process in #610 (2026-09-08); every run before that fired from the APScheduler
+`@scheduled_job` block that #610 deleted. TD-67 still applies to it.
+
+The claim survived because each rotation restated it rather than counting rows — the
+2026-08-18 failure-log entry, exactly. One query settled it.
+
+**OPEN QUESTION, recorded and NOT investigated:** the monthly count fell Jun 4 → Jul 3
+→ Aug 1. That may be the eligibility floor (`MONTHLY_MIN_MESSAGES = 15`) meeting a
+quiet summer, or it may be the dispatcher degrading before #610 moved it. Nobody has
+looked. It is a question about the letter path, not about Γ-8, and it was deliberately
+left alone rather than folded into an unrelated PR (P-02).
+
+One Sunday delivery (2026-09-13, 2 letters) is still one observation, not a rate.
 
 **The revenue path is blocked outside the repository.** Upgrade page says €99.99;
 founder observed €149 charged. Test-mode closed, live-mode not. Nothing about the
@@ -488,11 +561,17 @@ which is itself the check.
 
 ---
 
-## 10. Corrections to carry into v31 (added 2026-09-15, Γ-7)
+## 10. Corrections to carry into v31 (added 2026-09-15, Γ-7 and Γ-8)
 
 Three claims about the Council were in circulation during Γ-7 and are wrong or
 stale. They are recorded here rather than in the next rotation because a
 correction that is not merged does not exist — the 2026-08-18 corollary.
+
+**Γ-8 adds a fourth, corrected in place rather than here:** §6 claimed the monthly
+letter path had never run in production. It has — Jun ×4, Jul ×3, Aug ×1. The
+correction sits in §6, where a reader meets the claim, and is flagged here because
+this is the list v31 rotates from. **Carry the corrected version, not the sentence
+it replaced**, and carry the open question with it (why Jun 4 → Jul 3 → Aug 1).
 
 **1. "Day 1 = day 365" and "one line to call" are NOT teardown quotes.** Both
 were attributed to `docs/reports/The-Wise-Room-Teardown_2026-08-25` in a brief.

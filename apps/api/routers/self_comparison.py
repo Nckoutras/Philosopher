@@ -7,7 +7,14 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from db.session import get_db
 from models import User, SelfComparison, SelfComparisonSave
-from schemas import SelfModelStatusOut
+from schemas import (
+    SelfComparisonClosingOut,
+    SelfComparisonDetailOut,
+    SelfComparisonListItem,
+    SelfComparisonQuoteOut,
+    SelfComparisonSideOut,
+    SelfModelStatusOut,
+)
 from auth import get_current_user, get_current_user_plan
 from services.self_model_service import self_model_service
 from services.self_comparison_service import self_comparison_service, weekly_limit, _week_start
@@ -19,6 +26,11 @@ from services.analytics_service import analytics_service
 router = APIRouter(prefix="/self-comparison", tags=["self-comparison"])
 
 PROMPT_MAX_CHARS = 600
+
+# How many past runs the revisit list returns. Matches list_counterviews' 10 —
+# the same surface in the same shape on another ritual. A pro user can produce 5
+# a week, so this is a page, not the archive; the client shows 3 and expands.
+LIST_LIMIT = 10
 
 # App-voice crisis response for the ring-true note (A18c). NOT persona voice:
 # it is not attributed to any thinker and must not read as one — the persona is
@@ -69,6 +81,146 @@ async def get_self_comparison_status(
             language=language_from_signals(data["forming_preview"]),
         )
     return SelfModelStatusOut(**data)
+
+
+# ── The read path (Γ-8) ──────────────────────────────────────────
+#
+# BOTH ROUTES MUST STAY BELOW /status. FastAPI resolves in declaration order, so a
+# GET "/{comparison_id}" declared above it would swallow GET "/status" and match
+# "status" as an id. The counterview router — which this pair otherwise mirrors
+# exactly — has no static sibling and so records no such constraint; this one does.
+# A test pins it.
+
+
+def _quote(value) -> SelfComparisonQuoteOut | None:
+    """One evidence quote from the stored closing, or None.
+
+    Defensive rather than trusting: these payloads have been written since 021 by
+    several versions of the service, and a run that predates a key, or carries a
+    null where a dict is expected, must reopen rather than 500.
+    """
+    if not isinstance(value, dict):
+        return None
+    text, date = value.get("text"), value.get("date")
+    if not isinstance(text, str) or not text.strip():
+        return None
+    if not isinstance(date, str) or not date:
+        return None
+    return SelfComparisonQuoteOut(text=text, date=date)
+
+
+def _side(payload: dict, which: str) -> SelfComparisonSideOut:
+    """The 'then' or 'now' self as it was generated — answer plus the window the
+    run actually used. Never recomputed from self_model_service: `now` is the
+    latest K signals and moves with every new memory row, so recomputing would
+    show a person a window the run they are reading was never built from."""
+    side = payload.get(which)
+    if not isinstance(side, dict):
+        side = {}
+    start, end = side.get("start"), side.get("end")
+    return SelfComparisonSideOut(
+        answer=side.get("answer") if isinstance(side.get("answer"), str) else "",
+        start=start if isinstance(start, str) else None,
+        end=end if isinstance(end, str) else None,
+    )
+
+
+def _closing(payload: dict) -> SelfComparisonClosingOut:
+    closing = payload.get("closing")
+    if not isinstance(closing, dict):
+        closing = {}
+
+    def _text(key: str) -> str | None:
+        value = closing.get(key)
+        return value if isinstance(value, str) and value.strip() else None
+
+    return SelfComparisonClosingOut(
+        observation=_text("observation") or "",
+        question=_text("question") or "",
+        then_quote=_quote(closing.get("then_quote")),
+        now_quote=_quote(closing.get("now_quote")),
+        hidden_continuity=_text("hidden_continuity"),
+        sentence_owed=_text("sentence_owed"),
+    )
+
+
+@router.get("", response_model=list[SelfComparisonListItem])
+async def list_self_comparisons(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Slim, newest-first list of this user's finished runs, for the revisit list.
+
+    `status == 'ready'` IS NOT COSMETIC. A run whose stream died leaves the
+    'pending' row created before generation, with payload NULL — listing those
+    would offer a row that reopens to nothing. Same filter, same reason, as
+    list_counterviews' status == 'generated'.
+
+    Not plan-gated. Creating a run is Pro; re-reading one the person already has
+    is not, and a lapsed subscriber must still reach what was written for them.
+    """
+    rows = (
+        await db.execute(
+            select(SelfComparison.id, SelfComparison.prompt, SelfComparison.created_at)
+            .where(
+                SelfComparison.user_id == user.id,
+                SelfComparison.status == "ready",
+            )
+            .order_by(SelfComparison.created_at.desc())
+            .limit(LIST_LIMIT)
+        )
+    ).all()
+    return [
+        SelfComparisonListItem(id=str(r.id), prompt=r.prompt, created_at=r.created_at)
+        for r in rows
+    ]
+
+
+@router.get("/{comparison_id}", response_model=SelfComparisonDetailOut)
+async def get_self_comparison(
+    comparison_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Reopen one past run, showing what generation showed.
+
+    Zero LLM calls and zero writes: every field is read from the row that was
+    persisted when the run finished. A 'pending' row 404s rather than returning a
+    half-record — it is not listed, so reaching one means a stale or guessed id.
+    """
+    row = (
+        await db.execute(
+            select(SelfComparison).where(
+                SelfComparison.id == comparison_id,
+                SelfComparison.user_id == user.id,
+            )
+        )
+    ).scalar_one_or_none()
+    if row is None or row.status != "ready":
+        raise HTTPException(status_code=404)
+
+    saved = (
+        await db.execute(
+            select(SelfComparisonSave.id).where(
+                SelfComparisonSave.user_id == user.id,
+                SelfComparisonSave.self_comparison_id == comparison_id,
+                SelfComparisonSave.deleted_at.is_(None),
+            )
+        )
+    ).scalar_one_or_none() is not None
+
+    payload = row.payload if isinstance(row.payload, dict) else {}
+    return SelfComparisonDetailOut(
+        id=str(row.id),
+        prompt=row.prompt,
+        created_at=row.created_at,
+        then=_side(payload, "then"),
+        now=_side(payload, "now"),
+        closing=_closing(payload),
+        ring_true=row.ring_true,
+        ring_true_at=row.ring_true_at,
+        saved=saved,
+    )
 
 
 @router.post("")
