@@ -138,6 +138,27 @@ async def set_ring_true(
     # is durably persisted, so a rollback at teardown can never orphan a stored memory.
     await db.commit()
 
+    # Γ-5 — the recognition loop's second surface, and until now an unrecorded one.
+    # Ring-true is "one speech act, one contract, three surfaces" (models.Insight);
+    # the insight surface has fired memory_feedback since Γ-2 and this one has fired
+    # nothing, so a mirror verdict was stored and never counted. Same event name,
+    # not a second one: it is the same question ("how often is the room right"),
+    # and `surface` keeps the surfaces separable without doubling the taxonomy.
+    #
+    # AFTER THE COMMIT, NEVER BEFORE — the Γ-1 rule. The commit above already
+    # exists for the enqueue, so this needs no new line, only the right position.
+    # Fired here rather than from the web for the reason memory_feedback was:
+    # a recognition metric that counts only readers who accepted the analytics
+    # cookie measures consent, not recognition.
+    #
+    # NO insight_type: a mirror has no such column, and the registry permits a
+    # site to omit a property it cannot know. The note is never a property in any
+    # form — verdict is a Literal at the edge, and that is the whole payload.
+    analytics_service.track("memory_feedback", user.id, {
+        "verdict": mirror.ring_true,
+        "surface": "mirror",
+    })
+
     # The ring-true note is the user's OWN reaction to the mirror — distil it into a
     # confidence-1.0 memory (safety-gated + word-filtered inside the task). Async;
     # only when a non-empty note was written. Fire-and-forget; never break the response.

@@ -147,9 +147,27 @@ async def create_conversation(
     # START — counting it as a conversation_started would inflate the top of the
     # funnel with returns and make the started -> completed ratio read worse
     # every time the open-thread loop actually worked. One open, one event.
+    #
+    # Γ-5 — conversation_id is here so the open-thread loop's CLOSURE is joinable.
+    # "Did they resume and then SPEAK" was unanswerable without it: message_sent
+    # has carried conversation_id since it shipped and this event did not, so the
+    # only available reading was a person-level funnel, which counts "resumed
+    # thread A, then messaged thread B" as a closure. That false positive is
+    # invisible and it flatters the loop — the worst combination a retention
+    # metric can have.
+    #
+    # THE ALTERNATIVE, CONSIDERED AND REJECTED (Γ-5 ruling): a resumed_thread flag
+    # on message_sent. `resumed` is decided HERE and persisted nowhere, and
+    # stream_response takes only conversation_id and user_text — so carrying it
+    # would need a new field on the send request and a client that remembers the
+    # flag across two calls. That is a product change to obtain a number this one
+    # property already yields.
+    #
+    # No new privacy surface: this is the same id message_sent already sends.
     if resumed:
         analytics_service.track("conversation_resumed", user.id, {
             "persona_slug": conv.persona.slug,
+            "conversation_id": conv.id,
             "gap_bucket": gap_bucket(conv.last_message_at),
         })
     else:

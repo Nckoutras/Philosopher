@@ -14,6 +14,7 @@ from services.self_comparison_service import self_comparison_service, weekly_lim
 from services.self_portrait_summary import language_from_signals
 from services.safety_service import safety_service
 from services.safety_event_log import log_safety_event
+from services.analytics_service import analytics_service
 
 router = APIRouter(prefix="/self-comparison", tags=["self-comparison"])
 
@@ -152,6 +153,35 @@ async def set_ring_true(
     row.ring_true = body.ring_true
     row.ring_true_note = body.note
     row.ring_true_at = datetime.now(timezone.utc)
+
+    # Γ-5 — the recognition loop's THIRD surface, and the last unrecorded one.
+    # Ring-true is "one speech act, one contract, three surfaces" (models.Insight);
+    # insights have fired memory_feedback since Γ-2, mirrors now fire it too, and
+    # this router had no analytics import at all. A you-vs-you verdict was stored
+    # and never counted. Same event name and the same two properties, so the three
+    # surfaces stay one question rather than becoming three.
+    #
+    # THE EXPLICIT COMMIT IS REQUIRED BY THE EVENT, and it is the only line in this
+    # PR that is not purely additive. This handler previously relied on get_db's
+    # commit-on-teardown (db/session.py), which runs AFTER the handler returns — so
+    # a track() call without this line would report a write that had not happened
+    # yet, and would still report it if that teardown commit failed. That is
+    # exactly the reasoning memory.py's ring-true endpoint records for its own
+    # commit, and mirrors.py already had one for its enqueue.
+    #
+    # What this changes, stated rather than buried: the row is now durable before
+    # the response is built instead of after. Nothing follows it but the return,
+    # and the endpoint is 204 with no body to serialise, so there is no path
+    # between the two that could have wanted the older rollback.
+    #
+    # NO insight_type: a self-comparison has no such column, and the registry
+    # permits a site to omit a property it cannot know. The note is never a
+    # property — verdict is a Literal at the edge, and that is the whole payload.
+    await db.commit()
+    analytics_service.track("memory_feedback", user.id, {
+        "verdict": row.ring_true,
+        "surface": "self_comparison",
+    })
 
 
 @router.post("/{comparison_id}/save")

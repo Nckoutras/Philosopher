@@ -99,18 +99,28 @@ Both push the number **down**, never up. Form B is a floor on email-caused
 returns, which is the safe direction for a gate you must clear — but it means a
 narrow miss is not a clear fail.
 
-1. **Signed-out clickers are lost entirely.** A click from the email while
-   signed out lands on `/auth?mode=signin`, and post-verify the app routes to
-   `/app/today`. There is no `returnTo` mechanism, so both the deep link and
-   `?src=email` are discarded and that person is never attributed — even though
-   the letter is precisely what brought them back. This is the single largest
-   known gap in the measurement. Closing it is a `returnTo` feature, not an
-   analytics change.
+1. ~~**Signed-out clickers are lost entirely.**~~ **CLOSED by #654 (2026-09-14),
+   corrected here 2026-09-15.** This entry said "there is no `returnTo`
+   mechanism"; there is one, and preserving `?src=email` across the sign-in round
+   trip is the assertion that feature exists for
+   (`apps/web/app/auth/__tests__/returnTo.test.tsx`). A signed-out click now
+   lands back on the letter with its marker intact and IS attributed.
+
+   **Two consequences for reading this gate.** Form B undercounts every delivery
+   before the #654 deploy and stops undercounting after it, so a rate computed
+   across that boundary mixes two different instruments — split the window or
+   floor it at the deploy. And this was described as "the single largest known
+   gap in the measurement", which means the pre-#654 numbers are a floor that was
+   lower than anyone reading them assumed.
+
+   *Left struck through rather than deleted: a runbook that quietly edits away a
+   known gap gives a reader no way to tell which claim their old number was
+   computed under.*
 2. **Non-Pro readers cannot be counted.** The endpoint is Pro-gated and answers
    403 before reaching the stamp, so a lapsed subscriber clicking their letter
-   is invisible here.
+   is invisible here. **Still open** (re-checked 2026-09-15).
 
-Neither affects Form A's `read_at` any differently — both forms lose these
+Item 2 does not affect Form A's `read_at` any differently — both forms lose those
 people. The difference is only that Form B is the one being read as a gate.
 
 ---

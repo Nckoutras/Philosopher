@@ -161,3 +161,79 @@ def test_low_risk_note_is_logged_but_still_persisted():
     assert resp.status_code == 204
     assert row.ring_true_note == "just exhausted"
     assert db.add.call_count == 1, "low-risk note should still record a SafetyEvent"
+
+
+# ── Γ-5: the recognition loop's third surface ────────────────────────────────
+#
+# Ring-true is "one speech act, one contract, three surfaces" (models.Insight).
+# Insights have fired memory_feedback since Γ-2; this router had no analytics
+# import at all, so a you-vs-you verdict was stored and counted nowhere.
+
+def test_a_verdict_fires_memory_feedback_with_its_surface():
+    row = FakeComparison()
+
+    with _client(row) as (client, _db):
+        with patch("routers.self_comparison.analytics_service") as analytics:
+            resp = client.patch(ENDPOINT, json={"ring_true": "partly", "note": SAFE_NOTE})
+
+    assert resp.status_code == 204
+    analytics.track.assert_called_once()
+    name, user_id, props = analytics.track.call_args[0]
+    assert name == "memory_feedback"
+    assert user_id == USER_ID
+    assert props == {"verdict": "partly", "surface": "self_comparison"}
+
+
+def test_a_suppressed_note_fires_nothing():
+    """A crisis note is not persisted, so no verdict was recorded — and an event
+    claiming one would be false about the one path where being wrong matters
+    most. The safety return is ABOVE the assignments, which is what makes this
+    true by construction rather than by a second guard."""
+    row = FakeComparison()
+
+    with _client(row) as (client, _db):
+        with patch("routers.self_comparison.analytics_service") as analytics:
+            client.patch(ENDPOINT, json={"ring_true": "yes", "note": CRISIS_NOTE})
+
+    analytics.track.assert_not_called()
+
+
+def test_the_ring_true_note_never_becomes_a_property():
+    """The note is free text about the person's own reaction. It reaches a
+    SafetyEvent and (on the mirror surface) a memory row; it never reaches an
+    analytics property."""
+    row = FakeComparison()
+    note = "I stopped drinking in March and the older me does not know that yet."
+
+    with _client(row) as (client, _db):
+        with patch("routers.self_comparison.analytics_service") as analytics:
+            client.patch(ENDPOINT, json={"ring_true": "yes", "note": note})
+
+    _, _, props = analytics.track.call_args[0]
+    assert set(props) == {"verdict", "surface"}
+    blob = str(props)
+    for fragment in ("drinking", "March", "older me"):
+        assert fragment not in blob
+
+
+def test_the_event_fires_after_the_commit():
+    """AFTER THE COMMIT, NEVER BEFORE — the Γ-1 rule, and on this handler that
+    rule is the reason an explicit commit exists at all.
+
+    This endpoint used to rely on get_db's commit-on-teardown, which runs AFTER
+    the handler returns. A track() without the explicit commit would report a
+    verdict that had not been written yet, and would still report it if the
+    teardown commit failed.
+    """
+    row = FakeComparison()
+    order = []
+
+    with _client(row) as (client, db):
+        db.commit = AsyncMock(side_effect=lambda: order.append("commit"))
+        with patch("routers.self_comparison.analytics_service") as analytics:
+            analytics.track.side_effect = lambda *a, **k: order.append("track")
+            client.patch(ENDPOINT, json={"ring_true": "no"})
+
+    assert order[:2] == ["commit", "track"], (
+        f"expected the commit to precede the event, got {order}"
+    )
