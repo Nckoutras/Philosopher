@@ -45,6 +45,11 @@ _SAFE_CALL_NAMES = {
     # return anything a user wrote.
     "_export_record_count",  # int, sum of section lengths
     "_export_size_bucket",   # closed 4-value enum
+    # Γ-3. Hours since a conversation's last message, mapped to one of six fixed
+    # strings (five buckets + "unknown"). Takes a TIMESTAMP and returns a bucket
+    # — there is no path by which user text could enter it, and the test below
+    # pins the closed set so a future edit cannot widen it into free text.
+    "gap_bucket",
 }
 
 
@@ -408,3 +413,25 @@ def test_request_models_never_declare_source_as_a_bare_str():
                 if not _field_has_pattern(cls, "source"):
                     offenders.append(f"{name}.source (schemas:{st.lineno}) is not pattern-constrained")
     assert not offenders, offenders
+
+
+def test_gap_bucket_returns_a_closed_set():
+    """The allow-list entry above is a promise; this is the check on it.
+
+    gap_bucket is the only allow-listed helper whose input is a user-influenced
+    VALUE (when they last spoke) rather than a count or an enum off a model. It
+    is safe because it maps a timestamp onto six fixed strings — asserted here
+    against real timestamps rather than by reading the source, so a future edit
+    that interpolated anything into the return value fails.
+    """
+    from datetime import datetime, timedelta, timezone
+    from services.conversation_service import gap_bucket
+
+    allowed = {"under_1h", "under_24h", "under_72h", "under_7d", "under_14d", "unknown"}
+    now = datetime.now(timezone.utc)
+    seen = {gap_bucket(None)}
+    for hours in (0, 0.5, 1, 23, 24, 71, 72, 167, 168, 300, 336, 1000):
+        seen.add(gap_bucket(now - timedelta(hours=hours)))
+    assert seen <= allowed, f"gap_bucket returned something outside the closed set: {seen - allowed}"
+    # And a naive timestamp must not raise — old rows may carry one (TD-76).
+    assert gap_bucket(datetime.utcnow() - timedelta(hours=2)) in allowed

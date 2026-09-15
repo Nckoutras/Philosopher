@@ -3,7 +3,7 @@ import json
 import time
 import logging
 import os
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 from uuid import UUID
 from typing import AsyncGenerator
 
@@ -41,6 +41,37 @@ from services.phenomenology_bridge_service import phenomenology_bridge_service
 MODEL_FREE = "claude-haiku-4-5-20251001"
 MODEL_PRO = "claude-sonnet-4-6"
 MEMORY_WINDOW_FREE = 5
+
+# How long a thread stays resumable (Γ-3). Opening a persona inside this window
+# returns the last real conversation with them instead of a fresh one, so the
+# thread continues where it stopped — with its full history already in the
+# prompt, because it is literally the same conversation_id. Outside it, a new
+# conversation: a month-old thread is a different conversation, and resuming it
+# would read as the room having lost track of time rather than having kept up.
+RESUME_WINDOW_DAYS = 14
+
+# Hours-since-last-message buckets for conversation_resumed. Coarse on purpose —
+# the decision they inform is "does the open-thread loop close at all, and over
+# what gap", which a bucket answers and a raw hour count only pretends to.
+_GAP_BUCKETS = ((1, "under_1h"), (24, "under_24h"), (72, "under_72h"), (168, "under_7d"))
+
+
+def gap_bucket(last_message_at: datetime | None) -> str:
+    """The bucket for a resumed thread's gap. 'unknown' when the row carries no
+    last_message_at — possible on old rows, and a bucket that lies is worse than
+    one that admits it does not know."""
+    if last_message_at is None:
+        return "unknown"
+    seen = last_message_at
+    if seen.tzinfo is None:
+        # A naive timestamp is read in the server's timezone (TD-76); treat it as
+        # UTC, which is what every writer of this column actually stores.
+        seen = seen.replace(tzinfo=timezone.utc)
+    hours = (datetime.now(timezone.utc) - seen).total_seconds() / 3600
+    for limit, name in _GAP_BUCKETS:
+        if hours < limit:
+            return name
+    return "under_14d"
 # Retained as the FREE-tier window and as the historical Pro message count. Pro no
 # longer windows by message count — see HISTORY_TOKEN_BUDGET_PRO.
 MEMORY_WINDOW_PRO = 20
@@ -329,6 +360,72 @@ def _length_directive_for_input(user_text: str, persona) -> str | None:
 
 
 class ConversationService:
+
+    # ── Resume or create ──────────────────────────────────────────────────────
+    async def create_or_resume(
+        self,
+        db: AsyncSession,
+        user_id: str,
+        persona_slug: str,
+        user_plan: str = "free",
+    ) -> tuple[Conversation, bool]:
+        """The bare persona-page open (Γ-3). Returns (conversation, resumed).
+
+        WHAT THIS CHANGES. /app/chat/[slug] created a NEW conversation on every
+        visit — tap the same persona twice in a week and you had two threads and
+        neither was resumed. The existing dedup below only ever recycled an
+        UNTOUCHED shell (message_count == 0); it could not hand back a thread
+        that had actually been spoken in.
+
+        RESUMING IS THE WHOLE FEATURE, and it costs nothing extra: handing back
+        the same conversation_id means the send path's history query
+        (`WHERE conversation_id == …`) already loads the full thread into the
+        prompt. No cross-conversation injection is introduced, and none is needed.
+
+        THE THREE CONDITIONS are deliberately all "is this still the same
+        conversation": not deleted, actually spoken in, and recent. `deleted_at`
+        is a soft delete the Library relies on, so resuming one would resurrect a
+        thread the person removed.
+
+        ORDER BY last_message_at, not created_at: the thread someone last SPOKE
+        in is the one they left open. An older thread revisited yesterday should
+        win over a newer one abandoned at its opening line.
+
+        Falls through to create() — which keeps its own empty-shell dedup and its
+        opening-invocation handling — so a miss behaves exactly as today.
+        """
+        persona_config = get_persona(persona_slug)
+        if not persona_config:
+            raise ValueError(f"Unknown persona: {persona_slug}")
+        if not is_persona_accessible(persona_config, user_plan):
+            raise PermissionError(f"Persona {persona_slug} requires plan upgrade")
+
+        cutoff = datetime.now(timezone.utc) - timedelta(days=RESUME_WINDOW_DAYS)
+        result = await db.execute(
+            select(Conversation)
+            .join(Persona, Conversation.persona_id == Persona.id)
+            .where(
+                Conversation.user_id == user_id,
+                Persona.slug == persona_slug,
+                Conversation.deleted_at.is_(None),
+                Conversation.message_count > 0,
+                Conversation.last_message_at.isnot(None),
+                Conversation.last_message_at >= cutoff,
+            )
+            .order_by(Conversation.last_message_at.desc())
+            .limit(1)
+        )
+        resumable = result.scalar_one_or_none()
+        if resumable is not None:
+            return resumable, True
+
+        conv = await self.create(
+            db=db,
+            user_id=user_id,
+            persona_slug=persona_slug,
+            user_plan=user_plan,
+        )
+        return conv, False
 
     # ── Create conversation ───────────────────────────────────────────────────
     async def create(

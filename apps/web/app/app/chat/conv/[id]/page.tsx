@@ -69,6 +69,11 @@ export default function ExistingConversationPage() {
   const [pickerOpen, setPickerOpen] = useState(false)
   // Immutable origin/home persona for this conversation (for "Return to [origin]").
   const [origin, setOrigin] = useState<{ slug: string; name: string } | null>(null)
+  // Γ-3. Set when /app/chat/[slug] handed this thread over as a RESUME, which is
+  // the only case that earns the "Start fresh" escape hatch. Read once on mount
+  // — Suspense-safe (no useSearchParams): the effect is client-only.
+  const [wasResumed, setWasResumed] = useState(false)
+  const [startingFresh, setStartingFresh] = useState(false)
   // Pro sticky deep mode: reflects conversations.deep_mode; survives reload.
   const [deepMode, setDeepMode] = useState(false)
   const isPro = plan === 'pro' || plan === 'premium'
@@ -123,6 +128,24 @@ export default function ExistingConversationPage() {
   }
 
   const isGuestActive = !!origin && activePersonaSlug !== null && activePersonaSlug !== origin.slug
+
+  // The escape hatch. Creates a genuinely new thread with the ORIGIN persona —
+  // the mind whose page was opened — not the sticky guest that may be answering
+  // in the resumed thread. resume is left false, so this cannot hand back the
+  // thread the person just asked to leave.
+  async function handleStartFresh() {
+    if (startingFresh) return
+    const slug = origin?.slug ?? activePersonaSlug
+    if (!slug) return
+    setStartingFresh(true)
+    try {
+      const conv = await api.createConversation(slug)
+      router.replace(`/app/chat/conv/${conv.id}`)
+    } catch {
+      setStartingFresh(false)
+      toast.error('Could not start a new conversation. Please try again.')
+    }
+  }
 
   // Take to the Council: seed the matter from the last user message (the thing
   // they most recently raised), capped at Council's 600-char matter limit.
@@ -235,6 +258,9 @@ export default function ExistingConversationPage() {
         // convention): read-and-clear on mount, fills the composer only — never
         // auto-sends. Cross-persona draft wins if both are present; the composer is
         // empty at load, so nothing is overwritten.
+        // Suspense-safe (no useSearchParams): the effect is client-only.
+        setWasResumed(new URLSearchParams(window.location.search).get('resumed') === '1')
+
         const prefill = sessionStorage.getItem(`chat_prefill_${params.id}`)
         sessionStorage.removeItem(`chat_prefill_${params.id}`)
         if (draft) {
@@ -457,6 +483,7 @@ export default function ExistingConversationPage() {
         originName={origin?.name ?? null}
         isGuestActive={isGuestActive}
         onReturnToOrigin={handleReturnToOrigin}
+        onStartFresh={wasResumed ? handleStartFresh : undefined}
       />
 
       <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3">
