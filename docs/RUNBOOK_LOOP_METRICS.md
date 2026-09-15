@@ -96,7 +96,8 @@ cohort AS (                     -- cold signups only: exclude admins and staff
   SELECT u.id, u.created_at
   FROM users u
   WHERE u.is_admin = false
-    AND u.created_at >= :cohort_start      -- e.g. '2026-09-01'
+    AND u.created_at >= :cohort_start      -- psql: '2026-09-01'. From a DRIVER,
+                                           -- bind a tz-aware datetime — see below
     AND u.created_at <  now() - interval '72 hours'   -- must have had the full window
 ),
 acts AS (
@@ -144,6 +145,15 @@ or deflate the number:**
    cannot see. Deliberately excluded; flip it if you disagree, but say which you
    ran.
 
+**Binding `:cohort_start` from code, not from psql (TD-76).** Pasted into psql,
+`'2026-09-01'` is a literal and Postgres casts it. Bound through a driver it is a
+**parameter**, and asyncpg refuses a `str` for a `timestamptz` with
+*"expected datetime.date or datetime.datetime instance, got 'str'"* — it does not
+coerce. Pass a **tz-aware** `datetime`: a naive one is read in the server's
+timezone, which silently shifts the cohort floor by the server's offset and moves
+the gate. This is the third time this exact trap has cost a red run in this
+repository; see the CLAUDE.md failure log.
+
 **This is a query and not an event, on purpose.** Activation is a *state*
 derivable from rows that already exist, so this answers for the 22 users who
 predate any instrumentation — which an event could never do retroactively.
@@ -169,10 +179,11 @@ given before the events existed.
 
 ```sql
 -- Memory trust: the 'no' rate per surface, and overall.
-SELECT surface, count(*) AS verdicts,
-       count(*) FILTER (WHERE ring_true = 'no')  AS wrong,
-       round(100.0 * count(*) FILTER (WHERE ring_true = 'no')
-             / nullif(count(*), 0), 1)           AS pct_wrong
+SELECT COALESCE(v.surface, 'ALL SURFACES')            AS surface,
+       count(*)                                       AS verdicts,
+       count(*) FILTER (WHERE v.ring_true = 'no')     AS wrong,
+       round(100.0 * count(*) FILTER (WHERE v.ring_true = 'no')
+             / nullif(count(*), 0), 1)                AS pct_wrong
 FROM (
   SELECT 'insight'         AS surface, ring_true FROM insights          WHERE ring_true IS NOT NULL
   UNION ALL
@@ -180,9 +191,24 @@ FROM (
   UNION ALL
   SELECT 'self_comparison',     ring_true FROM self_comparisons         WHERE ring_true IS NOT NULL
 ) v
-GROUP BY ROLLUP (surface)
-ORDER BY surface NULLS LAST;
+GROUP BY ROLLUP (v.surface)
+ORDER BY GROUPING(v.surface), v.surface;
 ```
+
+**Two deliberate choices in that last block, because both look like oversights.**
+
+`COALESCE(..., 'ALL SURFACES')` labels the ROLLUP grand-total row, which
+Postgres otherwise returns with `surface = NULL`. A real surface value can never
+be NULL — all three union branches are literals — so the label is unambiguous.
+`ORDER BY GROUPING(v.surface)` puts that row last by what it *means* rather than
+by where NULLs happen to sort.
+
+**`pct_wrong` is deliberately left NULL when there are no verdicts, and must not
+be coalesced to 0.** "Nobody has answered yet" and "people answered and none were
+wrong" are opposite facts, and 0 would report a passing gate on an empty table.
+This is the same `nullif` distinction the activation query makes, for the same
+reason. Against an empty database this query returns exactly one row —
+`('ALL SURFACES', 0, 0, NULL)` — and that is the query working, not a bug.
 
 **The denominator is not what the gate asks for, and the difference matters.**
 §16 says "per surfaced memory reference". This counts per *answered* card. There

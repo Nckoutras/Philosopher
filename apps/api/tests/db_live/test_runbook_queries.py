@@ -13,6 +13,22 @@ would pin a copy — green forever while the copy in the runbook rotted, which i
 the failure mode rather than a partial fix. The strings executed below are the
 strings a reader will paste.
 
+WHAT THE QUERIES' LOGIC WAS CHECKED AGAINST, since this file does not check it.
+On 2026-09-15 both queries were run on a scratch PostgreSQL 16.4 cluster with a
+discriminating fixture, to verify they mean what the runbook says they mean:
+
+  activation   6 users -> cohort_size 4, activated 1, pct 25.0
+               excluded: an admin; a user 1h old (window not yet finished);
+               a user whose activity fell OUTSIDE 72h; a user whose third
+               conversation was soft-deleted; a user with only one thread.
+  memory trust insight 4/1 25.0 | mirror 2/1 50.0 | self_comparison 3/2 66.7
+               | ALL SURFACES 9/4 44.4, with the ROLLUP row sorted last and a
+               NULL ring_true excluded from its surface's denominator.
+
+Reproduce it rather than trust this paragraph if a clause is ever in doubt. It is
+recorded here because it is evidence that expires: the next schema change makes
+it a claim about the past, which is what the CLAUDE.md failure log is about.
+
 WHAT IS AND IS NOT ASSERTED. These run against an EMPTY database, so they assert
 that each query is valid SQL over the migration-built schema — every table,
 column and function it names exists, and the shape it returns is the shape the
@@ -35,6 +51,7 @@ Run: cd apps/api && DATABASE_URL_TEST=... python -m pytest tests/db_live/test_ru
 """
 import pathlib
 import re
+from datetime import datetime, timezone
 
 import pytest
 from sqlalchemy import text
@@ -75,26 +92,52 @@ async def test_the_runbook_query_is_valid_against_the_live_schema(db, index, lab
 
     :cohort_start is the activation query's only bind parameter; it is supplied
     here so the query runs unmodified. A reader pastes a real date in its place.
+
+    A TZ-AWARE DATETIME, NEVER THE STRING (TD-76, third occurrence). The first
+    version of this file bound '2026-01-01' and asyncpg answered "expected
+    datetime.date or datetime.datetime instance, got 'str'" — it does not coerce
+    for a timestamptz parameter, and the string that reads fine in psql is a
+    LITERAL there rather than a bound parameter. Aware, not naive: a naive value
+    is read in the server's timezone, which would shift the cohort floor by the
+    server's offset and move the gate without failing.
     """
     sql = _sql_blocks()[index]
-    params = {"cohort_start": "2026-01-01"} if ":cohort_start" in sql else {}
+    params = (
+        {"cohort_start": datetime(2026, 1, 1, tzinfo=timezone.utc)}
+        if ":cohort_start" in sql else {}
+    )
 
     result = await db.execute(text(sql), params)
     rows = result.all()
 
-    # Shape, not values. The activation query aggregates with no GROUP BY, so it
-    # returns exactly one row even against an empty database; memory trust uses
-    # ROLLUP over an empty union and returns none.
+    # SHAPE, NOT VALUES — and in both cases the shape against an empty database is
+    # ONE ROW, which is the part the first version of this file got wrong.
+    #
+    # An aggregate with no GROUP BY returns a row over zero input rows, and so
+    # does GROUP BY ROLLUP: the grand-total row exists whether or not anything
+    # was grouped into it. "No verdicts" is therefore a row saying 0, not an
+    # absent row, and asserting [] here asserted that the query had no grand
+    # total — which would have been a defect in the query, not in the database.
     if label == "activation":
         assert len(rows) == 1
         assert result.keys() == ["cohort_size", "activated", "pct"]
         assert rows[0].cohort_size == 0
+        assert rows[0].activated == 0
         # NULL, not 0: "nobody has signed up yet" is a different fact from
         # "nobody activated", and nullif is what keeps them apart.
         assert rows[0].pct is None
     else:
         assert result.keys() == ["surface", "verdicts", "wrong", "pct_wrong"]
-        assert rows == []
+        assert len(rows) == 1, "ROLLUP returns its grand-total row even over zero input"
+        total = rows[0]
+        # COALESCE labels the ROLLUP row; a real surface is never NULL, because
+        # all three union branches are literals.
+        assert total.surface == "ALL SURFACES"
+        assert (total.verdicts, total.wrong) == (0, 0)
+        # And the percentage stays NULL. Coalescing it to 0 would report a
+        # PASSING memory-trust gate against an empty table, which is the one
+        # wrong answer this column can give.
+        assert total.pct_wrong is None
 
 
 async def test_the_activation_query_reads_user_messages_not_message_count():
@@ -129,3 +172,30 @@ async def test_the_memory_trust_query_covers_all_three_ring_true_surfaces():
     sql = _sql_blocks()[1]
     for table in ("insights", "mirrors", "self_comparisons"):
         assert f"FROM {table}" in sql, f"{table} is missing from the memory-trust union"
+
+
+async def test_the_memory_trust_percentage_is_not_coalesced_to_zero():
+    """THE ONE WRONG ANSWER THIS COLUMN CAN GIVE.
+
+    `pct_wrong` is NULL when nobody has answered. Wrapping it in COALESCE(...,0)
+    is the obvious tidy-up — the grand-total row reads `NULL` against an empty
+    table and looks unfinished — and it would report a PASSING memory-trust gate
+    (<2% wrong) on a table with no verdicts in it at all.
+
+    The surface LABEL is coalesced, deliberately, and that is a different thing:
+    it names the ROLLUP row rather than inventing a measurement.
+    """
+    sql = _sql_blocks()[1]
+    assert "nullif(count(*), 0)" in sql, "pct_wrong must stay NULL on a zero denominator"
+    assert "COALESCE(v.surface" in sql, "the ROLLUP grand-total row should be labelled"
+    # The only COALESCE in the query is the label one.
+    assert sql.upper().count("COALESCE") == 1
+
+
+async def test_the_activation_query_keeps_its_null_percentage_too():
+    """Same rule, same reason, on the other gate: an empty cohort must report
+    NULL rather than 0%, or a product with no users reads as a total activation
+    failure instead of as a product with no users."""
+    sql = _sql_blocks()[0]
+    assert "nullif(count(*), 0)" in sql
+    assert "COALESCE" not in sql.upper()
