@@ -51,20 +51,37 @@ interface Props {
 // The primary action branches on insight type (Slice 2): a 'shift' sends the user
 // to You-vs-You; everything else reflects in the Mirror.
 export default function InsightCard({ insightId, ringTrue = null, content, insightType, sourceCount, onPrimary, onDoubt, onDiscard, variant = 'chat' }: Props) {
-  // Optimistic and local: the verdict is a one-tap answer and the row is the only
-  // thing that changes. A failed PATCH rolls the selection back rather than
-  // leaving the card claiming an answer the server never stored.
+  // TWO STATES, NOT ONE, and the split is the whole point (Γ-2b).
+  //
+  // `verdict` is optimistic — the button you pressed lights up immediately,
+  // because a tap that does nothing for a round trip feels broken.
+  // `confirmed` is NOT optimistic. "Noted." means the server stored it, so it
+  // waits for the write to resolve. Founder ruling: "Noted." must mean stored.
+  //
+  // On failure both revert and the card asks again, rather than claiming an
+  // answer that never landed — the row is the only memory of it, and every
+  // surface that renders this card is stateless.
   const [verdict, setVerdict] = useState<'yes' | 'partly' | 'no' | null>(ringTrue)
-  const [submitted, setSubmitted] = useState(ringTrue != null)
+  // Seeded true when the row arrived with a verdict: that one IS stored.
+  const [confirmed, setConfirmed] = useState(ringTrue != null)
+  const [submitting, setSubmitting] = useState(false)
 
-  function handleRingTrue(value: 'yes' | 'partly' | 'no') {
-    const previous = verdict
+  async function handleRingTrue(value: 'yes' | 'partly' | 'no') {
+    if (submitting) return
+    const previousVerdict = verdict
+    const previousConfirmed = confirmed
     setVerdict(value)
-    setSubmitted(true)
-    api.setInsightRingTrue(insightId, value).catch(() => {
-      setVerdict(previous)
-      setSubmitted(previous != null)
-    })
+    setConfirmed(false)
+    setSubmitting(true)
+    try {
+      await api.setInsightRingTrue(insightId, value)
+      setConfirmed(true)
+    } catch {
+      setVerdict(previousVerdict)
+      setConfirmed(previousConfirmed)
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   const showProvenance = sourceCount != null && sourceCount >= 2
@@ -149,14 +166,14 @@ export default function InsightCard({ insightId, ringTrue = null, content, insig
                 verdict === value
                   ? 'border-[1.5px] border-bronze bg-bronze/10 text-bronze'
                   : 'border-[1.5px] border-bronze text-charcoal',
-                submitted && verdict !== value ? 'opacity-40' : '',
+                confirmed && verdict !== value ? 'opacity-40' : '',
               ].join(' ')}
             >
               {label}
             </button>
           ))}
         </div>
-        {submitted && (
+        {confirmed && (
           <p className="font-lora text-[12px] text-sepia italic">Noted.</p>
         )}
       </div>

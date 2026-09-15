@@ -63,3 +63,69 @@ describe('the retired wording is gone', () => {
     expect(source(path)).not.toContain('Not really')
   })
 })
+
+// ── The failure path, on all three (Γ-2b) ───────────────────────────────────
+//
+// Founder ruling: "Noted." must mean STORED. Before this, Mirror and You-vs-You
+// were optimistic-and-silent — a failed write left the confirmation on screen
+// for an answer that never landed, and on Mirror the once-only guard then
+// refused the retry that would have fixed it.
+//
+// WHAT THESE CAN AND CANNOT PROVE. The insight card's failure path is asserted
+// BEHAVIOURALLY in components/chat/__tests__/InsightCardRingTrue.test.tsx —
+// rendered, clicked, with a rejecting and a deferred promise. Mirror and
+// You-vs-You are whole pages with reveal animations, persona fetches and
+// several stores; standing them up would test the harness more than the rule.
+// So they are pinned STRUCTURALLY here: the three shapes that make "Noted."
+// mean stored. A structural pin is weaker than a behavioural one and is called
+// out as such — it catches the revert being deleted, not every way it could be
+// wrong.
+
+const HANDLERS: [string, string, string][] = [
+  // surface, file, the handler's name
+  ['Mirror', 'app/app/mirror/page.tsx', 'handleRingTrue'],
+  ['You-vs-You', 'app/app/you-vs-you/page.tsx', 'submitRingTrue'],
+  ['Insight card', 'components/chat/InsightCard.tsx', 'handleRingTrue'],
+]
+
+/** The body of the named function, from its signature to the next top-level `}`. */
+function handlerBody(path: string, name: string): string {
+  const src = source(path)
+  const start = src.indexOf(`function ${name}(`)
+  expect(start, `${name} not found in ${path}`).toBeGreaterThan(-1)
+  const end = src.indexOf('\n  }', start)
+  expect(end, `could not find the end of ${name} in ${path}`).toBeGreaterThan(start)
+  return src.slice(start, end)
+}
+
+describe('a failed write never leaves "Noted." on screen', () => {
+  it.each(HANDLERS)('%s awaits the write before confirming', (_name, path, fn) => {
+    const body = handlerBody(path, fn)
+    expect(body).toContain('await ')
+    // The confirmation setter must appear AFTER the await, not beside the
+    // optimistic selection — that ordering is what makes "Noted." mean stored.
+    const awaitAt = body.indexOf('await ')
+    const confirmAt = Math.max(
+      body.indexOf('setRingTrueSubmitted(true)'),
+      body.indexOf('setRingTrueConfirmed(true)'),
+      body.indexOf('setConfirmed(true)'),
+    )
+    expect(confirmAt, `${_name}: no confirmation setter found`).toBeGreaterThan(-1)
+    expect(confirmAt).toBeGreaterThan(awaitAt)
+  })
+
+  it.each(HANDLERS)('%s reverts the selection in its catch', (_name, path, fn) => {
+    const body = handlerBody(path, fn)
+    expect(body).toContain('catch')
+    // The catch must restore a captured previous value rather than swallow.
+    expect(body).toMatch(/const previous\w* = /)
+    expect(body).toMatch(/set\w*[Vv]erdict\(previous|setRingTrue\(previous/)
+  })
+
+  it.each(HANDLERS)('%s no longer swallows the failure silently', (_name, path, fn) => {
+    const body = handlerBody(path, fn)
+    // The exact comments the three carried while they were optimistic-and-silent.
+    expect(body).not.toContain('optimistic -- silent')
+    expect(body).not.toContain('best-effort signal')
+  })
+})

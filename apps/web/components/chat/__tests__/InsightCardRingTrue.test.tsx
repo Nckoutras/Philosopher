@@ -115,4 +115,44 @@ describe('answering', () => {
     )
     expect(screen.queryByText('Noted.')).toBeNull()
   })
+
+  it('does not say "Noted." before the server confirms', async () => {
+    // Γ-2b, founder ruling: "Noted." must mean STORED. The selection is
+    // optimistic so the tap feels immediate; the confirmation is not. A version
+    // that set both at once would pass every other test in this file and still
+    // tell a person their answer was saved while the request was in flight —
+    // and keep saying it if the request then failed.
+    let resolveWrite: (v: unknown) => void = () => {}
+    vi.spyOn(api, 'setInsightRingTrue').mockReturnValue(
+      new Promise((res) => { resolveWrite = res }) as never,
+    )
+    renderCard()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Partly' }))
+
+    // In flight: the button is lit, the claim is not made.
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Partly' }).getAttribute('aria-pressed')).toBe('true'),
+    )
+    expect(screen.queryByText('Noted.')).toBeNull()
+
+    resolveWrite({})
+    await waitFor(() => expect(screen.getByText('Noted.')).toBeTruthy())
+  })
+
+  it('reverts to the previously stored verdict, not to nothing', async () => {
+    // A card that already carried a stored 'yes' must fall back to 'yes' when a
+    // later change fails — not to blank, which would read as "your earlier
+    // answer is gone too".
+    vi.spyOn(api, 'setInsightRingTrue').mockRejectedValue(new Error('offline'))
+    renderCard({ ringTrue: 'yes' })
+
+    fireEvent.click(screen.getByRole('button', { name: 'No' }))
+
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Rings true' }).getAttribute('aria-pressed')).toBe('true'),
+    )
+    expect(screen.getByRole('button', { name: 'No' }).getAttribute('aria-pressed')).toBe('false')
+    expect(screen.getByText('Noted.')).toBeTruthy()
+  })
 })
