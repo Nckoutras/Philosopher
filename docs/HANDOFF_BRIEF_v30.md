@@ -485,3 +485,56 @@ should be repeated in a v31 without being read first.
 the working machine, so the rule and its three required checks could not be read
 from the API. The first PR after 2026-09-14 13:30 will demonstrate it — or fail to,
 which is itself the check.
+
+---
+
+## 10. Corrections to carry into v31 (added 2026-09-15, Γ-7)
+
+Three claims about the Council were in circulation during Γ-7 and are wrong or
+stale. They are recorded here rather than in the next rotation because a
+correction that is not merged does not exist — the 2026-08-18 corollary.
+
+**1. "Day 1 = day 365" and "one line to call" are NOT teardown quotes.** Both
+were attributed to `docs/reports/The-Wise-Room-Teardown_2026-08-25` in a brief.
+Neither phrase appears in that document; they are handoff-carried paraphrase. The
+underlying observation is sound and independently confirmed in code — no council
+session receives anything from a prior one — but **do not re-quote them as the
+teardown's words.**
+
+**2. The teardown's actual Council line is SUPERSEDED.** It says *"chat → memory
+→ Council is not connected at all"*. That was true when written and is false now:
+`council_service.py` calls `memory_service.recall(db, user_id, effective_matter)`
+at the synthesis step (#598 / PR-2, Memory-v2 Ruling #4). What Council still lacks
+is memory of **its own prior verdicts**, which is a different gap with a different
+fix. A reader who takes the teardown at face value will re-derive a gap that is
+half closed.
+
+**3. `memories=[]` in the member prompt is LOAD-BEARING — do not "fix" it.** The
+four member calls pass empty memories deliberately (Ruling #4: members meet the
+matter cold, synthesis recalls). It is also what keeps the member prompt static
+per (persona, role), which `cache_whole_system` depends on: per-user text in that
+prefix forfeits the prompt cache across all four Sonnet calls, on the most
+expensive ritual in the product.
+
+This is **already pinned by tests** — `tests/services/test_council_synthesis_memory.py`
+section (b), two tests, one asserting no member prompt carries memory and one
+asserting nothing per-user reaches them at all so the cache holds. Γ-7 added no
+new pin because the existing one is better than the one that would have been
+written. If a future item needs prior-verdict context, **the synthesis step is the
+only admissible injection point.**
+
+### Council v2 — deferred, with its trigger metric
+
+Verdict memory is deferred to post-beta (founder ruling, 2026-09-15) on numbers
+read that day: **55 sessions, 55 cases, 6 users, 3 with more than one session, 9
+saved verdicts.** Case reuse is **0/55** — `CouncilCase.session_count` and
+`CouncilSession.session_number` are multi-session scaffolding that no code path
+has ever exercised; every council creates a new case at `session_number=1`.
+
+Three returning users cannot say what is worth remembering. The trigger metric is
+`users_with_more_than_one` from the §5 SQL in the Γ-7 investigation; the query
+belongs in `RUNBOOK_LOOP_METRICS.md` when someone next touches it.
+
+What shipped instead is the link: `council_cases.insight_id` (065), so a
+nudge-sourced council records **which** insight opened it. That was the one piece
+of the item with no dependency on volume.

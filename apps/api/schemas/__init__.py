@@ -220,6 +220,11 @@ class CouncilCreate(BaseModel):
     # use, and the pattern stops anything unbounded arriving in the first place.
     source: str = Field(default="direct", pattern="^[a-z_]{1,32}$")
     mirror_id: str | None = None
+    # Γ-7-lite. The insight card that opened this council, for source='nudge'.
+    # Validated as a UUID at the router, not here: an unparseable id must not 422
+    # a council the person is trying to convene — the link is a record, and losing
+    # it is strictly better than refusing the ritual over it.
+    insight_id: str | None = None
     conversation_id: str | None = None   # chat source only; drives the essence brief
     matter_edited: bool = False          # chat source only; user edited the auto-filled matter → skip re-distill
 
