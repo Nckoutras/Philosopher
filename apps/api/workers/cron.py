@@ -2,7 +2,7 @@ import logging
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
-from config import config
+from config import config, is_unset_public_url
 from db.session import AsyncSessionLocal
 from services.email_service import send_email
 from services.template_service import render_future_self_email
@@ -149,6 +149,40 @@ def setup_cron(arq_queue):
                 .limit(50)
             )
             rows = result.scalars().all()
+
+            # ── TD-77: the outbound-link guard ────────────────────────────────
+            # This email's ONLY job is to carry a link back. With FRONTEND_URL at
+            # its localhost default (or empty) that link is dead, and before this
+            # guard the send went out anyway and the row was marked 'sent' — so a
+            # real person received a broken appointment and nothing recorded that
+            # anything was wrong. The weekly letter has refused this since it
+            # shipped; the two paths now share one rule (config.is_unset_public_url).
+            #
+            # LEFT 'pending', NOT MARKED 'failed', AND THAT IS THE ONE PLACE THIS
+            # DELIBERATELY DIVERGES FROM THE LETTER. A suppressed letter is
+            # terminal because the letter itself still exists and is readable
+            # in-app — only the notification was lost. Here the delivery IS the
+            # artefact: the person asked for this to come back to them, and
+            # destroying that because an env var was wrong would turn an ops
+            # mistake into lost user intent. Pending means the next run delivers
+            # it the moment FRONTEND_URL is corrected.
+            #
+            # Checked ONCE per run rather than per row: it is process config, not
+            # row state, so fifty identical ERROR lines would bury the one fact.
+            if rows and is_unset_public_url(config.FRONTEND_URL):
+                reason = "frontend_url_unset"
+                for row in rows:
+                    row.failure_reason = reason
+                await db.commit()
+                logger.error(
+                    "Future-self emails SUPPRESSED for %d due letter(s) — FRONTEND_URL "
+                    "is localhost/unset, so the arrival link would be dead. Nothing was "
+                    "sent and nothing was marked sent; these stay pending and WILL be "
+                    "delivered once FRONTEND_URL is set to the public frontend URL on "
+                    "Render. ids=%s",
+                    len(rows), [r.id for r in rows],
+                )
+                return
 
             for row in rows:
                 try:
