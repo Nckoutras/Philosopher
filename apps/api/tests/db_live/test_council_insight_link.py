@@ -172,18 +172,40 @@ async def test_many_councils_may_have_no_insight(db):
 async def test_one_council_per_insight(db):
     """The race guard. There is no app-level dedup on this path, so the index is
     the only thing standing between a double tap and two councils claiming the
-    same card."""
-    import asyncpg
+    same card.
+
+    ASSERTED BY CONSTRAINT NAME, which is the convention test_job_run.py and
+    test_trajectory_snapshots.py already use for exactly this shape, and it is the
+    right one for a reason worth writing down. The first version of this test
+    asserted `isinstance(exc.value.orig, asyncpg.UniqueViolationError)` and failed
+    in CI while the constraint worked perfectly: `.orig` is NOT asyncpg's
+    exception. SQLAlchemy's asyncpg dialect wraps it in its own DBAPI shim, so the
+    real chain is
+
+        sqlalchemy.exc.IntegrityError
+          .orig           -> sqlalchemy.dialects.postgresql.asyncpg.IntegrityError
+          .orig.__cause__ -> asyncpg.exceptions.UniqueViolationError
+
+    Pinning `.orig.__cause__` would work today and would pin SQLAlchemy's internal
+    wrapping — the same brittleness one level along. The constraint NAME is the
+    thing this test is actually about, it survives a driver change, and it names
+    WHICH index fired rather than merely that something collided.
+
+    IntegrityError rather than bare Exception, though: it is verified, and it
+    distinguishes a constraint violation from a connection error that would
+    otherwise satisfy the same assertion.
+    """
+    from sqlalchemy.exc import IntegrityError
 
     uid = await _user(db)
     iid = await _insight(db, uid)
     await _case(db, uid, insight_id=iid, source="nudge")
 
-    with pytest.raises(Exception) as exc:
+    with pytest.raises(IntegrityError) as exc:
         await _case(db, uid, insight_id=iid, source="nudge")
 
-    assert isinstance(exc.value.orig, asyncpg.exceptions.UniqueViolationError), (
-        f"expected a unique violation, got {exc.value!r}"
+    assert "uq_council_cases_insight" in str(exc.value), (
+        f"a constraint fired, but not the one under test: {exc.value}"
     )
 
 
