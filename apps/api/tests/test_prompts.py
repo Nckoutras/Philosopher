@@ -367,3 +367,101 @@ def test_the_guardrail_tells_the_model_to_deepen_rather_than_repeat():
     thing the letter must not do is name it twice."""
     assert "the same thread the Room has already named above" in APPROVED_ALSO_LAST_WEEK_WEEKLY
     assert "rather than appear a second time" in APPROVED_ALSO_LAST_WEEK_WEEKLY
+
+
+# ── Γ-4a: the correspondence belongs to the reader ───────────────────────────
+# Founder-approved verbatim, 2026-09-15. These three paragraphs are the COPY half
+# of Γ-4a; the query half is tested in tests/db_live/test_letter_continuity.py and
+# the renderer in tests/workers/test_letter_continuity.py.
+#
+# WHY THE COPY NEEDED APPROVAL AT ALL. Dropping the voice filter from the fetch
+# made the first of these paragraphs FALSE — it told the persona that the record
+# it was about to read was "letters you wrote", when most of them now are not.
+# A query change that silently leaves a prompt lying about its own input is the
+# kind of drift nothing else in this suite would catch: the letter still
+# generates, still reads plausibly, and is built on a premise the system prompt
+# asserts and the user message contradicts.
+APPROVED_CORRESPONDENCE_PARAGRAPH = (
+    "You may also receive a record of the letters this person has been sent in "
+    "earlier weeks, each marked with the voice that wrote it. Some will be yours "
+    "and some will not: this is one ongoing correspondence, and it belongs to the "
+    "reader rather than to any one of us. Pick up the thread wherever it was left "
+    "— notice what keeps returning, mark honestly what has shifted. Where a letter "
+    "was written in another voice, read it as part of what this person has lived "
+    "with: never comment on that voice, never compare yourself to them, never "
+    "characterise how they wrote, and never speak on their behalf. If there is "
+    "none, simply begin."
+)
+
+APPROVED_PRIOR_SUGGESTION_OWNERSHIP = (
+    "A prior letter may also carry a <prior_suggestion> — the small, concrete "
+    "thing that letter offered them to try or notice. It may be yours or another "
+    "voice's; the header line says which."
+)
+
+
+def test_the_weekly_letter_carries_the_approved_correspondence_paragraph():
+    """Character-for-character. Copy on a surface a subscriber reads is the
+    founder's call, not a refactor's side effect."""
+    from workers.arq_worker import LETTER_PROMPT
+    assert APPROVED_CORRESPONDENCE_PARAGRAPH in LETTER_PROMPT
+
+
+def test_the_weekly_letter_no_longer_claims_the_persona_wrote_them_all():
+    """The sentence Γ-4a had to retire, pinned as ABSENT.
+
+    Asserting the new paragraph is present does not prove the old one is gone —
+    a merge that kept both would pass that test and hand the model two
+    contradictory accounts of the same block. This is the half that fails.
+    """
+    from workers.arq_worker import LETTER_PROMPT
+    assert "a record of letters you wrote to this person" not in LETTER_PROMPT
+
+
+def test_the_prior_suggestion_guardrail_admits_another_voice_may_have_offered_it():
+    """<prior_suggestion> used to say "the small, concrete thing YOU offered".
+    User-scoped, that is false as often as it is true, and a persona claiming
+    another voice's suggestion as its own is precisely the kind of false
+    intimacy the whole letter prompt is built to avoid."""
+    from workers.arq_worker import LETTER_PROMPT
+    assert APPROVED_PRIOR_SUGGESTION_OWNERSHIP in LETTER_PROMPT
+    assert "Never present another voice's suggestion as your own." in LETTER_PROMPT
+
+
+def test_the_continuity_rule_spans_the_whole_correspondence():
+    """The Rules line, six words wider than it was."""
+    from workers.arq_worker import LETTER_PROMPT
+    assert (
+        "build genuine continuity across the whole correspondence, whoever voiced "
+        "each letter" in LETTER_PROMPT
+    )
+
+
+def test_the_to_attribution_guardrail_is_UNCHANGED():
+    """THE PARAGRAPH Γ-4a DID NOT TOUCH, pinned because not touching it was a
+    decision.
+
+    A11 wrote this for the recency-scoped block, and it already says exactly what
+    the cross-voice case in <prior_letters> needs said. So Γ-4a reuses the to=
+    form rather than inventing a second spelling with a second guardrail — one
+    fact, one shape, one instruction. If a future edit narrows this paragraph to
+    "the <reader_wrote_back_recently> block", it silently stops governing half
+    the places the to= form now appears.
+    """
+    from workers.arq_worker import LETTER_PROMPT
+    assert (
+        "A <reader_wrote_back> note may instead carry a to= name — those are the "
+        "person's own words, written back to a letter another voice wrote them, "
+        "not to you." in LETTER_PROMPT
+    )
+
+
+def test_the_monthly_letter_keeps_its_single_voice_framing():
+    """Γ-4a IS THE WEEKLY ENGINE ONLY, and the monthly prompt still says "letters
+    you wrote" because its fetch is still voice-scoped. The two halves agree, and
+    that agreement is the thing worth pinning: user-scoping the monthly query
+    without rewording this would leave the season letter making the same false
+    claim Γ-4a just removed from the weekly one."""
+    from workers.arq_worker import MONTHLY_PROMPT
+    assert "a record of earlier season letters you wrote to this person" in MONTHLY_PROMPT
+    assert APPROVED_CORRESPONDENCE_PARAGRAPH not in MONTHLY_PROMPT
