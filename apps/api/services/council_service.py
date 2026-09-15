@@ -215,6 +215,7 @@ class CouncilService:
         matter: str,
         source: str = "direct",
         mirror_id: str | None = None,
+        insight_id: str | None = None,
         conversation_id: str | None = None,
         matter_edited: bool = False,
         arq_queue=None,
@@ -253,6 +254,10 @@ class CouncilService:
             user_id=user_id,
             source=source,
             mirror_id=mirror_id,
+            # Γ-7-lite. NULL for every source but 'nudge', and NULL on a nudge
+            # whose id the router could not validate. Recorded, never read: this
+            # PR closes the link, and what reads it is a later decision.
+            insight_id=insight_id,
             status="open",
             session_count=1,
         )

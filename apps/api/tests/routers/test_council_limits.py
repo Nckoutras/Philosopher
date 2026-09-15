@@ -235,3 +235,91 @@ def test_a_source_that_breaks_the_pattern_is_refused_at_the_edge(client, bad):
 
     assert resp.status_code == 422, f"source={bad!r} should be refused by the schema"
     analytics.track.assert_not_called()
+
+
+# ── Γ-7-lite: the seed insight link ───────────────────────────────────────────
+#
+# Of the three rituals an insight card can open, the Council was the one that did
+# not record its trigger — the door passed the insight's TEXT and never its id.
+# 065 adds council_cases.insight_id; these pin what the ROUTER hands the service.
+#
+# OWNERSHIP IS THE POINT OF THE QUERY, and the foreign key would not do it. A
+# UUID that exists is not a UUID that belongs to the caller: without the lookup,
+# a client could hand up somebody else's insight id and the FK would accept it.
+
+def _insight_lookup(client, *, found):
+    """Make the router's ownership SELECT answer found / not-found."""
+    result = MagicMock()
+    result.scalar_one_or_none.return_value = "insight-abc" if found else None
+
+    async def fake_execute(_q):
+        return result
+
+    client._db[0].execute = fake_execute
+
+
+def _start(client, body):
+    with patch("routers.council.council_service.stream_council") as stream, \
+         patch("routers.council.analytics_service"):
+        stream.return_value = iter([])
+        resp = client.post(COUNCIL_URL, json=body)
+    return resp, stream
+
+
+def test_an_owned_insight_id_is_passed_through(client):
+    client._auth_holder[0][0].is_admin = True   # bypass the weekly limit query
+    _insight_lookup(client, found=True)
+
+    resp, stream = _start(client, {
+        "matter": "Should I take the job?", "source": "nudge",
+        "insight_id": "insight-abc",
+    })
+
+    assert resp.status_code == 200
+    assert stream.call_args.kwargs["insight_id"] == "insight-abc"
+
+
+def test_a_direct_council_stores_null(client):
+    """The common case, and the reason the column is nullable: most councils have
+    no insight behind them at all."""
+    client._auth_holder[0][0].is_admin = True
+    _insight_lookup(client, found=True)   # would resolve, but nothing asks it to
+
+    resp, stream = _start(client, {"matter": "Should I take the job?"})
+
+    assert resp.status_code == 200
+    assert stream.call_args.kwargs["insight_id"] is None
+
+
+def test_an_insight_belonging_to_someone_else_is_dropped_not_linked(client):
+    """The ownership check, from the outside. The lookup is scoped to the caller,
+    so a foreign id resolves to nothing and no link is written."""
+    client._auth_holder[0][0].is_admin = True
+    _insight_lookup(client, found=False)
+
+    resp, stream = _start(client, {
+        "matter": "Should I take the job?", "source": "nudge",
+        "insight_id": "somebody-elses-insight",
+    })
+
+    assert resp.status_code == 200
+    assert stream.call_args.kwargs["insight_id"] is None
+
+
+def test_an_unrecognised_insight_id_does_not_refuse_the_council(client):
+    """DELIBERATELY NOT A 404, unlike the counterview path.
+
+    There the insight IS the subject — without it there is nothing to argue
+    against, so refusing is right. Here the matter is already in hand and the link
+    is only a record of where it came from. Refusing to convene would spend the
+    person's one-council-per-week on an analytics annotation.
+    """
+    client._auth_holder[0][0].is_admin = True
+    _insight_lookup(client, found=False)
+
+    resp, _ = _start(client, {
+        "matter": "Should I take the job?", "source": "nudge",
+        "insight_id": "00000000-0000-0000-0000-000000000000",
+    })
+
+    assert resp.status_code == 200

@@ -4,13 +4,14 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 from pydantic import BaseModel, Field
+import logging
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from auth import get_current_user_plan
 from db.session import get_db
 import services.rate_limit_service as rate_limit_service
-from models import CouncilCase, CouncilSave, CouncilSession
+from models import CouncilCase, CouncilSave, CouncilSession, Insight
 from schemas import CouncilCreate
 from services.council_service import council_service, _iso_week_start
 from services.analytics_service import analytics_service
@@ -24,6 +25,8 @@ class CouncilShareRequest(BaseModel):
     annotation: Optional[str] = Field(None, max_length=140)
 
 router = APIRouter(prefix="/council", tags=["council"])
+
+logger = logging.getLogger(__name__)
 
 MATTER_MAX_CHARS = 600
 
@@ -117,6 +120,36 @@ async def create_council(
 
     arq_queue = getattr(request.app.state, "arq_queue", None)
 
+    # ── Γ-7-lite: resolve the seed insight, if there is one ───────────────────
+    # OWNERSHIP IS CHECKED HERE, and the foreign key would not do it. A UUID that
+    # exists is not a UUID that belongs to the caller, so without this query a
+    # client could hand up somebody else's insight id and the FK would happily
+    # accept it — a cross-user link written by an ordinary request.
+    # counterview_service.resolve_insight_anchor enforces the same rule the same
+    # way; this is a lighter version of it because the outcome differs.
+    #
+    # A BAD ID DROPS THE LINK, IT DOES NOT REFUSE THE COUNCIL. The counterview
+    # path 404s, correctly: there the insight IS the subject, and without it there
+    # is nothing to argue against. Here the matter is already in hand and the link
+    # is a record of where it came from — refusing to convene the council over an
+    # unrecognised id would spend the person's one-per-week on an analytics
+    # annotation. Wrong or foreign ids are simply not recorded.
+    resolved_insight_id = None
+    if body.insight_id:
+        resolved_insight_id = (
+            await db.execute(
+                select(Insight.id).where(
+                    Insight.id == body.insight_id,
+                    Insight.user_id == user.id,
+                )
+            )
+        ).scalar_one_or_none()
+        if resolved_insight_id is None:
+            logger.info(
+                "Council insight link dropped: id not found for this user "
+                "(user=%s insight=%s)", user.id, body.insight_id,
+            )
+
     return StreamingResponse(
         council_service.stream_council(
             db=db,
@@ -124,6 +157,7 @@ async def create_council(
             matter=matter,
             source=source,
             mirror_id=body.mirror_id,
+            insight_id=resolved_insight_id,
             conversation_id=body.conversation_id,
             matter_edited=body.matter_edited,
             arq_queue=arq_queue,

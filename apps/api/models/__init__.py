@@ -709,10 +709,31 @@ class CouncilCase(Base):
     user_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     source: Mapped[str] = mapped_column(String(20), nullable=False, default="direct")
     mirror_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), ForeignKey("mirrors.id", ondelete="SET NULL"), nullable=True)
+    # Γ-7-lite (065). Which insight card sent the person here, when one did. The
+    # THIRD instance of a pattern mirrors.insight_id and counterviews.insight_id
+    # already set: nullable FK, ON DELETE SET NULL, partial unique index. Of the
+    # three rituals an insight card can open, the Council was the one that did not
+    # record its trigger — the door passed the insight's TEXT and never its id.
+    #
+    # NULL on direct, chat and mirror councils, and on every row written before
+    # 065. That NULL means "not recorded", which is not the same as "no insight";
+    # see the migration on why no backfill is possible.
+    insight_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), ForeignKey("insights.id", ondelete="SET NULL"), nullable=True)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="open")
     session_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
     closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        # Kept in step with 065 deliberately: this declaration is DDL metadata and
+        # the ORM does not enforce it on insert, so a db_live test compares it
+        # against pg_indexes (the uq_mirrors_insight / uq_counterviews_insight
+        # precedent). At most one council per insight; NULL rows unaffected.
+        Index(
+            "uq_council_cases_insight", "insight_id",
+            unique=True, postgresql_where=text("insight_id IS NOT NULL"),
+        ),
+    )
 
 
 class CouncilSession(Base):

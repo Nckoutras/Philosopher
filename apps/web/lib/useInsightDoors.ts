@@ -37,6 +37,13 @@ export function useInsightDoors() {
       }
       sessionStorage.setItem('council_prefill', insight.content.slice(0, 600))
       sessionStorage.setItem('council_source', 'nudge')
+      // Γ-7-lite. The id, not just the text. This door has always carried the
+      // insight's CONTENT as a prefill, so the case recorded that it came from
+      // *an* insight (source='nudge') and never which one — a link the Mirror and
+      // the Counterview both record. The counterview door two branches down has
+      // passed ?insightId= all along; this is the same fact, carried the way this
+      // door already carries everything else.
+      sessionStorage.setItem('council_insight_id', insight.id)
       if (insight.conversation_id) {
         sessionStorage.setItem('council_conversation_id', insight.conversation_id)
       }

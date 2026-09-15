@@ -110,6 +110,8 @@ export default function CouncilPage() {
   const [matter, setMatter] = useState('')
   const [source, setSource] = useState('direct')
   const [mirrorId, setMirrorId] = useState<string | null>(null)
+  // Γ-7-lite: the insight card that opened this council, when one did.
+  const [insightId, setInsightId] = useState<string | null>(null)
   const [conversationId, setConversationId] = useState<string | null>(null)
   const [phase, setPhase] = useState<VisualPhase>({ kind: 'idle' })
   const [sessionId, setSessionId] = useState<string | null>(null)
@@ -172,14 +174,19 @@ export default function CouncilPage() {
     const src = sessionStorage.getItem('council_source') ?? 'direct'
     const mid = sessionStorage.getItem('council_mirror_id') ?? null
     const cid = sessionStorage.getItem('council_conversation_id') ?? null
+    const iid = sessionStorage.getItem('council_insight_id') ?? null
     sessionStorage.removeItem('council_prefill')
     sessionStorage.removeItem('council_source')
     sessionStorage.removeItem('council_mirror_id')
     sessionStorage.removeItem('council_conversation_id')
+    // Cleared with its siblings: these keys are a one-shot handoff, and a stale
+    // insight_id surviving into the NEXT council would link the wrong case.
+    sessionStorage.removeItem('council_insight_id')
     if (prefill) setMatter(prefill)
     setSource(src)
     setMirrorId(mid)
     setConversationId(cid)
+    setInsightId(iid)
 
     // Chat-sourced councils: keep the raw last-message prefill visible immediately
     // (no blank textarea), then swap in a nicer first-person display summary IF the
@@ -463,6 +470,7 @@ export default function CouncilPage() {
         matter: matter.trim(),
         source,
         mirror_id: mirrorId,
+        insight_id: insightId,
         conversation_id: conversationId,
         // Only chat-sourced edits count; direct councils always send false.
         matter_edited: source === 'chat' && userTouchedRef.current,
