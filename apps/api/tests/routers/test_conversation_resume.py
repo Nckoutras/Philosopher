@@ -113,7 +113,15 @@ def test_a_resume_fires_conversation_resumed_and_not_started(client):
     )
     _, user_id, props = analytics.track.call_args_list[0][0]
     assert user_id == USER_ID
-    assert props == {"persona_slug": "socrates", "gap_bucket": "under_24h"}
+    # Γ-5 added conversation_id, and it is asserted to be THE RESUMED THREAD'S id
+    # rather than merely present. That is the whole value of the property: the
+    # event exists to be joined to message_sent on this id, and an id naming some
+    # other conversation would make the join silently wrong instead of absent.
+    assert props == {
+        "persona_slug": "socrates",
+        "conversation_id": CONV_ID,
+        "gap_bucket": "under_24h",
+    }
 
 
 def test_a_miss_still_fires_conversation_started(client):

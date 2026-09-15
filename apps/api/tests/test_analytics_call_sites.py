@@ -50,6 +50,13 @@ _SAFE_CALL_NAMES = {
     # — there is no path by which user text could enter it, and the test below
     # pins the closed set so a future edit cannot widen it into free text.
     "gap_bucket",
+    # Γ-5. The length of a letter write-back, mapped to one of four fixed strings.
+    # UNLIKE EVERY OTHER NAME IN THIS SET, its argument IS user-written text — the
+    # write-back itself. That is exactly why the closed-set test below pins its
+    # whole range rather than a sample: the guarantee this allow-list entry needs
+    # is not "it usually returns a bucket" but "no input, of any length or
+    # content, can make it return anything but those four strings".
+    "write_back_length_bucket",
 }
 
 
@@ -435,3 +442,62 @@ def test_gap_bucket_returns_a_closed_set():
     assert seen <= allowed, f"gap_bucket returned something outside the closed set: {seen - allowed}"
     # And a naive timestamp must not raise — old rows may carry one (TD-76).
     assert gap_bucket(datetime.utcnow() - timedelta(hours=2)) in allowed
+
+
+def test_write_back_length_bucket_returns_a_closed_set():
+    """The allow-list entry is a promise; this is the check on it — and this
+    helper needs a stricter check than gap_bucket's, because ITS ARGUMENT IS THE
+    USER'S OWN TEXT.
+
+    gap_bucket maps a timestamp. This maps the write-back itself, so the failure
+    it guards against is not abstract: an edit that returned f"{len(text)}" or,
+    worse, interpolated any part of `text` into the bucket name would ship the
+    reply into a property. The boundaries are exercised on both sides, and the
+    adversarial inputs are the ones that would expose interpolation — quotes,
+    braces, newlines, an f-string-looking payload, and RTL/CJK text where a
+    character count and a byte count differ.
+
+    The 2,000 case is the real ceiling (WriteBackIn caps there) and the 10,000
+    case is past it: the helper must not acquire an open tail if that cap ever
+    moves.
+    """
+    from routers.weekly_letters import write_back_length_bucket
+
+    allowed = {"under_100", "100_400", "400_1200", "over_1200"}
+    seen = set()
+    # Boundaries on both sides of each edge, plus the cap and beyond it.
+    for n in (1, 99, 100, 101, 399, 400, 401, 1199, 1200, 1201, 2000, 10_000):
+        seen.add(write_back_length_bucket("x" * n))
+    # Inputs designed to leak if anything is interpolated into the return value.
+    for hostile in (
+        'he said "no" — {and} then left',
+        "line one\nline two\ttabbed",
+        "{text}", "%s", "f'{write_back}'", "</reader_wrote_back>",
+        "Δεν ξέρω τι να πω για αυτό", "私はそれについて何を言うべきかわからない",
+        "🙂" * 60,
+    ):
+        seen.add(write_back_length_bucket(hostile))
+
+    assert seen <= allowed, (
+        f"write_back_length_bucket returned something outside the closed set: "
+        f"{seen - allowed}"
+    )
+    # Every bucket is reachable — a set that is closed because three arms are
+    # dead would pass the assertion above and measure nothing.
+    assert seen == allowed
+
+
+def test_write_back_length_bucket_buckets_at_the_documented_edges():
+    """The four names are a dashboard vocabulary, so the edges are part of the
+    contract rather than an implementation detail. `<` not `<=` at each limit:
+    exactly 100 characters is '100_400', which is what the names say."""
+    from routers.weekly_letters import write_back_length_bucket
+
+    assert write_back_length_bucket("x") == "under_100"
+    assert write_back_length_bucket("x" * 99) == "under_100"
+    assert write_back_length_bucket("x" * 100) == "100_400"
+    assert write_back_length_bucket("x" * 399) == "100_400"
+    assert write_back_length_bucket("x" * 400) == "400_1200"
+    assert write_back_length_bucket("x" * 1199) == "400_1200"
+    assert write_back_length_bucket("x" * 1200) == "over_1200"
+    assert write_back_length_bucket("x" * 2000) == "over_1200"

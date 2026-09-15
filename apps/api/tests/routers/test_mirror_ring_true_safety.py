@@ -219,3 +219,87 @@ def test_safety_response_is_a_well_formed_mirror_out():
     # the prior value or the prior note.
     assert body["ring_true"] == "yes"
     assert body["ring_true_note"] == "earlier note"
+
+
+# ── Γ-5: the recognition loop's second surface ───────────────────────────────
+#
+# Ring-true is "one speech act, one contract, three surfaces" (models.Insight).
+# Insights have fired memory_feedback since Γ-2; this surface fired nothing, so
+# a mirror verdict was stored and counted nowhere. Same event name rather than a
+# second one: it is the same question, asked at a different door.
+
+def test_a_verdict_fires_memory_feedback_with_its_surface():
+    mirror = FakeMirror()
+
+    with _client(mirror) as (client, _db):
+        with patch("routers.mirrors.analytics_service") as analytics:
+            resp = client.post(ENDPOINT, json={"ring_true": "yes", "note": SAFE_NOTE})
+
+    assert resp.status_code == 200
+    analytics.track.assert_called_once()
+    name, user_id, props = analytics.track.call_args[0]
+    assert name == "memory_feedback"
+    assert user_id == USER_ID
+    assert props == {"verdict": "yes", "surface": "mirror"}
+
+
+def test_no_insight_type_is_invented_for_a_mirror():
+    """A mirror has no insight_type column. The registry permits a site to omit
+    a property it cannot know, and omitting is the honest choice: a stand-in
+    value would appear in a breakdown as though it were a real category."""
+    mirror = FakeMirror()
+
+    with _client(mirror) as (client, _db):
+        with patch("routers.mirrors.analytics_service") as analytics:
+            client.post(ENDPOINT, json={"ring_true": "no"})
+
+    _, _, props = analytics.track.call_args[0]
+    assert "insight_type" not in props
+
+
+def test_a_suppressed_note_fires_nothing():
+    """The crisis path returns ABOVE the assignments, so no verdict was stored.
+    An event here would report a recognition that did not happen, on the one
+    path where being wrong matters most."""
+    mirror = FakeMirror()
+
+    with _client(mirror) as (client, _db):
+        with patch("routers.mirrors.analytics_service") as analytics:
+            client.post(ENDPOINT, json={"ring_true": "yes", "note": CRISIS_NOTE})
+
+    analytics.track.assert_not_called()
+
+
+def test_the_ring_true_note_never_becomes_a_property():
+    """The note is the person's own reaction, and on THIS surface it is also
+    distilled into a memory row. It still never becomes an analytics property."""
+    mirror = FakeMirror()
+    note = "It named my father and I have not spoken to him since the funeral."
+
+    with _client(mirror) as (client, _db):
+        with patch("routers.mirrors.analytics_service") as analytics:
+            client.post(ENDPOINT, json={"ring_true": "partly", "note": note})
+
+    _, _, props = analytics.track.call_args[0]
+    assert set(props) == {"verdict", "surface"}
+    blob = str(props)
+    for fragment in ("father", "funeral", "spoken"):
+        assert fragment not in blob
+
+
+def test_the_event_fires_after_the_commit():
+    """AFTER THE COMMIT, NEVER BEFORE — the Γ-1 rule. This handler already had an
+    explicit commit for its memory enqueue, so Γ-5 needed only the right
+    position, not a new line."""
+    mirror = FakeMirror()
+    order = []
+
+    with _client(mirror) as (client, db):
+        db.commit = AsyncMock(side_effect=lambda: order.append("commit"))
+        with patch("routers.mirrors.analytics_service") as analytics:
+            analytics.track.side_effect = lambda *a, **k: order.append("track")
+            client.post(ENDPOINT, json={"ring_true": "no"})
+
+    assert order[:2] == ["commit", "track"], (
+        f"expected the commit to precede the event, got {order}"
+    )

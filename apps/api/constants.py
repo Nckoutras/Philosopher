@@ -87,7 +87,14 @@ ANALYTICS_EVENTS = {
     # it informs is "does the loop close, and over what gap" — a bucket answers
     # that; a raw hour count only looks more precise. `unknown` when the row
     # carries no last_message_at rather than a bucket that would be a guess.
-    "conversation_resumed":   ["persona_slug", "gap_bucket"],
+    #
+    # conversation_id (Γ-5) is what makes the loop's CLOSURE measurable at all.
+    # Without it the only available reading was a person-level funnel to
+    # message_sent, which scores "resumed thread A, then messaged thread B" as a
+    # closure — a false positive that is invisible and flatters the loop.
+    # message_sent has carried this same id since it shipped, so this adds no
+    # privacy surface, only the join.
+    "conversation_resumed":   ["persona_slug", "conversation_id", "gap_bucket"],
     "message_sent":           ["persona_slug", "conversation_id", "safety_level",
                                "retrieval_hit", "memory_count", "latency_ms"],
     # No `used_memory` on either: council_service passes memories=[]
@@ -110,6 +117,24 @@ ANALYTICS_EVENTS = {
     # property present on one side of a funnel and absent on the other is worse
     # than no property at all.
     "letter_open_to_app":     ["week", "host"],
+    # The THIRD and last of the letter events, and the one the correspondence
+    # loop is named for (Γ-5). delivered says an email left the building, opened
+    # says one brought a person back, this says they answered it. `week` and
+    # `host` are spelled identically across all three deliberately — that is what
+    # lets them join into one funnel instead of three unrelated counts.
+    #
+    # FIRES ON THE FIRST WRITE-BACK ONLY, the letter_open_to_app precedent: a NULL
+    # write_back_at is the idempotence, exactly as a NULL email_opened_at is
+    # there. Re-submitting overwrites the stored text, but a revision is a person
+    # changing their words rather than the loop closing twice, and counting it
+    # would make this funnel's denominator mean two things at once.
+    #
+    # length_bucket is one of four fixed strings (routers/weekly_letters.py
+    # write_back_length_bucket), measured over the stripped text. The text itself
+    # is never a property — not truncated, not hashed. "Does the correspondence
+    # get answered, and at what length" is answered completely by a bucket, and
+    # an exact character count would be a weak fingerprint of the reply besides.
+    "letter_write_back":      ["week", "host", "length_bucket"],
 
     # ── Monetisation ─────────────────────────────────────────────────────────
     # `source` is the paywall the checkout came from. It reaches the webhook
@@ -182,7 +207,20 @@ ANALYTICS_EVENTS = {
     # Fired from the API after the explicit commit in routers/memory.py, not from
     # the web: a recognition metric that counts only readers who accepted the
     # analytics cookie would measure consent, not recognition.
-    "memory_feedback":        ["insight_type", "verdict"],
+    # `surface` (Γ-5) is insight | mirror | self_comparison. Ring-true is "one
+    # speech act, one contract, three surfaces" (models.Insight), and until Γ-5
+    # only the insight surface fired this event: mirror and you-vs-you verdicts
+    # were stored in their own ring_true columns and counted NOWHERE, so the
+    # recognition rate this event reports was drawn from a third of the verdicts
+    # the product collects. One event with a surface property rather than three
+    # event names — it is one question ("how often is the room right"), asked on
+    # three doors, and three names would make the total require a union.
+    #
+    # insight_type is sent by the insight site only. The other two surfaces have
+    # no such column, and the registry explicitly permits a site to omit a
+    # property it cannot know; inventing a value to fill the column would put a
+    # stand-in into a breakdown.
+    "memory_feedback":        ["insight_type", "verdict", "surface"],
 
     # ── Safety (no PII) ──────────────────────────────────────────────────────
     "safety_event_pre":       ["risk_level", "category"],

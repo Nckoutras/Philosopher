@@ -23,6 +23,33 @@ SHARE_WINDOW_SECS = 90 * 24 * 60 * 60
 
 router = APIRouter(prefix="/weekly-letters", tags=["weekly-letters"])
 
+# Write-back length buckets for letter_write_back (Γ-5). Coarse on purpose, and
+# the coarseness is a privacy property rather than a rounding convenience: the
+# decision these inform is "is the correspondence one-liners or real replies",
+# which four buckets answer, and an exact character count is a weak fingerprint
+# of a text this event may never carry.
+#
+# The ceiling is WriteBackIn's 2,000-character cap (schemas.py), so `over_1200`
+# is a real top bucket rather than an open tail — a write-back cannot exceed it.
+_WRITE_BACK_LENGTH_BUCKETS = ((100, "under_100"), (400, "100_400"), (1200, "400_1200"))
+
+
+def write_back_length_bucket(text: str) -> str:
+    """The bucket for a write-back's length. A closed set of four, pinned by test.
+
+    Takes the STRIPPED text the endpoint is about to store, so the number matches
+    what a later `length(write_back_text)` in SQL would report — the two
+    instruments must agree, because the runbook treats SQL as authoritative.
+
+    There is no 'unknown' arm, unlike gap_bucket's: the endpoint 422s on empty
+    input before this is reached, so every value here is a real non-empty string.
+    """
+    n = len(text)
+    for limit, name in _WRITE_BACK_LENGTH_BUCKETS:
+        if n < limit:
+            return name
+    return "over_1200"
+
 
 def _to_out(letter: WeeklyLetter, persona: Persona | None) -> WeeklyLetterOut:
     return WeeklyLetterOut(
@@ -178,12 +205,48 @@ async def write_back_to_letter(
     if letter is None:
         return JSONResponse(status_code=404, content={"error_code": "not_found"})
 
+    # Γ-5: read BEFORE the assignment below overwrites it. A re-submit overwrites
+    # the prior write-back (this endpoint's documented behaviour), so after the
+    # next line there is no way left to tell a first answer from a revision.
+    is_first_write_back = letter.write_back_at is None
+
     letter.write_back_text = text
     letter.write_back_at = datetime.now(timezone.utc)
     # Explicit commit (not a bare flush): the enqueue below fires only once the
     # write-back is durably persisted, so a rollback at teardown can never orphan
     # a stored memory.
     await db.commit()
+
+    # Γ-5 — the correspondence loop's closure, and the last of the three letter
+    # events. letter_delivered says an email left the building; letter_open_to_app
+    # says one brought a person back; this says they answered it. `week` and `host`
+    # are spelled EXACTLY as those two spell them, which is what lets the three
+    # join into one funnel rather than three unrelated counts.
+    #
+    # FIRST WRITE-BACK ONLY, the letter_open_to_app precedent: there, a NULL
+    # email_opened_at IS the idempotence, and a second visit changes nothing. Here
+    # a NULL write_back_at plays the same part. A revision is a person changing
+    # their words, not the loop closing a second time, and counting it would make
+    # the funnel's denominator mean two different things at once.
+    #
+    # The persona load moved ABOVE this from the bottom of the handler so `host`
+    # costs no extra query; _to_out still uses the same object.
+    #
+    # length_bucket is one of four fixed strings over the stripped text. The text
+    # ITSELF is never a property — not truncated, not hashed. What this event
+    # answers is "does the correspondence get answered, and at what length", and a
+    # bucket answers that completely.
+    persona = None
+    if letter.voice_persona_id:
+        p_result = await db.execute(select(Persona).where(Persona.id == letter.voice_persona_id))
+        persona = p_result.scalar_one_or_none()
+
+    if is_first_write_back:
+        analytics_service.track("letter_write_back", user.id, {
+            "week": letter.period_start.strftime("%G-W%V") if letter.period_start else None,
+            "host": persona.slug if persona is not None else None,
+            "length_bucket": write_back_length_bucket(text),
+        })
 
     # The write-back is the user's OWN words back to the letter — distil it into a
     # confidence-1.0 memory (safety-gated + word-filtered inside the task). Async;
@@ -204,11 +267,6 @@ async def write_back_to_letter(
                 "Letter write-back enqueue failed user=%s letter=%s: %s",
                 user.id, letter_id, exc,
             )
-
-    persona = None
-    if letter.voice_persona_id:
-        p_result = await db.execute(select(Persona).where(Persona.id == letter.voice_persona_id))
-        persona = p_result.scalar_one_or_none()
 
     return _to_out(letter, persona)
 

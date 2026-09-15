@@ -247,6 +247,41 @@ Lessons that updated this protocol:
   the previous failure happened to demand. Repairing to the last error message
   is how one fixture produced three consecutive red runs.
 
+- **2026-09-15 (Γ-5)**: the `timestamptz`-from-a-string trap in the entry above
+  cost a red run for the **third** time, in its third disguise. Not a fixture
+  this time and not a model field: a **bind parameter in a runbook query**. The
+  document showed `:cohort_start -- e.g. '2026-09-01'`, which is exactly right
+  for psql — there it is a *literal* and Postgres casts it — and the test that
+  executed the same query through asyncpg bound it as a `str`, where it is a
+  *parameter* and asyncpg refuses: *"expected datetime.date or
+  datetime.datetime instance, got 'str'"*.
+
+  The same run carried a second, unrelated wrong assumption: an aggregate with
+  no `GROUP BY` — and `GROUP BY ROLLUP` equally — **returns one row over zero
+  input rows**. The test asserted `rows == []` for "no verdicts yet". "No rows"
+  and "a row saying zero" are different answers, and only one of them is what an
+  empty database gives you.
+
+  Lesson, and it is the standing one sharpened rather than a new one: **a query
+  is not verified until a driver has executed it.** Reading SQL, and reasoning
+  about SQL, both skip the two layers that actually broke here — parameter
+  ENCODING and result CARDINALITY. Neither is visible in the text of the query.
+
+  Corollary, worth stating because it nearly repeated the TD-76 arc: when two
+  failures arrive in one run, **fix them from the schema and the semantics, not
+  from the two error messages.** The messages named a bind type and an empty
+  list; what was actually wrong was one assumption about drivers and one about
+  aggregate cardinality, and only the second of those would have been found by
+  making the first error go away.
+
+  What stopped a fourth occurrence from being likely: the runbook's queries are
+  now **executed by CI out of the markdown itself**
+  (`tests/db_live/test_runbook_queries.py`), so a query in a document is checked
+  against the real schema rather than trusted. That is the 2026-08-18 rule — a
+  doc claim repeated without re-verification is evidence about the previous doc
+  — applied to SQL, which is the kind of doc claim that looks most like code and
+  is least often re-run.
+
 ## Future-proof first, shortcuts second
 
 Every proposal — code, schema, architecture — must be evaluated against

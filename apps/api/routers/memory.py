@@ -166,9 +166,18 @@ async def set_insight_ring_true(
     # None rather than a stand-in string, the letter_delivered precedent. verdict
     # is safe by construction — a Literal at the edge, so no other value reaches
     # here, and the request body never becomes a property in any other form.
+    #
+    # Γ-5: `surface` is sent EXPLICITLY here rather than assumed in the dashboard.
+    # Ring-true is "one speech act, one contract, three surfaces" (models.Insight),
+    # and until Γ-5 only this one of the three fired an event — two thirds of the
+    # verdicts the product collects were stored and never counted. Now that mirrors
+    # and self_comparisons fire too, a breakdown by surface is only honest if every
+    # event carries the property: an absent value on the oldest call site would
+    # read as a fourth category made of the rows that predate the others.
     analytics_service.track("memory_feedback", user.id, {
         "insight_type": insight.insight_type,
         "verdict": insight.ring_true,
+        "surface": "insight",
     })
 
     return InsightOut.model_validate(insight)

@@ -224,7 +224,10 @@ def test_it_is_not_pro_gated(client):
 
 # ── The event ────────────────────────────────────────────────────────────────
 
-def test_the_event_carries_two_enums_and_nothing_else(client):
+def test_the_event_carries_three_enums_and_nothing_else(client):
+    """Γ-5 added `surface`. Still an exact-equality assertion rather than a
+    subset: this event's whole safety property is that its payload is closed,
+    and a subset check would stop noticing the fourth key someone adds."""
     insight = _make_insight(insight_type="belief")
     _patch_db_for(client, insight)
 
@@ -235,7 +238,9 @@ def test_the_event_carries_two_enums_and_nothing_else(client):
     name, user_id, props = analytics.track.call_args[0]
     assert name == "memory_feedback"
     assert user_id == USER_ID
-    assert props == {"insight_type": "belief", "verdict": "partly"}
+    assert props == {
+        "insight_type": "belief", "verdict": "partly", "surface": "insight",
+    }
 
 
 def test_a_legacy_insight_with_no_type_sends_none(client):
@@ -262,7 +267,7 @@ def test_the_insight_content_never_becomes_a_property(client):
         client.patch(URL, json={"ring_true": "yes"})
 
     _, _, props = analytics.track.call_args[0]
-    assert set(props) == {"insight_type", "verdict"}
+    assert set(props) == {"insight_type", "verdict", "surface"}
     assert insight.content not in str(props)
 
 
