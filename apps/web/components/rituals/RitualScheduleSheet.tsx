@@ -11,6 +11,18 @@ interface Props {
   open: boolean
   onClose: () => void
   userEmail: string
+  // Γ-6 "Return to this". When set, the sheet is PRE-BOUND to one saved line:
+  // the picker is replaced by that line, because the person already chose it —
+  // in the conversation, on the thing they were reading. Re-asking "which
+  // reflection?" immediately after would undo the whole gesture.
+  //
+  // Absent (the Rituals-tab door) everything below behaves exactly as before.
+  presetLineId?: string
+  // Confirmation toast for the pre-bound door, founder-locked 2026-09-15. The
+  // Rituals door keeps its own date-stating toast: there the person has just
+  // set a date on a form and the date is the confirmation, where here they
+  // tapped one preset and the promise is the confirmation.
+  confirmationText?: string
 }
 
 function toDatetimeLocalString(d: Date): string {
@@ -18,7 +30,21 @@ function toDatetimeLocalString(d: Date): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
-export default function RitualScheduleSheet({ open, onClose, userEmail }: Props) {
+// Γ-6 preset horizons, founder-locked 2026-09-15. Three, not a calendar: the
+// gesture is "bring this back to me", and the decision it asks for is roughly
+// how far away, which three answers cover. The datetime-local field below stays
+// exactly as it was for anyone who wants an actual date — this adds a faster
+// path to it, it does not replace it.
+//
+// Days, not months, deliberately. addMonths arithmetic has to answer what "in a
+// month" means on the 31st, and every answer to that is a rule nobody asked for.
+const PRESETS: { label: string; days: number }[] = [
+  { label: 'In a week', days: 7 },
+  { label: 'In a month', days: 30 },
+  { label: 'In three months', days: 90 },
+]
+
+export default function RitualScheduleSheet({ open, onClose, userEmail, presetLineId, confirmationText }: Props) {
   const [savedLines, setSavedLines] = useState<SavedLineRead[] | null>(null)
   const [selectedLineId, setSelectedLineId] = useState('')
   const [portraitUrlsBySlug, setPortraitUrlsBySlug] = useState<Record<string, string>>({})
@@ -34,7 +60,11 @@ export default function RitualScheduleSheet({ open, onClose, userEmail }: Props)
     Promise.all([api.listSavedLines(), api.getPersonas()])
       .then(([linesRes, personas]) => {
         setSavedLines(linesRes.items)
-        if (linesRes.items.length > 0) setSelectedLineId(linesRes.items[0].id)
+        // Never override a pre-bound line with "the newest one". The caller's
+        // choice is the whole point of that door, and this load is async — so
+        // without the guard the selection would silently change under the user
+        // a moment after the sheet opened.
+        if (!presetLineId && linesRes.items.length > 0) setSelectedLineId(linesRes.items[0].id)
         const map: Record<string, string> = {}
         for (const p of personas) {
           if (p.portrait_url) map[p.slug] = p.portrait_url
@@ -42,7 +72,7 @@ export default function RitualScheduleSheet({ open, onClose, userEmail }: Props)
         setPortraitUrlsBySlug(map)
       })
       .catch(() => setSavedLines([]))
-  }, [open, savedLines])
+  }, [open, savedLines, presetLineId])
 
   // Reset transient state on close, preserve savedLines cache
   useEffect(() => {
@@ -53,6 +83,14 @@ export default function RitualScheduleSheet({ open, onClose, userEmail }: Props)
       setFieldError(null)
     }
   }, [open])
+
+  // Bind the caller's line whenever the sheet opens on it. In the effect rather
+  // than in useState's initialiser because this component is mounted once and
+  // reopened many times — an initialiser would bind the FIRST line the chat ever
+  // passed and then keep it for every later tap.
+  useEffect(() => {
+    if (open && presetLineId) setSelectedLineId(presetLineId)
+  }, [open, presetLineId])
 
   const minDate = toDatetimeLocalString(new Date(Date.now() + 60 * 60 * 1000))
   const maxDate = toDatetimeLocalString(new Date(Date.now() + 5 * 365 * 24 * 60 * 60 * 1000))
@@ -70,10 +108,14 @@ export default function RitualScheduleSheet({ open, onClose, userEmail }: Props)
         scheduled_for: new Date(scheduledFor).toISOString(),
       })
       onClose()
-      const d = new Date(scheduledFor)
-      toast.success(
-        `Message scheduled for ${d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`
-      )
+      if (confirmationText) {
+        toast.success(confirmationText)
+      } else {
+        const d = new Date(scheduledFor)
+        toast.success(
+          `Message scheduled for ${d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`
+        )
+      }
     } catch (err) {
       setFieldError(err instanceof Error ? err.message : 'Something went wrong. Try again.')
     } finally {
@@ -111,6 +153,34 @@ export default function RitualScheduleSheet({ open, onClose, userEmail }: Props)
           <label className="font-lora text-[12px] font-medium uppercase tracking-[0.18em] text-charcoal block mb-[8px]">
             Deliver on
           </label>
+          {/* Γ-6 presets. They WRITE THE DATE FIELD rather than bypassing it, so
+              there is one source of truth for scheduled_for and the person can see
+              what they just chose — and adjust it. aria-pressed marks the active
+              one; a preset whose date the user then edits by hand simply stops
+              matching, which is the honest state. */}
+          <div className="flex gap-[6px] flex-wrap mb-[8px]">
+            {PRESETS.map((preset) => {
+              const value = toDatetimeLocalString(
+                new Date(Date.now() + preset.days * 24 * 60 * 60 * 1000)
+              )
+              const active = scheduledFor === value
+              return (
+                <button
+                  key={preset.label}
+                  type="button"
+                  onClick={() => setScheduledFor(value)}
+                  aria-pressed={active}
+                  className={
+                    active
+                      ? 'bg-linen-deep text-ink border border-ink font-medium px-[10px] py-[6px] font-lora text-[13px] rounded-sm'
+                      : 'bg-paper text-ink border border-[0.5px] border-edge px-[10px] py-[6px] font-lora text-[13px] rounded-sm transition-colors'
+                  }
+                >
+                  {preset.label}
+                </button>
+              )
+            })}
+          </div>
           <input
             type="datetime-local"
             value={scheduledFor}
@@ -162,7 +232,14 @@ export default function RitualScheduleSheet({ open, onClose, userEmail }: Props)
           <label className="font-lora text-[12px] font-medium uppercase tracking-[0.18em] text-charcoal block mb-[8px]">
             Reflection
           </label>
-          {savedLines === null ? (
+          {presetLineId ? (
+            // Pre-bound door: show WHICH line, never a chooser. Falls back to a
+            // neutral line of text while the lazy load is still in flight — the
+            // submit does not depend on this render, only on selectedLineId.
+            <p className="font-lora text-[14px] text-ink leading-[1.55]">
+              {savedLines?.find((l) => l.id === presetLineId)?.message_content ?? 'The line you marked.'}
+            </p>
+          ) : savedLines === null ? (
             <p className="font-lora text-[14px] text-sepia italic">Loading…</p>
           ) : savedLines.length === 0 ? (
             <p className="font-lora text-[14px] text-charcoal leading-[1.55]">

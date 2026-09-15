@@ -9,6 +9,8 @@ import QuickActionsRow from './QuickActionsRow'
 interface Props {
   messages: Message[]
   onSaveLine: (messageId: string) => void
+  // Γ-6. Optional: absent handler, no chip (QuickActionsRow).
+  onReturnToThis?: (messageId: string) => void
   onUpgradeConfirm: () => void
   onBringAnotherMind: () => void
   // Deep-mode chip props (conversation-level; rendered on the last assistant
@@ -31,7 +33,7 @@ interface Props {
   onTakeToCouncil?: () => void
 }
 
-export default function MessageList({ messages, onSaveLine, onUpgradeConfirm, onBringAnotherMind, deepMode, deepLocked, onToggleDeepMode, onDeepPaywall, onContinueWithGuest, insightType, onInsightDoor, onInsightDismiss, onTakeToCouncil }: Props) {
+export default function MessageList({ messages, onSaveLine, onReturnToThis, onUpgradeConfirm, onBringAnotherMind, deepMode, deepLocked, onToggleDeepMode, onDeepPaywall, onContinueWithGuest, insightType, onInsightDoor, onInsightDismiss, onTakeToCouncil }: Props) {
   const savedMessageIds = useStore((s) => s.savedMessageIds)
   const activePersonaSlug = useStore((s) => s.activePersonaSlug)
 
@@ -78,6 +80,7 @@ export default function MessageList({ messages, onSaveLine, onUpgradeConfirm, on
                 messageId={msg.id}
                 saved={savedMessageIds.has(msg.id)}
                 onSave={() => onSaveLine(msg.id)}
+                onReturnToThis={onReturnToThis ? () => onReturnToThis(msg.id) : undefined}
                 onUpgradeConfirm={onUpgradeConfirm}
                 onBringAnotherMind={onBringAnotherMind}
                 showDeepChip={msg.id === lastAssistantId}

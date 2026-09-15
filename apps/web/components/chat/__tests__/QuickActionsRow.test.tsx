@@ -94,3 +94,49 @@ describe('QuickActionsRow', () => {
     expect(screen.getByLabelText('Save line')).toBeTruthy()
   })
 })
+
+// ── Γ-6: "Return to this" ────────────────────────────────────────────────────
+
+describe('Return to this chip', () => {
+  it('does not render when no handler is given', () => {
+    // Optional by design: every existing call site and test renders unchanged.
+    render(
+      <QuickActionsRow messageId="m1" saved={false} onSave={vi.fn()} onUpgradeConfirm={vi.fn()} onBringAnotherMind={vi.fn()} />,
+    )
+    expect(screen.queryByLabelText('Return to this')).toBeNull()
+  })
+
+  it('renders beside Save line and calls the handler', () => {
+    const onReturnToThis = vi.fn()
+    render(
+      <QuickActionsRow messageId="m1" saved={false} onSave={vi.fn()} onUpgradeConfirm={vi.fn()} onBringAnotherMind={vi.fn()} onReturnToThis={onReturnToThis} />,
+    )
+    expect(screen.getByLabelText('Save line')).toBeTruthy()
+    fireEvent.click(screen.getByLabelText('Return to this'))
+    expect(onReturnToThis).toHaveBeenCalledTimes(1)
+  })
+
+  it('does NOT consume the free save cap or show the inline upgrade', () => {
+    // The two gates are different and the caller owns both. A free user at the
+    // save cap tapping this must reach the SCHEDULING wall (Pro), not the save
+    // wall — so this chip must notshort-circuit into SaveLineInlineUpgrade the way
+    // Save line does.
+    useStore.setState({ freeSaveCount: 3, freeTierLimit: 3, subscription: null })
+    const onReturnToThis = vi.fn()
+    render(
+      <QuickActionsRow messageId="m1" saved={false} onSave={vi.fn()} onUpgradeConfirm={vi.fn()} onBringAnotherMind={vi.fn()} onReturnToThis={onReturnToThis} />,
+    )
+    fireEvent.click(screen.getByLabelText('Return to this'))
+    expect(onReturnToThis).toHaveBeenCalledTimes(1)
+    expect(screen.queryByTestId('inline-upgrade')).toBeNull()
+  })
+
+  it('the label is the founder-locked string', () => {
+    // Copy lock, 2026-09-15. Pinned as a whole string: this is the name of the
+    // gesture, and a reworded chip is a product decision rather than a refactor.
+    const { container } = render(
+      <QuickActionsRow messageId="m1" saved={false} onSave={vi.fn()} onUpgradeConfirm={vi.fn()} onBringAnotherMind={vi.fn()} onReturnToThis={vi.fn()} />,
+    )
+    expect(container.textContent).toContain('Return to this')
+  })
+})
