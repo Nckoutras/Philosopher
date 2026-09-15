@@ -600,8 +600,34 @@ Anything belonging to P2 is in `reports/STRATEGY_P2_RETENTION_2026-09.md`, which
 skeleton of intent and deliberately carries no PR decomposition: CLAUDE.md Rule 1
 requires each item to open with its own enumeration first.
 
-### TD-77 — The future-self email has no localhost guard, and its in-app twin is unreachable — **NEW**
-**Status: OPEN. Found during Γ-6 (2026-09-15). Two halves; the second is the worse one.**
+### TD-77 — The future-self email has no localhost guard, and its in-app twin is unreachable — **CLOSED**
+**Status: CLOSED 2026-09-15, both halves, in one PR. Found during Γ-6 the same day.**
+
+**Half 1 — the guard.** `config.is_unset_public_url` is now the one rule and
+both email paths call it: the weekly letter on `API_BASE_URL`, the future-self
+send on `FRONTEND_URL`. Different variables, correctly — the first builds an
+unsubscribe link, the second an arrival link — which is why the helper takes a
+url instead of reading config. The future-self rows now stay **`pending`** with
+`failure_reason='frontend_url_unset'` rather than being marked failed: the
+delivery IS the artefact there, so an ops mistake must not destroy a kept
+appointment. It goes out on the next run once the var is set. A source test
+pins both call sites and forbids a hand-rolled copy growing back beside them.
+
+**Half 2 — the door.** The Rituals tab now links `/app/scheduled-letters`
+("Messages waiting to return"), placed under the Future Self card as a quiet
+line rather than a sixth card — the five cards are practices, this is a record.
+Deliberately not Pro-gated, matching `GET /scheduled-emails`, which is "All
+tiers": a lapsed subscriber still has pending appointments and is the person
+who most needs to reach them. That page's back-link and eyebrow, both written
+when nothing linked to it, now point at Rituals.
+
+**The two halves were one bug.** Kept below as written, because the diagnosis
+is the useful part: the reason the missing guard mattered so much was that the
+email was the ONLY path in.
+
+---
+
+**Original entry, 2026-09-15:**
 
 **Half 1 — the send has no guard.** `workers/cron.py:189` builds the arrival link as
 `f"{config.FRONTEND_URL}/app/scheduled-letters/{row.id}"`, and `FRONTEND_URL`

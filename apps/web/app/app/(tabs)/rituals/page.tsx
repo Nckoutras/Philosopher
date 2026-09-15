@@ -91,6 +91,31 @@ export default function RitualsPage() {
           </div>
         </button>
 
+        {/* ── The other half of that ritual (TD-77) ──
+            /app/scheduled-letters existed as both a list and a detail route and
+            NOTHING linked to either: the only inbound link in the repository was
+            the arrival URL inside the email. So an appointment somebody made was
+            reachable only if that email arrived and its link worked — which is
+            what the guard in this same PR is about. This is the in-app path.
+
+            A QUIET LINE, NOT A SIXTH CARD. The five cards on this page are
+            practices; this is a list of things already scheduled. Giving it equal
+            weight would present a record as a ritual. It sits under Future Self
+            because it belongs to that one ritual, where somebody who just
+            scheduled something would look for it.
+
+            DELIBERATELY NOT PRO-GATED, matching GET /scheduled-emails, which is
+            "All tiers" by its own docstring. Scheduling is Pro, so a free user has
+            nothing here — but a LAPSED subscriber still has pending appointments,
+            and they are exactly the person who most needs to reach them. */}
+        <button
+          type="button"
+          onClick={() => router.push('/app/scheduled-letters')}
+          className="w-full text-left px-[16px] py-[2px] -mt-[4px] font-lora text-[13px] text-bronze underline underline-offset-2"
+        >
+          Messages waiting to return
+        </button>
+
         {/* ── The Mirror — ACTIVE ── */}
         <button
           type="button"
