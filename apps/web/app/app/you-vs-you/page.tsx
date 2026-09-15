@@ -67,6 +67,7 @@ export default function YouVsYouPage() {
   const [comparisonId, setComparisonId] = useState<string | null>(null)
   const [ringTrue, setRingTrue] = useState<string | null>(null)
   const [ringSubmitting, setRingSubmitting] = useState(false)
+  const [ringTrueConfirmed, setRingTrueConfirmed] = useState(false)
   const [sentenceSaved, setSentenceSaved] = useState(false)
   const [sentenceSaving, setSentenceSaving] = useState(false)
 
@@ -146,11 +147,19 @@ export default function YouVsYouPage() {
 
   async function submitRingTrue(value: string) {
     if (!comparisonId || ringSubmitting) return
+    // Selection optimistic, confirmation earned (Γ-2b). "Noted." renders off
+    // ringTrueConfirmed, which is set only once the server has the verdict; a
+    // failed write reverts the selection and asks again rather than claiming an
+    // answer that never landed.
+    const previous = ringTrue
     setRingSubmitting(true)
     setRingTrue(value)
-    try { await api.setSelfComparisonRingTrue(comparisonId, value) }
-    catch { /* best-effort signal */ }
-    finally { setRingSubmitting(false) }
+    try {
+      await api.setSelfComparisonRingTrue(comparisonId, value)
+      setRingTrueConfirmed(true)
+    } catch {
+      setRingTrue(previous)
+    } finally { setRingSubmitting(false) }
   }
 
   // Save/unsave the "sentence you owe yourself" → Reflections feed. Optimistic,
@@ -350,7 +359,7 @@ export default function YouVsYouPage() {
                           </button>
                         ))}
                       </div>
-                      {ringTrue !== null && (
+                      {ringTrueConfirmed && (
                         <p className="font-lora text-[12px] text-sepia italic">Noted.</p>
                       )}
                     </div>

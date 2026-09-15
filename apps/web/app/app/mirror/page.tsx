@@ -88,6 +88,7 @@ export default function MirrorPage() {
   const [persona, setPersona] = useState<Persona | null>(null)
   const [ringTrue, setRingTrue] = useState<'yes' | 'partly' | 'no' | null>(null)
   const [ringTrueSubmitted, setRingTrueSubmitted] = useState(false)
+  const [ringTrueSubmitting, setRingTrueSubmitting] = useState(false)
   const [startingConv, setStartingConv] = useState(false)
   const [pickerOpen, setPickerOpen] = useState(false)
   const [hosts, setHosts] = useState<MirrorHost[]>([])
@@ -229,13 +230,22 @@ export default function MirrorPage() {
   }
 
   async function handleRingTrue(value: 'yes' | 'partly' | 'no') {
-    if (ringTrueSubmitted || !mirror) return
+    if (ringTrueSubmitted || ringTrueSubmitting || !mirror) return
+    // The selection is optimistic; the CONFIRMATION is not (Γ-2b). "Noted."
+    // means the server stored it, so ringTrueSubmitted is set only after the
+    // write resolves. This used to be optimistic-and-silent: a failed write
+    // left "Noted." on screen for an answer that never landed, and the guard
+    // above then refused the retry that would have fixed it.
+    const previous = ringTrue
     setRingTrue(value)
-    setRingTrueSubmitted(true)
+    setRingTrueSubmitting(true)
     try {
       await api.setRingTrue(mirror.id, value)
+      setRingTrueSubmitted(true)
     } catch {
-      // optimistic -- silent
+      setRingTrue(previous)
+    } finally {
+      setRingTrueSubmitting(false)
     }
   }
 
@@ -571,7 +581,7 @@ export default function MirrorPage() {
                         <button
                           key={value}
                           type="button"
-                          disabled={ringTrueSubmitted}
+                          disabled={ringTrueSubmitted || ringTrueSubmitting}
                           onClick={() => handleRingTrue(value)}
                           className={[
                             'font-lora text-[13px] px-[16px] py-[8px] rounded-full transition-colors',
