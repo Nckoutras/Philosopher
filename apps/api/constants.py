@@ -77,6 +77,17 @@ ANALYTICS_EVENTS = {
     # for memory_reference_rendered; nothing renders a memory reference (the SSE
     # stream has no memory event and `brought in` is another persona), so the
     # count rides on the event that already knew the answer.
+    # The open-thread loop's own closure metric (Γ-3). Fires INSTEAD of
+    # conversation_started when a persona open hands back an existing thread —
+    # never alongside it. A resumed thread did not start, and counting it as one
+    # would inflate the top of the funnel with returns, making the
+    # started -> completed ratio read worse exactly when the loop worked.
+    #
+    # gap_bucket is hours-since-last-message in five coarse buckets. The decision
+    # it informs is "does the loop close, and over what gap" — a bucket answers
+    # that; a raw hour count only looks more precise. `unknown` when the row
+    # carries no last_message_at rather than a bucket that would be a guess.
+    "conversation_resumed":   ["persona_slug", "gap_bucket"],
     "message_sent":           ["persona_slug", "conversation_id", "safety_level",
                                "retrieval_hit", "memory_count", "latency_ms"],
     # No `used_memory` on either: council_service passes memories=[]
