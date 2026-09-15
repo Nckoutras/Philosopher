@@ -19,6 +19,7 @@ import SafetyBubble from '@/components/chat/SafetyBubble'
 import SafetyReEntryCard from '@/components/chat/SafetyReEntryCard'
 import PaywallModal from '@/components/chat/PaywallModal'
 import ChatInput from '@/components/chat/ChatInput'
+import RitualScheduleSheet from '@/components/rituals/RitualScheduleSheet'
 import SubPageNav from '@/components/layout/SubPageNav'
 
 // Delay before the single extra recurrence re-poll fires after a turn boundary.
@@ -60,12 +61,17 @@ export default function ExistingConversationPage() {
   const activePersonaSlug = useStore((s) => s.activePersonaSlug)
   const setActivePersona = useStore((s) => s.setActivePersona)
   const plan = useStore((s) => s.plan)
+  // Γ-6: the schedule sheet shows the recipient address, read-only. Same source
+  // the Rituals tab reads it from, so the two doors cannot disagree.
+  const user = useStore((s) => s.user)
   const deepRemaining = useStore((s) => s.deepRemaining)
   const setShowPaywall = useStore((s) => s.setShowPaywall)
   const markInsightsSeenForConversation = useStore((s) => s.markInsightsSeenForConversation)
 
   const [loadError, setLoadError] = useState<string | null>(null)
   const [inputDraft, setInputDraft] = useState<string | undefined>(undefined)
+  // Γ-6 — the saved line the schedule sheet is currently bound to. null = closed.
+  const [returnLineId, setReturnLineId] = useState<string | null>(null)
   const [pickerOpen, setPickerOpen] = useState(false)
   // Immutable origin/home persona for this conversation (for "Return to [origin]").
   const [origin, setOrigin] = useState<{ slug: string; name: string } | null>(null)
@@ -446,6 +452,60 @@ export default function ExistingConversationPage() {
     }
   }
 
+  // Γ-6 "Return to this" — mark it AND put a date on it, in one gesture.
+  //
+  // THE ORDER OF THE TWO GATES IS THE WHOLE OF THIS FUNCTION. Scheduling is
+  // Pro-only and saving is capped at 3 on free, so a free user tapping this can
+  // fail for two different reasons. Checking Pro FIRST means they meet the wall
+  // that actually applies: sending them through the save cap would spend one of
+  // their three saves on a feature they cannot reach, and then show them a
+  // paywall about saves rather than about scheduling.
+  //
+  // source=ritual, NOT a new value. Scheduling IS the future-self ritual, its
+  // paywall copy already exists, and UPGRADE_SOURCES is an allowlist where a new
+  // entry means new wall copy — which this PR is explicitly not adding. The cost
+  // is that the upgrade funnel cannot yet separate this door from the Rituals
+  // tab; recorded rather than worked around.
+  async function handleReturnToThis(messageId: string) {
+    if (!isPro) {
+      router.push('/app/upgrade?source=ritual')
+      return
+    }
+
+    // Already marked? Reuse it. Re-saving would 409, and a second appointment on
+    // the same line is a thing a person may legitimately want.
+    const existing = useStore.getState().savedLines.find((l) => l.message_id === messageId)
+    if (existing) {
+      setReturnLineId(existing.id)
+      return
+    }
+
+    try {
+      await api.createSavedLine(messageId)
+    } catch (err) {
+      if (err instanceof SaveLimitError) {
+        useStore.getState().setShowPaywall(true, { upgradeTarget: 'pro', reason: 'save_limit' })
+        return
+      }
+      // 409 means it IS saved, just not in local state yet — fall through to the
+      // reload below, which is the thing that would have fixed it anyway.
+      if (!(err instanceof DuplicateSaveError)) {
+        toast.error('Could not save. Try again.')
+        return
+      }
+    }
+
+    // Reload rather than trust the POST's echo: the sheet needs the SAVED LINE id,
+    // and loadSavedLines is the one place that shape is assembled.
+    await useStore.getState().loadSavedLines()
+    const line = useStore.getState().savedLines.find((l) => l.message_id === messageId)
+    if (!line) {
+      toast.error('Could not save. Try again.')
+      return
+    }
+    setReturnLineId(line.id)
+  }
+
   function handleUpgradeConfirm() {
     useStore.getState().setShowPaywall(true, { upgradeTarget: 'pro', reason: 'save_limit' })
   }
@@ -491,6 +551,7 @@ export default function ExistingConversationPage() {
         <MessageList
           messages={messages}
           onSaveLine={handleSaveLine}
+          onReturnToThis={handleReturnToThis}
           onUpgradeConfirm={handleUpgradeConfirm}
           onBringAnotherMind={handleBringAnotherMind}
           deepMode={deepMode}
@@ -522,6 +583,21 @@ export default function ExistingConversationPage() {
         placeholder={safetyActive ? 'Write when you\'re ready…' : undefined}
         initialValue={inputDraft}
       />
+      {/* Γ-6 — the EXISTING schedule sheet, pre-bound to the marked line. Mounted
+          here rather than given its own component so there is one scheduling form
+          in the product: the Rituals tab and this door submit the same fields to
+          the same endpoint, and a second copy would drift. Rendered only while a
+          line is bound, so the sheet's own lazy load does not run on every chat. */}
+      {returnLineId && (
+        <RitualScheduleSheet
+          open={true}
+          onClose={() => setReturnLineId(null)}
+          userEmail={user?.email ?? ''}
+          presetLineId={returnLineId}
+          confirmationText="Noted. It will return to you."
+        />
+      )}
+
       <PaywallModal
         open={showPaywall}
         details={paywallDetails}

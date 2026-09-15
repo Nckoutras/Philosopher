@@ -600,6 +600,45 @@ Anything belonging to P2 is in `reports/STRATEGY_P2_RETENTION_2026-09.md`, which
 skeleton of intent and deliberately carries no PR decomposition: CLAUDE.md Rule 1
 requires each item to open with its own enumeration first.
 
+### TD-77 — The future-self email has no localhost guard, and its in-app twin is unreachable — **NEW**
+**Status: OPEN. Found during Γ-6 (2026-09-15). Two halves; the second is the worse one.**
+
+**Half 1 — the send has no guard.** `workers/cron.py:189` builds the arrival link as
+`f"{config.FRONTEND_URL}/app/scheduled-letters/{row.id}"`, and `FRONTEND_URL`
+defaults to `http://localhost:3000` (`config.py:80`). There is no check on that
+value before `send_email` at `:191`. On a misconfigured environment the mail goes
+out to a real person with a dead link, the row is marked `status='sent'` at `:192`,
+and nothing is logged as wrong.
+
+**Compare the weekly letter, which gets this right.** `arq_worker.py`
+`_maybe_send_weekly_letter_email` refuses to send when `API_BASE_URL` is
+localhost/unset, records `email_suppressed_reason='localhost'`, and logs at ERROR
+with the reason spelled out. Two email paths, one product, opposite behaviour on
+the same misconfiguration — and the quieter one is the one that reaches the reader.
+This is the #629 class exactly: **a default that quietly succeeds at the wrong thing
+is worse than one that fails.**
+
+**Half 2 — the in-app return path has no door.** `apps/web/app/app/scheduled-letters/`
+exists as both a list (`page.tsx`) and a detail route (`[id]/page.tsx`), and
+**nothing in the application navigates to either.** A repo-wide grep for the route
+outside its own directory returns one hit: the `arrived_url` in the email. So the
+email is not the additive path it was taken to be during the Γ-6 ruling — today it
+is the ONLY path, and half 1 is what can break it.
+
+**Why this is now worth an entry rather than a note.** Γ-6 ships a chip whose
+confirmation reads *"Noted. It will return to you."* That is a promise the product
+keeps through a screen no navigation reaches, over an email with no guard on its
+link. The feature is correct and the promise is currently underwritten by one
+environment variable.
+
+**The cheap fix is two small changes, and they are independent.** Copy the letter
+path's localhost guard into the future-self send (suppress + ERROR, reusing
+`failure_reason` for the why), and link `/app/scheduled-letters` from somewhere a
+person can reach — the Rituals tab is the obvious home, since that is where the
+appointment is made. Neither needs a migration and neither is blocked on the other.
+
+---
+
 The language class is closed and therefore has **no** backlog entry. Its end state is
 a passing test rather than a tracked item — see `PROJECT_STATE_v29` §1a. If that test
 ever fails, the class is open again and the failure says which module re-opened it.

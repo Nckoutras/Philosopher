@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Users, Bookmark, Sparkle, ArrowRight, Landmark, Swords, GitCompareArrows, Send, X, Lock, type LucideIcon } from 'lucide-react'
+import { Users, Bookmark, CalendarClock, Sparkle, ArrowRight, Landmark, Swords, GitCompareArrows, Send, X, Lock, type LucideIcon } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import SaveLineInlineUpgrade from './SaveLineInlineUpgrade'
 
@@ -48,9 +48,16 @@ interface Props {
   // the active mind. Tapping makes that guest the active mind for next turns.
   continueWithName?: string | null
   onContinueWith?: () => void
+  // Γ-6 "Return to this". Optional so every existing call site and test renders
+  // unchanged: absent handler, no chip. The gesture is a forward commitment —
+  // save the line AND put a date on it — which is why it sits beside Save line
+  // rather than replacing it. Save keeps a thing to look at; this makes an
+  // appointment. Assistant-only comes for free: this whole row is rendered only
+  // under assistant messages (MessageList).
+  onReturnToThis?: () => void
 }
 
-export default function QuickActionsRow({ messageId: _messageId, saved, onSave, onUpgradeConfirm, onBringAnotherMind, showDeepChip = false, deepMode = false, deepLocked = false, onToggleDeepMode, onDeepPaywall, insightType = null, onInsightDoor, onInsightDismiss, showCouncilChip = false, onTakeToCouncil, continueWithName = null, onContinueWith }: Props) {
+export default function QuickActionsRow({ messageId: _messageId, saved, onSave, onUpgradeConfirm, onBringAnotherMind, showDeepChip = false, deepMode = false, deepLocked = false, onToggleDeepMode, onDeepPaywall, insightType = null, onInsightDoor, onInsightDismiss, showCouncilChip = false, onTakeToCouncil, continueWithName = null, onContinueWith, onReturnToThis }: Props) {
   const [showUpgrade, setShowUpgrade] = useState(false)
   const freeSaveCount = useStore((s) => s.freeSaveCount)
   const freeTierLimit = useStore((s) => s.freeTierLimit)
@@ -160,6 +167,23 @@ export default function QuickActionsRow({ messageId: _messageId, saved, onSave, 
         />
         <span className="hidden min-[360px]:inline">{saved ? 'Saved' : 'Save line'}</span>
       </button>
+      {/* Γ-6 — "Return to this": a forward commitment, next to the thing it is not.
+          Save line keeps an artefact to look at; this puts a date on it and the
+          room brings it back. Deliberately NOT gated here on the free save cap:
+          the caller owns both gates (Pro for scheduling, the cap for the save),
+          because this chip's tap can fail for two different reasons and one of
+          them routes to a paywall the other must not. */}
+      {onReturnToThis && (
+        <button
+          type="button"
+          onClick={onReturnToThis}
+          className={chipBase}
+          aria-label="Return to this"
+        >
+          <CalendarClock size={11} strokeWidth={1.5} />
+          <span className="hidden min-[360px]:inline">Return to this</span>
+        </button>
+      )}
       {/* Named one-tap ritual door. Body → straight into the ritual (existing door);
           the trailing × is the 5s-undo dismiss. One chip, two tap targets. */}
       {door && DoorIcon && (
