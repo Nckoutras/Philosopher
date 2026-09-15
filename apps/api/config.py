@@ -102,3 +102,32 @@ def get_settings() -> Settings:
 
 
 config = get_settings()
+
+
+# ── The outbound-link guard (TD-77) ──────────────────────────────────────────
+
+def is_unset_public_url(url: str | None) -> bool:
+    """True when a base URL is still the local placeholder, so no email may use it.
+
+    ONE RULE, TWO CALL SITES, AND THEY GUARD DIFFERENT VARIABLES — which is why
+    this takes a url rather than reading config itself. The weekly letter builds
+    an UNSUBSCRIBE link and so guards API_BASE_URL; the future-self letter builds
+    an ARRIVAL link and so guards FRONTEND_URL. Same rule, different variable, and
+    a helper that chose the variable would be wrong for one of the two.
+
+    WHAT THIS EXISTS TO STOP (TD-77). The weekly-letter path has guarded since it
+    shipped: on a placeholder it suppresses, records the reason on the row, and
+    logs at ERROR. The future-self path had no guard at all — it built the arrival
+    link from FRONTEND_URL (default `http://localhost:3000`), SENT anyway, and
+    marked the row 'sent'. Two email paths in one product, opposite behaviour on
+    the same misconfiguration, and the silent one is the one that reaches a real
+    reader with a dead link.
+
+    EMPTY COUNTS AS UNSET, and it is not the same check as "localhost". A var set
+    explicitly to "" yields links like "/app/scheduled-letters/<id>" — relative,
+    dead in mail, and containing no localhost to match on. The original guard's
+    bare substring test would have passed it straight through.
+    """
+    if not url or not url.strip():
+        return True
+    return "localhost" in url or "127.0.0.1" in url

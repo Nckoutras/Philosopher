@@ -4,7 +4,7 @@ import logging
 from datetime import timezone as dt_timezone
 from arq import create_pool, cron, func
 from arq.connections import RedisSettings
-from config import config
+from config import config, is_unset_public_url
 # Module-level, and the direction matters: letter_dispatch imports THIS module
 # only inside its function bodies, so this cannot cycle. WorkerSettings needs
 # the two coroutines by reference.
@@ -1664,12 +1664,18 @@ async def _maybe_send_weekly_letter_email(db, user, letter, payload, persona, re
         await db.commit()
 
     try:
-        # Guard: if API_BASE_URL is still localhost, the unsubscribe link would be
-        # broken for a real recipient — refuse to send. Logged at ERROR because on a
-        # misconfigured prod env this silently costs a Sonnet letter generation with
+        # Guard: if API_BASE_URL is still a placeholder, the unsubscribe link would
+        # be broken for a real recipient — refuse to send. Logged at ERROR because on
+        # a misconfigured prod env this silently costs a Sonnet letter generation with
         # no delivery; the letter still exists and is readable in-app, but the send
         # is never retried, so this must be loud enough to page ops.
-        if "localhost" in config.API_BASE_URL or "127.0.0.1" in config.API_BASE_URL:
+        #
+        # THE RULE MOVED TO config.is_unset_public_url (TD-77) and is now shared with
+        # the future-self path, which had no guard at all. Behaviour here is unchanged
+        # for every value this used to reject, and WIDENED by one: an env var set
+        # explicitly to "" is now caught too. The old substring test passed it, and it
+        # produces a relative link that is just as dead in an email client.
+        if is_unset_public_url(config.API_BASE_URL):
             logger.error(
                 "%s letter email SUPPRESSED (API_BASE_URL is localhost/unset) — letter "
                 "generated and readable in-app, but NO email was sent and it will NOT "

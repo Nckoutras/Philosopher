@@ -53,10 +53,15 @@ export default function ScheduledLettersPage() {
     <main className="min-h-screen [min-height:100svh] bg-vellum pb-[80px]">
       {/* ── Header ── */}
       <div className="px-[24px] pt-[22px] pb-[16px] flex items-center gap-[12px]">
-        <SubPageNav fallbackHref="/app/letters" />
+        {/* TD-77: reached from the Rituals tab now, so back goes there. It was
+            /app/letters, which was the nearest guess while nothing linked
+            here at all. */}
+        <SubPageNav fallbackHref="/app/rituals" />
         <div>
+          {/* TD-77: "Account" described where this page used to be reachable
+              from in principle. Its actual door is the Rituals tab. */}
           <p className="font-lora text-[11px] uppercase tracking-[0.18em] text-sepia">
-            Account
+            Rituals
           </p>
           <h1 className="font-cormorant text-[26px] font-medium text-ink leading-tight">
             Messages to future self.
