@@ -93,6 +93,13 @@ interface AppStore {
   // Safety overlay
   safetyActive: boolean
   setSafetyActive: (v: boolean) => void
+  // The app-voice crisis text the SERVER streamed for this event, in the
+  // language the user wrote in (prompts/safety_response_el.jinja2 when Greek).
+  // Held so SafetyBubble can render it instead of hardcoded English — see the
+  // component. Transient, never persisted: it is crisis content.
+  safetyText: string
+  setSafetyText: (v: string) => void
+  appendSafetyText: (chunk: string) => void
 
   // SSE error event state (transient — not persisted)
   streamError: { error_code: string; persona_voice: string } | null
@@ -252,6 +259,9 @@ export const useStore = create<AppStore>()(
       resetStreaming: () => set({ isStreaming: false, streamingContent: '', isCorrecting: false, correctionContent: '', streamingBroughtInName: null }),
       safetyActive: false,
       setSafetyActive: (v) => set({ safetyActive: v }),
+      safetyText: '',
+      setSafetyText: (v) => set({ safetyText: v }),
+      appendSafetyText: (chunk) => set((s) => ({ safetyText: s.safetyText + chunk })),
 
       streamError: null,
       setStreamError: (err) => set({ streamError: err }),

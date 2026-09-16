@@ -239,13 +239,24 @@ def test_no_greek_or_greeklish_entry_fires_on_this_repos_english_prose():
     The corpus is this repository's own persona system prompts, letter prompts
     and service prompts — roughly 700k characters of natural English written
     without any thought for this test. The two self-documenting safety modules
-    are excluded because their docstrings quote the phrases on purpose.
+    are excluded because their docstrings quote the phrases on purpose, and so
+    is the Greek crisis response template: it names the Greek suicide-prevention
+    helpline, whose OFFICIAL name is "Γραμμή Παρέμβασης για την Αυτοκτονία", so
+    RISK_HIGH_GR's `αυτοκτονια` fires inside it by construction. That is the
+    crisis RESPONSE, not prose that a gate could mistake for a disclosure, and
+    the word cannot be dropped without renaming a real helpline. It is checked
+    separately, and correctly, by check_output — see
+    test_the_greek_crisis_response_does_not_trip_the_output_gate.
 
     The assertion is ZERO, not "few". A single hit here means a lexicon entry is
     firing on ordinary English, and the entry must be lengthened rather than the
     threshold loosened.
     """
-    self_documenting = {"safety_lexicons.py", "safety_service.py"}
+    self_documenting = {
+        "safety_lexicons.py",
+        "safety_service.py",
+        "safety_response_el.jinja2",
+    }
     root = pathlib.Path(__file__).resolve().parents[1]
 
     corpus = []
@@ -268,3 +279,25 @@ def test_no_greek_or_greeklish_entry_fires_on_this_repos_english_prose():
         if entry in text
     ]
     assert hits == [], hits
+
+
+# ── 8. The crisis RESPONSE is not itself mistaken for a disclosure ─────────────
+
+async def test_the_greek_crisis_response_does_not_trip_the_output_gate(safety):
+    """The Greek crisis copy names the suicide-prevention helpline, so it
+    contains the word RISK_HIGH_GR matches on. That is why it is excluded from
+    the English-prose scan above — and this is the assertion that the exclusion
+    is safe rather than merely convenient.
+
+    check_output must stay clean on it: the output band holds METHOD detail
+    ("πως να αυτοκτονησεις"), not the bare noun, precisely so that naming a
+    helpline is not self-censoring. If this ever goes red, the output lexicon
+    has been broadened into the one message the app must always be able to send.
+    """
+    from services.prompt_builder import PromptBuilder
+
+    text = PromptBuilder().build_safety_response(level="high", language="Greek")
+    result = await safety.check_output(text)
+
+    assert result.level == "none", result.raw_flags
+    assert result.should_suppress_persona is False

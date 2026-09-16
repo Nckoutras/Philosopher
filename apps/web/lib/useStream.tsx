@@ -16,6 +16,8 @@ export function useStream() {
     appendStreamingContent,
     resetStreaming,
     setSafetyActive,
+    setSafetyText,
+    appendSafetyText,
     setStreamError,
     setShowPaywall,
     setCorrection,
@@ -43,6 +45,7 @@ export function useStream() {
 
     // Clear prior safety and error states before starting
     setSafetyActive(false)
+    setSafetyText('')
     setStreamError(null)
 
     // Optimistic user message
@@ -65,6 +68,12 @@ export function useStream() {
       let buffer = ''
       let fullContent = ''
       let isCorrecting = false
+      // Set by the 'safety' event; routes every later chunk to safetyText.
+      // A LOCAL flag, not useStore.getState().safetyActive — the store write is
+      // async with respect to this loop and the first chunk can arrive before it
+      // lands, which would leak the opening of a crisis response into the normal
+      // streaming bubble.
+      let isSafety = false
       let contentBeforeCorrection = ''
       // RF-01: capture error event data instead of discarding persona_voice
       let pendingStreamError: { error_code: string; persona_voice: string } | null = null
@@ -102,6 +111,10 @@ export function useStream() {
               break
             }
             case 'chunk':
+              if (isSafety) {
+                appendSafetyText(event.data)
+                break
+              }
               fullContent += event.data
               if (isCorrecting) {
                 appendCorrectionContent(event.data)
@@ -117,7 +130,15 @@ export function useStream() {
               break
             case 'safety':
             case 'safety_override':
+              // The chunks that follow are the app-voice crisis response, built
+              // server-side in the language the user wrote in. Collect them into
+              // safetyText: SafetyBubble renders that when it is Greek, so a Greek
+              // speaker in crisis stops getting the hardcoded English bubble.
+              // They must NOT go to streamingContent — StreamingBubble unmounts
+              // the moment safetyActive flips, so anything sent there is lost.
+              isSafety = true
               setSafetyActive(true)
+              setSafetyText('')
               fullContent = ''
               useStore.getState().setStreamingContent('')
               break
@@ -190,7 +211,7 @@ export function useStream() {
       }
       console.error(err)
     }
-  }, [activeConversationId, appendMessage, setStreaming, appendStreamingContent, resetStreaming, setSafetyActive, setStreamError, setShowPaywall, setCorrection, appendCorrectionContent])
+  }, [activeConversationId, appendMessage, setStreaming, appendStreamingContent, resetStreaming, setSafetyActive, setSafetyText, appendSafetyText, setStreamError, setShowPaywall, setCorrection, appendCorrectionContent])
 
   const sendAnotherMind = useCallback(async (personaSlug: string) => {
     // Clock for first_reply_rendered, started at the send rather than at the

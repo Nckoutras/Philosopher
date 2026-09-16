@@ -33,8 +33,13 @@ happens here, once, at the top of each check, on text nobody else has touched.
 LANGUAGE DETECTION IS NOT A GATE. text_utils.dominant_language decides which
 language to ANSWER in. It never decides whether to check: every message is
 matched against every lexicon regardless, because a bilingual user writes
-`I can't do this anymore, δεν αντέχω` in one sentence and a detector that
+`I can't do this anymore, δεν αντέχω άλλο` in one sentence and a detector that
 routed that to one lexicon would drop the other half.
+
+(The example carries `άλλο` deliberately. Bare `δεν αντέχω` does NOT fire, in
+either script — #618's native review found it too common in ordinary use to
+carry risk, so the entries are the fuller phrases. This docstring used the bare
+form until 2026-09-16, which described a match the lexicon had stopped making.)
 
 COST. Measured at 6.2 microseconds per call on a 576-character message before
 this change; the added lexicons are a longer loop over the same normalised
