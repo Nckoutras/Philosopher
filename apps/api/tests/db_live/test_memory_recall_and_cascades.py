@@ -18,6 +18,11 @@ returned the right rows.
   4. An orphaned memory drops out of detect_recurrence's candidate set, because
      `conversation_id != :cid` is NULL for it — three-valued logic, which is
      precisely what a mocked session cannot enforce (T-5).
+  5. The D3 diversity guard: that `near_dupe_ids` is computed over the candidate
+     set by pgvector at DUPLICATE_SIM_THRESHOLD, scoped to one user, and that a
+     duplicate's slot is refilled rather than lost. What the guard DOES with
+     those ids is arithmetic and lives in tests/services/test_compose_recall.py;
+     what needs Postgres is that the right ids arrive at all.
 
 Recurrence exclusion was on that list and is now covered, in the one respect
 057 makes live: an orphaned row's NULL conversation_id drops it from the
@@ -34,6 +39,7 @@ import pytest
 from sqlalchemy import text
 
 from services.memory_service import (
+    DUPLICATE_SIM_THRESHOLD,
     INFERRED_PER_TYPE,
     INFERRED_SCORE_FLOOR,
     RECALL_SQL,
@@ -67,8 +73,52 @@ def _unit(a: float, b: float) -> list[float]:
 QUERY = _unit(1.0, 0.0)          # e0
 IDENTICAL = _unit(1.0, 0.0)      # similarity 1.00  → kept, ranked first
 NEAR = _unit(0.8, 0.6)           # similarity 0.80  → kept, ranked second
-BELOW_CUT = _unit(0.6, 0.8)      # similarity 0.60  → dropped by the 0.70 cut
+BELOW_CUT = _unit(0.6, 0.8)      # similarity 0.60  → dropped by the floor
 ORTHOGONAL = _unit(0.0, 1.0)     # similarity 0.00  → dropped
+
+# THE FOUR ABOVE ARE COPLANAR, AND THAT IS ONLY SAFE ONE AT A TIME. Use them
+# where exactly one row can become a recall candidate (the rest excluded by the
+# floor, by is_active, or by belonging to another user). Two of them seeded for
+# the same user, both above the floor, are near-duplicates of each other — see
+# `_spread`, which exists for that case.
+
+
+def _spread(a: float, axis: int) -> list[float]:
+    """A unit vector at similarity `a` to QUERY, spread on its OWN axis.
+
+        v = a*e0 + sqrt(1 - a^2)*e_axis,  axis >= 1, distinct per row
+
+    WHY EACH ROW NEEDS ITS OWN AXIS (D3). `_unit(a, sqrt(1-a^2))` places every
+    row in the single e0/e1 plane. Two rows there are `cos(theta_a - theta_b)`
+    similar TO EACH OTHER — so six rows at 0.99…0.94 to the query, standing for
+    six clearly different facts, are 0.999 similar to one another. Nothing
+    noticed while recall only ever compared a row to the QUERY. The diversity
+    guard compares rows to EACH OTHER, and it correctly deduplicated fixtures
+    that had always been accidentally near-identical.
+
+    THIS IS A FIXTURE DEFECT, NOT EVIDENCE AGAINST THE THRESHOLD, and that was
+    checked before anything was loosened. Four vectors in a 2-D plane CANNOT be
+    mutually distant; the collisions are forced by the construction. Real
+    embeddings are 1536-dimensional and behave nothing like it — production's
+    109,309 active same-user pairs have mean similarity 0.313 and a 99th
+    percentile of 0.605, with 96 pairs above 0.75. Distinct content does not
+    collide at this threshold; coplanar test vectors do.
+
+    On distinct axes the spread components are orthogonal, so
+
+        sim(v_i, v_j) = a_i * a_j          (the product of their scores)
+
+    Two rows above the Lane B floor therefore stay under
+    DUPLICATE_SIM_THRESHOLD as long as that product does. 0.866^2 is exactly
+    0.75, so 0.86 is the true ceiling; these tests keep every `a` at or under
+    0.84, where the worst pair is 0.706 and float4 storage cannot reach the line.
+    """
+    assert axis >= 1, "e0 is the query axis; a spread axis must be orthogonal to it"
+    assert axis < DIM, "axis outside the vector"
+    v = [0.0] * DIM
+    v[0] = a
+    v[axis] = (1 - a * a) ** 0.5
+    return v
 
 
 def _vec(v: list[float]) -> str:
@@ -181,7 +231,7 @@ async def _insight_conversation_id(db, insight_id: str):
 
 @pytest.mark.asyncio
 async def test_recall_keeps_only_matches_above_the_threshold_in_distance_order(db):
-    """THE ASSERTION NO MOCK CAN MAKE. Four rows at similarities 1.00 / 0.80 /
+    """THE ASSERTION NO MOCK CAN MAKE. Four rows at similarities 0.84 / 0.80 /
     0.60 / 0.00 to the query; recall must return exactly the first two, in that
     order, because it orders by `embedding <=> query` and cuts at
     INFERRED_SCORE_FLOOR.
@@ -191,11 +241,22 @@ async def test_recall_keeps_only_matches_above_the_threshold_in_distance_order(d
     not, so the expected output is unchanged. And the four rows now carry FOUR
     DISTINCT inferred types: left all on 'struggle' they would hit the per-type
     quota of 2 first, and this test would pass while measuring the quota instead of
-    the floor it is named for."""
+    the floor it is named for.
+
+    REWRITTEN AGAIN FOR D3, AND THE INTENT IS UNCHANGED — this test is about the
+    FLOOR and the ORDER, never about a row sitting exactly on the query. The top
+    row was 1.00 (IDENTICAL) and the second 0.80 (NEAR), and those two are 0.80
+    similar TO EACH OTHER, so the diversity guard dropped the second and the
+    test's own two survivors read as one fact. Anything on the query axis is a
+    near-duplicate of everything above the floor, which is a true statement about
+    the guard rather than a problem with it. The two survivors now sit on their
+    own axes at 0.84 and 0.80 — 0.672 to each other, distinct — which keeps both
+    halves of what this test is named for and adds nothing it did not assert
+    before."""
     user_id = await _make_user(db)
-    await _make_memory(db, user_id, "identical", IDENTICAL, entry_type="belief")
-    await _make_memory(db, user_id, "near", NEAR, entry_type="value")
-    await _make_memory(db, user_id, "below the cut", BELOW_CUT, entry_type="struggle")
+    await _make_memory(db, user_id, "closest", _spread(0.84, 1), entry_type="belief")
+    await _make_memory(db, user_id, "next closest", _spread(0.80, 2), entry_type="value")
+    await _make_memory(db, user_id, "below the cut", _spread(0.60, 3), entry_type="struggle")
     await _make_memory(db, user_id, "orthogonal", ORTHOGONAL, entry_type="pattern")
     await db.flush()
 
@@ -203,9 +264,9 @@ async def test_recall_keeps_only_matches_above_the_threshold_in_distance_order(d
         db, user_id, query="unused — the vector is supplied", query_embedding=QUERY,
     )
 
-    assert [r.content for r in rows] == ["identical", "near"]
-    assert rows[0].score == pytest.approx(1.0, abs=1e-5)
-    assert rows[1].score == pytest.approx(0.8, abs=1e-5)
+    assert [r.content for r in rows] == ["closest", "next closest"]
+    assert rows[0].score == pytest.approx(0.84, abs=1e-5)
+    assert rows[1].score == pytest.approx(0.80, abs=1e-5)
 
 
 @pytest.mark.asyncio
@@ -266,13 +327,19 @@ async def test_one_prolific_type_cannot_crowd_out_the_others(db):
 
     This needs the database because the quota is a ROW_NUMBER() window: a mock
     returns whatever the author invented, so 'the query ranked within type' is
-    exactly what it cannot assert."""
+    exactly what it cannot assert.
+
+    D3: the six patterns were coplanar at 0.99…0.94 and therefore 0.999 similar
+    to EACH OTHER, so the diversity guard collapsed them to one and this test
+    measured the guard instead of the quota. Six different facts have to be six
+    different vectors — each now has its own spread axis, worst pair 0.84*0.83 =
+    0.697, and the quota is once again the only thing holding patterns to two."""
     user_id = await _make_user(db)
     for i in range(6):
-        a = 0.99 - i * 0.01
-        await _make_memory(db, user_id, f"pattern {i}", _unit(a, (1 - a ** 2) ** 0.5),
+        a = 0.84 - i * 0.01          # 0.84 … 0.79, all above the floor
+        await _make_memory(db, user_id, f"pattern {i}", _spread(a, axis=1 + i),
                            entry_type="pattern")
-    await _make_memory(db, user_id, "the milestone", _unit(0.80, (1 - 0.80 ** 2) ** 0.5),
+    await _make_memory(db, user_id, "the milestone", _spread(0.78, axis=7),
                        entry_type="milestone")
     await db.flush()
 
@@ -327,11 +394,15 @@ async def test_recall_respects_top_k(db):
     """top_k is the TOTAL budget across both lanes since PR-2 — no longer a SQL
     LIMIT, since the caps and quotas decide the block and the query only fetches
     candidates. Five distinct types, so the per-type quota is not what holds the
-    result to two."""
+    result to two.
+
+    D3: five distinct types were not enough once the guard existed — the five
+    vectors were coplanar and mutually ~0.999, so the block was one row and
+    `top_k` was not what held it there. Own axes now, worst pair 0.697."""
     user_id = await _make_user(db)
     for i, etype in enumerate(("belief", "value", "struggle", "pattern", "milestone")):
-        a = 0.99 - i * 0.01
-        await _make_memory(db, user_id, f"m{i}", _unit(a, (1 - a ** 2) ** 0.5),
+        a = 0.84 - i * 0.01          # 0.84 … 0.80, all above the floor
+        await _make_memory(db, user_id, f"m{i}", _spread(a, axis=1 + i),
                            entry_type=etype)
     await db.flush()
 
@@ -349,16 +420,22 @@ async def test_the_default_budget_fills_both_lanes(db):
     block should be 3 standing + 5 inferred, standing first.
 
     This is the assertion that would have caught shipping the design's lanes with
-    the old budget still in force at the call sites."""
+    the old budget still in force at the call sites.
+
+    D3: all ten rows were coplanar and mutually ~0.999, so the guard reduced the
+    block to a single row and the budget was not what sized it. Ten facts, ten
+    axes. Every row still clears the floor — the standing four do not need to,
+    but keeping them above it leaves the test's setup exactly as described — and
+    the worst pair is 0.84*0.83 = 0.697, well clear of the threshold."""
     user_id = await _make_user(db)
     for i, etype in enumerate(("stated", "stated", "self_portrait", "self_portrait")):
-        a = 0.99 - i * 0.001
-        await _make_memory(db, user_id, f"standing {i}", _unit(a, (1 - a ** 2) ** 0.5),
+        a = 0.80 - i * 0.01          # 0.80 … 0.77
+        await _make_memory(db, user_id, f"standing {i}", _spread(a, axis=1 + i),
                            entry_type=etype)
     for i, etype in enumerate(("belief", "value", "struggle", "pattern",
                                "milestone", "counterview_belief")):
-        a = 0.95 - i * 0.01
-        await _make_memory(db, user_id, f"inferred {i}", _unit(a, (1 - a ** 2) ** 0.5),
+        a = 0.84 - i * 0.01          # 0.84 … 0.79
+        await _make_memory(db, user_id, f"inferred {i}", _spread(a, axis=5 + i),
                            entry_type=etype)
     await db.flush()
 
@@ -485,6 +562,7 @@ async def test_the_recall_query_plans_as_one_scan_with_one_window(db):
             "standing_per_type": STANDING_PER_TYPE,
             "inferred_per_type": INFERRED_PER_TYPE,
             "floor": INFERRED_SCORE_FLOOR,
+            "dup_threshold": DUPLICATE_SIM_THRESHOLD,
         },
     )
     raw = plan_rows.scalar_one()
@@ -716,3 +794,241 @@ async def test_an_orphaned_memory_is_not_counted_as_a_prior_conversation(db):
     # source_count is distinct prior conversations + 1: 2 before, 1 after. The
     # orphan cannot inflate it, and cannot be double-counted against NULL.
     assert len(await _prior_conversations()) + 1 == 2
+
+
+# ── 5. The diversity guard (D3) — the half that needs real pgvector ──────────
+#
+# The unit suite (tests/services/test_compose_recall.py) owns what the guard DOES
+# with `near_dupe_ids`. What needs a live database is that the right ids arrive:
+# the adjacency is computed over the candidate set by pgvector, at
+# DUPLICATE_SIM_THRESHOLD, scoped to one user.
+#
+# THREE VECTORS, CHOSEN SO NO ASSERTION SITS NEAR A BOUNDARY:
+#
+#   DUP_HIGH  sim 0.99 to the query
+#   DUP_MID   sim 0.95 to the query;  sim(DUP_HIGH, DUP_MID) = 0.985  -> duplicates
+#   DISTINCT  sim 0.80 to the query;  sim to either of the above 0.707 / 0.573
+#
+# DISTINCT sits on the OPPOSITE side of e0, and it has to. Every vector within the
+# Lane B floor of the query is also within the threshold of any vector lying ON
+# the query axis, so a "distinct but still recalled" row is geometrically
+# impossible on one side. That is a property of the construction, not of the
+# product — but it is why these three are not simply 0.99 / 0.95 / 0.80 in a row.
+#
+# THE THREE ROWS CARRY THREE DIFFERENT TYPES so INFERRED_PER_TYPE (2) can never be
+# the reason a row is missing — the same trap the floor tests above call out.
+
+DUP_HIGH = _unit(0.99, (1 - 0.99 ** 2) ** 0.5)
+DUP_MID = _unit(0.95, (1 - 0.95 ** 2) ** 0.5)
+DISTINCT = _unit(0.80, -((1 - 0.80 ** 2) ** 0.5))
+
+
+@pytest.mark.asyncio
+async def test_two_near_duplicates_cannot_both_occupy_a_slot(db):
+    """THE D3 DEFECT, against real vectors. Measured in production: of the 11
+    same-user pairs above 0.85, ten would have had BOTH members inside the
+    per-type cap — one fact spending two slots."""
+    user_id = await _make_user(db)
+    await _make_memory(db, user_id, "dup-high", DUP_HIGH, entry_type="belief")
+    await _make_memory(db, user_id, "dup-mid", DUP_MID, entry_type="value")
+    await db.flush()
+
+    rows = await memory_service.recall(
+        db, user_id, query="unused", query_embedding=QUERY,
+    )
+
+    assert [r.content for r in rows] == ["dup-high"], (
+        "the restatement took a slot; near_dupe_ids did not reach compose_recall"
+    )
+
+
+@pytest.mark.asyncio
+async def test_the_freed_slot_is_filled_by_the_next_distinct_memory(db):
+    """K STAYS FULL. The guard must not shorten the block — the slot the
+    duplicate would have taken goes to the next distinct row instead.
+
+    top_k=2 with three candidates: without the guard the answer is
+    [dup-high, dup-mid]; with it, [dup-high, distinct]. Both are length 2, which
+    is exactly the point — a shortened block would also 'pass' an assertion that
+    only checked that the duplicate was gone."""
+    user_id = await _make_user(db)
+    await _make_memory(db, user_id, "dup-high", DUP_HIGH, entry_type="belief")
+    await _make_memory(db, user_id, "dup-mid", DUP_MID, entry_type="value")
+    await _make_memory(db, user_id, "distinct", DISTINCT, entry_type="struggle")
+    await db.flush()
+
+    rows = await memory_service.recall(
+        db, user_id, query="unused", query_embedding=QUERY, top_k=2,
+    )
+
+    assert [r.content for r in rows] == ["dup-high", "distinct"]
+    assert len(rows) == 2, "the block was shortened rather than refilled"
+
+
+@pytest.mark.asyncio
+async def test_legitimate_neighbours_below_the_threshold_both_survive(db):
+    """The guard's other half, and the one that would fail silently: two rows on
+    a related theme that are NOT restatements must both come back. A guard that
+    swallowed neighbours would narrow recall in the direction Ruling #5 widened."""
+    user_id = await _make_user(db)
+    await _make_memory(db, user_id, "dup-mid", DUP_MID, entry_type="belief")
+    await _make_memory(db, user_id, "distinct", DISTINCT, entry_type="value")
+    await db.flush()
+
+    rows = await memory_service.recall(
+        db, user_id, query="unused", query_embedding=QUERY,
+    )
+
+    assert [r.content for r in rows] == ["dup-mid", "distinct"]
+
+
+@pytest.mark.asyncio
+async def test_the_guard_never_crosses_users(db):
+    """Another person's memory must not suppress yours.
+
+    `near_dupe_ids` is built from the candidate CTE, which is already user-scoped
+    — so this passes today by construction. It is pinned because the failure is
+    invisible: the row simply would not appear, and nothing would look broken.
+    Both users hold the SAME two vectors, so a leak would suppress one of them."""
+    mine = await _make_user(db)
+    theirs = await _make_user(db)
+    for uid in (mine, theirs):
+        await _make_memory(db, uid, f"dup-high-{uid}", DUP_HIGH, entry_type="belief")
+        await _make_memory(db, uid, f"distinct-{uid}", DISTINCT, entry_type="value")
+    await db.flush()
+
+    rows = await memory_service.recall(
+        db, mine, query="unused", query_embedding=QUERY,
+    )
+
+    assert [r.content for r in rows] == [f"dup-high-{mine}", f"distinct-{mine}"]
+
+
+@pytest.mark.asyncio
+async def test_the_guard_preserves_descending_score_order(db):
+    """Survivors keep the ranking `_ordered` gave them. The guard only ever drops
+    rows; a version that also resorted would make the block's order depend on
+    which rows happened to be duplicates."""
+    user_id = await _make_user(db)
+    await _make_memory(db, user_id, "dup-high", DUP_HIGH, entry_type="belief")
+    await _make_memory(db, user_id, "dup-mid", DUP_MID, entry_type="value")
+    await _make_memory(db, user_id, "distinct", DISTINCT, entry_type="struggle")
+    await db.flush()
+
+    rows = await memory_service.recall(
+        db, user_id, query="unused", query_embedding=QUERY,
+    )
+
+    scores = [r.score for r in rows]
+    assert scores == sorted(scores, reverse=True), scores
+    assert [r.content for r in rows] == ["dup-high", "distinct"]
+
+
+@pytest.mark.asyncio
+async def test_recall_sql_returns_near_dupe_ids_and_it_is_symmetric(db):
+    """THE COLUMN ITSELF, pinned at the query.
+
+    `compose_recall` reads this through `getattr(row, "near_dupe_ids", None)` so
+    that hand-built rows in the unit suite still compose — which means a query
+    that stopped returning the column would disable the guard SILENTLY and leave
+    every unit test green. This is the assertion that would catch that.
+
+    Symmetry is asserted too: the predicate is symmetric, so each member of a
+    duplicate pair must name the other."""
+    user_id = await _make_user(db)
+    await _make_memory(db, user_id, "dup-high", DUP_HIGH, entry_type="belief")
+    await _make_memory(db, user_id, "dup-mid", DUP_MID, entry_type="value")
+    await _make_memory(db, user_id, "distinct", DISTINCT, entry_type="struggle")
+    await db.flush()
+
+    result = await db.execute(
+        text(RECALL_SQL),
+        {
+            "query_vec": _vec(QUERY),
+            "user_id": user_id,
+            "standing_types": list(STANDING_TYPES),
+            "standing_per_type": STANDING_PER_TYPE,
+            "inferred_per_type": INFERRED_PER_TYPE,
+            "floor": INFERRED_SCORE_FLOOR,
+            "dup_threshold": DUPLICATE_SIM_THRESHOLD,
+        },
+    )
+    by_content = {r.content: r for r in result.fetchall()}
+
+    assert set(by_content) == {"dup-high", "dup-mid", "distinct"}
+
+    ids = {c: str(r.id) for c, r in by_content.items()}
+    dupes = {c: {str(x) for x in (r.near_dupe_ids or [])} for c, r in by_content.items()}
+
+    assert dupes["dup-high"] == {ids["dup-mid"]}
+    assert dupes["dup-mid"] == {ids["dup-high"]}, "the predicate is not symmetric"
+    assert dupes["distinct"] == set(), "a neighbour was marked as a duplicate"
+
+
+# ── The fixture invariant, pinned so this cannot regress silently ────────────
+
+def _cos(u: list[float], v: list[float]) -> float:
+    """Cosine of two unit vectors built by the helpers above."""
+    return sum(a * b for a, b in zip(u, v))
+
+
+def test_fixture_vectors_seeded_together_are_not_near_duplicates():
+    """THE BUG THAT COST A RED CI RUN, turned into an assertion that runs on a
+    laptop.
+
+    Every recall fixture used to be built by `_unit(a, sqrt(1-a^2))`, i.e. in one
+    e0/e1 plane, where rows standing for DIFFERENT facts are ~0.999 similar to
+    each other. That was invisible for as long as recall only compared a row to
+    the QUERY. The moment the D3 guard started comparing rows to EACH OTHER, four
+    tests began measuring the guard instead of the floor, the quota and the
+    budget they are named for.
+
+    NO DATABASE, ON PURPOSE — this is arithmetic over the fixture constructors,
+    so it fails on the machine the fixture was written on rather than waiting for
+    the db-tests job. It is the same reasoning the runbook-query tests use for
+    their document-only checks.
+
+    If a future fixture set trips this, the fix is a distinct spread axis, NOT a
+    lower threshold: see `_spread` for why coplanar vectors collide and real
+    1536-dimensional embeddings do not.
+    """
+    # The four sets seeded for a single user with more than one live candidate.
+    families = {
+        "ordering/floor": [_spread(0.84, 1), _spread(0.80, 2)],
+        "prolific type": [_spread(0.84 - i * 0.01, 1 + i) for i in range(6)]
+                         + [_spread(0.78, 7)],
+        "top_k": [_spread(0.84 - i * 0.01, 1 + i) for i in range(5)],
+        "default budget": [_spread(0.80 - i * 0.01, 1 + i) for i in range(4)]
+                          + [_spread(0.84 - i * 0.01, 5 + i) for i in range(6)],
+    }
+
+    for name, vectors in families.items():
+        for i in range(len(vectors)):
+            for j in range(i + 1, len(vectors)):
+                sim = _cos(vectors[i], vectors[j])
+                assert sim < DUPLICATE_SIM_THRESHOLD, (
+                    f"{name}: fixture rows {i} and {j} are {sim:.4f} similar — the "
+                    f"diversity guard will treat two DISTINCT facts as one. Give "
+                    f"them different spread axes rather than lowering the threshold."
+                )
+
+
+def test_the_guard_fixtures_are_duplicates_and_neighbours_as_labelled():
+    """The other direction: the D3 tests only mean anything if DUP_HIGH/DUP_MID
+    really are over the line and DISTINCT really is under it. Asserted here so a
+    later edit to those three vectors cannot quietly turn the guard tests into
+    tests of nothing."""
+    assert _cos(DUP_HIGH, DUP_MID) >= DUPLICATE_SIM_THRESHOLD
+    assert _cos(DUP_HIGH, DISTINCT) < DUPLICATE_SIM_THRESHOLD
+    assert _cos(DUP_MID, DISTINCT) < DUPLICATE_SIM_THRESHOLD
+    # And all three must clear the Lane B floor, or the test would be measuring
+    # the floor instead of the guard.
+    for v in (DUP_HIGH, DUP_MID, DISTINCT):
+        assert _cos(QUERY, v) > INFERRED_SCORE_FLOOR
+
+
+def test_the_coplanar_constants_are_documented_as_single_use():
+    """IDENTICAL and NEAR cannot be seeded together for one user above the floor —
+    they are 0.80 similar, which is what broke the ordering test. Pinned so the
+    comment beside them is not the only thing saying so."""
+    assert _cos(IDENTICAL, NEAR) >= DUPLICATE_SIM_THRESHOLD
