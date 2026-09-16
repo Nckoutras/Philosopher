@@ -6,7 +6,7 @@ import { ChevronDown, Bookmark, BookmarkCheck } from 'lucide-react'
 import SubPageNav from '@/components/layout/SubPageNav'
 import { useStore } from '@/lib/store'
 import { api, RateLimitError } from '@/lib/api'
-import type { SelfComparisonStatus, SavedLineRead } from '@/lib/api'
+import type { SelfComparisonStatus, SavedLineRead, SelfComparisonListItem } from '@/lib/api'
 import Image from 'next/image'
 import WiseMark from '@/components/ui/WiseMark'
 
@@ -51,8 +51,18 @@ export default function YouVsYouPage() {
   const [status, setStatus] = useState<SelfComparisonStatus | null>(null)
   const [loading, setLoading] = useState(true)
 
-  const [mode, setMode] = useState<'input' | 'streaming'>('input')
+  // 'reading' replays a PAST run through the same view 'streaming' renders live.
+  // One tree, not two: that is what makes "shows what generation showed" true by
+  // construction rather than by care.
+  const [mode, setMode] = useState<'input' | 'streaming' | 'reading'>('input')
   const [prompt, setPrompt] = useState('')
+  const [past, setPast] = useState<SelfComparisonListItem[]>([])
+  // Distinct from `past.length === 0`: until the list has actually come back,
+  // empty means "unknown", and rendering the empty-state on it would flash the
+  // "will gather here" line at someone who has ten.
+  const [pastLoaded, setPastLoaded] = useState(false)
+  const [showAllPast, setShowAllPast] = useState(false)
+  const [opening, setOpening] = useState(false)
   const [savedLines, setSavedLines] = useState<SavedLineRead[]>([])
   const [showLines, setShowLines] = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -80,6 +90,10 @@ export default function YouVsYouPage() {
         setRemaining(s.weekly_remaining ?? null)
         if (s.unlocked) {
           try { const r = await api.listSavedLines(); setSavedLines(r.items) } catch { /* optional */ }
+          // Best-effort, exactly as the saved lines above: a failed list must not
+          // cost the person the ability to ask a new question.
+          try { setPast(await api.listSelfComparisons()) } catch { /* optional */ }
+          finally { setPastLoaded(true) }
         }
       } catch { setStatus(null) } finally { setLoading(false) }
     }
@@ -135,6 +149,10 @@ export default function YouVsYouPage() {
           } else if (ev.type === 'done') {
             if (ev.comparison_id) setComparisonId(ev.comparison_id)
             setRemaining((r) => (r !== null ? Math.max(0, r - 1) : r))
+            // The run just became listable. Re-pull rather than splicing it in
+            // locally, so the list stays the server's answer and the newest row
+            // carries the same created_at everything else is ordered by.
+            api.listSelfComparisons().then(setPast).catch(() => {})
           }
         }
       }
@@ -142,6 +160,38 @@ export default function YouVsYouPage() {
       setStreamError(e instanceof RateLimitError ? 'rate_limit' : 'error')
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  // Reopen a past run: pull the stored payload by id and pour it into the same
+  // state the stream fills, then switch the view to 'reading'. No generation, no
+  // write — this is the whole of the read path on the client.
+  async function openPast(id: string) {
+    if (opening) return
+    setOpening(true)
+    try {
+      const run = await api.getSelfComparison(id)
+      setPrompt(run.prompt)
+      setThenText(run.then.answer)
+      setNowText(run.now.answer)
+      // Both ends or neither: fmtSpan needs the pair, and a half-window would
+      // render a dash with nothing on one side of it.
+      setThenDates(run.then.start && run.then.end ? { start: run.then.start, end: run.then.end } : null)
+      setNowDates(run.now.start && run.now.end ? { start: run.now.start, end: run.now.end } : null)
+      setClosing(run.closing)
+      setComparisonId(run.id)
+      setRingTrue(run.ring_true)
+      // The server already holds this verdict, so "Noted." is earned on arrival —
+      // the same contract submitRingTrue applies to a fresh one. A run judged
+      // months ago must not reopen looking unanswered.
+      setRingTrueConfirmed(run.ring_true !== null)
+      setSentenceSaved(run.saved)
+      setStreamError(null)
+      setMode('reading')
+    } catch {
+      // Leave the person on the input screen rather than opening an empty run.
+    } finally {
+      setOpening(false)
     }
   }
 
@@ -260,11 +310,59 @@ export default function YouVsYouPage() {
                 : <>{remaining ?? status.weekly_remaining} of {status.weekly_limit} left this week</>}
             </p>
           )}
+
+          {/* Earlier comparisons — the revisit list, in the shape the counterview
+              page established. It sits INSIDE the input block on purpose, which
+              means it stays reachable when remaining === 0: a capped reader can
+              still return to what they already have. */}
+          {pastLoaded && (
+            <section className="mt-[20px]">
+              <p className="font-lora text-[11px] uppercase tracking-[0.22em] text-bronze-dark mb-[10px]">
+                Earlier comparisons
+              </p>
+              {past.length === 0 ? (
+                <p className="font-lora text-[13px] text-sepia">Your past comparisons will gather here.</p>
+              ) : (
+                <>
+                  <ul className="space-y-[8px]">
+                    {(showAllPast ? past : past.slice(0, 3)).map((item) => (
+                      <li key={item.id}>
+                        <button
+                          type="button"
+                          onClick={() => openPast(item.id)}
+                          disabled={opening}
+                          className="w-full text-left bg-paper/60 border-[0.5px] border-edge rounded-[8px] px-[12px] py-[9px] active:scale-[0.99] transition-transform disabled:opacity-60"
+                        >
+                          <span className="flex items-baseline gap-[10px]">
+                            {/* The question they typed, which is what makes one row
+                                tell itself apart from another. */}
+                            <span className="flex-1 font-cormorant text-[15px] text-ink leading-snug line-clamp-2">{item.prompt}</span>
+                            {/* Dated, unlike the counterview list: the whole subject
+                                of this ritual is time, so an undated list would be odd. */}
+                            <span className="flex-shrink-0 font-lora text-[11px] text-sepia">{fmtDate(item.created_at)}</span>
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                  {past.length > 3 && (
+                    <button
+                      type="button"
+                      onClick={() => setShowAllPast((v) => !v)}
+                      className="mt-[12px] font-lora text-[11px] uppercase tracking-[0.22em] text-bronze-dark active:opacity-60 transition-opacity"
+                    >
+                      {showAllPast ? 'Show fewer' : `Show earlier (${past.length - 3})`}
+                    </button>
+                  )}
+                </>
+              )}
+            </section>
+          )}
         </div>
       )}
 
-      {/* Unlocked - streaming reveal */}
-      {!loading && status && status.unlocked && mode === 'streaming' && (
+      {/* Unlocked - the result view: streaming reveal, or a past run replayed */}
+      {!loading && status && status.unlocked && mode !== 'input' && (
         <div className="flex flex-col gap-[20px]">
           <p className="font-cormorant italic text-[18px] text-charcoal text-center leading-snug">{prompt}</p>
           {streamError && (

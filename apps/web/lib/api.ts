@@ -578,6 +578,53 @@ export interface SelfComparisonStatus {
   plan: string | null
 }
 
+// The revisit list (Γ-8). Slim: the question the person typed plus a date, with
+// the rest pulled by id on open — the same split CounterviewListItem uses.
+export interface SelfComparisonListItem {
+  id: string
+  prompt: string
+  created_at: string
+}
+
+export interface SelfComparisonQuote {
+  text: string
+  date: string
+}
+
+// `start`/`end` are the window the run ACTUALLY USED, replayed from the stored
+// payload. They are not recomputed: the 'now' window is the latest K memory
+// signals and moves constantly, so recomputing would show a window the person
+// was never shown.
+export interface SelfComparisonSide {
+  answer: string
+  start: string | null
+  end: string | null
+}
+
+export interface SelfComparisonClosing {
+  observation: string
+  question: string
+  then_quote: SelfComparisonQuote | null
+  now_quote: SelfComparisonQuote | null
+  hidden_continuity: string | null
+  sentence_owed: string | null
+}
+
+// A past run, reopened. `ring_true` and `saved` come back so a reopened run
+// renders its own state rather than an empty row — the same reason Insight
+// carries ring_true. No note: this ritual has no surface that collects one.
+export interface SelfComparisonDetail {
+  id: string
+  prompt: string
+  created_at: string
+  then: SelfComparisonSide
+  now: SelfComparisonSide
+  closing: SelfComparisonClosing
+  ring_true: 'yes' | 'partly' | 'no' | null
+  ring_true_at: string | null
+  saved: boolean
+}
+
 // ── Client ────────────────────────────────────────────────────────────────────
 
 class ApiClient {
@@ -817,6 +864,18 @@ class ApiClient {
 
   async getSelfComparisonStatus(): Promise<SelfComparisonStatus> {
     return this.request<SelfComparisonStatus>('/self-comparison/status')
+  }
+
+  // Past runs, newest first, finished ones only. Not Pro-gated: making a
+  // comparison is Pro, re-reading one you already have is not.
+  async listSelfComparisons(): Promise<SelfComparisonListItem[]> {
+    return this.request<SelfComparisonListItem[]>('/self-comparison')
+  }
+
+  // Reopen one past run. Pure read — no generation, so this costs nothing and
+  // can be called as often as the reader likes.
+  async getSelfComparison(id: string): Promise<SelfComparisonDetail> {
+    return this.request<SelfComparisonDetail>(`/self-comparison/${id}`)
   }
 
   async setSelfComparisonRingTrue(comparisonId: string, ringTrue: string, note?: string): Promise<void> {
