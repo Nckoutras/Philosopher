@@ -108,7 +108,14 @@ def test_no_user_name_parameter_still(builder):
 
 
 def test_greek_template_carries_no_country_specific_numbers():
-    """Checked against the FILE, so it holds before and after the copy lands."""
+    """No OTHER country's numbers in the Greek template.
+
+    Narrowed 2026-09-16. This once stood for "no helpline number at all", per the
+    2026-09-02 ruling; the founder reversed that and the Greek template now
+    carries 1018/10306 (see the test below). What survives the reversal is the
+    part that was always right: a Greek speaker must never be handed a US or UK
+    number. The numbers listed here are exactly the ones that would be wrong.
+    """
     path = Path(__file__).resolve().parents[1] / "prompts" / "safety_response_el.jinja2"
     body = path.read_text(encoding="utf-8")
     for number in ("988", "741741", "116123"):
@@ -121,3 +128,45 @@ def test_greek_copy_is_single_for_all_suppression_levels(builder):
     medium = builder.build_safety_response(level="medium", language="Greek")
     critical = builder.build_safety_response(level="critical", language="Greek")
     assert high == medium == critical
+
+
+# ── The approved Greek helplines (2026-09-16) ─────────────────────────────────
+
+GREEK_HELPLINES = ("1018", "10306", "112")
+
+
+def test_the_greek_template_carries_the_approved_helplines():
+    """Founder-approved 2026-09-16, reversing the 2026-09-02 no-numbers ruling.
+
+    Checked against the FILE and by NUMBER, because this is the assertion that
+    would catch the failure the original ruling was afraid of: a number silently
+    edited, dropped in a reword, or lost to a bad merge. A crisis response that
+    has quietly stopped naming a helpline looks completely normal on screen.
+
+      1018  — Γραμμή Παρέμβασης για την Αυτοκτονία (ΚΛΙΜΑΚΑ), 24/7
+      10306 — Γραμμή Ψυχοκοινωνικής Υποστήριξης, 24/7, free
+      112   — EU emergency
+
+    These were verified against published sources, NOT by dialling them. This
+    test proves the numbers are present and unchanged since the lock; it cannot
+    prove they still ring. That obligation is named in the template header.
+    """
+    path = Path(__file__).resolve().parents[1] / "prompts" / "safety_response_el.jinja2"
+    body = path.read_text(encoding="utf-8")
+    rendered = PromptBuilder().build_safety_response(level="high", language="Greek")
+
+    for number in GREEK_HELPLINES:
+        assert number in body, f"helpline {number} missing from the Greek template"
+        # Present in the FILE is not present in the OUTPUT — a number stranded in
+        # the jinja comment header would pass the check above and reach nobody.
+        assert number in rendered, f"helpline {number} never reaches the rendered response"
+
+
+def test_the_english_template_stays_country_neutral():
+    """The reversal is Greek-only, and deliberately so: the Greek template can
+    name numbers because the language tells us the country. English cannot — an
+    English speaker may be anywhere — so it keeps the country-neutral guidance.
+    """
+    rendered = PromptBuilder().build_safety_response(level="high", language="English")
+    for number in GREEK_HELPLINES:
+        assert number not in rendered, f"{number} leaked into the country-neutral English copy"
