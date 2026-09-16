@@ -51,6 +51,38 @@ INFERRED_PER_TYPE = 2        # Lane B, any one type — stops one prolific type
 # ENFORCED but not where it belongs. Named so it moves without touching the query.
 INFERRED_SCORE_FLOOR = 0.75
 
+# ── "These two rows say the same thing" — ONE definition, two readers ─────────
+#
+# MOVED HERE FROM THE RECURRENCE BLOCK BELOW (D3), unchanged in value. It was
+# always the memory domain's only ROW-TO-ROW similarity constant; it now has a
+# second reader, so it sits with the recall constants rather than inside the
+# section named after its first one.
+#
+# Reader 1 — `find_recurrences`: a prior entry this similar means the person has
+# returned to a theme, and that is worth a card.
+# Reader 2 — `compose_recall`'s diversity guard (D3): two candidates this similar
+# say one thing, and the second one should not spend a slot saying it again.
+#
+# THE TWO READINGS ARE THE SAME FACT, USED TWICE — which is why this is one
+# constant and not two. A pair over this line is a restatement; recurrence turns
+# that into an insight, and recall declines to print it twice.
+#
+# CALIBRATION, MEASURED (D3, production 2026-09-16). 0.75 was inherited from the
+# recurrence path and was NOT chosen for this job, so it was checked against real
+# rows before being reused. Of 109,309 active same-user pairs: 0 above 0.95, 2
+# above 0.90, 96 above this line. Every founder pair sampled in the 0.75-0.80
+# band — the band nearest the line, where a wrong threshold does its damage — was
+# a genuine restatement rather than a neighbouring thought, e.g. "User feels they
+# have no friends and is experiencing loneliness" beside "User feels isolated and
+# lacks meaningful friendships" at 0.798. An earlier D3 draft proposed ~0.85 for
+# this guard; that was over-cautious and the measurement is why it is not 0.85.
+#
+# NOT the same axis as INFERRED_SCORE_FLOOR above, which compares a row to the
+# QUERY. This compares a row to ANOTHER ROW. Both happen to read 0.75 today and
+# they are unrelated; changing one must not drag the other.
+DUPLICATE_SIM_THRESHOLD = 0.75
+RECURRENCE_SIM_THRESHOLD = DUPLICATE_SIM_THRESHOLD  # first reader's historical name
+
 # Candidates, not the answer. ROW_NUMBER ranks WITHIN each entry_type so one
 # prolific type cannot crowd the others out before Python ever sees the rows,
 # and the floor is applied to the inferred branch only. `compose_recall` then
@@ -59,11 +91,27 @@ INFERRED_SCORE_FLOOR = 0.75
 # The lane test is `entry_type = ANY(:standing_types)` / `<> ALL(...)` — the
 # catch-all form, for the reason given on STANDING_TYPES.
 #
+# `near_dupe_ids` IS COMPUTED HERE RATHER THAN IN PYTHON, and the choice is about
+# the hot path. The alternative — return `embedding` and compare in
+# `compose_recall` — would ship up to ~22 candidate vectors of 1536 floats on
+# EVERY chat turn (pgvector renders them as text, ~20KB each) to answer a
+# question the database can answer where the vectors already live. What crosses
+# the wire instead is a short array of ids.
+#
+# The comparison is over the CANDIDATE SET, not the table: `candidates` is
+# referenced twice so Postgres materialises it, and `memory_entries` is still
+# scanned exactly once (pinned by the plan test, T-9).
+#
+# ACROSS TYPES, DELIBERATELY. The per-type quota cannot bound a cross-type
+# duplicate, and those are real: a `struggle` row and a `pattern` row in
+# production say the same thing at 0.772. Restricting this to same-type pairs
+# would miss exactly the duplicates nothing else catches.
+#
 # Module-level so tests can EXPLAIN the REAL query rather than a copy that can
 # drift from it (T-9).
 RECALL_SQL = """
     WITH scored AS (
-        SELECT id, entry_type, content, confidence, created_at,
+        SELECT id, entry_type, content, confidence, created_at, embedding,
                1 - (embedding <=> CAST(:query_vec AS vector)) AS score,
                ROW_NUMBER() OVER (
                    PARTITION BY entry_type
@@ -74,14 +122,24 @@ RECALL_SQL = """
         WHERE user_id = :user_id
           AND is_active = TRUE
           AND embedding IS NOT NULL
+    ),
+    candidates AS (
+        SELECT id, entry_type, content, confidence, created_at, embedding, score
+        FROM scored
+        WHERE (entry_type = ANY(CAST(:standing_types AS text[]))
+               AND rank_in_type <= :standing_per_type)
+           OR (entry_type <> ALL(CAST(:standing_types AS text[]))
+               AND rank_in_type <= :inferred_per_type
+               AND score > :floor)
     )
-    SELECT id, entry_type, content, confidence, created_at, score
-    FROM scored
-    WHERE (entry_type = ANY(CAST(:standing_types AS text[]))
-           AND rank_in_type <= :standing_per_type)
-       OR (entry_type <> ALL(CAST(:standing_types AS text[]))
-           AND rank_in_type <= :inferred_per_type
-           AND score > :floor)
+    SELECT c.id, c.entry_type, c.content, c.confidence, c.created_at, c.score,
+           ARRAY(
+               SELECT o.id
+               FROM candidates o
+               WHERE o.id <> c.id
+                 AND 1 - (c.embedding <=> o.embedding) >= :dup_threshold
+           ) AS near_dupe_ids
+    FROM candidates c
 """
 
 
@@ -103,15 +161,62 @@ def _ordered(rows: list) -> list:
     return xs
 
 
-def _take_per_type(rows: list, per_type: int) -> list:
-    """First `per_type` of each entry_type, preserving the given order."""
+def _near_dupes(row) -> frozenset:
+    """The ids this candidate restates, as computed by RECALL_SQL.
+
+    `getattr` WITH A DEFAULT, NOT `row.near_dupe_ids`. compose_recall is a public
+    pure function and its other caller is a test suite of hand-built rows; a row
+    without the column must compose exactly as it did before the guard existed
+    rather than raise. The risk that buys — a real query silently losing the
+    column and the guard going quiet — is covered where it belongs, by a db_live
+    test that asserts RECALL_SQL returns it.
+
+    COMPARED AS STRINGS, and that is not tidying. These ids cross a raw-driver
+    boundary: `recall` runs `text(RECALL_SQL)`, so asyncpg decodes a `uuid` column
+    to `uuid.UUID` while the models declare `UUID(as_uuid=False)` and every
+    hand-built test row uses `str`. A set of UUIDs intersected with a set of `str`
+    is EMPTY rather than an error — the guard would do nothing, on every turn, and
+    every unit test would still pass. Normalising both sides here makes the
+    comparison independent of which driver produced the row.
+    """
+    return frozenset(str(x) for x in (getattr(row, "near_dupe_ids", None) or ()))
+
+
+def _select(rows: list, *, per_type: int, limit: int, already: list) -> list:
+    """Greedy pick: per-type quota, diversity guard, hard limit — in ONE pass.
+
+    Replaces `_take_per_type(...)[:limit]`. Slicing after the fact cannot express
+    the guard: a dropped duplicate has to free its slot for the next-best
+    distinct row, so the cut has to happen DURING the walk, not after it. K stays
+    full; it is not shortened by deduplication.
+
+    A duplicate is skipped BEFORE the type quota is charged — it never occupied a
+    slot, so it must not spend one on its way out.
+
+    `already` is the rows chosen by an earlier lane. Lane B therefore dedupes
+    against Lane A as well as against itself, which is the point: if the person's
+    own stated words are already in the block, an inferred restatement of them
+    adds nothing. Nothing dedupes backwards — Lane A is chosen first and is never
+    revisited.
+
+    Input order is preserved among survivors: this only ever drops rows, never
+    reorders them, so `_ordered`'s ranking still governs the block.
+    """
     seen: Counter = Counter()
-    kept = []
+    kept: list = []
+    # str() on both sides — see _near_dupes for why the comparison cannot be left
+    # to whatever type the driver produced.
+    kept_ids = {str(r.id) for r in already}
     for r in rows:
+        if len(kept) >= limit:
+            break
         if seen[r.entry_type] >= per_type:
+            continue
+        if kept_ids & _near_dupes(r):
             continue
         seen[r.entry_type] += 1
         kept.append(r)
+        kept_ids.add(str(r.id))
     return kept
 
 
@@ -141,6 +246,24 @@ def compose_recall(
     the SQL's window is an optimisation that fetches fewer rows, not the authority
     on the answer. That keeps this function meaningful against any input a test
     hands it.
+
+    THE DIVERSITY GUARD (D3). A candidate that restates a row already chosen is
+    skipped, and the slot goes to the next distinct row instead. "Restates" is
+    DUPLICATE_SIM_THRESHOLD, computed in RECALL_SQL and arriving as
+    `near_dupe_ids`; see that constant for why it is shared with recurrence and
+    what the production data says about where it sits.
+
+    WHAT THIS FIXES, stated because the caps LOOK like they already covered it.
+    They do not. `INFERRED_PER_TYPE = 2` bounds how many rows of one type appear,
+    which is a different question from whether two of them say the same thing —
+    and it is no bound at all across types. Measured in production: of the 11
+    same-user pairs above 0.85, TEN would have had both members inside the
+    per-type cap, i.e. one fact spending two of Lane B's five slots. One such
+    pair spans two types, where the quota could never have helped.
+
+    This only ever DROPS rows; it never reorders them, and it never invents one.
+    Deduplication does not shorten the block — the limit is applied during the
+    walk, so a skipped duplicate frees its slot rather than losing it.
     """
     standing_set = set(standing_types)
 
@@ -154,18 +277,30 @@ def compose_recall(
     # min, a caller asking for fewer rows than the person has standing rows would
     # get more than it asked for: Lane B's room would clamp to 0 while Lane A had
     # already overshot. total_budget is the total, including Lane A.
-    standing = _take_per_type(_ordered(standing_rows), standing_per_type)[
-        : min(standing_cap, total_budget)
-    ]
+    standing = _select(
+        _ordered(standing_rows),
+        per_type=standing_per_type,
+        limit=min(standing_cap, total_budget),
+        already=[],
+    )
 
     # Spillover, expressed both ways and clamped by the smaller. The two agree
     # whenever STANDING_CAP + INFERRED_CAP == RECALL_TOTAL_BUDGET; the min is what
     # keeps the total honest if one constant is later tuned without the others.
+    #
+    # LANE A's LENGTH IS MEASURED AFTER the guard, so a duplicate dropped from
+    # Lane A hands its slot to Lane B rather than to nobody. The budget is spent
+    # either way — that is what "K stays full" means here.
     inferred_room = min(
         inferred_cap + (standing_cap - len(standing)),
         total_budget - len(standing),
     )
-    inferred = _take_per_type(_ordered(inferred_rows), inferred_per_type)[:max(inferred_room, 0)]
+    inferred = _select(
+        _ordered(inferred_rows),
+        per_type=inferred_per_type,
+        limit=max(inferred_room, 0),
+        already=standing,
+    )
 
     # Standing first: it is the stable frame the persona reads the topical matches
     # against. The reverse buries that frame under whatever this turn matched.
@@ -176,7 +311,9 @@ def compose_recall(
 # A factual recurrence detector: when a memory the user just raised has surfaced
 # before in OTHER conversations, write a durable Insight naming the recurring
 # thread. Constants are named here so they are trivial to tune.
-RECURRENCE_SIM_THRESHOLD = 0.75   # cosine score a prior entry must clear to count
+# RECURRENCE_SIM_THRESHOLD now lives with the recall constants at the top of this
+# module — it gained a second reader (the D3 diversity guard) and one definition
+# of "these two rows say the same thing" serves both. Its value is unchanged.
 RECURRENCE_MIN_PRIOR = 1          # how many prior-conversation matches → recurrence
 RECURRENCE_THROTTLE_HOURS = 6     # min spacing between 'pattern' insights per user
 
@@ -710,6 +847,7 @@ class MemoryService:
                 "standing_per_type": STANDING_PER_TYPE,
                 "inferred_per_type": INFERRED_PER_TYPE,
                 "floor": INFERRED_SCORE_FLOOR,
+                "dup_threshold": DUPLICATE_SIM_THRESHOLD,
             }
         )
         return compose_recall(result.fetchall(), total_budget=top_k)

@@ -33,21 +33,29 @@ T0 = datetime(2026, 9, 1, 12, 0, tzinfo=timezone.utc)
 
 @dataclass(frozen=True)
 class Row:
-    """Every field compose_recall reads, set explicitly (C-06)."""
+    """Every field compose_recall reads, set explicitly (C-06).
+
+    `near_dupe_ids` HAS NO DEFAULT, deliberately. It is the D3 diversity guard's
+    only input, and a default of () would let a test meaning to exercise the
+    guard silently assert the un-guarded path instead — passing for the wrong
+    reason, which is what C-06 is about. `_row` always supplies it.
+    """
     id: str
     entry_type: str
     content: str
     score: float
     created_at: datetime
+    near_dupe_ids: tuple
 
 
-def _row(entry_type, score, *, id=None, age_minutes=0, content=None):
+def _row(entry_type, score, *, id=None, age_minutes=0, content=None, dupes=()):
     return Row(
         id=id or f"{entry_type}-{score}-{age_minutes}",
         entry_type=entry_type,
         content=content or f"{entry_type}@{score}",
         score=score,
         created_at=T0 - timedelta(minutes=age_minutes),
+        near_dupe_ids=tuple(dupes),
     )
 
 
@@ -280,3 +288,191 @@ def test_everything_below_the_floor_leaves_only_standing():
     rows = [_row("belief", 0.10), _row("pattern", 0.20), _row("stated", 0.01)]
 
     assert _types(compose_recall(rows)) == ["stated"]
+
+
+# ── The diversity guard (D3) ─────────────────────────────────────────────────
+#
+# `near_dupe_ids` is symmetric and comes from RECALL_SQL: each candidate lists
+# every OTHER candidate it restates above DUPLICATE_SIM_THRESHOLD. These tests
+# own the arithmetic of what compose_recall does with that; the db_live suite
+# owns whether the right ids arrive.
+
+
+def test_two_near_duplicates_cannot_both_take_a_slot():
+    """The defect D3 measured: one fact spending two of Lane B's five slots."""
+    a = _row("struggle", 0.95, id="a", dupes=["b"])
+    b = _row("struggle", 0.94, id="b", dupes=["a"])
+
+    out = compose_recall([a, b])
+
+    assert [r.id for r in out] == ["a"], "the restatement took a slot"
+
+
+def test_the_freed_slot_goes_to_the_next_distinct_row_not_to_nobody():
+    """K STAYS FULL. Dropping a duplicate must not shorten the block — the whole
+    point is to spend the slot on something that says something else.
+
+    Budget 3. Without the guard: a, b(dupe of a), c. With it: a, c, d."""
+    rows = [
+        _row("struggle", 0.95, id="a", dupes=["b"]),
+        _row("struggle", 0.94, id="b", dupes=["a"]),
+        _row("pattern", 0.93, id="c"),
+        _row("value", 0.92, id="d"),
+    ]
+
+    out = compose_recall(rows, total_budget=3)
+
+    assert [r.id for r in out] == ["a", "c", "d"]
+    assert len(out) == 3, "the block was shortened instead of refilled"
+
+
+def test_legitimate_neighbours_below_the_threshold_both_pass():
+    """THE OTHER HALF OF THE GUARD, and the one that fails quietly. Two rows on
+    the same theme that are NOT restatements carry no ids for each other, and
+    both must survive — a guard that swallows neighbours would shrink recall in
+    exactly the direction Ruling #5 was trying to widen it."""
+    a = _row("struggle", 0.95, id="a")
+    b = _row("struggle", 0.94, id="b")
+
+    out = compose_recall([a, b])
+
+    assert [r.id for r in out] == ["a", "b"]
+
+
+def test_a_duplicate_does_not_spend_the_per_type_quota_on_its_way_out():
+    """A skipped row never occupied a slot, so it must not charge one.
+
+    INFERRED_PER_TYPE is 2. Three `struggle` rows where the middle one restates
+    the first: the quota should still admit two DISTINCT struggles."""
+    rows = [
+        _row("struggle", 0.95, id="a", dupes=["b"]),
+        _row("struggle", 0.94, id="b", dupes=["a"]),
+        _row("struggle", 0.93, id="c"),
+    ]
+
+    out = compose_recall(rows)
+
+    assert [r.id for r in out] == ["a", "c"]
+
+
+def test_a_cross_type_duplicate_is_dropped_where_the_quota_could_not_help():
+    """The per-type cap is no bound at all across types, and cross-type
+    duplicates are real: a `struggle` row and a `pattern` row in production say
+    the same thing at 0.772."""
+    rows = [
+        _row("struggle", 0.95, id="a", dupes=["b"]),
+        _row("pattern", 0.94, id="b", dupes=["a"]),
+        _row("value", 0.93, id="c"),
+    ]
+
+    out = compose_recall(rows, total_budget=2)
+
+    assert [r.id for r in out] == ["a", "c"]
+
+
+def test_lane_b_dedupes_against_lane_a():
+    """If the person's own stated words are already in the block, an inferred
+    restatement of them adds nothing. Lane A is chosen first and Lane B is
+    checked against it."""
+    rows = [
+        _row("stated", 0.40, id="s", dupes=["p"]),      # Lane A, no floor
+        _row("pattern", 0.99, id="p", dupes=["s"]),     # Lane B, top score
+        _row("belief", 0.98, id="b"),
+    ]
+
+    out = compose_recall(rows)
+
+    assert [r.id for r in out] == ["s", "b"], "the inferred restatement survived"
+
+
+def test_nothing_dedupes_backwards_into_lane_a():
+    """Lane A is never revisited: a standing row is not dropped because a
+    later-considered inferred row restates it. The block's stable frame does not
+    move because of what this turn happened to match."""
+    rows = [
+        _row("stated", 0.40, id="s", dupes=["p"]),
+        _row("pattern", 0.99, id="p", dupes=["s"]),
+    ]
+
+    out = compose_recall(rows)
+
+    assert out[0].id == "s"
+
+
+def test_three_mutual_duplicates_leave_exactly_one():
+    """A clique, not just a pair. Greedy selection keeps the best-scoring member
+    and drops the rest — whichever order they arrive in."""
+    rows = [
+        _row("struggle", 0.95, id="a", dupes=["b", "c"]),
+        _row("struggle", 0.94, id="b", dupes=["a", "c"]),
+        _row("pattern", 0.93, id="c", dupes=["a", "b"]),
+        _row("value", 0.92, id="d"),
+    ]
+
+    out = compose_recall(rows)
+
+    assert [r.id for r in out] == ["a", "d"]
+    assert _contents(compose_recall(rows)) == _contents(compose_recall(list(reversed(rows))))
+
+
+def test_the_guard_only_drops_rows_it_never_reorders_them():
+    """Survivors keep `_ordered`'s ranking. A guard that also resorted would make
+    the block depend on which rows happened to be duplicates."""
+    rows = [
+        _row("pattern", 0.99, id="p1"),
+        _row("belief", 0.98, id="b1", dupes=["b2"]),
+        _row("belief", 0.97, id="b2", dupes=["b1"]),
+        _row("value", 0.96, id="v1"),
+    ]
+
+    out = compose_recall(rows)
+
+    assert [r.id for r in out] == ["p1", "b1", "v1"]
+
+
+def test_a_row_without_the_column_composes_as_it_did_before_the_guard():
+    """compose_recall stays total over rows that predate `near_dupe_ids` — the
+    18 tests above this block are all such rows, and this states the contract
+    they rely on rather than leaving it implicit."""
+
+    @dataclass(frozen=True)
+    class LegacyRow:
+        id: str
+        entry_type: str
+        content: str
+        score: float
+        created_at: datetime
+
+    rows = [
+        LegacyRow("a", "struggle", "one", 0.95, T0),
+        LegacyRow("b", "struggle", "two", 0.94, T0),
+    ]
+
+    assert [r.id for r in compose_recall(rows)] == ["a", "b"]
+
+
+def test_the_guard_works_when_the_driver_hands_back_uuid_objects():
+    """THE SILENT-FAILURE CASE, and the reason _near_dupes normalises to str.
+
+    `recall` runs RECALL_SQL through `text()`, so asyncpg decodes a `uuid` column
+    to `uuid.UUID` — while the models declare UUID(as_uuid=False) and every row in
+    this file uses `str`. If the guard compared the raw values, a set of UUIDs
+    against a set of strings would intersect to NOTHING: no error, no warning, the
+    guard simply off on every production turn while all the tests above stayed
+    green. This asserts the mixed-type case directly, because the db_live suite
+    cannot run on a machine without Postgres and this is the half that would rot.
+    """
+    import uuid as _uuid
+
+    id_a, id_b = _uuid.uuid4(), _uuid.uuid4()
+    rows = [
+        _row("struggle", 0.95, id=id_a, dupes=[id_b]),
+        _row("value", 0.94, id=id_b, dupes=[id_a]),
+        _row("pattern", 0.93, id=_uuid.uuid4()),
+    ]
+
+    out = compose_recall(rows, total_budget=2)
+
+    assert len(out) == 2
+    assert out[0].id == id_a
+    assert out[1].id not in (id_a, id_b), "the UUID-typed duplicate was not caught"

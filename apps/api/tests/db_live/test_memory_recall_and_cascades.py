@@ -18,6 +18,11 @@ returned the right rows.
   4. An orphaned memory drops out of detect_recurrence's candidate set, because
      `conversation_id != :cid` is NULL for it — three-valued logic, which is
      precisely what a mocked session cannot enforce (T-5).
+  5. The D3 diversity guard: that `near_dupe_ids` is computed over the candidate
+     set by pgvector at DUPLICATE_SIM_THRESHOLD, scoped to one user, and that a
+     duplicate's slot is refilled rather than lost. What the guard DOES with
+     those ids is arithmetic and lives in tests/services/test_compose_recall.py;
+     what needs Postgres is that the right ids arrive at all.
 
 Recurrence exclusion was on that list and is now covered, in the one respect
 057 makes live: an orphaned row's NULL conversation_id drops it from the
@@ -34,6 +39,7 @@ import pytest
 from sqlalchemy import text
 
 from services.memory_service import (
+    DUPLICATE_SIM_THRESHOLD,
     INFERRED_PER_TYPE,
     INFERRED_SCORE_FLOOR,
     RECALL_SQL,
@@ -485,6 +491,7 @@ async def test_the_recall_query_plans_as_one_scan_with_one_window(db):
             "standing_per_type": STANDING_PER_TYPE,
             "inferred_per_type": INFERRED_PER_TYPE,
             "floor": INFERRED_SCORE_FLOOR,
+            "dup_threshold": DUPLICATE_SIM_THRESHOLD,
         },
     )
     raw = plan_rows.scalar_one()
@@ -716,3 +723,172 @@ async def test_an_orphaned_memory_is_not_counted_as_a_prior_conversation(db):
     # source_count is distinct prior conversations + 1: 2 before, 1 after. The
     # orphan cannot inflate it, and cannot be double-counted against NULL.
     assert len(await _prior_conversations()) + 1 == 2
+
+
+# ── 5. The diversity guard (D3) — the half that needs real pgvector ──────────
+#
+# The unit suite (tests/services/test_compose_recall.py) owns what the guard DOES
+# with `near_dupe_ids`. What needs a live database is that the right ids arrive:
+# the adjacency is computed over the candidate set by pgvector, at
+# DUPLICATE_SIM_THRESHOLD, scoped to one user.
+#
+# THREE VECTORS, CHOSEN SO NO ASSERTION SITS NEAR A BOUNDARY:
+#
+#   DUP_HIGH  sim 0.99 to the query
+#   DUP_MID   sim 0.95 to the query;  sim(DUP_HIGH, DUP_MID) = 0.985  -> duplicates
+#   DISTINCT  sim 0.80 to the query;  sim to either of the above 0.707 / 0.573
+#
+# DISTINCT sits on the OPPOSITE side of e0, and it has to. Every vector within the
+# Lane B floor of the query is also within the threshold of any vector lying ON
+# the query axis, so a "distinct but still recalled" row is geometrically
+# impossible on one side. That is a property of the construction, not of the
+# product — but it is why these three are not simply 0.99 / 0.95 / 0.80 in a row.
+#
+# THE THREE ROWS CARRY THREE DIFFERENT TYPES so INFERRED_PER_TYPE (2) can never be
+# the reason a row is missing — the same trap the floor tests above call out.
+
+DUP_HIGH = _unit(0.99, (1 - 0.99 ** 2) ** 0.5)
+DUP_MID = _unit(0.95, (1 - 0.95 ** 2) ** 0.5)
+DISTINCT = _unit(0.80, -((1 - 0.80 ** 2) ** 0.5))
+
+
+@pytest.mark.asyncio
+async def test_two_near_duplicates_cannot_both_occupy_a_slot(db):
+    """THE D3 DEFECT, against real vectors. Measured in production: of the 11
+    same-user pairs above 0.85, ten would have had BOTH members inside the
+    per-type cap — one fact spending two slots."""
+    user_id = await _make_user(db)
+    await _make_memory(db, user_id, "dup-high", DUP_HIGH, entry_type="belief")
+    await _make_memory(db, user_id, "dup-mid", DUP_MID, entry_type="value")
+    await db.flush()
+
+    rows = await memory_service.recall(
+        db, user_id, query="unused", query_embedding=QUERY,
+    )
+
+    assert [r.content for r in rows] == ["dup-high"], (
+        "the restatement took a slot; near_dupe_ids did not reach compose_recall"
+    )
+
+
+@pytest.mark.asyncio
+async def test_the_freed_slot_is_filled_by_the_next_distinct_memory(db):
+    """K STAYS FULL. The guard must not shorten the block — the slot the
+    duplicate would have taken goes to the next distinct row instead.
+
+    top_k=2 with three candidates: without the guard the answer is
+    [dup-high, dup-mid]; with it, [dup-high, distinct]. Both are length 2, which
+    is exactly the point — a shortened block would also 'pass' an assertion that
+    only checked that the duplicate was gone."""
+    user_id = await _make_user(db)
+    await _make_memory(db, user_id, "dup-high", DUP_HIGH, entry_type="belief")
+    await _make_memory(db, user_id, "dup-mid", DUP_MID, entry_type="value")
+    await _make_memory(db, user_id, "distinct", DISTINCT, entry_type="struggle")
+    await db.flush()
+
+    rows = await memory_service.recall(
+        db, user_id, query="unused", query_embedding=QUERY, top_k=2,
+    )
+
+    assert [r.content for r in rows] == ["dup-high", "distinct"]
+    assert len(rows) == 2, "the block was shortened rather than refilled"
+
+
+@pytest.mark.asyncio
+async def test_legitimate_neighbours_below_the_threshold_both_survive(db):
+    """The guard's other half, and the one that would fail silently: two rows on
+    a related theme that are NOT restatements must both come back. A guard that
+    swallowed neighbours would narrow recall in the direction Ruling #5 widened."""
+    user_id = await _make_user(db)
+    await _make_memory(db, user_id, "dup-mid", DUP_MID, entry_type="belief")
+    await _make_memory(db, user_id, "distinct", DISTINCT, entry_type="value")
+    await db.flush()
+
+    rows = await memory_service.recall(
+        db, user_id, query="unused", query_embedding=QUERY,
+    )
+
+    assert [r.content for r in rows] == ["dup-mid", "distinct"]
+
+
+@pytest.mark.asyncio
+async def test_the_guard_never_crosses_users(db):
+    """Another person's memory must not suppress yours.
+
+    `near_dupe_ids` is built from the candidate CTE, which is already user-scoped
+    — so this passes today by construction. It is pinned because the failure is
+    invisible: the row simply would not appear, and nothing would look broken.
+    Both users hold the SAME two vectors, so a leak would suppress one of them."""
+    mine = await _make_user(db)
+    theirs = await _make_user(db)
+    for uid in (mine, theirs):
+        await _make_memory(db, uid, f"dup-high-{uid}", DUP_HIGH, entry_type="belief")
+        await _make_memory(db, uid, f"distinct-{uid}", DISTINCT, entry_type="value")
+    await db.flush()
+
+    rows = await memory_service.recall(
+        db, mine, query="unused", query_embedding=QUERY,
+    )
+
+    assert [r.content for r in rows] == [f"dup-high-{mine}", f"distinct-{mine}"]
+
+
+@pytest.mark.asyncio
+async def test_the_guard_preserves_descending_score_order(db):
+    """Survivors keep the ranking `_ordered` gave them. The guard only ever drops
+    rows; a version that also resorted would make the block's order depend on
+    which rows happened to be duplicates."""
+    user_id = await _make_user(db)
+    await _make_memory(db, user_id, "dup-high", DUP_HIGH, entry_type="belief")
+    await _make_memory(db, user_id, "dup-mid", DUP_MID, entry_type="value")
+    await _make_memory(db, user_id, "distinct", DISTINCT, entry_type="struggle")
+    await db.flush()
+
+    rows = await memory_service.recall(
+        db, user_id, query="unused", query_embedding=QUERY,
+    )
+
+    scores = [r.score for r in rows]
+    assert scores == sorted(scores, reverse=True), scores
+    assert [r.content for r in rows] == ["dup-high", "distinct"]
+
+
+@pytest.mark.asyncio
+async def test_recall_sql_returns_near_dupe_ids_and_it_is_symmetric(db):
+    """THE COLUMN ITSELF, pinned at the query.
+
+    `compose_recall` reads this through `getattr(row, "near_dupe_ids", None)` so
+    that hand-built rows in the unit suite still compose — which means a query
+    that stopped returning the column would disable the guard SILENTLY and leave
+    every unit test green. This is the assertion that would catch that.
+
+    Symmetry is asserted too: the predicate is symmetric, so each member of a
+    duplicate pair must name the other."""
+    user_id = await _make_user(db)
+    await _make_memory(db, user_id, "dup-high", DUP_HIGH, entry_type="belief")
+    await _make_memory(db, user_id, "dup-mid", DUP_MID, entry_type="value")
+    await _make_memory(db, user_id, "distinct", DISTINCT, entry_type="struggle")
+    await db.flush()
+
+    result = await db.execute(
+        text(RECALL_SQL),
+        {
+            "query_vec": _vec(QUERY),
+            "user_id": user_id,
+            "standing_types": list(STANDING_TYPES),
+            "standing_per_type": STANDING_PER_TYPE,
+            "inferred_per_type": INFERRED_PER_TYPE,
+            "floor": INFERRED_SCORE_FLOOR,
+            "dup_threshold": DUPLICATE_SIM_THRESHOLD,
+        },
+    )
+    by_content = {r.content: r for r in result.fetchall()}
+
+    assert set(by_content) == {"dup-high", "dup-mid", "distinct"}
+
+    ids = {c: str(r.id) for c, r in by_content.items()}
+    dupes = {c: {str(x) for x in (r.near_dupe_ids or [])} for c, r in by_content.items()}
+
+    assert dupes["dup-high"] == {ids["dup-mid"]}
+    assert dupes["dup-mid"] == {ids["dup-high"]}, "the predicate is not symmetric"
+    assert dupes["distinct"] == set(), "a neighbour was marked as a duplicate"
