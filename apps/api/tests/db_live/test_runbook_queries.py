@@ -25,6 +25,18 @@ discriminating fixture, to verify they mean what the runbook says they mean:
                | ALL SURFACES 9/4 44.4, with the ROLLUP row sorted last and a
                NULL ring_true excluded from its surface's denominator.
 
+The two SAMENESS queries (D2, added 2026-09-16) were not rehearsed on a fixture.
+They were run once against PRODUCTION, and their output is the runbook's stated
+baseline — §7b and §7c carry the numbers. That is a stronger check than a fixture
+for what these two need to be right about (they name real columns and return the
+shape the runbook prints) and a weaker one for their arithmetic, which nothing
+verifies. Their interpretation is the founder's, as the activation query's is.
+
+  sameness A   control 2745 pairs mean 0.0096 | gap 1-2 332 @ 0.0606 (6.3x)
+               | gap 3-10 861 @ 0.0459 (4.8x) | gap 11+ 661 @ 0.0429 (4.5x)
+  sameness B   turn 1-2 50.0% end-question | 3-5 31.7 | 6-10 31.0 | 11-20 26.4
+               | 21+ 12.7, mean words 37.7 -> 32.4 across the same bands
+
 Reproduce it rather than trust this paragraph if a clause is ever in doubt. It is
 recorded here because it is evidence that expires: the next schema change makes
 it a claim about the past, which is what the CLAUDE.md failure log is about.
@@ -72,21 +84,31 @@ def _sql_blocks() -> list[str]:
     ]
 
 
-def test_the_runbook_still_has_the_two_queries_this_file_checks():
+def test_the_runbook_still_has_the_four_queries_this_file_checks():
     """A guard on the guard. If someone removes or renames a block, the
     parametrised test below would quietly check fewer queries and stay green —
     the same 'absence looks like success' shape as the 2026-09-01 no-run trap.
     """
     blocks = _sql_blocks()
-    assert len(blocks) == 2, (
-        f"expected 2 SQL blocks in {RUNBOOK.name}, found {len(blocks)}. If a query "
+    assert len(blocks) == 4, (
+        f"expected 4 SQL blocks in {RUNBOOK.name}, found {len(blocks)}. If a query "
         f"was added, extend this file; if one was removed, say so here."
     )
     assert "Activation" in blocks[0]
     assert "Memory trust" in blocks[1]
+    assert "Sameness A" in blocks[2]
+    assert "Sameness B" in blocks[3]
 
 
-@pytest.mark.parametrize("index,label", [(0, "activation"), (1, "memory_trust")])
+@pytest.mark.parametrize(
+    "index,label",
+    [
+        (0, "activation"),
+        (1, "memory_trust"),
+        (2, "sameness_lexical"),
+        (3, "sameness_structural"),
+    ],
+)
 async def test_the_runbook_query_is_valid_against_the_live_schema(db, index, label):
     """Execute it. Every table and column it names must exist.
 
@@ -126,6 +148,18 @@ async def test_the_runbook_query_is_valid_against_the_live_schema(db, index, lab
         # NULL, not 0: "nobody has signed up yet" is a different fact from
         # "nobody activated", and nullif is what keeps them apart.
         assert rows[0].pct is None
+    elif label == "sameness_lexical":
+        # ZERO ROWS here, and that is the correct shape rather than an oversight.
+        # Unlike the two above, this query has a plain GROUP BY and no ROLLUP, so
+        # over an empty table there is nothing to group and no grand total is
+        # defined. "No pairs" is an empty result, not a row of zeroes.
+        assert result.keys() == ["kind", "band", "pairs", "mean_jaccard", "p90_jaccard"]
+        assert rows == []
+    elif label == "sameness_structural":
+        assert result.keys() == [
+            "band", "replies", "pct_end_question", "mean_words", "sd_words",
+        ]
+        assert rows == []
     else:
         assert result.keys() == ["surface", "verdicts", "wrong", "pct_wrong"]
         assert len(rows) == 1, "ROLLUP returns its grand-total row even over zero input"
@@ -199,3 +233,48 @@ async def test_the_activation_query_keeps_its_null_percentage_too():
     sql = _sql_blocks()[0]
     assert "nullif(count(*), 0)" in sql
     assert "COALESCE" not in sql.upper()
+
+
+async def test_the_sameness_query_keeps_its_control_arm():
+    """WITHOUT THE CONTROL THE NUMBER MEANS NOTHING, and it would still look fine.
+
+    Two replies by the same persona always share vocabulary — that is the
+    persona, not convergence. The control arm (same voice, DIFFERENT
+    conversation) is the floor the within-conversation bands are read against;
+    the runbook's baseline is stated as a ratio to it for exactly that reason.
+
+    Delete the UNION ALL and the query still runs, still returns three tidy
+    bands, and silently becomes a measurement of how a persona writes rather than
+    of whether it repeats itself.
+    """
+    sql = _sql_blocks()[2]
+    assert "UNION ALL" in sql, "the control arm is gone"
+    assert "CONTROL: same voice, other conversation" in sql
+    assert "b.conversation_id <> a.conversation_id" in sql, (
+        "the control must compare ACROSS conversations, or it is not a control"
+    )
+
+
+@pytest.mark.parametrize("index", [2, 3])
+async def test_the_sameness_queries_measure_the_persona_and_not_the_app(index):
+    """Both sameness queries must exclude the two row kinds that are not a
+    persona speaking.
+
+    `persona_override = true` marks the app-voice safety reply — one fixed string
+    (`prompt_builder.build_safety_response`). Left in, identical copies of it
+    across conversations would register as extreme 'sameness' that no persona
+    produced. `message_kind = 'conclusion'` rows are distilled summaries, never
+    shown as turns, and are excluded from the LLM context for the same reason.
+    """
+    sql = _sql_blocks()[index]
+    assert "persona_override = false" in sql
+    assert "message_kind <> 'conclusion'" in sql
+
+
+async def test_the_structural_query_still_measures_the_ending():
+    """HARD RULE 4 (`prompts/system_base.jinja2`) specifies ~40% of replies ending
+    in a question. This query is the only thing that checks the shipped mix
+    against the spec, and the ending test is the half that does it."""
+    sql = _sql_blocks()[3]
+    assert "LIKE '%?'" in sql, "the question-ending measure is gone"
+    assert "pct_end_question" in sql

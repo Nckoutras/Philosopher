@@ -313,3 +313,246 @@ implying the list above covers it.
    invisible. Still open.
 5. **Consent-declining users' web events** — structural, and the reason §0 puts
    SQL first.
+6. **Semantic sameness** — §7's metric is lexical because `messages` carries no
+   embedding. The gap, and what closing it costs, is stated there.
+
+---
+
+## 7. Sameness — the D2 metric
+
+**Added 2026-09-16 (D2).** The teardown's churn cause #2: *"answers converge
+around turn 30-50"*. This section is the instrument and the pre-fix baseline.
+Every future anti-sameness intervention is judged against the numbers below.
+
+### 7a. The ruled metric is not computable, and this is why
+
+D2 ruled for **cosine between a persona's own replies at turn gap N**. It cannot
+be a SQL query today: **`messages` has no embedding column.** Only
+`memory_entries` and `source_chunks` carry `Vector(1536)`, and pgvector cannot
+help without a vector to compare. `pg_trgm` is not installed either (checked
+2026-09-16: the database has `vector`, `pgcrypto`, `pg_stat_statements`,
+`postgres_fdw`, `plpgsql`, `supabase_vault`, `uuid-ossp` — and nothing else).
+
+**What closing it would cost**, so the decision is costed rather than deferred
+vaguely: an `embedding` column on `messages`, a backfill of the 809 existing
+assistant rows, and an embed on every reply thereafter. The embedding itself is
+trivial — `text-embedding-3-small`, the whole existing corpus is ~97k tokens,
+about **$0.002** — so the real cost is the migration, the write path, and the
+storage, not the API. **Not proposed here.** §7b is what runs without it.
+
+### 7b. Lexical recurrence, against a control
+
+Word-set overlap (Jaccard) between a persona's own replies in the same
+conversation, banded by turn gap.
+
+**The absolute number is meaningless; the RATIO TO THE CONTROL is the metric.**
+Two replies by the same persona always share vocabulary — that is the persona.
+The control row measures exactly that floor: same voice, *different*
+conversations. Within-conversation similarity above the control is topic
+coherence, which is wanted. **Convergence would show as the wide-gap ratio RISING
+toward, or past, the narrow-gap ratio** — the persona saying at turn 30 what it
+said at turn 5.
+
+```sql
+-- Sameness A: lexical recurrence between a persona's own replies, by turn gap,
+-- against a same-voice/other-conversation control. Read the RATIO, not the value.
+WITH turns AS (
+  SELECT m.id, m.conversation_id, COALESCE(m.persona_id, c.persona_id) AS voice, m.content,
+         row_number() OVER (PARTITION BY m.conversation_id ORDER BY m.created_at, m.id) AS turn_no,
+         count(*) OVER (PARTITION BY m.conversation_id) AS conv_turns
+  FROM messages m
+  JOIN conversations c ON c.id = m.conversation_id
+  WHERE m.role = 'assistant'
+    AND m.message_kind <> 'conclusion'   -- distilled rows are not persona turns
+    AND m.persona_override = false       -- app-voice safety replies are not the persona
+),
+deep AS (SELECT * FROM turns WHERE conv_turns >= 10),
+sets AS (
+  SELECT d.id, d.conversation_id, d.voice, d.turn_no, array_agg(DISTINCT lower(w)) AS ws
+  FROM deep d
+  CROSS JOIN LATERAL regexp_split_to_table(d.content, '[^[:alpha:]]+') AS w
+  WHERE length(w) >= 5                   -- crude content-word filter; see the caveat
+  GROUP BY d.id, d.conversation_id, d.voice, d.turn_no
+  HAVING count(DISTINCT lower(w)) >= 8
+),
+scored AS (
+  SELECT 'same conversation' AS kind,
+         CASE WHEN b.turn_no - a.turn_no <= 2  THEN 'gap 1-2'
+              WHEN b.turn_no - a.turn_no <= 10 THEN 'gap 3-10'
+              ELSE 'gap 11+' END AS band,
+         CAST(cardinality(ARRAY(SELECT unnest(a.ws) INTERSECT SELECT unnest(b.ws))) AS numeric)
+         / nullif(cardinality(ARRAY(SELECT unnest(a.ws) UNION SELECT unnest(b.ws))), 0) AS jac
+  FROM sets a
+  JOIN sets b ON b.conversation_id = a.conversation_id AND b.turn_no > a.turn_no
+  UNION ALL
+  SELECT 'CONTROL: same voice, other conversation', 'control',
+         CAST(cardinality(ARRAY(SELECT unnest(a.ws) INTERSECT SELECT unnest(b.ws))) AS numeric)
+         / nullif(cardinality(ARRAY(SELECT unnest(a.ws) UNION SELECT unnest(b.ws))), 0)
+  FROM sets a
+  JOIN sets b ON b.voice = a.voice AND b.conversation_id <> a.conversation_id AND b.id > a.id
+)
+SELECT kind, band, count(*) AS pairs,
+       round(CAST(avg(jac) AS numeric), 4) AS mean_jaccard,
+       round(CAST(percentile_cont(0.9) WITHIN GROUP (ORDER BY jac) AS numeric), 4) AS p90_jaccard
+FROM scored
+GROUP BY kind, band
+ORDER BY kind, band;
+```
+
+**BASELINE — production, 2026-09-16, pre-fix.**
+
+| kind | band | pairs | mean_jaccard | p90 | **ratio to control** |
+| --- | --- | ---: | ---: | ---: | ---: |
+| CONTROL: same voice, other conversation | control | 2,745 | 0.0096 | 0.0400 | 1.00x |
+| same conversation | gap 1-2 | 332 | 0.0606 | 0.1250 | **6.3x** |
+| same conversation | gap 3-10 | 861 | 0.0459 | 0.1053 | **4.8x** |
+| same conversation | gap 11+ | 661 | 0.0429 | 0.1053 | **4.5x** |
+
+**The ratio FALLS as the gap widens — 6.3x to 4.5x. That is the opposite of the
+reported convergence**, and it is the number to beat. A future run where gap 11+
+approaches or exceeds gap 1-2 is the signal D2 went looking for.
+
+**Read this with its caveats, which are load-bearing:**
+
+- **Underpowered by reply length.** Deep-thread replies average **31.7 words**,
+  which is ~12 distinct words of length >= 5. Set overlap over ~12 items is
+  coarse: the *median* pair scores exactly 0.0000 in every band, which is why the
+  table reports the mean and p90 instead. Do not read a change under ~1x of
+  control as signal.
+- **`length(w) >= 5` is a crude stopword filter, not a good one**, and it is not
+  language-aware. It admits "about", "there", "would"; for a Greek conversation it
+  admits a different set again. The control absorbs most of this — that is its
+  second job — but it is the reason §7b is a proxy and §7a is the real metric.
+- **Lexical, not semantic, by necessity.** The same idea in different words scores
+  0. This instrument cannot see a persona that restates a point in fresh
+  vocabulary, which is precisely the failure mode the ADVANCEMENT block
+  (`system_base.jinja2`) already forbids in those terms.
+
+### 7c. Structural drift, and the shipped spec it is measured against
+
+The companion instrument, and the discriminating one: HARD RULE 4 in
+`apps/api/prompts/system_base.jinja2` specifies an ending mix of **~40% question
+/ 40% none / 20% statement-then-question**. Drift toward every reply ending in a
+question would be sameness of the most legible kind.
+
+```sql
+-- Sameness B: structural drift by turn depth, against HARD RULE 4's ~40% target.
+WITH turns AS (
+  SELECT m.conversation_id, m.content,
+         row_number() OVER (PARTITION BY m.conversation_id ORDER BY m.created_at, m.id) AS turn_no,
+         count(*) OVER (PARTITION BY m.conversation_id) AS conv_turns
+  FROM messages m
+  WHERE m.role = 'assistant'
+    AND m.message_kind <> 'conclusion'
+    AND m.persona_override = false
+)
+SELECT CASE WHEN turn_no <= 2  THEN 'turn 1-2'
+            WHEN turn_no <= 5  THEN 'turn 3-5'
+            WHEN turn_no <= 10 THEN 'turn 6-10'
+            WHEN turn_no <= 20 THEN 'turn 11-20'
+            ELSE 'turn 21+' END AS band,
+       count(*) AS replies,
+       round(100.0 * count(*) FILTER (WHERE rtrim(content) LIKE '%?') / count(*), 1) AS pct_end_question,
+       round(avg(array_length(regexp_split_to_array(btrim(content), '\s+'), 1)), 1) AS mean_words,
+       round(CAST(stddev_pop(array_length(regexp_split_to_array(btrim(content), '\s+'), 1)) AS numeric), 1) AS sd_words
+FROM turns
+WHERE conv_turns >= 10
+GROUP BY 1
+ORDER BY min(turn_no);
+```
+
+**BASELINE — production, 2026-09-16, pre-fix.**
+
+| band | replies | pct_end_question | mean_words | sd_words |
+| --- | ---: | ---: | ---: | ---: |
+| turn 1-2 | 40 | 50.0 | 37.7 | 28.5 |
+| turn 3-5 | 60 | 31.7 | 38.5 | 29.4 |
+| turn 6-10 | 100 | 31.0 | 38.9 | 34.6 |
+| turn 11-20 | 110 | 26.4 | 35.0 | 30.2 |
+| turn 21+ | 63 | **12.7** | 32.4 | 23.2 |
+
+Question-endings **decline** with depth rather than saturating, and length holds
+roughly flat with no collapse in variance. Against HARD RULE 4's ~40% target the
+deep end is **under**-questioning, not interrogating. If anything here is a
+finding it is that one, and it is not the reported one.
+
+### 7d. The population problem, which outranks both instruments
+
+Counted under the SAME filters the two queries use — excluding `conclusion` rows
+and app-voice (`persona_override`) replies. That distinction is not cosmetic:
+unfiltered there are 809 assistant rows across 180 conversations, and quoting
+those here would overstate every figure below, including the one this section
+turns on.
+
+| | value |
+| --- | ---: |
+| conversations with a persona reply | 178 |
+| persona replies (excl. conclusions and app-voice) | 772 |
+| median persona turns per conversation | **2** |
+| mean | 4.3 |
+| deepest conversation | 47 |
+| conversations with >= 10 turns | 20 |
+| conversations with >= 20 turns | 6 |
+| **conversations with >= 30 turns** | **2** |
+
+**The teardown locates convergence at "turn 30-50". Two conversations in
+production have ever reached turn 30** — three, if `conclusion` and app-voice
+rows are counted as turns, which the metric deliberately does not. The
+`turn 21+` row in §7c is 63 replies drawn from a handful of threads, and those
+threads are overwhelmingly likely to be the founder's own.
+
+So the honest reading of both baselines is **not** "sameness is disproved". It is
+**"production does not yet contain enough depth to test the claim"**, and the
+numbers above are the floor a real cohort will be compared against. Re-run both
+when conversations with >= 30 turns reaches roughly **n >= 30** — ten times the
+current population, and the first point at which a decile of deep threads is
+something other than one person's week.
+
+Until then §7 pairs with `PROTOCOL_FOUNDER_READ_SAMENESS.md`, which reads the few
+deep conversations that do exist. Neither replaces the other: the protocol
+can see restatement-in-new-words that §7b structurally cannot, and §7 can see a
+population the protocol never will.
+
+---
+
+## 8. Unit cost — the depth risk, with the arithmetic
+
+The §1 Unit-cost gate is blocked post-Stripe. **This is a different thing: a
+named risk in the same gate, recorded now because D2 measured the inputs.**
+
+History is **unbounded for Pro** — a growing window capped only by
+`HISTORY_TOKEN_BUDGET_PRO = 24_000` (`services/conversation_service.py`). Every
+reply re-sends the whole conversation, so input cost per reply grows linearly
+with depth while the subscription price does not.
+
+**The arithmetic, from measured production message sizes** (deep threads, >= 20
+messages, 2026-09-16: assistant **31.7** words mean, user **11.4**; ~1.35
+tokens/word):
+
+| | tokens |
+| --- | ---: |
+| static per-persona prompt prefix (mean over 11 personas, measured) | 2,331 |
+| variable block (8 memory rows + <= 4 passages + profile) | ~1,272 |
+| per turn added to history (1 user + 1 reply) | ~58 |
+| **total prompt at turn 40** | **~5,900** |
+| total prompt at turn 100 | ~9,400 |
+| history budget (24,000) reached at | **~turn 410** |
+
+**A correction, recorded because the ruling rested on it.** D2's ruling states
+turn 40 costs *"~30k input tokens per reply"*. Measured, it is **~5.9k** — about
+**5x lower**. 30k is roughly what a turn costs once the 24k history budget is
+saturated, which these message sizes do not reach until ~turn 410, and which no
+production conversation has ever approached (deepest: 48 turns).
+
+**Why the usage columns cannot settle this yet, and must not be quoted as if they
+can.** `messages.input_tokens` / `cache_read_tokens` / `cache_creation_tokens`
+arrived with migration 054, so almost every row predates them: of 772 assistant
+replies, **55** carry usage at all, **1** in the turn 11-20 band and **0** beyond
+turn 20. The table above is therefore computed from message SIZES, not from
+billed usage. Recompute it from the usage columns once they cover a deep thread;
+that is the authoritative version and it does not exist yet.
+
+**No cap is proposed.** A history cap changes what the product *is* — the growing
+window is also what makes the prefix cacheable (`_history_cache_control`), so a
+cap trades a cost problem for a cache problem. Revisit with beta evidence.
+
