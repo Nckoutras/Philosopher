@@ -116,16 +116,29 @@ def test_the_two_letter_jobs_are_no_longer_scheduled_in_the_api_process():
     assert "monthly_letter" not in ids
 
 
-def test_the_other_five_cron_jobs_are_untouched():
-    """R4 scope: only the two letter jobs move. The other three dispatch jobs
+def test_the_apscheduler_inventory_is_exactly_these_six():
+    """R4 scope: only the two letter jobs moved. The other three dispatch jobs
     follow later, in one PR, after a Sunday run proves the pattern — so a
-    disappearance here would be this PR reaching past its brief."""
+    disappearance here would be a PR reaching past its brief.
+
+    THE SIXTH ENTRY IS AN ADDITION, NOT A MOVE, and it is deliberate. Nothing
+    left this list; job_expectations JOINED it. It is the worker-absence checker,
+    and it belongs in the API process precisely because it watches the OTHER one:
+    Mon 14 -> Wed 16 September 2026 the worker held a wrong DATABASE_URL and
+    every job in it stopped, and a checker living inside that worker would have
+    stopped with them. A process cannot witness its own absence.
+
+    The name of this test changed with it. "the other five are untouched"
+    described a set that could only shrink, and the addition made the sentence
+    false while the assertion was still right.
+    """
     assert _registered_ids() == {
         "daily_rituals",
         "stripe_reconcile",
         "future_self_emails",
         "weekly_mirror",
         "preview_mirror",
+        "job_expectations",
     }
 
 

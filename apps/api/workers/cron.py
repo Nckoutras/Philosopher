@@ -307,6 +307,66 @@ def setup_cron(arq_queue):
         except Exception as e:
             logger.error(f"Cron preview mirrors failed: {e}", exc_info=True)
 
+    # ── Worker-absence alerting (Layer A) ────────────────────────────────────
+    #
+    # THE ONE JOB IN THIS FILE THAT WATCHES THE OTHER PROCESS. Everything else
+    # here enqueues work for the ARQ worker; this reads what the worker left
+    # behind and reports what is not there.
+    #
+    # IT MUST RUN HERE, IN THE API, AND NOT IN THE WORKER. Mon 14 -> Wed 16
+    # September 2026 the worker held a wrong DATABASE_URL and every job in it
+    # stopped. A checker living inside that worker would have stopped with them
+    # and reported nothing -- the same reason Layer C is a GitHub Action and not
+    # an endpoint. A process cannot be the witness to its own absence.
+    #
+    # EVERY TEN MINUTES, matching the heartbeat's cadence: JOB_EXPECTATIONS
+    # gives worker_heartbeat a 20-minute grace, and a checker slower than that
+    # grace would let the tightest expectation in the table go unread.
+    #
+    # NO REPEAT SUPPRESSION, DELIBERATELY. A worker that stays dead produces one
+    # logger.error per job per tick, and the operator sees ONE issue with a
+    # rising count -- the right shape for an outage that is still happening. The
+    # alternative, an in-process "already alerted" flag, is worse than it looks:
+    # it lives in the memory of a process that restarts, so it would go quiet
+    # exactly when a crash-looping API most needed to be heard.
+    #
+    # ONE SENTRY ISSUE COVERS ALL THREE JOBS, and that is worth knowing before
+    # you open it. Sentry's LoggingIntegration groups on the log record's
+    # TEMPLATE, not on the rendered message -- which is why the call below is
+    # parameterised (%s) rather than an f-string. All three findings share that
+    # one template, so weekly_letter, weekly_trajectory_snapshot and
+    # worker_heartbeat collapse into a single issue whose events name the job in
+    # their body. Accepted for v1: the three fail together far more often than
+    # separately, because the usual cause is one dead worker. If they ever need
+    # to alert separately, the fix is a per-job template, not a second channel.
+    @scheduler.scheduled_job(IntervalTrigger(minutes=10), id="job_expectations")
+    async def check_job_expectations():
+        """Report any scheduled job whose most recent due run never succeeded."""
+        from constants import JOB_EXPECTATIONS
+        from db.session import AsyncSessionLocal
+        from workers.job_expectations import missed_expectations
+
+        try:
+            async with AsyncSessionLocal() as db:
+                missed = await missed_expectations(db)
+            for m in missed:
+                # logger.error IS the alert. observability.py wires Sentry's
+                # LoggingIntegration with event_level=ERROR, so this line is an
+                # event without a second channel existing to be maintained.
+                logger.error(
+                    "Cron: scheduled job %s has no successful run for %s "
+                    "(due %s, %d minutes overdue) -- the worker may be down",
+                    m["job_name"], m["run_key"],
+                    m["period_start"].isoformat(), m["overdue_minutes"],
+                )
+            if not missed:
+                logger.info("Cron: all %d job expectations met", len(JOB_EXPECTATIONS))
+        except Exception as e:
+            # The checker failing is itself worth an event: a silent watchdog is
+            # indistinguishable from a healthy system, which is the failure this
+            # whole feature exists to end.
+            logger.error(f"Cron job-expectation check failed: {e}", exc_info=True)
+
     scheduler.start()
     logger.info("Cron scheduler started with %d jobs", len(scheduler.get_jobs()))
     # Counted, not hardcoded: the literal "8" here was correct until the
