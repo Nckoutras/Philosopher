@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useStore } from '@/lib/store'
+import { useAuthGate } from '@/lib/useAuthGate'
 import { api } from '@/lib/api'
 import type { ProfileValue, DisagreementStyle } from '@/lib/api'
 import { BronzeDivider } from '@/components/ui/BronzeDivider'
@@ -11,6 +12,7 @@ import { VALUE_OPTIONS, MAX_VALUES, DISAGREEMENT_OPTIONS } from '@/lib/profile'
 export default function ProfilePage() {
   const router = useRouter()
   const token = useStore((s) => s.token)
+  useAuthGate()
 
   const [values, setValues] = useState<ProfileValue[]>([])
   const [disagreement, setDisagreement] = useState<DisagreementStyle | null>(null)
@@ -18,10 +20,6 @@ export default function ProfilePage() {
   const [error, setError] = useState<string | null>(null)
   // After save we briefly show the instant reflection, then route to matches.
   const [reflection, setReflection] = useState<string[] | null>(null)
-
-  useEffect(() => {
-    if (token === null) router.replace('/auth')
-  }, [token, router])
 
   const hasSignal = values.length > 0 || disagreement !== null
 

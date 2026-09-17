@@ -4,13 +4,14 @@ import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { useStore } from '@/lib/store'
+import { useAuthGate } from '@/lib/useAuthGate'
 import AppHeader from '@/components/layout/AppHeader'
 import RitualScheduleSheet from '@/components/rituals/RitualScheduleSheet'
 import { currentReturnTo, upgradeHref } from '@/lib/upgradeHref'
 
 export default function RitualsPage() {
   const router = useRouter()
-  const token = useStore((s) => s.token)
+  const authed = useAuthGate()
   const user = useStore((s) => s.user)
   const subscription = useStore((s) => s.subscription)
   const isPro = subscription?.status === 'active' && subscription?.plan !== 'free'
@@ -19,10 +20,7 @@ export default function RitualsPage() {
   const autoOpenedRef = useRef(false)
 
   useEffect(() => {
-    if (token === null) {
-      router.replace('/auth?mode=signin')
-      return
-    }
+    if (!authed) return
     // Deep-link auto-open: a weekly-letter "future-self" ritual door routes here as
     // /app/rituals?open=future-self. Open the schedule modal once, Pro-guarded
     // (mirrors handleBeginLetter). Read the param from window.location inside the
@@ -35,7 +33,7 @@ export default function RitualsPage() {
       autoOpenedRef.current = true
       setScheduleOpen(true)
     }
-  }, [token, router, isPro])
+  }, [authed, router, isPro])
 
   function handleBeginLetter() {
     if (!isPro) {

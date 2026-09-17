@@ -36,10 +36,23 @@ vi.mock('next/image', () => ({ default: () => null }))
 
 let plan = 'free'
 let token: string | null = 'tok'
-vi.mock('@/lib/store', () => ({
-  useStore: (sel: (s: { plan: string; token: string | null }) => unknown) =>
-    sel({ plan, token }),
-}))
+vi.mock('@/lib/store', () => {
+  // `persist` is part of the surface useAuthGate reads (lib/useAuthGate.ts) —
+  // C-06: a mock must set every field the code under test touches. Without it
+  // the hook throws on `useStore.persist.hasHydrated()` and every case in this
+  // file fails for a reason that has nothing to do with the CTA.
+  //
+  // Hydrated + a token means the gate is satisfied immediately and redirects
+  // nothing, which is the precondition these cases assume.
+  const useStore = (sel: (s: { plan: string; token: string | null }) => unknown) =>
+    sel({ plan, token })
+  useStore.persist = {
+    hasHydrated: () => true,
+    onFinishHydration: () => () => {},
+    rehydrate: () => {},
+  }
+  return { useStore }
+})
 
 import RitualExplainerPage from '../page'
 

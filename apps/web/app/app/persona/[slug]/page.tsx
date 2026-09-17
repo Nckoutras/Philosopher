@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Image from 'next/image'
 import { useStore } from '@/lib/store'
+import { useAuthGate } from '@/lib/useAuthGate'
 import { api, type Persona } from '@/lib/api'
 import { BronzeDivider } from '@/components/ui/BronzeDivider'
 import { track } from '@/lib/analytics'
@@ -23,17 +24,14 @@ const TIER_LABELS: Record<Persona['tier'], string> = {
 export default function PersonaDetailPage() {
   const router = useRouter()
   const params = useParams<{ slug: string }>()
-  const token = useStore((s) => s.token)
+  const authed = useAuthGate()
 
   const [persona, setPersona] = useState<Persona | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [notFound, setNotFound] = useState(false)
 
   useEffect(() => {
-    if (token === null) {
-      router.replace('/auth')
-      return
-    }
+    if (!authed) return
 
     let cancelled = false
 
@@ -57,7 +55,7 @@ export default function PersonaDetailPage() {
     return () => {
       cancelled = true
     }
-  }, [token, params.slug, router])
+  }, [authed, params.slug, router])
 
   // Fires once the locked state is actually on screen — the persona-detail twin
   // of the modal's paywall_viewed. Sits above the early returns below so the

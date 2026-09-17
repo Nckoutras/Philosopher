@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useStore } from '@/lib/store'
+import { useAuthGate } from '@/lib/useAuthGate'
 import { BronzeDivider } from '@/components/ui/BronzeDivider'
 import { THEME_OPTIONS } from '@/lib/themes'
 
@@ -10,14 +11,10 @@ const MAX_OTHER_LENGTH = 500
 
 export default function ThemesPage() {
   const router = useRouter()
-  const token = useStore((s) => s.token)
+  useAuthGate()
 
   const [selected, setSelected] = useState<string[]>([])
   const [otherText, setOtherText] = useState('')
-
-  useEffect(() => {
-    if (token === null) router.replace('/auth')
-  }, [token, router])
 
   // Restore draft from sessionStorage if user navigated back
   useEffect(() => {

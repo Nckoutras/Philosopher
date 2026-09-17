@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
 import { useStore } from '@/lib/store'
+import { useAuthGate } from '@/lib/useAuthGate'
 import { api } from '@/lib/api'
 import { benefitLine, isUpgradeSource, FALLBACK_LINE } from '@/lib/upgradeCopy'
 import { DEFAULT_RETURN_TO, safeReturnTo } from '@/lib/safeReturnTo'
@@ -40,7 +41,7 @@ function CloseButton({ onClose }: { onClose: () => void }) {
 function UpgradeContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const token = useStore((s) => s.token)
+  useAuthGate()
   const [yearlyLoading, setYearlyLoading] = useState(false)
   const [monthlyLoading, setMonthlyLoading] = useState(false)
 
@@ -61,10 +62,6 @@ function UpgradeContent() {
   // independently), so this page fetches its own. Deliberately not a cache
   // refactor: that is a larger change than this PR.
   const [personaName, setPersonaName] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (token === null) router.replace('/auth')
-  }, [token, router])
 
   useEffect(() => {
     if (!personaSlug) return

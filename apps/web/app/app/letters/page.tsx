@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import toast from 'react-hot-toast'
 import { useStore } from '@/lib/store'
+import { useAuthGate } from '@/lib/useAuthGate'
 import { api } from '@/lib/api'
 import type { WeeklyLetter, Persona } from '@/lib/api'
 import AppHeader from '@/components/layout/AppHeader'
@@ -34,7 +35,7 @@ function formatSeasonLabel(start: string): string {
 
 export default function LettersPage() {
   const router = useRouter()
-  const token = useStore((s) => s.token)
+  const authed = useAuthGate()
   const subscription = useStore((s) => s.subscription)
   const isPro = subscription?.status === 'active' && subscription?.plan !== 'free'
   const [letters, setLetters] = useState<WeeklyLetter[] | null>(null)
@@ -46,10 +47,7 @@ export default function LettersPage() {
   const [deleteError, setDeleteError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (token === null) {
-      router.replace('/auth?mode=signin')
-      return
-    }
+    if (!authed) return
     if (!isPro) {
       router.replace(upgradeHref({ source: 'letter', returnTo: currentReturnTo() }))
       return
@@ -63,7 +61,7 @@ export default function LettersPage() {
     api.getPersonas()
       .then(setPersonas)
       .catch(() => setPersonas([]))
-  }, [token, isPro, router])
+  }, [authed, isPro, router])
 
   const portraitBySlug = new Map(personas.map((p) => [p.slug, p.portrait_url]))
 

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useStore } from '@/lib/store'
+import { useAuthGate } from '@/lib/useAuthGate'
 import { api } from '@/lib/api'
 import type { DailyQuestion } from '@/lib/api'
 import { useTopicConversation } from '@/lib/useTopicConversation'
@@ -12,7 +13,7 @@ import SubPageNav from '@/components/layout/SubPageNav'
 
 export default function DiscussPage() {
   const router = useRouter()
-  const token = useStore((s) => s.token)
+  const authed = useAuthGate()
   const user = useStore((s) => s.user)
 
   const [question, setQuestion] = useState<DailyQuestion | null>(null)
@@ -22,10 +23,7 @@ export default function DiscussPage() {
     useTopicConversation()
 
   useEffect(() => {
-    if (token === null) {
-      router.replace('/auth?mode=signin')
-      return
-    }
+    if (!authed) return
     async function load() {
       try {
         setQuestion(await api.getTodayQuestion())
@@ -34,7 +32,7 @@ export default function DiscussPage() {
       }
     }
     load()
-  }, [token, router])
+  }, [authed, router])
 
   return (
     <main className="min-h-screen [min-height:100svh] bg-vellum pb-[80px]">

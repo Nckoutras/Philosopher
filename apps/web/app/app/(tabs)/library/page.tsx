@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Image from 'next/image'
 import { ChevronRight } from 'lucide-react'
 import { useStore } from '@/lib/store'
+import { useAuthGate } from '@/lib/useAuthGate'
 import { api, type Persona, type LastConversation } from '@/lib/api'
 import PastConversationsView from '@/components/library/PastConversationsView'
 import BrowseMindsView from '@/components/library/BrowseMindsView'
@@ -15,7 +16,7 @@ function LibraryContent() {
   const searchParams = useSearchParams()
   const mode = (searchParams.get('mode') ?? 'past') as 'past' | 'browse'
 
-  const token = useStore((s) => s.token)
+  const authed = useAuthGate()
   const conversations = useStore((s) => s.conversations)
   const loading = useStore((s) => s.conversationsLoading)
   const error = useStore((s) => s.conversationsError)
@@ -58,12 +59,9 @@ function LibraryContent() {
   }, [setConversations, setLoading, setError])
 
   useEffect(() => {
-    if (token === null) {
-      router.replace('/auth?mode=signin')
-      return
-    }
+    if (!authed) return
     load()
-  }, [token, router, load])
+  }, [authed, router, load])
 
   const portraitUrlsBySlug = conversations.reduce<Record<string, string>>((acc, c) => {
     if (c.persona.portrait_url) acc[c.persona.slug] = c.persona.portrait_url

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
 import { api } from '@/lib/api'
 import { useStore } from '@/lib/store'
+import { useAuthGate } from '@/lib/useAuthGate'
 import { BronzeDivider } from '@/components/ui/BronzeDivider'
 
 type DisclaimerCopy = {
@@ -15,17 +16,13 @@ type DisclaimerCopy = {
 
 export default function DisclaimerPage() {
   const router = useRouter()
-  const token = useStore((s) => s.token)
+  useAuthGate()
 
   const [copy, setCopy] = useState<DisclaimerCopy | null>(null)
   const [confirmedAge, setConfirmedAge] = useState(false)
   const [confirmedPositioning, setConfirmedPositioning] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [fetchError, setFetchError] = useState(false)
-
-  useEffect(() => {
-    if (token === null) router.replace('/auth')
-  }, [token, router])
 
   async function fetchCopy() {
     setFetchError(false)

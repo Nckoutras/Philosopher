@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useStore } from '@/lib/store'
+import { useAuthGate } from '@/lib/useAuthGate'
 import { api } from '@/lib/api'
 import { BronzeDivider } from '@/components/ui/BronzeDivider'
 
@@ -36,14 +37,11 @@ const NEED_OPTIONS: {
 export default function NeedPage() {
   const router = useRouter()
   const token = useStore((s) => s.token)
+  useAuthGate()
 
   const [selected, setSelected] = useState<typeof NEED_OPTIONS[number]['slug'] | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (token === null) router.replace('/auth')
-  }, [token, router])
 
   const handleContinue = async () => {
     if (!selected || !token || submitting) return

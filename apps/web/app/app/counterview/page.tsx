@@ -6,6 +6,7 @@ import Image from 'next/image'
 import { MessageCircle, Loader2, Bookmark, BookmarkCheck, Share2, CornerDownLeft, Send } from 'lucide-react'
 import { track } from '@/lib/analytics'
 import { useStore } from '@/lib/store'
+import { useAuthGate } from '@/lib/useAuthGate'
 import { api, RateLimitError } from '@/lib/api'
 import { fairUseMessage } from '@/lib/fairUseCopy'
 import toast from 'react-hot-toast'
@@ -35,7 +36,7 @@ const DEEPER_TIMEOUT_MS = 90_000
 // per-persona rebuttal.
 export default function CounterviewPage() {
   const router = useRouter()
-  const token = useStore((s) => s.token)
+  const authed = useAuthGate()
 
   const [loading, setLoading] = useState(true)
   const [counterview, setCounterview] = useState<Counterview | null>(null)
@@ -91,10 +92,7 @@ export default function CounterviewPage() {
   const [fairUseResetAt, setFairUseResetAt] = useState<Date | null>(null)
 
   useEffect(() => {
-    if (token === null) {
-      router.replace('/auth?mode=signin')
-      return
-    }
+    if (!authed) return
 
     async function load() {
       try {
@@ -133,7 +131,7 @@ export default function CounterviewPage() {
     }
 
     load()
-  }, [token, router])
+  }, [authed, router])
 
   const responses = counterview?.responses ?? []
   const generated = counterview?.status === 'generated' && responses.length > 0

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { ChevronDown, Bookmark, BookmarkCheck } from 'lucide-react'
 import SubPageNav from '@/components/layout/SubPageNav'
 import { useStore } from '@/lib/store'
+import { useAuthGate } from '@/lib/useAuthGate'
 import { api, RateLimitError } from '@/lib/api'
 import type { SelfComparisonStatus, SavedLineRead, SelfComparisonListItem } from '@/lib/api'
 import Image from 'next/image'
@@ -47,7 +48,7 @@ function fmtDate(iso: string): string {
 
 export default function YouVsYouPage() {
   const router = useRouter()
-  const token = useStore((s) => s.token)
+  const authed = useAuthGate()
   const [status, setStatus] = useState<SelfComparisonStatus | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -82,7 +83,7 @@ export default function YouVsYouPage() {
   const [sentenceSaving, setSentenceSaving] = useState(false)
 
   useEffect(() => {
-    if (token === null) { router.replace('/auth?mode=signin'); return }
+    if (!authed) return
     async function load() {
       try {
         const s = await api.getSelfComparisonStatus()
@@ -98,7 +99,7 @@ export default function YouVsYouPage() {
       } catch { setStatus(null) } finally { setLoading(false) }
     }
     load()
-  }, [token, router])
+  }, [authed, router])
 
   async function ask() {
     const p = prompt.trim()
