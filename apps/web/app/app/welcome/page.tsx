@@ -6,6 +6,25 @@ import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
 import { api, type Persona } from '@/lib/api'
 import { useStore } from '@/lib/store'
+import { useAuthGate } from '@/lib/useAuthGate'
+import { signOut } from '@/lib/auth'
+
+// How long the "have you talked to anyone yet" read may hang before the page
+// calls it dead.
+//
+// A NAMED PROPOSAL, NOT A DERIVATION — said plainly because the 90s go-deeper
+// timeout in the counterview reader IS a derivation and the two must not be
+// confused. apps/web has no timeout precedent of any kind: there is no other
+// constant of this sort in the whole frontend. The 90s figure belongs to
+// `WorkerSettings.job_timeout` and governs an LLM generation; it does not
+// transfer to one indexed read behind one HTTP call.
+//
+// 10s is a judgement about that read, Render cold start included. It is far
+// outside normal latency and short enough that a stuck CTA becomes a handled
+// state while the person is still looking at it. The honest way to replace this
+// number is to measure p99 on the endpoint; until someone does, it is a guess
+// with its reasoning attached rather than a borrowed number that does not fit.
+const LAST_CONVERSATION_TIMEOUT_MS = 10_000
 
 // Deterministic daily index — same for all users, rotates at UTC midnight.
 function mindOfTheDayIndex(rotationSize: number): number {
@@ -16,16 +35,12 @@ function mindOfTheDayIndex(rotationSize: number): number {
 
 export default function WelcomePage() {
   const router = useRouter()
-  const token = useStore((s) => s.token)
+  useAuthGate()
 
   const [mind, setMind] = useState<Persona | null>(null)
   const [loadError, setLoadError] = useState(false)
   const [hasConversations, setHasConversations] = useState<boolean | null>(null)
   const [convLoading, setConvLoading] = useState(false)
-
-  useEffect(() => {
-    if (token === null) router.replace('/auth')
-  }, [token, router])
 
   useEffect(() => {
     let cancelled = false
@@ -50,9 +65,19 @@ export default function WelcomePage() {
   }, [])
 
   useEffect(() => {
+    // BUG-001 residue. This call had no deadline, and the two CTA slots render as
+    // inert grey placeholders while `hasConversations === null`. The .catch below
+    // covers a REJECTION; a HANG left those placeholders forever — which is the
+    // literal "Begin does nothing" the 2026-09-14 UAT saw. A hang now becomes the
+    // same handled error state a rejection produces.
+    let settled = false
+    const timer = setTimeout(() => {
+      if (!settled) setLoadError(true)
+    }, LAST_CONVERSATION_TIMEOUT_MS)
     api.getLastConversation()
-      .then((result) => setHasConversations(result !== null))
-      .catch(() => setHasConversations(false))
+      .then((result) => { settled = true; setHasConversations(result !== null) })
+      .catch(() => { settled = true; setHasConversations(false) })
+      .finally(() => clearTimeout(timer))
   }, [])
 
   async function handleConverse() {
@@ -115,13 +140,29 @@ export default function WelcomePage() {
               <p className="font-lora text-[13px] text-charcoal">
                 Could not load today&apos;s mind.
               </p>
-              <button
-                type="button"
-                onClick={() => { setLoadError(false); window.location.reload() }}
-                className="font-lora text-[13px] text-sepia underline underline-offset-2"
-              >
-                Try again
-              </button>
+              {/* TWO ROUTES OUT, and the second is the point (BUG-001 residue).
+                  Reload is right for a transient failure and can NEVER fix a
+                  stale-but-present token: it repeats the same failing call, so a
+                  user in that state was looped here with no way out. Sign out is
+                  the escape that does not depend on the call that failed.
+                  Reached by a hang as well as an error — the two are the same
+                  thing to the reader, and the escape is identical. */}
+              <div className="flex items-center justify-center gap-4">
+                <button
+                  type="button"
+                  onClick={() => { setLoadError(false); window.location.reload() }}
+                  className="font-lora text-[13px] text-sepia underline underline-offset-2"
+                >
+                  Try again
+                </button>
+                <button
+                  type="button"
+                  onClick={() => signOut()}
+                  className="font-lora text-[13px] text-sepia underline underline-offset-2"
+                >
+                  Sign in again
+                </button>
+              </div>
             </div>
           ) : (
             <>
