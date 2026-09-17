@@ -1433,10 +1433,21 @@ class ApiClient {
   // Press one layer deeper for a single persona. Returns the full counterview,
   // now carrying that persona's round-1 response (a no-op — cap reached, nothing
   // to add, safety trip — returns it unchanged with a clean 200).
-  async deeperCounterview(counterviewId: string, personaSlug: string): Promise<Counterview> {
+  //
+  // `signal` lets the caller put a deadline on the request (BUG-007: this call
+  // had none, so a hung connection spun an indefinite spinner). Optional and
+  // omitted by default, so every other caller is unchanged on the wire; an abort
+  // surfaces here as the fetch's own AbortError, which the caller handles as the
+  // failure it is.
+  async deeperCounterview(
+    counterviewId: string,
+    personaSlug: string,
+    signal?: AbortSignal,
+  ): Promise<Counterview> {
     return this.request<Counterview>(`/counterview/${counterviewId}/deeper`, {
       method: 'POST',
       body: JSON.stringify({ persona_slug: personaSlug }),
+      signal,
     })
   }
 

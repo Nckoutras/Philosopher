@@ -15,6 +15,19 @@ import SharePreviewModal from '@/components/share/SharePreviewModal'
 import AutoGrowTextarea from '@/components/ui/AutoGrowTextarea'
 import { currentReturnTo, upgradeHref } from '@/lib/upgradeHref'
 
+// How long a single "go deeper" may run before the reader calls it dead.
+//
+// NOT a number chosen here. 90s is the server's own documented ceiling for this
+// generation: `counterview_belief_task` is registered in
+// `apps/api/workers/arq_worker.py` with no per-function override, so it runs
+// under `WorkerSettings.job_timeout = 90`. That the two letter tasks override to
+// 300 — with a comment saying they do not finish inside the 90s default — is the
+// evidence 90 was chosen rather than inherited. A deeper line is a strictly
+// smaller unit of the same work (one LLM call plus at most one tightening retry,
+// against the full two-persona generation), so anything still running at 90s is
+// past the point the server itself would have abandoned it.
+const DEEPER_TIMEOUT_MS = 90_000
+
 // The Counterview reader (DS v5). Two ways in: an insight card's "Doubt this",
 // where the insight id rides in the query string (?insightId=…), and the
 // voluntary form, where the user types the belief themselves. Both land on the
@@ -35,10 +48,20 @@ export default function CounterviewPage() {
   // so voluntary entry never flashes the generating copy before the form.
   const [mode, setMode] = useState<'unresolved' | 'insight' | 'input'>('unresolved')
   const [belief, setBelief] = useState('')
-  // Go-deeper: which persona is mid-request (one at a time), and which personas
-  // have nothing more to add (so we stop offering the tap).
+  // Go-deeper: which persona is mid-request (one at a time), which personas have
+  // nothing more to add (so we stop offering the tap), and which personas the
+  // last attempt FAILED for.
+  //
+  // The last two are separate sets on purpose (BUG-007). They used to be one:
+  // both the empty-response path and the catch block wrote `exhausted`, so a
+  // 500, a 502 or a dropped connection removed the tap and rendered as "there is
+  // nothing more to say" — the app reporting silence as a finding. `exhausted`
+  // is now only ever written by a SUCCESSFUL response that carried no round-1
+  // line; a thrown error writes `deeperError` instead, which keeps the tap and
+  // shows a retry.
   const [deepeningSlug, setDeepeningSlug] = useState<string | null>(null)
   const [exhausted, setExhausted] = useState<Set<string>>(new Set())
+  const [deeperError, setDeeperError] = useState<Set<string>>(new Set())
   // Save toggle — initial state hydrates from the loaded counterview's is_saved.
   const [saved, setSaved] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -166,25 +189,58 @@ export default function CounterviewPage() {
     if (cv) {
       setCounterview(cv)
       setActiveSpeaker(0)
+      // A failure belonged to the counterview that was open when it happened.
+      // Carrying it into a different one would put "Could not go deeper just
+      // now." under a verdict nobody has tapped yet. (`exhausted` is NOT reset
+      // here — it never has been. Same shape, older, and not this PR's change.)
+      setDeeperError(new Set())
     }
     setLoading(false)
   }
 
   // Press one persona one layer deeper. Backend caps at a single round-1 per
   // persona; the returned counterview carries the new line (or is unchanged on a
-  // no-op). Either way we stop offering the tap once it can add nothing more.
+  // no-op).
+  //
+  // TWO OUTCOMES THAT ARE NOT THE SAME THING, and the whole point of BUG-007:
+  //
+  //   the request SUCCEEDED and brought back no round-1 → the persona has
+  //     nothing more to add. Stop offering the tap. This is a statement.
+  //
+  //   the request FAILED — 500, 502, dropped connection, or the deadline below
+  //     — → we know nothing about whether there is more to say. Keep the tap,
+  //     say so, and let the person try again. This is an absence.
+  //
+  // The retry is one the server is already willing to serve: the round cap
+  // counts PERSISTED rounds, so a line that never arrived left max_round at 0
+  // and costs nothing to ask for again (services/counterview_service.py:600-601).
   const handleDeeper = async (slug: string) => {
     if (!counterview || deepeningSlug) return
     setDeepeningSlug(slug)
+    // Clear a prior failure for this persona — this tap IS the retry, and the
+    // error line must not outlive the attempt that produced it.
+    setDeeperError((prev) => {
+      if (!prev.has(slug)) return prev
+      const next = new Set(prev)
+      next.delete(slug)
+      return next
+    })
+    // A deadline, so a hang becomes a failure the reader can act on rather than
+    // a spinner with no end. Aborting cancels the fetch rather than leaving the
+    // socket open behind a raced promise.
+    const controller = new AbortController()
+    const deadline = setTimeout(() => controller.abort(), DEEPER_TIMEOUT_MS)
     try {
-      const updated = await api.deeperCounterview(counterview.id, slug)
+      const updated = await api.deeperCounterview(counterview.id, slug, controller.signal)
       setCounterview(updated)
       // No round-1 came back for this slug (empty/safety no-op) → don't re-offer.
       const gotDeeper = updated.responses.some((r) => r.persona_slug === slug && r.round === 1)
       if (!gotDeeper) setExhausted((prev) => new Set(prev).add(slug))
     } catch {
-      setExhausted((prev) => new Set(prev).add(slug)) // 400/404 → don't loop the tap
+      // Every throw lands here, the abort included. NOT exhaustion — see above.
+      setDeeperError((prev) => new Set(prev).add(slug))
     } finally {
+      clearTimeout(deadline)
       setDeepeningSlug(null)
     }
   }
@@ -201,6 +257,7 @@ export default function CounterviewPage() {
     setPhase(0)
     setSaved(false)
     setExhausted(new Set())
+    setDeeperError(new Set())
     setDeepeningSlug(null)
     setRebutting(false)
     setRebuttalText('')
@@ -611,7 +668,10 @@ export default function CounterviewPage() {
           const slug = active.persona_slug
           const deeper = deeperFor(slug)
           const isLoading = deepeningSlug === slug
+          // Reads `exhausted` only — a FAILED attempt deliberately does not close
+          // this door, which is what keeps the tap available for the retry below.
           const canDeepen = !deeper && !exhausted.has(slug)
+          const failedDeeper = deeperError.has(slug)
           const speakerTurns = (counterview?.turns ?? [])
             .filter((t) => t.persona_slug === slug)
             .sort((a, b) => a.sequence - b.sequence)
@@ -634,6 +694,23 @@ export default function CounterviewPage() {
                     <MessageCircle size={15} strokeWidth={1.5} className="text-bronze" />
                   )}
                 </button>
+              )}
+              {/* The go-deeper FAILED for this persona — handled, in place, and
+                  retryable. The icon above is still there (canDeepen ignores this
+                  set), but an unchanged icon is not a visible offer, so the retry
+                  is stated in words. Hidden while a retry is in flight. */}
+              {failedDeeper && !isLoading && (
+                <div className="mt-[10px] flex items-center gap-[10px]">
+                  <p className="font-lora text-[12px] text-sepia">Could not go deeper just now.</p>
+                  <button
+                    type="button"
+                    onClick={() => handleDeeper(slug)}
+                    disabled={deepeningSlug !== null}
+                    className="font-lora text-[12px] text-sepia underline underline-offset-2 disabled:opacity-40"
+                  >
+                    Try again
+                  </button>
+                </div>
               )}
               {/* The second cut — stacked under the first when it exists */}
               {deeper && (

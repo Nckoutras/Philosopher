@@ -480,6 +480,130 @@ it is fixed, which is exactly the condition under which this kind of item stops
 being written down (see TD-74, same shape).
 
 
+### TD-78 — A clean 200 from `/counterview/{id}/deeper` means six different things and says which one it is — **NEW**
+**Status: OPEN. Not scheduled. Found while fixing BUG-007; logged rather than
+built, because closing it needs a backend signal on the response and BUG-007's
+brief scoped the frontend only.**
+
+**Verified at `78e98c71`** by reading `services/counterview_service.py`
+`deepen_counterview` end to end — every `return cv` site, not the endpoint's
+docstring. The count in this heading is SIX, not the four the brief named. Two
+the brief did not list are reachable and are in the table: the model returning
+nothing usable (distinct from the exception path, though both exit at `:591`),
+and a concurrent-write race at `:625`. Two further sites — `:545`, `:561` — are
+excluded because a reader that is showing the tap cannot reach them.
+
+**Mechanism.** The function returns the counterview **unchanged, with a clean
+200**, on each of these:
+
+| meaning | exits at | what actually happened |
+|---|---|---|
+| round cap reached | `:563-564` | the persona already spoke twice |
+| **generation FAILED** | `:584-590` → `:591` | `_call_deeper_llm` raised; caught, logged at WARNING, `line = None` |
+| nothing to add | `:591-592` | `_call_deeper_llm` returned `None` — non-`generated`, unparseable, or empty |
+| safety suppression | `:596-597` | `check_output` flagged the line; it is discarded |
+| output language mismatch | `:603-611` | the line came back in the wrong script |
+| concurrent write lost the race | `:625-626` | `uq_counterview_response`; rolled back, `cv` returned unrefreshed |
+
+The wire carries nothing that separates them. `Counterview` (`apps/web/lib/api.ts`)
+has no field for it, and all six bodies are identical to the state the caller
+already held.
+
+**What that costs, after BUG-007 and not before it.** The BUG-007 fix (this PR;
+stamp the number at merge) split the frontend's
+single outcome set in two: a THROWN error now keeps the tap and offers a retry,
+and only a SUCCESSFUL response carrying no round-1 line marks the persona
+exhausted. That is the right reading for rows 1, 3, 4 and 5. It is the WRONG
+reading for row 2 and row 6 — a backend LLM failure and a lost race both arrive
+as a clean 200, so the reader still renders them as "this persona has nothing
+more to say", silently, with the tap withdrawn. The class of failure BUG-007 was
+raised about is therefore **narrowed, not closed**.
+
+**Two consequences, stated because they are easy to leave implied:**
+
+1. **We do not know which defect the 2026-09-14 UAT actually observed, and after
+   this PR we still will not.** Button disappears, no deeper text, no error, no
+   retry is the symptom of BOTH the frontend path this PR fixes and this backend
+   ambiguity. From the user's side they are indistinguishable. The fix is correct
+   on its own terms and its tests pin real behaviour; that is not evidence that
+   the reported instance is gone.
+
+2. **It weakens the `exhausted` state generally.** "Exhausted" is the frontend's
+   INTERPRETATION of an absence, not the server's STATEMENT of a fact. Any screen
+   that treats it as a fact — today only this one — inherits that.
+
+**What closing it looks like, recorded so it is not re-derived.** One discriminated
+field on the deeper response (`deeper_outcome`: `added | capped | nothing_to_add |
+suppressed | failed`, say), set at each return site. The reader marks exhausted on
+`capped` / `nothing_to_add` / `suppressed`, and takes the retry path on `failed`.
+No migration — a response-schema addition and one frontend branch. Note the
+deliberate grouping: **safety reports as an absence, never as a refusal**, so row
+4 groups with `nothing_to_add` and not with `failed`. Row 6 is the one genuinely
+new decision: a lost race means the line EXISTS, so the honest answer is to
+re-read and return it rather than to report either outcome.
+
+### TD-79 — `preview_mirror` runs unwatched, and the record saying so did not exist — **NEW**
+**Status: OPEN. Not scheduled. Written to close a false claim already on `main`.**
+
+**Verified at `78e98c71`** by reading `workers/cron.py` and `constants.py`, and by
+grepping the repository for the record they refer to.
+
+**The false claim first, because it is the reason this entry exists.**
+`constants.py:270-271`, shipped in #669, reads:
+
+> `preview_mirror is out because it writes no job_run row to check. It runs in`
+> `the API process under APScheduler and leaves only log lines (TD logged).`
+
+The exclusion is correct. **`(TD logged)` was not.** No such entry existed in this
+file or anywhere else — a grep for TD numbers above TD-77 returned nothing at
+`78e98c71`. The comment has been asserting the existence of a record since #669
+merged. THIS is that record; the parenthetical is now true, and was not before.
+
+**Mechanism.** `dispatch_preview_mirrors` (`workers/cron.py:275-308`) is
+registered `@scheduler.scheduled_job(IntervalTrigger(hours=1), id="preview_mirror")`.
+It runs **hourly, in the API process, under APScheduler** — not in the ARQ worker
+— and enqueues `generate_weekly_mirror_task` for each user with ≥3 active chats
+in 72h who has no mirror yet.
+
+It writes **no `job_run` row**. `job_run` appears exactly once in `cron.py`, at
+`:271`, and that occurrence is a COMMENT describing the jobs that DID move to the
+worker. This job is not one of them.
+
+So its only failure signal is the swallowed handler at the bottom:
+
+```python
+except Exception as e:
+    logger.error(f"Cron preview mirrors failed: {e}", exc_info=True)   # cron.py:308
+```
+
+Caught, logged, not re-raised, not alerted on. Nothing reads it.
+
+**What that costs.** A failed run and an hour in which nobody qualified are
+**indistinguishable from outside the process**. Both produce no mirrors and no
+row; one produces a line in the API log that no check reads, and the job is
+eligible to run 24 times a day. The worker-absence alerting built in #669 cannot
+cover it — that layer reads `job_run` rows, and this job leaves none — which is
+precisely why `constants.py` excluded it rather than an oversight.
+
+**Founder-reported context, recorded as such:** surfaced by **UAT-1 BUG-021**
+during the **14-16 September 2026** incident window. That artifact is NOT in this
+repository — a case-insensitive grep for `BUG-021` across `docs/` and `apps/`
+returns nothing at `78e98c71` — so this line records who reported it and when,
+not a document a reader here can open. If UAT-1 is filed somewhere durable, link
+it here.
+
+**What closing it looks like.** **Move the job to the ARQ worker**, where
+`cron_jobs` registration writes a `job_run` row per run and the existing
+absence-alerting picks it up with no new machinery. Do NOT bolt `job_run` onto an
+APScheduler job: that reimplements, in the process that is not the scheduler of
+record, the exact bookkeeping the worker already does — and leaves two places
+that know how to write the row. `constants.py`'s comment on the letter tasks
+(R4/R5) is the precedent; the three remaining dispatch jobs in `cron.py` are
+already queued to move "in one PR, only after a Sunday run proves the pattern"
+(`cron.py:270-273`). **This job should go with them**, and that is the cheapest
+version of this fix: it is not a separate piece of work, it is one more entry in
+a migration already planned.
+
 ---
 
 ## 3. Open decisions
