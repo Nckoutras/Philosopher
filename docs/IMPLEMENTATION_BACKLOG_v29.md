@@ -604,6 +604,45 @@ already queued to move "in one PR, only after a Sunday run proves the pattern"
 version of this fix: it is not a separate piece of work, it is one more entry in
 a migration already planned.
 
+
+### TD-80 — The current-disclaimer query cannot express a scheduled consent change — **NEW**
+**Status: OPEN. Not scheduled. Neither half bites today; both bite the first time
+someone tries to schedule one.**
+
+**Verified at `9e21dcca`**, found while writing migration 066 (BUG-005).
+
+**Mechanism.** `get_current_version` (`services/disclaimer_service.py:26-36`) is:
+
+```python
+select(DisclaimerVersion).order_by(DisclaimerVersion.effective_at.desc()).limit(1)
+```
+
+Two properties follow, and neither is what the column name suggests:
+
+1. **No tie-break.** Two rows sharing an `effective_at` order nondeterministically,
+   so which consent text is served would depend on the plan Postgres happens to
+   pick. `ORDER BY effective_at DESC, id DESC` is the whole fix.
+2. **No `WHERE effective_at <= now()`.** A future-dated row is served
+   IMMEDIATELY. `effective_at` reads like a scheduling field and is only a sort
+   key — so the natural way to stage a consent change ("insert it now, dated for
+   the 1st") publishes it on insert instead, to every user, silently.
+
+**What it costs today: nothing.** There is one row, and 066 adds a second with a
+later timestamp. Both hazards need a third row or a deliberate future date to
+appear, and nothing in the product writes to this table outside migrations.
+
+**Why it is still worth an entry.** The failure mode of (2) is a consent text
+going live before it was meant to, which is the kind of thing noticed by a user
+rather than by a check — and the person who hits it will be reaching for exactly
+the phrasing the column invites. 066 therefore leaves `effective_at` to its
+server default rather than choosing a timestamp, and says so in its docstring;
+that is a workaround for this item, not a design.
+
+**Both levers, recorded so they are not re-derived:** add the `id DESC`
+tie-break, and add the `effective_at <= now()` filter. They are independent, both
+one line, and (2) is the one that changes behaviour — after it, a future-dated
+row means what it looks like it means.
+
 ---
 
 ## 3. Open decisions
