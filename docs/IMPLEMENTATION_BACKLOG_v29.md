@@ -328,12 +328,18 @@ test fixture rather than anywhere a recovery would look.
 
 **WHAT WOULD DETECT A REGRESSION OF THIS SHAPE: nothing does today, and the
 `db-tests` job does not — it routes around the gap rather than testing it.**
-Verified: the only `alembic upgrade head` anywhere in the repository is
+Verified: the only `alembic upgrade head` **in the test path** is
 `conftest.py:212`, and it runs from the **seeded 048 state**; the upgrade that
 runs against an empty database is `conftest.py:210`, which stops at 048. So the
 defect lives strictly between 048 and head, in exactly the interval the fixture
 steps over. If a future migration adds the same shape — reading rows back that
 no migration inserts — it fails the same way, and nothing warns first.
+
+*(Corrected 2026-09-17: this sentence read "the only `alembic upgrade head`
+anywhere in the repository". That was false — there are six, including
+`Dockerfile:17`, which is the one that applies migrations to production. The
+claim was scoped to the test path, where it is true, and the argument above is
+unaffected. See TD-81.)*
 
 A cheap guard is available: a CI step that creates an empty database and runs
 `alembic upgrade head`, asserting it succeeds. Note the ordering, because it
@@ -643,6 +649,76 @@ tie-break, and add the `effective_at <= now()` filter. They are independent, bot
 one line, and (2) is the one that changes behaviour — after it, a future-dated
 row means what it looks like it means.
 
+### TD-81 — The repository cannot tell a reader how migrations reach production, and one file asserts the opposite of the truth — **NEW**
+**Status: OPEN. Nothing to build — the mechanism works. The fix is that it is
+discoverable.**
+
+**Verified at `a9d01ea7`**, and the mechanism confirmed from the Render deploy log
+for `dep-dalu95m7bikc73c7mobg`:
+
+```
+13:02:08 UTC  alembic.runtime.migration  Running upgrade
+              065_council_insight_id -> 066_disclaimer_wise_room
+```
+
+So `alembic upgrade head` runs at container start, from `apps/api/Dockerfile:17`.
+That is the live mechanism. **Nothing in the repository says so**, and four things
+actively obscure it.
+
+**1. There is no `render.yaml` — and that is the mechanism, not a detail.** A
+repo-wide search finds no infrastructure-as-code file of any kind. The service's
+type, build command and start command exist **only in the Render dashboard**. So
+the choice below is made in a web UI, recorded nowhere, and would change without a
+commit, a review, or a trace. Everything else in this entry follows from that.
+
+**2. Two start paths for one service, and both are plausible.**
+
+```
+apps/api/Dockerfile:17   CMD ["sh","-c","alembic upgrade head && exec uvicorn …"]
+apps/api/Procfile:1      web: uvicorn main:app --host 0.0.0.0 --port $PORT
+```
+
+The Procfile has no alembic. Both are valid Render configurations; the dashboard
+picks. A service converted from Docker to native Python — to save build minutes,
+say — would silently stop applying migrations. There would be **no error and no
+crash**: a data-only migration that does not run leaves a healthy service serving
+stale rows, which is exactly the shape that took an investigation to rule out on
+2026-09-17. `README.md:136` describes the api service as bare `uvicorn`, siding
+with the Procfile against the truth.
+
+**3. `IMPLEMENTATION_BACKLOG_v29.md:331` asserts the opposite of the truth.** It
+says *"the only `alembic upgrade head` anywhere in the repository is
+`conftest.py:212`"*. There are six: `Dockerfile:17`,
+`infra/docker-compose.prod.yml:29`, `Makefile:7`, `Makefile:21`, `README.md:51`,
+and the conftest. TD-73's argument does not rest on it — it is an aside inside a
+point about CI coverage — which is what makes it the dangerous kind: a confident,
+checkable sentence in the file that governs how this project reasons about
+migrations. **Corrected in place when this entry landed.**
+
+**4. `DEPLOY_NOTES.md` documents no migration mechanism at all.** The file whose
+stated purpose is *"manual step[s] that a fresh deploy would otherwise skip"*
+mentions migrations exactly once, at `:40`, and only to say *verify* one applied.
+It never says what applies them.
+
+**5. `infra/docker-compose.prod.yml` cannot run.** Line 20 requests
+`target: production`; `apps/api/Dockerfile` has no multi-stage build and defines no
+such target. A reader who reaches for the one artefact named "prod" finds a file
+that has never worked and, at `:29-31`, a start command that is not the live one.
+
+**What closing it looks like, in order of value:**
+
+1. **A `render.yaml`** committing the service type and start command to version
+   control. Closes item 1 outright and makes items 2 and 5 answerable by reading
+   the repo. Render supports it as a Blueprint; adopting one for an existing
+   service is the only real work in this entry.
+2. **Delete `apps/api/Procfile`**, or add a comment stating it is not the
+   production start path. One file, one contradiction, gone.
+3. **A `DEPLOY_NOTES.md` section** stating where migrations run, citing
+   `Dockerfile:17` and the deploy-log line above as evidence.
+4. **Fix or delete `infra/docker-compose.prod.yml`.** It is not used by anything.
+
+None of it changes behaviour. All of it changes what the next person can find out
+without an investigation.
 
 ---
 
