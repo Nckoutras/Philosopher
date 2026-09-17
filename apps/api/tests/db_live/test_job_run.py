@@ -2,8 +2,10 @@
 
 Migration 059. The table records one row per scheduled run — which job, which
 period, how it ended — so that a dispatch which never fires leaves evidence
-behind. Nothing writes it yet (PR-B does); everything asserted here is a property
-of the SCHEMA, which is exactly why it needs a live server.
+behind. Four jobs write it now (letter dispatch x2, the trajectory snapshot and
+the worker heartbeat); everything asserted HERE is a property of the SCHEMA,
+which is exactly why it needs a live server and why this file did not change
+when the writers arrived.
 
 WHY A LIVE DATABASE. Three of the four rules under test are enforced by Postgres
 and by nothing else: a UNIQUE index, a CHECK constraint, and the RLS flag. A

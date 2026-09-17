@@ -926,8 +926,12 @@ class MirrorSave(Base):
 class JobRun(Base):
     """One row per scheduled run: which job, which period, how it ended.
 
-    NOTHING WRITES THIS YET. Migration 059 creates the table; PR-B opens a row
-    per dispatch. It exists because a scheduled letter run currently leaves no
+    WRITTEN BY FOUR JOBS, all of them in the ARQ worker: weekly_letter and
+    monthly_letter (workers/letter_dispatch.py), weekly_trajectory_snapshot
+    (workers/trajectory_snapshot.py) and worker_heartbeat
+    (workers/heartbeat.py). Migration 059 created the table empty and this
+    paragraph said "NOTHING WRITES THIS YET" for two rotations after that
+    stopped being true. It exists because a scheduled letter run once left no
     trace of itself — if Sunday's dispatch never fires, the only evidence is the
     absence of letters, which is indistinguishable from a week where nobody
     qualified. weekly_letters.status='failed' (058) records a letter that was

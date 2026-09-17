@@ -230,6 +230,85 @@ ANALYTICS_EVENTS = {
 RISK_LEVELS = ["none", "low", "medium", "high", "critical"]
 
 
+# ── Scheduled-run expectations (worker-absence alerting) ──────────────────────
+#
+# WHAT THIS CLOSES. Mon 14 -> Wed 16 September 2026 the ARQ worker ran with a
+# wrong DATABASE_URL password. Every job in it failed or never ran -- Sunday
+# letters, the trajectory snapshot, the OTP purge -- and NOTHING ALERTED. Job
+# FAILURE was already reported: an exception reaches Sentry. Job ABSENCE was not,
+# because a process that never starts raises nothing to report. The outage
+# surfaced three days later, by accident, through otp_codes rows the founder
+# happened to look at.
+#
+# THE CHECKER RUNS IN THE API PROCESS, which is the whole design and not an
+# implementation detail: it watches the OTHER process. September's wrong URL was
+# the WORKER's; the API's was fine. A liveness signal hosted by the process that
+# may be dead cannot report its own death.
+#
+# PLAIN DATA, NO CRON PARSER. Each entry carries a cadence the checker evaluates
+# with arithmetic. 'weekly' fires at a fixed ISO weekday + hour UTC and is keyed
+# by ISO week; 'interval' fires every N minutes and is keyed by an N-minute
+# bucket. A dependency that parses five-field cron strings would buy nothing
+# these two shapes do not already cover.
+#
+# `job_name` IS THE LOOKUP KEY and must equal job_run.job_name EXACTLY. The
+# literals are retyped here rather than imported because this module is
+# import-free from heavy dependencies by contract (see the file docstring) and
+# the worker modules are not. tests/test_job_expectations.py asserts the two
+# agree, and that test is the only reason this duplication is allowed to exist.
+#
+# The cost of getting a name wrong, stated because it nearly happened: this
+# feature's brief said "weekly_trajectory". The live literal is
+# "weekly_trajectory_snapshot" (workers/trajectory_snapshot.py:50). An
+# expectation naming a job_name that appears in zero rows does not fail loudly --
+# it reports that job missing on every tick, forever, starting the hour it
+# deploys, filling the channel this exists to create with one false positive.
+#
+# v1 IS THESE THREE AND NOTHING ELSE.
+#   - monthly_letter is deliberately out: month-end edge cases, and it already
+#     has a catch-up pass. Revisit after the 2026-09-30 monthly run.
+#   - preview_mirror is out because it writes no job_run row to check. It runs in
+#     the API process under APScheduler and leaves only log lines (TD logged).
+#   - purge_expired_otp_codes is out by its own design: a purge is
+#     self-evidencing -- if it stops, the surviving rows ARE the evidence. See
+#     its docstring in workers/arq_worker.py.
+#
+# `grace_minutes` is how long after a run was due the checker waits before
+# calling it missed. It absorbs a slow dispatch, a worker restarting into its
+# schedule, and clock skew -- not a genuine outage, which outlives any of these.
+JOB_EXPECTATIONS: tuple[dict, ...] = (
+    # Sunday 18:00 UTC, keyed by the ISO week that is ending.
+    # workers/letter_dispatch.py JOB_WEEKLY + arq_worker.py cron_jobs.
+    {
+        "job_name":      "weekly_letter",
+        "cadence":       "weekly",
+        "isoweekday":    7,      # Sunday, ISO numbering (Monday = 1)
+        "hour":          18,     # UTC, pinned by WorkerSettings.timezone
+        "grace_minutes": 60,
+    },
+    # Sunday 17:00 UTC -- one hour BEFORE the letter, so its per-user fan-out
+    # drains before step D would read it. Same ISO-week key.
+    # workers/trajectory_snapshot.py JOB_WEEKLY_TRAJECTORY.
+    {
+        "job_name":      "weekly_trajectory_snapshot",
+        "cadence":       "weekly",
+        "isoweekday":    7,
+        "hour":          17,
+        "grace_minutes": 60,
+    },
+    # The heartbeat, and the reason the other two are checkable at all. Every
+    # other job_run writer is WEEKLY, so without a signal at this cadence the
+    # mean time to detect a dead worker is about three and a half days and the
+    # worst case is seven. workers/heartbeat.py.
+    {
+        "job_name":      "worker_heartbeat",
+        "cadence":       "interval",
+        "every_minutes": 10,
+        "grace_minutes": 20,
+    },
+)
+
+
 def is_plan_sufficient(user_plan: str, required_plan: str) -> bool:
     """Return True if user_plan meets or exceeds required_plan."""
     return TIER_ORDER.get(user_plan, 0) >= TIER_ORDER.get(required_plan, 99)

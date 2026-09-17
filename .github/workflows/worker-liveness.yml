@@ -1,0 +1,164 @@
+name: Worker liveness
+
+# Is the ARQ worker still writing heartbeats? Asked from OUTSIDE both processes,
+# every 30 minutes, straight against the database.
+#
+# WHY THIS EXISTS SEPARATELY FROM THE IN-APP CHECKER. Mon 14 -> Wed 16 September
+# 2026 the worker ran with a wrong DATABASE_URL and every job in it stopped.
+# Nothing alerted, and the outage was found three days later by accident. Layer A
+# (workers/cron.py, in the API process) now watches for that. This is the layer
+# that watches when Layer A cannot:
+#
+#   - the API is down, or deployed without the checker;
+#   - Sentry is unreachable, out of quota, or its alert rule is muted;
+#   - the worker has NEVER written a heartbeat, which Layer A deliberately
+#     cannot see. Its history floor exists so that deploying a new expectation
+#     does not announce a backlog of outages that never happened, and the price
+#     of that floor is silence for a job with no history at all. This check asks
+#     the absolute question instead -- "is there a row in the last N minutes" --
+#     and has no history to be talked out of an answer by.
+#
+# NOT A LIVENESS ENDPOINT, and that is the whole point. An HTTP route served by
+# the worker is a thing the worker says about itself; a process that is dead
+# cannot answer that it is dead. A row in job_run is evidence that outlives the
+# process which wrote it.
+#
+# THE NOTIFICATION DESIGN IS: THE STEP EXITS NON-ZERO. That fails the run, and
+# GitHub's own workflow-failure email reaches the founder. There is deliberately
+# no Slack, no Resend, no webhook -- an alerting path with its own credentials
+# and its own delivery failures is one more thing that can be silently broken,
+# which is the exact class of problem this workflow exists to end.
+#
+# NOT A REQUIRED CHECK, AND IT MUST NEVER BECOME ONE. It runs on `schedule` and
+# `workflow_dispatch` only, so it never reports on a pull request. A required
+# check that never reports sits at "Expected - waiting for status to be
+# reported" forever and the merge button never opens. See db-backup.yml's header
+# and CLAUDE.md's 2026-09-14 entry for the day that was learned.
+#
+# STOCK psql, DELIBERATELY, and this is the one place this file departs from
+# db-backup.yml next door. That workflow installs postgresql-client-17 from PGDG
+# and leads GITHUB_PATH with the versioned bin dir because pg_dump REFUSES a
+# server with a newer major version. That constraint belongs to pg_dump. A
+# SELECT over the runner's stock psql 16 against a 17.x server is fine, so this
+# check stays a dozen lines instead of fifty. Do not "fix" it back.
+
+on:
+  schedule:
+    # Every 30 minutes. GitHub's scheduler is best-effort and can drift or skip
+    # under load -- which costs nothing here, because the query looks back a
+    # fixed window from whenever it actually runs, not from when it was due.
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+    inputs:
+      threshold_minutes:
+        description: >-
+          How recent a heartbeat must be. Dispatch with 0 to prove the failure
+          path goes red without touching production.
+        required: false
+        default: '40'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: worker-liveness
+  cancel-in-progress: false
+
+jobs:
+  heartbeat:
+    name: A heartbeat in the last 40 minutes
+    runs-on: ubuntu-latest
+    env:
+      # The heartbeat fires every 10 minutes (workers/heartbeat.py). 40 minutes
+      # is four beats: enough that a worker restart, a slow deploy or a single
+      # dropped connection never reds the run, and short enough that a genuinely
+      # dead worker is caught inside one check interval plus one window.
+      THRESHOLD_MINUTES: ${{ github.event.inputs.threshold_minutes || '40' }}
+    steps:
+      # ── 1. Preflight on the secret ────────────────────────────────────────
+      # Fails in seconds with an explanation instead of surfacing as an opaque
+      # libpq error. Same shape as db-backup.yml's validation step.
+      - name: Validate the secret is present and well-formed
+        env:
+          PROD_DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${PROD_DATABASE_URL:-}" ]; then
+            echo "::error::secret PROD_DATABASE_URL is not set."
+            echo "Settings -> Secrets and variables -> Actions -> New repository secret."
+            exit 1
+          fi
+
+          # The application's DATABASE_URL is a SQLAlchemy URL. libpq does not
+          # understand the driver suffix and its error is unhelpful, so name the
+          # fix here rather than leaving it to be decoded from the log.
+          case "$PROD_DATABASE_URL" in
+            *+asyncpg*|*+psycopg*)
+              echo "::error::PROD_DATABASE_URL carries a SQLAlchemy driver suffix"
+              echo "(e.g. postgresql+asyncpg://). psql needs a plain libpq URI:"
+              echo "postgresql://USER:PASSWORD@HOST:5432/postgres?sslmode=require"
+              exit 1
+              ;;
+            postgres://*|postgresql://*) ;;
+            *)
+              echo "::error::PROD_DATABASE_URL does not look like a postgresql:// URI."
+              exit 1
+              ;;
+          esac
+
+          # NO PORT 6543 GUARD, unlike db-backup.yml. That guard is about
+          # pg_dump needing SESSION mode for one repeatable-read snapshot across
+          # hundreds of statements. This is a single SELECT and works through
+          # either pooler.
+          echo "secret present; connection string shape OK"
+
+      # ── 2. The question ───────────────────────────────────────────────────
+      - name: Check for a recent worker heartbeat
+        env:
+          PROD_DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+        run: |
+          set -euo pipefail
+          echo "::add-mask::$PROD_DATABASE_URL"
+
+          # Read the newest successful heartbeat, and how long ago it was. Asked
+          # as two scalars rather than a boolean so a RED run says how long the
+          # worker has been silent instead of only that it is.
+          #
+          # Age is computed by POSTGRES, not by the runner: started_at is
+          # timestamptz and now() is the server's clock, so the answer cannot be
+          # skewed by the runner's time or timezone.
+          #
+          # PIPE-SEPARATED, NOT SPACE. A timestamptz renders as
+          # "2026-09-17 09:40:00+00" -- it CONTAINS a space, so splitting on
+          # whitespace would put the date in one variable and the time in the
+          # other, and the numeric comparison below would fail on a string.
+          row="$(psql "$PROD_DATABASE_URL" -v ON_ERROR_STOP=1 -Atq -F'|' -c "SELECT coalesce(max(started_at)::text, 'never'), coalesce(floor(extract(epoch FROM (now() - max(started_at))) / 60)::text, '-1') FROM job_run WHERE job_name = 'worker_heartbeat' AND status = 'succeeded'")"
+          last_seen="${row%%|*}"
+          age_minutes="${row##*|}"
+
+          echo "threshold:  ${THRESHOLD_MINUTES} minutes"
+          echo "last beat:  ${last_seen}"
+          echo "age:        ${age_minutes} minutes"
+
+          if [ "$last_seen" = "never" ]; then
+            echo "::error::THE WORKER HAS NEVER WRITTEN A HEARTBEAT."
+            echo "job_run holds no successful worker_heartbeat row at all. Either the"
+            echo "worker has not deployed the heartbeat yet, or it has never been able"
+            echo "to reach the database. Check the philosopher-worker service on Render:"
+            echo "is it running, and is its DATABASE_URL correct?"
+            exit 1
+          fi
+
+          if [ "$age_minutes" -gt "$THRESHOLD_MINUTES" ]; then
+            echo "::error::THE WORKER HAS BEEN SILENT FOR ${age_minutes} MINUTES."
+            echo "The last successful heartbeat was at ${last_seen}; the heartbeat"
+            echo "fires every 10 minutes, so this is at least three missed beats."
+            echo "Sunday letters, the trajectory snapshot and the OTP purge all run in"
+            echo "that process and are very likely not running either."
+            echo "Check the philosopher-worker service on Render: is it up, and is its"
+            echo "DATABASE_URL correct? That was the 14-16 September 2026 cause."
+            exit 1
+          fi
+
+          echo "worker alive: last heartbeat ${age_minutes} minute(s) ago"
