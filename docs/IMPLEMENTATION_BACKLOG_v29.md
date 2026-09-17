@@ -750,58 +750,70 @@ sweep to `robots.ts` and `sitemap.ts` — assert all three fallbacks are the sam
 string. That is a test, not a refactor, and it closes the silent half without
 touching the code.
 
-### TD-83 — The `hasHydrated` STORE FIELD is a second hydration signal that can never fire — **NEW**
-**Status: OPEN. No consumer today. Recorded because the next person to need a
-hydration signal will find it before they find the safe one.**
+### TD-83 — BOTH hydration signals hang on a storage error, and the store field is unreferenced — **NEW**
+**Status: OPEN. The immediate hazard is closed in `useAuthGate` by a deadline;
+what remains is a dead field and a trap for whoever writes the next guard.**
 
-**Verified at `d769ef3c`.** `store.ts` exposes hydration TWICE:
+**Verified at `d769ef3c`**, in the library rather than by reasoning about it.
 
-| signal | where | fails how |
-|---|---|---|
-| `useStore.persist.hasHydrated()` | zustand's own API | reports hydration finishing either way |
-| `hasHydrated` store field | `store.ts:23,153-154`, written at `:397-400` | **can stay `false` forever** |
-
-**Mechanism.** The field is set inside `onRehydrateStorage`:
+**The premise this entry was first drafted on was WRONG.** The draft said the
+`hasHydrated` STORE FIELD could hang while `persist.hasHydrated()` was the safe
+alternative. Both hang. `node_modules/zustand/middleware.js:417-430`:
 
 ```ts
-onRehydrateStorage: () => (state) => {
-  if (state?.subscription) state.setSubscription(state.subscription)
-  state?.setHasHydrated(true)
-}
+}).then(function () {
+  postRehydrationCallback(stateFromStorage, undefined)
+  _hasHydrated = true                                   // success only
+  finishHydrationListeners.forEach(cb => cb(stateFromStorage))
+}).catch(function (e) {
+  postRehydrationCallback(undefined, e)                 // error: that is all
+})
 ```
 
-The callback signature is `(state, error)` and **the error argument is ignored**.
-When rehydration fails — a private window, blocked site data, a storage that
-throws — zustand invokes it with `state` undefined, both optional-chained calls
-no-op, and the flag never becomes true. A guard written as `if (!hasHydrated)
-return` then waits for something that will not happen: a permanent blank screen,
-no error, nothing logged.
+On a storage error — private window, blocked site data, a throwing storage — the
+catch runs the rehydration callback and stops. `_hasHydrated` is never set and
+the finish listeners never fire. So **`persist.hasHydrated()` stays false forever
+and `onFinishHydration()` never resolves**, exactly like the field.
 
-**This is the PR4p class exactly** (CLAUDE.md P-04): a hydration guard that
-passed unit tests and code review and hung in the production build because
-`onRehydrateStorage` timing differed from dev. `analytics.ts:9-14` already says
-the field exists *because of* that regression — it is the scar, and it carries
-the same edge the original cut on.
+**Two problems, and they are not the same problem.**
 
-**No consumer as of this entry.** `letters/[id]` was the only one and BUG-002
-moved it onto `lib/useAuthGate.ts`, which uses the persist API. The field is now
-dead weight that still reads like the obvious choice — shorter, a plain
-selector, no three-step dance.
+**1. The persist API is not the safe alternative it looks like.** Any future
+guard written as "wait for `persist.hasHydrated()`" hangs on a browser that
+cannot read storage: loading state forever, no error, nothing logged. That is the
+PR4p class (CLAUDE.md P-04) — a hydration guard that passed review and unit tests
+and hung in the production build.
 
-**Three ways to close it, cheapest first:**
+**Closed for the one live consumer, not in general.** `lib/useAuthGate.ts` puts a
+`HYDRATION_DEADLINE_MS = 3000` deadline on the wait and decides without hydration
+when it fires (the reader goes to sign-in carrying `next=`, which is the correct
+answer: a browser that cannot read storage has no session to restore). **Anything
+else that waits on hydration needs its own deadline.** There is no shared helper
+for that today, and writing one is the real closure of this half.
+
+**2. The `hasHydrated` STORE FIELD has zero consumers and one extra hole.**
+`store.ts:23,153-154`, written at `:397-400`. BUG-002 moved `letters/[id]`, its
+last reader, onto `useAuthGate`. Beyond the shared hang, its callback **ignores
+the error argument entirely**, so it cannot even report the failure it swallows —
+`analytics.ts:9-14` records that this field exists BECAUSE of the PR4p
+regression, which makes it the scar carrying the same edge that cut.
+
+It is also the one a reader will reach for first: shorter, a plain selector, no
+three-step dance, no deadline to remember.
+
+**What to do, cheapest first:**
 1. **Delete the field**, `setHasHydrated`, and the `:399` write. Nothing reads
-   it. Smallest diff, removes the trap outright.
-2. **Repair it** — take the `error` argument and set the flag in both branches,
-   so a failed rehydration still reports *finished*. Keeps a convenience nobody
-   currently wants.
-3. **Leave it with a warning comment** pointing at `useAuthGate`. Weakest: the
-   2026-08-18 lesson is that a rule living only in a comment is one rotation from
-   not existing.
+   it. Smallest diff, removes the more misleading of the two signals outright.
+2. **A shared `useHydrated(deadlineMs)`** that every future guard uses, so the
+   deadline is not something each caller must remember. This is the half that
+   actually prevents a recurrence; (1) only removes the worse option.
+3. Leaving a warning comment is the weakest answer — the 2026-08-18 lesson is
+   that a rule living only in a comment is one rotation from not existing.
 
-**Recommend (1).** A second mechanism with a silent-hang failure mode, kept for
-no caller, is a trap with a maintenance cost and no benefit. It should not be
-folded into BUG-002's PR: that PR's job is to remove the last consumer, and
-deleting the field is a separate change to a file 40 components import.
+**Deliberately not folded into BUG-002's PR.** That PR removes the last consumer
+and closes the hazard where it was live; deleting the field is a separate change
+to a file 40 components import, and (2) is a new abstraction that wants its own
+review.
+
 
 ---
 

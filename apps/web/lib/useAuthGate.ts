@@ -31,19 +31,57 @@ import { safeReturnTo } from './safeReturnTo'
 // apart. That race is what share loop PR-2 lands in the middle of: a stranger
 // signs up, gets a cookie, and every later deep link is a coin flip.
 //
-// WHY `useStore.persist.hasHydrated()` AND NOT THE `hasHydrated` STORE FIELD.
-// The field is set inside onRehydrateStorage (store.ts:397-400), whose callback
-// ignores its error argument and skips the write when `state` is undefined — a
-// private window, blocked site data, a throwing storage. A guard blocking on the
-// field would then wait FOREVER. The persist API reports hydration finishing
-// either way. (PR4p, per CLAUDE.md P-04, is this exact class: a hydration guard
-// that passed review and unit tests and hung in the production build.)
+// NEITHER HYDRATION SIGNAL IS SAFE ON ITS OWN, and an earlier draft of this file
+// claimed otherwise. Measured in the library rather than reasoned about —
+// `node_modules/zustand/middleware.js:417-430`:
+//
+//     }).then(function () {
+//       postRehydrationCallback(stateFromStorage, undefined)
+//       _hasHydrated = true                                  // success only
+//       finishHydrationListeners.forEach(cb => cb(stateFromStorage))
+//     }).catch(function (e) {
+//       postRehydrationCallback(undefined, e)                // error: that is all
+//     })
+//
+// On a storage error the catch runs the rehydration callback and STOPS.
+// `_hasHydrated` is never set and the finish listeners never fire — so
+// `persist.hasHydrated()` stays false forever and `onFinishHydration` never
+// resolves. A private window, blocked site data or a throwing storage hangs BOTH
+// mechanisms, not just the store field. That is PR4p's shape (CLAUDE.md P-04):
+// a hydration guard that passed review and unit tests and hung in production.
+//
+// THE DEADLINE BELOW IS WHAT MAKES ANY OF THIS SAFE. It is not a refinement.
+// Without it this hook waits forever on a browser that cannot read storage, and
+// every protected page renders its loading state with no error and no redirect.
+//
+// The persist API is still preferred over the `hasHydrated` STORE FIELD
+// (store.ts:23,153-154, written at :397-400), which carries the same hole plus
+// one of its own: its callback ignores the error argument entirely, so it cannot
+// even report the failure it swallows. See TD-83.
 //
 // The three-step dance below is lifted verbatim from the one page that already
 // did this correctly (account/page.tsx), and it is all load-bearing:
 //   hasHydrated()        — already finished before this component mounted
 //   onFinishHydration    — finishes after
 //   rehydrate()          — nothing started it; force one rather than wait
+//   the deadline         — none of the three will ever answer
+// How long to wait for hydration before deciding without it.
+//
+// NOT A NETWORK CALL. Reading localStorage is synchronous-ish and completes in
+// milliseconds on any healthy browser, so 3s is far outside normal and short
+// enough that a person staring at a loading state still gets an answer.
+//
+// A NAMED JUDGEMENT, like the 10s on the welcome page — not a derivation. The
+// honest way to replace it is to measure real hydration latency, if anyone ever
+// has cause to care.
+//
+// WHAT HAPPENS WHEN IT FIRES: `token` is whatever memory holds, which is null,
+// so the reader goes to sign-in carrying `next=`. That is the correct answer
+// rather than a fallback — a browser that cannot read storage has no session to
+// restore, and signing in still works: the cookie and the in-memory store carry
+// it for the session even if the localStorage write fails.
+const HYDRATION_DEADLINE_MS = 3000
+
 export function useAuthGate(): boolean {
   const router = useRouter()
   const token = useStore((s) => s.token)
@@ -58,7 +96,13 @@ export function useAuthGate(): boolean {
     }
     const unsub = useStore.persist.onFinishHydration(() => setHydrated(true))
     void useStore.persist.rehydrate()
-    return unsub
+    // Decide without hydration rather than wait on it forever. See the deadline's
+    // own comment: on a storage error nothing above this line will ever fire.
+    const deadline = setTimeout(() => setHydrated(true), HYDRATION_DEADLINE_MS)
+    return () => {
+      clearTimeout(deadline)
+      unsub()
+    }
   }, [])
 
   useEffect(() => {
@@ -76,8 +120,15 @@ export function useAuthGate(): boolean {
     // Using it here means a path it would reject on arrival is never emitted in
     // the first place: it allow-lists `/app/` only, so the two post-auth screens
     // under /auth/* (welcome, disclaimer) correctly send no `next=` at all and
-    // fall through to DEFAULT_RETURN_TO. A `next=` that the consumer would throw
-    // away is noise in a URL a person may see.
+    // fall through to DEFAULT_RETURN_TO.
+    //
+    // THAT IS RIGHT, NOT A LIMITATION, and the reason is not the allow-list. Those
+    // destinations are NOT THE USER'S TO CARRY: the disclaimer gate is driven by
+    // `needs_disclaimer` on the user object, not by a URL. Someone who still owes
+    // consent is routed there after signing in whether or not anyone asked
+    // (auth/verify/page.tsx:84-85, auth/welcome/page.tsx:47-48), and a
+    // next=/auth/disclaimer would fight that routing for someone who had already
+    // accepted.
     const here = window.location.pathname + window.location.search
     const carry = safeReturnTo(here) === here
     router.replace(

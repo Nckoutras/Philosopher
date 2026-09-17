@@ -194,3 +194,61 @@ describe('when hydration confirms no session', () => {
     expect(replace).toHaveBeenCalledTimes(1)
   })
 })
+
+describe('when hydration NEVER completes', () => {
+  // THE CASE THAT HAD NO TEST, and the one that nearly shipped as a hang.
+  //
+  // zustand sets _hasHydrated and fires the finish listeners only in the .then
+  // of its hydrate promise (node_modules/zustand/middleware.js:417-430). The
+  // .catch runs the rehydration callback with the error and stops. So on a
+  // storage error — private window, blocked site data, a throwing storage —
+  // hasHydrated() stays false forever AND onFinishHydration never resolves.
+  //
+  // Every earlier case here resolves hydration one way or the other, which is
+  // exactly why none of them could see this. Without the deadline the hook waits
+  // on a promise that has already failed and every protected page renders its
+  // loading state indefinitely, with no error and no redirect.
+  const DEADLINE_MS = 3000
+
+  it('decides at the deadline instead of waiting forever', async () => {
+    vi.useFakeTimers()
+    // Hydration that never finishes: false forever, and no listener ever called.
+    vi.spyOn(useStore.persist, 'hasHydrated').mockReturnValue(false)
+    vi.spyOn(useStore.persist, 'onFinishHydration').mockImplementation(() => () => {})
+    vi.spyOn(useStore.persist, 'rehydrate').mockImplementation((() => {}) as never)
+
+    render(<Probe />)
+    await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+
+    // One millisecond short: still waiting, and correctly so.
+    await act(async () => { vi.advanceTimersByTime(DEADLINE_MS - 1) })
+    expect(gate()).toBe('WAITING')
+    expect(replace).not.toHaveBeenCalled()
+
+    // The deadline lands and the hook decides WITHOUT hydration.
+    await act(async () => { vi.advanceTimersByTime(1) })
+    expect(replace).toHaveBeenCalledTimes(1)
+    // And it is a real decision, not a bare bounce: the destination survives, so
+    // the reader lands back where they asked to be once signed in.
+    expect(replace).toHaveBeenCalledWith('/auth?mode=signin&next=%2Fapp%2Ftoday')
+    vi.useRealTimers()
+  })
+
+  it('does not fire the deadline once hydration has answered', async () => {
+    // A late setHydrated(true) is harmless, but a timer left running after
+    // unmount is a leak on every protected page in the app.
+    vi.useFakeTimers()
+    useStore.setState({ token: 'a.b.c' })
+    vi.spyOn(useStore.persist, 'hasHydrated').mockReturnValue(true)
+    vi.spyOn(useStore.persist, 'onFinishHydration').mockImplementation(() => () => {})
+    vi.spyOn(useStore.persist, 'rehydrate').mockImplementation((() => {}) as never)
+
+    render(<Probe />)
+    await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+    expect(gate()).toBe('READY')
+
+    await act(async () => { vi.advanceTimersByTime(DEADLINE_MS * 2) })
+    expect(replace).not.toHaveBeenCalled()
+    vi.useRealTimers()
+  })
+})
