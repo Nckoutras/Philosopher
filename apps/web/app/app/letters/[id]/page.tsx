@@ -13,6 +13,7 @@ import PersonaPickerSheet from '@/components/personas/PersonaPickerSheet'
 import SharePreviewModal from '@/components/share/SharePreviewModal'
 import SeasonFinaleView from '@/components/letters/SeasonFinaleView'
 import WriteBackPanel from '@/components/letters/WriteBackPanel'
+import { currentReturnTo, upgradeHref } from '@/lib/upgradeHref'
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
@@ -84,7 +85,7 @@ export default function LetterReadPage() {
       return
     }
     if (!isPro) {
-      router.replace('/app/upgrade?source=letter')
+      router.replace(upgradeHref({ source: 'letter', returnTo: currentReturnTo() }))
       return
     }
 

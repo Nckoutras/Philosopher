@@ -19,6 +19,7 @@ import {
   optOutAnalytics,
   track,
 } from '@/lib/analytics'
+import { currentReturnTo, upgradeHref } from '@/lib/upgradeHref'
 
 function useHydrated() {
   const [hydrated, setHydrated] = useState(false)
@@ -85,7 +86,7 @@ export default function AccountPage() {
     if (plan === 'Free') {
       // A deliberate CTA: the user tapped the subscription row to change plan.
       track('upgrade_clicked', { surface: 'account', reason: 'none' })
-      router.push('/app/upgrade?source=account')
+      router.push(upgradeHref({ source: 'account', returnTo: currentReturnTo() }))
       return
     }
     setPortalLoading(true)

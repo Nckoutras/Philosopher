@@ -7,6 +7,7 @@ import { useStore } from '@/lib/store'
 import { api, type Persona } from '@/lib/api'
 import { BronzeDivider } from '@/components/ui/BronzeDivider'
 import { track } from '@/lib/analytics'
+import { currentReturnTo, upgradeHref } from '@/lib/upgradeHref'
 
 // This page is the second of the two high-intent paywall surfaces (the other is
 // PaywallModal). Both carry source + reason into /app/upgrade; PR #3 reads them.
@@ -181,12 +182,12 @@ export default function PersonaDetailPage() {
                   type="button"
                   onClick={() => {
                     track('upgrade_clicked', { surface: SURFACE, reason: REASON })
-                    const query = new URLSearchParams({
+                    router.push(upgradeHref({
                       source: SURFACE,
                       reason: REASON,
                       persona: persona.slug,
-                    })
-                    router.push(`/app/upgrade?${query.toString()}`)
+                      returnTo: currentReturnTo(),
+                    }))
                   }}
                   className="w-full h-[48px] rounded-sm font-cormorant text-[17px] font-medium bg-bronze text-vellum transition-colors"
                 >

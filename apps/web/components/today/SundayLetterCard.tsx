@@ -7,6 +7,7 @@ import { Lock, Sparkle } from 'lucide-react'
 import { api } from '@/lib/api'
 import type { WeeklyLetter } from '@/lib/api'
 import BottomSheet from '@/components/ui/BottomSheet'
+import { currentReturnTo, upgradeHref } from '@/lib/upgradeHref'
 
 // The next weekly reading, computed in UTC against the cron (Sunday 18:00 UTC).
 // "Next" = the next Sunday 18:00 UTC strictly in the future: today's Sunday while
@@ -46,7 +47,7 @@ export default function SundayLetterCard({ isPro }: Props) {
 
   function handleClick() {
     if (!isPro) {
-      router.push('/app/upgrade?source=letter')
+      router.push(upgradeHref({ source: 'letter', returnTo: currentReturnTo() }))
       return
     }
     if (unread) {

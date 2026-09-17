@@ -21,6 +21,7 @@ import PaywallModal from '@/components/chat/PaywallModal'
 import ChatInput from '@/components/chat/ChatInput'
 import RitualScheduleSheet from '@/components/rituals/RitualScheduleSheet'
 import SubPageNav from '@/components/layout/SubPageNav'
+import { currentReturnTo, upgradeHref } from '@/lib/upgradeHref'
 
 // Delay before the single extra recurrence re-poll fires after a turn boundary.
 // The insight is written by an async worker, so the boundary poll often lands
@@ -162,7 +163,7 @@ export default function ExistingConversationPage() {
   // existing Council wall (/app/upgrade), same as rituals' Council entry.
   function handleTakeToCouncil() {
     if (!isPro) {
-      router.push('/app/upgrade?source=council')
+      router.push(upgradeHref({ source: 'council', returnTo: currentReturnTo() }))
       return
     }
     if (!lastUserMessage.trim()) return
@@ -468,7 +469,7 @@ export default function ExistingConversationPage() {
   // tab; recorded rather than worked around.
   async function handleReturnToThis(messageId: string) {
     if (!isPro) {
-      router.push('/app/upgrade?source=ritual')
+      router.push(upgradeHref({ source: 'ritual', returnTo: currentReturnTo() }))
       return
     }
 

@@ -20,6 +20,19 @@
 export const UPGRADE_SOURCES = [
   'council',
   'letter',
+  // Its own identifier, NOT 'letter'. The Future Self ritual and the Sunday
+  // Letter are different products bought for different reasons, and until
+  // BUG-004 they shared a source: the Future Self door sent `source=letter`, so
+  // its reader was told "Your Sunday Letter arrives on Pro", and every
+  // checkout_started and Stripe metadata row from either ritual landed in one
+  // bucket. Splitting the identifier is what makes the two separable in
+  // PostHog; splitting the copy below is what stops the wall lying to a reader.
+  'future_self',
+  // Same reasoning, second instance. You vs You is Pro-gated
+  // (routers/self_comparison.py) and had no source of its own, so the only
+  // available spelling was the generic 'ritual' -- which would have recreated
+  // BUG-004 in a second place rather than fixing it once.
+  'you_vs_you',
   'ritual',
   'counterview',
   'self_portrait',
@@ -98,6 +111,10 @@ export function benefitLine(opts: {
       return 'The Council convenes on Pro: four minds, one verdict.'
     case 'letter':
       return 'Your Sunday Letter arrives on Pro — a reading of your week, in the voice you spoke with most.'
+    case 'future_self':
+      return "Write to the person you'll be in a year. Pro delivers it."
+    case 'you_vs_you':
+      return 'Set what you said then against what you say now. Pro opens the comparison.'
     default:
       // ritual, counterview, self_portrait, account, share, insight_door,
       // go_deeper, paywall_modal and persona_detail have no approved line of

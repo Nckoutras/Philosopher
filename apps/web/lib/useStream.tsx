@@ -6,6 +6,8 @@ import { track } from '@/lib/analytics'
 import { latencyBucket } from '@/lib/analyticsEvents'
 import toast from 'react-hot-toast'
 import { fairUseMessage } from '@/lib/fairUseCopy'
+import { currentReturnTo, upgradeHref } from '@/lib/upgradeHref'
+import { lockedPersonaUpgradeHref } from '@/lib/personaLock'
 
 export function useStream() {
   const router = useRouter()
@@ -325,7 +327,7 @@ export function useStream() {
       } else if (err instanceof Error && err.message === 'upgrade_required') {
         // Same condition as AnotherMindSheet's client-side guard: the backend's
         // is_persona_accessible check on /another-mind. One name for one thing.
-        router.push(`/app/upgrade?source=persona_locked&persona=${encodeURIComponent(personaSlug)}`)
+        router.push(lockedPersonaUpgradeHref(personaSlug, currentReturnTo()))
       } else {
         toast.error('Something went wrong. Please try again.')
       }
@@ -452,7 +454,7 @@ export function useStream() {
         // is rate_limited (verified against routers/conversations.py). This branch
         // is therefore unreachable today. Tagged anyway so it is correct if the
         // guard is ever added; expect zero traffic on source=go_deeper until then.
-        router.push('/app/upgrade?source=go_deeper')
+        router.push(upgradeHref({ source: 'go_deeper', returnTo: currentReturnTo() }))
       } else {
         toast.error('Something went wrong. Please try again.')
       }

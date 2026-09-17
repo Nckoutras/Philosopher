@@ -11,6 +11,7 @@ import AppHeader from '@/components/layout/AppHeader'
 import SubPageNav from '@/components/layout/SubPageNav'
 import SwipeableRow from '@/components/ui/SwipeableRow'
 import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal'
+import { currentReturnTo, upgradeHref } from '@/lib/upgradeHref'
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
@@ -50,7 +51,7 @@ export default function LettersPage() {
       return
     }
     if (!isPro) {
-      router.replace('/app/upgrade?source=letter')
+      router.replace(upgradeHref({ source: 'letter', returnTo: currentReturnTo() }))
       return
     }
     api.getWeeklyLetters()

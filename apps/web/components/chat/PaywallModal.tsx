@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useStore } from '@/lib/store'
 import type { PaywallDetails } from '@/lib/store'
 import { track } from '@/lib/analytics'
+import { currentReturnTo, upgradeHref } from '@/lib/upgradeHref'
 
 // The surface id carried into /app/upgrade and into every event fired here.
 // One of the two allowed values (the other is 'persona_detail'); PR #3 reads it
@@ -27,13 +28,17 @@ function formatResetAt(date: Date): string {
   return `on ${date.toLocaleDateString([], { month: 'long', day: 'numeric' })} at ${timeStr}`
 }
 
-function upgradeHref(reason: string, personaSlug: string | null): string {
-  // URLSearchParams only ever receives defined values, so no key can serialize
-  // as the string "undefined" — the reason falls back to 'daily' at the call
-  // site and the persona key is omitted entirely when the slug is unknown.
-  const params = new URLSearchParams({ source: SURFACE, reason })
-  if (personaSlug) params.set('persona', personaSlug)
-  return `/app/upgrade?${params.toString()}`
+function modalUpgradeHref(reason: string, personaSlug: string | null): string {
+  // Delegates to lib/upgradeHref so the query string has one spelling. The
+  // omit-when-absent behaviour this comment described is now that helper's, and
+  // the returnTo it adds is what gives the wall's Close button a destination
+  // (BUG-003) -- here, the conversation the reader was in.
+  return upgradeHref({
+    source: SURFACE,
+    reason,
+    persona: personaSlug ?? undefined,
+    returnTo: currentReturnTo(),
+  })
 }
 
 export default function PaywallModal({ open, details, onClose }: Props) {
@@ -178,7 +183,7 @@ export default function PaywallModal({ open, details, onClose }: Props) {
             type="button"
             onClick={() => {
               track('upgrade_clicked', { surface: SURFACE, reason })
-              router.push(upgradeHref(reason, personaSlug))
+              router.push(modalUpgradeHref(reason, personaSlug))
             }}
             className="w-full bg-ink text-vellum font-lora text-[14px] py-3 px-6 rounded-sm hover:opacity-90 transition-opacity"
           >
