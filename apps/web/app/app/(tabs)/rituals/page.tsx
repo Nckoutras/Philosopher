@@ -6,6 +6,7 @@ import Image from 'next/image'
 import { useStore } from '@/lib/store'
 import AppHeader from '@/components/layout/AppHeader'
 import RitualScheduleSheet from '@/components/rituals/RitualScheduleSheet'
+import { currentReturnTo, upgradeHref } from '@/lib/upgradeHref'
 
 export default function RitualsPage() {
   const router = useRouter()
@@ -38,14 +39,14 @@ export default function RitualsPage() {
 
   function handleBeginLetter() {
     if (!isPro) {
-      router.push('/app/upgrade?source=letter')
+      router.push(upgradeHref({ source: 'future_self', returnTo: currentReturnTo() }))
       return
     }
     setScheduleOpen(true)
   }
 
   function handleOpenCouncil() {
-    if (!isPro) { router.push('/app/upgrade?source=council'); return }
+    if (!isPro) { router.push(upgradeHref({ source: 'council', returnTo: currentReturnTo() })); return }
     router.push('/app/council')
   }
 
