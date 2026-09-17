@@ -509,8 +509,8 @@ The wire carries nothing that separates them. `Counterview` (`apps/web/lib/api.t
 has no field for it, and all six bodies are identical to the state the caller
 already held.
 
-**What that costs, after BUG-007 and not before it.** The BUG-007 fix (this PR;
-stamp the number at merge) split the frontend's
+**What that costs, after BUG-007 and not before it.** The BUG-007 fix (#672,
+merged 2026-09-17) split the frontend's
 single outcome set in two: a THROWN error now keeps the tap and offers a retry,
 and only a SUCCESSFUL response carrying no round-1 line marks the persona
 exhausted. That is the right reading for rows 1, 3, 4 and 5. It is the WRONG
@@ -764,8 +764,8 @@ front of the 90-second deadline — correct behaviour, slow smoke.
 
 **Closing this item means one of:** the smoke runs and matches, and this entry is
 closed with the date; or it runs and does not match, and the delta becomes its
-own item. TD-78 also carries a stamp still due — it says "this PR; stamp the
-number at merge", and the number is now **#672**.
+own item. (TD-78's PR stamp, noted here as due, was applied in the Batch F PR:
+it now reads **#672**.)
 
 ---
 
