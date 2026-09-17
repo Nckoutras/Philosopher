@@ -34,10 +34,26 @@ export const viewport: Viewport = {
   themeColor: '#B89968',
 }
 
+// ONE HOST, DEFINED ONCE. metadataBase, the canonical and the JSON-LD all resolve
+// from here. TD-69 was a hostname drifting between two places; a third copy in the
+// structured data would be the same defect with a longer fuse, because nothing
+// renders a JSON-LD host where a human would notice it.
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://thewiseroom.app'
+
 export const metadata: Metadata = {
   title: 'The Wise Room — Your Reflective Companion',
   description: 'Think deeper with the greatest thinkers of history.',
-  metadataBase: new URL(process.env.NEXT_PUBLIC_BASE_URL ?? 'https://thewiseroom.app'),
+  metadataBase: new URL(BASE_URL),
+  // BUG-027. Self-referencing canonical, resolved against metadataBase above.
+  // Relative on purpose — one host, defined once.
+  //
+  // INHERITED BY CHILDREN, which is why /legal/terms and /legal/privacy each
+  // declare their own. Without that, both would inherit '/' and tell Google the
+  // two legal pages ARE the homepage — a worse defect than the missing canonical
+  // this fixes.
+  alternates: {
+    canonical: '/',
+  },
   openGraph: {
     title: 'The Wise Room',
     description: 'A premium AI reflective companion grounded in historical philosophy.',
@@ -69,10 +85,53 @@ export const metadata: Metadata = {
   },
 }
 
+// BUG-027. Minimal and TRUE. `name` and `description` are verbatim from
+// public/manifest.json; the logo is public/icons/icon-512.png, which exists at
+// 512x512.
+//
+// WHAT IS NOT HERE, because each would be a false claim in machine-readable form:
+//
+//   aggregateRating / reviewCount — there are no reviews. Inventing them is what
+//     earns a manual action.
+//   offers / price — BLOCKED, and not hypothetically. app/app/upgrade/page.tsx
+//     displays EUR 99.99/year while OPS-006 records Stripe charging EUR 149
+//     against a locked price of 99.99. The displayed price and the charged price
+//     disagree today, so publishing either as structured data broadcasts a price
+//     the payment system does not honour — to aggregators that cache it. Must not
+//     be added until OPS-006 closes and the two agree.
+//   SearchAction — there is no site search; it would advertise a /search endpoint
+//     that 404s.
+//   SoftwareApplication — the product is entirely behind auth. There is no public
+//     page for such an entity to describe.
+//   sameAs — no social profiles to point at.
+//
+// A schema error is recoverable. A false claim in structured data is not.
+const JSON_LD = {
+  '@context': 'https://schema.org',
+  '@type': 'WebSite',
+  name: 'The Wise Room',
+  url: BASE_URL,
+  description: 'Think deeper with the greatest thinkers of history.',
+  publisher: {
+    '@type': 'Organization',
+    name: 'The Wise Room',
+    url: BASE_URL,
+    logo: new URL('/icons/icon-512.png', BASE_URL).toString(),
+  },
+}
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${cormorant.variable} ${lora.variable} font-lora antialiased`}>
+        {/* JSON.stringify, never a template literal: a raw string could carry a
+            `</script>` sequence and break out of the tag. The object above is a
+            frozen literal with no user input in it, so this is belt-and-braces —
+            but the next person to add a field may not check. */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD) }}
+        />
         <ThemeProvider attribute="class" forcedTheme="light" enableSystem={false}>
           <QueryProvider>
             {children}
