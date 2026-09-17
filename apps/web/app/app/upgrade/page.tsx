@@ -1,12 +1,41 @@
 'use client'
 
-import { Suspense, useEffect, useState } from 'react'
+import { Suspense, useCallback, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
 import { useStore } from '@/lib/store'
 import { api } from '@/lib/api'
 import { benefitLine, isUpgradeSource, FALLBACK_LINE } from '@/lib/upgradeCopy'
+import { DEFAULT_RETURN_TO, safeReturnTo } from '@/lib/safeReturnTo'
+import { RETURN_TO_PARAM } from '@/lib/upgradeHref'
+
+// THE WAY OUT (BUG-003). Twelve surfaces route here and none of them left the
+// reader a door: this route sits OUTSIDE the (tabs) group, so there is no tab
+// bar either, and browser Back is the only escape. That is fine in a browser
+// tab and a trap in a PWA or a native wrapper, which is where a shared link
+// lands. Moving the route inside (tabs) to inherit a tab bar was considered and
+// rejected -- a paywall with a tab bar is still a paywall you cannot close, and
+// it would put the wall inside the app shell it is supposed to sit above.
+//
+// WHERE IT GOES is a validated returnTo, not router.back(). back() needs a
+// history entry and there is none on a cold open from a shared link, which is
+// precisely the traffic this screen is about to get. safeReturnTo is Γ-2's
+// existing validator, unchanged: /app/ prefixes only, protocol-relative
+// payloads refused, and DEFAULT_RETURN_TO ('/app/today') for everything else.
+function CloseButton({ onClose }: { onClose: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClose}
+      aria-label="Close"
+      className="absolute right-[16px] w-[32px] h-[32px] flex items-center justify-center text-charcoal text-[20px] rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-bronze"
+      style={{ top: 'max(0.75rem, env(safe-area-inset-top))' }}
+    >
+      ✕
+    </button>
+  )
+}
 
 function UpgradeContent() {
   const router = useRouter()
@@ -56,6 +85,29 @@ function UpgradeContent() {
     }
   }, [personaSlug])
 
+  // WHERE CLOSE GOES. Validated every time it is read, never trusted from the
+  // URL: safeReturnTo allow-lists /app/ paths and answers DEFAULT_RETURN_TO for
+  // an absent, off-origin or malformed value, so a hand-edited
+  // ?returnTo=//evil.com closes to Today rather than off-site.
+  //
+  // router.replace, not push: the paywall should not stay in history behind the
+  // page the reader just returned to, or Back walks them straight back into it.
+  const handleClose = useCallback(() => {
+    router.replace(safeReturnTo(searchParams.get(RETURN_TO_PARAM)))
+  }, [router, searchParams])
+
+  // Escape dismisses, matching BottomSheet (components/ui/BottomSheet.tsx) so
+  // the app has one keyboard contract for "get me out of this" rather than two.
+  // A full page rather than a modal, so there is no focus trap to maintain and
+  // nothing to restore focus to -- the tab order is the page's own.
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') handleClose()
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [handleClose])
+
   // Renders the no-name variant on first paint and swaps to the named one when
   // the lookup resolves — no flash of wrong copy, no layout dependence on a
   // network call.
@@ -77,8 +129,9 @@ function UpgradeContent() {
   }
 
   return (
-    <main className="min-h-screen [min-height:100svh] bg-vellum pb-[80px]">
-      <div className="px-[24px] pt-[22px] pb-[16px]">
+    <main className="relative min-h-screen [min-height:100svh] bg-vellum pb-[80px]">
+      <CloseButton onClose={handleClose} />
+      <div className="px-[24px] pt-[22px] pb-[16px] pr-[56px]">
         <p className="font-lora text-[11px] uppercase tracking-[0.18em] text-sepia mb-[4px]">
           Upgrade
         </p>
@@ -144,6 +197,46 @@ function UpgradeContent() {
   )
 }
 
+// The Suspense fallback, and it CARRIES THE CLOSE CONTROL TOO.
+//
+// A wall with no exit on a slow first paint is the same bug as a wall with no
+// exit — briefer, and worse on the connection least able to afford it. The
+// fallback is what a reader on a slow phone actually looks at.
+//
+// IT READS window.location, NOT useSearchParams, and that is the whole reason
+// this is a separate component rather than inline JSX. useSearchParams is the
+// hook this boundary exists to suspend; calling it here would suspend the
+// fallback itself. window.location.search is the same string, unsuspended, and
+// it is read INSIDE the click handler — which only ever runs on the client, so
+// there is no server/client divergence to hydrate around. The returnTo is
+// therefore just as accurate here as in the resolved page.
+function FallbackShell() {
+  const router = useRouter()
+  const handleClose = () => {
+    const next =
+      typeof window === 'undefined'
+        ? null
+        : new URLSearchParams(window.location.search).get(RETURN_TO_PARAM)
+    router.replace(safeReturnTo(next))
+  }
+  return (
+    <main className="relative min-h-screen [min-height:100svh] bg-vellum pb-[80px]">
+      <CloseButton onClose={handleClose} />
+      <div className="px-[24px] pt-[22px] pb-[16px] pr-[56px]">
+        <p className="font-lora text-[11px] uppercase tracking-[0.18em] text-sepia mb-[4px]">
+          Upgrade
+        </p>
+        <h1 className="font-cormorant text-[26px] font-medium text-ink leading-tight">
+          Choose your plan.
+        </h1>
+        <p className="font-lora text-[13px] text-charcoal mt-[6px] leading-snug">
+          {FALLBACK_LINE}
+        </p>
+      </div>
+    </main>
+  )
+}
+
 export default function UpgradePage() {
   // useSearchParams without a Suspense boundary fails the production build —
   // the house pattern is split-component + Suspense (library/page.tsx,
@@ -152,23 +245,7 @@ export default function UpgradePage() {
   // The fallback renders the page's own shell with the generic line rather than
   // a blank screen: on a slow first paint the user sees the offer, not nothing.
   return (
-    <Suspense
-      fallback={
-        <main className="min-h-screen [min-height:100svh] bg-vellum pb-[80px]">
-          <div className="px-[24px] pt-[22px] pb-[16px]">
-            <p className="font-lora text-[11px] uppercase tracking-[0.18em] text-sepia mb-[4px]">
-              Upgrade
-            </p>
-            <h1 className="font-cormorant text-[26px] font-medium text-ink leading-tight">
-              Choose your plan.
-            </h1>
-            <p className="font-lora text-[13px] text-charcoal mt-[6px] leading-snug">
-              {FALLBACK_LINE}
-            </p>
-          </div>
-        </main>
-      }
-    >
+    <Suspense fallback={<FallbackShell />}>
       <UpgradeContent />
     </Suspense>
   )

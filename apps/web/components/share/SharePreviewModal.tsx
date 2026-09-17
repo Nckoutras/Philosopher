@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { track } from '@/lib/analytics'
+import { currentReturnTo, upgradeHref } from '@/lib/upgradeHref'
 import toast from 'react-hot-toast'
 import { api, ShareLimitError } from '@/lib/api'
 import { useStore } from '@/lib/store'
@@ -252,7 +253,7 @@ export default function SharePreviewModal({
             <span>
               Free share limit reached (3/90 days).{' '}
               <a
-                href="/app/upgrade?source=share"
+                href={upgradeHref({ source: 'share', returnTo: currentReturnTo() })}
                 onClick={() => {
                   track('upgrade_clicked', { surface: 'share', reason: 'share_limit' })
                   toast.dismiss(t.id)

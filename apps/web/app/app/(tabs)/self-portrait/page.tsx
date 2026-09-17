@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import toast from 'react-hot-toast'
 import Link from 'next/link'
 import Image from 'next/image'
-import { useRouter } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { track } from '@/lib/analytics'
 import { useStore } from '@/lib/store'
 import { api } from '@/lib/api'
@@ -24,6 +24,7 @@ import { buildSummary } from '@/lib/selfPortraitSummary'
 import { User, Shield, Feather, Flame, HelpCircle, Anchor, Users, Compass, Check, ArrowRight, Sparkle, Leaf } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { topObservationCards, type CardIcon } from '@/lib/selfPortraitObservationCards'
+import { upgradeHref } from '@/lib/upgradeHref'
 
 // Card icon NAME → lucide component (the frozen card map stores names to stay plain data).
 const CARD_ICONS: Record<CardIcon, LucideIcon> = {
@@ -270,6 +271,11 @@ function PersonaAvatar({ portraitUrl, name }: { portraitUrl: string | null; name
 // there.
 export default function SelfPortraitPage() {
   const router = useRouter()
+  // For the Pro link's returnTo. usePathname rather than currentReturnTo():
+  // this href is built during RENDER, where window.location does not exist on
+  // the server and would hydrate to a different string. The query is not part
+  // of this screen's identity, so the pathname is the whole destination.
+  const pathname = usePathname()
   const token = useStore((s) => s.token)
   const user = useStore((s) => s.user)
   // First name for the personalized share-card title + filename (no new fetch —
@@ -856,7 +862,7 @@ export default function SelfPortraitPage() {
                     of life.
                   </p>
                   <Link
-                    href="/app/upgrade?source=self_portrait"
+                    href={upgradeHref({ source: 'self_portrait', returnTo: pathname })}
                     onClick={() => track('upgrade_clicked', { surface: 'self_portrait', reason: 'none' })}
                     className="inline-block font-cormorant text-[16px] font-medium text-ink underline decoration-bronze/60 underline-offset-4"
                   >

@@ -18,6 +18,7 @@ import SafetyReEntryCard from '@/components/chat/SafetyReEntryCard'
 import PaywallModal from '@/components/chat/PaywallModal'
 import ChatInput from '@/components/chat/ChatInput'
 import SubPageNav from '@/components/layout/SubPageNav'
+import { currentReturnTo, upgradeHref } from '@/lib/upgradeHref'
 
 export default function ChatPage() {
   const params = useParams<{ slug: string }>()
@@ -77,7 +78,7 @@ export default function ChatPage() {
   const lastUserMessage = [...messages].reverse().find((m) => m.role === 'user')?.content ?? ''
   function handleTakeToCouncil() {
     if (!isPro) {
-      router.push('/app/upgrade?source=council')
+      router.push(upgradeHref({ source: 'council', returnTo: currentReturnTo() }))
       return
     }
     if (!lastUserMessage.trim()) return

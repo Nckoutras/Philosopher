@@ -22,6 +22,10 @@ import { useStore } from '@/lib/store'
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+  // The page reads usePathname for the Pro link's returnTo (BUG-003). A mock
+  // that omits a hook the component calls does not fail as "missing mock" -- it
+  // throws inside render, which reads as the component being broken.
+  usePathname: () => '/app/self-portrait',
 }))
 
 // Heavy leaf components — not under test, and mounting them pulls in canvas/blob work.

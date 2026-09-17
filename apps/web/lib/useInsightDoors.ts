@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { useStore } from '@/lib/store'
 import { api, type Insight } from '@/lib/api'
 import { renderDiscardUndoToast } from '@/components/chat/discardToast'
+import { currentReturnTo, upgradeHref } from '@/lib/upgradeHref'
 
 // Single source of truth for the four insight "doors" — the primary action per
 // type, the Doubt destination, and the 5s-undo discard. Consumed by all three
@@ -32,7 +33,7 @@ export function useInsightDoors() {
   function primary(insight: Insight) {
     if (insight.insight_type === 'dilemma') {
       if (!isPro) {
-        router.push('/app/upgrade?source=insight_door')
+        router.push(upgradeHref({ source: 'insight_door', returnTo: currentReturnTo() }))
         return
       }
       sessionStorage.setItem('council_prefill', insight.content.slice(0, 600))
@@ -56,7 +57,7 @@ export function useInsightDoors() {
     }
     if (insight.insight_type === 'aspiration') {
       if (!isPro) {
-        router.push('/app/upgrade?source=insight_door')
+        router.push(upgradeHref({ source: 'insight_door', returnTo: currentReturnTo() }))
         return
       }
       router.push('/app/rituals?open=future-self')

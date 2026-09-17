@@ -4,13 +4,33 @@ import { useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Image from 'next/image'
 import { useStore } from '@/lib/store'
+import { track } from '@/lib/analytics'
 import { BronzeDivider } from '@/components/ui/BronzeDivider'
 import { RITUALS, RITUAL_INFO } from '@/lib/rituals'
+import { currentReturnTo, upgradeHref } from '@/lib/upgradeHref'
+
+// The two labels, named rather than inlined so a wording change is one line.
+//
+// NEITHER IS NEW COPY. 'Begin' is the verb the welcome screen already uses for
+// its primary action; 'Upgrade to Pro' is lifted verbatim from the persona
+// detail page's gated CTA, which is the nearest existing instance of this exact
+// button. Reused rather than invented, because a fourth spelling of "pay us" is
+// a product decision and this is a dead-end fix.
+const LABEL_ENTER = 'Begin'
+const LABEL_GATED = 'Upgrade to Pro'
 
 export default function RitualExplainerPage() {
   const router = useRouter()
   const params = useParams<{ slug: string }>()
   const token = useStore((s) => s.token)
+  // computePlan's output (lib/store.ts), which counts 'trialing' as entitled.
+  // NOT the `subscription?.status === 'active' && plan !== 'free'` spelling the
+  // rituals tab uses one door over: that one reads a trialing subscriber as
+  // free and would offer them a paywall they have already passed. Two of the
+  // three existing call sites handle trialing; the rituals tab is the outlier,
+  // and is left alone here rather than fixed in a dead-end batch.
+  const plan = useStore((s) => s.plan)
+  const isPro = plan !== 'free'
 
   useEffect(() => {
     if (token === null) router.replace('/auth')
@@ -18,6 +38,31 @@ export default function RitualExplainerPage() {
 
   const meta = RITUALS.find((r) => r.slug === params.slug)
   const info = RITUAL_INFO[params.slug]
+
+  // THE THIRD STATE THE BRIEF ASKS FOR CANNOT HAPPEN HERE, and saying so is
+  // cheaper than a branch nobody can reach. /app/* is guarded twice before this
+  // renders: middleware.ts redirects an unauthenticated request to
+  // /auth?mode=signin&next=<this path>, and the token effect above replaces the
+  // route client-side if the store says otherwise. A signed-out reader never
+  // sees this page, so the CTA is two-state, not three -- and the destination
+  // they came for is already preserved by the middleware's `next`.
+  const gated = meta ? meta.pro && !isPro : false
+
+  function handleCta() {
+    if (!meta) return
+    if (meta.pro && !isPro) {
+      // A DELIBERATE CTA, so it fires. The registry's rule
+      // (lib/analyticsEvents.ts) is that upgrade_clicked belongs to buttons
+      // whose whole purpose is "upgrade", and NOT to the guard redirects that
+      // push someone to /app/upgrade because they tried to do something else.
+      // This button is the former: the reader read the page and pressed the one
+      // action on it.
+      track('upgrade_clicked', { surface: meta.source, reason: 'none' })
+      router.push(upgradeHref({ source: meta.source, returnTo: currentReturnTo() }))
+      return
+    }
+    router.push(meta.entry)
+  }
 
   if (!meta || !info) {
     return (
@@ -61,6 +106,24 @@ export default function RitualExplainerPage() {
               <p className="font-lora text-[14px] text-charcoal leading-[1.6]">{info.overTime}</p>
             </div>
           </div>
+
+          {/* THE ONE ACTION (BUG-018). This page explained a ritual and then
+              left the reader on it -- intent created and wasted, on the six
+              pages whose whole job is to create that intent.
+
+              ONE button, never two. A second "or do this instead" is how a
+              detail page becomes a menu, and the reader has already chosen
+              which ritual they are reading about. Which button it is comes from
+              lib/rituals.ts, so the six routes cannot drift apart. */}
+          <button
+            type="button"
+            onClick={handleCta}
+            className={`w-full h-[48px] rounded-sm font-cormorant text-[17px] font-medium transition-colors ${
+              gated ? 'bg-bronze text-vellum' : 'bg-ink text-vellum'
+            }`}
+          >
+            {gated ? LABEL_GATED : LABEL_ENTER}
+          </button>
         </div>
       </section>
     </main>

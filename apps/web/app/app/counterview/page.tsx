@@ -13,6 +13,7 @@ import type { Counterview, CounterviewListItem } from '@/lib/api'
 import SubPageNav from '@/components/layout/SubPageNav'
 import SharePreviewModal from '@/components/share/SharePreviewModal'
 import AutoGrowTextarea from '@/components/ui/AutoGrowTextarea'
+import { currentReturnTo, upgradeHref } from '@/lib/upgradeHref'
 
 // The Counterview reader (DS v5). Two ways in: an insight card's "Doubt this",
 // where the insight id rides in the query string (?insightId=…), and the
@@ -346,7 +347,7 @@ export default function CounterviewPage() {
               type="button"
               onClick={() => {
                 track('upgrade_clicked', { surface: 'counterview', reason: 'none' })
-                router.push('/app/upgrade?source=counterview')
+                router.push(upgradeHref({ source: 'counterview', returnTo: currentReturnTo() }))
               }}
               className="mt-[12px] px-[20px] py-[10px] rounded-[12px] bg-bronze text-vellum font-cormorant text-[16px] font-medium"
             >

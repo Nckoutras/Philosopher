@@ -8,6 +8,7 @@ import { track } from '@/lib/analytics'
 import { api, type Persona, type Conversation } from '@/lib/api'
 import BottomSheet from '@/components/ui/BottomSheet'
 import { isPersonaLockedError, lockedPersonaUpgradeHref } from '@/lib/personaLock'
+import { currentReturnTo } from '@/lib/upgradeHref'
 
 interface Props {
   open: boolean
@@ -62,7 +63,7 @@ export default function PersonaPickerSheet({
     if (!persona.is_accessible) {
       track('upgrade_clicked', { surface: 'persona_locked', reason: 'persona_locked' })
       onClose()
-      router.push(lockedPersonaUpgradeHref(slug))
+      router.push(lockedPersonaUpgradeHref(slug, currentReturnTo()))
       return
     }
 
@@ -93,7 +94,7 @@ export default function PersonaPickerSheet({
       // refusal — which is where the raw slug came from.
       if (isPersonaLockedError(err)) {
         track('upgrade_clicked', { surface: 'persona_locked', reason: 'persona_locked' })
-        router.push(lockedPersonaUpgradeHref(slug))
+        router.push(lockedPersonaUpgradeHref(slug, currentReturnTo()))
         return
       }
       toast.error('Could not open conversation. Try again.')

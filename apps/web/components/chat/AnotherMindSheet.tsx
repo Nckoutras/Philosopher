@@ -6,6 +6,8 @@ import { track } from '@/lib/analytics'
 import { useRouter } from 'next/navigation'
 import { api, type Persona } from '@/lib/api'
 import BottomSheet from '@/components/ui/BottomSheet'
+import { currentReturnTo } from '@/lib/upgradeHref'
+import { lockedPersonaUpgradeHref } from '@/lib/personaLock'
 
 interface Props {
   open: boolean
@@ -59,7 +61,7 @@ export default function AnotherMindSheet({ open, onClose, excludeSlugs, onSelect
                 } else {
                   track('upgrade_clicked', { surface: 'persona_locked', reason: 'persona_locked' })
                   router.push(
-                    `/app/upgrade?source=persona_locked&persona=${encodeURIComponent(p.slug)}`,
+                    lockedPersonaUpgradeHref(p.slug, currentReturnTo()),
                   )
                 }
               }}

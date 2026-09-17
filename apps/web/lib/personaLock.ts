@@ -12,6 +12,8 @@
 // and the streaming refusal path. This module is the shared spelling of that route
 // so a fourth caller cannot invent a fifth variant of the query string.
 
+import { upgradeHref } from './upgradeHref'
+
 /** The refusal text the API returns for a persona-gate 403 (FastAPI `detail`). */
 const PERSONA_GATE_MARKER = 'requires plan upgrade'
 
@@ -21,8 +23,12 @@ const PERSONA_GATE_MARKER = 'requires plan upgrade'
  * and `persona` lets the page resolve a DISPLAY NAME. The slug travels only as a
  * query parameter for that lookup; it is never rendered.
  */
-export function lockedPersonaUpgradeHref(slug: string): string {
-  return `/app/upgrade?source=persona_locked&persona=${encodeURIComponent(slug)}`
+export function lockedPersonaUpgradeHref(slug: string, returnTo?: string | null): string {
+  // Delegates the query-string spelling to lib/upgradeHref, which is now the one
+  // place that knows how /app/upgrade is addressed -- including the returnTo
+  // that gives its Close button somewhere to go (BUG-003). The `source` and
+  // `persona` semantics above are unchanged.
+  return upgradeHref({ source: 'persona_locked', persona: slug, returnTo })
 }
 
 /**

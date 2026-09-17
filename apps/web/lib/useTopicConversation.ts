@@ -6,6 +6,7 @@ import toast from 'react-hot-toast'
 import { track } from '@/lib/analytics'
 import { api } from '@/lib/api'
 import { isPersonaLockedError, lockedPersonaUpgradeHref } from '@/lib/personaLock'
+import { currentReturnTo } from '@/lib/upgradeHref'
 
 // Shared "topic → start a conversation" wiring used by both the Home first-day
 // button and the /app/discuss route. Holds the pending topic + the persona
@@ -37,7 +38,7 @@ export function useTopicConversation() {
       // either way a locked mind ends at the paywall, never at a toast.
       if (isPersonaLockedError(err)) {
         track('upgrade_clicked', { surface: 'persona_locked', reason: 'persona_locked' })
-        router.push(lockedPersonaUpgradeHref(personaSlug))
+        router.push(lockedPersonaUpgradeHref(personaSlug, currentReturnTo()))
         return
       }
       // Never the raw message: API detail strings are written for developers and

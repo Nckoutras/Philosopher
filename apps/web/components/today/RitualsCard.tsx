@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ChevronRight } from 'lucide-react'
 import RitualScheduleSheet from '@/components/rituals/RitualScheduleSheet'
+import { currentReturnTo, upgradeHref } from '@/lib/upgradeHref'
 
 interface Props {
   isPro: boolean
@@ -16,7 +17,7 @@ export default function RitualsCard({ isPro, userEmail }: Props) {
 
   function handleSendToFutureSelf() {
     if (!isPro) {
-      router.push('/app/upgrade?source=ritual')
+      router.push(upgradeHref({ source: 'ritual', returnTo: currentReturnTo() }))
       return
     }
     setScheduleOpen(true)
