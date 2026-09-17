@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { ChevronRight } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useStore } from '@/lib/store'
+import { useAuthGate } from '@/lib/useAuthGate'
 import { api } from '@/lib/api'
 import { signOut } from '@/lib/auth'
 import AppHeader from '@/components/layout/AppHeader'
@@ -21,20 +22,6 @@ import {
 } from '@/lib/analytics'
 import { currentReturnTo, upgradeHref } from '@/lib/upgradeHref'
 
-function useHydrated() {
-  const [hydrated, setHydrated] = useState(false)
-  useEffect(() => {
-    if (useStore.persist.hasHydrated()) {
-      setHydrated(true)
-      return
-    }
-    const unsub = useStore.persist.onFinishHydration(() => setHydrated(true))
-    void useStore.persist.rehydrate()
-    return unsub
-  }, [])
-  return hydrated
-}
-
 export default function AccountPage() {
   const router = useRouter()
   const token = useStore((s) => s.token)
@@ -42,7 +29,7 @@ export default function AccountPage() {
   const storeSubscription = useStore((s) => s.subscription)
   const setSubscription = useStore((s) => s.setSubscription)
 
-  const hydrated = useHydrated()
+  const authed = useAuthGate()
   const [portalLoading, setPortalLoading] = useState(false)
   // Read in an effect, not in the initializer: localStorage does not exist
   // during SSR, and the toggle must reflect the stored choice rather than a
@@ -54,11 +41,7 @@ export default function AccountPage() {
   }, [])
 
   useEffect(() => {
-    if (!hydrated) return
-    if (token === null) {
-      router.replace('/auth?mode=signin')
-      return
-    }
+    if (!authed) return
     if (!storeSubscription) {
       api.getSubscription().then(setSubscription).catch(() => {})
     }
@@ -72,7 +55,7 @@ export default function AccountPage() {
         window.history.replaceState({}, '', window.location.pathname)
       }
     }
-  }, [hydrated, token, router, storeSubscription, setSubscription])
+  }, [authed, storeSubscription, setSubscription])
 
   const displayName = user?.full_name ?? user?.email ?? ''
   const initial = displayName.charAt(0).toUpperCase()
@@ -176,7 +159,7 @@ export default function AccountPage() {
     signOut()
   }
 
-  if (!hydrated || token === null) {
+  if (!authed) {
     return <div className="min-h-screen [min-height:100svh] bg-vellum" />
   }
 

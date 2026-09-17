@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import toast from 'react-hot-toast'
 import { useStore } from '@/lib/store'
+import { useAuthGate } from '@/lib/useAuthGate'
 import { api, type Match, type Persona } from '@/lib/api'
 
 interface EnrichedMatch extends Match {
@@ -16,7 +17,7 @@ interface EnrichedMatch extends Match {
 
 export default function MatchesPage() {
   const router = useRouter()
-  const token = useStore((s) => s.token)
+  const authed = useAuthGate()
 
   const [best, setBest] = useState<EnrichedMatch | null>(null)
   const [loading, setLoading] = useState(true)
@@ -24,10 +25,7 @@ export default function MatchesPage() {
   const [convLoading, setConvLoading] = useState(false)
 
   useEffect(() => {
-    if (token === null) {
-      router.replace('/auth')
-      return
-    }
+    if (!authed) return
 
     let cancelled = false
 
@@ -79,7 +77,7 @@ export default function MatchesPage() {
     return () => {
       cancelled = true
     }
-  }, [token, router])
+  }, [authed, router])
 
   async function handleBegin() {
     if (!best || convLoading) return

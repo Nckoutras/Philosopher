@@ -4,6 +4,7 @@ import { useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Image from 'next/image'
 import { useStore } from '@/lib/store'
+import { useAuthGate } from '@/lib/useAuthGate'
 import { track } from '@/lib/analytics'
 import { BronzeDivider } from '@/components/ui/BronzeDivider'
 import { RITUALS, RITUAL_INFO } from '@/lib/rituals'
@@ -23,6 +24,7 @@ export default function RitualExplainerPage() {
   const router = useRouter()
   const params = useParams<{ slug: string }>()
   const token = useStore((s) => s.token)
+  useAuthGate()
   // computePlan's output (lib/store.ts), which counts 'trialing' as entitled.
   // NOT the `subscription?.status === 'active' && plan !== 'free'` spelling the
   // rituals tab uses one door over: that one reads a trialing subscriber as
@@ -31,10 +33,6 @@ export default function RitualExplainerPage() {
   // and is left alone here rather than fixed in a dead-end batch.
   const plan = useStore((s) => s.plan)
   const isPro = plan !== 'free'
-
-  useEffect(() => {
-    if (token === null) router.replace('/auth')
-  }, [token, router])
 
   const meta = RITUALS.find((r) => r.slug === params.slug)
   const info = RITUAL_INFO[params.slug]

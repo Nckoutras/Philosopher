@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import AnotherMindSheet from '@/components/chat/AnotherMindSheet'
 import { useStore } from '@/lib/store'
+import { useAuthGate } from '@/lib/useAuthGate'
 import { useStream } from '@/lib/useStream'
 import { api, SaveLimitError, DuplicateSaveError } from '@/lib/api'
 import toast from 'react-hot-toast'
@@ -25,6 +26,7 @@ export default function ChatPage() {
   const router = useRouter()
 
   const token = useStore((s) => s.token)
+  const authed = useAuthGate()
   const messages = useStore((s) => s.messages)
   const streamingContent = useStore((s) => s.streamingContent)
   const activeConversationId = useStore((s) => s.activeConversationId)
@@ -100,10 +102,7 @@ export default function ChatPage() {
 
   // Initialise conversation on mount (or when slug/token changes)
   useEffect(() => {
-    if (token === null) {
-      router.replace('/auth')
-      return
-    }
+    if (!authed) return
 
     const state = useStore.getState()
     if (
@@ -157,7 +156,7 @@ export default function ChatPage() {
     return () => {
       cancelled = true
     }
-  }, [params.slug, token, router, setActiveConversation, loadSavedLines])
+  }, [params.slug, authed, router, setActiveConversation, loadSavedLines])
 
   // Clear conversation state on unmount
   useEffect(() => {

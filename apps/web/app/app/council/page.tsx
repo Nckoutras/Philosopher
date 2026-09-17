@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { Bookmark, Share2 } from 'lucide-react'
 import { useStore } from '@/lib/store'
+import { useAuthGate } from '@/lib/useAuthGate'
 import { api, RateLimitError } from '@/lib/api'
 import type { SSEEvent, SSEEventMember, SSEEventSynthesis } from '@/lib/api'
 import styles from './council.module.css'
@@ -105,7 +106,7 @@ function slugToDisplay(slug: string): string {
 // ──────────────────────────────────────────────
 export default function CouncilPage() {
   const router = useRouter()
-  const token = useStore((s) => s.token)
+  const authed = useAuthGate()
 
   const [matter, setMatter] = useState('')
   const [source, setSource] = useState('direct')
@@ -159,10 +160,7 @@ export default function CouncilPage() {
   // Mount
   // ──────────────────────────────────────────────
   useEffect(() => {
-    if (token === null) {
-      router.replace('/auth?mode=signin')
-      return
-    }
+    if (!authed) return
 
     api.getPersonas().then((ps) => {
       for (const p of ps) {
@@ -211,7 +209,7 @@ export default function CouncilPage() {
       cancelled = true
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current)
     }
-  }, [token, router])
+  }, [authed, router])
 
   // ──────────────────────────────────────────────
   // Bench builder — always reads from ROSTER, safe in stale closures

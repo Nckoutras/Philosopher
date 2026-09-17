@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import AnotherMindSheet from '@/components/chat/AnotherMindSheet'
 import { useStore } from '@/lib/store'
+import { useAuthGate } from '@/lib/useAuthGate'
 import { useStream } from '@/lib/useStream'
 import { api, SaveLimitError, DuplicateSaveError, ConversationNotFoundError, type Insight } from '@/lib/api'
 import toast from 'react-hot-toast'
@@ -42,7 +43,7 @@ export default function ExistingConversationPage() {
   const params = useParams<{ id: string }>()
   const router = useRouter()
 
-  const token = useStore((s) => s.token)
+  const authed = useAuthGate()
   const messages = useStore((s) => s.messages)
   const streamingContent = useStore((s) => s.streamingContent)
   const activeConversationId = useStore((s) => s.activeConversationId)
@@ -216,10 +217,7 @@ export default function ExistingConversationPage() {
   }, [messages, streamingContent])
 
   useEffect(() => {
-    if (token === null) {
-      router.replace('/auth')
-      return
-    }
+    if (!authed) return
 
     if (activeConversationId === params.id) return
 
@@ -298,7 +296,7 @@ export default function ExistingConversationPage() {
     return () => {
       cancelled = true
     }
-  }, [params.id, token, router, activeConversationId, setActiveConversation, setMessages, setSafetyActive, setStreamError, loadSavedLines, setInputDraft])
+  }, [params.id, authed, router, activeConversationId, setActiveConversation, setMessages, setSafetyActive, setStreamError, loadSavedLines, setInputDraft])
 
   useEffect(() => {
     return () => {

@@ -7,6 +7,7 @@ import Image from 'next/image'
 import { usePathname, useRouter } from 'next/navigation'
 import { track } from '@/lib/analytics'
 import { useStore } from '@/lib/store'
+import { useAuthGate } from '@/lib/useAuthGate'
 import { api } from '@/lib/api'
 import type { SelfPortraitQuestion, SelfPortraitPortrait } from '@/lib/api'
 import { BronzeDivider } from '@/components/ui/BronzeDivider'
@@ -276,7 +277,7 @@ export default function SelfPortraitPage() {
   // the server and would hydrate to a different string. The query is not part
   // of this screen's identity, so the pathname is the whole destination.
   const pathname = usePathname()
-  const token = useStore((s) => s.token)
+  const authed = useAuthGate()
   const user = useStore((s) => s.user)
   // First name for the personalized share-card title + filename (no new fetch —
   // the user is already in the store). Undefined when there's no name.
@@ -333,10 +334,7 @@ export default function SelfPortraitPage() {
   const [justAnswered, setJustAnswered] = useState<{ qid: string; pillIndex: number } | null>(null)
 
   useEffect(() => {
-    if (token === null) {
-      router.replace('/auth?mode=signin')
-      return
-    }
+    if (!authed) return
     async function load() {
       try {
         const data = await api.getSelfPortrait()
@@ -353,7 +351,7 @@ export default function SelfPortraitPage() {
       }
     }
     load()
-  }, [token, router])
+  }, [authed, router])
 
   // Refetch the portrait on each entry to that view. Only surface the loading state
   // when there's nothing on screen yet — a cached GET resolves ~instantly, so a

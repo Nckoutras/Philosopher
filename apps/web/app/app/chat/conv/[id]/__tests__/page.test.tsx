@@ -141,9 +141,26 @@ describe('ExistingConversationPage', () => {
     expect(callArgs[4]).toBeNull()
   })
 
-  it('redirects to /auth when no token', () => {
+  it('redirects to sign-in CARRYING the destination when there is no token', async () => {
+    // CHANGED DELIBERATELY (BUG-002). This asserted `'/auth'` — bare, with the
+    // destination discarded. That was the defect: a reader sent here by a shared
+    // link lost the conversation they came for and landed on welcome.
+    //
+    // It also now waits, because useAuthGate decides nothing until the persisted
+    // store has hydrated. The old guard fired on the first frame, which is what
+    // bounced signed-IN users whose store had not arrived yet.
+    // The URL matters: safeReturnTo allow-lists `/app/` only, so the gate emits
+    // no next= from jsdom's default location of '/'. Putting the test where the
+    // page actually lives is the difference between asserting the behaviour and
+    // asserting the harness.
+    window.history.replaceState({}, '', '/app/chat/conv/conv-abc')
     useStore.setState({ token: null })
     render(<ExistingConversationPage />)
-    expect(mockReplace).toHaveBeenCalledWith('/auth')
+    await waitFor(() => expect(mockReplace).toHaveBeenCalled())
+    const target = mockReplace.mock.calls[0][0] as string
+    expect(target.startsWith('/auth?mode=signin')).toBe(true)
+    expect(target).toContain('next=')
+    expect(decodeURIComponent(target)).toContain('/app/chat/conv/conv-abc')
+    window.history.replaceState({}, '', '/')
   })
 })

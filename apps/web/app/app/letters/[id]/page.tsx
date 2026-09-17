@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation'
 import Image from 'next/image'
 import { ChevronLeft } from 'lucide-react'
 import { useStore } from '@/lib/store'
+import { useAuthGate } from '@/lib/useAuthGate'
 import { track } from '@/lib/analytics'
 import { api } from '@/lib/api'
 import type { WeeklyLetter, Persona } from '@/lib/api'
@@ -60,7 +61,7 @@ export default function LetterReadPage() {
   // than a live bug -- but the bounce is being touched here, PR4p is in the
   // failure log for exactly this shape, and a spurious bounce would now carry a
   // returnTo and loop. The store already publishes the flag; nothing new is added.
-  const hasHydrated = useStore((s) => s.hasHydrated)
+  const authed = useAuthGate()
   const subscription = useStore((s) => s.subscription)
   const isPro = subscription?.status === 'active' && subscription?.plan !== 'free'
   const markLetterRead = useStore((s) => s.markLetterRead)
@@ -74,16 +75,7 @@ export default function LetterReadPage() {
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
-    if (!hasHydrated) return
-    if (token === null) {
-      // Carry the destination, query included. This is the path a reader takes
-      // when the cookie is still alive but the store is not; the middleware
-      // covers the commoner case (cookie expired) and builds the same shape.
-      // Suspense-safe (no useSearchParams): the effect is client-only.
-      const here = window.location.pathname + window.location.search
-      router.replace(`/auth?mode=signin&next=${encodeURIComponent(here)}`)
-      return
-    }
+    if (!authed) return
     if (!isPro) {
       router.replace(upgradeHref({ source: 'letter', returnTo: currentReturnTo() }))
       return
@@ -111,7 +103,7 @@ export default function LetterReadPage() {
     }
 
     load()
-  }, [hasHydrated, token, isPro, id, router, markLetterRead])
+  }, [authed, isPro, id, router, markLetterRead])
 
   // ISO week of the letter's period, a bucket rather than a date, plus the
   // voice persona's slug. Never the letter's title or body.

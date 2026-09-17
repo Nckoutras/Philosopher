@@ -28,20 +28,18 @@
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useStore } from '@/lib/store'
+import { useAuthGate } from '@/lib/useAuthGate'
 import { signOut } from '@/lib/auth'
 
 export default function WelcomePage() {
   const router = useRouter()
   const token = useStore((s) => s.token)
+  useAuthGate()
   const user = useStore((s) => s.user)
 
   // The email is read from the store, never from a query param — it must not appear in
   // a URL or in browser history.
   const email = user?.email ?? ''
-
-  useEffect(() => {
-    if (token === null) router.replace('/auth')
-  }, [token, router])
 
   function handleContinue() {
     // The disclaimer gate is the SAME value verify/page.tsx reads. A new account that

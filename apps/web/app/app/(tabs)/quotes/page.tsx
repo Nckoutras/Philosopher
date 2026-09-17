@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Bookmark } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useStore } from '@/lib/store'
+import { useAuthGate } from '@/lib/useAuthGate'
 import { api } from '@/lib/api'
 import type { Quote } from '@/lib/api'
 import QuoteCard from '@/components/quotes/QuoteCard'
@@ -26,7 +27,7 @@ function shuffle<T>(input: T[]): T[] {
 }
 
 export default function QuotesPage() {
-  const token = useStore((s) => s.token)
+  const authed = useAuthGate()
   const router = useRouter()
 
   const [quotes, setQuotes] = useState<Quote[]>([])
@@ -40,10 +41,7 @@ export default function QuotesPage() {
   const poolRef = useRef<Quote[]>([])
 
   useEffect(() => {
-    if (token === null) {
-      router.replace('/auth?mode=signin')
-      return
-    }
+    if (!authed) return
     let active = true
     async function load() {
       try {
@@ -78,7 +76,7 @@ export default function QuotesPage() {
     return () => {
       active = false
     }
-  }, [token, router])
+  }, [authed, router])
 
   // ── Peek-carousel: no-repeat rotation + gentle auto-advance ──────────────────
 

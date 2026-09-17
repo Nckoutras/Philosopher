@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { Bookmark, Check, ChevronLeft, ChevronRight, Share2 } from 'lucide-react'
 import { useStore } from '@/lib/store'
+import { useAuthGate } from '@/lib/useAuthGate'
 import { api } from '@/lib/api'
 import type { Mirror, MirrorHost, Persona } from '@/lib/api'
 import SharePreviewModal from '@/components/share/SharePreviewModal'
@@ -77,7 +78,7 @@ function segWords(segs: RevealSeg[], key: string, totalRevealed: number): string
 // ──────────────────────────────────────────────
 export default function MirrorPage() {
   const router = useRouter()
-  const token = useStore((s) => s.token)
+  const authed = useAuthGate()
 
   const [loading, setLoading] = useState(true)
   // Insight-seeded reflect (?insightId=) vs the weekly mirror. Set inside the
@@ -120,10 +121,7 @@ export default function MirrorPage() {
   const autoScrollPaused = useRef(false)
 
   useEffect(() => {
-    if (token === null) {
-      router.replace('/auth?mode=signin')
-      return
-    }
+    if (!authed) return
 
     async function load() {
       try {
@@ -176,7 +174,7 @@ export default function MirrorPage() {
     return () => {
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current)
     }
-  }, [token, router])
+  }, [authed, router])
 
   // ──────────────────────────────────────────────
   // Animation tick (rAF loop) — same pattern as Council

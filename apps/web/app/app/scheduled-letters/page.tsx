@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
 import SubPageNav from '@/components/layout/SubPageNav'
 import { useStore } from '@/lib/store'
+import { useAuthGate } from '@/lib/useAuthGate'
 import { api } from '@/lib/api'
 import type { ScheduledEmailListItem } from '@/lib/api'
 
@@ -18,19 +19,16 @@ function formatDeliverDate(iso: string): string {
 
 export default function ScheduledLettersPage() {
   const router = useRouter()
-  const token = useStore((s) => s.token)
+  const authed = useAuthGate()
   const [items, setItems] = useState<ScheduledEmailListItem[] | null>(null)
   const [cancelling, setCancelling] = useState<string | null>(null)
 
   useEffect(() => {
-    if (token === null) {
-      router.replace('/auth')
-      return
-    }
+    if (!authed) return
     api.listScheduledEmails()
       .then(setItems)
       .catch(() => setItems([]))
-  }, [token, router])
+  }, [authed, router])
 
   async function handleCancel(id: string) {
     if (cancelling) return

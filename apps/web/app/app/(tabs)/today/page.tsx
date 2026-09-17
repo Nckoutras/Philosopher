@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { Sparkle } from 'lucide-react'
 import { useStore } from '@/lib/store'
+import { useAuthGate } from '@/lib/useAuthGate'
 import { api } from '@/lib/api'
 import type { LastConversation } from '@/lib/api'
 import { getGreetingWithName } from '@/lib/useTimeGreeting'
@@ -113,7 +114,7 @@ function ImageTile({
 
 export default function TodayPage() {
   const router = useRouter()
-  const token = useStore((s) => s.token)
+  const authed = useAuthGate()
   const user = useStore((s) => s.user)
   const subscription = useStore((s) => s.subscription)
   const isPro = subscription?.status === 'active' && subscription?.plan !== 'free'
@@ -147,10 +148,7 @@ export default function TodayPage() {
   }, [loading, user])
 
   useEffect(() => {
-    if (token === null) {
-      router.replace('/auth?mode=signin')
-      return
-    }
+    if (!authed) return
 
     async function load() {
       try {
@@ -164,7 +162,7 @@ export default function TodayPage() {
     }
 
     load()
-  }, [token, router])
+  }, [authed, router])
 
   if (loading) {
     return (

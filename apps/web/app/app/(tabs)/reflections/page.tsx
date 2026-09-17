@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { differenceInCalendarDays } from 'date-fns'
 import toast from 'react-hot-toast'
 import { useStore } from '@/lib/store'
+import { useAuthGate } from '@/lib/useAuthGate'
 import { api } from '@/lib/api'
 import type { ReflectionFeedItem } from '@/lib/api'
 import SavedLineCard from '@/components/reflections/SavedLineCard'
@@ -87,7 +88,7 @@ function matchesQuery(item: ReflectionFeedItem, q: string): boolean {
 
 export default function ReflectionsPage() {
   const router = useRouter()
-  const token = useStore((s) => s.token)
+  const authed = useAuthGate()
   const feedItems = useStore((s) => s.feedItems)
   const loading = useStore((s) => s.feedLoading)
   const error = useStore((s) => s.feedError)
@@ -123,12 +124,9 @@ export default function ReflectionsPage() {
   }, [isFirstReflectionsRender])
 
   useEffect(() => {
-    if (token === null) {
-      router.replace('/auth?mode=signin')
-      return
-    }
+    if (!authed) return
     load()
-  }, [token, router, load])
+  }, [authed, router, load])
 
   async function handleDeleteConfirm() {
     if (!pendingDelete) return

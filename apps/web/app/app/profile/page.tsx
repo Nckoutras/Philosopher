@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useStore } from '@/lib/store'
+import { useAuthGate } from '@/lib/useAuthGate'
 import { api } from '@/lib/api'
 import type { ProfileValue, DisagreementStyle } from '@/lib/api'
 import { BronzeDivider } from '@/components/ui/BronzeDivider'
@@ -12,7 +13,7 @@ import { VALUE_OPTIONS, MAX_VALUES, DISAGREEMENT_OPTIONS } from '@/lib/profile'
 // (the Explore-tab hook is a future addition). Reuses the onboarding pill UI.
 export default function EditProfilePage() {
   const router = useRouter()
-  const token = useStore((s) => s.token)
+  const authed = useAuthGate()
 
   const [loading, setLoading] = useState(true)
   const [values, setValues] = useState<ProfileValue[]>([])
@@ -22,10 +23,7 @@ export default function EditProfilePage() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (token === null) {
-      router.replace('/auth?mode=signin')
-      return
-    }
+    if (!authed) return
     async function load() {
       try {
         const prefs = await api.getPreferences()
@@ -40,7 +38,7 @@ export default function EditProfilePage() {
       }
     }
     load()
-  }, [token, router])
+  }, [authed, router])
 
   const toggleValue = (slug: ProfileValue) => {
     setSaved(false)

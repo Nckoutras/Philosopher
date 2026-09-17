@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useStore } from '@/lib/store'
+import { useAuthGate } from '@/lib/useAuthGate'
 import { api } from '@/lib/api'
 import type { Insight, RecentSavedLine } from '@/lib/api'
 import { formatItemDate } from '@/lib/formatItemDate'
@@ -16,7 +17,7 @@ import SharePreviewModal from '@/components/share/SharePreviewModal'
 
 export default function InsightsPage() {
   const router = useRouter()
-  const token = useStore((s) => s.token)
+  const authed = useAuthGate()
   const markAllInsightsSeen = useStore((s) => s.markAllInsightsSeen)
   const { primary, doubt, discard } = useInsightDoors()
   const [insights, setInsights] = useState<Insight[]>([])
@@ -26,10 +27,7 @@ export default function InsightsPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (token === null) {
-      router.replace('/auth?mode=signin')
-      return
-    }
+    if (!authed) return
     async function load() {
       try {
         const [all, line] = await Promise.allSettled([
@@ -51,7 +49,7 @@ export default function InsightsPage() {
       }
     }
     load()
-  }, [token, router, markAllInsightsSeen])
+  }, [authed, router, markAllInsightsSeen])
 
   function handleCardKeyDown(e: React.KeyboardEvent) {
     if (e.key === 'Enter' || e.key === ' ') {

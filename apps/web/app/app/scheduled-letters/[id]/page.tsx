@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
 import SubPageNav from '@/components/layout/SubPageNav'
 import { useStore } from '@/lib/store'
+import { useAuthGate } from '@/lib/useAuthGate'
 import { api } from '@/lib/api'
 import type { ScheduledEmailDetail } from '@/lib/api'
 
@@ -21,6 +22,7 @@ export default function ScheduledLetterDetailPage() {
   const params = useParams()
   const id = String(params.id)
   const token = useStore((s) => s.token)
+  const authed = useAuthGate()
   // undefined = loading · null = not found (404 / pending / foreign) · object = the letter
   const [letter, setLetter] = useState<ScheduledEmailDetail | null | undefined>(undefined)
   const [reviewDraft, setReviewDraft] = useState('')
@@ -28,15 +30,12 @@ export default function ScheduledLetterDetailPage() {
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
-    if (token === null) {
-      router.replace('/auth')
-      return
-    }
+    if (!authed) return
     if (!token) return
     api.getScheduledEmail(id)
       .then(setLetter)
       .catch(() => setLetter(null))
-  }, [token, id, router])
+  }, [authed, id, router])
 
   async function handleSaveReview() {
     if (!letter) return
