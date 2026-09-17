@@ -643,6 +643,7 @@ tie-break, and add the `effective_at <= now()` filter. They are independent, bot
 one line, and (2) is the one that changes behaviour — after it, a future-dated
 row means what it looks like it means.
 
+
 ---
 
 ## 3. Open decisions
@@ -677,14 +678,22 @@ applies to nobody.
 **UNVERIFIABLE HERE:** price objects live in Stripe.
 **FOUNDER-REPORTED:** €149 charged against a locked price of €99.99; test-mode half
 closed, live-mode pending.
-**Verified in the repo:** `apps/web/app/app/upgrade/page.tsx:103` still displays
+**Verified in the repo:** `apps/web/app/app/upgrade/page.tsx:156` still displays
 **"€99.99 / year"** — the surface a customer reads and the amount Stripe would charge
-disagree, which is the whole of the problem.
+disagree, which is the whole of the problem. (The line was cited as `:103` until
+2026-09-17; `:103` is a `useEffect`. Re-verified against the file, not carried.)
 
 **Remaining sequence:** live-mode price objects → update `STRIPE_PRICE_*` on Render →
 observe a live checkout charging the displayed amount. Test and live price objects
 are separate and nothing carries across. **Nothing about the live switch should
 proceed until a live checkout has been observed charging what the page says.**
+
+**This also blocks structured-data pricing (Batch D, 2026-09-17).** The homepage
+JSON-LD deliberately carries no `offers`/`price`: publishing €99.99 as machine-
+readable data would broadcast, to aggregators that cache it, a price the payment
+system does not honour. The reason is recorded at the omission in
+`apps/web/app/layout.tsx` as well. **No pricing goes into structured data until
+the displayed price and the charged price agree.**
 
 ### OPS-007 — Per-service environment checklist
 **Status: OPEN, and one row larger than in v28.**
