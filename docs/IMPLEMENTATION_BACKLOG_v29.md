@@ -328,12 +328,18 @@ test fixture rather than anywhere a recovery would look.
 
 **WHAT WOULD DETECT A REGRESSION OF THIS SHAPE: nothing does today, and the
 `db-tests` job does not — it routes around the gap rather than testing it.**
-Verified: the only `alembic upgrade head` anywhere in the repository is
+Verified: the only `alembic upgrade head` **in the test path** is
 `conftest.py:212`, and it runs from the **seeded 048 state**; the upgrade that
 runs against an empty database is `conftest.py:210`, which stops at 048. So the
 defect lives strictly between 048 and head, in exactly the interval the fixture
 steps over. If a future migration adds the same shape — reading rows back that
 no migration inserts — it fails the same way, and nothing warns first.
+
+*(Corrected 2026-09-17: this sentence read "the only `alembic upgrade head`
+anywhere in the repository". That was false — there are six, including
+`Dockerfile:17`, which is the one that applies migrations to production. The
+claim was scoped to the test path, where it is true, and the argument above is
+unaffected. See TD-81.)*
 
 A cheap guard is available: a CI step that creates an empty database and runs
 `alembic upgrade head`, asserting it succeeds. Note the ordering, because it
@@ -643,6 +649,107 @@ tie-break, and add the `effective_at <= now()` filter. They are independent, bot
 one line, and (2) is the one that changes behaviour — after it, a future-dated
 row means what it looks like it means.
 
+### TD-81 — The repository cannot tell a reader how migrations reach production, and one file asserts the opposite of the truth — **NEW**
+**Status: OPEN. Nothing to build — the mechanism works. The fix is that it is
+discoverable.**
+
+**Verified at `a9d01ea7`**, and the mechanism confirmed from the Render deploy log
+for `dep-dalu95m7bikc73c7mobg`:
+
+```
+13:02:08 UTC  alembic.runtime.migration  Running upgrade
+              065_council_insight_id -> 066_disclaimer_wise_room
+```
+
+So `alembic upgrade head` runs at container start, from `apps/api/Dockerfile:17`.
+That is the live mechanism. **Nothing in the repository says so**, and four things
+actively obscure it.
+
+**1. There is no `render.yaml` — and that is the mechanism, not a detail.** A
+repo-wide search finds no infrastructure-as-code file of any kind. The service's
+type, build command and start command exist **only in the Render dashboard**. So
+the choice below is made in a web UI, recorded nowhere, and would change without a
+commit, a review, or a trace. Everything else in this entry follows from that.
+
+**2. Two start paths for one service, and both are plausible.**
+
+```
+apps/api/Dockerfile:17   CMD ["sh","-c","alembic upgrade head && exec uvicorn …"]
+apps/api/Procfile:1      web: uvicorn main:app --host 0.0.0.0 --port $PORT
+```
+
+The Procfile has no alembic. Both are valid Render configurations; the dashboard
+picks. A service converted from Docker to native Python — to save build minutes,
+say — would silently stop applying migrations. There would be **no error and no
+crash**: a data-only migration that does not run leaves a healthy service serving
+stale rows, which is exactly the shape that took an investigation to rule out on
+2026-09-17. `README.md:136` describes the api service as bare `uvicorn`, siding
+with the Procfile against the truth.
+
+**3. `IMPLEMENTATION_BACKLOG_v29.md:331` asserts the opposite of the truth.** It
+says *"the only `alembic upgrade head` anywhere in the repository is
+`conftest.py:212`"*. There are six: `Dockerfile:17`,
+`infra/docker-compose.prod.yml:29`, `Makefile:7`, `Makefile:21`, `README.md:51`,
+and the conftest. TD-73's argument does not rest on it — it is an aside inside a
+point about CI coverage — which is what makes it the dangerous kind: a confident,
+checkable sentence in the file that governs how this project reasons about
+migrations. **Corrected in place when this entry landed.**
+
+**4. `DEPLOY_NOTES.md` documents no migration mechanism at all.** The file whose
+stated purpose is *"manual step[s] that a fresh deploy would otherwise skip"*
+mentions migrations exactly once, at `:40`, and only to say *verify* one applied.
+It never says what applies them.
+
+**5. `infra/docker-compose.prod.yml` cannot run.** Line 20 requests
+`target: production`; `apps/api/Dockerfile` has no multi-stage build and defines no
+such target. A reader who reaches for the one artefact named "prod" finds a file
+that has never worked and, at `:29-31`, a start command that is not the live one.
+
+**What closing it looks like, in order of value:**
+
+1. **A `render.yaml`** committing the service type and start command to version
+   control. Closes item 1 outright and makes items 2 and 5 answerable by reading
+   the repo. Render supports it as a Blueprint; adopting one for an existing
+   service is the only real work in this entry.
+2. **Delete `apps/api/Procfile`**, or add a comment stating it is not the
+   production start path. One file, one contradiction, gone.
+3. **A `DEPLOY_NOTES.md` section** stating where migrations run, citing
+   `Dockerfile:17` and the deploy-log line above as evidence.
+4. **Fix or delete `infra/docker-compose.prod.yml`.** It is not used by anything.
+
+None of it changes behaviour. All of it changes what the next person can find out
+without an investigation.
+
+### TD-82 — The base-URL fallback is written in three files, and only one is pinned — **NEW**
+**Status: OPEN. Not scheduled. Small, and recorded because its failure mode is
+silent and already has a precedent.**
+
+**Verified at `a9d01ea7`.** `process.env.NEXT_PUBLIC_BASE_URL ?? 'https://thewiseroom.app'`
+appears three times: `app/layout.tsx:41` (as `BASE_URL`, feeding metadataBase, the
+canonical and the JSON-LD), `app/robots.ts:48`, and `app/sitemap.ts:24`.
+
+Three copies of a FALLBACK STRING, not three hostnames — the deployed value still
+comes from one env var, so today they cannot disagree.
+
+**Why it is worth a line anyway.** On a domain change the fallback is what a
+partial edit leaves behind, and the safety net is uneven:
+`app/__tests__/metadataBase.test.ts:43` pins the literal in `layout.tsx` with a
+regex, so that one goes red and gets fixed. **Nothing pins the other two.** The
+outcome is a canonical and a JSON-LD naming the new host while `robots.txt` and
+`sitemap.xml` still advertise the old one — wrong, silent, and only visible to a
+crawler. That is TD-69's family exactly: a hostname that drifted because it lived
+in more than one place.
+
+**Not collapsed today, deliberately.** A shared `lib/baseUrl.ts` means a fourth
+file and working around the test regex that pins the literal — and Metadata Routes
+cannot import from `layout.tsx` without pulling `next/font/google` and
+`globals.css` into them. The cost is larger than the risk at one domain.
+
+**The lever, so it is not re-derived:** extend the `metadataBase.test.ts` regex
+sweep to `robots.ts` and `sitemap.ts` — assert all three fallbacks are the same
+string. That is a test, not a refactor, and it closes the silent half without
+touching the code.
+
 ---
 
 ## 3. Open decisions
@@ -677,14 +784,22 @@ applies to nobody.
 **UNVERIFIABLE HERE:** price objects live in Stripe.
 **FOUNDER-REPORTED:** €149 charged against a locked price of €99.99; test-mode half
 closed, live-mode pending.
-**Verified in the repo:** `apps/web/app/app/upgrade/page.tsx:103` still displays
+**Verified in the repo:** `apps/web/app/app/upgrade/page.tsx:156` still displays
 **"€99.99 / year"** — the surface a customer reads and the amount Stripe would charge
-disagree, which is the whole of the problem.
+disagree, which is the whole of the problem. (The line was cited as `:103` until
+2026-09-17; `:103` is a `useEffect`. Re-verified against the file, not carried.)
 
 **Remaining sequence:** live-mode price objects → update `STRIPE_PRICE_*` on Render →
 observe a live checkout charging the displayed amount. Test and live price objects
 are separate and nothing carries across. **Nothing about the live switch should
 proceed until a live checkout has been observed charging what the page says.**
+
+**This also blocks structured-data pricing (Batch D, 2026-09-17).** The homepage
+JSON-LD deliberately carries no `offers`/`price`: publishing €99.99 as machine-
+readable data would broadcast, to aggregators that cache it, a price the payment
+system does not honour. The reason is recorded at the omission in
+`apps/web/app/layout.tsx` as well. **No pricing goes into structured data until
+the displayed price and the charged price agree.**
 
 ### OPS-007 — Per-service environment checklist
 **Status: OPEN, and one row larger than in v28.**

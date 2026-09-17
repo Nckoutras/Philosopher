@@ -2,6 +2,9 @@ import Link from 'next/link'
 
 export const metadata = {
   title: 'Terms of Service — The Wise Room',
+  // Own canonical (BUG-027). Without it this page inherits the root layout's
+  // canonical of '/' and tells Google this page IS the homepage.
+  alternates: { canonical: '/legal/terms' },
 }
 
 export default function TermsPage() {
