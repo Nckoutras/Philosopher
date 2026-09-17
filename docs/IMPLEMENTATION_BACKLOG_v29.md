@@ -480,6 +480,69 @@ it is fixed, which is exactly the condition under which this kind of item stops
 being written down (see TD-74, same shape).
 
 
+### TD-78 — A clean 200 from `/counterview/{id}/deeper` means six different things and says which one it is — **NEW**
+**Status: OPEN. Not scheduled. Found while fixing BUG-007; logged rather than
+built, because closing it needs a backend signal on the response and BUG-007's
+brief scoped the frontend only.**
+
+**Verified at `78e98c71`** by reading `services/counterview_service.py`
+`deepen_counterview` end to end — every `return cv` site, not the endpoint's
+docstring. The count in this heading is SIX, not the four the brief named. Two
+the brief did not list are reachable and are in the table: the model returning
+nothing usable (distinct from the exception path, though both exit at `:591`),
+and a concurrent-write race at `:625`. Two further sites — `:545`, `:561` — are
+excluded because a reader that is showing the tap cannot reach them.
+
+**Mechanism.** The function returns the counterview **unchanged, with a clean
+200**, on each of these:
+
+| meaning | exits at | what actually happened |
+|---|---|---|
+| round cap reached | `:563-564` | the persona already spoke twice |
+| **generation FAILED** | `:584-590` → `:591` | `_call_deeper_llm` raised; caught, logged at WARNING, `line = None` |
+| nothing to add | `:591-592` | `_call_deeper_llm` returned `None` — non-`generated`, unparseable, or empty |
+| safety suppression | `:596-597` | `check_output` flagged the line; it is discarded |
+| output language mismatch | `:603-611` | the line came back in the wrong script |
+| concurrent write lost the race | `:625-626` | `uq_counterview_response`; rolled back, `cv` returned unrefreshed |
+
+The wire carries nothing that separates them. `Counterview` (`apps/web/lib/api.ts`)
+has no field for it, and all six bodies are identical to the state the caller
+already held.
+
+**What that costs, after BUG-007 and not before it.** The BUG-007 fix (this PR;
+stamp the number at merge) split the frontend's
+single outcome set in two: a THROWN error now keeps the tap and offers a retry,
+and only a SUCCESSFUL response carrying no round-1 line marks the persona
+exhausted. That is the right reading for rows 1, 3, 4 and 5. It is the WRONG
+reading for row 2 and row 6 — a backend LLM failure and a lost race both arrive
+as a clean 200, so the reader still renders them as "this persona has nothing
+more to say", silently, with the tap withdrawn. The class of failure BUG-007 was
+raised about is therefore **narrowed, not closed**.
+
+**Two consequences, stated because they are easy to leave implied:**
+
+1. **We do not know which defect the 2026-09-14 UAT actually observed, and after
+   this PR we still will not.** Button disappears, no deeper text, no error, no
+   retry is the symptom of BOTH the frontend path this PR fixes and this backend
+   ambiguity. From the user's side they are indistinguishable. The fix is correct
+   on its own terms and its tests pin real behaviour; that is not evidence that
+   the reported instance is gone.
+
+2. **It weakens the `exhausted` state generally.** "Exhausted" is the frontend's
+   INTERPRETATION of an absence, not the server's STATEMENT of a fact. Any screen
+   that treats it as a fact — today only this one — inherits that.
+
+**What closing it looks like, recorded so it is not re-derived.** One discriminated
+field on the deeper response (`deeper_outcome`: `added | capped | nothing_to_add |
+suppressed | failed`, say), set at each return site. The reader marks exhausted on
+`capped` / `nothing_to_add` / `suppressed`, and takes the retry path on `failed`.
+No migration — a response-schema addition and one frontend branch. Note the
+deliberate grouping: **safety reports as an absence, never as a refusal**, so row
+4 groups with `nothing_to_add` and not with `failed`. Row 6 is the one genuinely
+new decision: a lost race means the line EXISTS, so the honest answer is to
+re-read and return it rather than to report either outcome.
+
+
 ---
 
 ## 3. Open decisions
