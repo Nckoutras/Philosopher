@@ -750,6 +750,59 @@ sweep to `robots.ts` and `sitemap.ts` — assert all three fallbacks are the sam
 string. That is a test, not a refactor, and it closes the silent half without
 touching the code.
 
+### TD-83 — The `hasHydrated` STORE FIELD is a second hydration signal that can never fire — **NEW**
+**Status: OPEN. No consumer today. Recorded because the next person to need a
+hydration signal will find it before they find the safe one.**
+
+**Verified at `d769ef3c`.** `store.ts` exposes hydration TWICE:
+
+| signal | where | fails how |
+|---|---|---|
+| `useStore.persist.hasHydrated()` | zustand's own API | reports hydration finishing either way |
+| `hasHydrated` store field | `store.ts:23,153-154`, written at `:397-400` | **can stay `false` forever** |
+
+**Mechanism.** The field is set inside `onRehydrateStorage`:
+
+```ts
+onRehydrateStorage: () => (state) => {
+  if (state?.subscription) state.setSubscription(state.subscription)
+  state?.setHasHydrated(true)
+}
+```
+
+The callback signature is `(state, error)` and **the error argument is ignored**.
+When rehydration fails — a private window, blocked site data, a storage that
+throws — zustand invokes it with `state` undefined, both optional-chained calls
+no-op, and the flag never becomes true. A guard written as `if (!hasHydrated)
+return` then waits for something that will not happen: a permanent blank screen,
+no error, nothing logged.
+
+**This is the PR4p class exactly** (CLAUDE.md P-04): a hydration guard that
+passed unit tests and code review and hung in the production build because
+`onRehydrateStorage` timing differed from dev. `analytics.ts:9-14` already says
+the field exists *because of* that regression — it is the scar, and it carries
+the same edge the original cut on.
+
+**No consumer as of this entry.** `letters/[id]` was the only one and BUG-002
+moved it onto `lib/useAuthGate.ts`, which uses the persist API. The field is now
+dead weight that still reads like the obvious choice — shorter, a plain
+selector, no three-step dance.
+
+**Three ways to close it, cheapest first:**
+1. **Delete the field**, `setHasHydrated`, and the `:399` write. Nothing reads
+   it. Smallest diff, removes the trap outright.
+2. **Repair it** — take the `error` argument and set the flag in both branches,
+   so a failed rehydration still reports *finished*. Keeps a convenience nobody
+   currently wants.
+3. **Leave it with a warning comment** pointing at `useAuthGate`. Weakest: the
+   2026-08-18 lesson is that a rule living only in a comment is one rotation from
+   not existing.
+
+**Recommend (1).** A second mechanism with a silent-hang failure mode, kept for
+no caller, is a trap with a maintenance cost and no benefit. It should not be
+folded into BUG-002's PR: that PR's job is to remove the last consumer, and
+deleting the field is a separate change to a file 40 components import.
+
 ---
 
 ## 3. Open decisions
