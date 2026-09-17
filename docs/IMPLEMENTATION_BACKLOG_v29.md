@@ -542,6 +542,67 @@ deliberate grouping: **safety reports as an absence, never as a refusal**, so ro
 new decision: a lost race means the line EXISTS, so the honest answer is to
 re-read and return it rather than to report either outcome.
 
+### TD-79 — `preview_mirror` runs unwatched, and the record saying so did not exist — **NEW**
+**Status: OPEN. Not scheduled. Written to close a false claim already on `main`.**
+
+**Verified at `78e98c71`** by reading `workers/cron.py` and `constants.py`, and by
+grepping the repository for the record they refer to.
+
+**The false claim first, because it is the reason this entry exists.**
+`constants.py:270-271`, shipped in #669, reads:
+
+> `preview_mirror is out because it writes no job_run row to check. It runs in`
+> `the API process under APScheduler and leaves only log lines (TD logged).`
+
+The exclusion is correct. **`(TD logged)` was not.** No such entry existed in this
+file or anywhere else — a grep for TD numbers above TD-77 returned nothing at
+`78e98c71`. The comment has been asserting the existence of a record since #669
+merged. THIS is that record; the parenthetical is now true, and was not before.
+
+**Mechanism.** `dispatch_preview_mirrors` (`workers/cron.py:275-308`) is
+registered `@scheduler.scheduled_job(IntervalTrigger(hours=1), id="preview_mirror")`.
+It runs **hourly, in the API process, under APScheduler** — not in the ARQ worker
+— and enqueues `generate_weekly_mirror_task` for each user with ≥3 active chats
+in 72h who has no mirror yet.
+
+It writes **no `job_run` row**. `job_run` appears exactly once in `cron.py`, at
+`:271`, and that occurrence is a COMMENT describing the jobs that DID move to the
+worker. This job is not one of them.
+
+So its only failure signal is the swallowed handler at the bottom:
+
+```python
+except Exception as e:
+    logger.error(f"Cron preview mirrors failed: {e}", exc_info=True)   # cron.py:308
+```
+
+Caught, logged, not re-raised, not alerted on. Nothing reads it.
+
+**What that costs.** A failed run and an hour in which nobody qualified are
+**indistinguishable from outside the process**. Both produce no mirrors and no
+row; one produces a line in the API log that no check reads, and the job is
+eligible to run 24 times a day. The worker-absence alerting built in #669 cannot
+cover it — that layer reads `job_run` rows, and this job leaves none — which is
+precisely why `constants.py` excluded it rather than an oversight.
+
+**Founder-reported context, recorded as such:** surfaced by **UAT-1 BUG-021**
+during the **14-16 September 2026** incident window. That artifact is NOT in this
+repository — a case-insensitive grep for `BUG-021` across `docs/` and `apps/`
+returns nothing at `78e98c71` — so this line records who reported it and when,
+not a document a reader here can open. If UAT-1 is filed somewhere durable, link
+it here.
+
+**What closing it looks like.** **Move the job to the ARQ worker**, where
+`cron_jobs` registration writes a `job_run` row per run and the existing
+absence-alerting picks it up with no new machinery. Do NOT bolt `job_run` onto an
+APScheduler job: that reimplements, in the process that is not the scheduler of
+record, the exact bookkeeping the worker already does — and leaves two places
+that know how to write the row. `constants.py`'s comment on the letter tasks
+(R4/R5) is the precedent; the three remaining dispatch jobs in `cron.py` are
+already queued to move "in one PR, only after a Sunday run proves the pattern"
+(`cron.py:270-273`). **This job should go with them**, and that is the cheapest
+version of this fix: it is not a separate piece of work, it is one more entry in
+a migration already planned.
 
 ---
 
