@@ -509,8 +509,8 @@ The wire carries nothing that separates them. `Counterview` (`apps/web/lib/api.t
 has no field for it, and all six bodies are identical to the state the caller
 already held.
 
-**What that costs, after BUG-007 and not before it.** The BUG-007 fix (this PR;
-stamp the number at merge) split the frontend's
+**What that costs, after BUG-007 and not before it.** The BUG-007 fix (#672,
+merged 2026-09-17) split the frontend's
 single outcome set in two: a THROWN error now keeps the tap and offers a retry,
 and only a SUCCESSFUL response carrying no round-1 line marks the persona
 exhausted. That is the right reading for rows 1, 3, 4 and 5. It is the WRONG
@@ -603,6 +603,45 @@ already queued to move "in one PR, only after a Sunday run proves the pattern"
 (`cron.py:270-273`). **This job should go with them**, and that is the cheapest
 version of this fix: it is not a separate piece of work, it is one more entry in
 a migration already planned.
+
+
+### TD-80 — The current-disclaimer query cannot express a scheduled consent change — **NEW**
+**Status: OPEN. Not scheduled. Neither half bites today; both bite the first time
+someone tries to schedule one.**
+
+**Verified at `9e21dcca`**, found while writing migration 066 (BUG-005).
+
+**Mechanism.** `get_current_version` (`services/disclaimer_service.py:26-36`) is:
+
+```python
+select(DisclaimerVersion).order_by(DisclaimerVersion.effective_at.desc()).limit(1)
+```
+
+Two properties follow, and neither is what the column name suggests:
+
+1. **No tie-break.** Two rows sharing an `effective_at` order nondeterministically,
+   so which consent text is served would depend on the plan Postgres happens to
+   pick. `ORDER BY effective_at DESC, id DESC` is the whole fix.
+2. **No `WHERE effective_at <= now()`.** A future-dated row is served
+   IMMEDIATELY. `effective_at` reads like a scheduling field and is only a sort
+   key — so the natural way to stage a consent change ("insert it now, dated for
+   the 1st") publishes it on insert instead, to every user, silently.
+
+**What it costs today: nothing.** There is one row, and 066 adds a second with a
+later timestamp. Both hazards need a third row or a deliberate future date to
+appear, and nothing in the product writes to this table outside migrations.
+
+**Why it is still worth an entry.** The failure mode of (2) is a consent text
+going live before it was meant to, which is the kind of thing noticed by a user
+rather than by a check — and the person who hits it will be reaching for exactly
+the phrasing the column invites. 066 therefore leaves `effective_at` to its
+server default rather than choosing a timestamp, and says so in its docstring;
+that is a workaround for this item, not a design.
+
+**Both levers, recorded so they are not re-derived:** add the `id DESC`
+tie-break, and add the `effective_at <= now()` filter. They are independent, both
+one line, and (2) is the one that changes behaviour — after it, a future-dated
+row means what it looks like it means.
 
 ---
 
@@ -725,8 +764,8 @@ front of the 90-second deadline — correct behaviour, slow smoke.
 
 **Closing this item means one of:** the smoke runs and matches, and this entry is
 closed with the date; or it runs and does not match, and the delta becomes its
-own item. TD-78 also carries a stamp still due — it says "this PR; stamp the
-number at merge", and the number is now **#672**.
+own item. (TD-78's PR stamp, noted here as due, was applied in the Batch F PR:
+it now reads **#672**.)
 
 ---
 
