@@ -720,6 +720,36 @@ that has never worked and, at `:29-31`, a start command that is not the live one
 None of it changes behaviour. All of it changes what the next person can find out
 without an investigation.
 
+### TD-82 — The base-URL fallback is written in three files, and only one is pinned — **NEW**
+**Status: OPEN. Not scheduled. Small, and recorded because its failure mode is
+silent and already has a precedent.**
+
+**Verified at `a9d01ea7`.** `process.env.NEXT_PUBLIC_BASE_URL ?? 'https://thewiseroom.app'`
+appears three times: `app/layout.tsx:41` (as `BASE_URL`, feeding metadataBase, the
+canonical and the JSON-LD), `app/robots.ts:48`, and `app/sitemap.ts:24`.
+
+Three copies of a FALLBACK STRING, not three hostnames — the deployed value still
+comes from one env var, so today they cannot disagree.
+
+**Why it is worth a line anyway.** On a domain change the fallback is what a
+partial edit leaves behind, and the safety net is uneven:
+`app/__tests__/metadataBase.test.ts:35` pins the literal in `layout.tsx` with a
+regex, so that one goes red and gets fixed. **Nothing pins the other two.** The
+outcome is a canonical and a JSON-LD naming the new host while `robots.txt` and
+`sitemap.xml` still advertise the old one — wrong, silent, and only visible to a
+crawler. That is TD-69's family exactly: a hostname that drifted because it lived
+in more than one place.
+
+**Not collapsed today, deliberately.** A shared `lib/baseUrl.ts` means a fourth
+file and working around the test regex that pins the literal — and Metadata Routes
+cannot import from `layout.tsx` without pulling `next/font/google` and
+`globals.css` into them. The cost is larger than the risk at one domain.
+
+**The lever, so it is not re-derived:** extend the `metadataBase.test.ts` regex
+sweep to `robots.ts` and `sitemap.ts` — assert all three fallbacks are the same
+string. That is a test, not a refactor, and it closes the silent half without
+touching the code.
+
 ---
 
 ## 3. Open decisions
