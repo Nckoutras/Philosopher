@@ -733,7 +733,7 @@ comes from one env var, so today they cannot disagree.
 
 **Why it is worth a line anyway.** On a domain change the fallback is what a
 partial edit leaves behind, and the safety net is uneven:
-`app/__tests__/metadataBase.test.ts:35` pins the literal in `layout.tsx` with a
+`app/__tests__/metadataBase.test.ts:43` pins the literal in `layout.tsx` with a
 regex, so that one goes red and gets fixed. **Nothing pins the other two.** The
 outcome is a canonical and a JSON-LD naming the new host while `robots.txt` and
 `sitemap.xml` still advertise the old one — wrong, silent, and only visible to a
