@@ -674,6 +674,60 @@ request long.
 Closing this removes the last place where a user-visible URL named the hosting
 provider rather than the product.
 
+### OPS-010 — BUG-007 merged with two of three gates; the smoke has NOT run
+**Status: OPEN. The outstanding gate is a verification, not a fix.**
+**DO NOT record this as passed until it has actually run.**
+
+**What landed.** BUG-007 — a failed "go deeper" keeps the tap and offers a retry —
+merged as **#672**, merge commit **`f27f4e98`**, at **2026-09-17 12:34:42 UTC**.
+The branch head was `8ce132af`.
+
+**Two gates passed and are on the record:**
+- **Diff approved** — founder review of all three code files.
+- **Tarball verified** — the codeload tarball for `8ce132af` diffed against
+  `78e98c71`: four files, no strays, and each one byte-exact against its stored
+  blob via `git show HEAD:<path> | cmp -`.
+- **CI green on `8ce132af`**, read from the runs the PR triggered, not from the
+  merge button: `pytest (live Postgres)`, `pytest (baseline) + alembic single
+  head` and `C-04 migration naming` all `success`. (`Pages changed - thinkalike`
+  returned `neutral` — "5 assets changed, no generated pages" — which is
+  non-blocking; the PR reported `mergeable_state: clean`.)
+
+**The gate that did NOT run: the P-04 forced-failure smoke.** It was scoped and
+agreed — Netlify preview, mobile viewport, free account, `POST
+/counterview/{id}/deeper` forced to fail in DevTools, confirming the error row
+and a working retry — and it was never executed. The instruction to hold #672
+open until it ran arrived **after** the merge, at no fault on either side. The
+record says the gate is outstanding rather than waived, because that is what it
+is.
+
+**It now runs against PRODUCTION, not a preview.** The code is on `main` and
+reaches production at the next deploy. The test is identical — where the failure
+originates does not change the code path — only the venue is later.
+
+**What is actually unverified, stated narrowly so it is not over- or
+under-read.** The logic is covered by nine tests, including a revert-verify that
+goes 5 red / 4 green with the old catch restored. What no human has seen is the
+error row RENDER: `Could not go deeper just now.` beside an underlined **Try
+again**, a flex row with a 10px gap, which has only ever existed in jsdom. That
+is a cosmetic risk on a rarely-hit path, not a correctness risk. It is also
+exactly the class P-04 exists to catch, which is why it stays open.
+
+**Expected result, so the run is a comparison and not an impression:** error line
+in Lora 12px sepia with **Try again** underlined on the same row; the
+`MessageCircle` icon still present in the top-right; no spinner; the other
+persona clean with its own tap; and after unblocking, either affordance renders
+the second cut and clears the error row.
+
+**Note on method:** fail the request outright rather than blocking it if the
+tooling offers both. A block that stalls rather than errors puts the tester in
+front of the 90-second deadline — correct behaviour, slow smoke.
+
+**Closing this item means one of:** the smoke runs and matches, and this entry is
+closed with the date; or it runs and does not match, and the delta becomes its
+own item. TD-78 also carries a stamp still due — it says "this PR; stamp the
+number at merge", and the number is now **#672**.
+
 ---
 
 ## 5. UX
@@ -708,6 +762,8 @@ and the safety net stays regardless of go-to-market (`PROJECT_STATE_v29` §3c).
 4. **`support@` mailbox.**
 5. **DMARC.**
 6. **PostHog erasure.**
+7. **BUG-007 forced-failure smoke** — the one gate #672 merged without.
+   Runs against production now; method and expected result in OPS-010.
 
 **Closed this rotation:** the domain cutover (step 3, TD-69, #617); the TD-61 native
 Greek review (#618, #622); **the 26 stale branches** —
