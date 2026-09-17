@@ -410,8 +410,8 @@ def test_the_catch_up_passes_are_scheduled_the_morning_after():
     assert (monthly.day, monthly.hour, monthly.minute) == (2, 9, 0)
 
 
-def test_the_whole_cron_inventory_is_exactly_these_six():
-    """The four letter jobs, in order, plus the two jobs that are not letters.
+def test_the_whole_cron_inventory_is_exactly_these_seven():
+    """The four letter jobs, in order, plus the three jobs that are not letters.
 
     Kept as a WHOLE-inventory assertion rather than per-name lookups: its value
     is catching a schedule that silently appears or disappears, which per-name
@@ -429,6 +429,14 @@ def test_the_whole_cron_inventory_is_exactly_these_six():
     nothing in this file's subject depends on it. Its schedule — Sunday 17:00,
     ONE HOUR BEFORE dispatch_weekly_letters, and the relationship is the point —
     is pinned in tests/workers/test_trajectory_snapshot.py.
+
+    worker_heartbeat is the third such neighbour, and the seventh entry is a
+    deliberate amendment in the same sense the trajectory one was. It writes a
+    job_run row every ten minutes so that a dead worker is visible in under an
+    hour rather than in up to seven days — every other writer of that table is
+    weekly. Its schedule and its behaviour are pinned in
+    tests/workers/test_worker_heartbeat.py; this file only asserts it exists and
+    that nothing else crept in beside it.
     """
     names = [c.coroutine.__name__ for c in WorkerSettings.cron_jobs]
     assert names == [
@@ -438,6 +446,7 @@ def test_the_whole_cron_inventory_is_exactly_these_six():
         "catch_up_monthly_letters",
         "snapshot_weekly_trajectories",
         "purge_expired_otp_codes",
+        "worker_heartbeat",
     ]
 
 

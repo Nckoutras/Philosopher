@@ -22,6 +22,10 @@ from workers.trajectory_snapshot import (
     build_trajectory_snapshot_task,
     snapshot_weekly_trajectories,
 )
+# Same direction again: heartbeat imports db.session and letter_dispatch's two
+# job_run helpers inside its function body, and workers.job_expectations (which
+# imports nothing from here) at module level. No cycle.
+from workers.heartbeat import HEARTBEAT_EVERY_MINUTES, worker_heartbeat
 from text_utils import (
     dominant_language as _dominant_language,
     language_directive,
@@ -2841,6 +2845,29 @@ class WorkerSettings:
         # docstring works through, so the two numbers move together or not at
         # all.
         cron(purge_expired_otp_codes, minute={0, 10, 20, 30, 40, 50}),
+        # THE ONLY JOB HERE THAT EXISTS TO BE OBSERVED RATHER THAN TO DO WORK.
+        # Every other job_run writer above is weekly, so a dead worker would go
+        # unnoticed until the next Sunday -- a worst case of seven days, against
+        # a September outage that lasted three. This row is what gives
+        # constants.JOB_EXPECTATIONS a signal fast enough to catch that.
+        #
+        # The minute set is DERIVED, not typed: a writer on a 10-minute bucket
+        # and an expectation looking for 15-minute buckets would never match a
+        # single row and would report a healthy worker as permanently dead. The
+        # OTP purge above states the same coupling in prose; this one cannot
+        # drift because there is only one number.
+        #
+        # run_at_startup=True, and it is the opposite call from the letters
+        # immediately above for a reason that does not transfer: True there
+        # would dispatch LETTERS on every deploy. Here it writes one inert row,
+        # which makes a fresh worker prove itself within seconds of boot instead
+        # of up to ten minutes later. A collision with the scheduled fire in the
+        # same bucket is absorbed by uq_job_run_name_key as a skip.
+        cron(
+            worker_heartbeat,
+            minute=set(range(0, 60, HEARTBEAT_EVERY_MINUTES)),
+            run_at_startup=True,
+        ),
     ]
     redis_settings = RedisSettings.from_dsn(config.REDIS_URL)
     # True by construction, not by container default. arq evaluates cron against
