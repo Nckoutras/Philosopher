@@ -120,7 +120,7 @@ function CoverageBar({
       </div>
       {label && total > 0 && (
         <p className="font-lora text-[12px] text-sepia mt-1">
-          {touched} από {total} θεματικές
+          {touched} of {total} themes
         </p>
       )}
     </div>
@@ -265,7 +265,7 @@ function PersonaAvatar({ portraitUrl, name }: { portraitUrl: string | null; name
 // answers as many or as few as they like, one at a time, returning whenever.
 // Mirrors profile/page.tsx in structure and DS-v5 pill styling. NO streak,
 // points, %, or completion meter anywhere — by design. The one exception is
-// the category-coverage bar and its "N από M θεματικές" label, which signal
+// the category-coverage bar and its "N of M themes" label, which signal
 // BREADTH across the 12 bank categories, never completion: a full bar changes
 // nothing and depth continues past it. A UAT tester with 93 answers across 10
 // categories could not tell she had progressed at all, which is why it is
@@ -713,7 +713,7 @@ export default function SelfPortraitPage() {
               <div className="space-y-2">
                 <CoverageBar touched={touchedCategories} total={totalCategories} label />
                 <p className="font-lora text-[11px] tracking-[0.18em] uppercase text-sepia text-center">
-                  Portrait {isReady ? 'ready' : 'forming'} · {answered.length} answers
+                  Portrait {isReady ? 'ready' : 'forming'} · {answered.length} {answered.length === 1 ? 'answer' : 'answers'}
                 </p>
               </div>
 
