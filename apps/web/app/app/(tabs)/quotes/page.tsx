@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Bookmark } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -13,6 +13,7 @@ import BottomSheet from '@/components/ui/BottomSheet'
 import PaywallModal from '@/components/chat/PaywallModal'
 import SharePreviewModal from '@/components/share/SharePreviewModal'
 import { openingFor } from '@/lib/quotePrefill'
+import { appendBounded, compensatedScrollLeft, type FeedItem } from '@/lib/quotesFeed'
 
 type PersonaMeta = { name: string; portrait_url: string | null }
 
@@ -31,7 +32,16 @@ export default function QuotesPage() {
   const router = useRouter()
 
   const [quotes, setQuotes] = useState<Quote[]>([])
-  const [feed, setFeed] = useState<Quote[]>([])
+  // BUG-024. The feed used to be Quote[] keyed by `${q.id}-${i}` — by ARRAY INDEX.
+  // That key is why this bug could not be fixed by trimming alone: drop one item
+  // from the head and every remaining index shifts, so every key changes, so React
+  // unmounts and remounts the whole list. The reader loses their place and the
+  // screen repaints — the exact failure the trim exists to avoid, caused by the fix.
+  //
+  // `seq` is monotonic and assigned at append. It never shifts and is never reused,
+  // so a head-trim moves nothing but the array. It cannot be `q.id`: the same quote
+  // appears once per cycle, so ids repeat down the feed by design.
+  const [feed, setFeed] = useState<FeedItem[]>([])
   const [personaMap, setPersonaMap] = useState<Record<string, PersonaMeta>>({})
   const [loading, setLoading] = useState(true)
   const [errored, setErrored] = useState(false)
@@ -65,7 +75,7 @@ export default function QuotesPage() {
         // shuffles so every quote is seen before any repeats. load() runs once per
         // mount, so re-entering the tab (remount) starts a fresh rotation.
         poolRef.current = quoteList
-        setFeed(shuffle(quoteList))
+        setFeed(shuffle(quoteList).map((quote, i) => ({ seq: i, quote })))
       } catch {
         if (active) setErrored(true)
       } finally {
@@ -86,22 +96,17 @@ export default function QuotesPage() {
   const currentIndexRef = useRef(0)
   const intervalRef = useRef<number | null>(null)
   const appendGuardRef = useRef(false) // one appendCycle per committed feed
+  const headSeqRef = useRef(0) // seq of feed[0] as last compensated for
 
   const ready = !loading && !errored && feed.length > 0
 
-  // Extend the feed by one more full permutation, avoiding a seam repeat (the new
-  // cycle must not open with the quote the feed currently ends on).
+  // Extend the feed by one more full permutation and trim the head back toward the
+  // cap. The rule itself lives in lib/quotesFeed.ts — it is the only part of BUG-024
+  // that can be tested without a browser, so it is where the numbers are documented.
   const appendCycle = useCallback(() => {
     const pool = poolRef.current
     if (pool.length === 0) return
-    setFeed((prev) => {
-      let cyc = shuffle(pool)
-      const lastId = prev[prev.length - 1]?.id
-      if (cyc.length > 1 && cyc[0].id === lastId) {
-        cyc = [cyc[1], cyc[0], ...cyc.slice(2)]
-      }
-      return [...prev, ...cyc]
-    })
+    setFeed((prev) => appendBounded(prev, shuffle(pool), currentIndexRef.current))
   }, [])
 
   // Stop the drift for good. Called on any first-touch / manual scroll.
@@ -149,10 +154,44 @@ export default function QuotesPage() {
     }
   }, [pauseAuto, appendCycle])
 
+  // Compensate a head-trim BEFORE paint. Removing N cards from the head shifts every
+  // remaining card left by N strides, so scrollLeft must move by exactly the same
+  // amount or the carousel jumps under the reader's finger.
+  //
+  // The compensation is EXACT rather than approximate because every card is
+  // `w-[80vw] shrink-0` inside a uniform `gap-[8px]`, so the stride is constant — and
+  // it is read from LIVE GEOMETRY the way onScroll reads it, not computed from the
+  // class, so it survives reflow, rotation and a changed viewport width.
+  useLayoutEffect(() => {
+    const head = feed[0]?.seq ?? 0
+    const trimmed = head - headSeqRef.current
+    headSeqRef.current = head
+    if (trimmed <= 0) return
+
+    const el = scrollerRef.current
+    if (!el || el.children.length < 2) return
+    const c0 = el.children[0] as HTMLElement
+    const c1 = el.children[1] as HTMLElement
+    const stride = c1.offsetLeft - c0.offsetLeft
+    if (stride <= 0) return
+
+    programmaticRef.current = true
+    el.scrollLeft = compensatedScrollLeft(el.scrollLeft, trimmed, stride)
+    currentIndexRef.current = Math.max(0, currentIndexRef.current - trimmed)
+    programmaticRef.current = false
+  }, [feed])
+
   // Re-arm the append guard once the appended cards have committed.
+  //
+  // Keyed on the ARRAY, not on its length. Before BUG-024 the feed only ever grew, so
+  // length changed on every append and this re-armed reliably. With a cap it settles
+  // at MAX_FEED and stops changing — appended 88, trimmed 88, same number — so a
+  // [feed.length] dependency would never fire again, the guard would stay armed
+  // forever, and the carousel would quietly stop topping up at the end of the
+  // rotation. The bound would have introduced the very thing it was fixing.
   useEffect(() => {
     appendGuardRef.current = false
-  }, [feed.length])
+  }, [feed])
 
   // Gentle auto-advance: one card every 6s, until the first interaction. Skipped
   // entirely under prefers-reduced-motion. Never resumes without a remount.
@@ -240,9 +279,26 @@ export default function QuotesPage() {
     }
   }
 
-  // Quiet loading — a bare vellum field, no spinner (a cached GET resolves fast).
+  // (Was: "Quiet loading — a bare vellum field, no spinner (a cached GET resolves
+  // fast)." The premise was wrong — UAT measured 1-4s here, not fast — and the
+  // conclusion it justified was the blank screen this replaces.)
+  // BUG-008. This branch used to be an empty <main>. Same silence as Today, and on
+  // this tab it is more confusing still, because the carousel has no chrome of its
+  // own to anchor the wait — the whole screen is the content.
+  //
+  // The geometry is the carousel's: 80vw cards inside px-[10vw], gap-[8px], so the
+  // centre card dominates and its neighbours peek by ~10vw. Same containers as the
+  // real scroller, minus the scrolling. `animate-pulse` on `bg-linen` per the house
+  // idiom; no new component.
   if (loading) {
-    return <main className="h-full min-h-0 bg-vellum" />
+    return (
+      <main className="h-full min-h-0 bg-vellum" aria-busy="true">
+        <div className="flex h-full items-stretch gap-[8px] overflow-hidden px-[10vw] py-[10px]">
+          <div className="w-[80vw] flex-shrink-0 rounded-md bg-linen animate-pulse" />
+          <div className="w-[80vw] flex-shrink-0 rounded-md bg-linen animate-pulse" />
+        </div>
+      </main>
+    )
   }
 
   // Calm fallback for both error and the (unexpected) empty corpus — never a raw error.
@@ -270,10 +326,11 @@ export default function QuotesPage() {
           onTouchStart={pauseAuto}
           className="flex h-full snap-x snap-mandatory items-stretch gap-[8px] overflow-x-auto overflow-y-hidden overscroll-x-contain px-[10vw] py-[10px] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
-          {feed.map((q, i) => {
+          {feed.map(({ seq, quote: q }) => {
             const meta = personaMap[q.persona_slug]
             return (
-              <div key={`${q.id}-${i}`} className="h-full w-[80vw] shrink-0 snap-center">
+              // Keyed by seq, never by index — see the FeedItem note above.
+              <div key={seq} className="h-full w-[80vw] shrink-0 snap-center">
                 <QuoteCard
                   quote={q}
                   personaName={meta?.name ?? q.persona_slug}

@@ -164,9 +164,32 @@ export default function TodayPage() {
     load()
   }, [authed, router])
 
+  // BUG-008. This branch used to be an empty <main> — 1-4 seconds of blank vellum
+  // while the fetch ran, which is the silence the UAT reported. It reads as a tap
+  // that did nothing, so people tap again.
+  //
+  // The shapes mirror what replaces them, in the same containers with the same
+  // paddings: the eyebrow and greeting of the header block, then the 2x2 tile grid.
+  // A skeleton whose geometry does not match its content trades one jolt for another.
+  // `animate-pulse` on `bg-linen` is the idiom already used in six other files
+  // (self-portrait, mirror, letters, letters/[id], profile, council) — reused rather
+  // than invented, and no new component.
   if (loading) {
     return (
-      <main className="min-h-screen [min-height:100svh] bg-vellum" />
+      <main className="min-h-screen [min-height:100svh] bg-vellum pb-[80px]" aria-busy="true">
+        <div className="px-[24px] pt-[22px] pb-[16px]">
+          <div className="h-[12px] w-[140px] bg-linen rounded animate-pulse mb-[8px]" />
+          <div className="h-[24px] w-[210px] bg-linen rounded animate-pulse" />
+        </div>
+        <div className="px-[16px]">
+          <div className="grid grid-cols-2 gap-[12px]">
+            <div className="aspect-square bg-linen rounded-md animate-pulse" />
+            <div className="aspect-square bg-linen rounded-md animate-pulse" />
+            <div className="aspect-square bg-linen rounded-md animate-pulse" />
+            <div className="aspect-square bg-linen rounded-md animate-pulse" />
+          </div>
+        </div>
+      </main>
     )
   }
 

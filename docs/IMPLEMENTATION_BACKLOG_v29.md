@@ -1140,6 +1140,157 @@ one remaining `oauth/finish` error — a narrowing limitation, not a defect, sin
 
 ---
 
+### TD-88 — `Spinner.tsx` has zero consumers and a docstring naming three that do not exist — **NEW**
+**Status: OPEN. The question is delete-or-adopt, and this entry deliberately does not
+answer it.**
+
+**Verified at `9ad352fb`**, found while investigating BUG-008 for an existing loading
+visual to reuse.
+
+`apps/web/components/ui/Spinner.tsx` is a complete, working component. Its docstring
+says:
+
+```
+ * Spinner per DESIGN_SYSTEM_v4 A1 spec.
+ * Edge ring (0.8px stroke) + Ink rotating arc (1.2px stroke), 1.4s rotation.
+ * Used in: A1 splash, C1 chat sending state, H2 checkout loading bridge.
+```
+
+**It is used in none of them.** `grep -rn "Spinner" apps/web --include=*.tsx
+--include=*.ts`, excluding the file itself, returns **zero** matches. Nothing imports
+it, so none of the three named call sites can be real.
+
+This is the 2026-08-18 shape exactly: **a doc claim that outlived the thing it
+described.** The difference from the usual case is the direction — the claim is
+inside the artefact it is wrong about, and it is wrong in the flattering direction,
+asserting adoption that never happened. A reader grepping for "how do we show
+loading" finds this file, reads three call sites, and concludes the question is
+settled.
+
+**What is true about it:**
+- The component works. `animate-spin-slow` is defined (`tailwind.config.js:63`,
+  `'spin 1.4s linear infinite'`), matching the 1.4s the docstring and
+  `DESIGN_SYSTEM_v4:1239` both specify.
+- It is the **only** loading visual in the codebase with an accessibility contract:
+  `role="status"` and `aria-label="Loading"`. Neither competing idiom has either.
+- It is stroked in `var(--edge)` / `var(--ink)`, so it is theme-correct.
+
+**What competes with it, and won:**
+
+| Idiom | Reach |
+|---|---|
+| `animate-pulse` skeleton blocks | **30 sites across 6 files** — self-portrait, council, letters, letters/[id], mirror, profile, and now today + quotes via BUG-008 |
+| literal `Loading…` italic text | 13 sites |
+| `Spinner.tsx` | **0** |
+
+**BUG-008 did not adopt it, deliberately.** The two blank loading branches it filled
+use `animate-pulse`, because that is the established idiom and matching six existing
+files beat introducing a seventh pattern in a PR about navigation feedback. That
+decision is not a ruling on this entry — it is the reason this entry exists.
+
+**The evidence that cuts the other way, and is why this is not simply a deletion.**
+`DESIGN_SYSTEM_v4:210` still specifies, for the chat composer:
+
+> **Sending**: Ink bg, Vellum spinner (border arc rotating, 1.4s duration)
+
+**That state currently has no loading affordance at all.** `ChatInput.tsx:48-50`
+renders `disabled={disabled || !value.trim()}` with `disabled:opacity-40` — a dimmed
+button, no spinner, no rotation. So the component may be **unadopted rather than
+obsolete**: a thing built to spec, for a spec still on the books, that nobody wired
+up. Deleting it would close the gap by removing the answer rather than the question.
+
+Note also that the three screen codes in the docstring — `A1`, `C1`, `H2` — do not
+appear in the current `SCREENS_TRACKING_v14`. The docstring is pinned to a
+vocabulary the tracking documents have moved past, which makes it hard to tell
+whether "A1 splash" still denotes anything.
+
+**THE QUESTION, which is the founder's:**
+
+**Delete it, or adopt it?**
+
+- **Delete** — the app has settled on skeletons, a spinner is a different visual
+  grammar (indeterminate, centred, attention-taking) from a skeleton (positional,
+  calm, shape-preserving), and one unused file with a false docstring is worse than
+  no file. The `DESIGN_SYSTEM_v4` spinner spec would be amended to say skeletons, and
+  the chat Sending state would get a skeleton or keep the dimmed button.
+- **Adopt** — wire it into the chat Sending state it was built for, which today has
+  nothing, and keep it for the genuinely indeterminate cases where a skeleton lies
+  about shape. Its `role="status"` would then be the app's first accessible loading
+  announcement.
+
+**Whichever is chosen, the docstring is wrong today and should not survive the
+ruling.** If it is adopted, the three call sites become one real one. If it is
+deleted, the claim goes with it. The thing that must not happen is a third rotation
+in which it still says "Used in:" and still is not.
+
+---
+
+### TD-89 — `Conversation.deleted_at` is read by three queries, written by none, and missed by a fourth — **NEW**
+**Status: OPEN. Record only — no fix, and nothing is broken today.**
+
+**Verified at `b9041692`**, found while establishing whether the Mirror empty state
+could derive eligibility client-side (BUG-021 residue). It cannot, and this is why.
+
+**Two halves of one confusion about whether conversations are soft-deleted.**
+
+**Half one — three queries filter it, a fourth does not.**
+
+| Query | Filters `deleted_at`? |
+|---|---|
+| `routers/home.py:40` | yes |
+| `services/conversation_service.py:410` | yes |
+| `workers/cron.py:290` (preview-mirror eligibility) | yes |
+| **`routers/conversations.py:298-313`** (`GET /conversations`, the Library list) | **no** |
+
+**Half two — nothing ever sets it.** `DELETE /conversations/{id}` at
+`routers/conversations.py:822-834` ends in `await db.delete(conv)` — a **hard**
+delete. A repository-wide search for a writer of `Conversation.deleted_at` returns
+only migrations. The column, its partial indexes (`models/__init__.py:240`) and the
+three filters all guard a state the application cannot produce.
+
+And migration `009_saved_lines.py:9` states the opposite as fact:
+
+> "…hard-deleted in this codebase — only conversations.deleted_at soft-delete"
+
+That is a doc claim contradicted by the code it describes, which is the 2026-08-18
+shape again.
+
+**Why it is harmless today and why that is the problem.** Because nothing writes the
+column, the missing filter in the Library list changes no behaviour: there are no
+soft-deleted rows to leak. The defect is latent and **inverted** — it will appear on
+the day someone implements soft-delete, in a query nobody will think to revisit,
+showing deleted conversations back to the reader who deleted them.
+
+**How it nearly caused a second bug, which is why it is written down now.** The
+BUG-021 investigation asked whether the Mirror empty state could tell an eligible
+reader from an ineligible one. The preview threshold — `>=3` conversations with
+`last_message_at` inside 72h — looked exactly reproducible on the client from
+`getConversations()`. It is not: the cron filters `deleted_at IS NULL` and the list
+endpoint does not. The two agree **only by the coincidence** that the column is never
+written. A derivation built on that would be correct until soft-delete landed and
+would then silently tell readers they qualify when they do not. The mirror page now
+carries that reasoning in a comment at the point of temptation, rather than only in
+this entry.
+
+**THE QUESTION, unresolved deliberately: is soft-delete intended or abandoned?**
+
+- **Intended** — then `DELETE /conversations/{id}` is the defect (it hard-deletes
+  where the schema, the indexes and three queries all expect a tombstone), and
+  `list_conversations` needs the filter before that changes.
+- **Abandoned** — then the column, both partial indexes, the three filters and
+  migration 009's docstring are all describing a design that was dropped, and the
+  honest change is to remove them.
+
+Either way `list_conversations` and migration 009's docstring are wrong about the
+other three. Nothing here is urgent; what is not acceptable is a third rotation in
+which the codebase still holds both answers at once.
+
+**Not in scope of the PR that found it** (BUG-024 + BUG-021 residue), which touches
+the quotes carousel and one paragraph of mirror copy. This is a backend schema
+question and belongs to whoever answers it.
+
+---
+
 ---
 
 ### TD-88 — Six UAT-1 findings are routed to a section number that does not exist — **NEW**
