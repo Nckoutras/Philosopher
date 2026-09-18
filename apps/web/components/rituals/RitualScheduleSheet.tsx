@@ -126,7 +126,9 @@ export default function RitualScheduleSheet({ open, onClose, userEmail, presetLi
   return (
     <BottomSheet open={open} onClose={onClose} maxHeight="90svh">
       {/* ── Header ── */}
-      <div className="px-6 pt-5 pb-3 border-b border-[0.5px] border-edge flex items-start justify-between flex-shrink-0">
+      {/* Close button removed: BottomSheet renders one for every consumer now
+          (BUG-017). The flex row went with it. */}
+      <div className="px-6 pt-5 pb-3 border-b border-[0.5px] border-edge flex-shrink-0">
         <div>
           <p className="font-cormorant text-[21px] font-medium text-ink">
             Message to future self
@@ -135,14 +137,6 @@ export default function RitualScheduleSheet({ open, onClose, userEmail, presetLi
             A reflection arrives in your inbox at the date you choose.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Close"
-          className="p-2 font-lora text-[22px] text-sepia leading-none ml-4 flex-shrink-0"
-        >
-          ×
-        </button>
       </div>
 
       {/* ── Form body ── */}
