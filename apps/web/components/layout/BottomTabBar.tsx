@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, type CSSProperties } from 'react'
+import { useEffect, useState, type CSSProperties } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { Home, Compass, User, Sparkle, Quote } from 'lucide-react'
 import { useStore } from '@/lib/store'
@@ -75,9 +75,28 @@ const TABS = [
   },
 ] as const
 
+// How long a pending tab may stay lit before it gives up. A navigation that never
+// completes — a chunk that fails to load, a route that throws on mount — would
+// otherwise leave the tab dimmed forever, which is a worse lie than the silence this
+// replaces: it claims something is still coming. Same reasoning as useAuthGate's
+// hydration deadline (TD-83): a signal that can hang needs a deadline, not optimism.
+const PENDING_DEADLINE_MS = 5000
+
 export default function BottomTabBar() {
   const pathname = usePathname()
   const router = useRouter()
+
+  // BUG-008. The tap acknowledgement below is `active:opacity-50 active:scale-95`,
+  // which is CSS :active — it fires on touch-DOWN and dies on lift-off. Navigation
+  // then takes 1-4s with nothing on screen, so the reader taps again. A momentary
+  // acknowledgement that abandons them mid-wait is worse than none: it answers, then
+  // stops answering, while the thing it acknowledged is still happening.
+  //
+  // This holds the same visual from the tap until the destination actually paints.
+  // Next 14.2.35 / React 18 here, so `useLinkStatus` (15.3+) is unavailable and the
+  // state is local. <Link> stays a <Link> — no onClick-driven router.push, so
+  // prefetch, middle-click and open-in-new-tab all keep working.
+  const [pendingHref, setPendingHref] = useState<string | null>(null)
 
   const activeInsights = useStore((s) => s.activeInsights)
   const seenInsightIds = useStore((s) => s.seenInsightIds)
@@ -104,6 +123,25 @@ export default function BottomTabBar() {
     const id = window.setTimeout(warm, 200)
     return () => window.clearTimeout(id)
   }, [router])
+
+  // Cleared by ARRIVAL, not by a timer: the pending tab stays lit until the route it
+  // points at is the one rendering. Matched on the tab's own activePattern rather
+  // than string equality, so /app/self-portrait/anything still counts as arrived.
+  useEffect(() => {
+    if (!pendingHref) return
+    const arrived = TABS.some(
+      (tab) => tab.href === pendingHref && tab.activePattern.test(pathname),
+    )
+    if (arrived) setPendingHref(null)
+  }, [pathname, pendingHref])
+
+  // The deadline. Separate effect so it restarts per pending href rather than per
+  // pathname change.
+  useEffect(() => {
+    if (!pendingHref) return
+    const id = window.setTimeout(() => setPendingHref(null), PENDING_DEADLINE_MS)
+    return () => window.clearTimeout(id)
+  }, [pendingHref])
 
   return (
     // Floating frosted pill (Design System v5, Instagram-style). Fixed to the visible
@@ -140,15 +178,25 @@ export default function BottomTabBar() {
             </span>
           )
 
+          const isPending = pendingHref === tab.href
+
           return (
             <Link
               key={tab.label}
               href={tab.href}
               aria-label={tab.label}
               aria-current={isActive ? 'page' : undefined}
+              // Not set when the tab is already the active one: there is no navigation
+              // to wait for, and lighting it would flicker the page you are on.
+              onClick={() => { if (!isActive) setPendingHref(tab.href) }}
               className={[
-                'relative z-[2] flex-1 flex flex-col items-center justify-center gap-[3px] transition-[color,opacity,transform] active:opacity-50 active:scale-95 select-none [touch-action:manipulation] [-webkit-tap-highlight-color:transparent]',
+                'relative z-[2] flex-1 flex flex-col items-center justify-center gap-[3px] transition-[color,opacity,transform] motion-reduce:transition-none active:opacity-50 active:scale-95 select-none [touch-action:manipulation] [-webkit-tap-highlight-color:transparent]',
                 isActive ? 'text-ink -translate-y-px' : 'text-sepia',
+                // The same visual :active gives on touch-down, held until arrival.
+                // Deliberately identical: the tap should not appear to change state
+                // when the finger lifts, only to persist. motion-reduce kills the
+                // transition, not the state — the feedback stays visible.
+                isPending ? 'opacity-50 scale-95' : '',
               ].join(' ')}
             >
               {tab.label === 'Home' ? (
