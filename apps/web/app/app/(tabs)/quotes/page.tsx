@@ -241,8 +241,23 @@ export default function QuotesPage() {
   }
 
   // Quiet loading — a bare vellum field, no spinner (a cached GET resolves fast).
+  // BUG-008. This branch used to be an empty <main>. Same silence as Today, and on
+  // this tab it is more confusing still, because the carousel has no chrome of its
+  // own to anchor the wait — the whole screen is the content.
+  //
+  // The geometry is the carousel's: 80vw cards inside px-[10vw], gap-[8px], so the
+  // centre card dominates and its neighbours peek by ~10vw. Same containers as the
+  // real scroller, minus the scrolling. `animate-pulse` on `bg-linen` per the house
+  // idiom; no new component.
   if (loading) {
-    return <main className="h-full min-h-0 bg-vellum" />
+    return (
+      <main className="h-full min-h-0 bg-vellum" aria-busy="true">
+        <div className="flex h-full items-stretch gap-[8px] overflow-hidden px-[10vw] py-[10px]">
+          <div className="w-[80vw] flex-shrink-0 rounded-md bg-linen animate-pulse" />
+          <div className="w-[80vw] flex-shrink-0 rounded-md bg-linen animate-pulse" />
+        </div>
+      </main>
+    )
   }
 
   // Calm fallback for both error and the (unexpected) empty corpus — never a raw error.
