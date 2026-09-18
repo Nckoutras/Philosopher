@@ -591,12 +591,27 @@ eligible to run 24 times a day. The worker-absence alerting built in #669 cannot
 cover it — that layer reads `job_run` rows, and this job leaves none — which is
 precisely why `constants.py` excluded it rather than an oversight.
 
-**Founder-reported context, recorded as such:** surfaced by **UAT-1 BUG-021**
-during the **14-16 September 2026** incident window. That artifact is NOT in this
-repository — a case-insensitive grep for `BUG-021` across `docs/` and `apps/`
-returns nothing at `78e98c71` — so this line records who reported it and when,
-not a document a reader here can open. If UAT-1 is filed somewhere durable, link
-it here.
+**Founder-reported context, and the artifact is now filed:** surfaced by **UAT-1
+BUG-021** during the **14-16 September 2026** incident window. The register is
+`docs/qa/UAT-1_2026-09-14.md`, filed 2026-09-18. BUG-021 there reads *"Mirror has
+no useful first-session fallback"* — the tester opened Mirror on a low-history
+account and got `Your first reflection is still forming.` That is the user-side
+face of this entry: a mirror that never arrived and a dispatch job whose failure
+nobody would have seen.
+
+**What this paragraph said before, kept rather than overwritten.** It read: *"That
+artifact is NOT in this repository — a case-insensitive grep for `BUG-021` across
+`docs/` and `apps/` returns nothing at `78e98c71` — so this line records who
+reported it and when, not a document a reader here can open. If UAT-1 is filed
+somewhere durable, link it here."* All of that was true when written; the path
+above is the link it asked for.
+
+**One caveat on reading the register, because it is not a document about this
+codebase.** It is filed VERBATIM as the tester delivered it, wrong route names
+and all, and no build identifier was captured during the run. BUG-021 tells you
+what a user saw on 2026-09-14; it is not evidence about `dispatch_preview_mirrors`,
+and the mechanism above was verified by reading the code, not by trusting the
+report.
 
 **What closing it looks like.** **Move the job to the ARQ worker**, where
 `cron_jobs` registration writes a `job_run` row per run and the existing
