@@ -1103,9 +1103,21 @@ request long.
 Closing this removes the last place where a user-visible URL named the hosting
 provider rather than the product.
 
-### OPS-010 — BUG-007 merged with two of three gates; the smoke has NOT run
+### OPS-010 — BUG-007 merged; smoke OWED since 2026-09-17 and now LATE
 **Status: OPEN. The outstanding gate is a verification, not a fix.**
 **DO NOT record this as passed until it has actually run.**
+
+**RE-SCOPED 2026-09-18 under the amended P-04** (CLAUDE.md, founder ruling of the same
+day). This entry previously read as a PR that merged with a gate bypassed. Under the
+amended rule the smoke was never a merge gate, so #672 did not bypass one — it incurred
+a **post-merge obligation, due the same day**, which was not discharged. This entry and
+OPS-011 are the two instances that caused the amendment.
+
+**It is now two days late.** Per the amended P-04, a smoke outstanding past end of day
+is a **finding, not a footnote** — so this is the first thing that rule names, and it
+was named by its own evidence. The title said "the smoke has NOT run" and stayed true
+across two rotations of attention, which is precisely the drift the rule change exists
+to stop.
 
 **What landed.** BUG-007 — a failed "go deeper" keeps the tap and offers a retry —
 merged as **#672**, merge commit **`f27f4e98`**, at **2026-09-17 12:34:42 UTC**.
@@ -1159,6 +1171,111 @@ it now reads **#672**.)
 
 ---
 
+### OPS-011 — Batch E merged; smoke OWED 2026-09-18; the CI gate was NOT READ
+**Status: OPEN — a smoke owed today under the AMENDED P-04, not a gate that was
+bypassed. See CLAUDE.md P-04, amended 2026-09-18 by founder ruling.**
+**DO NOT record this as passed until it has actually run.**
+
+**What landed.** Batch E — BUG-016 (Greek strings in an English UI), BUG-023 (the
+placeholder that read as user content) and BUG-017 (the sheet's close control, focus
+trap and focus return) — merged as **#677**, squash commit **`ee7c5eed`**, at
+**2026-09-18 10:22:02 +0300**. Branch head at merge **`92f44736`**, base `afc91451`,
+eight files.
+
+**Under the amended P-04 this PR merged correctly.** The smoke is not a merge gate. Of
+the three that are:
+
+- **Diff approved** — founder review of all four code files plus three TD entries,
+  across three separate approval rounds.
+- **Tarball verified** — the codeload tarball diffed against `afc91451`: eight files,
+  no strays, each byte-exact against its stored blob via
+  `git show HEAD:<path> | cmp -` (8 matched, 0 differed).
+- **CI green — NOT READ.** In those words. Not green, not red: **not read.** There is
+  no `gh` CLI on the founder's machine and the Actions page for #677 was not opened, so
+  this entry makes no claim about what CI reported.
+
+**Why the unread gate matters less than its absence suggests — and a warning against
+the opposite inference.** A future reader must NOT conclude that a green check would
+have covered the frontend. Per TD-86, on a web PR:
+
+- `Web build` is **not a required check** (branch protection read 2026-09-18; the three
+  required checks are all backend).
+- Its tests and typecheck run under `continue-on-error: true` (`web-build.yml:46,50`),
+  so neither can fail the job.
+- The only step that can fail it is `npm run build`, and `next.config.js` sets
+  `typescript.ignoreBuildErrors` and `eslint.ignoreDuringBuilds` — so **a green
+  `Web build` on a web PR means the app compiled.** Nothing more.
+
+Batch E touched `apps/web` and `docs/` only. Reading the Actions page would have added
+close to nothing to the two gates that did pass. **That is an argument about TD-86, not
+an excuse** — the gate is recorded as not read because that is what happened.
+
+**What was run locally before the push:** the full web suite (35/35 on every file
+touched; the 13 pre-existing failures reproduced unchanged on a clean `afc91451` with
+the work stashed), `tsc --noEmit` (no errors in any touched file), and `npm run build`
+(passes).
+
+**THE SMOKE IS OWED TODAY, 2026-09-18.** It runs against **production**, not a preview
+— the code is on `main` and reaches production at the next deploy. The test is
+identical; only the venue is later. Per the amended P-04, outstanding past end of day
+is a **finding**, not a footnote.
+
+**What is actually unverified, stated narrowly so it is not over- or under-read.** Two
+things, both appearance on a live surface, neither ever seen outside jsdom:
+
+1. **The close row adds ~42px to the top of all five sheets** — `quotes/page`,
+   `AnotherMindSheet`, `PersonaPickerSheet`, `RitualScheduleSheet`, `SundayLetterCard`
+   — including the three that already carry a header, which now read as
+   header-under-a-bar. The row is deliberate and structural: it is what clears the
+   header-less panels without a prop. Whether it reads as air or as waste at the top of
+   a 60svh sheet is a judgement no test can make.
+2. **The placeholder is Lora at 16px where it was Cormorant at 16px.** Lora renders
+   visually heavier at the same size, so `Start anywhere.` sits stronger in the textarea
+   than the string it replaced. That is the intended direction — an instruction should
+   not wear the content face — but the degree is unjudged.
+
+**The logic is covered.** BottomSheet has 12 tests, verified by mutation rather than by
+green: killing the Tab branch and both focus effects turns exactly 5 red and leaves the
+other 7 alone. Native Tab traversal BETWEEN the trap boundaries is the browser's, not
+ours, and is one of the things the smoke is for.
+
+**Expected result, so the run is a comparison and not an impression:** a `×` at the
+top-right of every sheet that opens, on its own row above the content and not
+overlapping the first line of a quote; Tab cycling inside an open sheet and never
+reaching the page behind it; Escape closing it and focus landing back on the control
+that opened it; `TODAY'S TOPIC` above a title and subtitle on `/app/discuss`; and
+`Start anywhere.` in the textarea beneath it, reading as an instruction rather than as
+something already written.
+
+**Closing this item means one of:** the smoke runs and matches, and this entry is
+closed with the date; or it runs and does not match, and the delta becomes its own
+item.
+
+---
+
+**WHY P-04 WAS AMENDED, recorded here because this entry is half the evidence.**
+
+OPS-010 records #672 merged 2026-09-17 with the smoke outstanding. This entry records
+#677 merged 2026-09-18 with the smoke outstanding. **Two in two days, and they were the
+only two PRs in that window whose briefs named a smoke as a gate.**
+
+Neither was an oversight. On #672 the instruction to hold arrived after the merge; on
+#677 the merge landed 50 seconds before the branch's last commit existed. The mechanism
+was the same both times: **the merge happens faster than a manual step needing a
+person, a phone and a preview deploy.**
+
+The founder ruled on 2026-09-18 that this is a pattern and not two incidents, and
+amended P-04 rather than the practice: the smoke moves from pre-merge gate to
+post-merge same-day obligation, on the reasoning that **a rule that is bypassed is
+worse than a weaker rule that is kept** — a later reader of a record infers a check
+that never happened. The honesty half is untouched: nobody writes "smoke passed" until
+it has.
+
+Both entries are re-scoped under the amended rule. Neither is a bypassed gate any
+more; both are **smokes owed**, and OPS-010's is late.
+
+---
+
 ## 5. UX
 
 ### UX-01 — CLOSED (#485, 2026-07-12)
@@ -1191,8 +1308,16 @@ and the safety net stays regardless of go-to-market (`PROJECT_STATE_v29` §3c).
 4. **`support@` mailbox.**
 5. **DMARC.**
 6. **PostHog erasure.**
-7. **BUG-007 forced-failure smoke** — the one gate #672 merged without.
-   Runs against production now; method and expected result in OPS-010.
+7. **BUG-007 forced-failure smoke** — **OWED since 2026-09-17, now LATE.** Under the
+   amended P-04 (CLAUDE.md, 2026-09-18) this was never a merge gate: it is a
+   post-merge obligation due the same day, and it was not discharged. Runs against
+   production; method and expected result in OPS-010.
+8. **Batch E smoke** — **OWED 2026-09-18 (today).** The close row across five sheets
+   and the Lora placeholder, both appearance on a live surface. Runs against
+   production; method and expected result in OPS-011.
+
+**Two owed smokes is the pattern that amended P-04, not two separate lapses.** Per the
+amended rule, either of these outstanding past end of day is a finding.
 
 **Closed this rotation:** the domain cutover (step 3, TD-69, #617); the TD-61 native
 Greek review (#618, #622); **the 26 stale branches** —
