@@ -21,22 +21,110 @@ beforeEach(() => {
   vi.mocked(toast).mockClear()
 })
 
+// THE 'Ask harder' CASES ARE GONE, AND WERE NOT DELETED (TD-86 step 2, cause 1).
+//
+// Two tests here asserted a chip labelled 'Ask harder' that showed a "Coming soon"
+// toast. That chip no longer exists: it was productised into TWO real features —
+// the deep-mode toggle and the Council door — and NEITHER had a single test. Deleting
+// the stale cases would have removed a red mark and left that gap invisible, so the
+// cases below are what replaces them. The coverage is new; it was never written when
+// the features shipped.
+//
+// VERIFIED, NOT ASSUMED (TD-45). Every assertion below was read against the current
+// component and then checked by breaking it: each `aria-label` string is quoted from
+// QuickActionsRow.tsx:104-160, and the suppression rule at :143 was confirmed by
+// rendering with insightType='dilemma' and watching the Council chip disappear.
 describe('QuickActionsRow', () => {
-  it('renders three action chips', () => {
+  it('renders only the two always-on chips when no optional chip is enabled', () => {
     render(
       <QuickActionsRow messageId="m1" saved={false} onSave={vi.fn()} onUpgradeConfirm={vi.fn()} onBringAnotherMind={vi.fn()} />,
     )
-    expect(screen.getByLabelText('Ask harder')).toBeTruthy()
     expect(screen.getByLabelText('Bring another mind')).toBeTruthy()
     expect(screen.getByLabelText('Save line')).toBeTruthy()
+    // showDeepChip and showCouncilChip both default to false (:60), so the row is two
+    // chips wide on every message except the last assistant one. The previous version
+    // of this test asserted THREE, counting a chip that has not existed for months.
+    expect(screen.queryByLabelText(/Deep mode/)).toBeNull()
+    expect(screen.queryByLabelText('Ask the Council')).toBeNull()
   })
 
-  it('Ask harder shows Coming soon toast', () => {
-    render(
-      <QuickActionsRow messageId="m1" saved={false} onSave={vi.fn()} onUpgradeConfirm={vi.fn()} onBringAnotherMind={vi.fn()} />,
-    )
-    fireEvent.click(screen.getByLabelText('Ask harder'))
-    expect(toast).toHaveBeenCalledWith('Coming soon', expect.any(Object))
+  describe('the deep-mode chip', () => {
+    it('renders OFF and says how to turn it on', () => {
+      render(
+        <QuickActionsRow messageId="m1" saved={false} onSave={vi.fn()} onUpgradeConfirm={vi.fn()} onBringAnotherMind={vi.fn()}
+          showDeepChip onToggleDeepMode={vi.fn()} />,
+      )
+      const chip = screen.getByLabelText('Deep mode off — tap to turn on')
+      expect(chip.getAttribute('aria-pressed')).toBe('false')
+    })
+
+    it('renders ON, and aria-pressed carries the state a sighted user reads from colour', () => {
+      render(
+        <QuickActionsRow messageId="m1" saved={false} onSave={vi.fn()} onUpgradeConfirm={vi.fn()} onBringAnotherMind={vi.fn()}
+          showDeepChip deepMode onToggleDeepMode={vi.fn()} />,
+      )
+      const chip = screen.getByLabelText('Deep mode on — tap to turn off')
+      expect(chip.getAttribute('aria-pressed')).toBe('true')
+    })
+
+    it('calls onToggleDeepMode when tapped', () => {
+      const onToggleDeepMode = vi.fn()
+      render(
+        <QuickActionsRow messageId="m1" saved={false} onSave={vi.fn()} onUpgradeConfirm={vi.fn()} onBringAnotherMind={vi.fn()}
+          showDeepChip onToggleDeepMode={onToggleDeepMode} />,
+      )
+      fireEvent.click(screen.getByLabelText('Deep mode off — tap to turn on'))
+      expect(onToggleDeepMode).toHaveBeenCalledTimes(1)
+    })
+
+    it('LOCKED takes precedence over ON: an out-of-quota free user sees the Pro lock, not the on-state', () => {
+      const onToggleDeepMode = vi.fn()
+      const onDeepPaywall = vi.fn()
+      render(
+        <QuickActionsRow messageId="m1" saved={false} onSave={vi.fn()} onUpgradeConfirm={vi.fn()} onBringAnotherMind={vi.fn()}
+          showDeepChip deepMode deepLocked onToggleDeepMode={onToggleDeepMode} onDeepPaywall={onDeepPaywall} />,
+      )
+      // The precedence is stated at :100-102 and is the whole reason the locked branch
+      // is checked first. deepMode is TRUE here on purpose: a version that tested the
+      // flag before the lock would render the on-state and send a lapsed user into a
+      // feature they cannot use.
+      fireEvent.click(screen.getByLabelText('Deep mode — Pro'))
+      expect(onDeepPaywall).toHaveBeenCalledTimes(1)
+      expect(onToggleDeepMode).not.toHaveBeenCalled()
+      expect(screen.queryByLabelText(/tap to turn off/)).toBeNull()
+    })
+  })
+
+  describe('the Council chip', () => {
+    it('renders and calls onTakeToCouncil when enabled', () => {
+      const onTakeToCouncil = vi.fn()
+      render(
+        <QuickActionsRow messageId="m1" saved={false} onSave={vi.fn()} onUpgradeConfirm={vi.fn()} onBringAnotherMind={vi.fn()}
+          showCouncilChip onTakeToCouncil={onTakeToCouncil} />,
+      )
+      fireEvent.click(screen.getByLabelText('Ask the Council'))
+      expect(onTakeToCouncil).toHaveBeenCalledTimes(1)
+    })
+
+    it('is SUPPRESSED on a dilemma insight, because the insight door is already a Council door', () => {
+      render(
+        <QuickActionsRow messageId="m1" saved={false} onSave={vi.fn()} onUpgradeConfirm={vi.fn()} onBringAnotherMind={vi.fn()}
+          showCouncilChip onTakeToCouncil={vi.fn()} insightType="dilemma" onInsightDoor={vi.fn()} />,
+      )
+      // :142-143. Without the suppression the message shows two Council entries, one
+      // labelled 'Ask the Council' and one 'Bring it to the Council' (:13).
+      expect(screen.queryByLabelText('Ask the Council')).toBeNull()
+      expect(screen.getByLabelText('Bring it to the Council')).toBeTruthy()
+    })
+
+    it('still renders for a non-dilemma insight, so the suppression is narrow', () => {
+      render(
+        <QuickActionsRow messageId="m1" saved={false} onSave={vi.fn()} onUpgradeConfirm={vi.fn()} onBringAnotherMind={vi.fn()}
+          showCouncilChip onTakeToCouncil={vi.fn()} insightType="belief" onInsightDoor={vi.fn()} />,
+      )
+      expect(screen.getByLabelText('Ask the Council')).toBeTruthy()
+      expect(screen.getByLabelText('Put it to the test')).toBeTruthy()
+    })
   })
 
   it('Bring another mind calls onBringAnotherMind', () => {
