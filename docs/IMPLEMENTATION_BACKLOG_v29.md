@@ -914,7 +914,8 @@ first place.
 
 ### TD-86 — On the web side, "CI green" means the build compiled — **NEW**
 **Status: OPEN. The gap is deliberate and documented in the workflow; what is missing
-is that nobody reading a green check knows it.**
+is that nobody reading a green check knows it. Branch protection READ 2026-09-18 —
+`Web build` is not a required check, so the frontend has no gate at all.**
 
 **Verified at `afc91451`** by reading `.github/workflows/web-build.yml` and by running
 both reporting steps locally, not by inferring from a check mark.
@@ -973,30 +974,55 @@ from `backend-ci.yml` on 2026-09-14, so a backend-only or docs-only PR shows no 
 check whatsoever. That is the 2026-09-01 "**no run is not green**" trap, still live on
 this workflow.
 
-**Not verified from this machine:** whether `Web build` is among `main`'s required
-checks. The 2026-09-14 entry records three, all backend — **pytest (live Postgres)**,
-**pytest (baseline) + alembic single head**, and **C-04** — which would mean even the
-build step is not a merge gate, only a visible X. There is no `gh` CLI here to read
-branch protection, so this is **explicitly unverified** rather than asserted. Whoever
-picks this up should read the setting first — per the 2026-09-14 lesson, the question
-is *what is supposed to enforce this, and have I read it?*
+**MEASURED 2026-09-18** — founder read Settings -> Branches -> the `main` rule
+directly. This paragraph previously carried an *unverified* marker; the marker is
+dropped and replaced by the reading. **Require status checks to pass: ON. Require
+branches to be up to date: ON. Three checks are required, all GitHub Actions:**
 
-**What to do, and the order matters:**
-1. **Read the branch-protection setting** and record what is actually required. Cheap,
-   and it determines whether anything below is worth doing.
-2. **Fix or quarantine the 13 + 12.** Enforcing against a standing red just moves the
-   blockage; per the TD-45 lesson, each failure needs diagnosing before repair, and a
-   carried one-line explanation for a red test is a doc claim like any other.
-3. **Then remove `continue-on-error`** from the tests step, and make it required.
-   Typecheck can stay reporting-only longer; the test suite is the one that encodes
+1. `C-04 migration naming`
+2. `pytest (baseline) + alembic single head`
+3. `pytest (live Postgres)`
+
+**`Web build` is not among them.** The unverified line resolved to the worse of its
+two possible answers.
+
+**So: the backend is gated and the frontend is not.** Stated plainly because the
+distinction is invisible from a PR page, where both halves of the repo show the same
+row of green checks. There are three layers on the web side and a change passes
+through all three without being stopped by any:
+
+| layer | why it does not stop anything |
+|---|---|
+| tests | `continue-on-error: true` (`:50`) — reports, cannot fail the job |
+| typecheck | `continue-on-error: true` (`:46`) — same |
+| the job itself | `Web build` is not a required check, so even a compile failure is only a visible X |
+
+and the one step that can fail the job validates neither types nor lint, because
+`next.config.js` sets `typescript.ignoreBuildErrors` and `eslint.ignoreDuringBuilds`.
+
+**72 web files across four PRs merged on 2026-09-17 through none of these.** Four more
+produced no web run at all.
+
+**No fix is proposed here, deliberately.** Making `Web build` required *today* would
+recreate the 2026-09-14 trap from the other side: `web-build.yml` still carries its
+`paths:` filters, so every backend-only or docs-only PR would produce no web run, and a
+required check that never reports sits at *Expected — waiting for status to be
+reported* forever — the merge button never opens. That is the exact failure the
+2026-09-14 entry describes, arrived at by doing the apparently responsible thing.
+
+**The order, which is a sequence and not a change, and which needs its own brief:**
+1. **Strip the `paths:` filters** (`:6-8`, `:10-12`) so the workflow always reports. Safe
+   while it is not required, and it is the precondition for anything after it. This is
+   what `backend-ci.yml` had done to it on 2026-09-14, for this reason.
+2. **Diagnose the 13 failures** — diagnose, not repair-to-green. Per the TD-45 lesson a
+   carried explanation for a failing test is a doc claim like any other, and repairing
+   to the error message is how one fixture produced three consecutive red runs.
+3. **Then make it required**, and drop `continue-on-error` from the tests step.
+   Typecheck can stay reporting-only longer; the suite is the half that encodes
    behaviour.
-4. **Remove the `paths:` filters** at the same time it becomes required, for the same
-   reason they were removed from `backend-ci.yml` — a required check that never reports
-   sits at *Expected — waiting for status to be reported* forever.
 
-**Why this is a record and not a change.** Removing `continue-on-error` today would
-turn 13 pre-existing failures into a wall in front of every web PR, including ones
-that have nothing to do with them. The sequencing above exists so that does not happen.
+Enforcing before (1) and (2) does not close the gap — it moves the blockage in front of
+every web PR, including the ones that have nothing to do with the 13.
 
 
 ---
