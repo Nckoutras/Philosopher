@@ -1,15 +1,28 @@
 name: Web build
 
+# NO `paths:` FILTER, DELIBERATELY — every push to main and every PR runs this.
+#
+# There was one, narrowing to apps/web and this workflow's own files. It was removed
+# on 2026-09-18 for the same reason backend-ci.yml's was removed on 2026-09-14, and
+# that file's header states the reasoning in full:
+#
+#   "A required status check that never REPORTS does not resolve to 'skipped'. It
+#    sits at 'Expected — waiting for status to be reported', and the merge button
+#    never opens."
+#
+# This workflow is not a required check yet. The filter is removed FIRST, on its own,
+# precisely because it is the precondition for making it one — and because while it
+# is absent a PR that produces no web run is indistinguishable from one that passed.
+# That is the 2026-09-01 "no run is not green" trap, and TD-86 records it as live on
+# this workflow until now.
+#
+# The cost is minutes on runs that cannot fail. This is a public repository, so
+# Actions minutes are free.
+
 on:
   push:
     branches: [main]
-    paths:
-      - 'apps/web/**'
-      - '.github/workflows/web-build.yml'
   pull_request:
-    paths:
-      - 'apps/web/**'
-      - '.github/workflows/web-build.yml'
 
 concurrency:
   group: web-build-${{ github.ref }}
