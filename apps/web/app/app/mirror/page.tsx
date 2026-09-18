@@ -447,11 +447,42 @@ export default function MirrorPage() {
         {/* No mirror yet */}
         {!mirror && (
           <div className="bg-paper border-[0.5px] border-edge rounded-[18px] shadow-card px-[16px] py-[32px] text-center">
+            {/* BUG-021 residue. This block used to read "Keep talking with the minds
+                — the mirror gathers what matters": no threshold, no timing, and the
+                SAME words for two opposite situations. An eligible reader waiting up
+                to an hour and a reader who does not yet qualify saw identical output.
+
+                THE PAGE CANNOT TELL THEM APART, and that is why the copy is written
+                the way it is. GET /mirrors/latest returns MirrorOut | None — one bit
+                — and the page loads nothing else bearing on eligibility. So this
+                describes the SYSTEM rather than the reader's status, which is both
+                the honest register and the right one: a status line here would be a
+                progress bar, and this is a reflective product.
+
+                DO NOT DERIVE ELIGIBILITY CLIENT-SIDE. It looks available and it is a
+                trap. The preview threshold (>=3 conversations with last_message_at
+                inside 72h, workers/cron.py:288-293) is reproducible from
+                getConversations() — except the cron also filters deleted_at IS NULL
+                and routers/conversations.py:298-313 does not. Today that difference
+                is zero ONLY because nothing in the codebase ever sets a
+                conversation's deleted_at: the delete endpoint hard-deletes
+                (conversations.py:834). A derivation that agrees by coincidence and
+                starts lying the day soft-delete lands is worse than no derivation.
+                The weekly threshold (>=5 user messages in 7 days) is not derivable at
+                all — message_count is total, not user-only. See TD-89.
+
+                Numbers here are the real ones and nothing else: three conversations,
+                hourly, Monday. "conversations" not "minds" because the threshold
+                counts distinct conversations, which can be with one persona — "three
+                minds" would be a number nobody measured. Monday is left undated
+                because 06:00 UTC is not a conversion a reader should perform. */}
             <p className="font-cormorant text-[20px] font-normal text-ink leading-snug">
               Your first reflection is still forming.
             </p>
             <p className="font-lora text-[15px] text-charcoal leading-[1.65] mt-[12px] px-[8px]">
-              Keep talking with the minds &mdash; the mirror gathers what matters.
+              It takes about three conversations before there is enough to reflect on.
+              After that, a first mirror usually appears within the hour &mdash; and a
+              fuller one each Monday.
             </p>
             <button
               type="button"
