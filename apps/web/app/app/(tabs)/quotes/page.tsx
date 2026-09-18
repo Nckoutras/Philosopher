@@ -240,7 +240,9 @@ export default function QuotesPage() {
     }
   }
 
-  // Quiet loading — a bare vellum field, no spinner (a cached GET resolves fast).
+  // (Was: "Quiet loading — a bare vellum field, no spinner (a cached GET resolves
+  // fast)." The premise was wrong — UAT measured 1-4s here, not fast — and the
+  // conclusion it justified was the blank screen this replaces.)
   // BUG-008. This branch used to be an empty <main>. Same silence as Today, and on
   // this tab it is more confusing still, because the carousel has no chrome of its
   // own to anchor the wait — the whole screen is the content.
