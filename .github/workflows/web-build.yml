@@ -50,17 +50,31 @@ jobs:
       - name: Install dependencies
         run: npm ci --no-audit --no-fund
 
-      # Measurement only. next.config.js sets typescript.ignoreBuildErrors and
-      # eslint.ignoreDuringBuilds, so `npm run build` validates nothing — these two
-      # steps report how much is currently broken. continue-on-error is deliberate:
-      # a red X here must never block a merge until we decide to enforce.
+      # TYPECHECK IS STILL REPORT-ONLY, and for a narrower reason than before.
+      # Eight of the twelve errors were test fixtures behind widened types and are
+      # fixed. The four that remain are production code: three in account/page.tsx,
+      # which need a product decision rather than an edit (TD-87), and one in
+      # oauth/finish which is a narrowing limitation, not a defect — the `if (!token)`
+      # guard returns before the call TypeScript objects to. This step gates once
+      # TD-87 is ruled on.
       - name: Typecheck (report only)
         run: npm run typecheck
         continue-on-error: true
 
-      - name: Tests (report only)
+      # TESTS NOW GATE. `continue-on-error` was removed on 2026-09-18, once the suite
+      # was actually green: 478 passing across 60 files, for the first time in the
+      # project's history.
+      #
+      # It was there deliberately and it was right at the time — 13 failures stood
+      # from 2026-08-13 onward, and enforcing against a standing red only puts a wall
+      # in front of every web PR while fixing none of it. What changed is the red, not
+      # the opinion about enforcement.
+      #
+      # Removing this is the whole point of TD-86. Until now a green "Web build" on a
+      # web PR meant the app COMPILED — types ignored, lint ignored, tests unable to
+      # fail the job. It now also means the suite passed.
+      - name: Tests
         run: npm test -- run
-        continue-on-error: true
 
       - name: Build
         run: npm run build
