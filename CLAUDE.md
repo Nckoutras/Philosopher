@@ -353,22 +353,91 @@ Three PRs and ~18 hours of regression followed from skipping that one check.
 NO MORE batch-deferred smoke tests. Cadence: merge → 2-minute manual check → next PR
 brief only after check passes.
 
-### P-04 — Preview deploy validation for state/auth changes
+### P-04 — Smoke validation for state/auth changes — **AMENDED 2026-09-18**
 
-Changes touching ANY of the following MUST be smoke tested on Netlify preview deploy
-BEFORE merging to main:
+**Founder ruling, 2026-09-18: P-04 is a POST-MERGE OBLIGATION, not a pre-merge gate.
+The smoke runs AFTER the merge, the SAME DAY.**
+
+**Why the rule changed rather than the practice.** As written, P-04 required the smoke
+BEFORE merging. It was skipped twice in two days — OPS-010 (#672, 2026-09-17) and
+OPS-011 (#677, 2026-09-18) — and neither was an oversight. On #672 the instruction to
+hold arrived after the merge; on #677 the merge landed 50 seconds before the branch's
+last commit existed. The cadence does not have room for a manual step needing a person,
+a phone and a preview deploy, and **a rule that is bypassed is worse than a weaker rule
+that is kept**: a later reader of the record infers a check that never happened.
+
+**Changes that trigger it** — unchanged from the original rule:
 - Zustand store shape, middleware, or hydration (`lib/store.ts`)
 - Auth flow (OTP, JWT, session management)
 - Layout-level wrappers or providers
 - API client (`lib/api.ts`)
 - Per-page auth useEffects
 
-Unit tests are necessary but not sufficient. Preview deploy runs the actual production
-build pipeline.
+...and, by practice since, any change to a user-facing surface whose defect is
+appearance rather than logic.
 
-Lesson: PR4p `_hasHydrated` guard had passing unit tests + clean code review. Failed in
-production Next.js build because `onRehydrateStorage` callback timing differs from local
-dev. Preview deploy would have caught this in 5 minutes.
+**The three gates to merge are now:**
+1. **Diff approved.**
+2. **Tarball verified** — the codeload tarball for the pushed branch, diffed against
+   the stated base, each file byte-exact against its stored blob.
+3. **CI green**, read from the runs the PR actually triggered — **with TD-86's caveat**:
+   on a web PR, `Web build` is not a required check, its tests and typecheck run under
+   `continue-on-error: true`, and `next.config.js` ignores type and lint errors, so a
+   green `Web build` means *the app compiled* and nothing more.
+
+**The smoke is not among them.** A PR no longer waits on it.
+
+**What replaces the gate:**
+- The smoke is **logged as owed the moment the merge lands** — an OPS entry, with the
+  method and the expected result written down so the run is a comparison and not an
+  impression.
+- It is **not closed until someone has actually clicked.** Same day.
+- **"Smoke outstanding" past end of day is a FINDING, not a footnote.**
+
+**What did NOT change, and must not.** Nobody writes "smoke passed" until it has. The
+rule got weaker; the honesty rule did not. An entry that says the smoke is outstanding
+is correct; an entry that quietly stops mentioning it is the failure this amendment
+exists to prevent.
+
+**This also removes an inconsistency that had been there all along.** P-03 above has
+always been a POST-merge rule — "After ANY merge ... run a 2-minute manual smoke test".
+P-04 required the same class of check BEFORE the merge. Two adjacent rules disagreed
+about when the same activity happens, and the pre-merge one is the one that got
+skipped. They now have the same shape.
+
+**Original lesson, still the reason any of this exists:** PR4p's `_hasHydrated` guard
+had passing unit tests and a clean code review, and failed in the production Next.js
+build because `onRehydrateStorage` callback timing differs from local dev. Unit tests
+are necessary and not sufficient. What has changed is WHEN the real-build check
+happens, not whether it is needed — and post-merge it runs against production rather
+than a preview, which is later but not weaker: the code path is identical and only the
+venue differs.
+
+---
+
+**A note for whoever reads this file next, about this amendment as a KIND of change.**
+
+This is a rule rewritten to match practice, rather than practice corrected to match the
+rule. That is not automatically wrong — the reasoning above is that an honoured weaker
+rule beats a bypassed stronger one — but it is a move worth counting, because a file
+that does it often enough stops describing anything but what already happens.
+
+The founder identifies this as the **second** time. **The first is not documented in
+this file or anywhere in `docs/`** — searched 2026-09-18 for any record of a rule
+relaxed, weakened, downgraded or rewritten to match practice, and found none. So the
+count rests on founder memory rather than on the record, and the gap is itself worth
+knowing: the failure log captures rules being TIGHTENED after incidents in detail, and
+has no vocabulary for the opposite move.
+
+The nearest structural analogue in this file goes the other way: 2026-09-14 replaced
+the CC-diff-summary merge gate with direct tarball verification, which was practice
+revealing a rule was too weak, not a rule bending to practice.
+
+**The question to ask when this happens a third time:** is the rule wrong, or is the
+capacity to keep it missing? The 2026-09-14 lesson — *what is supposed to enforce this,
+and have I read it?* — applies here too. A smoke test has no enforcing mechanism at
+all; it is a habit with a person in it, which is exactly the category that entry warns
+about.
 
 ### P-05 — Verify backend route changes don't strip data fetching
 
