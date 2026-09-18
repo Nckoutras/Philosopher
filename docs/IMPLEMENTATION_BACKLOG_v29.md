@@ -815,6 +815,190 @@ to a file 40 components import, and (2) is a new abstraction that wants its own
 review.
 
 
+### TD-84 — Two modals trap Tab and never hand focus back, and neither has a test — **NEW**
+**Status: OPEN. Deliberately not fixed in the BUG-017 PR that found it.**
+
+**Verified at `afc91451`**, by reading both files rather than by reasoning from the
+one that was being changed.
+
+BUG-017 gave `BottomSheet` a focus trap and focus RETURN. The trap was modelled on
+two that already existed. Reading them to copy the shape showed both are missing the
+same half the sheet was missing:
+
+| | trap | initial focus | focus RETURN | test |
+|---|---|---|---|---|
+| `ui/DeleteConfirmModal.tsx` | `:48-74` | `:79` | **none** | `__tests__/DeleteConfirmModal.test.tsx` — **0** focus assertions |
+| `share/SharePreviewModal.tsx` | `:155-178` | `:182` | **none** | **no test file at all** |
+
+Neither captures `document.activeElement` on open, so neither has anything to return
+focus TO. Both move focus into themselves and then, on close, leave it wherever the
+removed node used to be — which the browser resolves to `<body>`. A keyboard reader
+who dismisses either one resumes tabbing from the top of the document, and nothing
+announces that the dialog closed. On `DeleteConfirmModal` that is the end of a
+destructive confirmation; on `SharePreviewModal` it is the end of a share flow the
+reader will plausibly repeat on the next line.
+
+**Both traps also only wrap at the two boundaries.** Focus that is already OUTSIDE the
+panel — after a click on the page behind — is not pulled back, so Tab walks the
+document under an `aria-modal` dialog. `BottomSheet` now has a third branch for this
+(`BottomSheet.tsx:59-64`); the two modals do not.
+
+**Why this is its own PR.** Three reasons, and the third is the real one:
+1. `SharePreviewModal` has no test file, so fixing it means writing the harness first.
+2. `DeleteConfirmModal` is the confirmation in front of **account deletion**, the one
+   irreversible action in the product (`:16-19`). A focus change there is not a
+   cosmetic change.
+3. The BUG-017 PR is already three defects across three files with two locked copy
+   decisions. Folding in a fourth would make the smoke test that gates it ambiguous
+   about what it cleared.
+
+**What to do:** lift the `BottomSheet` implementation rather than write a third copy
+of it — capture-on-open, `isConnected`-guarded restore on close, and the
+outside-the-panel branch — into a shared hook both modals and the sheet call. There
+are now **three** hand-rolled traps in this codebase and the third one is the first
+with a test (`ui/__tests__/BottomSheet.test.tsx`); a fourth should not be written.
+
+**What a test can and cannot assert here** is settled and need not be re-litigated:
+jsdom does not move focus on Tab and `@testing-library/user-event` is not a dependency
+of this app, so initial focus, boundary wrapping, the outside-the-panel pull-in,
+Escape and focus return are all assertable (they are our own `.focus()` calls), while
+native traversal BETWEEN the boundaries is the browser's and belongs on a preview
+deploy. `ui/__tests__/BottomSheet.test.tsx` is the worked example.
+
+
+### TD-85 — "Today's question" points at nothing, and the object it names has two names — **NEW**
+**Status: OPEN. Two halves; whoever fixes one should settle the other.**
+
+**Verified at `afc91451`**, against the code and against the production table.
+
+**Half one — the pointer is stale.** `app/(tabs)/today/page.tsx:248` renders:
+
+> Conversations live here once you've started. Begin with today's question above, or
+> choose a mind.
+
+Nothing above it renders a question. The element it refers to is an `ImageTile`
+labelled **"Discussion"** (`:194-199`) which routes to `/app/discuss`. A reader who
+follows the instruction literally looks for a question on the Today tab and does not
+find one.
+
+**Half two — the object has two names, and the older one is wrong about the data.**
+The same file calls it a *question* again at `:257` (`label: "Answer today's
+question"`, an `aria-label`). The component that actually renders it is called
+`TodaysTopicCard`, and BUG-023 gave it a visible eyebrow reading **TODAY'S TOPIC**.
+
+The measurement that settled which name is right, taken against production
+`daily_questions` on 2026-09-17:
+
+- **80 rows, 50 active.**
+- **All 50** active rows carry an em-dash and have the shape `Title — subtitle`.
+- Of the 50 title halves, **48 are statements and 2 are questions.** Average title
+  33 chars, longest 49.
+
+So "question" is wrong about the live data in 96% of cases. "Topic" is right, which is
+why BUG-023 locked it. That leaves `today/page.tsx` as the last place using the older
+name — and it is also the place where the name sits inside a sentence that is already
+broken for an unrelated reason.
+
+Note that migration `010_daily_questions` seeds **30 rows with no em-dash at all**,
+which is a different corpus from the 50 that are active. Reading the migration alone
+would tell a reader the split in `TodaysTopicCard` is dead code. It is not; it is
+load-bearing in production. (See also TD-73 — production is not reconstructible from
+migrations alone. This is another instance of it.)
+
+**Why this is not in the BUG-023 PR.** Fixing the pointer needs new copy for that
+sentence, and new copy needs a lock — a fourth stop inside a PR that already had
+three. The naming half should be settled in the same change, since renaming one site
+while the other keeps the old word is how an object ends up with two names in the
+first place.
+
+
+### TD-86 — On the web side, "CI green" means the build compiled — **NEW**
+**Status: OPEN. The gap is deliberate and documented in the workflow; what is missing
+is that nobody reading a green check knows it.**
+
+**Verified at `afc91451`** by reading `.github/workflows/web-build.yml` and by running
+both reporting steps locally, not by inferring from a check mark.
+
+`web-build.yml` runs three steps. **Two of them cannot fail the job:**
+
+| step | line | blocks a merge? |
+|---|---|---|
+| Typecheck (`npm run typecheck`) | `:44-46` | **no** — `continue-on-error: true` |
+| Tests (`npm test -- run`) | `:48-50` | **no** — `continue-on-error: true` |
+| Build (`npm run build`) | `:52-53` | yes, it is the only one |
+
+And the surviving step validates less than its name suggests: `next.config.js` sets
+`typescript.ignoreBuildErrors` and `eslint.ignoreDuringBuilds`, so `npm run build`
+checks that the app **compiles**, not that it typechecks, lints or passes its tests.
+
+**None of this is a mistake.** `:40-43` says so in as many words — the two steps are
+"measurement only", and `continue-on-error` is "deliberate: a red X here must never
+block a merge until we decide to enforce". The decision was made and written down.
+This entry is not a claim that it was wrong.
+
+**What is missing is the rest of the sentence.** "Measurement only" is a statement
+about the workflow. It is not visible to someone looking at a PR, where the job
+reports the same green check whether the suite passed or 13 tests failed inside it.
+The 2026-09-01 entry in CLAUDE.md is about a green merge button being read as a green
+build; this is the same shape one level in — a green *job* read as a green *suite*.
+
+**What is actually red right now, measured at `afc91451` with this session's work
+stashed:**
+
+- **13 test failures across 6 files** — `QuickActionsRow` (2), `DateGrouper` (2),
+  `EmptyReflections` (4), `FilterPills` (1), `SavedLineCard` (1),
+  `app/app/chat/conv/[id]` (3). 460 pass.
+- **12 typecheck errors across 6 files** — `(tabs)/account/page.tsx` (3),
+  `auth/oauth/finish/page.tsx` (1), `MessageBubble.test.tsx` (5),
+  `ConversationCard.test.tsx` (1), `ConversationList.test.tsx` (1),
+  `councilInsightDoor.test.tsx` (1).
+
+Neither number is new and neither was introduced by the Batch E PR — both were
+measured on a clean checkout of `afc91451` for exactly that reason.
+
+**How much merged over it.** On **2026-09-17**, eight PRs landed on `main`
+(#669-#676). Four touched `apps/web/`:
+
+| PR | web files |
+|---|---|
+| #670 Feat/paywall surface batch b | 28 |
+| #672 Feat/counterview go deeper retry | 3 |
+| #675 Feat/seo foundations | 6 |
+| #676 Feat/auth hydration gate | 35 |
+
+72 web files across four PRs, each merged under a web job that could only have gone
+red if the app failed to compile. The other four produced **no web run at all** —
+`web-build.yml` still carries the `paths:` filters (`:6-8` on push, `:10-12` on pull_request) that were removed
+from `backend-ci.yml` on 2026-09-14, so a backend-only or docs-only PR shows no web
+check whatsoever. That is the 2026-09-01 "**no run is not green**" trap, still live on
+this workflow.
+
+**Not verified from this machine:** whether `Web build` is among `main`'s required
+checks. The 2026-09-14 entry records three, all backend — **pytest (live Postgres)**,
+**pytest (baseline) + alembic single head**, and **C-04** — which would mean even the
+build step is not a merge gate, only a visible X. There is no `gh` CLI here to read
+branch protection, so this is **explicitly unverified** rather than asserted. Whoever
+picks this up should read the setting first — per the 2026-09-14 lesson, the question
+is *what is supposed to enforce this, and have I read it?*
+
+**What to do, and the order matters:**
+1. **Read the branch-protection setting** and record what is actually required. Cheap,
+   and it determines whether anything below is worth doing.
+2. **Fix or quarantine the 13 + 12.** Enforcing against a standing red just moves the
+   blockage; per the TD-45 lesson, each failure needs diagnosing before repair, and a
+   carried one-line explanation for a red test is a doc claim like any other.
+3. **Then remove `continue-on-error`** from the tests step, and make it required.
+   Typecheck can stay reporting-only longer; the test suite is the one that encodes
+   behaviour.
+4. **Remove the `paths:` filters** at the same time it becomes required, for the same
+   reason they were removed from `backend-ci.yml` — a required check that never reports
+   sits at *Expected — waiting for status to be reported* forever.
+
+**Why this is a record and not a change.** Removing `continue-on-error` today would
+turn 13 pre-existing failures into a wall in front of every web PR, including ones
+that have nothing to do with them. The sequencing above exists so that does not happen.
+
+
 ---
 
 ## 3. Open decisions

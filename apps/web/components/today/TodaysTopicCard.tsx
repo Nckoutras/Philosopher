@@ -15,7 +15,13 @@ export default function TodaysTopicCard({ user, dailyQuestion, onReflect }: Prop
   const router = useRouter()
   const [topic, setTopic] = useState('')
   const [selected, setSelected] = useState<string[]>([])
-  const heavyPhrase = dailyQuestion.split(/\s+—\s+/)[0].trim()
+  // The day's topic arrives as "Title — subtitle": all 50 active rows in
+  // production carry the em-dash, and the subtitle half has never been rendered
+  // anywhere. Migration 010's older seeded rows carry no dash at all, so the
+  // subtitle is optional and the whole string is the title — which is why this
+  // is a split-and-rejoin rather than a destructuring of two guaranteed halves.
+  const [topicTitle, ...topicRest] = dailyQuestion.split(/\s+—\s+/)
+  const topicSubtitle = topicRest.join(' — ').trim()
   const initials = deriveInitials(user)
   const cardRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -62,9 +68,26 @@ export default function TodaysTopicCard({ user, dailyQuestion, onReflect }: Prop
 
   return (
     <div ref={cardRef} className="bg-paper border border-[0.5px] border-edge rounded-md px-[16px] pt-[14px] pb-[16px]">
-      <p className="font-lora text-[12px] uppercase tracking-[0.18em] text-charcoal mb-[10px]">
-        What brings you here?
-      </p>
+      {/* Today's topic (BUG-023). This replaces an eyebrow that read "What brings you
+          here?" — word for word the page's own h1 (discuss/page.tsx:48), on the same
+          screen. Nothing is lost by the swap and a duplication goes with it.
+
+          The topic needs a surface of its own now that the placeholder is not it, and
+          because Quick start below silently seeds this same string: without this block
+          that button starts a reflection on a topic the reader has never seen. */}
+      <div className="mb-[14px]">
+        <p className="font-lora text-[12px] uppercase tracking-[0.18em] text-charcoal">
+          Today's topic
+        </p>
+        <p className="font-cormorant text-[19px] font-medium text-ink leading-snug mt-[4px]">
+          {topicTitle}
+        </p>
+        {!!topicSubtitle && (
+          <p className="font-lora text-[13px] text-charcoal leading-[1.6] mt-[4px]">
+            {topicSubtitle}
+          </p>
+        )}
+      </div>
 
       {/* Theme pills — same slugs + styling as onboarding/themes */}
       <div className="flex flex-wrap gap-2">
@@ -108,8 +131,8 @@ export default function TodaysTopicCard({ user, dailyQuestion, onReflect }: Prop
           rows={3}
           value={topic}
           onChange={(e) => setTopic(e.target.value)}
-          placeholder={heavyPhrase}
-          className="flex-1 resize-none bg-transparent outline-none font-cormorant italic text-[16px] text-ink leading-snug placeholder:opacity-60 placeholder:italic placeholder:font-cormorant border border-bronze/40 rounded-[2px] focus:border-bronze focus:ring-1 focus:ring-bronze/20 pl-1 pr-3 py-2"
+          placeholder="Start anywhere."
+          className="flex-1 resize-none bg-transparent outline-none font-cormorant italic text-[16px] text-ink leading-snug placeholder:opacity-60 placeholder:not-italic placeholder:font-lora border border-bronze/40 rounded-[2px] focus:border-bronze focus:ring-1 focus:ring-bronze/20 pl-1 pr-3 py-2"
         />
       </div>
       <div className="mt-[12px] flex gap-[10px]">

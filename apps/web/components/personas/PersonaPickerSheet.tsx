@@ -108,16 +108,11 @@ export default function PersonaPickerSheet({
   return (
     <BottomSheet open={open} onClose={onClose}>
       {/* Header */}
-      <div className="px-6 pt-5 pb-3 border-b border-[0.5px] border-edge flex items-center justify-between flex-shrink-0">
+      {/* The close button that used to sit at the right of this row now belongs to
+          BottomSheet, which renders one for every consumer (BUG-017). The flex row
+          existed only to push it there, so it goes too. */}
+      <div className="px-6 pt-5 pb-3 border-b border-[0.5px] border-edge flex-shrink-0">
         <p className="font-cormorant text-[19px] font-medium text-ink">Choose a mind</p>
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Close"
-          className="p-2 font-lora text-[22px] text-sepia leading-none"
-        >
-          ×
-        </button>
       </div>
 
       {/* Persona list */}
