@@ -1125,6 +1125,91 @@ one remaining `oauth/finish` error — a narrowing limitation, not a defect, sin
 
 ---
 
+### TD-88 — `Spinner.tsx` has zero consumers and a docstring naming three that do not exist — **NEW**
+**Status: OPEN. The question is delete-or-adopt, and this entry deliberately does not
+answer it.**
+
+**Verified at `9ad352fb`**, found while investigating BUG-008 for an existing loading
+visual to reuse.
+
+`apps/web/components/ui/Spinner.tsx` is a complete, working component. Its docstring
+says:
+
+```
+ * Spinner per DESIGN_SYSTEM_v4 A1 spec.
+ * Edge ring (0.8px stroke) + Ink rotating arc (1.2px stroke), 1.4s rotation.
+ * Used in: A1 splash, C1 chat sending state, H2 checkout loading bridge.
+```
+
+**It is used in none of them.** `grep -rn "Spinner" apps/web --include=*.tsx
+--include=*.ts`, excluding the file itself, returns **zero** matches. Nothing imports
+it, so none of the three named call sites can be real.
+
+This is the 2026-08-18 shape exactly: **a doc claim that outlived the thing it
+described.** The difference from the usual case is the direction — the claim is
+inside the artefact it is wrong about, and it is wrong in the flattering direction,
+asserting adoption that never happened. A reader grepping for "how do we show
+loading" finds this file, reads three call sites, and concludes the question is
+settled.
+
+**What is true about it:**
+- The component works. `animate-spin-slow` is defined (`tailwind.config.js:63`,
+  `'spin 1.4s linear infinite'`), matching the 1.4s the docstring and
+  `DESIGN_SYSTEM_v4:1239` both specify.
+- It is the **only** loading visual in the codebase with an accessibility contract:
+  `role="status"` and `aria-label="Loading"`. Neither competing idiom has either.
+- It is stroked in `var(--edge)` / `var(--ink)`, so it is theme-correct.
+
+**What competes with it, and won:**
+
+| Idiom | Reach |
+|---|---|
+| `animate-pulse` skeleton blocks | **30 sites across 6 files** — self-portrait, council, letters, letters/[id], mirror, profile, and now today + quotes via BUG-008 |
+| literal `Loading…` italic text | 13 sites |
+| `Spinner.tsx` | **0** |
+
+**BUG-008 did not adopt it, deliberately.** The two blank loading branches it filled
+use `animate-pulse`, because that is the established idiom and matching six existing
+files beat introducing a seventh pattern in a PR about navigation feedback. That
+decision is not a ruling on this entry — it is the reason this entry exists.
+
+**The evidence that cuts the other way, and is why this is not simply a deletion.**
+`DESIGN_SYSTEM_v4:210` still specifies, for the chat composer:
+
+> **Sending**: Ink bg, Vellum spinner (border arc rotating, 1.4s duration)
+
+**That state currently has no loading affordance at all.** `ChatInput.tsx:48-50`
+renders `disabled={disabled || !value.trim()}` with `disabled:opacity-40` — a dimmed
+button, no spinner, no rotation. So the component may be **unadopted rather than
+obsolete**: a thing built to spec, for a spec still on the books, that nobody wired
+up. Deleting it would close the gap by removing the answer rather than the question.
+
+Note also that the three screen codes in the docstring — `A1`, `C1`, `H2` — do not
+appear in the current `SCREENS_TRACKING_v14`. The docstring is pinned to a
+vocabulary the tracking documents have moved past, which makes it hard to tell
+whether "A1 splash" still denotes anything.
+
+**THE QUESTION, which is the founder's:**
+
+**Delete it, or adopt it?**
+
+- **Delete** — the app has settled on skeletons, a spinner is a different visual
+  grammar (indeterminate, centred, attention-taking) from a skeleton (positional,
+  calm, shape-preserving), and one unused file with a false docstring is worse than
+  no file. The `DESIGN_SYSTEM_v4` spinner spec would be amended to say skeletons, and
+  the chat Sending state would get a skeleton or keep the dimmed button.
+- **Adopt** — wire it into the chat Sending state it was built for, which today has
+  nothing, and keep it for the genuinely indeterminate cases where a skeleton lies
+  about shape. Its `role="status"` would then be the app's first accessible loading
+  announcement.
+
+**Whichever is chosen, the docstring is wrong today and should not survive the
+ruling.** If it is adopted, the three call sites become one real one. If it is
+deleted, the claim goes with it. The thing that must not happen is a third rotation
+in which it still says "Used in:" and still is not.
+
+---
+
 ---
 
 ## 3. Open decisions
