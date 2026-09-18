@@ -28,7 +28,11 @@ const DILEMMA = {
   conversation_id: 'conv-1',
   is_dismissed: false,
   created_at: '2026-09-15T00:00:00Z',
-} as never
+}
+// The `as never` used to sit HERE, on the constant, which made the object itself
+// unspreadable — `{ ...DILEMMA }` at the belief case below is a TS2698. The cast
+// belongs at the call sites, where it is narrowing an argument, not erasing the
+// shape of a fixture other cases need to read.
 
 beforeEach(() => {
   push.mockClear()
@@ -39,7 +43,7 @@ beforeEach(() => {
 describe('the dilemma → Council door', () => {
   it('writes the insight id alongside the prefill it always wrote', () => {
     const { result } = renderHook(() => useInsightDoors())
-    act(() => result.current.primary(DILEMMA))
+    act(() => result.current.primary(DILEMMA as never))
 
     expect(sessionStorage.getItem('council_insight_id')).toBe('insight-abc')
     // The pre-existing handoff is untouched — this adds a key, it does not
@@ -55,7 +59,7 @@ describe('the dilemma → Council door', () => {
     // eventually convened after upgrading.
     useStore.setState({ plan: 'free' })
     const { result } = renderHook(() => useInsightDoors())
-    act(() => result.current.primary(DILEMMA))
+    act(() => result.current.primary(DILEMMA as never))
 
     expect(sessionStorage.getItem('council_insight_id')).toBeNull()
     expect(push).toHaveBeenCalledWith('/app/upgrade?source=insight_door')

@@ -45,8 +45,18 @@ describe('SavedLineCard', () => {
     expect(screen.getByRole('img')).toBeTruthy()
   })
 
-  it('renders fallback div when portraitUrl is empty', () => {
-    const { container } = render(<SavedLineCard item={item} portraitUrl="" onClick={vi.fn()} />)
-    expect(container.querySelector('img')).toBeNull()
+  // VERIFIED against SavedLineCard.tsx, not assumed (TD-45). The fallback at :49-52
+  // is unchanged and still correct; what changed is that the card gained a decorative
+  // background <Image alt="" aria-hidden> at :31 that renders on every card. The old
+  // assertion was `container.querySelector('img')` — ANY img in the subtree — so the
+  // decorative one broke a test about the PORTRAIT.
+  //
+  // queryByRole('img') is the fix and is also the stricter question: the
+  // accessibility tree excludes aria-hidden nodes, so this asserts "no portrait is
+  // exposed to a reader", which is what the fallback is for. A raw querySelector
+  // would have to special-case the decoration and would break again on the next one.
+  it('exposes no portrait image when portraitUrl is empty', () => {
+    render(<SavedLineCard item={item} portraitUrl="" onClick={vi.fn()} />)
+    expect(screen.queryByRole('img')).toBeNull()
   })
 })

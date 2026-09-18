@@ -39,6 +39,13 @@ function makeConv(overrides: Partial<Conversation> = {}): Conversation {
     source_persona_slug: null,
     source_context_content: null,
     last_message_snippet: null,
+    // Added to Conversation after these fixtures were written (api.ts:199-202).
+    // Explicit rather than cast away: deep_mode drives a visible badge, and origin_*
+    // drive the "Return to [origin]" link, so a fixture that omits them tests a
+    // conversation shape the API cannot return (C-06).
+    origin_persona_slug: null,
+    origin_persona_name: null,
+    deep_mode: false,
     ...overrides,
   }
 }

@@ -42,6 +42,46 @@ vi.mock('@/components/chat/ChatInput', () => ({
   default: () => <div data-testid="chat-input" />,
 }))
 
+// THE SINGULAR RESPONSE, which is what the page actually calls (TD-86 step 2,
+// cause 6). The page has called `api.getConversation(params.id)` since #83; this
+// file has mocked `getConversations` (plural) since #106 and mocks the singular
+// nowhere, so the real method ran unmocked, Promise.all rejected, and the page never
+// left its loading state. Three tests failed on one missing mock.
+//
+// C-06: every field the page reads off this object is set here EXPLICITLY, including
+// the two whose correct value is null and the one whose correct value is false. The
+// page reads conv.id, conv.persona.slug, conv.persona.name, conv.origin_persona_slug,
+// conv.origin_persona_name and conv.deep_mode (page.tsx:238-256). A MagicMock-shaped
+// omission here would not throw — setOrigin would take the fallback branch and
+// setDeepMode would store undefined — so the test would pass or fail for reasons
+// unrelated to what it claims to check.
+const mockConversation = {
+  id: 'conv-abc',
+  title: 'Test convo',
+  message_count: 3,
+  last_message_at: new Date().toISOString(),
+  created_at: new Date().toISOString(),
+  // null on both: this conversation was not opened from another mind, so the page
+  // falls back to conv.persona for the origin (page.tsx:253-256).
+  origin_persona_slug: null,
+  origin_persona_name: null,
+  deep_mode: false,
+  persona: {
+    id: 'p1',
+    slug: 'epictetus',
+    name: 'Epictetus',
+    era: null,
+    tradition: null,
+    tier: 'free',
+    tagline: null,
+    avatar_emoji: null,
+    opening_invocation: null,
+    bio: '',
+    portrait_url: '',
+    is_accessible: true,
+  },
+}
+
 const mockConversations = [
   {
     id: 'conv-abc',
@@ -106,6 +146,7 @@ beforeEach(() => {
     safetyActive: false,
     streamError: null,
   })
+  vi.spyOn(apiModule.api, 'getConversation').mockResolvedValue(mockConversation as never)
   vi.spyOn(apiModule.api, 'getConversations').mockResolvedValue(mockConversations as never)
   vi.spyOn(apiModule.api, 'getPersonas').mockResolvedValue(mockPersonas as never)
   vi.spyOn(apiModule.api, 'getMessages').mockResolvedValue(mockMessages as never)

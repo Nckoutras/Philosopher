@@ -1,15 +1,28 @@
 name: Web build
 
+# NO `paths:` FILTER, DELIBERATELY — every push to main and every PR runs this.
+#
+# There was one, narrowing to apps/web and this workflow's own files. It was removed
+# on 2026-09-18 for the same reason backend-ci.yml's was removed on 2026-09-14, and
+# that file's header states the reasoning in full:
+#
+#   "A required status check that never REPORTS does not resolve to 'skipped'. It
+#    sits at 'Expected — waiting for status to be reported', and the merge button
+#    never opens."
+#
+# This workflow is not a required check yet. The filter is removed FIRST, on its own,
+# precisely because it is the precondition for making it one — and because while it
+# is absent a PR that produces no web run is indistinguishable from one that passed.
+# That is the 2026-09-01 "no run is not green" trap, and TD-86 records it as live on
+# this workflow until now.
+#
+# The cost is minutes on runs that cannot fail. This is a public repository, so
+# Actions minutes are free.
+
 on:
   push:
     branches: [main]
-    paths:
-      - 'apps/web/**'
-      - '.github/workflows/web-build.yml'
   pull_request:
-    paths:
-      - 'apps/web/**'
-      - '.github/workflows/web-build.yml'
 
 concurrency:
   group: web-build-${{ github.ref }}
@@ -37,17 +50,31 @@ jobs:
       - name: Install dependencies
         run: npm ci --no-audit --no-fund
 
-      # Measurement only. next.config.js sets typescript.ignoreBuildErrors and
-      # eslint.ignoreDuringBuilds, so `npm run build` validates nothing — these two
-      # steps report how much is currently broken. continue-on-error is deliberate:
-      # a red X here must never block a merge until we decide to enforce.
+      # TYPECHECK IS STILL REPORT-ONLY, and for a narrower reason than before.
+      # Eight of the twelve errors were test fixtures behind widened types and are
+      # fixed. The four that remain are production code: three in account/page.tsx,
+      # which need a product decision rather than an edit (TD-87), and one in
+      # oauth/finish which is a narrowing limitation, not a defect — the `if (!token)`
+      # guard returns before the call TypeScript objects to. This step gates once
+      # TD-87 is ruled on.
       - name: Typecheck (report only)
         run: npm run typecheck
         continue-on-error: true
 
-      - name: Tests (report only)
+      # TESTS NOW GATE. `continue-on-error` was removed on 2026-09-18, once the suite
+      # was actually green: 478 passing across 60 files, for the first time in the
+      # project's history.
+      #
+      # It was there deliberately and it was right at the time — 13 failures stood
+      # from 2026-08-13 onward, and enforcing against a standing red only puts a wall
+      # in front of every web PR while fixing none of it. What changed is the red, not
+      # the opinion about enforcement.
+      #
+      # Removing this is the whole point of TD-86. Until now a green "Web build" on a
+      # web PR meant the app COMPILED — types ignored, lint ignored, tests unable to
+      # fail the job. It now also means the suite passed.
+      - name: Tests
         run: npm test -- run
-        continue-on-error: true
 
       - name: Build
         run: npm run build
