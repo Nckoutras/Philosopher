@@ -913,9 +913,30 @@ first place.
 
 
 ### TD-86 — On the web side, "CI green" means the build compiled — **NEW**
-**Status: OPEN. The gap is deliberate and documented in the workflow; what is missing
-is that nobody reading a green check knows it. Branch protection READ 2026-09-18 —
+**Status: OPEN, but only on its LAST step. Branch protection READ 2026-09-18 —
 `Web build` is not a required check, so the frontend has no gate at all.**
+
+**PROGRESS 2026-09-18.** Steps 1, 2 and 3 of the sequence below are done:
+- **Step 1 — `paths:` filters stripped** from `web-build.yml`. Every PR now produces
+  a web run, so "no run" can no longer be mistaken for green.
+- **Step 2 — the 13 failures are fixed.** Six stale-test causes, plus a seventh that
+  only became reachable once the sixth was repaired (jsdom does not implement
+  `scrollIntoView`). The suite is **478 passing across 60 files**, green for the
+  first time in the project's history. Zero product bugs among the 13, as the
+  2026-08-13 measurement predicted.
+- **Step 3 — `continue-on-error` removed from the Tests step.** A failing web test
+  now fails the job.
+- Also: **8 of the 12 typecheck errors fixed** (fixtures behind widened types). The
+  remaining 4 are production code — 3 are TD-87, 1 is a narrowing limitation in
+  `oauth/finish` that the runtime cannot reach. Typecheck stays report-only until
+  TD-87 is ruled on.
+
+**WHAT REMAINS IS NOT A COMMIT.** `Web build` must be added to `main`'s required
+checks in **Settings -> Branches**, alongside the three that are there now. That is a
+setting, not a file, so it cannot be in a PR — and until it changes, a red Tests step
+is a visible X that stops nothing. It is safe to do now and was not before, because
+step 1 removed the filters that would otherwise leave every backend-only PR at
+*Expected — waiting for status to be reported* forever.
 
 **Verified at `afc91451`** by reading `.github/workflows/web-build.yml` and by running
 both reporting steps locally, not by inferring from a check mark.
@@ -1024,6 +1045,85 @@ reported* forever — the merge button never opens. That is the exact failure th
 Enforcing before (1) and (2) does not close the gap — it moves the blockage in front of
 every web PR, including the ones that have nothing to do with the 13.
 
+
+### TD-87 — The Account page dereferences a nullable `user` behind a guard on something else — **NEW**
+**Status: OPEN. HELD OUT of the TD-86 CI branch deliberately — it is the one item in
+that set needing a product decision rather than an edit.**
+
+**Verified at `74f576d5`** by reading the file, not by trusting the type error.
+
+`app/app/(tabs)/account/page.tsx` renders the signed-in reader's name and email:
+
+```tsx
+:28    const user = useStore((s) => s.user)
+...
+:60    const displayName = user?.full_name ?? user?.email ?? ''     // optional chaining
+...
+:162   if (!authed) {
+         return <div className="min-h-screen [min-height:100svh] bg-vellum" />
+       }
+...
+:187   {user.full_name && (                                         // bare
+:189      {user.full_name}
+:192   <p className="font-lora text-[14px] text-charcoal">{user.email}</p>
+```
+
+**The guard at `:162` is on `authed`, not on `user`.** `authed` comes from
+`useAuthGate`, which answers "is there a usable session", and it is not a claim that
+the `user` object has loaded. Three lines then dereference `user` bare. If `authed` is
+ever true while `user` is null, the Account page throws and the reader gets a blank
+screen on the one page that holds cancellation, data export and account deletion.
+
+**The same file already knows this.** `:60` reaches the same object through `?.`
+twice. So the nullability is real and understood 127 lines above the place it is
+ignored — which is the signature of a guard that was correct when written and a
+render block that grew past it.
+
+**Honest about what is NOT established: no reachable path was constructed.** `token`
+and `user` live in the same persisted store blob and hydrate together, so the obvious
+candidate — a session restored without a profile — does not obviously occur. This is
+recorded as a **latent** defect, not a demonstrated one. It was found by the
+typechecker (TS18047 ×3), which is exactly the class of thing a typechecker is for and
+exactly the class that `next.config.js`'s `typescript.ignoreBuildErrors` has been
+hiding. It has been in the file at least since the 2026-08-13 measurement, where it
+appears at the same three lines under their older numbers (`:112`, `:114`, `:117`).
+
+**THE QUESTION, which is the founder's and is why this is not a code change:**
+
+*Guard it and render WHAT?*
+
+The three candidate answers are not equivalent, and the difference is visible to a
+person:
+
+1. **`?.` everywhere**, matching `:60`. Smallest diff. The page renders with an empty
+   name and an empty email — a signed-in reader looking at a blank identity block on
+   their own account page, with the destructive actions below it still live.
+2. **An early return** next to the `authed` one, rendering the same silent placeholder.
+   The page shows nothing at all until the profile is present. Honest, and it delays
+   access to export and deletion for a state nobody has yet seen occur.
+3. **Treat `authed && !user` as a broken session** and route to sign-in carrying
+   `next=`, the way `useAuthGate` treats a failed hydration (per TD-83). Strongest and
+   most opinionated: it says a session with no profile is not a session.
+
+There is also a prior question worth answering first, because it may collapse the
+other three: **can `authed` be true while `user` is null at all?** If the store
+guarantees they arrive together, the right change is to make the type say so and
+delete the nullability, not to guard it. That is a reading of `lib/store.ts` and
+`lib/useAuthGate.ts`, not a judgement call — but it is the founder's call whether to
+spend the reading before the ruling.
+
+**Why it is not in the CI branch.** That branch strips the `paths:` filters, fixes 13
+test failures across six causes, fixes 8 test-side type errors and makes the suite
+gate. Every one of those is mechanical and reversible. This is a product behaviour
+change on the page that holds account deletion, and it would have been the only thing
+in the PR that could not be reviewed by reading a diff.
+
+**It does not block the CI sequence.** The typecheck step stays `continue-on-error`
+until this is ruled on; the tests step gates now regardless. Closing this and the
+one remaining `oauth/finish` error — a narrowing limitation, not a defect, since the
+`if (!token)` guard returns before the call — is what would let typecheck gate too.
+
+---
 
 ---
 
