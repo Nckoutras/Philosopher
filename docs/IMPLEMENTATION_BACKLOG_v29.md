@@ -591,12 +591,27 @@ eligible to run 24 times a day. The worker-absence alerting built in #669 cannot
 cover it — that layer reads `job_run` rows, and this job leaves none — which is
 precisely why `constants.py` excluded it rather than an oversight.
 
-**Founder-reported context, recorded as such:** surfaced by **UAT-1 BUG-021**
-during the **14-16 September 2026** incident window. That artifact is NOT in this
-repository — a case-insensitive grep for `BUG-021` across `docs/` and `apps/`
-returns nothing at `78e98c71` — so this line records who reported it and when,
-not a document a reader here can open. If UAT-1 is filed somewhere durable, link
-it here.
+**Founder-reported context, and the artifact is now filed:** surfaced by **UAT-1
+BUG-021** during the **14-16 September 2026** incident window. The register is
+`docs/qa/UAT-1_2026-09-14.md`, filed 2026-09-18. BUG-021 there reads *"Mirror has
+no useful first-session fallback"* — the tester opened Mirror on a low-history
+account and got `Your first reflection is still forming.` That is the user-side
+face of this entry: a mirror that never arrived and a dispatch job whose failure
+nobody would have seen.
+
+**What this paragraph said before, kept rather than overwritten.** It read: *"That
+artifact is NOT in this repository — a case-insensitive grep for `BUG-021` across
+`docs/` and `apps/` returns nothing at `78e98c71` — so this line records who
+reported it and when, not a document a reader here can open. If UAT-1 is filed
+somewhere durable, link it here."* All of that was true when written; the path
+above is the link it asked for.
+
+**One caveat on reading the register, because it is not a document about this
+codebase.** It is filed VERBATIM as the tester delivered it, wrong route names
+and all, and no build identifier was captured during the run. BUG-021 tells you
+what a user saw on 2026-09-14; it is not evidence about `dispatch_preview_mirrors`,
+and the mechanism above was verified by reading the code, not by trusting the
+report.
 
 **What closing it looks like.** **Move the job to the ARQ worker**, where
 `cron_jobs` registration writes a `job_run` row per run and the existing
@@ -1275,6 +1290,67 @@ the quotes carousel and one paragraph of mirror copy. This is a backend schema
 question and belongs to whoever answers it.
 
 ---
+
+---
+
+### TD-88 — Six UAT-1 findings are routed to a section number that does not exist — **NEW**
+**Status: OPEN. Not scheduled. Written because a citation a reader cannot follow is
+the defect TD-79 just closed, one document over.**
+
+**Verified at `9ad352fb`** by grepping the repository for the section number and by
+reading the two instruments that do exist.
+
+**The claim.** The UAT-1 filing header (`docs/qa/UAT-1_2026-09-14.md`) records the
+disposition of all 30 findings, and six of them — **BUG-009, BUG-010, BUG-011,
+BUG-012, BUG-013 and BUG-015** — are "routed to the §8.2 eval harness". Those are the
+persona-fidelity findings: voices collapsing toward one coaching template, Lao Tzu
+needing to be prompted into Taoism, Marcus reading as Socrates, Musashi and
+Machiavelli not answering a rebuttal, and You-vs-You overstating certainty on thin
+evidence.
+
+**There is no §8.2 in this repository.** A repo-wide grep for `§8.2`, and for an `8.2`
+heading in any form, returns nothing. Neither `HANDOFF_BRIEF_v30.md`, this file, nor
+`PROJECT_STATE_v29.md` numbers a section that way at all.
+
+**And the nearest §8 is a trap.** `RUNBOOK_LOOP_METRICS.md` is the one current
+document whose numbering reaches §8 — where §8 is **"Unit cost — the depth risk"**. A
+reader chasing "§8.2" finds either nothing or a cost section, and concludes the
+reference is stale rather than absent. The section that actually relates is its §7,
+"Sameness — the D2 metric".
+
+**What DOES exist, stated so this entry is not read as "nothing was built".** Two
+partial instruments, each of which says in its own text that it is partial:
+
+- `RUNBOOK_LOOP_METRICS.md` §7b/§7c — lexical recurrence against a control, and
+  structural drift against the shipped spec. It scores replies and holds no opinion.
+- `docs/PROTOCOL_FOUNDER_READ_SAMENESS.md` (D2-b, #665) — a structured founder read of
+  three conversations. One reader, n=3, with its own bias named in the document.
+
+**Neither is the harness these six findings need, and the gap is specific: the word
+`blind` appears in neither file.** The register's acceptance tests for these six ask
+for a stable cross-persona prompt set, **blind reviewers identifying the intended
+thinker materially above chance**, per-thinker fidelity rubrics, and confidence
+calibration against evidence depth. Gate C of the register makes blind cross-persona
+evaluation a release gate and the Definition of done repeats it. Sameness scoring and
+a founder read are inputs to that; they are not it.
+
+**What it costs.** Whoever builds the harness starts by looking for §8.2, finds
+nothing, and either reconstructs the routing decision from a chat log or concludes
+these six findings were never triaged. The requirements did not go missing with the
+section number — they are in `docs/qa/UAT-1_2026-09-14.md`, in each finding's
+**Acceptance tests** block and in Gate C. **That file, not §8.2, is the durable
+statement of what the harness must do.**
+
+**What closing it looks like.** When the eval-harness spec lands in the repository,
+give it a stable heading and repoint three things at it: this entry, the UAT-1 filing
+header's status line, and the §8.2 reference itself. Until then the header says the
+routing lives in the planning record, which is true and is the whole of what is known.
+
+**Why this is an entry rather than a fix.** The fix is the harness, and
+`RUNBOOK_LOOP_METRICS.md` §7d already ranks the population problem above both existing
+instruments — there may not yet be enough conversations to measure blind
+identification against. A pointer to a section that does not exist is cheaper to
+correct than to leave asserting.
 
 ---
 
