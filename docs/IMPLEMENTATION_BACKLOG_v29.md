@@ -1291,6 +1291,60 @@ question and belongs to whoever answers it.
 
 ---
 
+### TD-90 — Epictetus carries the Encheiridion twice, in two translations — **NEW**
+**Status: OPEN. Accepted cost, not a defect. Founder ruling 2026-09-18.**
+
+**Created deliberately by the P0 corpus re-ingest**, as the price of not
+mislabelling anything. Recorded here because it is a known trade rather than an
+oversight, and because the fix belongs somewhere this PR does not touch.
+
+**The situation.** Gutenberg has **no complete English Discourses**. The only
+real Discourses text is `pg10661`, George Long's *A Selection from the Discourses
+of Epictetus with the Encheiridion* — which, as its title says, also carries the
+Encheiridion. Epictetus's other source is `pg45109`, Higginson's standalone
+*Enchiridion*. So the Encheiridion is in the corpus twice.
+
+**Measured, not assumed** (fetched 2026-09-18): `pg10661`'s body is 5,345 lines,
+of which the section `THE ENCHEIRIDION, OR MANUAL.` (line 4,542 to the end) is
+832 — **16%**. At 174 chunks for the file, roughly **27 chunks are Long's
+Encheiridion**, duplicating the **38 chunks** of Higginson's. About 12% of the
+persona's 212 chunks are a second translation of text already present.
+
+**Why it was accepted.** The alternatives both lie:
+- file `pg10661` alone under the title "Discourses of Epictetus" — which puts
+  Encheiridion text under the Discourses' name, the exact defect this phase exists
+  to fix;
+- drop `pg45109` — same problem, and loses Higginson entirely.
+
+Truthfulness over retrieval tidiness. The source is titled *"Discourses of
+Epictetus (selections)"* precisely because it is a selection.
+
+**What it can actually do.** `retrieval_service.retrieve` (`:31-44`) selects by
+`persona_slug` only — there is **no dedup and no source filter** — and Epictetus
+has `retrieval_top_k=4` (`personas/epictetus.py:66`). A question about what is in
+our control can therefore return near-identical passages twice, spending two of
+four slots on one idea, and the model can attribute it to two different sources in
+one reply. Ceiling on the harm: a thinner answer, never a wrong attribution. Both
+passages are genuinely Epictetus and genuinely under the title they claim.
+
+**And there is no switch to turn it off.** `retrieval_sources` is declared on every
+persona (`personas/epictetus.py:60`) and **read by nothing** — the retrieval SQL
+never mentions `source_title`. So this cannot be mitigated by configuration today;
+it needs code.
+
+**The fix is dedup in retrieval, not a trimmed corpus.** Deleting Long's
+Encheiridion section from the ingested text would mean the stored chunks no longer
+match the file the config points at, which breaks the invariant the same PR just
+spent its whole diff establishing. A near-duplicate filter at retrieval time (or
+a cosine-similarity cutoff between returned passages) solves it without lying
+about provenance.
+
+**Not in scope of the PR that created it**, which fixes attribution and adds the
+header guard. Whoever picks this up should also decide what `retrieval_sources` is
+for, since it is currently decoration.
+
+---
+
 ---
 
 ### TD-88 — Six UAT-1 findings are routed to a section number that does not exist — **NEW**
