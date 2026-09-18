@@ -1210,6 +1210,72 @@ in which it still says "Used in:" and still is not.
 
 ---
 
+### TD-89 — `Conversation.deleted_at` is read by three queries, written by none, and missed by a fourth — **NEW**
+**Status: OPEN. Record only — no fix, and nothing is broken today.**
+
+**Verified at `b9041692`**, found while establishing whether the Mirror empty state
+could derive eligibility client-side (BUG-021 residue). It cannot, and this is why.
+
+**Two halves of one confusion about whether conversations are soft-deleted.**
+
+**Half one — three queries filter it, a fourth does not.**
+
+| Query | Filters `deleted_at`? |
+|---|---|
+| `routers/home.py:40` | yes |
+| `services/conversation_service.py:410` | yes |
+| `workers/cron.py:290` (preview-mirror eligibility) | yes |
+| **`routers/conversations.py:298-313`** (`GET /conversations`, the Library list) | **no** |
+
+**Half two — nothing ever sets it.** `DELETE /conversations/{id}` at
+`routers/conversations.py:822-834` ends in `await db.delete(conv)` — a **hard**
+delete. A repository-wide search for a writer of `Conversation.deleted_at` returns
+only migrations. The column, its partial indexes (`models/__init__.py:240`) and the
+three filters all guard a state the application cannot produce.
+
+And migration `009_saved_lines.py:9` states the opposite as fact:
+
+> "…hard-deleted in this codebase — only conversations.deleted_at soft-delete"
+
+That is a doc claim contradicted by the code it describes, which is the 2026-08-18
+shape again.
+
+**Why it is harmless today and why that is the problem.** Because nothing writes the
+column, the missing filter in the Library list changes no behaviour: there are no
+soft-deleted rows to leak. The defect is latent and **inverted** — it will appear on
+the day someone implements soft-delete, in a query nobody will think to revisit,
+showing deleted conversations back to the reader who deleted them.
+
+**How it nearly caused a second bug, which is why it is written down now.** The
+BUG-021 investigation asked whether the Mirror empty state could tell an eligible
+reader from an ineligible one. The preview threshold — `>=3` conversations with
+`last_message_at` inside 72h — looked exactly reproducible on the client from
+`getConversations()`. It is not: the cron filters `deleted_at IS NULL` and the list
+endpoint does not. The two agree **only by the coincidence** that the column is never
+written. A derivation built on that would be correct until soft-delete landed and
+would then silently tell readers they qualify when they do not. The mirror page now
+carries that reasoning in a comment at the point of temptation, rather than only in
+this entry.
+
+**THE QUESTION, unresolved deliberately: is soft-delete intended or abandoned?**
+
+- **Intended** — then `DELETE /conversations/{id}` is the defect (it hard-deletes
+  where the schema, the indexes and three queries all expect a tombstone), and
+  `list_conversations` needs the filter before that changes.
+- **Abandoned** — then the column, both partial indexes, the three filters and
+  migration 009's docstring are all describing a design that was dropped, and the
+  honest change is to remove them.
+
+Either way `list_conversations` and migration 009's docstring are wrong about the
+other three. Nothing here is urgent; what is not acceptable is a third rotation in
+which the codebase still holds both answers at once.
+
+**Not in scope of the PR that found it** (BUG-024 + BUG-021 residue), which touches
+the quotes carousel and one paragraph of mirror copy. This is a backend schema
+question and belongs to whoever answers it.
+
+---
+
 ---
 
 ## 3. Open decisions
