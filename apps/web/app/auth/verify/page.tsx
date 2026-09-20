@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState, useRef, type FormEvent } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import toast from 'react-hot-toast'
 import { api } from '@/lib/api'
+import { consumeShareRef } from '@/lib/consumeShareRef'
 import { useStore } from '@/lib/store'
 import { safeReturnTo } from '@/lib/safeReturnTo'
 
@@ -75,6 +76,24 @@ function VerifyForm() {
     try {
       const data = await api.verifyOtp(email, fullCode)
       useStore.getState().setAuth(data.user, data.access_token)
+
+      // PR-2 — attribute the signup to the share that brought them, BEFORE any
+      // redirect. Attribution measures ORIGIN, not onboarding completion; the
+      // second is already measured elsewhere, and routing through the welcome
+      // or disclaimer screen first would add a fourth way to lose a reference
+      // that is already a floor.
+      //
+      // Awaited, but it cannot fail the sign-in: the endpoint answers 204
+      // whatever it decides, and a thrown request is swallowed. The reference is
+      // cleared either way — on a NEW account because it has been used, and on a
+      // returning sign-in because a stale id must not survive to credit someone
+      // else's signup later on a shared device.
+      // `=== true`, not a truthiness check: is_new_account is optional in the
+      // response type, and an older backend that omits it must read as "not a
+      // new account" — the direction that declines to attribute rather than the
+      // one that attributes on an absent field.
+      await consumeShareRef(data.is_new_account === true)
+
       if (data.is_new_account) {
         // This request CREATED the account. Say so before anything else — the user may
         // have mistyped an address they also own and be about to start a second, empty

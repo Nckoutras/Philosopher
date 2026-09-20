@@ -1,6 +1,8 @@
 import Link from 'next/link'
 import type { Metadata } from 'next'
 
+import ShareRefRecorder from '@/components/share/ShareRefRecorder'
+
 // The public share landing page (PR-1). The FIRST server component in this app,
 // and the first use of generateMetadata — both for reasons, below.
 //
@@ -217,6 +219,13 @@ export default async function SharePage({ params }: { params: { id: string } }) 
 
   return (
     <Shell>
+      {/* PR-2. Remembers which share brought this visitor, so a signup that
+          follows can be attributed. Mounted HERE and nowhere else: the
+          withdrawn, unknown and API-down branches above all return before this
+          point, so a reference is only ever written for a share that actually
+          rendered. Renders nothing. */}
+      <ShareRefRecorder shareId={params.id} />
+
       <Wordmark />
 
       <p className="mt-8 font-lora text-[11px] uppercase tracking-[0.18em] text-sepia">

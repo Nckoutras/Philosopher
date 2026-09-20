@@ -37,6 +37,29 @@ class User(Base):
     # this kills every token on every device. A missing claim reads as 0, so pre-A16
     # tokens stay valid until the first increment.
     token_version: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
+    # The share this account arrived from, as shares.id. Migration 068.
+    #
+    # shares.id, NOT shares.public_id, AND THE DIFFERENCE IS A SECURITY ONE.
+    # public_id is the token in the share URL — a CREDENTIAL, which is all that
+    # stands between a stranger and someone else's reflection. This column lives
+    # on the row of the person who was RECRUITED, a third party to that share, and
+    # it is exported to them. Storing the token would hand B a working key to A's
+    # share, in a file that outlives A revoking the link. shares.id opens nothing.
+    #
+    # NOT a `referred_by_user_id` either: pointing at the SHARE keeps the link to
+    # a person indirect, and lets the reference dangle into nothing when the share
+    # is deleted — the correct lifetime for a record that exists only because of it.
+    #
+    # It is also the value all three share_* analytics events carry, so the DB and
+    # PostHog join without a translation step.
+    #
+    # Finally the idempotency key: attribute_signup writes only when it is NULL, so
+    # "at most one share_signup per account" is a property of the row rather than
+    # of the client not double-firing. NULL means "we do not know", which for
+    # every account created before 068 is simply true.
+    signup_share_id: Mapped[str | None] = mapped_column(
+        UUID(as_uuid=False), nullable=True,
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
