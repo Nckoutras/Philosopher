@@ -86,8 +86,53 @@ def _load_universal_forbidden() -> dict:
 _UNIVERSAL_FORBIDDEN = _load_universal_forbidden()
 
 
-def _phrase_index(categories: dict) -> list[tuple[str, str, str, str]]:
-    """(category, phrase, NORMALISED phrase, reason), built once.
+def _boundary_pattern(norm_phrase: str) -> re.Pattern:
+    """Compile a NORMALISED phrase into a word-boundary matcher (UAT2-001).
+
+    WHY THIS EXISTS. The phrase check used to be `norm_phrase in norm_reply` —
+    bare substring containment. `Hinge` (the dating app) therefore matched the
+    common noun in "That's the hinge", which regenerated the reply and then, when
+    the correction said it again, deleted the word and persisted "That's the .".
+    Containment also reaches INSIDE words: `ngl` matched "English" and "angle",
+    `Uber` matched "Übermensch" — the last one only because normalize() folds the
+    umlaut away first, which is correct for matching and lethal for this.
+
+    LOOKAROUNDS, NOT \\b, AND THE DIFFERENCE IS NOT COSMETIC. `\\b` is defined
+    against the character NEXT TO IT, so `\\bX \\(formerly Twitter\\)\\b` requires a
+    word character after the closing paren — and the phrase ends in `)`, so the
+    trailing `\\b` inverts the match and the entry silently dies. Four shipped
+    phrases end or begin with punctuation: `X (formerly Twitter)` here, plus
+    `"energy" (as adjective)`, `"stoic" (as adjective applied to user — "be more
+    stoic")` and `your repressed [X]` in the persona lexicons. `(?<!\\w)` and
+    `(?!\\w)` assert only that the neighbour is not a word character, which is the
+    actual intent and is true at a string edge too.
+
+    Built from the NORMALISED phrase and matched against the NORMALISED reply, so
+    TD-60's Greek fold is preserved: `\\w` is Unicode-aware for str patterns, so a
+    Greek entry still bounds on Greek letters.
+    """
+    return re.compile(r"(?<!\w)" + re.escape(norm_phrase) + r"(?!\w)")
+
+
+# Compiled patterns, keyed on the PHRASE STRING rather than on a persona slug.
+# The key matters: _persona_phrase_index is deliberately uncached (see its
+# docstring — tests swap a lexicon in place and a slug-keyed cache would answer
+# from the previous one). Keying on the phrase itself has no such hazard, because
+# the same string always compiles to the same matcher, so this caches the only
+# expensive part without reintroducing the bug that comment warns about.
+_PATTERN_CACHE: dict[str, re.Pattern] = {}
+
+
+def _cached_pattern(norm_phrase: str) -> re.Pattern:
+    pat = _PATTERN_CACHE.get(norm_phrase)
+    if pat is None:
+        pat = _boundary_pattern(norm_phrase)
+        _PATTERN_CACHE[norm_phrase] = pat
+    return pat
+
+
+def _phrase_index(categories: dict) -> list[tuple[str, str, str, str, re.Pattern]]:
+    """(category, phrase, NORMALISED phrase, reason, compiled matcher), built once.
 
     Normalising 210 phrases on every reply would be waste; normalising them
     here means the per-reply cost is one pass over the reply itself.
@@ -100,11 +145,12 @@ def _phrase_index(categories: dict) -> list[tuple[str, str, str, str]]:
     stray accent cannot ship a silently dead entry. Here the fold happens on
     the way in, and the assertion below is on the DERIVED form.
     """
-    out: list[tuple[str, str, str, str]] = []
+    out: list[tuple[str, str, str, str, re.Pattern]] = []
     for name, data in (categories or {}).items():
         reason = data.get("description", "")
         for phrase in data.get("phrases", []):
-            out.append((name, phrase, normalize(phrase), reason))
+            norm = normalize(phrase)
+            out.append((name, phrase, norm, reason, _cached_pattern(norm)))
     return out
 
 
@@ -113,7 +159,7 @@ _UNIVERSAL_PHRASES = _phrase_index(_UNIVERSAL_FORBIDDEN.get("categories", {}))
 # Fail loudly on a derived form that cannot match. Idempotence is the real
 # check: normalize(normalize(x)) != normalize(x) would mean the reply and the
 # phrase are folded to different depths and a phrase could never fire.
-for _cat, _raw, _norm, _reason in _UNIVERSAL_PHRASES:
+for _cat, _raw, _norm, _reason, _pat in _UNIVERSAL_PHRASES:
     if not _norm or normalize(_norm) != _norm:
         raise ValueError(
             f"universal_forbidden_lexicon: {_cat}/{_raw!r} normalises to "
@@ -129,7 +175,9 @@ if _UNIVERSAL_FORBIDDEN.get("categories") and not _UNIVERSAL_PHRASES:
     )
 
 
-def _persona_phrase_index(persona: PersonaConfig, lex) -> list[tuple[str, str, str, str]]:
+def _persona_phrase_index(
+    persona: PersonaConfig, lex
+) -> list[tuple[str, str, str, str, re.Pattern]]:
     """Same fold as _phrase_index, computed PER CALL and deliberately not cached.
 
     A persona's lexicon is an attribute of a mutable config object, and tests
@@ -144,7 +192,8 @@ def _persona_phrase_index(persona: PersonaConfig, lex) -> list[tuple[str, str, s
     """
     return [
         ("persona_specific", p, normalize(p),
-         f"persona-specific forbidden phrase ({persona.slug})")
+         f"persona-specific forbidden phrase ({persona.slug})",
+         _cached_pattern(normalize(p)))
         for p in (lex.phrases or [])
     ]
 
@@ -208,9 +257,9 @@ def check_universal_forbidden(reply: str) -> CheckResult:
     norm_reply = normalize(reply)
     categories = _UNIVERSAL_FORBIDDEN.get("categories", {})
 
-    # Phrases: normalised substring, folded once at import.
-    for category_name, phrase, norm_phrase, reason in _UNIVERSAL_PHRASES:
-        if norm_phrase in norm_reply:
+    # Phrases: normalised, WORD-BOUNDED, compiled once at import (UAT2-001).
+    for category_name, phrase, norm_phrase, reason, pattern in _UNIVERSAL_PHRASES:
+        if pattern.search(norm_reply):
             hits.append(CheckHit(
                 category=category_name,
                 matched_text=phrase,
@@ -337,9 +386,11 @@ def check_persona_forbidden(reply: str, persona: PersonaConfig) -> CheckResult:
     hits: list[CheckHit] = []
     norm_reply = normalize(reply)
 
-    # Phrases: normalised substring (TD-60) — see check_universal_forbidden.
-    for category, phrase, norm_phrase, reason in _persona_phrase_index(persona, lex):
-        if norm_phrase in norm_reply:
+    # Phrases: normalised + word-bounded (TD-60, UAT2-001) — see
+    # check_universal_forbidden. Not called in production today (UAT2-004);
+    # fixed here anyway so the two matchers cannot drift apart.
+    for category, phrase, norm_phrase, reason, pattern in _persona_phrase_index(persona, lex):
+        if pattern.search(norm_reply):
             hits.append(CheckHit(
                 category=category,
                 matched_text=phrase,
