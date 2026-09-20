@@ -216,6 +216,63 @@ async def list_my_shares(
     ])
 
 
+# ── Signup attribution (PR-2) ────────────────────────────────────────────────
+
+class ShareAttributeRequest(BaseModel):
+    # Length-and-alphabet only. Whether it names a real share is decided by the
+    # database, not by a validator — a stricter shape here would reject some
+    # forged values with a 422 and accept others with a 204, which is the
+    # response difference this endpoint exists to avoid.
+    share_id: str = Field(min_length=22, max_length=22, pattern=r"^[A-Za-z0-9_-]{22}$")
+
+
+@router.post("/attribute", status_code=204)
+async def attribute_share_signup(
+    body: ShareAttributeRequest,
+    db: AsyncSession = Depends(get_db),
+    auth: tuple = Depends(get_current_user_plan),
+) -> Response:
+    """Attribute a brand-new account to the share that brought it. Always 204.
+
+    WHY THIS IS AN ENDPOINT AND NOT PART OF SIGNUP. On the OAuth path the account
+    is created in the server-to-server callback from Google — there is no browser
+    at that moment, so nothing can read the localStorage the share id lives in.
+    Attribution therefore has to happen after the redirect lands, and once it
+    does, the same shape serves OTP for free. The two creation paths in auth.py
+    and auth_oauth.py are untouched by this PR.
+
+    It also means an attribution failure can never break a signup or a redirect,
+    which is the reason the OAuth path already wraps its own analytics in a
+    try/except.
+
+    204 IN EVERY CASE, INCLUDING EVERY FAILURE. Unknown share, revoked share,
+    self-referral, already-attributed, and a well-formed token that names
+    nothing — all answer identically, with no body and no status difference. A
+    response that varied would turn this into an oracle for probing whether a
+    given share_id exists, which is exactly what an unguessable token is for.
+    Reasons are logged server-side only.
+
+    THE CLIENT DOES NOT GET TO SAY HOW IT SIGNED UP. `method` is derived from
+    user.auth_provider, because a client-supplied value is attacker-controlled
+    and this one lands in the funnel.
+    """
+    user, _plan = auth
+    share = await share_service.attribute_signup(db, user=user, public_id=body.share_id)
+    if share is None:
+        return Response(status_code=204)
+
+    await db.commit()
+
+    # 'google' for OAuth accounts, NULL for OTP ones — set at creation in
+    # auth_oauth.py and never written by the OTP path.
+    method = "google" if user.auth_provider == "google" else "otp"
+    analytics_service.track(
+        "share_signup", user.id,
+        {"share_id": share.id, "artifact_type": share.artifact_type, "method": method},
+    )
+    return Response(status_code=204)
+
+
 # ── Revocation ────────────────────────────────────────────────────────────────
 
 @router.post("/{public_id}/revoke", status_code=204)

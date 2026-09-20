@@ -113,6 +113,15 @@ def _user():
         onboarded_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
         is_admin=False, hashed_password=None, token_version=3,
         weekly_email_opt_out=False, mirror_host_slug=None,
+        # 068. Present rather than omitted, and NOT None — C-06: a fixture must
+        # carry every field the code under test reads, and a None here would let
+        # the export's "is this key emitted at all" assertions pass against a
+        # value that happens to be falsy either way.
+        #
+        # A UUID, not a 22-char token. The column holds shares.id, and a fixture
+        # carrying the public_id shape would be the wrong TYPE against the model
+        # (TD-76) while looking perfectly plausible in a diff.
+        signup_share_id="99999999-0000-0000-0000-000000000009",
         created_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
         updated_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
     )

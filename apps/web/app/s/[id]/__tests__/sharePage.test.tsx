@@ -194,3 +194,43 @@ describe('metadata', () => {
     expect(dims).toEqual([1200, 630])
   })
 })
+
+describe('the share reference (PR-2)', () => {
+  const KEY = 'wr_share_ref'
+
+  beforeEach(() => localStorage.clear())
+
+  it('is recorded when a live share renders', async () => {
+    mockFetch(() => jsonResponse(LIVE))
+    await renderPage()
+
+    const raw = localStorage.getItem(KEY)
+    expect(raw).not.toBeNull()
+    expect(JSON.parse(raw!).id).toBe(ID)
+  })
+
+  it('is NOT recorded for a withdrawn share', async () => {
+    // A reference to something already dead would be carried through a signup
+    // only to be rejected there, and would sit in a person's storage for thirty
+    // days to do it.
+    mockFetch(() => jsonResponse({ artifact_type: 'line', revoked: true, snapshot: null }))
+    await renderPage()
+    expect(localStorage.getItem(KEY)).toBeNull()
+  })
+
+  it('is NOT recorded for an unknown id', async () => {
+    mockFetch(() => jsonResponse({ detail: 'Share not found' }, 404))
+    await renderPage()
+    expect(localStorage.getItem(KEY)).toBeNull()
+  })
+
+  it('is NOT recorded when the API is unreachable', async () => {
+    // The share may well be live — we simply do not know, and recording a
+    // reference we could not verify is how garbage accumulates.
+    mockFetch(() => {
+      throw new Error('network down')
+    })
+    await renderPage()
+    expect(localStorage.getItem(KEY)).toBeNull()
+  })
+})

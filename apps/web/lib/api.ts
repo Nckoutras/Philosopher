@@ -1557,6 +1557,21 @@ class ApiClient {
     return items
   }
 
+  /**
+   * Attribute a brand-new account to the share that brought it.
+   *
+   * Always resolves on a reachable server — the endpoint answers 204 whether it
+   * attributed or refused, deliberately, so there is no way to learn from here
+   * whether a share_id names anything. Callers clear the stored reference either
+   * way; see lib/shareRef.
+   */
+  async attributeShare(shareId: string): Promise<void> {
+    await this.request('/share/attribute', {
+      method: 'POST',
+      body: JSON.stringify({ share_id: shareId }),
+    })
+  }
+
   /** Turn a share link off. Idempotent; 404 if it is not this user's. */
   async revokeShare(publicId: string): Promise<void> {
     await this.request(`/share/${encodeURIComponent(publicId)}/revoke`, { method: 'POST' })

@@ -138,6 +138,20 @@ async def build_export(db: AsyncSession, user: User) -> dict[str, Any]:
         "auth_provider": user.auth_provider,
         "onboarded_at": _iso(user.onboarded_at),
         "weekly_email_opt_out": user.weekly_email_opt_out,
+        # The share this account arrived from, if any (068). Exported because it
+        # is a fact we hold about this person — how they found us — and an access
+        # request that omitted it would under-report exactly the kind of data a
+        # person is least likely to know we kept.
+        #
+        # An OPAQUE id, and deliberately not the share's public token: the token
+        # is a credential, and exporting it would hand this person a working key
+        # to someone else's share in a file that outlives that person revoking
+        # the link. This value opens nothing.
+        #
+        # It is also not resolved to the SHARER. That join is one this export
+        # deliberately does not make: it would put a third party's identity into
+        # this person's export, and the two of them have different rights over it.
+        "signup_share_id": user.signup_share_id,
         "created_at": _iso(user.created_at),
     }
 

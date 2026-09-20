@@ -4,6 +4,7 @@ import { Suspense, useEffect, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import toast from 'react-hot-toast'
 import { api } from '@/lib/api'
+import { consumeShareRef } from '@/lib/consumeShareRef'
 import { useStore } from '@/lib/store'
 import { safeReturnTo } from '@/lib/safeReturnTo'
 
@@ -42,6 +43,18 @@ function OAuthFinish() {
         // disclaimer — a legal-consent gap with no failing test to catch it, because
         // the routing itself would still look correct.
         useStore.getState().setAuth(user, token)
+
+        // PR-2 — the OAuth half of attribution, and the reason it lives here at
+        // all rather than at the creation point. The account was created in the
+        // server-to-server callback from Google: no browser was present, so
+        // nothing there could read the localStorage the share reference lives
+        // in. This is the first moment a client exists again.
+        //
+        // Before the redirect, and after setAuth so the request carries a token.
+        // Identical rule to the OTP path, in the same helper: attribute when new,
+        // clear either way.
+        await consumeShareRef(isNewAccount)
+
         if (isNewAccount) {
           // This callback CREATED the account. Say so before anything else — the user
           // may have picked a Google account they did not mean to use. /auth/welcome

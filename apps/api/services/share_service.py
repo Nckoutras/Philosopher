@@ -502,3 +502,65 @@ async def get_public_share(db: AsyncSession, *, public_id: str) -> Share | None:
     return (await db.execute(
         select(Share).where(Share.public_id == public_id)
     )).scalar_one_or_none()
+
+
+# ── Signup attribution (PR-2) ────────────────────────────────────────────────
+
+async def attribute_signup(db: AsyncSession, *, user, public_id: str) -> Share | None:
+    """Record that this account arrived from this share. Returns the share, or None.
+
+    None means NOT ATTRIBUTED, and the caller must treat every reason for it
+    identically — see the endpoint, which answers 204 whatever happens here.
+
+    FOUR WAYS TO GET NONE, and they are deliberately indistinguishable from
+    outside:
+
+      the share does not exist   — a forged or mistyped token
+      the share is revoked       — the sharer turned the link off
+      it is the sharer's own     — self-referral, worth nothing today and worth
+                                   money the day a referral reward exists
+      already attributed         — idempotency; the column is the guard
+
+    THE ONLY WRITE IS `NULL -> public_id`. Attribution is triggered by a call the
+    CLIENT makes after signup, so a refresh or a double-mounted effect fires it
+    twice; the NULL check is what makes "at most one share_signup per account" a
+    property of the row rather than of the client behaving. It is also why the
+    already-attributed case returns None rather than re-returning the share: the
+    caller fires its event on a non-None return, and a second event is exactly
+    what this exists to prevent.
+
+    `method` IS NOT A PARAMETER. The caller derives it from user.auth_provider
+    rather than accepting it from the request, because a client-supplied value is
+    attacker-controlled and this one ends up in the funnel.
+    """
+    if user.signup_share_id is not None:
+        logger.info(
+            "share attribution skipped: user already attributed user_id=%s", user.id,
+        )
+        return None
+
+    share = (await db.execute(
+        select(Share).where(Share.public_id == public_id)
+    )).scalar_one_or_none()
+
+    if share is None:
+        logger.info("share attribution skipped: unknown share for user_id=%s", user.id)
+        return None
+    if share.revoked_at is not None:
+        logger.info(
+            "share attribution skipped: share revoked share_id=%s user_id=%s",
+            share.id, user.id,
+        )
+        return None
+    if share.user_id == user.id:
+        logger.info(
+            "share attribution skipped: self-referral share_id=%s user_id=%s",
+            share.id, user.id,
+        )
+        return None
+
+    # shares.id, not public_id — the token is a credential and this column is
+    # read by a third party (and exported to them). See 068's docstring.
+    user.signup_share_id = share.id
+    await db.flush()
+    return share

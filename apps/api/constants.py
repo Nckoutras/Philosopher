@@ -124,6 +124,29 @@ ANALYTICS_EVENTS = {
     # measurement of the loop. The API has the key whatever the cookie banner
     # says, and this event carries nothing personal to begin with.
     "share_landing_view":     ["artifact_type", "share_id"],
+    # The third and last of the share events (PR-2), and the one the loop is
+    # named for: a stranger opened someone's link and became an account.
+    #
+    # share_id is spelled identically across all three deliberately — that is
+    # what lets share_created, share_landing_view and share_signup join into one
+    # funnel instead of three unrelated counts. The distinct_id here is the NEW
+    # USER's id, not the anonymous one share_landing_view uses: signing up is
+    # their own act. So the funnel joins on share_id, never on distinct_id.
+    #
+    # method is derived server-side from users.auth_provider, never taken from
+    # the request. A client-supplied value would be attacker-controlled, and this
+    # one lands in the funnel.
+    #
+    # ── READ THIS BEFORE YOU READ A NUMBER ──────────────────────────────────
+    #
+    # Share-attributed signups are a FLOOR, not an estimate. Attribution requires
+    # the same browser from landing to signup, so cross-device and cross-browser
+    # signups are structurally invisible; so are signups where storage is
+    # unavailable, and where the tab closed between account creation and the
+    # attribution call. The size of the gap is unmeasurable from inside the
+    # product. A conversion rate computed from this number is a lower bound and
+    # nothing more.
+    "share_signup":           ["artifact_type", "share_id", "method"],
     "letter_delivered":       ["week", "host", "reading_label"],
     # The other half of the letter loop (062). letter_delivered says an email
     # left the building; this says one brought a person back into the app, and
