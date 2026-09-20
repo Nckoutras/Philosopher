@@ -217,7 +217,8 @@ def test_the_council_matter_never_becomes_a_property():
         ("conversation_started", {"persona_slug", "ritual_id", "seeded_topic", "via"}),
         ("council_started", {"source"}),
         ("council_completed", {"member_count", "latency_bucket"}),
-        ("share_created", {"artifact_type"}),
+        ("share_created", {"artifact_type", "share_id"}),
+        ("share_landing_view", {"artifact_type", "share_id"}),
         ("letter_delivered", {"week", "host", "reading_label"}),
         ("subscription_canceled", {"plan", "tenure_days", "reason",
                                    "cancel_feedback", "last_14d_features"}),
@@ -256,18 +257,59 @@ def test_conversation_started_fires_from_every_creation_endpoint():
 
 
 def test_share_created_fires_from_every_share_endpoint():
-    """Six artifact types, six routers. A new share surface that forgets the
-    event is invisible in the funnel, so the count is pinned."""
+    """Six artifact types, still six. The SITE moved; the guarantee did not.
+
+    WHAT CHANGED IN PR-1, AND WHY THIS TEST HAD TO CHANGE WITH IT. share_created
+    used to fire from six literal call sites, one per router, so this test could
+    read six literal artifact_type values straight out of the payloads. PR-1
+    collapsed those into ONE call inside routers/share.py:create_and_render,
+    which every kind now routes through — the event is no longer forgettable at
+    all, because there is nowhere left to forget it from.
+
+    That is strictly better for the thing this test protects and strictly worse
+    for how it used to measure it: there is now one payload and its
+    artifact_type is a variable. So the enumeration moves up one level, to the
+    create_and_render CALL SITES, where the literal still is. A seventh share
+    surface that does not pass a literal artifact_type= still fails here.
+
+    'line' REPLACES 'screenshot'. The line kind was called "screenshot" in this
+    property alone — the endpoint is /share/screenshot — while every other layer
+    called it a saved line. PR-1 gives the value the same name as the database
+    CHECK and the snapshot builder, so the three cannot drift. This SPLITS the
+    historical funnel: share_created events before this deploy carry
+    artifact_type="screenshot" and after it carry "line". Named here rather than
+    discovered in a dashboard.
+    """
     kinds = set()
-    for rel, node in _track_calls():
-        if node.args[0].value != "share_created":
-            continue
-        payload = node.args[2]
-        for k, v in zip(payload.keys, payload.values):
-            if isinstance(k, ast.Constant) and k.value == "artifact_type":
-                assert isinstance(v, ast.Constant), f"{rel}: artifact_type must be a literal"
-                kinds.add(v.value)
-    assert kinds == {"screenshot", "counterview", "quote", "mirror", "letter", "council"}, kinds
+    for path in sorted(API_ROOT.rglob("routers/*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            fn = node.func
+            name = fn.id if isinstance(fn, ast.Name) else getattr(fn, "attr", None)
+            if name != "create_and_render":
+                continue
+            for kw in node.keywords:
+                if kw.arg == "artifact_type":
+                    assert isinstance(kw.value, ast.Constant), (
+                        f"{path.name}: artifact_type must be a literal so this "
+                        "test can enumerate the kinds"
+                    )
+                    kinds.add(kw.value.value)
+    assert kinds == {"line", "counterview", "quote", "mirror", "letter", "council"}, kinds
+
+
+def test_share_created_fires_from_exactly_one_place():
+    """The other half of the change above: one site, so it cannot be skipped.
+
+    If share_created ever fires from a second location, the funnel can be
+    double-counted by a surface that both mints a share and tracks its own
+    event. Pinning the count to one is what makes the enumeration above complete.
+    """
+    sites = [(rel, node.lineno) for rel, node in _track_calls()
+             if node.args[0].value == "share_created"]
+    assert len(sites) == 1, f"share_created fires from {len(sites)} places: {sites}"
 
 
 # ── `source` is the one property name that has been a bare str twice ─────────

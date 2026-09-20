@@ -11,6 +11,7 @@ import { signOut } from '@/lib/auth'
 import AppHeader from '@/components/layout/AppHeader'
 import Switch from '@/components/ui/Switch'
 import DeleteConfirmModal from '@/components/ui/DeleteConfirmModal'
+import YourLinks from '@/components/account/YourLinks'
 import { DELETE_ACCOUNT_COPY } from '@/lib/accountDeletionCopy'
 import { DATA_EXPORT_COPY, exportFilename } from '@/lib/dataExportCopy'
 import {
@@ -228,6 +229,12 @@ export default function AccountPage() {
             />
           </div>
         </div>
+
+        {/* ── Your links (PR-1) ──
+            Placed after Analytics and before Sign out: it is an inventory of
+            things already out in the world, which belongs with the other
+            settings rather than above the account's identity. */}
+        <YourLinks />
 
         {/* ── Sign out card ── */}
         <button

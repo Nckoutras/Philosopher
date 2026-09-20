@@ -10,15 +10,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from auth import get_current_user_plan
 from db.session import get_db
-import services.rate_limit_service as rate_limit_service
 from models import CouncilCase, CouncilSave, CouncilSession, Insight
 from schemas import CouncilCreate
 from services.council_service import council_service, _iso_week_start
 from services.analytics_service import analytics_service
 from services.image_service import generate_council_share_image
+from routers.share import create_and_render
 
-FREE_SHARE_LIMIT  = 3
-SHARE_WINDOW_SECS = 90 * 24 * 60 * 60   # 90 days rolling
 
 
 class CouncilShareRequest(BaseModel):
@@ -254,36 +252,18 @@ async def share_council_session(
     auth: tuple = Depends(get_current_user_plan),
 ) -> Response:
     """
-    Generate a share image for a council session synthesis.
-    Returns raw image/png bytes.
-    Free tier: max 3 per 90-day rolling window (shared counter with line shares).
-    Pro/premium: unlimited.
+    Mint a share for a council session synthesis and return its card.
+    Returns raw image/png bytes; the share's link is on the card as a QR.
+    20/day + 5/min for every tier (PR-1).
     """
-    user, plan = auth
-
-    if plan not in ("pro", "premium"):
-        allowed = await rate_limit_service.check_and_increment(
-            key=f"share_screenshot:{user.id}",
-            max_count=FREE_SHARE_LIMIT,
-            window_seconds=SHARE_WINDOW_SECS,
-        )
-        if not allowed:
-            return JSONResponse(
-                status_code=429,
-                content={"error_code": "share_limit_reached"},
-            )
-
-    try:
-        png_bytes = await generate_council_share_image(
-            db=db,
-            session_id=session_id,
-            user_id=user.id,
-            annotation=body.annotation,
-        )
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-
-    # See routers/share.py for why artifact_type is the only property.
-    analytics_service.track("share_created", user.id, {"artifact_type": "council"})
-
-    return Response(content=png_bytes, media_type="image/png")
+    user, _plan = auth
+    # One creation path for all six kinds (PR-1) — see routers/share.py. The
+    # per-router rate limit that used to sit here applied to three of the six
+    # kinds and only to free users; it is now 20/day + 5/min for everyone,
+    # enforced inside share_service.
+    return await create_and_render(
+        db=db, user_id=user.id,
+        artifact_type="council", artifact_id=session_id,
+        generator=generate_council_share_image,
+        session_id=session_id, annotation=body.annotation,
+    )

@@ -1030,3 +1030,104 @@ ReflectionFeedItem = Annotated[
 
 class ReflectionsFeedResponse(BaseModel):
     items: list[ReflectionFeedItem]
+
+
+# ── Share snapshot (migration 067) ────────────────────────────────────────────
+
+# The six artifact kinds a share can carry. Mirrors the CHECK on shares.artifact_type;
+# a value here that the constraint rejects would fail at INSERT rather than at the
+# edge, which is the wrong end to find it.
+ShareArtifactType = Literal["line", "quote", "council", "mirror", "letter", "counterview"]
+
+
+class ShareVoice(BaseModel):
+    """One speaker in a multi-voice snapshot (council, counterview).
+
+    Denormalised on purpose: persona_name is stored rather than resolved from
+    persona_slug at read time, because the landing page must not query anything
+    the share does not carry. A persona renamed or retired after the share was
+    created still renders as it did when the person chose to share it.
+    """
+    persona_slug: str
+    persona_name: str
+    text: str
+
+
+class ShareSnapshot(BaseModel):
+    """The text of a shared artifact, frozen at share-creation time.
+
+    WHY THIS IS A MODEL AND NOT A BARE DICT. The landing page reads this and
+    nothing else — no artifact row, no persona row, no message row. A JSONB blob
+    with no schema is exactly the thing that rots, and this one has to stay
+    readable for as long as a link lives, which is indefinitely. Validated on
+    write AND on read so a shape that drifts fails at the boundary rather than
+    rendering as a blank card.
+
+    `v` earns its place for the same reason. A v2 is then an explicit branch
+    instead of a silent widening, and old rows keep rendering.
+
+    FIVE OF THE SIX KINDS ARE ONE TEXT BLOCK PLUS ATTRIBUTION; council and
+    counterview are multi-voice. So `headline` is always present and `voices` is
+    present only where there is more than one speaker — rather than six shapes,
+    or one shape with five nulls in it.
+    """
+    v: Literal[1] = 1
+    artifact_type: ShareArtifactType
+    # The primary text a reader sees. For multi-voice kinds this is the framing
+    # line (the belief, the question put to the council), not a verdict.
+    headline: str
+    # Rendered above the artifact on the landing page. NOT the card's wording:
+    # the card is first-person ("Marcus Aurelius told me") because the sharer is
+    # the reader; here the reader is a stranger.
+    attribution: str
+    # Present for single-voice kinds. None for council/counterview, where the
+    # speakers are in `voices` and the attribution is a fixed label.
+    persona_slug: Optional[str] = None
+    persona_name: Optional[str] = None
+    # The ARTIFACT's own timestamp, not the share's. When a person saved the
+    # line, not when they later decided to pass it on.
+    occurred_at: Optional[datetime] = None
+    voices: list[ShareVoice] = Field(default_factory=list)
+
+
+class SharePublicResponse(BaseModel):
+    """What GET /s/{public_id} returns. Unauthenticated.
+
+    `snapshot` is None exactly when `revoked` is True — revocation withdraws the
+    content, not merely the styling of the page. Returning the text alongside a
+    `revoked: true` flag would leave the content one devtools tab away from
+    anyone the sharer had just withdrawn it from.
+    """
+    artifact_type: ShareArtifactType
+    revoked: bool
+    snapshot: Optional[ShareSnapshot] = None
+
+
+class ShareCreatedResponse(BaseModel):
+    """Returned alongside the PNG's share link by the six creation endpoints."""
+    share_id: str
+    public_id: str
+    url: str
+
+
+class ShareListItem(BaseModel):
+    """One row of "Your links".
+
+    NO VIEW COUNT, AND THE ABSENCE IS A RULING RATHER THAN AN OVERSIGHT. v1
+    shows the sharer nothing about who opened a link. The list exists so that
+    revocation is reachable — without it "Turn off this link" has nowhere to
+    live and the withdrawn page is a screen no one can cause.
+
+    `revoked` rather than `revoked_at`: the row is shown muted and actionless,
+    and the exact second someone withdrew a link is not a thing this screen has
+    a use for.
+    """
+    public_id: str
+    url: str
+    artifact_type: ShareArtifactType
+    created_at: datetime
+    revoked: bool
+
+
+class ShareListResponse(BaseModel):
+    items: list[ShareListItem]

@@ -105,7 +105,25 @@ ANALYTICS_EVENTS = {
     "council_started":        ["source"],
     "council_completed":      ["member_count", "latency_bucket"],
     "council_saved":          [],
-    "share_created":          ["artifact_type"],
+    # share_id (PR-1) is what turns two unrelated counts into a funnel. Before
+    # the shares table there was nothing to join on: share_created and any later
+    # view were separate populations, and "did this share bring anyone back" was
+    # not a question the data could answer. It is an opaque row id, not a user id
+    # and not derived from one.
+    "share_created":          ["artifact_type", "share_id"],
+    # The other half, and the reason share_id exists on both.
+    #
+    # FIRED SERVER-SIDE, AND THE distinct_id IS NOT THE SHARER. A landing view is
+    # a stranger's act, so attributing it to the person who made the share would
+    # put other people's browsing into that person's profile. The distinct_id is
+    # derived from the share_id instead — stable enough to dedupe repeat opens of
+    # the same link, tied to no account on either side.
+    #
+    # Server-side rather than from the page for the reason letter_open_to_app
+    # gives above: a loop measurement that only counts consenting users is not a
+    # measurement of the loop. The API has the key whatever the cookie banner
+    # says, and this event carries nothing personal to begin with.
+    "share_landing_view":     ["artifact_type", "share_id"],
     "letter_delivered":       ["week", "host", "reading_label"],
     # The other half of the letter loop (062). letter_delivered says an email
     # left the building; this says one brought a person back into the app, and

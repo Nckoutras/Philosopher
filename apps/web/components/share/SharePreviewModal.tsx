@@ -2,9 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { track } from '@/lib/analytics'
-import { currentReturnTo, upgradeHref } from '@/lib/upgradeHref'
 import toast from 'react-hot-toast'
-import { api, ShareLimitError } from '@/lib/api'
+import { api, ShareLimitError, ShareUnavailableError } from '@/lib/api'
 import { useStore } from '@/lib/store'
 import { dynamicFontSize } from '@/lib/shareUtils'
 
@@ -248,22 +247,23 @@ export default function SharePreviewModal({
         blob = await generateBlob()
       } catch (err) {
         if (err instanceof ShareLimitError) {
+          // NO UPGRADE CTA ANY MORE, AND ITS ABSENCE IS THE POINT (PR-1).
+          // This used to read "Free share limit reached (3/90 days)" beside an
+          // Upgrade link, because the limit was a free-tier limit and buying
+          // Pro removed it. The limit is now 20/day + 5/min for EVERY tier, so
+          // that link would sell a fix for something a purchase does not fix.
           onClose()
-          toast((t) => (
-            <span>
-              Free share limit reached (3/90 days).{' '}
-              <a
-                href={upgradeHref({ source: 'share', returnTo: currentReturnTo() })}
-                onClick={() => {
-                  track('upgrade_clicked', { surface: 'share', reason: 'share_limit' })
-                  toast.dismiss(t.id)
-                }}
-                style={{ textDecoration: 'underline' }}
-              >
-                Upgrade
-              </a>
-            </span>
-          ))
+          toast(
+            err.scope === 'burst'
+              ? "That’s a lot at once. Try again in a minute."
+              : "You’ve shared 20 today. The limit resets tomorrow."
+          )
+        } else if (err instanceof ShareUnavailableError) {
+          // The limiter was unreachable, so nothing was minted. A "try again",
+          // not a "you have had enough" — two sentences, because they ask the
+          // reader to do different things.
+          onClose()
+          toast("Can’t create the link right now. Try again in a moment.")
         } else {
           setShareError('Could not generate image. Please try again.')
         }

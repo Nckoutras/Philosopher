@@ -31,3 +31,8 @@ tiktoken==0.7.0
 # depends on the Pillow build (freetype, and whether the wheel carries Raqm).
 Pillow==12.3.0
 emoji==2.12.1
+# QR for the share-loop card footer (PR-1). Pure Python, no dependencies of its
+# own, and pinned rather than floored for the same reason Pillow above is: the
+# card renderer's output is compared byte-for-byte in tests, and a QR encoder
+# that changes its mask selection between minor versions changes those bytes.
+segno==1.6.6

@@ -166,8 +166,101 @@ COUNCIL_BAND_TOP         = 620
 # QR asset for the quote share card (_render_quote_card). These two were once
 # shared with an attribution/QR path on the reflection canvas that no caller ever
 # used; that path is gone, the quote card's is live, and these stay for it.
+#
+# REFLECT_QR_PATH IS THE FALLBACK NOW, NOT THE SUBJECT. It is a STATIC code
+# pointing at the bare host — it was the only QR in the product and it could not
+# say which artifact it came with. When a card is rendered for a share it gets a
+# LIVE per-share QR instead (see _paste_share_qr); this asset is what the quote
+# card still falls back to when no share_url is passed, which keeps the
+# pre-share-loop render byte-identical.
 REFLECT_QR_PATH         = SHARE_DIR / "qr-wiseroom.png"
 REFLECT_QR_SIZE         = 110
+
+# ── Share-loop footer (PR-1) ─────────────────────────────────────────────────
+#
+# ONE COMPOSITION, FOUR ANCHORS. Every card already ends with a bronze
+# "thewiseroom.app" stamp on its own baseline constant, so the footer is not a
+# new band fighting for space — it REPLACES that stamp's text with the share's
+# own URL and puts the QR immediately above it. Six kinds, but only four render
+# functions carry a stamp (_render_reflection_canvas serves line, council,
+# mirror and letter), so there are four anchors and one decision.
+#
+# SIZE MATCHES THE ONE SHIPPED PRECEDENT. REFLECT_QR_SIZE has been 110px on the
+# quote card in production; a second, different size would be a design change
+# smuggled in beside a feature.
+SHARE_QR_SIZE           = REFLECT_QR_SIZE
+# Gap between the QR's bottom edge and the stamp text's baseline. The stamp is
+# drawn with anchor="ms" (baseline), so this clears the cap height of the text
+# rather than its box.
+SHARE_QR_STAMP_GAP      = 46
+
+
+def _share_stamp_text(share_url: str) -> str:
+    """The card's printed link: bare host and path, no scheme, no prefix.
+
+    `https://thewiseroom.app/s/AbC123...` -> `thewiseroom.app/s/AbC123...`
+
+    Founder-locked copy: bare, no prefix. The scheme is dropped because it is
+    noise on a printed card and no one types it; the path is kept because it IS
+    the link — a reader who cannot scan the QR must be able to type what they
+    see and arrive at the same place.
+    """
+    return share_url.split("://", 1)[-1]
+
+
+def _render_share_qr(share_url: str, size: int = SHARE_QR_SIZE) -> "Image.Image | None":
+    """A QR for one share, as an RGBA image, or None if it cannot be made.
+
+    ERROR CORRECTION 'M' (~15%). The realistic failure here is not a damaged
+    print — it is a phone camera pointed at ANOTHER phone's screen, at an angle,
+    through a smudge. 'M' is the standard trade for that; 'H' would survive more
+    damage at the cost of a denser code, and density is the thing that actually
+    breaks screen-to-screen scanning.
+
+    NEVER RAISES. A card that renders without its QR is worth shipping; a 500 on
+    the share endpoint is not. This mirrors how the static asset is already
+    handled in _render_quote_card — missing asset logs and skips.
+    """
+    try:
+        import segno
+        qr = segno.make(share_url, error="m")
+        buf = BytesIO()
+        # scale is computed so the natural module size lands at or just under the
+        # target, then LANCZOS finishes the job. border=2 rather than segno's
+        # default 4: the card supplies its own quiet zone in surrounding padding,
+        # and 4 modules of white inside a 110px code wastes a third of it.
+        qr.save(buf, kind="png", scale=8, border=2, dark="#2B2622", light="#F7F1E3")
+        buf.seek(0)
+        img = Image.open(buf).convert("RGBA")
+        if img.size != (size, size):
+            # NEAREST, not LANCZOS: a QR is hard black-and-white squares, and
+            # smooth interpolation grows grey edges that a scanner reads as
+            # ambiguity. This is the one place in this module where resampling
+            # quality means "do not interpolate".
+            img = img.resize((size, size), Image.NEAREST)
+        return img
+    except Exception as e:
+        logger.warning(f"Could not render share QR for {share_url!r}: {e}. Skipping QR.")
+        return None
+
+
+def _paste_share_qr(
+    canvas: "Image.Image",
+    cx: int,
+    stamp_baseline_y: int,
+    share_url: str,
+    size: int = SHARE_QR_SIZE,
+) -> None:
+    """Paste a share QR centred on `cx`, sitting above `stamp_baseline_y`.
+
+    The single placement rule, applied at each card's own stamp anchor. Silent
+    no-op when the QR could not be rendered.
+    """
+    qr = _render_share_qr(share_url, size)
+    if qr is None:
+        return
+    top = stamp_baseline_y - SHARE_QR_STAMP_GAP - size
+    canvas.paste(qr, (cx - size // 2, top), qr)
 
 
 def dynamic_font_size(char_count: int) -> float:
@@ -187,6 +280,7 @@ async def generate_share_image(
     saved_line_id: str,
     user_id: str,
     annotation: str | None = None,
+    share_url: str | None = None,
 ) -> bytes:
     """
     Load saved line data from DB, verify ownership, compose image.
@@ -241,6 +335,7 @@ async def generate_share_image(
         persona_initial=persona.name[0].upper(),
         intro_text=f"{persona.name} told me",
         saved_at=saved_line.saved_at,
+        share_url=share_url,
     )
 
 
@@ -248,6 +343,7 @@ async def generate_quote_share_image(
     db: AsyncSession,
     quote_id: str,
     user_id: str,
+    share_url: str | None = None,
 ) -> bytes:
     """
     Compose a share card for a corpus Quote: a full-bleed graded persona portrait
@@ -278,6 +374,7 @@ async def generate_quote_share_image(
         portrait_path=_resolve_portrait_path(persona),
         persona_name=name,
         source_short=shorten_source(quote.source_locator),
+        share_url=share_url,
     )
 
 
@@ -287,6 +384,7 @@ async def generate_council_share_image(
     session_id: str,
     user_id: str,
     annotation: str | None = None,
+    share_url: str | None = None,
 ) -> bytes:
     """
     Load council session, verify ownership and synthesis presence, compose image.
@@ -353,6 +451,7 @@ async def generate_council_share_image(
         thumbnail_labels=thumbnail_labels or None,
         theme=theme,
         band_top=COUNCIL_BAND_TOP if theme else None,
+        share_url=share_url,
     )
 
 
@@ -361,6 +460,7 @@ async def generate_mirror_share_image(
     db: AsyncSession,
     mirror_id: str,
     user_id: str,
+    share_url: str | None = None,
 ) -> bytes:
     """
     Load a mirror, verify ownership, and compose a share card from its closing
@@ -397,6 +497,7 @@ async def generate_mirror_share_image(
         saved_at=mirror.created_at,
         hero_opacity=REFLECT_HERO_OPACITY_RITUAL,
         hero_path=MIRROR_HERO_PATH,
+        share_url=share_url,
     )
 
 
@@ -405,6 +506,7 @@ async def generate_letter_share_image(
     db: AsyncSession,
     weekly_letter_id: str,
     user_id: str,
+    share_url: str | None = None,
 ) -> bytes:
     """
     Load a Sunday Letter, verify ownership, and compose a share card from its
@@ -436,6 +538,7 @@ async def generate_letter_share_image(
             quote=pull_quote,
             period_label=letter.period_start.strftime("%B %Y"),
             created_at=letter.created_at,
+            share_url=share_url,
         )
 
     # Voice persona (portrait + name) — optional; the letter may be voice-less.
@@ -456,6 +559,7 @@ async def generate_letter_share_image(
         saved_at=letter.created_at,
         hero_opacity=REFLECT_HERO_OPACITY_RITUAL,
         hero_path=LETTER_HERO_PATH,
+        share_url=share_url,
     )
 
 
@@ -480,6 +584,7 @@ def _render_season_card(
     quote: str,
     period_label: str,
     created_at: datetime,
+    share_url: str | None = None,
 ) -> bytes:
     """Monthly 'season' share card (1080×1350). Draws the season eyebrow, title,
     a bronze divider, the keepsake quote, and the branding footer into the lower
@@ -539,7 +644,14 @@ def _render_season_card(
 
     # Branding footer — wordmark / url / date (bronze, centered)
     draw.text((cx, SEASON_FOOTER_WORDMARK_Y), "The Wise Room", font=font_word, fill=BRONZE_COLOR, anchor="ms")
-    draw.text((cx, SEASON_FOOTER_URL_Y), URL_TEXT, font=font_url, fill=BRONZE_COLOR, anchor="ms")
+    # Share loop (PR-1): the share's own link replaces the bare host, QR above it.
+    if share_url:
+        _paste_share_qr(canvas, cx, SEASON_FOOTER_URL_Y, share_url)
+    draw.text(
+        (cx, SEASON_FOOTER_URL_Y),
+        _share_stamp_text(share_url) if share_url else URL_TEXT,
+        font=font_url, fill=BRONZE_COLOR, anchor="ms",
+    )
     draw.text((cx, SEASON_FOOTER_DATE_Y), _format_date(created_at), font=font_date, fill=BRONZE_COLOR, anchor="ms")
 
     out = canvas.convert("RGB")
@@ -781,6 +893,7 @@ def _render_reflection_canvas(
     thumbnail_labels: list[str] | None = None,
     theme: str | None = None,
     band_top: int | None = None,
+    share_url: str | None = None,
 ) -> bytes:
     """
     Redesigned reflection share card (1080×1350). Faint hero behind everything;
@@ -896,11 +1009,20 @@ def _render_reflection_canvas(
             anchor="mt",
         )
 
-    # 7. "thewiseroom.app" — bold, high-opacity bottom stamp.
+    # 7. Bottom stamp — bold, high-opacity.
     # No bold Lora is bundled, so simulate weight with a stroke at full opacity.
+    #
+    # SHARE LOOP (PR-1): with a share_url the stamp becomes that share's own link
+    # and a live QR sits above it. Without one — which is every pre-existing call
+    # site and every test that omits the parameter — this renders exactly the card
+    # it rendered before, byte for byte. The opt-in shape is the same safety
+    # argument `theme` and `thumbnail_labels` were added under, and the same test
+    # pins it.
+    if share_url:
+        _paste_share_qr(canvas, PORTRAIT_CENTER_X, REFLECT_STAMP_BASELINE_Y, share_url)
     draw.text(
         (PORTRAIT_CENTER_X, REFLECT_STAMP_BASELINE_Y),
-        REFLECT_STAMP_TEXT,
+        _share_stamp_text(share_url) if share_url else REFLECT_STAMP_TEXT,
         font=font_stamp,
         fill=BRONZE_COLOR,
         anchor="ms",
@@ -1200,6 +1322,7 @@ def _render_counterview_card(
     right_verdict: str,
     title: str | None,
     saved_at: datetime | None,
+    share_url: str | None = None,
 ) -> bytes:
     """Pure render (no DB). Composes the 1080×1350 counterview share card."""
     canvas = Image.new("RGBA", (CV_W, CV_H), BG_COLOR + (255,))
@@ -1278,7 +1401,18 @@ def _render_counterview_card(
         for j, line in enumerate(lines):
             draw.text((col_cx, sy + j * lh), line, font=fv, fill=INK_COLOR, anchor="mt")
     # 9. brand
-    draw.text((cx, CV_BOX[3] - 34), _letterspace(URL_TEXT, " "), font=_load_font("Lora-Regular.ttf", 24), fill=BRONZE_COLOR, anchor="ms", stroke_width=1, stroke_fill=BRONZE_COLOR)
+    # Share loop (PR-1). The bare host is drawn LETTERSPACED as a brand mark; a
+    # share URL is NOT — letterspacing a path makes it unreadable and impossible
+    # to type, and this line is the fallback for anyone who cannot scan the QR.
+    _cv_stamp_y = CV_BOX[3] - 34
+    if share_url:
+        _paste_share_qr(canvas, cx, _cv_stamp_y, share_url)
+    draw.text(
+        (cx, _cv_stamp_y),
+        _share_stamp_text(share_url) if share_url else _letterspace(URL_TEXT, " "),
+        font=_load_font("Lora-Regular.ttf", 24), fill=BRONZE_COLOR, anchor="ms",
+        stroke_width=1, stroke_fill=BRONZE_COLOR,
+    )
 
     out = canvas.convert("RGB")
     buf = BytesIO()
@@ -1413,6 +1547,7 @@ def _render_quote_card(
     portrait_path: Path | None,
     persona_name: str,
     source_short: str,
+    share_url: str | None = None,
 ) -> bytes:
     """Full-bleed carousel-style quote share card (1080×1350). A graded portrait
     fills the canvas, a dark ink→transparent scrim anchors the quote low, the
@@ -1460,22 +1595,35 @@ def _render_quote_card(
     # 5. Bottom stack (drawn bottom-up): stamp, QR, source, original phrase, quote.
     # 5a. "thewiseroom.app" stamp — paper with a bronze stroke so it reads on dark.
     draw.text(
-        (cx, QUOTE_STAMP_BASELINE_Y), URL_TEXT,
+        (cx, QUOTE_STAMP_BASELINE_Y),
+        _share_stamp_text(share_url) if share_url else URL_TEXT,
         font=_load_font("Lora-Regular.ttf", QUOTE_STAMP_FONT_SIZE),
         fill=QUOTE_PAPER_COLOR, anchor="ms", stroke_width=1, stroke_fill=BRONZE_COLOR,
     )
 
     # 5b. QR — centred above the stamp. Missing asset → skip, never 500.
-    if REFLECT_QR_PATH.exists():
-        try:
-            qr = Image.open(REFLECT_QR_PATH).convert("RGBA").resize(
-                (REFLECT_QR_SIZE, REFLECT_QR_SIZE), Image.LANCZOS
-            )
-            canvas.paste(qr, (cx - REFLECT_QR_SIZE // 2, QUOTE_QR_BOTTOM_Y - REFLECT_QR_SIZE), qr)
-        except Exception as e:
-            logger.warning(f"Could not open QR {REFLECT_QR_PATH}: {e}. Skipping QR.")
-    else:
-        logger.warning(f"QR asset missing: {REFLECT_QR_PATH}. Skipping QR.")
+    #
+    # THIS CARD KEEPS ITS OWN GEOMETRY RATHER THAN USING _paste_share_qr. The
+    # generic helper positions from the stamp baseline and would land the code at
+    # y=1144; this card has shipped with it at 1140 since the quote carousel did.
+    # Four pixels is not worth a visible change to a live card, and "the share
+    # loop moved the quote card's QR" is not a line anyone wants in a changelog.
+    # The POSITION is unchanged; only what the code POINTS AT is new.
+    qr_img = _render_share_qr(share_url, REFLECT_QR_SIZE) if share_url else None
+    if qr_img is None:
+        # No share (or the encoder failed) → the static host-level code, exactly
+        # as before.
+        if REFLECT_QR_PATH.exists():
+            try:
+                qr_img = Image.open(REFLECT_QR_PATH).convert("RGBA").resize(
+                    (REFLECT_QR_SIZE, REFLECT_QR_SIZE), Image.LANCZOS
+                )
+            except Exception as e:
+                logger.warning(f"Could not open QR {REFLECT_QR_PATH}: {e}. Skipping QR.")
+        else:
+            logger.warning(f"QR asset missing: {REFLECT_QR_PATH}. Skipping QR.")
+    if qr_img is not None:
+        canvas.paste(qr_img, (cx - REFLECT_QR_SIZE // 2, QUOTE_QR_BOTTOM_Y - REFLECT_QR_SIZE), qr_img)
 
     # 5c. Source line "— {name}, {source}", bronze, shrunk to a single line.
     source_line = f"— {persona_name}, {source_short}"
@@ -1537,6 +1685,7 @@ async def generate_counterview_share_image(
     db: AsyncSession,
     counterview_id: str,
     user_id: str,
+    share_url: str | None = None,
 ) -> bytes:
     """Load a generated counterview, verify ownership, and compose its share card.
     Raises ValueError if not found/owned or not in a shareable ('generated') state."""
@@ -1585,4 +1734,5 @@ async def generate_counterview_share_image(
         right_verdict=right.verdict,
         title=cv.title,
         saved_at=cv.created_at,
+        share_url=share_url,
     )

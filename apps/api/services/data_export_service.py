@@ -49,6 +49,8 @@ from typing import Any, Optional
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+import services.share_service as share_service
+
 from models import (
     Conversation,
     CouncilCase,
@@ -75,6 +77,7 @@ from models import (
     ScheduledEmail,
     SelfComparison,
     SelfComparisonSave,
+    Share,
     Subscription,
     TrajectorySnapshot,
     User,
@@ -448,6 +451,33 @@ async def build_export(db: AsyncSession, user: User) -> dict[str, Any]:
         )
     ]
 
+    # ── Shares (migration 067) ───────────────────────────────────────────────
+    # EXPORTED, NOT EXCLUDED, and the snapshot goes with it. A share row holds a
+    # frozen copy of something the person wrote or was told — it is their content
+    # as much as the saved line it came from, and an export that listed the links
+    # without their contents would under-report exactly the part that matters.
+    #
+    # public_id is included because it IS the answer to "what did I put into the
+    # world": without it a person cannot match an export row to a link they can
+    # see in a friend's message thread. revoked_at is included for the same
+    # reason — "which of these are still live" is the question a reader of this
+    # file is most likely to have.
+    shares = [
+        {
+            "public_id": sh.public_id,
+            "url": share_service.public_url(sh.public_id),
+            "artifact_type": sh.artifact_type,
+            "artifact_id": sh.artifact_id,
+            "snapshot": sh.snapshot,
+            "revoked_at": _iso(sh.revoked_at),
+            "created_at": _iso(sh.created_at),
+        }
+        for sh in await _scalars(
+            db, select(Share).where(Share.user_id == user_id)
+                .order_by(Share.created_at)
+        )
+    ]
+
     sq_rows = await _scalars(
         db, select(SavedQuote).where(SavedQuote.user_id == user_id)
             .order_by(SavedQuote.saved_at)
@@ -595,6 +625,7 @@ async def build_export(db: AsyncSession, user: User) -> dict[str, Any]:
         "council_cases": council_cases,
         "saved_lines": saved_lines,
         "saved_quotes": saved_quotes,
+        "shares": shares,
         "mirror_saves": mirror_saves,
         "council_saves": council_saves,
         "counterview_saves": counterview_saves,
