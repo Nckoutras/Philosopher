@@ -29,7 +29,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from auth import get_current_user_plan
 from db.session import get_db
-from schemas import SharePublicResponse, ShareSnapshot
+from schemas import ShareListItem, ShareListResponse
 import services.share_service as share_service
 from services.analytics_service import analytics_service
 from services.image_service import (
@@ -176,6 +176,44 @@ async def create_share_quote(
         generator=generate_quote_share_image,
         quote_id=str(body.quote_id),
     )
+
+
+# ── Your links ────────────────────────────────────────────────────────────────
+
+@router.get("/mine", response_model=ShareListResponse)
+async def list_my_shares(
+    db: AsyncSession = Depends(get_db),
+    auth: tuple = Depends(get_current_user_plan),
+) -> ShareListResponse:
+    """The links this person has made. Revoked ones included, muted in the UI.
+
+    THIS ROUTE EXISTS SO THAT REVOCATION DOES. Without a list, "Turn off this
+    link" has nowhere to live: the share id is known to the client only in the
+    moment the card is returned, so a person could revoke during that one modal
+    and never again. Revocation would have been real in the API and absent from
+    the product.
+
+    It carries no view statistics, per ruling — this is an inventory, not a
+    dashboard.
+
+    DECLARED BEFORE /{public_id}/revoke ON PURPOSE. FastAPI matches routes in
+    declaration order, and "mine" is a valid public_id shape; registered the
+    other way round, a POST to /share/mine/revoke would be readable as a share
+    whose id is the literal string "mine". It cannot happen today because the
+    methods differ, but the ordering costs nothing and removes the question.
+    """
+    user, _plan = auth
+    shares = await share_service.list_shares(db, user_id=user.id)
+    return ShareListResponse(items=[
+        ShareListItem(
+            public_id=sh.public_id,
+            url=share_service.public_url(sh.public_id),
+            artifact_type=sh.artifact_type,
+            created_at=sh.created_at,
+            revoked=sh.revoked_at is not None,
+        )
+        for sh in shares
+    ])
 
 
 # ── Revocation ────────────────────────────────────────────────────────────────

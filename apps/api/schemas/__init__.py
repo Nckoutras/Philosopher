@@ -1108,3 +1108,26 @@ class ShareCreatedResponse(BaseModel):
     share_id: str
     public_id: str
     url: str
+
+
+class ShareListItem(BaseModel):
+    """One row of "Your links".
+
+    NO VIEW COUNT, AND THE ABSENCE IS A RULING RATHER THAN AN OVERSIGHT. v1
+    shows the sharer nothing about who opened a link. The list exists so that
+    revocation is reachable — without it "Turn off this link" has nowhere to
+    live and the withdrawn page is a screen no one can cause.
+
+    `revoked` rather than `revoked_at`: the row is shown muted and actionless,
+    and the exact second someone withdrew a link is not a thing this screen has
+    a use for.
+    """
+    public_id: str
+    url: str
+    artifact_type: ShareArtifactType
+    created_at: datetime
+    revoked: bool
+
+
+class ShareListResponse(BaseModel):
+    items: list[ShareListItem]

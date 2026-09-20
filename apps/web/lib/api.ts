@@ -115,6 +115,18 @@ export class DuplicateSaveError extends Error {
 // The upgrade CTA that used to sit on this error is gone with it. Upgrading no
 // longer lifts the limit, so offering it here would be selling a fix for
 // something a purchase does not fix.
+export type ShareArtifactType =
+  | 'line' | 'quote' | 'council' | 'mirror' | 'letter' | 'counterview'
+
+/** One row of "Your links". No view count — that is a ruling, not an omission. */
+export interface ShareListItem {
+  public_id: string
+  url: string
+  artifact_type: ShareArtifactType
+  created_at: string
+  revoked: boolean
+}
+
 export type ShareLimitScope = 'daily' | 'burst'
 
 export class ShareLimitError extends Error {
@@ -1536,6 +1548,18 @@ class ApiClient {
 
   async getPortalUrl(): Promise<{ portal_url: string }> {
     return this.request('/billing/portal', { method: 'POST' })
+  }
+
+  // ── Your links (PR-1) ─────────────────────────────────────────────────────
+
+  async listMyShares(): Promise<ShareListItem[]> {
+    const { items } = await this.request<{ items: ShareListItem[] }>('/share/mine')
+    return items
+  }
+
+  /** Turn a share link off. Idempotent; 404 if it is not this user's. */
+  async revokeShare(publicId: string): Promise<void> {
+    await this.request(`/share/${encodeURIComponent(publicId)}/revoke`, { method: 'POST' })
   }
 
   // ── Saved lines ───────────────────────────────────────────────────────────

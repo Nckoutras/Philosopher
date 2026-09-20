@@ -441,6 +441,28 @@ async def revoke_share(db: AsyncSession, *, public_id: str, user_id: str) -> boo
     return True
 
 
+async def list_shares(db: AsyncSession, *, user_id: str, limit: int = 100) -> list[Share]:
+    """Every link this person has made, newest first. Revoked ones included.
+
+    REVOKED ROWS STAY IN THE LIST, muted and actionless in the UI. Seeing that
+    you turned a link off IS the confirmation that you did — a list that silently
+    dropped them would leave a person wondering whether the tap registered, which
+    is the same uncertainty revocation exists to remove.
+
+    Ordered to match ix_shares_user_created exactly, so this is an index scan
+    rather than a sort. `limit` is a guard against an unbounded response, not a
+    pagination scheme: there is no cursor in v1 because 20 shares a day is the
+    ceiling and nobody has 100 links yet. When someone does, this needs a cursor
+    rather than a bigger number.
+    """
+    return list((await db.execute(
+        select(Share)
+        .where(Share.user_id == user_id)
+        .order_by(Share.created_at.desc())
+        .limit(limit)
+    )).scalars().all())
+
+
 async def get_public_share(db: AsyncSession, *, public_id: str) -> Share | None:
     """The landing page's only read. No auth, no ownership, no join.
 

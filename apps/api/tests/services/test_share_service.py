@@ -268,3 +268,63 @@ async def test_revoking_someone_elses_share_reports_not_found():
     db = _OneShareSession(None)
     ok = await share_service.revoke_share(db, public_id="AbCdEfGhIjKlMnOpQrStUv", user_id="someone-else")
     assert ok is False
+
+
+# ── "Your links" ─────────────────────────────────────────────────────────────
+
+class _ListSession:
+    def __init__(self, rows):
+        self._rows = rows
+        self.statements: list[str] = []
+
+    async def execute(self, stmt, *a, **kw):
+        self.statements.append(str(stmt))
+        rows = self._rows
+
+        class _R:
+            def scalars(self_inner):
+                return self_inner
+
+            def all(self_inner):
+                return rows
+
+        return _R()
+
+
+@pytest.mark.asyncio
+async def test_the_list_includes_revoked_rows():
+    """They stay, muted, in the UI — so the query must not filter them out.
+
+    Seeing that you turned a link off IS the confirmation that you did. A query
+    with `revoked_at IS NULL` would make that confirmation impossible to build
+    no matter what the component does.
+    """
+    live = _share()
+    dead = _share()
+    dead.public_id = "ZzZzZzZzZzZzZzZzZzZzZz"
+    dead.revoked_at = datetime.now(timezone.utc)
+
+    db = _ListSession([live, dead])
+    rows = await share_service.list_shares(db, user_id="u")
+
+    assert len(rows) == 2
+    sql = db.statements[0].lower()
+    assert "revoked_at is null" not in sql
+
+
+@pytest.mark.asyncio
+async def test_the_list_is_scoped_ordered_and_bounded():
+    """Matches ix_shares_user_created, so this is an index scan and not a sort.
+
+    The LIMIT is a guard against an unbounded response, not pagination: there is
+    no cursor in v1 because 20 shares a day is the ceiling. When someone does
+    reach 100 links this needs a cursor rather than a bigger number, and the
+    assertion below is where that will be noticed.
+    """
+    db = _ListSession([])
+    await share_service.list_shares(db, user_id="u")
+
+    sql = db.statements[0].lower()
+    assert "where shares.user_id" in sql
+    assert "order by shares.created_at desc" in sql
+    assert "limit" in sql

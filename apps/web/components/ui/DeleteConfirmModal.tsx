@@ -7,6 +7,10 @@ interface Props {
   title: string
   body: string
   confirmLabel?: string
+  /** Defaults to 'Cancel'. Overridden where the dismissal is a real choice
+   *  rather than a way out — "Keep it on" tells a reader what happens if
+   *  they press it, which "Cancel" does not. */
+  cancelLabel?: string
   loading: boolean
   error: string | null
   onConfirm: () => void
@@ -28,6 +32,7 @@ export default function DeleteConfirmModal({
   title,
   body,
   confirmLabel = 'Delete',
+  cancelLabel = 'Cancel',
   loading,
   error,
   onConfirm,
@@ -142,7 +147,7 @@ export default function DeleteConfirmModal({
             disabled={loading}
             className="flex-1 font-lora text-[13px] text-charcoal border border-edge rounded-sm py-2.5 px-4 disabled:opacity-50"
           >
-            Cancel
+            {cancelLabel}
           </button>
           <button
             type="button"
