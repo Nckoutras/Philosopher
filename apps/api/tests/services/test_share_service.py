@@ -20,6 +20,11 @@ import services.share_service as share_service
 from models import Share
 from schemas import ShareSnapshot, ShareVoice
 
+# The test environment's FRONTEND_URL default is http://localhost:3000, which
+# create_share REFUSES to mint against (TD-77). Anything exercising the path
+# BEYOND that guard has to stand a real host up first.
+LIVE_URL = "https://thewiseroom.app"
+
 
 # ── The token ────────────────────────────────────────────────────────────────
 
@@ -112,7 +117,8 @@ async def test_the_limit_is_checked_before_the_snapshot_is_built():
     """
     builder = AsyncMock()
     limiter = AsyncMock(return_value=False)
-    with patch("services.share_service.rate_limit_service.check_and_increment", new=limiter), \
+    with patch.object(share_service.config, "FRONTEND_URL", LIVE_URL), \
+         patch("services.share_service.rate_limit_service.check_and_increment", new=limiter), \
          patch("services.share_service.build_snapshot", new=builder):
         with pytest.raises(share_service.ShareRateLimited):
             await share_service.create_share(
@@ -328,3 +334,67 @@ async def test_the_list_is_scoped_ordered_and_bounded():
     assert "where shares.user_id" in sql
     assert "order by shares.created_at desc" in sql
     assert "limit" in sql
+
+
+# ── The outbound-link guard (TD-77, applied to the third link builder) ───────
+
+@pytest.mark.asyncio
+async def test_a_localhost_frontend_url_refuses_to_mint():
+    """THE ONE UNRECOVERABLE ARTEFACT IN THIS FEATURE.
+
+    The share URL is composed from FRONTEND_URL and then PAINTED INTO THE PNG —
+    the QR and the printed line both. Every other surface survives a wrong env
+    var: nothing composed is stored, so the row, "Your links" and the data
+    export all come out right the moment the variable is corrected. The card
+    does not. It has already gone to the share sheet as a file, and it is no
+    more recallable than anything else this module refuses to claim it can
+    recall.
+
+    So the guard REFUSES rather than suppressing-and-retrying the way cron.py
+    does for letters: a letter has not left yet, and a card has.
+
+    THE LIMITER AND THE BUILDER ARE PATCHED TO SUCCEED, and that is what makes
+    this test mean anything. An earlier version patched neither: with the guard
+    removed, create_share fell through to the REAL check_and_increment, failed
+    to reach Redis, and raised ShareUnavailable anyway — so the test passed
+    whether or not the guard existed. Found by disabling the guard and watching
+    which tests noticed. Now the guard is the only thing in the call that can
+    raise it.
+    """
+    with patch.object(share_service.config, "FRONTEND_URL", "http://localhost:3000"), \
+         patch("services.share_service.rate_limit_service.check_and_increment",
+               new=AsyncMock(return_value=True)), \
+         patch("services.share_service.build_snapshot", new=AsyncMock()):
+        with pytest.raises(share_service.ShareUnavailable):
+            await share_service.create_share(
+                AsyncMock(), artifact_type="line", artifact_id="x", user_id="u",
+            )
+
+
+@pytest.mark.asyncio
+async def test_the_link_guard_runs_before_the_limiter_and_the_snapshot():
+    """Nothing is charged for a request that cannot succeed.
+
+    This request is refused whatever the counters say, so incrementing them
+    would bill a person's daily allowance for our misconfiguration — and the
+    snapshot's several queries would be paid for to build a card we then throw
+    away. Asserted on both, because either one drifting is invisible from the
+    status code alone.
+
+    An EMPTY value, not localhost, so this also pins that the guard uses
+    is_unset_public_url rather than a substring test for "localhost": a var set
+    explicitly to "" composes links like "/s/<id>" — relative, dead, and
+    containing no localhost to match on.
+    """
+    limiter = AsyncMock(return_value=True)
+    builder = AsyncMock()
+    with patch.object(share_service.config, "FRONTEND_URL", ""), \
+         patch("services.share_service.rate_limit_service.check_and_increment", new=limiter), \
+         patch("services.share_service.build_snapshot", new=builder):
+        with pytest.raises(share_service.ShareUnavailable):
+            await share_service.create_share(
+                AsyncMock(), artifact_type="line", artifact_id="x", user_id="u",
+            )
+
+    limiter.assert_not_called()
+    builder.assert_not_called()

@@ -15,6 +15,7 @@ import pytest
 from contextlib import contextmanager
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import services.share_service as share_service
 from schemas import ShareSnapshot
 
 from fastapi.testclient import TestClient
@@ -96,9 +97,19 @@ _SNAPSHOT = ShareSnapshot(
 
 
 def _patches(*, limiter, generator=None):
-    """The three things every test here needs to pin."""
+    """The four things every test here needs to pin.
+
+    FRONTEND_URL IS PATCHED TO A REAL HOST, and without it every test in this
+    file would pass or fail for the wrong reason. The test environment's default
+    is http://localhost:3000, which share_service REFUSES to mint against (TD-77
+    — the card's QR would be painted with a dead link and a card cannot be
+    recalled). Left unpatched, the guard fires before the limiter and every case
+    below returns 503: the 429 tests would fail, and the two 503 tests would PASS
+    WITHOUT EVER REACHING THE LIMITER they claim to exercise.
+    """
     gen = generator if generator is not None else AsyncMock(return_value=FAKE_PNG)
     return (
+        patch.object(share_service.config, "FRONTEND_URL", "https://thewiseroom.app"),
         patch("routers.share.generate_share_image", new=gen),
         patch("services.share_service.build_snapshot", new=AsyncMock(return_value=_SNAPSHOT)),
         patch("services.share_service.rate_limit_service.check_and_increment", new=limiter),
@@ -107,8 +118,8 @@ def _patches(*, limiter, generator=None):
 
 def test_share_screenshot_200_and_the_card_carries_the_share_link():
     """A share is minted and its link is handed back with the PNG."""
-    p1, p2, p3 = _patches(limiter=AsyncMock(return_value=True))
-    with p1, p2, p3, _client_with_plan("free") as client:
+    p0, p1, p2, p3 = _patches(limiter=AsyncMock(return_value=True))
+    with p0, p1, p2, p3, _client_with_plan("free") as client:
         resp = client.post(ENDPOINT, json={"saved_line_id": SAVED_LINE_ID})
 
     assert resp.status_code == 200
@@ -125,9 +136,11 @@ def test_share_screenshot_404_when_the_artifact_is_not_the_users():
     That is the stricter of the two and it runs first, so a share row can never
     be minted for something whose card would refuse to render.
     """
-    p1, _p2, p3 = _patches(limiter=AsyncMock(return_value=True))
-    with p1,          patch("services.share_service.build_snapshot",
-               new=AsyncMock(side_effect=ValueError("not found"))),          p3, _client_with_plan("free") as client:
+    p0, p1, _p2, p3 = _patches(limiter=AsyncMock(return_value=True))
+    with p0, p1, patch(
+        "services.share_service.build_snapshot",
+        new=AsyncMock(side_effect=ValueError("not found")),
+    ), p3, _client_with_plan("free") as client:
         resp = client.post(ENDPOINT, json={"saved_line_id": SAVED_LINE_ID})
 
     assert resp.status_code == 404
@@ -135,8 +148,8 @@ def test_share_screenshot_404_when_the_artifact_is_not_the_users():
 
 def test_share_screenshot_429_burst_carries_its_own_error_code():
     """First call is the burst window, so a single False lands on burst."""
-    p1, p2, p3 = _patches(limiter=AsyncMock(return_value=False))
-    with p1, p2, p3, _client_with_plan("free") as client:
+    p0, p1, p2, p3 = _patches(limiter=AsyncMock(return_value=False))
+    with p0, p1, p2, p3, _client_with_plan("free") as client:
         resp = client.post(ENDPOINT, json={"saved_line_id": SAVED_LINE_ID})
 
     assert resp.status_code == 429
@@ -149,8 +162,8 @@ def test_share_screenshot_429_daily_carries_its_own_error_code():
     The order matters and is asserted here rather than assumed: burst is checked
     and incremented first, so [True, False] is 'within the minute, over the day'.
     """
-    p1, p2, p3 = _patches(limiter=AsyncMock(side_effect=[True, False]))
-    with p1, p2, p3, _client_with_plan("free") as client:
+    p0, p1, p2, p3 = _patches(limiter=AsyncMock(side_effect=[True, False]))
+    with p0, p1, p2, p3, _client_with_plan("free") as client:
         resp = client.post(ENDPOINT, json={"saved_line_id": SAVED_LINE_ID})
 
     assert resp.status_code == 429
@@ -163,8 +176,8 @@ def test_share_screenshot_503_when_the_limiter_is_unreachable():
     The public landing route makes the opposite choice on purpose; that
     asymmetry is tested in test_public_share.py.
     """
-    p1, p2, p3 = _patches(limiter=AsyncMock(side_effect=RuntimeError("redis down")))
-    with p1, p2, p3, _client_with_plan("free") as client:
+    p0, p1, p2, p3 = _patches(limiter=AsyncMock(side_effect=RuntimeError("redis down")))
+    with p0, p1, p2, p3, _client_with_plan("free") as client:
         resp = client.post(ENDPOINT, json={"saved_line_id": SAVED_LINE_ID})
 
     assert resp.status_code == 503
@@ -182,8 +195,8 @@ def test_share_screenshot_pro_is_rate_limited_too():
     quietly undone.
     """
     limiter = AsyncMock(return_value=False)
-    p1, p2, p3 = _patches(limiter=limiter)
-    with p1, p2, p3, _client_with_plan("pro") as client:
+    p0, p1, p2, p3 = _patches(limiter=limiter)
+    with p0, p1, p2, p3, _client_with_plan("pro") as client:
         resp = client.post(ENDPOINT, json={"saved_line_id": SAVED_LINE_ID})
 
     assert resp.status_code == 429

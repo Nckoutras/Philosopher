@@ -37,7 +37,7 @@ from datetime import datetime, timezone
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from config import config
+from config import config, is_unset_public_url
 from models import (
     Counterview,
     CounterviewResponse,
@@ -397,6 +397,36 @@ async def create_share(
     not be able to use a refused share as a way to probe whether an artifact id
     exists.
     """
+    # ── TD-77's rule, applied to the third outbound-link builder ─────────────
+    #
+    # REFUSE TO MINT A CARD WHOSE LINK WOULD BE DEAD. The URL is composed from
+    # FRONTEND_URL and then PAINTED INTO THE PNG — into the QR and the printed
+    # line both. Everything else in this feature survives a wrong env var:
+    # nothing composed is stored, so the row, "Your links" and the data export
+    # all come out right the moment the variable is corrected. The card does
+    # not. It has already gone to the OS share sheet as a file, into a camera
+    # roll or a message thread, and it is no more recallable than anything else
+    # this module refuses to pretend it can recall.
+    #
+    # WHY REFUSING, WHERE THE EMAIL PATHS SUPPRESS AND RETRY. cron.py can mark a
+    # letter pending and send it once FRONTEND_URL is fixed, because the letter
+    # has not left yet. A share is synchronous: by the time anyone notices, the
+    # card is in someone else's hands. There is no later here, so the only safe
+    # direction is not to produce it.
+    #
+    # BEFORE THE LIMITER, deliberately. This request cannot succeed whatever the
+    # counters say, and burning a person's daily allowance on it would charge
+    # them for our misconfiguration.
+    if is_unset_public_url(config.FRONTEND_URL):
+        logger.error(
+            "Share creation REFUSED — FRONTEND_URL is localhost/unset (%r), so the "
+            "QR and printed link on the card would be dead. Nothing was minted. "
+            "This is config, not user error: set FRONTEND_URL to the public "
+            "frontend URL on Render. user_id=%s",
+            config.FRONTEND_URL, user_id,
+        )
+        raise ShareUnavailable()
+
     await _enforce_creation_limits(user_id)
 
     snapshot = await build_snapshot(
