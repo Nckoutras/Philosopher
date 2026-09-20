@@ -34,7 +34,6 @@ from services.postprocessing_service import (
     check_brevity,
     CheckAction,
     _build_regen_directive,
-    _deterministic_strip,
 )
 from services.phenomenology_bridge_service import phenomenology_bridge_service
 
@@ -1086,9 +1085,31 @@ class ConversationService:
                         )
                         full_response = correction_text
                     else:
-                        stripped = _deterministic_strip(correction_text, [_fb2, _brv2])
+                        # UAT2-001 RULING D — THE CORRECTION STANDS, UNMODIFIED.
+                        #
+                        # This branch used to call _deterministic_strip, which
+                        # deleted the offending span and persisted the result. The
+                        # client had ALREADY committed the correction text it
+                        # streamed (useStream.tsx:162), so the row and the reader
+                        # disagreed — that is UAT2-001: "That's the hinge." on
+                        # screen, "That's the ." in the database, with nothing
+                        # telling the client its text had been edited.
+                        #
+                        # What is persisted here is now byte-identical to what was
+                        # streamed. Note that meant dropping the CALL, not gutting
+                        # the function: _deterministic_strip also collapses
+                        # whitespace and applies a brevity trim, so leaving it in
+                        # place minus the span deletion would still have mutated
+                        # the text. It stays intact for regenerate_or_trim (the
+                        # offline voice-test script) and its 112 tests.
+                        #
+                        # ACCEPTED CONSEQUENCE, signed off: a forbidden phrase can
+                        # now reach the reader and the row. Observed rate before
+                        # this change was 1 strip in 828 assistant messages, and
+                        # Rulings B and C remove the collision that caused it. A
+                        # rare broken character beats a broken sentence.
                         logger.warning(
-                            "postprocessing_correction_stripped",
+                            "postprocessing_correction_kept",
                             extra={
                                 "persona_slug": persona.slug,
                                 "hit_categories": sorted(set(
@@ -1099,7 +1120,7 @@ class ConversationService:
                                 "user_id": str(user_id),
                             },
                         )
-                        full_response = stripped
+                        full_response = correction_text
                 except Exception as e:
                     logger.error(
                         "postprocessing_correction_failed",

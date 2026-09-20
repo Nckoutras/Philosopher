@@ -65,39 +65,26 @@
       "phrases": [
         "Instagram",
         "Facebook",
-        "Twitter",
         "X (formerly Twitter)",
         "TikTok",
         "Snapchat",
         "Reddit",
         "WhatsApp",
         "iMessage",
-        "Telegram",
-        "Tinder",
-        "Bumble",
-        "Hinge",
         "OkCupid",
         "Match.com",
         "LinkedIn",
         "YouTube",
         "Netflix",
         "Spotify",
-        "Amazon",
         "Google",
-        "Apple",
         "Microsoft",
         "Uber",
         "Lyft",
         "Airbnb",
-        "Slack",
-        "Zoom",
-        "Teams",
-        "Discord",
-        "Twitch",
         "OnlyFans",
         "Patreon",
-        "Substack",
-        "Medium"
+        "Substack"
       ],
       "patterns": [
         {
@@ -128,8 +115,7 @@
         "ootd",
         "vibes",
         "vibing",
-        "the vibes are off",
-        "energy"
+        "the vibes are off"
       ],
       "patterns": [
         {
