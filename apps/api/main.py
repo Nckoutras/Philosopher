@@ -27,6 +27,7 @@ from routers.saved_lines import router as saved_lines_router
 from routers.reflections import router as reflections_router
 from routers.home import router as home_router
 from routers.share import router as share_router
+from routers.public_share import router as public_share_router
 from routers.scheduled_emails import router as scheduled_emails_router
 from routers.mirrors import router as mirrors_router
 from routers.council import router as council_router
@@ -126,6 +127,9 @@ app.include_router(saved_lines_router,   prefix=PREFIX)
 app.include_router(reflections_router,   prefix=PREFIX)
 app.include_router(home_router,          prefix=PREFIX)
 app.include_router(share_router,              prefix=PREFIX)
+# Unauthenticated. The share landing read — see routers/public_share.py for
+# why it is a separate router rather than another route on share_router.
+app.include_router(public_share_router,       prefix=PREFIX)
 app.include_router(scheduled_emails_router,   prefix=PREFIX)
 app.include_router(mirrors_router,            prefix=PREFIX)
 app.include_router(council_router,            prefix=PREFIX)

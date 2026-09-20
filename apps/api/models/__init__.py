@@ -1050,3 +1050,55 @@ class TrajectorySnapshot(Base):
             "user_id", text("period_start DESC"),
         ),
     )
+
+
+# ── Shares ───────────────────────────────────────────────────────────────────
+
+class Share(Base):
+    """One shared artifact, with a public link and an off switch. Migration 067.
+
+    THE SNAPSHOT IS THE SOURCE OF TRUTH for the public page. /s/{public_id}
+    reads `snapshot` and never touches the artifact it came from, so editing or
+    deleting the artifact cannot break a live link or silently change what a
+    stranger sees. `artifact_id` therefore carries NO foreign key — 067's
+    docstring has the full reasoning and the cost it accepts.
+
+    `public_id` is the URL token, not the primary key: 22 characters from
+    secrets.token_urlsafe(16), 128 bits. Minted in share_service, never here —
+    a default on this column would mean a token could be created by an ORM
+    insert that skipped the service, and the service is where the rate limit and
+    the ownership check live.
+
+    revoked_at is the whole of revocation. The row survives so the page can say
+    the link was withdrawn instead of 404ing; the landing route stops returning
+    `snapshot` the moment it is set. Nothing about revocation reaches the card
+    image, which was handed to the OS share sheet as a file and was never ours
+    to recall.
+    """
+
+    __tablename__ = "shares"
+
+    id: Mapped[str] = mapped_column(
+        UUID(as_uuid=False), primary_key=True, default=gen_uuid,
+        server_default=text("gen_random_uuid()"),
+    )
+    public_id: Mapped[str] = mapped_column(String(22), nullable=False, unique=True)
+    user_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=False), ForeignKey("users.id", ondelete="CASCADE"), nullable=False,
+    )
+    artifact_type: Mapped[str] = mapped_column(String(20), nullable=False)
+    artifact_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False)
+    snapshot: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(),
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "artifact_type IN ('line', 'quote', 'council', 'mirror', 'letter', 'counterview')",
+            name="ck_shares_artifact_type",
+        ),
+        Index("uq_shares_public_id", "public_id", unique=True),
+        Index("ix_shares_user_created", "user_id", text("created_at DESC")),
+    )

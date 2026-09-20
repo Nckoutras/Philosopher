@@ -35,6 +35,15 @@ export default function robots(): MetadataRoute.Robots {
                           // you-vs-you, discuss, welcome
         '/auth/',         // 6 routes: sign-in, verify, disclaimer, trouble, welcome,
                           // oauth/finish
+        '/s/',            // PUBLIC SHARE PAGES (PR-1), AND THE ONE ENTRY HERE THAT
+                          // IS NOT ABOUT AUTH. These pages return 200 to anyone with
+                          // the link — that is their purpose — but they hold something
+                          // a person wrote and sent to ONE reader. Indexed, a share
+                          // posted in any public place becomes a permanent, searchable
+                          // copy that outlives revocation in Google's cache, which is
+                          // precisely the promise the withdrawn-link page makes and
+                          // cannot keep on its own. Unlisted, not secret: the 128-bit
+                          // token is what keeps it private, and this keeps it unlisted.
         '/home',          // placeholder — app/home/page.tsx renders "D1 coming soon".
                           // Public in the sense that it returns 200; asking Google to
                           // index a coming-soon stub under the brand is worse than

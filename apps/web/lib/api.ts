@@ -105,11 +105,53 @@ export class DuplicateSaveError extends Error {
   }
 }
 
+// SHARE LIMITS CHANGED IN PR-1, AND SO DID WHAT THIS ERROR HAS TO CARRY.
+//
+// It used to mean one thing: a free user had used their 3 shares in 90 days, and
+// upgrading removed the limit. There are now TWO limits — 20 a day and 5 a
+// minute — they apply to EVERY tier, and each has its own sentence. So the
+// error carries its scope, and the caller picks the copy.
+//
+// The upgrade CTA that used to sit on this error is gone with it. Upgrading no
+// longer lifts the limit, so offering it here would be selling a fix for
+// something a purchase does not fix.
+export type ShareLimitScope = 'daily' | 'burst'
+
 export class ShareLimitError extends Error {
-  constructor() {
+  readonly scope: ShareLimitScope
+  constructor(scope: ShareLimitScope = 'daily') {
     super('SHARE_LIMIT')
     this.name = 'ShareLimitError'
+    this.scope = scope
   }
+}
+
+// The limiter itself was unreachable — distinct from being over it. Creation
+// fails CLOSED (no share is minted), so this is a "try again", not a "you have
+// had enough".
+export class ShareUnavailableError extends Error {
+  constructor() {
+    super('SHARE_UNAVAILABLE')
+    this.name = 'ShareUnavailableError'
+  }
+}
+
+/** Map a failed share response onto the right error. Shared by all six kinds. */
+export async function shareErrorFor(res: Response): Promise<Error | null> {
+  if (res.ok) return null
+  let code = ''
+  try {
+    code = (await res.clone().json())?.error_code ?? ''
+  } catch {
+    // A body that is not JSON tells us nothing; fall through to the status.
+  }
+  if (res.status === 429) {
+    return new ShareLimitError(code === 'share_rate_limited_burst' ? 'burst' : 'daily')
+  }
+  if (res.status === 503 || code === 'share_unavailable') {
+    return new ShareUnavailableError()
+  }
+  return null
 }
 
 export class ConversationNotFoundError extends Error {
@@ -1014,7 +1056,8 @@ class ApiClient {
       body: JSON.stringify(body),
     })
     if (!res.ok) {
-      if (res.status === 429) throw new ShareLimitError()
+      const shareErr = await shareErrorFor(res)
+      if (shareErr) throw shareErr
       throw new Error(`Screenshot failed: ${res.status}`)
     }
     return res.blob()
@@ -1245,7 +1288,8 @@ class ApiClient {
       body: JSON.stringify(body),
     })
     if (!res.ok) {
-      if (res.status === 429) throw new ShareLimitError()
+      const shareErr = await shareErrorFor(res)
+      if (shareErr) throw shareErr
       throw new Error(`Council share failed: ${res.status}`)
     }
     return res.blob()
@@ -1261,7 +1305,8 @@ class ApiClient {
       body: JSON.stringify({ counterview_id: id }),
     })
     if (!res.ok) {
-      if (res.status === 429) throw new ShareLimitError()
+      const shareErr = await shareErrorFor(res)
+      if (shareErr) throw shareErr
       throw new Error(`Counterview share failed: ${res.status}`)
     }
     return res.blob()
@@ -1277,7 +1322,8 @@ class ApiClient {
       body: JSON.stringify({ quote_id: quoteId }),
     })
     if (!res.ok) {
-      if (res.status === 429) throw new ShareLimitError()
+      const shareErr = await shareErrorFor(res)
+      if (shareErr) throw shareErr
       throw new Error(`Quote share failed: ${res.status}`)
     }
     return res.blob()
@@ -1293,7 +1339,8 @@ class ApiClient {
       body: JSON.stringify({}),
     })
     if (!res.ok) {
-      if (res.status === 429) throw new ShareLimitError()
+      const shareErr = await shareErrorFor(res)
+      if (shareErr) throw shareErr
       throw new Error(`Mirror share failed: ${res.status}`)
     }
     return res.blob()
@@ -1309,7 +1356,8 @@ class ApiClient {
       body: JSON.stringify({}),
     })
     if (!res.ok) {
-      if (res.status === 429) throw new ShareLimitError()
+      const shareErr = await shareErrorFor(res)
+      if (shareErr) throw shareErr
       throw new Error(`Letter share failed: ${res.status}`)
     }
     return res.blob()
