@@ -1406,6 +1406,91 @@ instruments — there may not yet be enough conversations to measure blind
 identification against. A pointer to a section that does not exist is cheaper to
 correct than to leave asserting.
 
+### SAFETY-001 — the deleted `safety` config field promised sixteen behaviours; one was implemented — **NEW**
+**Status: OPEN. NOT to be built now — founder ruling 2026-09-21. Logged so the
+promises are recorded somewhere that is read, rather than only in a design YAML
+that nothing reads.**
+
+**Why this entry exists.** `PersonaConfig.safety` was deleted in this PR as one of
+four dead fields. It was dead in the strict sense — no Python reference outside its
+own declarations, nothing in `system_base.jinja2` — but unlike the other three it
+*described* safety behaviour, and a reader could reasonably have taken it as a record
+of coverage. It was not one. This entry is what the field was actually claiming, so
+that deleting it removes a false record without also removing the information.
+
+**THE ONE KEY THAT WAS REAL.** `on_high_risk_detected: "persona_pause"`, identical in
+all eight personas that had the field. It is implemented, and correctly:
+`safety_service.py:135-142` matches `RISK_HIGH` and returns `level="high"`;
+`should_suppress_persona` (`:111-113`) is true for medium and above; and
+`conversation_service.py:723-738` then never calls the persona at all, saving generic
+app-voice text from `prompt_builder.build_safety_response` with
+`persona_override=True`. Same path at `council_service.py:229` and
+`self_comparison_service.py:222`. **Note what this means: the gate is LEVEL-based, not
+persona-based.** It fires identically for all eleven personas, including the three
+that never had a `safety` field at all. The field was not carrying it.
+
+**THE SEVEN `critical: True` PROMISES WITH NO MECHANISM.** None of these was enforced
+anywhere, by any service:
+
+| persona | key |
+|---|---|
+| `marcus_aurelius` | `on_user_describes_self_harm_or_suicidal_ideation` |
+| `marcus_aurelius` | `on_user_enduring_abuse_or_coercion` |
+| `marcus_aurelius` | `on_user_describes_active_grief` |
+| `simone_de_beauvoir` | `on_user_describes_active_abuse` |
+| `carl_jung` | `on_psychotic_or_dissociative_signals` |
+| `epictetus` | `on_user_describes_abuse_dynamic` |
+| `miyamoto_musashi` | `on_depression_or_crisis_signals` |
+
+A further nine non-critical keys were equally unenforced: `marcus_aurelius`
+(burnout, pop-Stoic affirmation), `simone_de_beauvoir` (reproductive rights, gender
+identity), `carl_jung` (dream-decoder), `epictetus` (self-blame),
+`sigmund_freud` (psychiatric symptoms, acute trauma — neither marked critical),
+`george_orwell` (political weaponization, clarity-used-against-others),
+`miyamoto_musashi` (violence request, business domination, isolation).
+`socrates` declared nothing beyond the three generic keys.
+
+**WHY NONE OF THEM COULD HAVE FIRED.** `safety_lexicons.py` has four bands only —
+`RISK_HIGH` (95), `RISK_MEDIUM` (50), `LOW_SIGNALS` (52), `OUTPUT_RISK_PHRASES` (22),
+each EN + GR + GL. A grep of that file for `abuse|grief|psychot|dissociat|burnout|
+trauma|violence` returns **zero**. There is no detector for any of these situations,
+so there was nothing for a per-persona policy to hang off.
+
+**Two sub-mechanisms the field named that do not exist at all:**
+- **`suggested_alternatives`** — `sigmund_freud` and `miyamoto_musashi` both name
+  `["epictetus", "jung"]`. There is no persona-handoff path in any service.
+- **`must_not_say`** — `marcus_aurelius` only, ten phrases across two keys. Checked
+  against `forbidden_lexicon_persona_specific`, the one mechanism that could have
+  enforced them: **none of the ten is present**, so postprocessing never checked any
+  of them.
+
+**The sharpest case, and the reason this is an entry and not a footnote.**
+`marcus_aurelius.on_user_describes_active_grief` was marked `critical: True` and
+forbade `"I too lost…"` and `"As one who lost children…"`. Grief is not a lexicon
+band; the persona answers a grieving user normally; and nothing blocks those strings.
+The field described a guardrail that never existed. Its self-harm sibling is moot for
+the opposite reason — on a `RISK_HIGH` match Marcus never speaks — which is exactly
+how a list like this stays plausible: the one entry a reader would check is covered by
+something else.
+
+**The design text is not lost.** All eight `safety` blocks survive verbatim in
+`philosopher_brain/personas/*.yaml`; the keys are identical and only prose detail
+differs (the repo used Greek persona names). If any of this is ever built, the YAML is
+the source.
+
+**The two other keys the field carried in all eight**, for completeness:
+`on_user_asks_for_diagnosis` and `on_user_asks_for_advice_in_crisis`, both
+`"redirect_with_disclaimer"`. There is no diagnosis-request detector and no
+per-message disclaimer mechanism (`disclaimer_service.py` is ToS-version acceptance,
+a different thing). The nearest real coverage is the standing system-prompt
+instruction at `prompts/system_base.jinja2:2-3` and `:184` — "You are not a therapist…
+You do not diagnose" — which is a prompt-level steer, not a gate. A crisis whose
+wording the lexicon matches gets full persona suppression, which is stricter than a
+redirect; a crisis it misses gets nothing.
+
+**Not scheduled.** Building any of this means building detectors, which is a larger
+decision than this PR. What is settled is that the record no longer claims they exist.
+
 ### RETRIEVAL-001 — RAG retrieval has never returned a passage, and the threshold is unreachable — **NEW**
 **Status: OPEN. NOT a bug to fix now — founder ruling 2026-09-21 is NO CHANGE. The
 decision is deferred to the §8.2 eval harness as an A/B arm.**
