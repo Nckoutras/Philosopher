@@ -1406,6 +1406,72 @@ instruments — there may not yet be enough conversations to measure blind
 identification against. A pointer to a section that does not exist is cheaper to
 correct than to leave asserting.
 
+### UAT2-004 — the persona forbidden-lexicon check does not run in production — **NEW**
+**Status: OPEN. Not scheduled. Founder ruling 2026-09-21: the two prompt-level
+"energy" defects are fixed in this PR; making the checker RUN is the separate,
+larger question and is not taken here.**
+
+**WHERE UAT FINDINGS LIVE — ruling, 2026-09-21.** `docs/uat/` is **not created**.
+UAT findings go here, in `IMPLEMENTATION_BACKLOG_v29.md`, on the same shelf as
+RETRIEVAL-001 and SAFETY-001 — one place for everything. Any future UAT item
+follows this entry. The note that prompted this ruling had been living in a code
+comment (`postprocessing_service.py:390`), which is exactly the drift CLAUDE.md's
+failure log warns about: a finding recorded outside the document that gets read.
+
+**THE FACT, verified by reading the imports rather than inferring from the call.**
+`check_persona_forbidden` (`postprocessing_service.py:363`) is invoked from exactly
+one place — `regenerate_or_trim` (`:449`). `regenerate_or_trim`'s only non-test
+caller in the repository is `scripts/voice_test_socrates.py:55`, a dev script.
+`conversation_service.py:31-37` imports `POSTPROCESSING_ENABLED`,
+`check_universal_forbidden`, `check_brevity`, `CheckAction` and
+`_build_regen_directive` — **`check_persona_forbidden` is not among them.** So every
+persona's `forbidden_lexicon_persona_specific` is inert in production: 11 personas,
+each carrying a curated phrase list and regex patterns, none of it checked against
+any reply a user has ever received.
+
+**#684 fixed its matcher anyway**, deliberately. Ruling B moved both phrase checks
+from bare substring containment to a compiled word-boundary matcher, including this
+one, "so the two cannot drift apart" — correct, and worth preserving as the reason:
+when the checker is eventually wired up, it will not arrive carrying the 2026-09-20
+mid-word defect.
+
+**THE "ENERGY" SURVIVAL, now resolved in both places it existed.** Ruling C removed
+the bare token `energy` from `universal_forbidden_lexicon.json` because word
+boundaries cannot save a token that IS an ordinary English word. Two persona configs
+still carried it, in two different fields with two different fates:
+
+- **`lao_tzu.forbidden_phrases`** — **live, and fixed in this PR.** This field is
+  injected verbatim into every system prompt (`prompts/system_base.jinja2:25`, as
+  `DO NOT USE: …`), a path Ruling C did not touch. Lao Tzu was the only persona
+  carrying any Ruling-C token there. Narrowed to `"your energy"` and
+  `"energy field"`, which removes the ordinary-English collision while keeping the
+  New Age register covered in the one mechanism that reaches the model.
+- **`carl_jung.forbidden_lexicon_persona_specific`** — **left untouched by ruling,
+  and inert three times over.** (1) It is not the bare word: the entry is the literal
+  string `'"energy" (as adjective)'`, an annotation to a human with its quote marks
+  and parenthetical included. (2) It is not prompt-injected — that field reaches the
+  model through nothing. (3) It cannot match any real use of the word; verified by
+  running `check_persona_forbidden` against "The energy beneath the complaint is
+  worth noticing.", "Your energy is blocked." and "There is an energy here.", all of
+  which return no hit, while a reply containing the literal annotation does match.
+  **Its real fix belongs to this entry — making the checker run — not to a prompt-text
+  PR**, because only then does a non-matching entry cost anything.
+
+**A latent contradiction that was never live**, worth recording because it would have
+surfaced the moment someone "fixed" Jung's entry in isolation: `carl_jung.py:98`
+instructs him to reframe via "the energy beneath the complaint". A working bare-`energy`
+ban would have fought his own system_fragment. It never did, because the entry sits in
+the list that nothing reads.
+
+**A NOTE ON INSTRUMENT, learned while pinning the above.** The assembled system prompt
+**deliberately contains bad text**: `voice_calibration_examples` render their WRONG half
+into the prompt (`system_base.jinja2:109`) as the counterexample the model must avoid.
+`niccolo_machiavelli.py:100` legitimately contains "Fortune favours the bold!" for that
+reason. A blanket "string absent from the assembled prompt" assertion therefore fails
+against a CORRECT tree, and was caught doing so during revert-verify. Assertions about
+prompt text must either target the instruction-bearing fields directly or exclude
+`WRONG:` lines — `tests/test_prompt_text_attribution.py` does both.
+
 ### SAFETY-001 — the deleted `safety` config field promised sixteen behaviours; one was implemented — **NEW**
 **Status: OPEN. NOT to be built now — founder ruling 2026-09-21. Logged so the
 promises are recorded somewhere that is read, rather than only in a design YAML
