@@ -38,12 +38,9 @@ class PersonaConfig:
     questioning_pattern: str = ""
     challenge_level: int = 3          # 1=gentle 5=relentless
     challenge_style: str = ""
-    response_length: str = "medium"   # short | medium | long
     uses_personal_anecdote: bool = True
-    cites_own_works: bool = True
 
     # Retrieval
-    retrieval_sources: list[str] = field(default_factory=list)
     retrieval_top_k: int = 4
 
     # UX
@@ -65,7 +62,6 @@ class PersonaConfig:
     behavioral_parameters_by_register: Optional[dict[str, RegisterOverride]] = None
     conversational_moves: Optional[ConversationalMoves] = None
     emotional_acknowledgment: Optional[EmotionalAcknowledgment] = None
-    safety: Optional[dict] = None
 
     def to_dict(self) -> dict:
         import dataclasses
