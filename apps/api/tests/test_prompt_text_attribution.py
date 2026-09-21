@@ -138,16 +138,27 @@ def test_lao_tzus_prompt_keeps_the_rest_of_the_new_age_register(builder):
         assert phrase in prompt, f"lao_tzu prompt no longer forbids {phrase!r}"
 
 
-def test_jungs_energy_entry_is_left_exactly_as_it_was(builder):
-    """GUARD. Founder ruling 2026-09-21: Jung's entry stays untouched.
+def test_jungs_energy_entry_was_deleted_by_uat2_004(builder):
+    """SUPERSEDED AND INVERTED, deliberately — this assertion used to require
+    the opposite, and the record of why is the point.
 
-    It is NOT the bare word and NOT prompt-injected — it sits in
-    forbidden_lexicon_persona_specific, which reaches the model through nothing.
-    It is also unmatchable as written (see the sibling test), and its real fix
-    belongs to UAT2-004 — making check_persona_forbidden run at all — not here.
+    In #690 this test pinned `'"energy" (as adjective)'` as STAYING. That was
+    the correct ruling for #690: the entry is not the bare word, is not
+    prompt-injected, and could never match real text, so it was out of scope for
+    a prompt-text PR and its real fix belonged to UAT2-004.
+
+    UAT2-004 is this PR. Founder ruling D3 deletes it, because once
+    check_persona_forbidden actually runs, a permanently-unmatchable entry stops
+    being harmless clutter and becomes live dead weight. The entry also fought
+    carl_jung.py:98, which instructs him to reframe via "the energy beneath the
+    complaint".
+
+    The sibling test below still holds and still matters: Jung never forbade the
+    bare word in his PROMPT, which is why deleting this never changed what the
+    model is told.
     """
     lex = get_persona("carl_jung").forbidden_lexicon_persona_specific
-    assert '"energy" (as adjective)' in lex.phrases
+    assert '"energy" (as adjective)' not in lex.phrases
 
 
 def test_jung_never_forbade_the_bare_word_in_his_prompt(builder):
@@ -160,9 +171,13 @@ def test_jung_never_forbade_the_bare_word_in_his_prompt(builder):
 
 
 def test_jungs_energy_entry_cannot_match_any_real_use_of_the_word(builder):
-    """GUARD, and the evidence for the ruling. The entry is an annotation to a
-    human — quote marks and parenthetical included — so the matcher can only
-    fire on a reply containing that literal string.
+    """GUARD. Now asserts the property from the other side.
+
+    While the entry existed it could only fire on a reply containing the literal
+    annotation string, which is the evidence that justified deleting it (D3).
+    With it deleted the assertion still holds and still earns its place: Jung
+    must not acquire a bare-`energy` ban by any route, because his own
+    system_fragment tells him to reframe via "the energy beneath the complaint".
     """
     from services.postprocessing_service import check_persona_forbidden
 

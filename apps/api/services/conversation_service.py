@@ -32,6 +32,7 @@ from services.postprocessing_service import (
     POSTPROCESSING_ENABLED,
     check_universal_forbidden,
     check_brevity,
+    check_persona_forbidden,
     CheckAction,
     _build_regen_directive,
 )
@@ -1042,7 +1043,12 @@ class ConversationService:
             conv_position = "first_message" if history_len <= 1 else "mid_session"
             _fb  = check_universal_forbidden(full_response)
             _brv = check_brevity(full_response, persona, conv_position)
-            _triggered = [c for c in (_fb,) if c.action == CheckAction.REGENERATE]  # brevity no longer forces a regenerate/correction; it stays a prompt-level nudge
+            _pf  = check_persona_forbidden(full_response, persona)
+            # UAT2-004: the persona lexicon now triggers here. Brevity still does
+            # not — it is computed and logged, never gating. Measured on all 826
+            # Oregon replies: _pf would fire on 1.09% of them, _brv on 18.5%.
+            # Brevity's rate and its missing reflective band are BREV-001.
+            _triggered = [c for c in (_fb, _pf) if c.action == CheckAction.REGENERATE]
             if _triggered:
                 hit_categories = sorted(set(
                     h.category for c in _triggered for h in c.hits if h.category
@@ -1074,7 +1080,13 @@ class ConversationService:
                     correction_text = "".join(correction_buf)
                     _fb2  = check_universal_forbidden(correction_text)
                     _brv2 = check_brevity(correction_text, persona, conv_position)
-                    if _fb2.action in (CheckAction.PASS, CheckAction.SKIP) and _brv2.action in (CheckAction.PASS, CheckAction.SKIP):
+                    _pf2  = check_persona_forbidden(correction_text, persona)
+                    # This condition selects the LOG LINE only — both branches
+                    # persist correction_text unchanged (UAT2-001 Ruling D), so
+                    # adding _pf2 here changes what is recorded, not what ships.
+                    if (_fb2.action in (CheckAction.PASS, CheckAction.SKIP)
+                            and _brv2.action in (CheckAction.PASS, CheckAction.SKIP)
+                            and _pf2.action in (CheckAction.PASS, CheckAction.SKIP)):
                         logger.info(
                             "postprocessing_correction_passed",
                             extra={
@@ -1113,7 +1125,7 @@ class ConversationService:
                             extra={
                                 "persona_slug": persona.slug,
                                 "hit_categories": sorted(set(
-                                    h.category for c in (_fb2, _brv2) for h in c.hits if h.category
+                                    h.category for c in (_fb2, _brv2, _pf2) for h in c.hits if h.category
                                 )),
                                 "word_count": _brv2.word_count,
                                 "conversation_id": str(conversation_id),
