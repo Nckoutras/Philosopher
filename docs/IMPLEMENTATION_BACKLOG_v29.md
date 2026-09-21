@@ -1734,6 +1734,68 @@ more; both are **smokes owed**, and OPS-010's is late.
 
 ---
 
+### OPS-012 — UAT2-001 post-merge verification — **CLOSED, with one named gap**
+**Status: CLOSED for the behaviour check. The token-sink re-measurement it was
+paired with is STILL OWED and is blocked on traffic, not on anyone.**
+
+**What landed.** UAT2-001 Rulings B, C and D — word-boundary lexicon matching,
+14 phrase removals, and the correction text persisted unmodified — merged as
+**#684**, squashed to **`cf9fd438`**, at **2026-09-20 13:45:09 UTC**.
+
+**All three gates passed and are on the record**, read from the runs the PR
+actually triggered rather than from the merge button: `pytest (live Postgres)`,
+`pytest (baseline) + alembic single head` and `C-04 migration naming` all
+`success`, on both the PR head `c1db2c4e` and the merge commit. Diff approved;
+tarball verified.
+
+**Deploy confirmed live** before any behaviour was claimed: `/openapi.json`
+served the PR-1 and PR-2 routes and `alembic_version` read `068_signup_share`,
+which is downstream of #684 — so the running code contains it. Established by
+reading what the server answers and what the schema holds, not by inferring from
+a merge.
+
+**THE SMOKE RAN. Founder, 2026-09-21 ~09:28 UTC**, five prompts into conversation
+`6fe5ba95` (`george_orwell`), verified on Oregon:
+
+- **`discord` and `slack` appear intact in assistant output.** Both are among the
+  13 brand tokens Ruling C removed; before the fix each would have triggered a
+  regeneration and, on a second hit, been deleted from the persisted text.
+- **Zero orphaned punctuation.** No ` .` or ` ,` rows — the UAT2-001 signature.
+- **0 of 5 regenerations.** Total input 3778–4132, none in the ≥5779 band that
+  marks a two-call turn against a ~3535 median.
+
+**THE ONE GAP, recorded rather than rounded off.** `hinge` and `energy` appeared
+only in the USER's messages, never in assistant output. The lexicon check runs on
+the REPLY, so neither token was ever put to the matcher. **The two collisions that
+caused UAT2-001 and prompted Ruling C remain unexercised in production.** Nothing
+contradicts the fix — but "verified" here means two of the fourteen removals and
+zero of the word-boundary cases, on one persona, in one conversation.
+
+`george_orwell` has zero chunks by design (RETRIEVAL-001, `EXCLUDED_PERSONAS`),
+which is irrelevant to the lexicon but worth noting so a later reader does not
+take this conversation as evidence about retrieval.
+
+**STILL OWED: the token-sink re-measurement.** It was the deferred condition on
+the visible-correction-UI ruling — if the regeneration rate is still non-trivial,
+the UI gets its own decision. Baseline before the fix was **4 of 61 instrumented
+`stream_response` messages, ≥6.6%**, over 2026-08-23 to 2026-09-20.
+
+n = 5 post-deploy. **Five messages is not a measurement** and is recorded here as
+a count, not a rate. Separating "fell to near zero" from "we have not seen enough
+yet" needs on the order of 100 instrumented messages; at the baseline's density —
+61 over four weeks — that is weeks away. The ≥6.6% figure stands unrefuted and
+unconfirmed, and the cost it describes is unchanged: each regeneration resends the
+full system prompt and history, and the correction call omits `cache_control`
+entirely (`conversation_service.py:1065-1072`), so a corrected turn costs close to
+double.
+
+**Why this entry stays open in one half.** Per the amended P-04, an owed
+verification that quietly stops being mentioned is the failure the rule exists to
+prevent. The behaviour check is closed and said so with its method; the
+measurement is not, and says why.
+
+---
+
 ## 5. UX
 
 ### UX-01 — CLOSED (#485, 2026-07-12)
