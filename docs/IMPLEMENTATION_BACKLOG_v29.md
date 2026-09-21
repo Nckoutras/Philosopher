@@ -1406,10 +1406,104 @@ instruments — there may not yet be enough conversations to measure blind
 identification against. A pointer to a section that does not exist is cheaper to
 correct than to leave asserting.
 
-### UAT2-004 — the persona forbidden-lexicon check does not run in production — **NEW**
-**Status: OPEN. Not scheduled. Founder ruling 2026-09-21: the two prompt-level
-"energy" defects are fixed in this PR; making the checker RUN is the separate,
-larger question and is not taken here.**
+### UAT2-004 — the persona forbidden-lexicon check does not run in production — **PARTLY CLOSED**
+**Status: PARTLY CLOSED. Wired at 2 of 14 sites (founder ruling D1, 2026-09-21).
+12 sites remain unwired and are enumerated below with a per-site reason. The
+original framing — "making the checker RUN is the separate, larger question" —
+is what this PR took.**
+
+---
+
+## THE DRY RUN that decided the scope
+
+Before wiring anything, `check_persona_forbidden` as it stood on main was run
+against **all 826 assistant replies in Oregon**, 2026-04-26 to 2026-09-21, all
+eleven personas (`persona_override` safety responses excluded — those are app
+voice). Method verified rather than trusted: the SQL normaliser was checked
+against Python's `normalize()` on all 20 distinct non-ASCII phrases (0
+mismatches), naive-substring controls confirmed the zeros were real, and every
+hit was re-run through the actual Python matcher, which agreed exactly.
+
+**11 of 826 replies (1.33%) would have fired** — 7 by phrase, 4 by pattern, no
+overlap. Of those, **9 were true positives** (the persona volunteering what its
+`anti_flexing` forbids) and **2 were false positives**, both Socrates quoting the
+user's own "you should" back at them, which is the elenchus. Ruling D2 dropped
+that entry; the rate is now **1.09%**.
+
+**Only 4 of 215 phrases and 1 of 24 patterns matched anything at all.** Personas
+with zero firings across the whole corpus: marcus_aurelius, epictetus,
+sigmund_freud, george_orwell, niccolo_machiavelli, oscar_wilde, miyamoto_musashi.
+
+**WHY THE RATE IS SO LOW, and why that is not reassurance.** `forbidden_phrases`
+is already injected into every system prompt as `DO NOT USE: …`
+(`system_base.jinja2:25`) and overlaps heavily with the structured lexicon.
+Measured: Freud never once writes "unconscious" in 82 replies; Orwell never
+writes `woke`, `stakeholder`, `the masses` or `your truth`; Beauvoir never writes
+`men are`. The post-check is a second net under a net that already catches
+almost everything. But the hinge-class exposure is real and merely
+**unexercised** — `men are`, `obviously`, `the answer is`, `warrior`, `be a man`,
+`alpha`, `sigma`, `synergy`, `be present`, `rise above`, `optimize`, `level up`
+are all live ordinary English. They score zero because the prompt suppresses
+them, not because they are safe.
+
+**Cost, for the record:** at 1.09%, wiring adds **+0.8%** to the bill per 100
+messages. Not a factor in the decision either way.
+
+---
+
+## WHAT WAS WIRED (this PR)
+
+- **Site 1, `conversation_service.stream_response`** — added to the trigger
+  tuple; uses the SSE `correction` path that already existed for the universal
+  lexicon.
+- **Site 4, `conversation_service.create_reading_revisit`** — calls
+  `regenerate_or_trim(..., brevity_triggers=False)`. Nothing is streamed, so a
+  hit is simply regenerated.
+
+**Brevity did not become live at either site**, and `brevity_triggers` exists
+specifically to stop it doing so through `regenerate_or_trim` — see BREV-001.
+
+## WHAT REMAINS — 12 sites, with the reason for each
+
+**Four streaming sites with no client `correction` handler.** The SSE event and
+its handling exist only in `useStream`'s `send`; `sendAnotherMind` and
+`sendGoDeeper` have their own event loops without it, and council and you-vs-you
+have their own SSE parsers entirely. Each needs client work, which this PR does
+not touch.
+
+| site | why not |
+|---|---|
+| 2 `stream_another_mind` | `useStream.sendAnotherMind` has no `correction` case |
+| 3 `stream_go_deeper` | `useStream.sendGoDeeper` has no `correction` case |
+| 5 `council_service.stream_council` | own SSE parser in `council/page.tsx` |
+| 9 `self_comparison_service.stream` | own SSE parser in `you-vs-you/page.tsx` |
+
+**Eight batch sites that `regenerate_or_trim` does not fit.** The original ruling
+listed nine batch sites as trivial; the map said "batch" without saying **JSON**,
+and that was wrong. `regenerate_or_trim` needs a `PersonaConfig`, free-form prose,
+and a system+user pair. Measured against each:
+
+| site | why not |
+|---|---|
+| 6 `council_service._distill_brief` / `display_brief` | **no persona at all** — Haiku transcript summarisation, app voice |
+| 7 `counterview_service` ×3 | **JSON** → `_extract_verdicts`; a prose lexicon over JSON, then `_deterministic_strip`, corrupts the envelope |
+| 8 `insight_mirror_service.generate_insight_mirror` | **JSON** (fenced) |
+| 10 `self_portrait_summary.generate_portrait` | **JSON** → `_parse_json` |
+| 11 `arq_worker.assess_conclusion_task` | prose, but `persona` is a DB row not a `PersonaConfig`, `get_persona` is not imported in that file, and the row can be `None`. Zero firings in 5 months (32 conclusion replies) — ruled out as not worth the surface (D7) |
+| 12 `arq_worker.generate_weekly_mirror_task` | **JSON** + already has its own retry loop |
+| 13 `arq_worker.generate_weekly_letter_task` | **JSON** + own retry loop |
+| 14 `arq_worker.generate_monthly_letter_task` | **JSON** + own retry loop |
+
+**All 11 dry-run firings were on `message_kind = 'standard'` — site 1.** The batch
+surfaces contributed none, so the reduced scope costs no observed coverage.
+
+A future wiring of the JSON sites would have to check the **extracted prose
+field** and re-call the site's own generator, which is new logic per site, not
+`regenerate_or_trim`.
+
+---
+
+**Original entry follows, unchanged except the status line.**
 
 **WHERE UAT FINDINGS LIVE — ruling, 2026-09-21.** `docs/uat/` is **not created**.
 UAT findings go here, in `IMPLEMENTATION_BACKLOG_v29.md`, on the same shelf as
@@ -1471,6 +1565,108 @@ reason. A blanket "string absent from the assembled prompt" assertion therefore 
 against a CORRECT tree, and was caught doing so during revert-verify. Assertions about
 prompt text must either target the instruction-bearing fields directly or exclude
 `WRONG:` lines — `tests/test_prompt_text_attribution.py` does both.
+
+### BREV-001 — brevity fires on 18.5% of replies, and 13 of 15 `go_deeper` firings are the check's own fault — **NEW**
+**Status: OPEN. Split out of UAT2-004 by founder ruling D4, 2026-09-21. Three
+steps, in order; no wiring decision until step 2 is done.**
+
+**THE MEASUREMENT.** Same dry run as UAT2-004, same 826 Oregon replies.
+`check_brevity` would report REGENERATE on **153 of 826 = 18.5%** — **17x** the
+persona-lexicon rate. When over, replies are far over: mean **102 words** against
+ceilings of 35–80, max 242.
+
+| persona | replies | over ceiling | rate |
+|---|---|---|---|
+| marcus_aurelius | 115 | 40 | **34.8%** |
+| lao_tzu | 124 | 32 | 25.8% |
+| carl_jung | 68 | 16 | 23.5% |
+| niccolo_machiavelli | 56 | 10 | 17.9% |
+| socrates | 175 | 28 | 16.0% |
+| oscar_wilde | 55 | 8 | 14.5% |
+| epictetus | 52 | 5 | 9.6% |
+| simone_de_beauvoir | 44 | 4 | 9.1% |
+| sigmund_freud | 82 | 5 | 6.1% |
+| george_orwell | 50 | 3 | 6.0% |
+| miyamoto_musashi | 5 | 2 | 40.0% (n=5) |
+
+**A DEFECT INSIDE THAT NUMBER, and it must be fixed before the rate means
+anything.** `check_brevity` takes only `first_message` / `mid_session` /
+`late_session` and has **no reflective branch**, so it judges `go_deeper` replies
+against `standard_reply_words` even though those have their own
+`reflective_reply_max_words` (120–215). Result: **15 of 50 `go_deeper` replies
+(30%) would fire, but only 2 exceed the reflective ceiling** — **13 of 15 are
+false positives created by the check's own missing branch.** For `standard`
+replies, 138/744 fire and only 27 exceed even the reflective ceiling.
+
+**WHERE BREVITY STANDS TODAY — inert, and deliberately.** `conversation_service`
+computes `_brv` (`:1062`) and leaves it out of the trigger tuple (`:1068`, with
+the comment saying so since #684). On the correction path `_brv2` gates only
+which log line fires — **both branches assign `full_response = correction_text`**
+(UAT2-001 Ruling D), so brevity currently affects **nothing but a log label**.
+
+**AND IT MUST STAY INERT UNTIL THIS IS RESOLVED.** `regenerate_or_trim` would
+have made it live in two places at once — `all_ok`, and `_deterministic_strip`'s
+tail, which TRUNCATES the reply at a sentence boundary. UAT2-004 added
+`brevity_triggers=False` for exactly this, and every production call site passes
+it. `tests/test_brevity_inert_in_batch.py` pins it: an over-band reply with no
+lexicon hit must return **byte-identical**, with zero LLM calls.
+
+**THE THREE STEPS.**
+1. **Add the reflective branch to `check_brevity`** so `go_deeper` is judged
+   against `reflective_reply_max_words`.
+2. **Re-run the dry run** against the 826 replies. The 18.5% figure is *not* the
+   real rate — it is the rate of a check with a known missing band.
+3. **Then decide on wiring**, against the corrected rate and the cost. At 18.5%
+   the added cost is **+11.3%** per 100 messages (vs +0.8% for the persona
+   lexicon at 1.09%) — the first postprocessing decision where cost is actually
+   a factor.
+
+**Not scheduled.** Step 1 is small; step 2 is the reason not to skip to step 3.
+
+### TD-91 — `personas.config` in production is badly stale, and nothing reads it — **NEW**
+**Status: OPEN. NOT a live defect. Logged because anyone reasoning about persona
+config FROM THE DATABASE will be wrong, which is how it was found.**
+
+Measured on Oregon, 2026-09-21. **8 of 11 personas carry ZERO phrases** in
+`config->'forbidden_lexicon_persona_specific'->'phrases'` while `main` has 13–34
+each; only `george_orwell` (30), `miyamoto_musashi` (31) and `socrates` (8)
+match. All 11 still carry `safety` and `retrieval_sources`, both deleted from the
+dataclass in #689.
+
+**Why it is not live:** `conversation_service` resolves the persona through
+`get_persona(persona_db.slug)` — i.e. `PERSONA_REGISTRY`, the Python modules. The
+jsonb column is written only by migrations 006/027 (frozen literals, per C-01)
+and by `db/seed.py`, which is a manual `python db/seed.py` and is in no deploy
+path. So the stale column is read by nothing at runtime.
+
+**Why it is worth an entry anyway:** it looks authoritative. The UAT2-004 dry run
+started by checking whether the DB could supply the lexicon — it could not, and
+had it been trusted, 8 of 11 personas would have been measured as having no
+lexicon at all. The same trap is available to anyone writing a query against
+`personas.config`.
+
+**Options, undecided:** run `db/seed.py` against prod (rewrites all 11 rows from
+the registry — safe, since nothing reads them); or add a migration that drops the
+now-meaningless keys; or leave it and rely on this entry. No urgency either way.
+
+### BUG-024 — `messages.model_used` is NULL on every instrumented row — **NEW**
+**Status: OPEN. Blinds cost-per-tier. Found by UAT2-004's cost model.**
+
+All **73** assistant rows carrying token instrumentation have `model_used = NULL`,
+as does every other assistant row. The column exists, is populated by nothing, and
+the model is chosen per request at `conversation_service.py:967` / `:1430` /
+`:1692` (`MODEL_PRO if user_plan in ("pro","premium") else MODEL_FREE`).
+
+**What it costs.** Free and pro turns differ **3x** in price (Haiku 4.5 $1/$5 per
+MTok vs Sonnet 4.6 $3/$15). With the column null, the real blended cost of any
+change cannot be computed from the data — UAT2-004 had to present Haiku and
+Sonnet figures side by side and say it could not blend them. Every future cost
+question has the same problem, including BREV-001 step 3, where the cost is the
+deciding factor.
+
+**Likely small.** The model is already in scope at each call site; this looks like
+a write that was never added rather than anything structural. Worth confirming
+before estimating.
 
 ### SAFETY-001 — the deleted `safety` config field promised sixteen behaviours; one was implemented — **NEW**
 **Status: OPEN. NOT to be built now — founder ruling 2026-09-21. Logged so the
@@ -1935,10 +2131,24 @@ n = 5 post-deploy. **Five messages is not a measurement** and is recorded here a
 a count, not a rate. Separating "fell to near zero" from "we have not seen enough
 yet" needs on the order of 100 instrumented messages; at the baseline's density —
 61 over four weeks — that is weeks away. The ≥6.6% figure stands unrefuted and
-unconfirmed, and the cost it describes is unchanged: each regeneration resends the
-full system prompt and history, and the correction call omits `cache_control`
-entirely (`conversation_service.py:1065-1072`), so a corrected turn costs close to
-double.
+unconfirmed. **The cost it describes was overstated, and is corrected here
+(UAT2-004, 2026-09-21).** Each regeneration does resend the full message history
+uncached. But the claim that "the correction call omits `cache_control` entirely
+(`conversation_service.py:1065-1072`)" is **false, and has been since #516
+(2026-07-19)** — which predates this entry. That call passes through
+`prompt_builder.split_system_for_cache(system_prompt + "\n\n" + directive)`, and
+because the directive lands in the *suffix*, the cached prefix stays byte-identical
+and is re-read.
+
+Measured from the 73 instrumented turns (uncached in 1188, cache_read 1412,
+cache_creation 1071, output ~73) at Haiku 4.5 $1/$5 and Sonnet 4.6 $3/$15, cache
+read 0.1x and cache write 1.25x: **a corrected turn costs 1.61x a normal one, not
+"close to double"**. Without the cached prefix it would be 2.35x, which is where
+the original figure came from. The ratio is the same on both models.
+
+This is the failure mode CLAUDE.md's 2026-08-18 entry is about — a claim carried
+forward without being re-checked against the code. It was found only because
+UAT2-004 needed the number for a cost model and verified the premise first.
 
 **Why this entry stays open in one half.** Per the amended P-04, an owed
 verification that quietly stops being mentioned is the failure the rule exists to
