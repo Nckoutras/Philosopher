@@ -1406,6 +1406,83 @@ instruments — there may not yet be enough conversations to measure blind
 identification against. A pointer to a section that does not exist is cheaper to
 correct than to leave asserting.
 
+### RETRIEVAL-001 — RAG retrieval has never returned a passage, and the threshold is unreachable — **NEW**
+**Status: OPEN. NOT a bug to fix now — founder ruling 2026-09-21 is NO CHANGE. The
+decision is deferred to the §8.2 eval harness as an A/B arm.**
+
+**THE FACT.** Of **166 assistant messages in the last 60 days** with `retrieval_ids`
+recorded as a JSON array, **ZERO have a non-empty array**, on any persona. Retrieval
+has never recorded a hit since the initial commit.
+
+**THE MEASUREMENT (founder, Oregon, 2026-09-21).** 40 recent `memory_entries`
+embeddings scored against every chunk, per corpus persona:
+
+| | Range across the 7 corpus personas |
+|---|---|
+| Best top-1 cosine EVER | **0.387 – 0.462** |
+| Median top-1 | **0.294 – 0.381** |
+| Queries reaching 0.72 | **zero, on every persona** |
+
+`score_threshold = 0.72` (`services/retrieval_service.py:19`, filtered at `:48`).
+**The ceiling is ~0.46. The threshold is not strict — it is unreachable.** Retrieval
+has been dead since `3af5f706`, 2026-04-19; `git log -S` shows that literal has never
+been touched since the initial commit and was never measured against real embeddings.
+
+**WHAT IS NOT WRONG, checked before the threshold was blamed.** Retrieval is invoked
+on the standard path (`conversation_service.py:762`, inside a try/except that logs at
+WARNING and swallows). The SQL is correct: pgvector `<=>` is cosine DISTANCE, so
+`1 - (...)` is similarity; the persona join, the `embedding IS NOT NULL` filter and
+the ordering are all right. `retrieval_ids` is built unconditionally from the same
+`passages` variable (`:931`) and passed straight to `_save_message` (`:1153`, written
+at `:1805`) — **there is no path where a non-empty result fails to reach the column.**
+The 166 empty arrays are a faithful record, not a logging gap. The chunks exist, the
+query finds them, orders them correctly, and discards them at the last line.
+
+**WHY NOT SIMPLY LOWER IT — the ruling, and its reasoning.** The scores are compressed
+into **0.30–0.46 with no gap separating relevant from noise**. A threshold placed
+inside that band admits passages on a coin-flip, and every injected passage invites
+the persona to cite it — an **anti-flex regression against §5.7**, which is a voice
+defect rather than a retrieval one and would be far harder to see than an empty array.
+Precision cannot be bought by moving a line through the middle of a distribution that
+has no shoulder.
+
+**DEFERRED TO §8.2**, as an A/B arm in the eval harness: **retrieval OFF vs ON
+(top-2, threshold ~0.42)**, judged on **Distinctiveness** and **Anti-Flex**. That is
+the instrument that can see the cost the threshold move would incur; the backlog
+cannot.
+
+**A SECOND FINDING FROM THE SAME INVESTIGATION — `retrieval_sources` IS DECORATIVE.**
+Every persona config carries a `retrieval_sources` list (`personas/_base.py:46`), and
+**the retrieval query never reads it.** The SQL filters on `p.slug` alone, not on
+`source_title`. So a persona listing sources it does not have, or omitting ones it
+does, changes nothing about what is retrieved. Nothing depends on this today
+*because* retrieval returns nothing — but it becomes live the moment the §8.2 arm
+turns retrieval on, and a field that looks like a filter and is not is exactly the
+kind of thing that gets trusted in the change that re-enables it.
+
+**Three personas legitimately have zero chunks** and are not evidence of this defect:
+`carl_jung`, `simone_de_beauvoir`, `george_orwell` are in `EXCLUDED_PERSONAS`
+(`scripts/corpus_sources.py:258`) for copyright — voice-engineered only, per C-03
+item 5. Musashi likewise carries `retrieval_sources=[]`. Any future "retrieval
+returned nothing" report against those four is the designed behaviour.
+
+**INFERRED_SCORE_FLOOR is the same class and is DEFERRED with it.**
+`services/memory_service.py:52` carries `0.75` with its own comment admitting it is a
+SHIP-AND-TUNE value that "no measurement of either number against real embeddings
+exists". It is a query-to-row floor like this one. Founder ruling 2026-09-21: **not
+now, same deferral.**
+
+**NOT INVESTIGATED, deliberately.** Render WARNING logs would distinguish "retrieval
+threw" from "retrieval returned empty" — the `except` at `:763` makes those identical
+from the database. Founder ruling: **not needed, the scores settle it regardless of
+exceptions.** A ceiling of 0.46 against a floor of 0.72 produces zero hits whether or
+not anything also threw.
+
+**Yesterday's corpus re-ingest was not wasted.** The 2026-09-20 Phase 2 re-ingest
+(2584 chunks, all with embeddings) is invisible in production because of this line,
+not because of anything wrong with the ingest. Those chunks are correct and are what
+the §8.2 arm would switch on.
+
 ---
 
 ## 3. Open decisions
