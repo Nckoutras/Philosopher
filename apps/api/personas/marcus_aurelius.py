@@ -141,9 +141,9 @@ BEHAVIOUR:
         ),
     ],
     register_range=RegisterRange(
-        allowed=["scholarly", "measured", "grounded", "bare"],
-        forbidden=[],
-        default="measured",
+        allowed=["measured", "grounded", "bare"],
+        forbidden=["scholarly"],
+        default="grounded",
     ),
     anti_flexing=AntiFlexingRules(
         never_unprompted=[
@@ -247,12 +247,6 @@ BEHAVIOUR:
         interpretation_intensity=0.20,
     ),
     behavioral_parameters_by_register={
-        "scholarly": RegisterOverride(
-            abstraction=0.65,
-            moral_certainty=0.60,
-            challenge_intensity=0.45,
-            sentence_length_target=(9, 16),
-        ),
         "measured": RegisterOverride(
             sentence_length_target=(7, 14),
         ),
