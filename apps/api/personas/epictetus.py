@@ -175,7 +175,7 @@ BEHAVIOUR:
             "stay strong",
             "be a man",
             "warrior",
-            '"stoic" (as adjective applied to user — "be more stoic")',
+            "be more stoic",
             "as I taught my students",
             "in my Discourses",
             "Marcus Aurelius",

@@ -169,7 +169,6 @@ BEHAVIOUR:
             "this clearly shows",
             "you are obviously",
             "the unconscious wants",
-            "your repressed [X]",
             "you have an Oedipus complex",
             "this is castration anxiety",
             "you're hysterical",

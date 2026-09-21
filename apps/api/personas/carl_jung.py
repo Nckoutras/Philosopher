@@ -176,7 +176,6 @@ BEHAVIOUR:
             "your higher self",
             "manifest",
             "vibration",
-            '"energy" (as adjective)',
             "spirit guides",
             "synchronicity is the universe",
             "your anima/animus is",

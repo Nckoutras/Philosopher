@@ -100,12 +100,17 @@ def _boundary_pattern(norm_phrase: str) -> re.Pattern:
     LOOKAROUNDS, NOT \\b, AND THE DIFFERENCE IS NOT COSMETIC. `\\b` is defined
     against the character NEXT TO IT, so `\\bX \\(formerly Twitter\\)\\b` requires a
     word character after the closing paren — and the phrase ends in `)`, so the
-    trailing `\\b` inverts the match and the entry silently dies. Four shipped
-    phrases end or begin with punctuation: `X (formerly Twitter)` here, plus
-    `"energy" (as adjective)`, `"stoic" (as adjective applied to user — "be more
-    stoic")` and `your repressed [X]` in the persona lexicons. `(?<!\\w)` and
+    trailing `\\b` inverts the match and the entry silently dies. `(?<!\\w)` and
     `(?!\\w)` assert only that the neighbour is not a word character, which is the
     actual intent and is true at a string edge too.
+
+    This paragraph used to cite four such phrases. Three of them —
+    `"energy" (as adjective)`, `"stoic" (as adjective applied to user — "be more
+    stoic")` and `your repressed [X]` — were deleted or rewritten by UAT2-004,
+    because they were not phrases at all but annotations to a human, and could
+    never have matched real text under ANY boundary rule. `X (formerly Twitter)`
+    in the universal lexicon is the remaining genuine case and is why the
+    lookarounds stay.
 
     Built from the NORMALISED phrase and matched against the NORMALISED reply, so
     TD-60's Greek fold is preserved: `\\w` is Unicode-aware for str patterns, so a
@@ -435,8 +440,30 @@ async def regenerate_or_trim(
     user_text: str,
     conversation_position: str = "mid_session",
     max_attempts: int = MAX_REGEN_ATTEMPTS,
+    *,
+    brevity_triggers: bool = True,
 ) -> tuple[str, list[CheckResult]]:
-    """Run all checks. Regenerate up to max_attempts. Return final reply + history."""
+    """Run all checks. Regenerate up to max_attempts. Return final reply + history.
+
+    PRODUCTION CALL SITES MUST PASS brevity_triggers=False. The default is True
+    only so `scripts/voice_test_socrates.py` and the pre-existing tests keep the
+    behaviour they were written against.
+
+    WHY THE FLAG EXISTS (UAT2-004). Brevity is deliberately inert in production
+    — `conversation_service` computes it and leaves it out of the trigger tuple.
+    Wiring this function into a live path without the flag would silently make
+    it live again, in TWO places: `all_ok` below, and `_deterministic_strip`,
+    whose tail truncates the reply at a sentence boundary when a brevity result
+    failed. Measured over all 826 Oregon replies, brevity is outside its band on
+    18.5% of them — so that would mean regenerating, and then TRUNCATING, close
+    to a fifth of every surface this is wired into. `_deterministic_strip` is
+    also the function UAT2-001 Ruling D stopped calling on the streaming path.
+
+    With brevity_triggers=False, brevity is still COMPUTED and still LOGGED —
+    including the `brevity_passed_but_mid_sentence` signal below — but never
+    gates, never trims, and never reaches a regeneration directive. That is the
+    same posture `stream_response` has had since #684.
+    """
     start_ts = _time.monotonic()
     history: list[CheckResult] = []
     current = reply
@@ -450,8 +477,15 @@ async def regenerate_or_trim(
         ]
         history.extend(results)
 
+        # `gating` is what is allowed to FORCE work: to block all_ok, to shape a
+        # regeneration directive, and to drive _deterministic_strip. `results`
+        # stays whole so the brevity observability below is unaffected.
+        gating = results if brevity_triggers else [
+            r for r in results if r.check_name != "brevity"
+        ]
+
         # If all pass (PASS or SKIP), we're done
-        all_ok = all(r.action in (CheckAction.PASS, CheckAction.SKIP) for r in results)
+        all_ok = all(r.action in (CheckAction.PASS, CheckAction.SKIP) for r in gating)
         if all_ok:
             duration_ms = int((_time.monotonic() - start_ts) * 1000)
             hit_categories = sorted(set(
@@ -501,11 +535,11 @@ async def regenerate_or_trim(
                     "hit_categories": hit_categories,
                 },
             )
-            current = _deterministic_strip(current, results)
+            current = _deterministic_strip(current, gating)
             return current, history
 
         # Build regen directive based on results + attempt number
-        directive = _build_regen_directive(results, attempt, persona)
+        directive = _build_regen_directive(gating, attempt, persona)
 
         # Regenerate via non-streaming complete()
         # Local import here (not module-level) to avoid circular dependency
