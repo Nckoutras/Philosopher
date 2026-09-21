@@ -1566,62 +1566,149 @@ against a CORRECT tree, and was caught doing so during revert-verify. Assertions
 prompt text must either target the instruction-bearing fields directly or exclude
 `WRONG:` lines — `tests/test_prompt_text_attribution.py` does both.
 
-### BREV-001 — brevity fires on 18.5% of replies, and 13 of 15 `go_deeper` firings are the check's own fault — **NEW**
-**Status: OPEN. Split out of UAT2-004 by founder ruling D4, 2026-09-21. Three
-steps, in order; no wiring decision until step 2 is done.**
+### BREV-001 — the model does not obey the length directive on 18.5% of replies — **NEW**
+**Status: OPEN. Split out of UAT2-004 by founder ruling D4, 2026-09-21.
+CORRECTED 2026-09-21 (ruling D11) — see "What this entry got wrong" below. Step 1
+is folded into step 3 (ruling D9); the decision is step 3, and it is taken on the
+numbers here, which are final.**
 
-**THE MEASUREMENT.** Same dry run as UAT2-004, same 826 Oregon replies.
-`check_brevity` would report REGENERATE on **153 of 826 = 18.5%** — **17x** the
-persona-lexicon rate. When over, replies are far over: mean **102 words** against
-ceilings of 35–80, max 242.
+## What this entry got wrong, and the correction
 
-| persona | replies | over ceiling | rate |
+The first version said **13** of 15 `go_deeper` firings were false positives, and
+that 18.5% "is the rate of a check with a known defect, not a real rate". **Both
+were wrong, and the second one mattered.**
+
+The count was 13 because the dry run used
+`marcus_aurelius.reflective_reply_max_words = 215`. The real value is **120** —
+transcribed rather than read from `PERSONA_REGISTRY`. Recomputed from the
+registry, it is **12**.
+
+The larger claim does not survive that correction:
+
+| kind | replies | over today | over WITH the reflective fix |
 |---|---|---|---|
-| marcus_aurelius | 115 | 40 | **34.8%** |
-| lao_tzu | 124 | 32 | 25.8% |
-| carl_jung | 68 | 16 | 23.5% |
-| niccolo_machiavelli | 56 | 10 | 17.9% |
-| socrates | 175 | 28 | 16.0% |
-| oscar_wilde | 55 | 8 | 14.5% |
-| epictetus | 52 | 5 | 9.6% |
-| simone_de_beauvoir | 44 | 4 | 9.1% |
-| sigmund_freud | 82 | 5 | 6.1% |
-| george_orwell | 50 | 3 | 6.0% |
-| miyamoto_musashi | 5 | 2 | 40.0% (n=5) |
+| `standard` | 744 | 138 (**18.5%**) | 138 (**18.5%** — unchanged) |
+| `go_deeper` | 50 | 15 (30.0%) | 3 (6.0%) |
+| `conclusion` | 32 | 0 | 0 |
+| **ALL** | **826** | **153 (18.5%)** | **141 (17.1%)** |
 
-**A DEFECT INSIDE THAT NUMBER, and it must be fixed before the rate means
-anything.** `check_brevity` takes only `first_message` / `mid_session` /
-`late_session` and has **no reflective branch**, so it judges `go_deeper` replies
-against `standard_reply_words` even though those have their own
-`reflective_reply_max_words` (120–215). Result: **15 of 50 `go_deeper` replies
-(30%) would fire, but only 2 exceed the reflective ceiling** — **13 of 15 are
-false positives created by the check's own missing branch.** For `standard`
-replies, 138/744 fire and only 27 exceed even the reflective ceiling.
+The reflective branch reclassifies **12 replies out of 826**. It does not touch
+`standard` replies, which are 744 of the corpus. **The 18.5% is real.**
 
-**WHERE BREVITY STANDS TODAY — inert, and deliberately.** `conversation_service`
-computes `_brv` (`:1062`) and leaves it out of the trigger tuple (`:1068`, with
-the comment saying so since #684). On the correction path `_brv2` gates only
-which log line fires — **both branches assign `full_response = correction_text`**
-(UAT2-001 Ruling D), so brevity currently affects **nothing but a log label**.
+## THE MEASUREMENT — corrected, per persona
 
-**AND IT MUST STAY INERT UNTIL THIS IS RESOLVED.** `regenerate_or_trim` would
-have made it live in two places at once — `all_ok`, and `_deterministic_strip`'s
-tail, which TRUNCATES the reply at a sentence boundary. UAT2-004 added
+Bands read from `PERSONA_REGISTRY`, not transcribed. The `standard` rate is the
+number step 3 decides on; the reflective fix does not change it.
+
+| persona | standard replies | over ceiling | **rate** | go_deeper | gd over today | gd over fixed |
+|---|---|---|---|---|---|---|
+| marcus_aurelius | 110 | 39 | **35.5%** | 4 | 1 | 1 |
+| carl_jung | 62 | 16 | **25.8%** | 3 | 0 | 0 |
+| lao_tzu | 107 | 23 | **21.5%** | 14 | 9 | 1 |
+| niccolo_machiavelli | 53 | 10 | 18.9% | 2 | 0 | 0 |
+| oscar_wilde | 50 | 8 | 16.0% | 0 | 0 | 0 |
+| socrates | 153 | 23 | 15.0% | 16 | 5 | 1 |
+| epictetus | 49 | 5 | 10.2% | 2 | 0 | 0 |
+| simone_de_beauvoir | 43 | 4 | 9.3% | 0 | 0 | 0 |
+| george_orwell | 42 | 3 | 7.1% | 4 | 0 | 0 |
+| sigmund_freud | 71 | 5 | 7.0% | 4 | 0 | 0 |
+| miyamoto_musashi | 4 | 2 | 50.0% (n=4) | 1 | 0 | 0 |
+| **ALL** | **744** | **138** | **18.5%** | **50** | **15** | **3** |
+
+When over, replies are far over: mean **102 words** against ceilings of 35–80,
+max **242**.
+
+**WHAT THIS ACTUALLY MEASURES — and it is not a check defect.** Every persona
+carries an explicit length instruction in its `system_fragment` ("Keep responses
+between 15–45 words"), and deep mode adds `_deepen_directive` with an explicit
+word target. On 18.5% of ordinary replies **the model does not obey it.** That is
+a prompt-adherence finding, not a brevity-check finding. Marcus at 35.5%, Jung at
+25.8% and Lao Tzu at 21.5% are the personas whose stated economy the output least
+resembles — and Lao Tzu's own character anchor is that brevity IS the teaching
+(`anchor_brevity_is_the_form`).
+
+**No band anomalies.** All 11 personas have `reflective_reply_max_words` set, each
+**2.17x–2.89x** its standard ceiling (lowest `sigmund_freud` / `niccolo_machiavelli`,
+highest `lao_tzu`). `first_message_max_words` and `council_mode_words` are
+populated for all 11. Nothing missing, nothing inverted.
+
+## WHERE BREVITY STANDS TODAY — inert, and deliberately
+
+`conversation_service` computes `_brv` (`:1062`) and leaves it out of the trigger
+tuple (`:1068`, with the comment saying so since #684). On the correction path
+`_brv2` gates only which log line fires — **both branches assign
+`full_response = correction_text`** (UAT2-001 Ruling D), so brevity currently
+affects **nothing but a log label**.
+
+**AND IT MUST STAY INERT UNTIL STEP 3 IS DECIDED.** `regenerate_or_trim` would
+make it live in two places at once — `all_ok`, and `_deterministic_strip`'s tail,
+which TRUNCATES the reply at a sentence boundary. UAT2-004 added
 `brevity_triggers=False` for exactly this, and every production call site passes
 it. `tests/test_brevity_inert_in_batch.py` pins it: an over-band reply with no
 lexicon hit must return **byte-identical**, with zero LLM calls.
 
-**THE THREE STEPS.**
-1. **Add the reflective branch to `check_brevity`** so `go_deeper` is judged
-   against `reflective_reply_max_words`.
-2. **Re-run the dry run** against the 826 replies. The 18.5% figure is *not* the
-   real rate — it is the rate of a check with a known missing band.
-3. **Then decide on wiring**, against the corrected rate and the cost. At 18.5%
-   the added cost is **+11.3%** per 100 messages (vs +0.8% for the persona
-   lexicon at 1.09%) — the first postprocessing decision where cost is actually
-   a factor.
+## STEP 3 — the decision, and the three options
 
-**Not scheduled.** Step 1 is small; step 2 is the reason not to skip to step 3.
+Taken on the numbers above. **There is no step 2 any more:** the rate is measured,
+and the reflective fix does not move it.
+
+1. **Enforce via regeneration.** Wire brevity into the trigger tuple. Cost at
+   18.5%: **+11.3%** per 100 messages, against +0.8% for the persona lexicon at
+   1.09% — the first postprocessing decision where cost is actually a factor, and
+   the first where regeneration would be the common case rather than the rare one.
+2. **Tighten the directive.** Treat it as the prompt-adherence problem it is.
+   Cheaper, no per-turn cost, and the only option that addresses the cause rather
+   than the symptom. Unmeasured.
+3. **Accept it.** The ceilings may simply be tighter than the product wants; 18.5%
+   over a ceiling nobody enforces has cost nothing so far.
+
+## STEP 1 IS DEFERRED INTO STEP 3 (ruling D9), with its design recorded here
+
+It corrects 12 of 826 replies on a surface that **is not checked in production**,
+so it does not earn its own PR cycle. Whoever takes step 3 takes this with it:
+
+- **`check_brevity` gains a keyword-only `reflective: bool = False`**, not a new
+  `conversation_position` value. Position and mode are orthogonal: a deep-mode
+  FIRST reply is instructed up to the reflective band but must keep its
+  first-message cap, and a single string forces a wrong choice. Up to **27** of
+  the 182 first replies sit in deep-mode conversations, so it is reachable.
+- **`first_message` keeps priority** over `reflective`.
+- **`_compute_max_tokens` (`postprocessing_service.py:636`) needs the same
+  branch.** It runs the identical position logic, so a regenerated reflective
+  reply would be capped at `standard_ceiling x 1.4 x headroom` — for Lao Tzu, **88
+  tokens** against a ~180-token target, truncating mid-sentence. Latent today:
+  only `regenerate_or_trim` calls it, and site 4 is not reflective.
+- **Call sites:** `conversation_service.py:1062` and `:1099` pass
+  `reflective=deep_mode_active`, a local already computed at `:922`. Nothing needs
+  threading through.
+- **Fixtures, from the dry run** — real `(persona, word_count)` pairs. The check
+  reads only `len(reply.split())`, so the bodies are irrelevant and the tests
+  should say so rather than implying the prose matters. **12 that must then
+  PASS:** `lao_tzu` (band 45/130) at 51, 56, 62, 64, 72, 89, 112, 128;
+  `socrates` (55/120) at 59, 62, 71, 88. **3 that must still FIRE:** `lao_tzu`
+  143, `marcus_aurelius` 127, `socrates` 176.
+
+## THE REFLECTIVE MIS-JUDGEMENT IS REAL, BUT NOT WHERE IT LOOKS
+
+`_deepen_directive` is applied in **two** places: `conversation_service.py:924`
+inside `stream_response`, and `:1629` inside `stream_go_deeper`. **Only the first
+reaches `check_brevity`** — `stream_go_deeper` runs no checks at all. So the
+replies actually mis-judged in production are **deep-mode replies inside
+`stream_response`**, which are saved as `message_kind='standard'` with no marker
+and therefore cannot be separated in the data (see BUG-024).
+
+Generous upper bound: **307** standard replies sit in currently-deep
+conversations, of which only **19** fall between their standard and reflective
+ceilings. Reclassifying every one of them would take 138 to 119 — **18.5% to
+16.0%**. That does not explain the rate either.
+
+## §8.2 DESIGN NOTE — for the eval harness
+
+The harness knows each sample's mode, because it chooses it. **It must judge
+deep-mode and go_deeper samples against `reflective_reply_max_words` itself**, and
+not inherit `check_brevity`'s position-only view. A harness that scores a
+go_deeper sample against the standard band reports a length failure on 30% of them
+where the real rate is 6%.
 
 ### TD-91 — `personas.config` in production is badly stale, and nothing reads it — **NEW**
 **Status: OPEN. NOT a live defect. Logged because anyone reasoning about persona
@@ -1649,24 +1736,42 @@ lexicon at all. The same trap is available to anyone writing a query against
 the registry — safe, since nothing reads them); or add a migration that drops the
 now-meaningless keys; or leave it and rely on this entry. No urgency either way.
 
-### BUG-024 — `messages.model_used` is NULL on every instrumented row — **NEW**
-**Status: OPEN. Blinds cost-per-tier. Found by UAT2-004's cost model.**
+### BUG-024 — `messages` lacks instrumentation for cost-by-tier and for mode — **NEW**
+**Status: OPEN. One item, two gaps (founder ruling D10, 2026-09-21). One small PR
+later, not now. Both were found by investigations that then had to state what they
+could not measure.**
 
-All **73** assistant rows carrying token instrumentation have `model_used = NULL`,
-as does every other assistant row. The column exists, is populated by nothing, and
-the model is chosen per request at `conversation_service.py:967` / `:1430` /
-`:1692` (`MODEL_PRO if user_plan in ("pro","premium") else MODEL_FREE`).
+**GAP 1 — `model_used` is NULL on every row.** All **73** assistant rows carrying
+token instrumentation have `model_used = NULL`, as does every other assistant row.
+The column exists, is populated by nothing, and the model is chosen per request at
+`conversation_service.py:967` / `:1430` / `:1692`
+(`MODEL_PRO if user_plan in ("pro","premium") else MODEL_FREE`).
 
-**What it costs.** Free and pro turns differ **3x** in price (Haiku 4.5 $1/$5 per
-MTok vs Sonnet 4.6 $3/$15). With the column null, the real blended cost of any
-change cannot be computed from the data — UAT2-004 had to present Haiku and
-Sonnet figures side by side and say it could not blend them. Every future cost
-question has the same problem, including BREV-001 step 3, where the cost is the
-deciding factor.
+*What it costs:* free and pro turns differ **3x** in price (Haiku 4.5 $1/$5 per
+MTok vs Sonnet 4.6 $3/$15). With the column null, no blended cost can be computed
+from the data — UAT2-004 had to present Haiku and Sonnet figures side by side and
+say it could not blend them. **BREV-001 step 3 turns on cost**, and will have the
+same problem.
 
-**Likely small.** The model is already in scope at each call site; this looks like
-a write that was never added rather than anything structural. Worth confirming
-before estimating.
+**GAP 2 — there is no deep-mode marker.** `message_kind` takes exactly three
+values in practice: `'standard'` (the column default), `'go_deeper'`
+(`conversation_service.py:1753`) and `'conclusion'` (`arq_worker.py:1275`).
+**Deep-mode replies are saved as `'standard'`** with nothing distinguishing them,
+even though they were generated under `_deepen_directive` and sized to the
+persona's reflective band.
+
+*What it costs:* deep-mode replies are exactly the ones `check_brevity` misjudges
+in production, and they **cannot be identified after the fact**. BREV-001 could
+only bound them — between 0 and 307 of the 744 standard replies — and had to say
+so. `conversations.deep_mode` is a current, sticky flag, not a per-message record,
+so it cannot be reconstructed from history either. Any future question of the form
+"how do deep replies differ" is unanswerable on the existing data.
+
+**Both are likely small.** The model and `deep_mode_active` are each already in
+scope at the call site that writes the row; this looks like two writes that were
+never added rather than anything structural. **Neither fix recovers history** —
+they only stop the next five months being as blind as the last five. Worth
+confirming the shape before estimating.
 
 ### SAFETY-001 — the deleted `safety` config field promised sixteen behaviours; one was implemented — **NEW**
 **Status: OPEN. NOT to be built now — founder ruling 2026-09-21. Logged so the
