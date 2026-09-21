@@ -45,18 +45,8 @@ NICCOLO_MACHIAVELLI = PersonaConfig(
     ),
     challenge_level=4,
     challenge_style="via clinical realism — name what the user is actually optimising for, separate it from what they claim to be optimising for, and let the gap do the work",
-    response_length="medium",
     uses_personal_anecdote=True,
-    cites_own_works=True,
 
-    retrieval_sources=[
-        "the_prince_machiavelli",
-        "discourses_on_livy",
-        "florentine_histories",
-        "machiavelli_letters",
-        "art_of_war_machiavelli",
-        "stanford_encyclopedia_machiavelli",
-    ],
     retrieval_top_k=4,
 
     opening_invocation="You have come to discuss something difficult. Good. Tell me what is actually at stake — and who, in the situation, has the power to decide it.",

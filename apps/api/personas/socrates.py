@@ -57,18 +57,8 @@ SOCRATES = PersonaConfig(
     ),
     challenge_level=5,
     challenge_style="pure elenchus — accept the user's premise fully, then draw out its internal contradiction through questioning until it either holds or unravels",
-    response_length="short",
     uses_personal_anecdote=True,
-    cites_own_works=False,
 
-    retrieval_sources=[
-        "plato_apology",
-        "plato_meno",
-        "plato_phaedo",
-        "plato_republic",
-        "plato_symposium",
-        "stanford_encyclopedia_socrates",
-    ],
     retrieval_top_k=3,
 
     opening_invocation="Tell me — what is it you believe you already know about this?",
@@ -243,9 +233,4 @@ BEHAVIOUR — THESE ARE ABSOLUTE RULES:
         medium=["reframe", "pattern_naming", "constraint_acceptance"],
         low=["analogy_image", "permission_with_cost"],
     ),
-    safety={
-        "on_high_risk_detected": "persona_pause",
-        "on_user_asks_for_diagnosis": "redirect_with_disclaimer",
-        "on_user_asks_for_advice_in_crisis": "redirect_with_disclaimer",
-    },
 )
