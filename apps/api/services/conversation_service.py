@@ -33,6 +33,7 @@ from services.postprocessing_service import (
     check_universal_forbidden,
     check_brevity,
     check_persona_forbidden,
+    regenerate_or_trim,
     CheckAction,
     _build_regen_directive,
 )
@@ -641,12 +642,28 @@ class ConversationService:
         ) + "\n\n" + REVISIT_OPENING
 
         # One non-stream completion. The user turn carrying the reading is NOT persisted.
+        user_block = f"<letter>\n{assembled_reading}\n</letter>"
         text = await llm_client.complete(
             system=system_prompt,
-            user=f"<letter>\n{assembled_reading}\n</letter>",
+            user=user_block,
             model=MODEL_PRO,
             max_tokens=1024,
         )
+
+        # ── PERSONA LEXICON (UAT2-004, site 4) ───────────────────────────────
+        # Nothing has been streamed here, so a hit can simply be regenerated —
+        # no correction event, no client involvement. brevity_triggers=False is
+        # mandatory: see regenerate_or_trim's docstring. Brevity stays computed
+        # and logged, never gating and never trimming, exactly as on the
+        # streaming path.
+        if POSTPROCESSING_ENABLED:
+            text, _ = await regenerate_or_trim(
+                text,
+                persona_config,
+                system_prompt,
+                user_block,
+                brevity_triggers=False,
+            )
 
         # ── SECOND SAFETY LAYER (post-generation) ────────────────────────────
         # This is the app's sharpest dynamically-generated content, so it MUST
