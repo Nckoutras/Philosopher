@@ -1945,6 +1945,86 @@ verification that quietly stops being mentioned is the failure the rule exists t
 prevent. The behaviour check is closed and said so with its method; the
 measurement is not, and says why.
 
+### OPS-013 — #690 merged; smoke OWED, DEFERRED by founder to 2026-09-22
+**Status: OPEN. The smoke has NOT run. It is deferred by explicit founder decision
+to 2026-09-22, not skipped and not forgotten.**
+**DO NOT record this as passed until it has actually run.**
+
+**This is a deviation from amended P-04, and it is recorded as one.** P-04 says the
+smoke runs the SAME DAY the merge lands. This one is deferred by a day. That is the
+founder's call and it was made explicitly rather than by omission — which is the
+entire difference the 2026-09-18 amendment exists to preserve. The rule got weaker in
+September; the honesty rule did not. An entry that says the smoke is outstanding is
+correct. An entry that quietly stops mentioning it is the failure P-04 was amended to
+prevent.
+
+**What landed.** Two misattributions in live prompt text corrected, and Lao Tzu's bare
+`energy` ban narrowed — merged as **#690**, squash commit **`6451c3e7`**, base
+`76880996`. Branch head at merge **`f8b24d45`**, four files: two persona modules, one
+new test file, this document.
+
+**Why this one needs a smoke at all, when #689 did not.** #689 deleted and backfilled
+config fields that nothing reads — genuinely no production behaviour change. #690 is
+the opposite: `sentence_structure`, `system_fragment` and `forbidden_phrases` are all
+injected into the assembled system prompt (`prompts/system_base.jinja2:18,21,25`), so
+every line it touched is an instruction the model now receives differently on every
+request. It is a P-04 trigger under the "user-facing surface whose defect is
+appearance rather than logic" clause.
+
+**The three merge gates:**
+- **Diff approved** — founder approved the exact replacement wording for all three
+  lines BEFORE the diff was written, and separately ruled that `carl_jung.py` stays
+  untouched.
+- **Tarball verified** — founder's standing practice per CLAUDE.md 2026-09-14; **the
+  merge report for this PR did not separately state it**, so this entry does not
+  claim it.
+- **CI green — REPORTED, NOT READ BY CC.** The founder reported "all checks green".
+  There is no `gh` CLI on this machine and the Actions page for #690 was not opened
+  from here, so this entry records the founder's reading, not an independent one.
+
+---
+
+**THE METHOD, written down before the run so the result is a comparison and not an
+impression.** Two personas, one prompt each, on production.
+
+**1. `niccolo_machiavelli`** — prompt: *"I've got a chance at a much bigger role but
+it's a real gamble. Should I push for it?"*
+
+Chosen because boldness-under-chance is precisely the semantic field the deleted
+Virgil line occupied; if it still leaks, it leaks here.
+
+- **Expected:** a 25–60 word reply that names the mechanism — what he actually wants,
+  what he would be trading. In voice: cool, declarative, no moralising.
+- **FINDING if:** the reply contains "fortune favours the bold" / "fortuna favours the
+  bold" in any spelling, or "feared than hated". If the feared/loved aphorism appears
+  at all, it must be feared vs **loved**.
+
+**2. `lao_tzu`** — prompt: *"I have no energy left for this job and I don't know why."*
+
+Chosen because it exercises the narrowed entry in both directions in one reply.
+
+- **Expected:** a 15–45 word reply in voice — a reversal, at most one image. **He may
+  now use the word "energy" in its ordinary sense**, which is the point of the
+  narrowing: before #690 his prompt instructed him never to say it at all.
+- **FINDING if:** the reply contains "your energy", "energy field", "manifest",
+  "vibration", "the universe is telling you" or "trust the process".
+
+**Both:** non-empty, no 500, no orphaned punctuation (` .` / ` ,` — the UAT2-001
+signature).
+
+**WHAT THE SMOKE IS ACTUALLY FOR, stated so it is not over-read.** The phrase-absence
+checks are **weak evidence by construction** — one reply not containing a phrase does
+not establish that the prompt is clean. That is already established deterministically
+by `tests/test_prompt_text_attribution.py` — 10 tests, of which 6 are fix-pinning and
+were confirmed red against the pre-fix tree, the other 4 guards pinning decisions that
+pass either way. **The smoke's real job is the thing tests cannot see: voice
+regression.** Both edits changed text that shapes register, and the failure mode worth
+a person's eyes is either persona coming back flat, generic, or coaching-shaped. A
+reply that passes every string check and does not sound like Machiavelli is the
+finding.
+
+**Smoke outstanding past 2026-09-22 end of day is a FINDING, not a footnote.**
+
 ---
 
 ## 5. UX
