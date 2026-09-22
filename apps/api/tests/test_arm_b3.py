@@ -79,6 +79,37 @@ def test_every_registered_persona_yields_a_directive():
             assert rd.directive(p, **kw), (slug, kw)
 
 
+def test_the_two_deep_length_sentences_cite_the_same_ceiling():
+    """The deep path carries TWO length sentences, by decision.
+
+    `_deepen_directive` says "up to about N words"; reply_directive's DEEP block
+    says "Write between M and N words". Both must cite the same N
+    (reflective_reply_max_words) — then it is redundancy, which is what arm B3's
+    33 deep samples ran. If a future band edit moves one and not the other it
+    becomes a contradiction, and this test is what catches that.
+
+    Folding the two together is a logged follow-up, to be measured before ship.
+    """
+    import re
+    from services.conversation_service import _deepen_directive
+    from services import reply_directive as rd
+
+    for slug, p in PERSONA_REGISTRY.items():
+        ceiling = p.response_length_words.reflective_reply_max_words
+        deepen = _deepen_directive(p)
+        block = rd.directive(p, first_message=True, deep=True)
+
+        from_deepen = int(re.search(r"up to about (\d+) words", deepen).group(1))
+        from_block = int(re.search(r"Write between \d+ and (\d+) words", block).group(1))
+
+        assert from_deepen == ceiling, slug
+        assert from_block == ceiling, slug
+        assert from_deepen == from_block, (
+            f"{slug}: the two deep length sentences disagree "
+            f"({from_deepen} vs {from_block}) — redundancy has become contradiction"
+        )
+
+
 def test_deep_floor_matches_the_arm_that_was_run():
     """Pinned against arm B3's bands. A drift here means production sends a deep
     range no run ever measured."""

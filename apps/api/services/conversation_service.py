@@ -329,7 +329,7 @@ ADAPTIVE_LENGTH_LONG_FRACTION = 0.5    # long reply lower  = L + round(span * th
 
 
 def _adaptive_band_for_input(user_text: str, persona) -> tuple[int, int] | None:
-    """Return a system-prompt length directive sized to the user's input, or None.
+    """Return the adaptive (lo, hi) band for this input, or None.
 
     WAS `_length_directive_for_input`, WHICH RETURNED A WHOLE PARAGRAPH. It no
     longer does: that paragraph was a SECOND length instruction sitting beside
@@ -923,7 +923,21 @@ class ConversationService:
             if deep_mode_active:
                 system_prompt = system_prompt + "\n\n" + _deepen_directive(persona)
 
-            # ONE LENGTH SENTENCE PER REPLY. reply_directive is appended last,
+            # ONE LENGTH SENTENCE on the first-message and standard paths.
+            # The DEEP path carries _deepen_directive AND reply_directive's DEEP
+            # block; both cite reflective_reply_max_words, so that is redundancy
+            # rather than contradiction, and it is what arm B3's deep samples ran.
+            #
+            # DISTRESS TURNS RECEIVE THE FULL DIRECTIVE, BY DECISION NOT OMISSION.
+            # Before this change, a non-"none" safety level suppressed the whole
+            # adaptive paragraph and the reply fell back to the fragment's short
+            # band. The fragments no longer carry one, so only the adaptive BAND
+            # is suppressed here — the stance and "challenge what they have said"
+            # sentences still reach a distressed user. Unmeasured: no prompt in
+            # the §8.2 set scores above level="none". SAFETY-001 carries it as a
+            # QA-account smoke item.
+            #
+            # reply_directive is appended last,
             # after HARD RULE 8 and after the deep directive, exactly as the
             # §8.2 harness measured it. When the adaptive band fires it is
             # substituted INTO that sentence rather than added beside it.

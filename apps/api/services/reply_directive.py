@@ -122,8 +122,9 @@ DEEP = (
 # and the wrong one for simone_de_beauvoir (105 vs 110), lao_tzu (65 vs 70) and
 # george_orwell (190 vs 195). Three wrong prompts is worse than eleven numbers.
 #
-# tests/test_reply_directive.py pins every entry against the arm that was
-# actually run, so this cannot drift from what was measured.
+# tests/test_arm_b3.py::test_deep_floor_matches_the_arm_that_was_run pins
+# every entry against the arm that ran, so this cannot drift from what was
+# measured.
 DEEP_FLOOR = {
     "lao_tzu": 70, "marcus_aurelius": 85, "socrates": 85, "epictetus": 85,
     "oscar_wilde": 85, "miyamoto_musashi": 85, "carl_jung": 95,
@@ -136,11 +137,6 @@ def _target(lo: int, hi: int) -> int:
     """Midpoint rounded to 5, ties up. Two land above centre (67.5 -> 70,
     82.5 -> 85), which nudges upward — the direction the blind read asked for."""
     return int((lo + hi) / 10 + 0.5) * 5
-
-
-def adaptive_target(lo: int, hi: int) -> int:
-    """Public alias of the midpoint rule, for the adaptive band."""
-    return _target(lo, hi)
 
 
 def directive(persona: PersonaConfig, *, first_message: bool, deep: bool,
@@ -156,6 +152,14 @@ def directive(persona: PersonaConfig, *, first_message: bool, deep: bool,
     second "LENGTH FOR THIS REPLY" paragraph beside it. Adaptive wins when it
     fires; otherwise the persona band. Ignored on the deep path, which has its
     own ceiling.
+
+    ON THE DEEP PATH THIS IS THE SECOND LENGTH SENTENCE, BY DECISION.
+    `_deepen_directive` already says "up to about N words" and this block says
+    "Write between M and N words". Both cite the SAME ceiling
+    (reflective_reply_max_words), so it is redundancy rather than contradiction,
+    and it is exactly what arm B3's 33 deep samples ran.
+    tests/test_arm_b3.py pins that they agree. Folding the two together is a
+    logged follow-up, to be measured before it ships.
 
     ADAPTIVE IS THE COMMON CASE MID-SESSION, NOT AN EDGE. Measured on Oregon:
     it fires on 364 of 445 eligible turns (81.8%), and 358 of those are the
