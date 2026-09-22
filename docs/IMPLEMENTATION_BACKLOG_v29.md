@@ -1865,6 +1865,29 @@ redirect; a crisis it misses gets nothing.
 **Not scheduled.** Building any of this means building detectors, which is a larger
 decision than this PR. What is settled is that the record no longer claims they exist.
 
+## SAFETY-001 ADDENDUM 2 — distress turns now receive the full reply directive (2026-09-22)
+
+**Status: OPEN as a QA-account smoke item. No code change; founder ruling.**
+
+Before the reply-directive PR, a non-`"none"` safety level suppressed the whole
+adaptive length paragraph, and the reply fell back to the persona fragment's
+short band as a grounded default. **The fragments no longer carry a band** — they
+were cleaned in the same PR — so only the adaptive BAND is suppressed now. The
+stance sentence, the concealment ban and *"You may challenge what they have said;
+do not speculate about what they have not"* all still reach a distressed user.
+
+**That is a behaviour change on the distress path, and it is unmeasured.** No
+prompt in the §8.2 set scores above `level="none"` — the ten disclosures in
+`tests/test_safety_detection_gaps.py` are the evidence for that, and they are the
+reason this cannot be checked by the harness.
+
+**The smoke item: one `level="low"` prompt per register cluster** (bare /
+grounded / measured / scholarly), sent from the **QA account, never the
+founder's** — memory extraction runs every turn, and the C-07 delete order
+applies afterwards. What to look for: does a reply to someone in distress still
+take a position and challenge a stated claim, and does that read as steady or as
+cold?
+
 ## SAFETY-001 ADDENDUM — the gap, measured against the running code (2026-09-22)
 
 **Status: OPEN, unchanged. No classifier is proposed. This section only makes the

@@ -1,0 +1,45 @@
+id,length,ideal_words,poetic,question,q_position,hidden_thing,stance,specific,unsettling,self_talk,guess_thinker,would_reply
+R01,right,50,3,natural,closing,yes,yes,5,4,no,Sigmund Freud,yes
+R02,right,55,2,natural,closing,yes,yes,5,3,no,Socrates,yes
+R03,too_long,75,2,natural,mid,yes,yes,5,3,no,George Orwell,yes
+R04,right,40,4,natural,closing,yes,yes,4,4,no,Oscar Wilde,yes
+R05,too_long,80,2,natural,closing,no,yes,5,3,no,Epictetus,yes
+R06,right,50,4,natural,closing,no,yes,4,4,no,Marcus Aurelius,yes
+R07,too_short,45,3,none,none,yes,yes,4,2,no,Lao Tzu,no
+R08,too_long,70,2,natural,mid,yes,yes,5,4,no,George Orwell,yes
+R09,too_long,65,4,natural,mid,yes,yes,5,5,no,Carl Jung,yes
+R10,too_long,70,4,natural,mid,yes,yes,5,5,no,Simone de Beauvoir,yes
+R11,right,50,2,natural,closing,yes,yes,5,4,no,Marcus Aurelius,yes
+R12,right,50,2,natural,closing,yes,yes,4,3,no,Epictetus,yes
+R13,right,40,3,natural,closing,yes,yes,5,4,no,Miyamoto Musashi,yes
+R14,right,60,2,natural,closing,no,yes,5,2,no,Lao Tzu,yes
+R15,right,40,4,natural,closing,yes,yes,5,4,no,Sigmund Freud,yes
+R16,right,45,3,natural,closing,yes,yes,4,4,no,Carl Jung,yes
+R17,right,50,3,natural,closing,yes,yes,5,4,no,Simone de Beauvoir,yes
+R18,too_short,40,2,natural,closing,yes,yes,5,4,no,Socrates,yes
+R19,right,45,3,natural,closing,yes,yes,5,4,no,Oscar Wilde,yes
+R20,right,45,3,natural,closing,yes,yes,5,4,no,Niccolo Machiavelli,yes
+R21,too_long,75,3,unnatural,closing,yes,yes,5,4,no,Miyamoto Musashi,yes
+R22,right,60,2,none,none,yes,yes,4,4,no,Niccolo Machiavelli,no
+R23,too_long,75,3,unnatural,closing,yes,yes,5,4,no,Miyamoto Musashi,yes
+R24,too_short,40,2,natural,closing,yes,yes,5,4,no,Socrates,yes
+R25,right,40,4,natural,closing,yes,yes,5,4,no,Sigmund Freud,yes
+R26,too_short,45,3,none,none,yes,yes,4,2,no,Lao Tzu,no
+R27,right,50,3,natural,closing,yes,yes,5,4,no,Simone de Beauvoir,yes
+R28,too_long,65,4,natural,mid,yes,yes,5,5,no,Carl Jung,yes
+R29,too_long,70,2,natural,mid,yes,yes,5,4,no,George Orwell,yes
+R30,too_long,75,2,natural,mid,yes,yes,5,3,no,George Orwell,yes
+R31,right,40,4,natural,closing,yes,yes,4,4,no,Oscar Wilde,yes
+R32,right,50,3,natural,closing,yes,yes,5,4,no,Sigmund Freud,yes
+R33,right,45,3,natural,closing,yes,yes,4,4,no,Carl Jung,yes
+R34,right,50,2,natural,closing,yes,yes,5,4,no,Marcus Aurelius,yes
+R35,right,45,3,natural,closing,yes,yes,5,4,no,Niccolo Machiavelli,yes
+R36,right,50,4,natural,closing,no,yes,4,4,no,Marcus Aurelius,yes
+R37,too_long,70,4,natural,mid,yes,yes,5,5,no,Simone de Beauvoir,yes
+R38,right,40,3,natural,closing,yes,yes,5,4,no,Miyamoto Musashi,yes
+R39,right,55,2,natural,closing,yes,yes,5,3,no,Socrates,yes
+R40,right,45,3,natural,closing,yes,yes,5,4,no,Oscar Wilde,yes
+R41,right,50,2,natural,closing,yes,yes,4,3,no,Epictetus,yes
+R42,right,60,2,none,none,yes,yes,4,4,no,Niccolo Machiavelli,no
+R43,too_long,80,2,natural,closing,no,yes,5,3,no,Epictetus,yes
+R44,right,60,2,natural,closing,no,yes,5,2,no,Lao Tzu,yes

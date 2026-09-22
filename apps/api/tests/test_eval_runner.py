@@ -54,7 +54,11 @@ async def test_generation_is_persona_major_but_rows_are_sample_id_ordered(monkey
     """
     seen_order = []
 
-    async def fake_generate(sample, plan, model):
+    async def fake_generate(sample, plan, model, arm="baseline"):
+        # `arm` is threaded through generate_all as a 4th positional argument;
+        # a stub that omits it fails with a TypeError that looks like an
+        # ordering bug rather than a signature drift.
+        assert arm == "baseline"
         seen_order.append((sample.persona_slug, plan, sample.problem_id))
         return harness.Completion(
             sample_id=sample.sample_id, problem_id=sample.problem_id,
@@ -93,7 +97,7 @@ async def test_dry_run_writes_a_manifest_and_sends_nothing(monkeypatch, tmp_path
     monkeypatch.setattr(harness, "generate_all", explode)
 
     args = runner.argparse.Namespace(
-        arm="preflight", note="test", out=str(tmp_path), persona=None,
+        arm="baseline", note="test", out=str(tmp_path), persona=None,
         limit=None, concurrency=1, dry_run=True, rescore=None,
         require_bridge="true",
     )
@@ -101,6 +105,9 @@ async def test_dry_run_writes_a_manifest_and_sends_nothing(monkeypatch, tmp_path
 
     manifest = json.loads((tmp_path / "manifest.json").read_text(encoding="utf-8"))
     assert manifest["dry_run"] is True
+    assert manifest["arm"] == "baseline"
+    assert manifest["arm_directive_hash"] is None, "baseline appends no directive"
+    assert manifest["arm_bands"] is None
     assert manifest["phenomenology_bridge_enabled"] is True
     assert manifest["n_samples"] == 110
     assert manifest["cost"] == {}, "a dry run has no cost block"
@@ -121,6 +128,6 @@ async def test_dry_run_writes_a_manifest_and_sends_nothing(monkeypatch, tmp_path
 
 
 def test_the_manifest_records_both_orders():
-    manifest = runner._manifest("a", "", build_samples(), [], dry_run=True)
+    manifest = runner._manifest("baseline", "", build_samples(), [], dry_run=True)
     assert "persona-major" in manifest["generation_order"]
     assert "sample_id" in manifest["row_order"]

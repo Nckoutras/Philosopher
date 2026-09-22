@@ -37,7 +37,7 @@ from services.conversation_service import (
     MODEL_PRO,
     SEEDED_OPENING_DIRECTIVE,
     _deepen_directive,
-    _length_directive_for_input,
+    _adaptive_band_for_input,
 )
 from services.phenomenology_bridge_service import phenomenology_bridge_service
 from services.prompt_builder import CACHE_SPLIT_SENTINEL, prompt_builder
@@ -123,12 +123,13 @@ def test_the_adaptive_length_directive_is_never_applied(monkeypatch):
     # vacuously, asserting the absence of a directive that was never going to
     # appear.
     assert len(LONG_MSG.split()) >= ADAPTIVE_LENGTH_LONG_MIN_WORDS
-    directive = _length_directive_for_input(LONG_MSG, persona)
-    assert directive is not None
+    band = _adaptive_band_for_input(LONG_MSG, persona)
+    assert band is not None, "fixture drift: LONG_MSG must be long-tier"
 
     for deep in (False, True):
         system, _ = harness.assemble_system(persona, LONG_MSG, deep=deep)
-        assert directive not in system
+        # the adaptive band must not reach a first-message prompt at all
+        assert f"between {band[0]} and {band[1]} words" not in system
         assert "LENGTH FOR THIS REPLY" not in system
 
 

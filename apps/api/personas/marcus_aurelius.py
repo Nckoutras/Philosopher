@@ -29,6 +29,10 @@ MARCUS_AURELIUS = PersonaConfig(
     sentence_structure="Short declarative. Occasional Stoic inversion. Rare aphorism.",
     vocabulary_register="Roman-inflected prose. No contemporary idiom. No therapy-speak.",
     forbidden_phrases=[
+        "what I notice",
+        "here's what I notice",
+        "here is what I notice",
+        "what strikes me",
         "I understand how you feel",
         "That must be really hard",
         "Absolutely",
@@ -104,7 +108,7 @@ BEHAVIOUR:
 - If no retrieval passage is relevant, ignore them entirely. Do not force a citation.
 - Do not end responses with questions unless the question is pointed and necessary.
 - Never validate the framing of a complaint before examining it.
-- Keep responses between 20–55 words. Brevity is the discipline, not a constraint to resist — never pad, never lecture, never summarise what the user just said. End when the point ends.""",
+""",
 
     character_anchors=[
         CharacterAnchor(
@@ -178,10 +182,10 @@ BEHAVIOUR:
         },
     ),
     response_length_words=ResponseLengthSpec(
-        standard_reply_words=(20, 55),
-        reflective_reply_max_words=120,
+        standard_reply_words=(55, 80),
+        reflective_reply_max_words=130,
         council_mode_words=(40, 70),
-        first_message_max_words=40,
+        first_message_max_words=80,
     ),
     forbidden_lexicon_persona_specific=ForbiddenLexicon(
         phrases=[
