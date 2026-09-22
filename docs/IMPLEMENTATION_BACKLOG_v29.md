@@ -945,6 +945,13 @@ first place.
   remaining 4 are production code — 3 are TD-87, 1 is a narrowing limitation in
   `oauth/finish` that the runtime cannot reach. Typecheck stays report-only until
   TD-87 is ruled on.
+  **The four, by their error TEXT, so a reader who sees them in a run can match them
+  here without opening the files:** three are `'user' is possibly 'null'`
+  (`(tabs)/account/page.tsx`, TD-87) and one is
+  `Type 'string | null' is not assignable to type 'string'` (`auth/oauth/finish`).
+  They appear on EVERY web run and the job still reports success — that is the
+  `continue-on-error: true` on the Typecheck step, not a flake. Re-confirmed
+  2026-09-22 from a founder-reported run: no new TD, it is the same four.
 
 **WHAT REMAINS IS NOT A COMMIT.** `Web build` must be added to `main`'s required
 checks in **Settings -> Branches**, alongside the three that are there now. That is a
@@ -1903,6 +1910,60 @@ These same ten prompts are the **P-04 smoke prompts** for the stability-guard ti
 They were written to clear the safety gate so the persona actually answers and the
 guard is exercised rather than the backstop. That they clear it effortlessly is the
 finding, not the method.
+
+### MODEL-001 — the 20–55 band was wrong, and Sonnet was obeying it — **NEW**
+**Status: OPEN as a record. The Pro-path fix is scoped separately (the B2 production
+PR). The free-path decision is DEFERRED until there are users to measure.**
+
+**THIS ENTRY REPLACES A DRAFT THAT SAID THE OPPOSITE.** The first framing was "the
+free tier is the one that breaks the voice" — Haiku overran its stated band on
+69.1% of replies against Sonnet's 2.7%, so Haiku looked like the defect. A blind read
+on 2026-09-22 killed that. Shown eleven unlabelled pairs of the same prompt answered
+by both models, the founder chose the LONGER reply in **6 of 7** decided pairs, and
+two of the three "neither" marks asked for MORE length. The single shorter pick came
+with a reason about the question, not about the brevity.
+
+**THE DEFECT WAS THE BAND, NOT THE MODEL.** Sonnet was correctly obedient to a number
+set too low. Arm B is the evidence: asked for a wider range it moved to a 64.3-word
+mean and 57% in-band immediately, and to 66.1 / 59% under B2. It was never straining
+against the instruction; it was following one nobody had checked.
+`standard_reply_words` was authored, never measured against a reader, and
+`check_brevity` has been inert in production throughout — so nothing ever forced
+the question.
+
+**HAIKU SUBSTANTIALLY IGNORES A DIRECTIVE APPENDED LAST.** Three arms, and the
+clearest instruction made it worse:
+
+| | baseline | arm B | arm B2 |
+|---|---|---|---|
+| Sonnet in-band | 7% | 57% | 59% |
+| Haiku in-band | 25% | 43% | **19%** |
+| Sonnet mean words | 47.0 | 64.3 | 66.1 |
+| Haiku mean words | 109.5 | 104.0 | **118.2** |
+
+B2 gave an explicit target ("about 70 words"). Sonnet moved two points; Haiku went to
+118 words and its in-band rate halved. **This bears on every future prompt change, not
+only this one.** A placement experiment is queued below; no model change is proposed
+and none is implied.
+
+**READERS CANNOT DISTINGUISH B FROM B2.** Two independent ChatGPT readings of the same
+eleven B-vs-B2 pairs, original and swapped, agreed on the text in 5 of 11 — and
+the second reading picked position A in **10 of 11**. It chose position, not text. So
+a directive change of this size is **judged on metrics and lexicon, not on taste.**
+That is why B2 locks on its numbers rather than on a preference, and it is the case
+for the Listening test existing at all.
+
+**Why this is a record and not a fix.** The Pro-path change is scoped on its own. The
+free path is untouched deliberately: what Haiku should do about length is a product
+decision about the free tier, and there is no usage data to make it on — 16
+distinct users, 10 with five or more messages, across the entire history.
+
+### QUEUED — Haiku directive placement, one experiment, ~$1
+The same locked B2 directive placed at the **TOP** of the system prompt, Haiku only;
+a second arm at **top and last**. The hypothesis is placement, not capability, and it
+is the cheapest test of the line above. Not now (founder ruling 2026-09-22). No model
+change; the free-tier length and paywall decision stays deferred until there are
+users to measure.
 
 ### RETRIEVAL-001 — RAG retrieval has never returned a passage, and the threshold is unreachable — **NEW**
 **Status: OPEN. NOT a bug to fix now — founder ruling 2026-09-21 is NO CHANGE. The
