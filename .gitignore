@@ -42,3 +42,8 @@ openapi.json
 # completions.jsonl for free, so neither needs to be in git.
 apps/api/evals/results/**/completions.jsonl
 apps/api/evals/results/**/scores.csv
+
+# Founder's local copy of an external teardown; held elsewhere, not repo content.
+# Narrow on purpose: 14 files in docs/reports/ ARE tracked, so the directory
+# must not be ignored — only this one path.
+docs/reports/The-Wise-Room-Teardown_2026-08-25.html
