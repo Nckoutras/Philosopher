@@ -945,6 +945,13 @@ first place.
   remaining 4 are production code — 3 are TD-87, 1 is a narrowing limitation in
   `oauth/finish` that the runtime cannot reach. Typecheck stays report-only until
   TD-87 is ruled on.
+  **The four, by their error TEXT, so a reader who sees them in a run can match them
+  here without opening the files:** three are `'user' is possibly 'null'`
+  (`(tabs)/account/page.tsx`, TD-87) and one is
+  `Type 'string | null' is not assignable to type 'string'` (`auth/oauth/finish`).
+  They appear on EVERY web run and the job still reports success — that is the
+  `continue-on-error: true` on the Typecheck step, not a flake. Re-confirmed
+  2026-09-22 from a founder-reported run: no new TD, it is the same four.
 
 **WHAT REMAINS IS NOT A COMMIT.** `Web build` must be added to `main`'s required
 checks in **Settings -> Branches**, alongside the three that are there now. That is a
@@ -1926,6 +1933,173 @@ These same ten prompts are the **P-04 smoke prompts** for the stability-guard ti
 They were written to clear the safety gate so the persona actually answers and the
 guard is exercised rather than the backstop. That they clear it effortlessly is the
 finding, not the method.
+
+### MODEL-001 — the 20–55 band was wrong, and Sonnet was obeying it — **NEW**
+**Status: OPEN as a record. The Pro-path fix is scoped separately (the B2 production
+PR). The free-path decision is DEFERRED until there are users to measure.**
+
+**THIS ENTRY REPLACES A DRAFT THAT SAID THE OPPOSITE.** The first framing was "the
+free tier is the one that breaks the voice" — Haiku overran its stated band on
+69.1% of replies against Sonnet's 2.7%, so Haiku looked like the defect. A blind read
+on 2026-09-22 killed that. Shown eleven unlabelled pairs of the same prompt answered
+by both models, the founder chose the LONGER reply in **6 of 7** decided pairs, and
+two of the three "neither" marks asked for MORE length. The single shorter pick came
+with a reason about the question, not about the brevity.
+
+**THE DEFECT WAS THE BAND, NOT THE MODEL.** Sonnet was correctly obedient to a number
+set too low. Arm B is the evidence: asked for a wider range it moved to a 64.3-word
+mean and 57% in-band immediately, and to 66.1 / 59% under B2. It was never straining
+against the instruction; it was following one nobody had checked.
+`standard_reply_words` was authored, never measured against a reader, and
+`check_brevity` has been inert in production throughout — so nothing ever forced
+the question.
+
+**HAIKU UNDER-WEIGHTS A SINGLE COPY OF THE LENGTH DIRECTIVE, WHEREVER IT SITS
+— AND LAST BEATS FIRST.** *(Amended 2026-09-22 by the H1/H2 placement runs; the
+original sentence is corrected at the foot of this entry, not silently rewritten.)*
+Three arms, and the clearest instruction made it worse:
+
+| | baseline | arm B | arm B2 |
+|---|---|---|---|
+| Sonnet in-band | 7% | 57% | 59% |
+| Haiku in-band | 25% | 43% | **19%** |
+| Sonnet mean words | 47.0 | 64.3 | 66.1 |
+| Haiku mean words | 109.5 | 104.0 | **118.2** |
+
+B2 gave an explicit target ("about 70 words"). Sonnet moved two points; Haiku went to
+118 words and its in-band rate halved. **This bears on every future prompt change, not
+only this one.** The placement experiment that this table motivated has since been
+run and is reported below; no model change is proposed and none is implied.
+
+**READERS CANNOT DISTINGUISH B FROM B2.** Two independent ChatGPT readings of the same
+eleven B-vs-B2 pairs, original and swapped, agreed on the text in 5 of 11 — and
+the second reading picked position A in **10 of 11**. It chose position, not text. So
+a directive change of this size is **judged on metrics and lexicon, not on taste.**
+That is why B2 locks on its numbers rather than on a preference, and it is the case
+for the Listening test existing at all.
+
+**Why this is a record and not a fix.** The Pro-path change is scoped on its own. The
+free path is untouched deliberately: what Haiku should do about length is a product
+decision about the free tier, and there is no usage data to make it on — 16
+distinct users, 10 with five or more messages, across the entire history.
+
+### MODEL-001 AMENDMENT — the placement hypothesis was tested, and it is FALSE
+**Runs `2026-09-22T14-28_h1` and `2026-09-22T14-30_h2`, 110 Haiku completions each,
+0 errors, $0.9447. Full record and the founder ruling:
+`apps/api/evals/results/2026-09-22T14-30_h2/placement_record.md`.**
+
+The sentence above used to read **"Haiku substantially ignores a directive appended
+last."** That was an inference from one arm's position, never a measurement of it.
+H1 moved the identical block to the **top** of the system prompt — and it is the
+**worst** of the three arms.
+
+| Haiku, n=110 | B3 (last) | H1 (top) | H2 (top+last) |
+|---|---|---|---|
+| mean words | 125.5 | **144.7** | **115.3** |
+| in-band | 14% | 12% | 24% |
+| over the ceiling | 84% | 86% | 75% |
+| notice-family | 8.2% | 10.9% | 10.9% |
+
+Paired by `sample_id` — the same 110 prompts in every arm, so the paired test is the
+correct one: **B3 → H1 +19.1w** (t=+6.00, p<0.00001, longer on 79 of 110 prompts);
+**B3 → H2 −10.2w** (p=0.00006); **H1 → H2 −29.3w** (shorter on 88 of 110).
+
+**The four corrected claims, which is what this entry now asserts:**
+1. **Haiku under-weights a single copy of the directive wherever it is placed.**
+   Position is not the variable.
+2. **Last beats first.** The original sentence had the direction backwards.
+3. **Repetition shortens, but does not reach the band.** Saying it twice is the only
+   thing that moved the number, and even H2 sits at 24% in-band against Sonnet's 76%.
+4. **Deep mode is unaffected.** H2 gives the deep path a *third* copy of the same
+   ceiling and still leaves **28 of 33** replies over it (B3: 31/33). Not a dosage
+   problem.
+
+**AND THE RATE GAIN DOES NOT SURVIVE ITS OWN TEST.** H2's 14% → 24% is McNemar exact
+**p=0.052** against B3 — gained 19, lost 8 — and **misses 0.05**. It clears only
+against H1 (p=0.041). The *length* effect is robust; the in-band rate is not yet
+distinguishable from noise at n=110. This is written down because "H2 nearly doubles
+the in-band rate" is the sentence a later reader would otherwise carry forward, and
+it is exactly the kind of claim this file's failure log is made of.
+
+**FOUNDER RULING 2026-09-22: nothing ships. No further Haiku length arms — closed,
+not deferred.** Free-path length is **ACCEPTED as-is at ~115–145 words**, on the
+reader's own evidence: that range sits inside what the first blind read preferred,
+where the longer reply won 6 of 7 decided pairs and two of the three "neither" marks
+asked for more length. The band Haiku overruns is the one this very entry found to be
+wrong. What stays deferred is the narrower question of whether a persona's stated
+ceiling should bind the free path at all — a product decision, pending users.
+
+### COST-001 — the free/Haiku path has ZERO prompt caching, and a breakpoint today would COST 25% more — **NEW**
+**Status: OPEN as a record. No action now (founder ruling 2026-09-22). This entry
+exists so that when free-tier volume makes it matter, the work starts from measured
+numbers rather than from the intuition that caching is free money.**
+
+**THE FACT.** Nothing on the free path is cached, and both stored eval manifests say
+so rather than inferring it: arm B `input 369,272  cache_write 0  cache_read 0`, and
+B3 `input 370,705  cache_write 0  cache_read 0`. Two independent reasons, and BOTH
+must be fixed before a single token is cached:
+
+1. **`_history_cache_control` returns `None` for free**, by an explicit guard
+   (`conversation_service.py:171`). Pro and premium only.
+2. **The static prefix is too small.** Measured with `cl100k_base` over all eleven
+   personas, a free system prompt is **2,716 tokens** (min 2,506, max 2,997) against
+   Haiku 4.5's **4,096-token minimum cacheable prefix**. Lifting the guard alone
+   caches nothing.
+
+**AND A THIRD REASON, WHICH IS THE ONE THAT MATTERS.** Free history is a **5-message
+SLIDING window** (`MEMORY_WINDOW_FREE = 5`, enforced by the query `LIMIT` at all three
+call sites). Prompt caching matches on a **prefix hash**, so a window that drops its
+oldest row every turn is a **guaranteed miss** — billed as a cache WRITE at 1.25x
+input instead of plain input at 1.0x. `_history_cache_control`'s own docstring already
+says this for the truncated Pro case; it applies with full force to free.
+
+So attaching a breakpoint to the free path **as it is shipped today** does not save
+anything. It costs more, at every turn, forever:
+
+| | prior msgs | input tok | uncached | with a breakpoint | |
+|---|---|---|---|---|---|
+| turn 10 | 5 | 2,872 | $0.002872 | $0.003586 | **+24.9%** |
+| turn 30 | 5 | 2,872 | $0.002872 | $0.003586 | **+24.9%** |
+
+The two rows are identical because under a 5-message window **turn 30 is the same
+size as turn 10**. That is the whole finding in one line: on the free path there is no
+history growth to amortise.
+
+**WHAT IT WOULD SAVE IF THE WINDOW WERE GROWING.** The prerequisite is Pro's phase-2
+treatment — a conversation-start window, prefix-stable, so the guard's `truncated`
+test can pass. Only then is there anything to cache. At the measured Oregon message
+sizes (assistant mean 235 chars = 37 tok, user mean 65 chars = 15 tok):
+
+| | prior msgs | input tok | above the 4,096 minimum? | saving per message |
+|---|---|---|---|---|
+| turn 10 | 18 | 3,199 | **NO** | **$0 — still below the minimum** |
+| turn 30 | 58 | 4,239 | yes | $0.0038 (89.7%) |
+
+**Turn 10 does not clear Haiku's minimum even with a growing window.** Today's
+crossover is **turn 28**. That is the number the intuition gets wrong, and it is why
+"turn 10 and turn 30" have such different answers.
+
+**THE SHIPPED DIRECTIVE MOVES THE CROSSOVER TO TURN 9.** The B3 prompt takes Haiku's
+mean reply from 40 words to ~125 (~165 tok), so history accumulates four times faster:
+
+| | input tok | saving per message |
+|---|---|---|
+| turn 10 | 4,351 | $0.0039 (90%) |
+| turn 30 | 7,951 | $0.0071 (90%) |
+
+**WHY NONE OF THIS IS WORTH DOING YET, stated in the same numbers.** Measured on
+Oregon 2026-09-22: **184 conversations, mean 3.3 user turns**, max 42. **16 reach turn
+10. Two reach turn 28.** The entire addressable saving across the whole history of the
+product is a few cents. The reason to write it down is that the ordering is
+counter-intuitive — the window change is the PREREQUISITE, the guard is the trivial
+part, and doing the guard first is a 25% surcharge — not that the money is there now.
+
+**A stale comment found while measuring this, corrected here rather than in code:**
+`MEMORY_WINDOW_PRO = 20` (`conversation_service.py:79`) carries the comment "Retained
+as the FREE-tier window". It is not. The free window is `MEMORY_WINDOW_FREE = 5`, at
+all three call sites, and `MEMORY_WINDOW_PRO` is referenced nowhere in `apps/api`
+outside its own definition and one docstring. It is a dead constant with a false
+comment — small, but it is the exact shape this project's failure log keeps finding.
 
 ### RETRIEVAL-001 — RAG retrieval has never returned a passage, and the threshold is unreachable — **NEW**
 **Status: OPEN. NOT a bug to fix now — founder ruling 2026-09-21 is NO CHANGE. The
