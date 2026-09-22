@@ -1965,6 +1965,78 @@ is the cheapest test of the line above. Not now (founder ruling 2026-09-22). No 
 change; the free-tier length and paywall decision stays deferred until there are
 users to measure.
 
+### COST-001 — the free/Haiku path has ZERO prompt caching, and a breakpoint today would COST 25% more — **NEW**
+**Status: OPEN as a record. No action now (founder ruling 2026-09-22). This entry
+exists so that when free-tier volume makes it matter, the work starts from measured
+numbers rather than from the intuition that caching is free money.**
+
+**THE FACT.** Nothing on the free path is cached, and both stored eval manifests say
+so rather than inferring it: arm B `input 369,272  cache_write 0  cache_read 0`, and
+B3 `input 370,705  cache_write 0  cache_read 0`. Two independent reasons, and BOTH
+must be fixed before a single token is cached:
+
+1. **`_history_cache_control` returns `None` for free**, by an explicit guard
+   (`conversation_service.py:171`). Pro and premium only.
+2. **The static prefix is too small.** Measured with `cl100k_base` over all eleven
+   personas, a free system prompt is **2,716 tokens** (min 2,506, max 2,997) against
+   Haiku 4.5's **4,096-token minimum cacheable prefix**. Lifting the guard alone
+   caches nothing.
+
+**AND A THIRD REASON, WHICH IS THE ONE THAT MATTERS.** Free history is a **5-message
+SLIDING window** (`MEMORY_WINDOW_FREE = 5`, enforced by the query `LIMIT` at all three
+call sites). Prompt caching matches on a **prefix hash**, so a window that drops its
+oldest row every turn is a **guaranteed miss** — billed as a cache WRITE at 1.25x
+input instead of plain input at 1.0x. `_history_cache_control`'s own docstring already
+says this for the truncated Pro case; it applies with full force to free.
+
+So attaching a breakpoint to the free path **as it is shipped today** does not save
+anything. It costs more, at every turn, forever:
+
+| | prior msgs | input tok | uncached | with a breakpoint | |
+|---|---|---|---|---|---|
+| turn 10 | 5 | 2,872 | $0.002872 | $0.003586 | **+24.9%** |
+| turn 30 | 5 | 2,872 | $0.002872 | $0.003586 | **+24.9%** |
+
+The two rows are identical because under a 5-message window **turn 30 is the same
+size as turn 10**. That is the whole finding in one line: on the free path there is no
+history growth to amortise.
+
+**WHAT IT WOULD SAVE IF THE WINDOW WERE GROWING.** The prerequisite is Pro's phase-2
+treatment — a conversation-start window, prefix-stable, so the guard's `truncated`
+test can pass. Only then is there anything to cache. At the measured Oregon message
+sizes (assistant mean 235 chars = 37 tok, user mean 65 chars = 15 tok):
+
+| | prior msgs | input tok | above the 4,096 minimum? | saving per message |
+|---|---|---|---|---|
+| turn 10 | 18 | 3,199 | **NO** | **$0 — still below the minimum** |
+| turn 30 | 58 | 4,239 | yes | $0.0038 (89.7%) |
+
+**Turn 10 does not clear Haiku's minimum even with a growing window.** Today's
+crossover is **turn 28**. That is the number the intuition gets wrong, and it is why
+"turn 10 and turn 30" have such different answers.
+
+**THE SHIPPED DIRECTIVE MOVES THE CROSSOVER TO TURN 9.** The B3 prompt takes Haiku's
+mean reply from 40 words to ~125 (~165 tok), so history accumulates four times faster:
+
+| | input tok | saving per message |
+|---|---|---|
+| turn 10 | 4,351 | $0.0039 (90%) |
+| turn 30 | 7,951 | $0.0071 (90%) |
+
+**WHY NONE OF THIS IS WORTH DOING YET, stated in the same numbers.** Measured on
+Oregon 2026-09-22: **184 conversations, mean 3.3 user turns**, max 42. **16 reach turn
+10. Two reach turn 28.** The entire addressable saving across the whole history of the
+product is a few cents. The reason to write it down is that the ordering is
+counter-intuitive — the window change is the PREREQUISITE, the guard is the trivial
+part, and doing the guard first is a 25% surcharge — not that the money is there now.
+
+**A stale comment found while measuring this, corrected here rather than in code:**
+`MEMORY_WINDOW_PRO = 20` (`conversation_service.py:79`) carries the comment "Retained
+as the FREE-tier window". It is not. The free window is `MEMORY_WINDOW_FREE = 5`, at
+all three call sites, and `MEMORY_WINDOW_PRO` is referenced nowhere in `apps/api`
+outside its own definition and one docstring. It is a dead constant with a false
+comment — small, but it is the exact shape this project's failure log keeps finding.
+
 ### RETRIEVAL-001 — RAG retrieval has never returned a passage, and the threshold is unreachable — **NEW**
 **Status: OPEN. NOT a bug to fix now — founder ruling 2026-09-21 is NO CHANGE. The
 decision is deferred to the §8.2 eval harness as an A/B arm.**
