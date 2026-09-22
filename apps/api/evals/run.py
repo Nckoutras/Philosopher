@@ -115,6 +115,48 @@ def _cost(completions) -> dict:
     return per_model
 
 
+def _manifest(arm: str, note: str, samples, completions, *, dry_run: bool) -> dict:
+    """The record of what a run WAS. compare.py refuses on a mismatch of the
+    gated keys, so this is not documentation — it is the comparability check."""
+    return {
+        "arm": arm,
+        "note": note,
+        "dry_run": dry_run,
+        "generated_at_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "git_sha": _git_sha(),
+        "git_dirty": _git_dirty(),
+        "prompt_set_hash": prompt_set_hash(),
+        "n_samples": len(samples),
+        "n_completions": len(completions),
+        "deep_problem_ids": sorted(DEEP_PROBLEM_IDS),
+        "personas": sorted(PERSONA_REGISTRY),
+        "models": sorted({c.model for c in completions}) if completions
+                  else sorted({m for _, _, m in harness.ARMS_BY_PLAN}),
+        "phenomenology_bridge_enabled": harness.PHENOMENOLOGY_BRIDGE_ENABLED,
+        "postprocessing_enabled_env": os.getenv("POSTPROCESSING_ENABLED"),
+        # Two different orders, and only the second is part of the measurement.
+        "generation_order": "persona-major (persona, plan, problem) — a cost "
+                            "optimisation for Sonnet's per-persona prefix cache; "
+                            "Haiku cannot cache, its minimum prefix is above ours",
+        "row_order": "sample_id, then plan — every output file is ordered "
+                     "independently of how generation was scheduled",
+        "errors": sum(1 for c in completions if c.error),
+        "cost": _cost(completions) if completions else {},
+        # Read this before trusting a number in summary.csv.
+        "caveats": [
+            "Rates only. No pass/fail: the spec's thresholds were written "
+            "2026-04-27 against a six-persona config whose per-persona bands "
+            "match no current persona, and are unanchored until a baseline "
+            "exists (founder ruling D4, 2026-09-22).",
+            "fm_over_rate scores against first_message_max_words, which reaches "
+            "NO PROMPT. std_over_rate scores against the band the persona's own "
+            "system_fragment states. The gap between them is BREV-002.",
+            "anti_flex_rate covers 77 full / 9 partial / 4 framed topics. A zero "
+            "means no hit on what is covered, never 'no flexing'.",
+        ],
+    }
+
+
 def _write(out: Path, arm: str, samples, completions, scores: list[Scores], note: str):
     out.mkdir(parents=True, exist_ok=True)
 
@@ -142,39 +184,36 @@ def _write(out: Path, arm: str, samples, completions, scores: list[Scores], note
         w.writeheader()
         w.writerows(rows)
 
-    manifest = {
-        "arm": arm,
-        "note": note,
-        "generated_at_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        "git_sha": _git_sha(),
-        "git_dirty": _git_dirty(),
-        "prompt_set_hash": prompt_set_hash(),
-        "n_samples": len(samples),
-        "n_completions": len(completions),
-        "deep_problem_ids": sorted(DEEP_PROBLEM_IDS),
-        "personas": sorted(PERSONA_REGISTRY),
-        "models": sorted({c.model for c in completions}),
-        "phenomenology_bridge_enabled": harness.PHENOMENOLOGY_BRIDGE_ENABLED,
-        "postprocessing_enabled_env": os.getenv("POSTPROCESSING_ENABLED"),
-        "errors": sum(1 for c in completions if c.error),
-        "cost": _cost(completions),
-        # Read this before trusting a number in summary.csv.
-        "caveats": [
-            "Rates only. No pass/fail: the spec's thresholds were written "
-            "2026-04-27 against a six-persona config whose per-persona bands "
-            "match no current persona, and are unanchored until a baseline "
-            "exists (founder ruling D4, 2026-09-22).",
-            "fm_over_rate scores against first_message_max_words, which reaches "
-            "NO PROMPT. std_over_rate scores against the band the persona's own "
-            "system_fragment states. The gap between them is BREV-002.",
-            "anti_flex_rate covers 77 full / 9 partial / 4 framed topics. A zero "
-            "means no hit on what is covered, never 'no flexing'.",
-        ],
-    }
+    manifest = _manifest(arm, note, samples, completions, dry_run=False)
     with open(out / "manifest.json", "w", encoding="utf-8", newline="\n") as fh:
         json.dump(manifest, fh, indent=2, ensure_ascii=False)
         fh.write("\n")
     return manifest, rows
+
+
+def _check_bridge(require: str | None) -> int:
+    """Refuse BEFORE anything is sent if the environment disagrees.
+
+    The bridge changes the system prompt on 9 of the 10 problems, so a run made
+    with the wrong flag is a different corpus — valid-looking, fully scored, and
+    not comparable to anything. The manifest records the flag and compare.py
+    refuses on a mismatch, but that only tells you AFTER you have paid for the
+    run. This tells you before.
+    """
+    if require is None:
+        return 0
+    want = require == "true"
+    if want == harness.PHENOMENOLOGY_BRIDGE_ENABLED:
+        return 0
+    print(
+        f"REFUSING: --require-bridge {require} but "
+        f"PHENOMENOLOGY_BRIDGE_ENABLED resolves to "
+        f"{harness.PHENOMENOLOGY_BRIDGE_ENABLED}.\n"
+        f"Nothing has been sent. Production is true (philosopher-api, verified "
+        f"2026-09-22); set it in apps/api/.env and re-run.",
+        file=sys.stderr,
+    )
+    return 2
 
 
 def _select(samples: list[Sample], personas, limit) -> list[Sample]:
@@ -190,20 +229,42 @@ async def _main_async(args) -> int:
     samples = _select(build_samples(), args.persona, args.limit)
 
     if args.dry_run:
-        # Assemble every prompt and send nothing. Proves the harness runs and
-        # prints the input profile, for free.
-        total = 0
+        # Assemble every prompt and send nothing. Proves the harness runs, prints
+        # the input profile, and WRITES A MANIFEST — a pre-flight that exists
+        # only in terminal scrollback is not a record, and this repository's
+        # standing complaint is claims that were never written down.
+        chars = bridged = 0
         for s in samples:
             system, bridge = harness.assemble_system(
                 PERSONA_REGISTRY[s.persona_slug], s.user_message, deep=s.deep,
             )
-            total += len(system)
+            chars += len(system)
+            bridged += 1 if bridge else 0
+        mean_chars = chars // max(1, len(samples))
+
+        manifest = _manifest(args.arm, args.note, samples, [], dry_run=True)
+        manifest["input_profile"] = {
+            "mean_system_prompt_chars": mean_chars,
+            "approx_tokens_chars_over_3_6": int(mean_chars / 3.6),
+            "samples_with_bridge_match": bridged,
+            "completions_that_would_be_sent":
+                len(samples) * len(harness.ARMS_BY_PLAN),
+        }
+        stamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H-%M")
+        out = Path(args.out) if args.out else RESULTS_DIR / f"{stamp}_{args.arm}_dryrun"
+        out.mkdir(parents=True, exist_ok=True)
+        with open(out / "manifest.json", "w", encoding="utf-8", newline="\n") as fh:
+            json.dump(manifest, fh, indent=2, ensure_ascii=False)
+            fh.write("\n")
+
         print(f"dry run: {len(samples)} samples, "
               f"{len(samples) * len(harness.ARMS_BY_PLAN)} completions would be sent")
-        print(f"mean system prompt: {total // max(1, len(samples))} chars "
-              f"(~{total // max(1, len(samples)) // 4} tokens, rough)")
+        print(f"mean system prompt: {mean_chars} chars "
+              f"(~{int(mean_chars / 3.6)} tokens)")
+        print(f"samples with a bridge match: {bridged}/{len(samples)}")
         print(f"phenomenology_bridge_enabled={harness.PHENOMENOLOGY_BRIDGE_ENABLED}")
         print(f"prompt_set_hash={prompt_set_hash()}")
+        print(f"\nwrote {out / 'manifest.json'}")
         return 0
 
     def progress(done, total, c):
@@ -270,13 +331,20 @@ def main() -> int:
     p.add_argument("--limit", type=int, default=None, help="first N samples only")
     p.add_argument("--concurrency", type=int, default=4)
     p.add_argument("--dry-run", action="store_true",
-                   help="assemble every prompt, send nothing, spend nothing")
+                   help="assemble every prompt, send nothing, spend nothing; "
+                        "writes manifest.json with dry_run: true")
+    p.add_argument("--require-bridge", choices=["true", "false"], default=None,
+                   help="exit 2 BEFORE sending anything if "
+                        "PHENOMENOLOGY_BRIDGE_ENABLED does not match")
     p.add_argument("--rescore", default=None, metavar="DIR",
                    help="re-score a stored run from its completions.jsonl")
     args = p.parse_args()
 
     if args.rescore:
         return _rescore(args.rescore)
+    gate = _check_bridge(args.require_bridge)
+    if gate:
+        return gate
     return asyncio.run(_main_async(args))
 
 
