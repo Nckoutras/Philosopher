@@ -483,7 +483,7 @@ work in another. Before every commit/push, verify the current branch with
 
 ---
 
-## Persona & migration conventions
+## Persona, migration & data conventions
 
 Codified 2026-06-16 after the Orwell + Musashi addition (#316) and the portrait WebP
 standardization (#315). These apply to all future persona and data-migration work.
@@ -619,6 +619,35 @@ Four instances, 2026-08-23:
   MagicMock at all — it accepts an attribute write and still answers every read — so they
   use plain `FakeMirror` / `FakeComparison` classes instead (#557). The fourth instance is
   the one that was avoided, and it is the reason the rule ends with "prefer a real object".
+
+### C-07 — Deleting a conversation does NOT delete what was extracted from it
+
+Codified 2026-09-22, while writing the QA-account cleanup for the stability-guard
+smokes.
+
+`memory_entries.conversation_id`, `insights.conversation_id` and
+`safety_events.conversation_id` are all **ON DELETE SET NULL**. Only
+`messages.conversation_id` is CASCADE. So `DELETE FROM conversations` removes the
+messages and **orphans** the memory entries, insights and safety events — those rows
+survive with `user_id` intact and `conversation_id` null.
+
+That is worse than leaving them alone, because `memory_service.recall()` selects by
+`user_id` + cosine and never by conversation. An orphaned memory is still recalled,
+still eligible for the weekly letter, and no longer traceable to the conversation it
+came from. The delete that looks like cleanup is the one that makes the content
+untraceable while keeping it live.
+
+**Rule: when removing conversation-derived content, delete `memory_entries`,
+`insights` and `safety_events` FIRST — by `user_id` when the account is disposable,
+by `conversation_id` otherwise — and delete `conversations` LAST.** Counts either
+side, inside a transaction.
+
+A soft delete does not do this job either: `conversations.deleted_at` leaves every
+message and every extracted row intact.
+
+Verified against `information_schema.referential_constraints` on Oregon, 2026-09-22.
+The full cleanup procedure, scoped to one account by email, is in the tier-1
+stability-guard PR narrative.
 
 ---
 
