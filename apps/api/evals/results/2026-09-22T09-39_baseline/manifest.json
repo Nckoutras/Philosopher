@@ -1,0 +1,63 @@
+{
+  "arm": "baseline",
+  "note": "run 1 baseline; rates only, no pass/fail (D4)",
+  "dry_run": false,
+  "generated_at_utc": "2026-09-22T09:39:25+00:00",
+  "git_sha": "961bdc37d67ad73936dd912e135f6a1d04dcd9b3",
+  "git_dirty": false,
+  "prompt_set_hash": "0a2a2d868600bb26",
+  "n_samples": 110,
+  "n_completions": 220,
+  "deep_problem_ids": [
+    "P03_burnout_anxiety_at_30",
+    "P08_recurring_dream_water",
+    "P10_running_out_of_time"
+  ],
+  "personas": [
+    "carl_jung",
+    "epictetus",
+    "george_orwell",
+    "lao_tzu",
+    "marcus_aurelius",
+    "miyamoto_musashi",
+    "niccolo_machiavelli",
+    "oscar_wilde",
+    "sigmund_freud",
+    "simone_de_beauvoir",
+    "socrates"
+  ],
+  "models": [
+    "claude-haiku-4-5-20251001",
+    "claude-sonnet-4-6"
+  ],
+  "phenomenology_bridge_enabled": true,
+  "postprocessing_enabled_env": null,
+  "generation_order": "persona-major (persona, plan, problem) — a cost optimisation for Sonnet's per-persona prefix cache; Haiku cannot cache, its minimum prefix is above ours",
+  "row_order": "sample_id, then plan — every output file is ordered independently of how generation was scheduled",
+  "errors": 0,
+  "cost": {
+    "claude-haiku-4-5-20251001": {
+      "input": 354906,
+      "cache_creation": 0,
+      "cache_read": 0,
+      "output": 15645,
+      "usd": 0.4331
+    },
+    "claude-sonnet-4-6": {
+      "input": 330,
+      "cache_creation": 131676,
+      "cache_read": 223010,
+      "output": 6927,
+      "usd": 0.6656
+    },
+    "_total_usd": 1.0987
+  },
+  "caveats": [
+    "Rates only. No pass/fail: the spec's thresholds were written 2026-04-27 against a six-persona config whose per-persona bands match no current persona, and are unanchored until a baseline exists (founder ruling D4, 2026-09-22).",
+    "fm_over_rate scores against first_message_max_words, which reaches NO PROMPT. std_over_rate scores against the band the persona's own system_fragment states. The gap between them is BREV-002.",
+    "anti_flex_rate covers 77 full / 9 partial / 4 framed topics. A zero means no hit on what is covered, never 'no flexing'."
+  ],
+  "rescored_from_prompt_set_hash": "95506781d0adaad7",
+  "rescored_at_utc": "2026-09-22T11:03:28+00:00",
+  "rescored_at_git_sha": "c8d230363c735aeddbdb6121f5bd8d20c1681e47"
+}

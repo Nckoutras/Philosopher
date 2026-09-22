@@ -40,6 +40,9 @@ from pathlib import Path
 
 MUST_MATCH = (
     "prompt_set_hash",
+    # persona_config_hash is NOT gated: B2 and B2-clean differ ONLY here, and
+    # comparing them is the whole point of that experiment. It is recorded and
+    # printed, so a reader always knows whether the personas moved.
     "models",
     "phenomenology_bridge_enabled",
     "deep_problem_ids",

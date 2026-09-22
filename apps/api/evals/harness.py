@@ -169,7 +169,10 @@ def assemble_system(
     # directive. arm "baseline" appends nothing and is byte-identical to
     # run 1, which tests/test_harness_parity.py asserts for all 11 personas
     # x deep/standard x bridge on/off.
-    if arm in ("tightened", "b2"):
+    if arm in ("tightened", "b2", "b2clean"):
+        # b2clean ships the SAME directive as b2. The two runs differ only in the
+        # persona configs (stale length line removed, bands moved to the B2
+        # table), which is why persona_config_hash exists.
         mod = arm_b if arm == "tightened" else arm_b2
         system = system + "\n\n" + mod.directive(
             persona.slug, deep=deep, first_message=True

@@ -133,9 +133,37 @@ def _cost(completions) -> dict:
     return per_model
 
 
+def persona_config_hash() -> str:
+    """Digest of every persona input that reaches the prompt or the scorers.
+
+    NOTHING RECORDED THIS BEFORE, and it is the largest input of all. The
+    system prompt is mostly system_fragment; the deep directive is built from
+    reflective_reply_max_words; check_brevity reads all three band fields. Two
+    runs of the SAME arm against different persona configs produced identical
+    manifests apart from git_sha — which is a commit id, not a statement about
+    what the model read.
+
+    Found when B2-clean needed to be told apart from B2: the arm, the prompt set
+    and the directive hash are all identical between them, and only the persona
+    files differ.
+    """
+    from personas import PERSONA_REGISTRY
+    h = hashlib.sha256()
+    NUL = bytes([0])
+    for slug in sorted(PERSONA_REGISTRY):
+        p = PERSONA_REGISTRY[slug]
+        r = p.response_length_words
+        h.update(slug.encode("utf-8")); h.update(NUL)
+        h.update(p.system_fragment.encode("utf-8")); h.update(NUL)
+        h.update(repr((r.standard_reply_words, r.reflective_reply_max_words,
+                       r.first_message_max_words, r.council_mode_words)).encode("utf-8"))
+        h.update(NUL)
+    return h.hexdigest()[:16]
+
+
 def _arm_mod(arm: str):
     """The module whose directive this arm ships. baseline has none."""
-    return {"tightened": arm_b, "b2": arm_b2}.get(arm)
+    return {"tightened": arm_b, "b2": arm_b2, "b2clean": arm_b2}.get(arm)
 
 
 def _manifest(arm: str, note: str, samples, completions, *, dry_run: bool,
@@ -155,6 +183,7 @@ def _manifest(arm: str, note: str, samples, completions, *, dry_run: bool,
         # the third time anyone saw it.
         "git_dirty": _git_dirty() if git_dirty is None else git_dirty,
         "prompt_set_hash": prompt_set_hash(),
+        "persona_config_hash": persona_config_hash(),
         "n_samples": len(samples),
         "n_completions": len(completions),
         "deep_problem_ids": sorted(DEEP_PROBLEM_IDS),

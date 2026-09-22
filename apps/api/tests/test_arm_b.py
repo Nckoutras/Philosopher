@@ -97,13 +97,35 @@ def test_lao_tzu_is_lowest_and_orwell_highest():
     assert max(mids, key=mids.get) == "george_orwell"
 
 
-def test_arm_b_bands_are_all_above_the_shipped_first_message_cap():
+# The pre-B2 first_message caps, frozen. They are no longer in the registry:
+# founder ruling 2026-09-22 set first_message_max_words to the standard ceiling,
+# because "first message = standard range" and the separate cap never reached a
+# prompt. Kept here as the thing arm B had to clear.
+_OLD_FM_CAPS = {
+    "lao_tzu": 35, "socrates": 35, "epictetus": 35, "marcus_aurelius": 40,
+    "carl_jung": 40, "sigmund_freud": 40, "niccolo_machiavelli": 40,
+    "oscar_wilde": 40, "miyamoto_musashi": 45, "simone_de_beauvoir": 50,
+    "george_orwell": 50,
+}
+
+
+def test_arm_b_bands_are_all_above_the_OLD_first_message_cap():
     """The direction of arm B is UP, not down — the blind read chose the longer
     reply in 6 of 7 decided pairs. If a band ever falls back under the old cap,
-    the arm has quietly become the length-only arm the blind read killed."""
+    the arm has quietly become the length-only arm the blind read killed.
+
+    Pinned against the frozen caps above rather than live registry values, which
+    now equal the standard ceiling and would make this assertion vacuous."""
+    assert set(_OLD_FM_CAPS) == set(arm_b.BANDS)
     for slug, b in arm_b.BANDS.items():
-        cap = PERSONA_REGISTRY[slug].response_length_words.first_message_max_words
-        assert b["standard"][0] > cap, slug
+        assert b["standard"][0] > _OLD_FM_CAPS[slug], slug
+
+
+def test_first_message_cap_now_equals_the_standard_ceiling():
+    """Founder ruling 2026-09-22: first message = standard range."""
+    for slug, b in arm_b.BANDS.items():
+        spec = PERSONA_REGISTRY[slug].response_length_words
+        assert spec.first_message_max_words == b["standard"][1], slug
 
 
 # ── the copy ────────────────────────────────────────────────────────────────
