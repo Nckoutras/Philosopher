@@ -169,6 +169,22 @@ def assemble_system(
     # directive. arm "baseline" appends nothing and is byte-identical to
     # run 1, which tests/test_harness_parity.py asserts for all 11 personas
     # x deep/standard x bridge on/off.
+    # H1 / H2 — placement arms (Haiku). The TEXT is identical to b3; only the
+    # position changes. MODEL-001 records that Haiku substantially ignores a
+    # directive appended last: three arms, and B3's explicit "about N words"
+    # made it worse (in-band 43% -> 19%, mean 104 -> 125.5w). The hypothesis is
+    # placement, not capability.
+    #
+    # No cache is at risk. Haiku has never cached: _history_cache_control is
+    # Pro-only, and the static prefix is ~2,868 tok against Haiku 4.5's
+    # 4,096-token minimum. Both stored runs show cache_write 0, cache_read 0.
+    if arm in ("h1", "h2"):
+        block = arm_b3.directive(persona.slug, deep=deep, first_message=True)
+        system = block + "\n\n" + system
+        if arm == "h2":
+            system = system + "\n\n" + block
+        return system, (bridge.matched_term if bridge else None)
+
     if arm in ("tightened", "b2", "b2clean", "b3"):
         # b2clean ships the SAME directive as b2. The two runs differ only in the
         # persona configs (stale length line removed, bands moved to the B2
@@ -237,6 +253,7 @@ async def generate_all(
     concurrency: int = 4,
     progress=None,
     arm: str = "baseline",
+    plans: tuple[str, ...] | None = None,
 ) -> list[Completion]:
     """Every sample on both plans. 110 samples -> 220 completions.
 
@@ -263,8 +280,16 @@ async def generate_all(
     scheduled.
     """
     sem = asyncio.Semaphore(concurrency)
+    # `plans` restricts which of the two paths runs. The H1/H2 placement arms are
+    # Haiku-only: the question they ask (does Haiku obey a directive it is given
+    # FIRST?) is about the free path, and re-running Sonnet would cost 3x the
+    # Haiku bill to re-measure a result that is already locked.
+    wanted = tuple(ARMS_BY_PLAN) if plans is None else tuple(
+        t for t in ARMS_BY_PLAN if t[1] in plans)
+    if not wanted:
+        raise ValueError(f"no plan in ARMS_BY_PLAN matches {plans!r}")
     jobs = sorted(
-        ((s, plan, model) for s in samples for _, plan, model in ARMS_BY_PLAN),
+        ((s, plan, model) for s in samples for _, plan, model in wanted),
         key=lambda j: (j[0].persona_slug, j[1], j[0].problem_id),
     )
     done = 0
