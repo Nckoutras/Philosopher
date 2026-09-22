@@ -103,3 +103,34 @@ That correction is the return on ~$0.94. It is also the second time in this
 sequence that a plausible reading of a metric survived until somebody ran the
 arm that could falsify it — the first being "the free tier breaks the voice",
 which the blind read killed.
+
+---
+
+# FOUNDER RULING — 2026-09-22
+
+**NOTHING SHIPS.** Placement does not fix Haiku, and H2's rate gain is not
+significant (McNemar exact **p=0.052**). The arms stay in the harness as
+measured history; no production change follows from them.
+
+**No further Haiku length arms.** This line of attack is closed — not deferred.
+Three directive-wording arms and two placement arms have now been run against
+the same problem, and the deep-mode result (28 of 33 still over the ceiling with
+three copies of the ceiling in the prompt) is the evidence that more of the same
+instrument will not move it.
+
+**Haiku free-path length is ACCEPTED AS-IS, at roughly 115–145 words.** This is
+an acceptance on the reader's evidence, not a tolerance of a defect. That range
+sits inside what the founder preferred in the **first blind read**, where the
+longer reply was chosen in 6 of 7 decided pairs and two of the three "neither"
+marks asked for more length. The band Haiku overruns is the one MODEL-001
+already found to be wrong.
+
+So the free path is not mis-serving anyone at this length. What remains open is
+the narrower question of whether a persona's stated ceiling should mean anything
+on the free path at all — and that is a product decision about the free tier,
+still deferred until there are users to measure.
+
+**What this ruling costs:** nothing in production, and $0.9447 spent to close a
+hypothesis rather than to carry it. The result that justifies the spend is the
+falsification, not a shipped change — H1 is the arm that could have been skipped
+as "obviously the fix" and would have made the free path 19 words worse.
