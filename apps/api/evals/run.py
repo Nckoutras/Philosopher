@@ -115,7 +115,8 @@ def _cost(completions) -> dict:
     return per_model
 
 
-def _manifest(arm: str, note: str, samples, completions, *, dry_run: bool) -> dict:
+def _manifest(arm: str, note: str, samples, completions, *, dry_run: bool,
+              git_dirty: bool | None = None) -> dict:
     """The record of what a run WAS. compare.py refuses on a mismatch of the
     gated keys, so this is not documentation — it is the comparability check."""
     return {
@@ -124,7 +125,12 @@ def _manifest(arm: str, note: str, samples, completions, *, dry_run: bool) -> di
         "dry_run": dry_run,
         "generated_at_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "git_sha": _git_sha(),
-        "git_dirty": _git_dirty(),
+        # Captured BEFORE the run writes anything. Computing it here would be
+        # true on every real run, because summary.csv and the results directory
+        # are untracked by design — a provenance flag that is always set is not
+        # a flag, and compare.py's warning on it would be correctly ignored by
+        # the third time anyone saw it.
+        "git_dirty": _git_dirty() if git_dirty is None else git_dirty,
         "prompt_set_hash": prompt_set_hash(),
         "n_samples": len(samples),
         "n_completions": len(completions),
@@ -157,7 +163,8 @@ def _manifest(arm: str, note: str, samples, completions, *, dry_run: bool) -> di
     }
 
 
-def _write(out: Path, arm: str, samples, completions, scores: list[Scores], note: str):
+def _write(out: Path, arm: str, samples, completions, scores: list[Scores],
+           note: str, *, git_dirty: bool | None = None):
     out.mkdir(parents=True, exist_ok=True)
 
     with open(out / "completions.jsonl", "w", encoding="utf-8", newline="\n") as fh:
@@ -184,7 +191,8 @@ def _write(out: Path, arm: str, samples, completions, scores: list[Scores], note
         w.writeheader()
         w.writerows(rows)
 
-    manifest = _manifest(arm, note, samples, completions, dry_run=False)
+    manifest = _manifest(arm, note, samples, completions, dry_run=False,
+                         git_dirty=git_dirty)
     with open(out / "manifest.json", "w", encoding="utf-8", newline="\n") as fh:
         json.dump(manifest, fh, indent=2, ensure_ascii=False)
         fh.write("\n")
@@ -194,11 +202,28 @@ def _write(out: Path, arm: str, samples, completions, scores: list[Scores], note
 def _check_bridge(require: str | None) -> int:
     """Refuse BEFORE anything is sent if the environment disagrees.
 
-    The bridge changes the system prompt on 9 of the 10 problems, so a run made
-    with the wrong flag is a different corpus — valid-looking, fully scored, and
-    not comparable to anything. The manifest records the flag and compare.py
-    refuses on a mismatch, but that only tells you AFTER you have paid for the
-    run. This tells you before.
+    The bridge changes the system prompt on 3 of the 10 problems (measured; the
+    `expected_phenomenology_match` field claims 9 and is wrong about 8 of them),
+    so a run made with the wrong flag is a different corpus — valid-looking,
+    fully scored, and comparable to nothing. The manifest records the flag and
+    compare.py refuses on a mismatch, but that only tells you AFTER you have paid
+    for the run. This tells you before.
+
+    THE FLAG CANNOT LIVE IN apps/api/.env, and this message used to say it could.
+    Two independent reasons:
+
+      1. config.Settings forbids extra fields, and PHENOMENOLOGY_BRIDGE_ENABLED
+         is not one of them. Putting it in .env makes `from config import config`
+         raise pydantic ValidationError(extra_forbidden) — which is an import-time
+         crash for anything that touches config, including this runner.
+      2. Even if it were permitted, pydantic reads .env into the Settings object;
+         it does not populate os.environ. conversation_service.py:214 and this
+         harness both read the flag with os.getenv, so a .env entry would be
+         invisible to them regardless.
+
+    It must be a real environment variable, which is exactly what it is in
+    production (Render sets it on philosopher-api). apps/api/.env carries the
+    API key, which IS a declared Settings field.
     """
     if require is None:
         return 0
@@ -208,9 +233,19 @@ def _check_bridge(require: str | None) -> int:
     print(
         f"REFUSING: --require-bridge {require} but "
         f"PHENOMENOLOGY_BRIDGE_ENABLED resolves to "
-        f"{harness.PHENOMENOLOGY_BRIDGE_ENABLED}.\n"
-        f"Nothing has been sent. Production is true (philosopher-api, verified "
-        f"2026-09-22); set it in apps/api/.env and re-run.",
+        f"{harness.PHENOMENOLOGY_BRIDGE_ENABLED}. Nothing has been sent.",
+        file=sys.stderr,
+    )
+    print(
+        "  It must be a real ENVIRONMENT VARIABLE, not a line in apps/api/.env: "
+        "config.Settings forbids extra fields, so a .env entry raises "
+        "ValidationError at import, and pydantic would not populate os.environ "
+        "anyway. Production sets it on philosopher-api (true, verified "
+        "2026-09-22). Locally:",
+        file=sys.stderr,
+    )
+    print(
+        "      PHENOMENOLOGY_BRIDGE_ENABLED=true python -m evals.run ...",
         file=sys.stderr,
     )
     return 2
@@ -226,6 +261,8 @@ def _select(samples: list[Sample], personas, limit) -> list[Sample]:
 
 
 async def _main_async(args) -> int:
+    # Before anything is written. See _manifest's note on git_dirty.
+    dirty_at_start = _git_dirty()
     samples = _select(build_samples(), args.persona, args.limit)
 
     if args.dry_run:
@@ -242,7 +279,8 @@ async def _main_async(args) -> int:
             bridged += 1 if bridge else 0
         mean_chars = chars // max(1, len(samples))
 
-        manifest = _manifest(args.arm, args.note, samples, [], dry_run=True)
+        manifest = _manifest(args.arm, args.note, samples, [], dry_run=True,
+                             git_dirty=dirty_at_start)
         manifest["input_profile"] = {
             "mean_system_prompt_chars": mean_chars,
             "approx_tokens_chars_over_3_6": int(mean_chars / 3.6),
@@ -282,7 +320,8 @@ async def _main_async(args) -> int:
 
     stamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H-%M")
     out = Path(args.out) if args.out else RESULTS_DIR / f"{stamp}_{args.arm}"
-    manifest, rows = _write(out, args.arm, samples, completions, scores, args.note)
+    manifest, rows = _write(out, args.arm, samples, completions, scores, args.note,
+                            git_dirty=dirty_at_start)
 
     print(f"\nwrote {out}")
     print(f"  completions {manifest['n_completions']}  errors {manifest['errors']}")
