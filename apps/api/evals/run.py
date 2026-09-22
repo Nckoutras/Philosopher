@@ -40,7 +40,7 @@ from pathlib import Path
 
 from personas import PERSONA_REGISTRY
 
-from . import arm_b, harness
+from . import arm_b, arm_b2, harness
 from .prompt_set import DEEP_PROBLEM_IDS, Sample, build_samples, prompt_set_hash
 from .scorers import (
     CSV_COLUMNS,
@@ -133,6 +133,11 @@ def _cost(completions) -> dict:
     return per_model
 
 
+def _arm_mod(arm: str):
+    """The module whose directive this arm ships. baseline has none."""
+    return {"tightened": arm_b, "b2": arm_b2}.get(arm)
+
+
 def _manifest(arm: str, note: str, samples, completions, *, dry_run: bool,
               git_dirty: bool | None = None) -> dict:
     """The record of what a run WAS. compare.py refuses on a mismatch of the
@@ -163,11 +168,11 @@ def _manifest(arm: str, note: str, samples, completions, *, dry_run: bool,
         # prompt_set_hash lesson applied to the thing the arm itself changes.
         "arm_directive_hash": (
             hashlib.sha256(
-                (arm_b.FIRST_MESSAGE + arm_b.STANDARD + arm_b.DEEP
-                 + arm_b.bands_note()).encode("utf-8")
-            ).hexdigest()[:16] if arm in arm_b.ARMS and arm != "baseline" else None
+                (_arm_mod(arm).FIRST_MESSAGE + _arm_mod(arm).STANDARD
+                 + _arm_mod(arm).DEEP + _arm_mod(arm).bands_note()).encode("utf-8")
+            ).hexdigest()[:16] if _arm_mod(arm) else None
         ),
-        "arm_bands": arm_b.bands_note() if arm != "baseline" else None,
+        "arm_bands": _arm_mod(arm).bands_note() if _arm_mod(arm) else None,
         "arm_bands_note": (
             "Scaled from each persona's current standard band midpoint by 1.7742 so "
             "the mean target is 75 words, order preserved; lo = 0.8x target, hi = "
@@ -180,7 +185,7 @@ def _manifest(arm: str, note: str, samples, completions, *, dry_run: bool,
             "Mean standard target is therefore 72.6, not 75.0. FIRST MESSAGE uses the "
             "same range as STANDARD: first_message_max_words never reached a prompt, "
             "so expect fm_over near 100% as a design artefact, not a regression."
-            if arm != "baseline" else None
+            if _arm_mod(arm) else None
         ),
         "postprocessing_enabled_env": os.getenv("POSTPROCESSING_ENABLED"),
         # Two different orders, and only the second is part of the measurement.

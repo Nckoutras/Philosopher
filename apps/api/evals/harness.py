@@ -90,7 +90,7 @@ from services.llm_client import llm_client
 from services.phenomenology_bridge_service import phenomenology_bridge_service
 from services.prompt_builder import CACHE_SPLIT_SENTINEL, prompt_builder
 
-from . import arm_b
+from . import arm_b, arm_b2
 from .prompt_set import Sample
 
 # Read the same way conversation_service.py:214 reads it, so a run cannot
@@ -169,8 +169,9 @@ def assemble_system(
     # directive. arm "baseline" appends nothing and is byte-identical to
     # run 1, which tests/test_harness_parity.py asserts for all 11 personas
     # x deep/standard x bridge on/off.
-    if arm == "tightened":
-        system = system + "\n\n" + arm_b.directive(
+    if arm in ("tightened", "b2"):
+        mod = arm_b if arm == "tightened" else arm_b2
+        system = system + "\n\n" + mod.directive(
             persona.slug, deep=deep, first_message=True
         )
     elif arm != "baseline":

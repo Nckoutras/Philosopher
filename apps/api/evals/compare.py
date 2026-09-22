@@ -51,6 +51,10 @@ RATE_COLUMNS = (
     "fm_over_rate", "std_over_rate",
     "persona_lexicon_rate", "universal_lexicon_rate",
     "anti_flex_rate", "modern_leak_rate", "would_correct_rate",
+    # B2. NOTE the direction: for these four, "lower is better" is TRUE for
+    # ends_q_rate and no_opening_rate and FALSE for the two stance rates, which
+    # the arrows below do not know. Read the sign, not the word.
+    "ends_q_rate", "no_opening_rate", "stance_observation_rate", "stance_any_rate",
 )
 KEY = ("persona_slug", "mode", "plan", "model")
 

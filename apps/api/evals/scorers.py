@@ -54,6 +54,80 @@ from services.postprocessing_service import (
 from .anti_flex import check_anti_flex
 
 
+# ── Style scorers added for B2 ───────────────────────────────────────────────
+#
+# STANCE IS MEASURED TWO WAYS, AND THE NARROW ONE IS NOT RETIRED.
+#
+# The original matcher caught only the "notice"/"strikes me" family. Every stance
+# number already reported — baseline 6%, arm B 14% — and the founder's 30-40%
+# target were set against THAT matcher. Widening it silently would restate every
+# prior figure without saying so, so both are reported:
+#
+#   stance_observation  the original family. Comparable to every earlier run.
+#   stance_any          any of the four forms B2 names. Measured over the 440
+#                       completions of baseline + arm B: 45.5% and 53.2%.
+#
+# The four families, and what the corpus already contained:
+#
+#   observation       baseline  5.9%   arm B 13.6%
+#   distinction       baseline 23.6%   arm B 28.2%
+#   direct-claim      baseline 28.2%   arm B 29.5%
+#   reading-as-mine   baseline  0.0%   arm B  0.0%   <- never once in 440
+#
+# "A reading you offer as yours" does not exist in the corpus at all. B2 names it
+# explicitly, which makes it the cleanest before/after signal in the arm.
+STANCE_FAMILIES = {
+    "observation": re.compile(
+        r"\b(what i notice|what i'?m noticing|i notice|what strikes me|what stands out"
+        r"|what catches me|it seems to me|what'?s worth (?:looking at|noticing))\b", re.I),
+    "distinction": re.compile(
+        r"\bis\s?n'?t [^.?!]{2,40}?[.,]\s*it'?s\b"
+        r"|\bthat'?s not [^.?!]{2,40}?[.,]\s*(?:it|that)'?s\b"
+        r"|\bnot [^.?!]{2,40}? but rather\b"
+        r"|\bthose are (?:two )?different\b|\bthese are not the same\b", re.I),
+    "reading_as_mine": re.compile(
+        r"\b(i'?d call (?:this|that|it)|i read (?:this|that|it) as"
+        r"|to me (?:this|that|it) (?:is|reads|looks)|it reads to me"
+        r"|my reading (?:is|of)|i suspect|i'?d say|what i hear (?:is|in))\b", re.I),
+    "direct_claim": re.compile(
+        r"\byou'?(?:re| are) (?:not )?(?:doing|describing|asking|telling|treating"
+        r"|holding|carrying|waiting|performing|building|measuring)\b"
+        r"|\byou have already\b", re.I),
+}
+
+# opening_present = a question anywhere, OR one of these. Grounded in the arm B
+# corpus rather than invented: measured against the 19 replies that contained no
+# question mark at all, these six catch 12. Two of them ("say more",
+# "I'd like to hear") catch NOTHING today and are kept deliberately — B2 invites
+# that form explicitly, so a zero now is the baseline for whether it appears.
+#
+# REPORT IT AS A FLOOR, NOT A RATE. Seven of those 19 invite a reply with no
+# marker at all ("That's not fraud — it's just a long way from home."), and no
+# pattern list will catch them.
+INVITING = re.compile(
+    r"\bthe (?:harder |real |only )?question (?:is|worth|isn'?t)\b"
+    r"|\bi'?m curious\b|\bwhat i'?m curious about\b"
+    r"|\bworth sitting with\b|\bsit(?:ting)? with\b"
+    r"|\btell me\b"
+    r"|\b(?:say more|tell me more|more about (?:that|this|it))\b"
+    r"|\bi'?d? (?:would )?(?:like|want) to hear\b", re.I)
+
+_ENDS_Q = re.compile(r"[?][\"'”’)\]]*\s*$")
+
+
+def stance_hits(reply: str) -> list[str]:
+    """Which of the four families fire. Order is stable for reporting."""
+    return [k for k, rx in STANCE_FAMILIES.items() if rx.search(reply)]
+
+
+def ends_with_question(reply: str) -> bool:
+    return bool(_ENDS_Q.search(reply.strip()))
+
+
+def has_opening(reply: str) -> bool:
+    return "?" in reply or bool(INVITING.search(reply))
+
+
 @dataclass
 class BrevityView:
     word_count: int
@@ -85,6 +159,11 @@ class Scores:
     would_production_have_corrected: bool = False
     bridge_matched: str | None = None
     error: str | None = None
+
+    # B2 additions
+    ends_with_question: bool = False
+    opening_present: bool = False
+    stance_families: list[str] = field(default_factory=list)
 
 
 @lru_cache(maxsize=512)
@@ -143,6 +222,9 @@ def score(completion, sample) -> Scores:
         ),
         bridge_matched=completion.bridge_matched,
         error=completion.error,
+        ends_with_question=ends_with_question(reply),
+        opening_present=has_opening(reply),
+        stance_families=stance_hits(reply),
     )
 
 
@@ -154,6 +236,7 @@ CSV_COLUMNS = [
     "persona_lexicon_hits", "universal_lexicon_hits",
     "anti_flex_hits", "anti_flex_coverage", "modern_term_leaks",
     "would_production_have_corrected", "bridge_matched", "error",
+    "ends_with_question", "opening_present", "stance_families",
 ]
 
 
@@ -179,6 +262,9 @@ def to_row(s: Scores) -> dict:
         "would_production_have_corrected": int(s.would_production_have_corrected),
         "bridge_matched": s.bridge_matched or "",
         "error": s.error or "",
+        "ends_with_question": int(s.ends_with_question),
+        "opening_present": int(s.opening_present),
+        "stance_families": "|".join(s.stance_families),
     }
 
 
@@ -188,6 +274,7 @@ SUMMARY_COLUMNS = [
     "fm_over_rate", "std_over_rate",
     "persona_lexicon_rate", "universal_lexicon_rate",
     "anti_flex_rate", "modern_leak_rate", "would_correct_rate", "errors",
+    "ends_q_rate", "no_opening_rate", "stance_observation_rate", "stance_any_rate",
 ]
 
 
@@ -222,6 +309,14 @@ def summarise(scores: list[Scores]) -> list[dict]:
             "modern_leak_rate": _rate(ok, lambda g: bool(g.modern_term_leaks)),
             "would_correct_rate": _rate(ok, lambda g: g.would_production_have_corrected),
             "errors": len(group) - n,
+            "ends_q_rate": _rate(ok, lambda g: g.ends_with_question),
+            # reported as a FLOOR — see INVITING's comment
+            "no_opening_rate": _rate(ok, lambda g: not g.opening_present),
+            # narrow: comparable to every run reported before B2
+            "stance_observation_rate": _rate(
+                ok, lambda g: "observation" in g.stance_families),
+            # wide: the four forms B2 names
+            "stance_any_rate": _rate(ok, lambda g: bool(g.stance_families)),
         })
     return rows
 

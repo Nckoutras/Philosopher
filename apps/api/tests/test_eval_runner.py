@@ -128,6 +128,6 @@ async def test_dry_run_writes_a_manifest_and_sends_nothing(monkeypatch, tmp_path
 
 
 def test_the_manifest_records_both_orders():
-    manifest = runner._manifest("a", "", build_samples(), [], dry_run=True)
+    manifest = runner._manifest("baseline", "", build_samples(), [], dry_run=True)
     assert "persona-major" in manifest["generation_order"]
     assert "sample_id" in manifest["row_order"]

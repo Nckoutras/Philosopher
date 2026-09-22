@@ -111,7 +111,9 @@ DEEP = (
     "statement, never a closing seal. Keep your own voice; no decorative profundity."
 )
 
-ARMS = ("baseline", "tightened")
+# "b2" lives in arm_b2.py. Arm B's own text is FROZEN — it has been run and its
+# numbers are on the record; an edit here would silently invalidate that run.
+ARMS = ("baseline", "tightened", "b2")
 
 
 def directive(persona_slug: str, *, deep: bool, first_message: bool = True) -> str:
