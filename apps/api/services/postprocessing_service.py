@@ -303,19 +303,38 @@ def check_universal_forbidden(reply: str) -> CheckResult:
 
 
 def check_brevity(reply: str, persona: PersonaConfig,
-                  conversation_position: str = "mid_session") -> CheckResult:
+                  conversation_position: str = "mid_session",
+                  *, reflective: bool = False) -> CheckResult:
     """Check word count against persona's brevity targets.
 
-    Phase 1 schema field: persona.response_length_words: Optional[ResponseLengthSpec]
-    All 6 personas currently have this as None (Phase 3 will populate).
+    response_length_words is populated for all 11 personas. The None branch
+    below survives for a persona added without a spec, and for tests that clear
+    it — it is not a migration state. This docstring said "All 6 personas
+    currently have this as None (Phase 3 will populate)" until this edit; it was
+    false in both halves.
 
     Graceful degradation when None: returns action=SKIP, passed=True.
 
-    conversation_position: "first_message" | "mid_session" | "late_session"
-    Used to select target band:
-      first_message → first_message_max_words (hard ceiling, no lower bound)
-      mid_session   → standard_reply_words (tuple lower/upper)
-      late_session  → standard_reply_words (same)
+    POSITION AND MODE ARE ORTHOGONAL (BREV-001 step 1).
+    `conversation_position` is WHERE the reply sits in the thread:
+    "first_message" | "mid_session" | "late_session" (the last two select the
+    same band).
+    `reflective` is WHAT THE PROMPT ASKED FOR — True when the generating call
+    carried `_deepen_directive`, which instructs the persona up to
+    reflective_reply_max_words, a band 2.17x–2.89x the standard ceiling.
+    Scoring such a reply against the standard band reports a length failure the
+    prompt itself requested: over 50 production go_deeper replies, 15 over
+    ceiling become 3.
+
+    One string cannot carry both, because a deep-mode FIRST reply is instructed
+    to the reflective band and must still keep its first-message cap. Up to 27
+    of 182 first replies sit in deep-mode conversations, so that combination is
+    reachable, not hypothetical.
+
+    Band selection, in order:
+      first_message + first_message_max_words    → that ceiling (WINS over reflective)
+      reflective    + reflective_reply_max_words → that ceiling
+      otherwise                                  → standard_reply_words
     """
     spec = persona.response_length_words
 
@@ -331,10 +350,16 @@ def check_brevity(reply: str, persona: PersonaConfig,
 
     word_count = len(reply.split())
 
-    # Select target based on conversation position
+    # Select target: position first, then mode, then the standard band.
     if conversation_position == "first_message" and spec.first_message_max_words is not None:
         # First message: hard ceiling, no lower bound
         upper = spec.first_message_max_words
+        lower = 0
+    elif reflective and spec.reflective_reply_max_words is not None:
+        # Deep mode / go_deeper. No lower bound, mirroring the first_message
+        # branch above: `passed` tests the ceiling only, and `lower` is carried
+        # solely for the regen directive's text.
+        upper = spec.reflective_reply_max_words
         lower = 0
     elif spec.standard_reply_words is not None:
         # Standard: tuple of (lower, upper)
@@ -442,6 +467,7 @@ async def regenerate_or_trim(
     max_attempts: int = MAX_REGEN_ATTEMPTS,
     *,
     brevity_triggers: bool = True,
+    reflective: bool = False,
 ) -> tuple[str, list[CheckResult]]:
     """Run all checks. Regenerate up to max_attempts. Return final reply + history.
 
@@ -463,6 +489,12 @@ async def regenerate_or_trim(
     including the `brevity_passed_but_mid_sentence` signal below — but never
     gates, never trims, and never reaches a regeneration directive. That is the
     same posture `stream_response` has had since #684.
+
+    `reflective` is passed straight through to check_brevity and
+    _compute_max_tokens (BREV-001). No production call site sets it today —
+    site 4 (the revisit opener) is not reflective, and stream_go_deeper runs no
+    checks at all — but the parameter exists so that the reflective branch in
+    _compute_max_tokens is reachable rather than dead code.
     """
     start_ts = _time.monotonic()
     history: list[CheckResult] = []
@@ -472,7 +504,8 @@ async def regenerate_or_trim(
         # Run all three checks
         results = [
             check_universal_forbidden(current),
-            check_brevity(current, persona, conversation_position),
+            check_brevity(current, persona, conversation_position,
+                          reflective=reflective),
             check_persona_forbidden(current, persona),
         ]
         history.extend(results)
@@ -548,7 +581,9 @@ async def regenerate_or_trim(
             current = await llm_client.complete(
                 system=system_prompt + "\n\n" + directive,
                 user=user_text,
-                max_tokens=_compute_max_tokens(persona, conversation_position, attempt),
+                max_tokens=_compute_max_tokens(
+                    persona, conversation_position, attempt, reflective=reflective,
+                ),
             )
         except Exception as e:
             duration_ms = int((_time.monotonic() - start_ts) * 1000)
@@ -622,10 +657,17 @@ def _compute_max_tokens(
     persona: PersonaConfig,
     conversation_position: str,
     attempt: int,
+    *,
+    reflective: bool = False,
 ) -> int:
     """Compute max_tokens for regeneration call.
 
     Tighter on each retry. Fallback to 1024 if persona has no spec.
+
+    CARRIES THE SAME REFLECTIVE BRANCH AS check_brevity, and must (BREV-001).
+    This runs the identical position logic, so without it a regenerated
+    reflective reply is capped at standard_ceiling x 1.4 x headroom — for
+    Lao Tzu, 88 tokens against a ~182-token target, truncating mid-sentence.
     """
     spec = persona.response_length_words
     if spec is None:
@@ -635,6 +677,8 @@ def _compute_max_tokens(
     # Approximate: 1 word ≈ 1.4 tokens (English)
     if conversation_position == "first_message" and spec.first_message_max_words:
         target_words = spec.first_message_max_words
+    elif reflective and spec.reflective_reply_max_words:
+        target_words = spec.reflective_reply_max_words
     elif spec.standard_reply_words:
         _, target_words = spec.standard_reply_words
     else:
