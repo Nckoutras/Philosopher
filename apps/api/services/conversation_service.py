@@ -21,6 +21,7 @@ from services.retrieval_service import retrieval_service
 from services.embedding_client import embedding_client
 from services.llm_client import llm_client
 from services.prompt_builder import prompt_builder
+from services import reply_directive
 from services.preferences_service import get_user_preferences
 from services.profile_text import profile_to_display
 from services.analytics_service import analytics_service
@@ -327,13 +328,21 @@ ADAPTIVE_LENGTH_SHORT_FRACTION = 0.34  # short reply upper = L + round(span * th
 ADAPTIVE_LENGTH_LONG_FRACTION = 0.5    # long reply lower  = L + round(span * this)
 
 
-def _length_directive_for_input(user_text: str, persona) -> str | None:
-    """Return a system-prompt length directive sized to the user's input, or None.
+def _adaptive_band_for_input(user_text: str, persona) -> tuple[int, int] | None:
+    """Return the adaptive (lo, hi) band for this input, or None.
 
-    None means "no directive" → the prompt is byte-identical to before. That is
-    the case for medium-sized input, or when the persona has no standard band.
-    Distress and first-message gating are the caller's responsibility (this only
-    looks at input size and the persona band).
+    WAS `_length_directive_for_input`, WHICH RETURNED A WHOLE PARAGRAPH. It no
+    longer does: that paragraph was a SECOND length instruction sitting beside
+    the one reply_directive appends — the same contradiction the stale
+    "Keep responses between L-U words" fragment lines were removed to end. The
+    band is now substituted INTO reply_directive's own sentence, so a reply
+    carries exactly one length rule whichever path it takes.
+
+    None means "use the persona's standard band": medium input, or no band.
+    Distress and first-message gating stay the caller's responsibility.
+
+    THIS IS THE COMMON MID-SESSION PATH, not an edge case. Measured on Oregon:
+    364 of 445 eligible turns (81.8%) fire it, 358 of them the short tier.
     """
     spec = getattr(persona, "response_length_words", None)
     if spec is None or spec.standard_reply_words is None:
@@ -344,19 +353,10 @@ def _length_directive_for_input(user_text: str, persona) -> str | None:
     word_count = len(user_text.split())
 
     if word_count <= ADAPTIVE_LENGTH_SHORT_MAX_WORDS:
-        lo, hi = low, low + round(span * ADAPTIVE_LENGTH_SHORT_FRACTION)
-        return (
-            f"LENGTH FOR THIS REPLY: the person wrote only a line or two. Match them — "
-            f"answer briefly, about {lo}–{hi} words. Never exceed {high} words."
-        )
+        return low, low + round(span * ADAPTIVE_LENGTH_SHORT_FRACTION)
     if word_count >= ADAPTIVE_LENGTH_LONG_MIN_WORDS:
-        lo, hi = low + round(span * ADAPTIVE_LENGTH_LONG_FRACTION), high
-        return (
-            f"LENGTH FOR THIS REPLY: the person wrote at length and developed their thought. "
-            f"You may answer more fully, about {lo}–{hi} words — but never exceed {high} "
-            f"words, and never pad to fill space."
-        )
-    # Medium input: no directive — typical behaviour is unchanged.
+        return low + round(span * ADAPTIVE_LENGTH_LONG_FRACTION), high
+    # Medium input: the persona's own band governs.
     return None
 
 
@@ -922,17 +922,36 @@ class ConversationService:
             deep_mode_active = deep_applied
             if deep_mode_active:
                 system_prompt = system_prompt + "\n\n" + _deepen_directive(persona)
-            # Adaptive response length: size the reply to the user's input size.
-            # Gated AFTER safety so distress always wins — any non-"none" safety
-            # level (the surviving case is "low"/distress_signal; medium+ already
-            # returned a safety response above) suppresses the directive, keeping
-            # the grounded/short default. Skipped for the first message
-            # (history_len <= 1), whose own first_message cap governs, and for
-            # medium-sized input (helper returns None → prompt unchanged).
-            elif history_len > 1 and safety_in.level == "none":
-                length_directive = _length_directive_for_input(user_text, persona)
-                if length_directive:
-                    system_prompt = system_prompt + "\n\n" + length_directive
+
+            # ONE LENGTH SENTENCE on the first-message and standard paths.
+            # The DEEP path carries _deepen_directive AND reply_directive's DEEP
+            # block; both cite reflective_reply_max_words, so that is redundancy
+            # rather than contradiction, and it is what arm B3's deep samples ran.
+            #
+            # DISTRESS TURNS RECEIVE THE FULL DIRECTIVE, BY DECISION NOT OMISSION.
+            # Before this change, a non-"none" safety level suppressed the whole
+            # adaptive paragraph and the reply fell back to the fragment's short
+            # band. The fragments no longer carry one, so only the adaptive BAND
+            # is suppressed here — the stance and "challenge what they have said"
+            # sentences still reach a distressed user. Unmeasured: no prompt in
+            # the §8.2 set scores above level="none". SAFETY-001 carries it as a
+            # QA-account smoke item.
+            #
+            # reply_directive is appended last,
+            # after HARD RULE 8 and after the deep directive, exactly as the
+            # §8.2 harness measured it. When the adaptive band fires it is
+            # substituted INTO that sentence rather than added beside it.
+            _band = None
+            if not deep_mode_active and history_len > 1 and safety_in.level == "none":
+                _band = _adaptive_band_for_input(user_text, persona)
+            _len = reply_directive.directive(
+                persona,
+                first_message=(history_len <= 1),
+                deep=deep_mode_active,
+                band=_band,
+            )
+            if _len:
+                system_prompt = system_prompt + "\n\n" + _len
 
             # ── 6. SAVE USER MESSAGE ─────────────────────────────────────────
             # Commit (not just flush) so the user turn is durably persisted

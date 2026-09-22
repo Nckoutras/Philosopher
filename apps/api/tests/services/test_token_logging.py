@@ -117,6 +117,10 @@ async def _run(total=42):
         mock_prompt.build_safety_response.return_value = "safe"
 
         persona_config = MagicMock()
+        # C-06: reply_directive reads standard_reply_words and unpacks it.
+        # A bare MagicMock yields a Mock that unpacks to zero values, so the
+        # prompt build raises inside a test about token counting.
+        persona_config.response_length_words = None
         persona_config.slug = "marcus_aurelius"
         mock_get_persona.return_value = persona_config
 

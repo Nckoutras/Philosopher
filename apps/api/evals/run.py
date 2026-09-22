@@ -32,6 +32,7 @@ import asyncio
 import csv
 import json
 import os
+import hashlib
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -39,7 +40,7 @@ from pathlib import Path
 
 from personas import PERSONA_REGISTRY
 
-from . import harness
+from . import arm_b, arm_b2, arm_b3, harness
 from .prompt_set import DEEP_PROBLEM_IDS, Sample, build_samples, prompt_set_hash
 from .scorers import (
     CSV_COLUMNS,
@@ -132,6 +133,54 @@ def _cost(completions) -> dict:
     return per_model
 
 
+def persona_config_hash() -> str:
+    """Digest of every persona input that reaches the PROMPT or the SCORERS.
+
+    IT HASHES THE RENDERED PROMPT, not a list of fields, and that is the second
+    version. The first hashed system_fragment plus the three band numbers, and
+    it missed `forbidden_phrases` — which the template renders as "DO NOT USE:
+    ..." and is therefore prompt input. Adding the B3 notice-ban to all eleven
+    personas left the hash byte-identical, so B2-clean and B3 would have been
+    indistinguishable in their manifests.
+
+    Enumerating fields means re-enumerating them every time the template reads a
+    new one. Rendering covers whatever system_base.jinja2 actually uses, by
+    construction. The date line is stripped because build_system stamps
+    date.today() and the hash must not change overnight.
+
+    The band fields are folded in separately: they do NOT reach the prompt (only
+    _deepen_directive reads reflective_reply_max_words, and that is appended by
+    the caller) but they DO drive check_brevity and _compute_max_tokens, so two
+    runs differing only in bands are scored differently and must not collide.
+    """
+    from personas import PERSONA_REGISTRY
+    from services.prompt_builder import prompt_builder
+    import re as _re
+
+    h = hashlib.sha256()
+    NUL = bytes([0])
+    for slug in sorted(PERSONA_REGISTRY):
+        p = PERSONA_REGISTRY[slug]
+        rendered = prompt_builder.build_system(
+            persona=p, memories=[], passages=[], phenomenology_bridge=None,
+            profile=None, include_cache_sentinel=False,
+        )
+        rendered = _re.sub(r"^Current date: .*$", "", rendered, flags=_re.M)
+        r = p.response_length_words
+        h.update(slug.encode("utf-8")); h.update(NUL)
+        h.update(rendered.encode("utf-8")); h.update(NUL)
+        h.update(repr((r.standard_reply_words, r.reflective_reply_max_words,
+                       r.first_message_max_words, r.council_mode_words)).encode("utf-8"))
+        h.update(NUL)
+    return h.hexdigest()[:16]
+
+
+def _arm_mod(arm: str):
+    """The module whose directive this arm ships. baseline has none."""
+    return {"tightened": arm_b, "b2": arm_b2, "b2clean": arm_b2,
+            "b3": arm_b3}.get(arm)
+
+
 def _manifest(arm: str, note: str, samples, completions, *, dry_run: bool,
               git_dirty: bool | None = None) -> dict:
     """The record of what a run WAS. compare.py refuses on a mismatch of the
@@ -149,6 +198,7 @@ def _manifest(arm: str, note: str, samples, completions, *, dry_run: bool,
         # the third time anyone saw it.
         "git_dirty": _git_dirty() if git_dirty is None else git_dirty,
         "prompt_set_hash": prompt_set_hash(),
+        "persona_config_hash": persona_config_hash(),
         "n_samples": len(samples),
         "n_completions": len(completions),
         "deep_problem_ids": sorted(DEEP_PROBLEM_IDS),
@@ -156,6 +206,31 @@ def _manifest(arm: str, note: str, samples, completions, *, dry_run: bool,
         "models": sorted({c.model for c in completions}) if completions
                   else sorted({m for _, _, m in harness.ARMS_BY_PLAN}),
         "phenomenology_bridge_enabled": harness.PHENOMENOLOGY_BRIDGE_ENABLED,
+        # RECORDED, NOT GATED. Two arms are SUPPOSED to differ here, so
+        # compare.py must not refuse on it. It is recorded so that re-running
+        # the SAME arm after the directive was reworded is detectable — the
+        # prompt_set_hash lesson applied to the thing the arm itself changes.
+        "arm_directive_hash": (
+            hashlib.sha256(
+                (_arm_mod(arm).FIRST_MESSAGE + _arm_mod(arm).STANDARD
+                 + _arm_mod(arm).DEEP + _arm_mod(arm).bands_note()).encode("utf-8")
+            ).hexdigest()[:16] if _arm_mod(arm) else None
+        ),
+        "arm_bands": _arm_mod(arm).bands_note() if _arm_mod(arm) else None,
+        "arm_bands_note": (
+            "Scaled from each persona's current standard band midpoint by 1.7742 so "
+            "the mean target is 75 words, order preserved; lo = 0.8x target, hi = "
+            "1.2x target, rounded to 5; deep target = 1.6x standard. ONE EXCEPTION: "
+            "miyamoto_musashi scales to 75-110/120-180 and was moved by founder "
+            "ruling to 55-80/85-130, because his shipped (30, 75) band is the second "
+            "widest of the eleven and contradicts his own anchor_cuts_the_unnecessary "
+            "and his system_fragment's 'Short lines. One point per reply - cut the "
+            "rest'. Scaling inherits an existing error faithfully; this corrects it. "
+            "Mean standard target is therefore 72.6, not 75.0. FIRST MESSAGE uses the "
+            "same range as STANDARD: first_message_max_words never reached a prompt, "
+            "so expect fm_over near 100% as a design artefact, not a regression."
+            if _arm_mod(arm) else None
+        ),
         "postprocessing_enabled_env": os.getenv("POSTPROCESSING_ENABLED"),
         # Two different orders, and only the second is part of the measurement.
         "generation_order": "persona-major (persona, plan, problem) — a cost "
@@ -291,6 +366,7 @@ async def _main_async(args) -> int:
         for s in samples:
             system, bridge = harness.assemble_system(
                 PERSONA_REGISTRY[s.persona_slug], s.user_message, deep=s.deep,
+                arm=args.arm,
             )
             chars += len(system)
             bridged += 1 if bridge else 0
@@ -330,7 +406,7 @@ async def _main_async(args) -> int:
         sys.stderr.flush()
 
     completions = await harness.generate_all(
-        samples, concurrency=args.concurrency, progress=progress,
+        samples, concurrency=args.concurrency, progress=progress, arm=args.arm,
     )
     by_id = {s.sample_id: s for s in samples}
     scores = [score(c, by_id[c.sample_id]) for c in completions]
@@ -399,8 +475,9 @@ def _rescore(directory: str) -> int:
 
 def main() -> int:
     p = argparse.ArgumentParser(prog="python -m evals.run")
-    p.add_argument("--arm", default="baseline",
-                   help="label for this arm, e.g. baseline / tightened")
+    p.add_argument("--arm", default="baseline", choices=list(arm_b.ARMS),
+                   help="baseline = run-1 prompt, unchanged. tightened = arm B, "
+                        "the founder-approved directive appended last.")
     p.add_argument("--note", default="", help="one line into the manifest")
     p.add_argument("--out", default=None, help="output dir (default: dated folder)")
     p.add_argument("--persona", action="append", default=None,
@@ -419,6 +496,10 @@ def main() -> int:
 
     if args.rescore:
         return _rescore(args.rescore)
+    if args.arm not in arm_b.ARMS:
+        print(f"REFUSING: --arm {args.arm!r} is not one of {arm_b.ARMS}. "
+              f"Nothing has been sent.", file=sys.stderr)
+        return 2
     gate = _check_bridge(args.require_bridge)
     if gate:
         return gate

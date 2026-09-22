@@ -23,6 +23,7 @@ Run: cd apps/api && pytest tests/test_brevity_reflective.py -v
 import pytest
 
 from personas import get_persona
+from personas._models import ResponseLengthSpec
 from services.postprocessing_service import (
     CheckAction,
     check_brevity,
@@ -34,6 +35,45 @@ from services.postprocessing_service import (
 def _reply(n: int) -> str:
     """A reply of exactly n words. The words carry no meaning — see module docstring."""
     return " ".join(["word"] * n)
+
+
+# The bands these fixtures were measured against: the values shipped BEFORE the
+# B2 change of 2026-09-22. Frozen deliberately.
+#
+# Read against live registry values these twelve now assert the opposite of what
+# they were built to assert — lao_tzu at 51 words is INSIDE the new standard
+# band (45-65), and at 128 is OVER the new reflective ceiling (100). Pinning the
+# specs keeps the test about the reflective BRANCH and first_message's priority
+# over it, rather than about whichever numbers happen to ship. It also marks
+# where these real replies stop being evidence about the CURRENT product —
+# the same point BREV-001's 18.5% baseline being uncomparable makes.
+_BANDS_AS_MEASURED = {
+    "lao_tzu": ResponseLengthSpec(standard_reply_words=(15, 45),
+                                  reflective_reply_max_words=130,
+                                  first_message_max_words=35),
+    "socrates": ResponseLengthSpec(standard_reply_words=(20, 55),
+                                   reflective_reply_max_words=120,
+                                   first_message_max_words=35),
+    "marcus_aurelius": ResponseLengthSpec(standard_reply_words=(20, 55),
+                                          reflective_reply_max_words=120,
+                                          first_message_max_words=40),
+}
+
+
+@pytest.fixture
+def persona_as_measured():
+    """Hand back a persona carrying its pre-B2 band, and restore it after."""
+    saved = {}
+
+    def _get(slug):
+        p = get_persona(slug)
+        saved.setdefault(slug, p.response_length_words)
+        p.response_length_words = _BANDS_AS_MEASURED[slug]
+        return p
+
+    yield _get
+    for slug, spec in saved.items():
+        get_persona(slug).response_length_words = spec
 
 
 # ── The 12 that must now PASS ────────────────────────────────────────────────
@@ -56,8 +96,8 @@ REFLECTIVE_STILL_FIRING = [
 
 
 @pytest.mark.parametrize("slug,words", REFLECTIVE_NOW_PASSING)
-def test_reflective_reply_within_deep_band_passes(slug, words):
-    persona = get_persona(slug)
+def test_reflective_reply_within_deep_band_passes(slug, words, persona_as_measured):
+    persona = persona_as_measured(slug)
     r = check_brevity(_reply(words), persona, "mid_session", reflective=True)
     assert r.passed is True
     assert r.action == CheckAction.PASS
@@ -66,22 +106,22 @@ def test_reflective_reply_within_deep_band_passes(slug, words):
 
 
 @pytest.mark.parametrize("slug,words", REFLECTIVE_NOW_PASSING)
-def test_the_same_reply_fails_without_the_flag(slug, words):
+def test_the_same_reply_fails_without_the_flag(slug, words, persona_as_measured):
     """Pins that these fixtures are the fix's evidence, not incidental passes.
 
     Without `reflective=True` every one of them is over the standard ceiling and
     REGENERATEs. That asymmetry — red here before the change, green in the test
     above only after it — is what makes the fix legible to a later reader.
     """
-    persona = get_persona(slug)
+    persona = persona_as_measured(slug)
     r = check_brevity(_reply(words), persona, "mid_session")
     assert r.passed is False
     assert r.target_band == persona.response_length_words.standard_reply_words
 
 
 @pytest.mark.parametrize("slug,words", REFLECTIVE_STILL_FIRING)
-def test_reflective_reply_over_deep_band_still_fires(slug, words):
-    persona = get_persona(slug)
+def test_reflective_reply_over_deep_band_still_fires(slug, words, persona_as_measured):
+    persona = persona_as_measured(slug)
     r = check_brevity(_reply(words), persona, "mid_session", reflective=True)
     assert r.passed is False
     assert r.action == CheckAction.REGENERATE

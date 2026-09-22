@@ -59,7 +59,7 @@ async def test_over_length_reply_is_returned_byte_identical(no_llm):
     not merely un-regenerated, but un-TRUNCATED, which is the failure mode that
     would have reached a reader.
     """
-    persona = get_persona("lao_tzu")  # standard band (15, 45)
+    persona = get_persona("lao_tzu")  # standard band (45, 65) since the B2 change
     assert len(OVER_BAND.split()) > 45
 
     final, history = await regenerate_or_trim(
@@ -87,7 +87,8 @@ async def test_brevity_is_still_computed_and_logged_not_deleted(no_llm):
     brevity = [r for r in history if r.check_name == "brevity"]
     assert brevity, "brevity was not computed at all"
     assert brevity[0].word_count == len(OVER_BAND.split())
-    assert brevity[0].target_band == (15, 45)
+    assert brevity[0].target_band == get_persona(
+        "lao_tzu").response_length_words.standard_reply_words
     assert brevity[0].action == CheckAction.REGENERATE, (
         "the check itself must still report what it found — only the caller ignores it"
     )
