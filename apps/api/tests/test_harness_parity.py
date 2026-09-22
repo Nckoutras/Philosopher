@@ -24,6 +24,8 @@ of the harness that runs there.
 
 Run: cd apps/api && pytest tests/test_harness_parity.py -v
 """
+import dataclasses
+
 import pytest
 
 from evals import harness
@@ -190,6 +192,33 @@ def test_prompt_set_hash_is_stable_and_content_sensitive():
     first = prompt_set_hash()
     assert first == prompt_set_hash()
     assert len(first) == 16
+
+
+def test_prompt_set_hash_covers_the_SCORING_data_not_just_the_prompts(monkeypatch):
+    """The regression this pins cost nothing only because it was caught early.
+
+    The first version of the hash covered sample_id and user_message. Editing a
+    problem's forbidden_modern_terms_in_reply changed what a run MEASURED while
+    leaving the hash identical, so compare.py would have passed its gate and
+    attributed the whole move in modern_leak_rate to whatever the arm changed.
+    """
+    import evals.prompt_set as ps
+
+    real = ps.build_samples
+    base = ps.prompt_set_hash()
+
+    def fewer_terms():
+        out = []
+        for smp in real():
+            out.append(dataclasses.replace(
+                smp, forbidden_modern_terms=smp.forbidden_modern_terms[:-1]
+            ) if smp.forbidden_modern_terms else smp)
+        return out
+
+    monkeypatch.setattr(ps, "build_samples", fewer_terms)
+    assert ps.prompt_set_hash() != base, (
+        "a change to scoring data must move the hash, or compare.py gates on a lie"
+    )
 
 
 def test_every_sample_assembles_and_carries_its_personas_fragment(monkeypatch):

@@ -109,16 +109,31 @@ def build_samples() -> list[Sample]:
 
 
 def prompt_set_hash() -> str:
-    """Digest of the exact inputs a run consumed.
+    """Digest of every input a run consumed — PROMPTS AND SCORING DATA BOTH.
 
-    Recorded in the manifest and checked by compare.py. Two runs scored against
-    different prompt text are not comparable, and the failure is silent without
-    this — the sample_ids would still line up perfectly.
+    Recorded in the manifest and gated by compare.py. Two runs scored against
+    different inputs are not comparable, and the failure is silent without this:
+    the sample_ids line up perfectly either way.
+
+    IT COVERS forbidden_modern_terms, AND IT DID NOT USED TO. The first version
+    hashed sample_id and user_message only. Editing a problem's
+    `auto_grade_checks.forbidden_modern_terms_in_reply` therefore changed what a
+    run MEASURED while leaving the hash identical — so compare.py would have
+    passed its gate and attributed the whole move in modern_leak_rate to
+    whatever the arm changed. Found when the founder ruled "phone" out of P01
+    and predicted the hash would move: it did not.
+
+    `mode` needs no entry of its own; it is already part of sample_id.
     """
+    NUL = bytes([0])
+    UNIT = chr(31)
     h = hashlib.sha256()
     for s in build_samples():
         h.update(s.sample_id.encode("utf-8"))
-        h.update(b"\x00")
+        h.update(NUL)
         h.update(s.user_message.encode("utf-8"))
-        h.update(b"\x00")
+        h.update(NUL)
+        # scoring input, not prompt input — see the docstring
+        h.update(UNIT.join(s.forbidden_modern_terms).encode("utf-8"))
+        h.update(NUL)
     return h.hexdigest()[:16]
