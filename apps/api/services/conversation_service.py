@@ -1059,12 +1059,15 @@ class ConversationService:
             # event. Frontend fades original and shows the new stream.
             conv_position = "first_message" if history_len <= 1 else "mid_session"
             _fb  = check_universal_forbidden(full_response)
-            _brv = check_brevity(full_response, persona, conv_position)
+            _brv = check_brevity(full_response, persona, conv_position,
+                                 reflective=deep_mode_active)
             _pf  = check_persona_forbidden(full_response, persona)
             # UAT2-004: the persona lexicon now triggers here. Brevity still does
             # not — it is computed and logged, never gating. Measured on all 826
             # Oregon replies: _pf would fire on 1.09% of them, _brv on 18.5%.
-            # Brevity's rate and its missing reflective band are BREV-001.
+            # The reflective band is now judged (reflective=deep_mode_active).
+            # The 18.5% is a STANDARD-reply rate and is UNMOVED by it — BREV-001
+            # step 3 still owns what to do about that.
             _triggered = [c for c in (_fb, _pf) if c.action == CheckAction.REGENERATE]
             if _triggered:
                 hit_categories = sorted(set(
@@ -1096,7 +1099,8 @@ class ConversationService:
                         yield f"data: {json.dumps({'type': 'chunk', 'data': chunk})}\n\n"
                     correction_text = "".join(correction_buf)
                     _fb2  = check_universal_forbidden(correction_text)
-                    _brv2 = check_brevity(correction_text, persona, conv_position)
+                    _brv2 = check_brevity(correction_text, persona, conv_position,
+                                          reflective=deep_mode_active)
                     _pf2  = check_persona_forbidden(correction_text, persona)
                     # This condition selects the LOG LINE only — both branches
                     # persist correction_text unchanged (UAT2-001 Ruling D), so
