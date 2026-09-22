@@ -90,6 +90,7 @@ from services.llm_client import llm_client
 from services.phenomenology_bridge_service import phenomenology_bridge_service
 from services.prompt_builder import CACHE_SPLIT_SENTINEL, prompt_builder
 
+from . import arm_b
 from .prompt_set import Sample
 
 # Read the same way conversation_service.py:214 reads it, so a run cannot
@@ -127,6 +128,7 @@ def assemble_system(
     *,
     deep: bool,
     include_cache_sentinel: bool = True,
+    arm: str = "baseline",
 ) -> tuple[str, str | None]:
     """Build the system prompt exactly as `stream_response` does for turn 1.
 
@@ -163,14 +165,26 @@ def assemble_system(
     if deep:
         system = system + "\n\n" + _deepen_directive(persona)
 
+    # ARM B IS APPENDED LAST — after HARD RULE 8 and after the deep
+    # directive. arm "baseline" appends nothing and is byte-identical to
+    # run 1, which tests/test_harness_parity.py asserts for all 11 personas
+    # x deep/standard x bridge on/off.
+    if arm == "tightened":
+        system = system + "\n\n" + arm_b.directive(
+            persona.slug, deep=deep, first_message=True
+        )
+    elif arm != "baseline":
+        raise ValueError(f"unknown arm {arm!r}; expected one of {arm_b.ARMS}")
+
     return system, (bridge.matched_term if bridge else None)
 
 
-async def generate(sample: Sample, plan: str, model: str) -> Completion:
+async def generate(sample: Sample, plan: str, model: str,
+                   arm: str = "baseline") -> Completion:
     """One completion. Streams, exactly as production does, and accumulates."""
     persona = PERSONA_REGISTRY[sample.persona_slug]
     system, bridge_term = assemble_system(
-        persona, sample.user_message, deep=sample.deep,
+        persona, sample.user_message, deep=sample.deep, arm=arm,
     )
     messages = [{"role": "user", "content": sample.user_message}]
     sink: dict = {}
@@ -217,6 +231,7 @@ async def generate_all(
     *,
     concurrency: int = 4,
     progress=None,
+    arm: str = "baseline",
 ) -> list[Completion]:
     """Every sample on both plans. 110 samples -> 220 completions.
 
@@ -253,7 +268,7 @@ async def generate_all(
     async def one(i: int, sample: Sample, plan: str, model: str):
         nonlocal done
         async with sem:
-            results[i] = await generate(sample, plan, model)
+            results[i] = await generate(sample, plan, model, arm)
             done += 1
             if progress:
                 progress(done, len(jobs), results[i])
