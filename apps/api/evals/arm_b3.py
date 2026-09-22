@@ -62,77 +62,26 @@ becoming untrue.
 """
 from __future__ import annotations
 
+from personas import PERSONA_REGISTRY
+from services import reply_directive
+
 from .arm_b import BANDS          # same ranges as B and B2
 from .arm_b2 import TARGETS       # same midpoints, rounded to 5, ties up
 
-# The three substitutions, as data, so the test and the text cannot disagree.
-REGISTER_OLD = "Plain, intelligent language"
-REGISTER_NEW = "Plain, precise language in your own register — never contemporary slang"
-CHALLENGE = (
-    " You may challenge what they have said; do not speculate about what they have not."
-)
+# STRUCTURAL PARITY. These are the PRODUCTION strings, re-exported — not a copy.
+# The arm that was measured and the prompt that ships are the same object, so
+# tests/test_harness_parity.py compares production against itself and cannot
+# drift. Arm B3 was RUN against a local copy that differed from these only in
+# the register clause reaching STANDARD and DEEP, which the founder ruled in
+# afterwards; FIRST_MESSAGE — the only path the suite samples — is byte-identical.
+FIRST_MESSAGE = reply_directive.FIRST_MESSAGE
+STANDARD = reply_directive.STANDARD
+DEEP = reply_directive.DEEP
+REGISTER_NEW = reply_directive.REGISTER
+CHALLENGE = " " + reply_directive.CHALLENGE
 CONCEAL_END = "they are hiding, avoiding, or failing to name something."
+REGISTER_OLD = "Plain, intelligent language"
 
-FIRST_MESSAGE = (
-    "FIRST MESSAGE\n"
-    "Write between {lo} and {hi} words — about {target}. Respond specifically to what "
-    "this person has actually said: name something meaningful you notice, and take a "
-    "clear but proportionate position on it. You may offer an interpretation, but offer "
-    "it tentatively and ground it in their own words; never tell them, directly or by "
-    "implication, that they are hiding, avoiding, or failing to name something. You may "
-    "challenge what they have said; do not speculate about what they have not. Leave an "
-    "easy opening to continue — usually one natural, answerable question, which may sit "
-    "anywhere in the reply and is never a closing seal. Keep your own voice. Plain, "
-    "precise language in your own register — never contemporary slang; no decorative "
-    "aphorisms or fortune-cookie phrasing."
-)
-
-STANDARD = (
-    "STANDARD\n"
-    "Write between {lo} and {hi} words — about {target}. Move the conversation forward "
-    "rather than merely reflecting it back. Say what you genuinely notice in their words "
-    "and take a position where the evidence supports one. You may offer an "
-    "interpretation, but offer it tentatively and ground it in their own words; never "
-    "tell them, directly or by implication, that they are hiding, avoiding, or failing "
-    "to name something. You may challenge what they have said; do not speculate about "
-    "what they have not. Leave an easy opening to continue — usually one natural, "
-    "answerable question, which may sit anywhere in the reply and is never a closing "
-    "seal. Keep your own voice. Prefer clear speech over poetic or oracular phrasing."
-)
-
-DEEP = (
-    "DEEP\n"
-    "Write between {deep_lo} and {deep_hi} words — about {deep_target}. Go materially "
-    "deeper: connect the person's own details, develop an interpretation, or move toward "
-    "a conclusion their words reasonably support — and make clear which parts are "
-    "evident and which are your reading. Never tell them, directly or by implication, "
-    "that they are hiding, avoiding, or failing to name something. You may challenge "
-    "what they have said; do not speculate about what they have not. Leave room to "
-    "respond — a natural, concrete question or an inviting statement, never a closing "
-    "seal. Keep your own voice; no decorative profundity."
-)
-
-# ── the prompt-level ban ─────────────────────────────────────────────────────
-#
-# These go into every persona's `forbidden_phrases`, which system_base.jinja2
-# renders as "DO NOT USE: ...". PROMPT LEVEL, not the post-check: nothing in
-# postprocessing_service is touched, so the phrases are discouraged, never
-# stripped or regenerated.
-#
-# WHY A BAN AT ALL. The instruction route has been tried twice and moved
-# nothing. B2 struck the sample wordings from the stance sentence precisely so
-# "What I notice" would stop being example one, and the rate did not budge:
-#
-#     baseline  Sonnet 3.6%   Haiku 4.5%
-#     arm B     Sonnet 12.7%  Haiku 6.4%
-#     arm B2    Sonnet 12.7%  Haiku 6.4%   <- identical, to the reply
-#
-# The formula is the model's default for "take a stance", not an artefact of
-# being named. So B3 names it as forbidden instead.
-#
-# THE RISK THIS RUN MEASURES: a banned tic is usually replaced, not dropped.
-# stance_variety is the instrument, and the decision rule stops the ship if a
-# single replacement family exceeds 30% of stance hits.
 NOTICE_BAN = (
     "what I notice",
     "here's what I notice",
@@ -144,11 +93,9 @@ ARM = "b3"
 
 
 def directive(persona_slug: str, *, deep: bool, first_message: bool = True) -> str:
-    lo, hi = BANDS[persona_slug]["deep" if deep else "standard"]
-    t = TARGETS[persona_slug]["deep" if deep else "standard"]
-    if deep:
-        return DEEP.format(deep_lo=lo, deep_hi=hi, deep_target=t)
-    return (FIRST_MESSAGE if first_message else STANDARD).format(lo=lo, hi=hi, target=t)
+    """Delegates to production. The harness cannot measure a different string."""
+    return reply_directive.directive(
+        PERSONA_REGISTRY[persona_slug], first_message=first_message, deep=deep)
 
 
 def bands_note() -> str:

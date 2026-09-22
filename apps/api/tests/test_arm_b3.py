@@ -21,13 +21,31 @@ DASH = chr(8212)
 
 
 def _derive(src: str, *, deep: bool) -> str:
-    """arm B text -> B3 text, by exactly the three documented substitutions."""
+    """arm B text -> shipped text, by exactly the documented substitutions.
+
+    The register clause reaches ALL THREE variants (founder ruling, after the
+    blind3 gate cleared). In FIRST_MESSAGE it REPLACES "Plain, intelligent
+    language"; STANDARD and DEEP had nothing to replace, so it is inserted
+    before their closing clause. Those two were never sampled by the harness —
+    every §8.2 sample is a first message — so they ship on FIRST_MESSAGE's
+    numbers plus one unmeasured sentence each.
+    """
     out = src.replace(arm_b3.REGISTER_OLD, arm_b3.REGISTER_NEW)
     out = out.replace(arm_b3.CONCEAL_END, arm_b3.CONCEAL_END + arm_b3.CHALLENGE)
+    if "Prefer clear speech" in out:
+        out = out.replace("Prefer clear speech",
+                          arm_b3.REGISTER_NEW + "; prefer clear speech")
+    elif "no decorative profundity" in out:
+        out = out.replace("Keep your own voice; no decorative profundity.",
+                          "Keep your own voice. " + arm_b3.REGISTER_NEW
+                          + "; no decorative profundity.")
     if deep:
-        out = out.replace("Write between {deep_lo} and {deep_hi} words.",
-                          "Write between {deep_lo} and {deep_hi} words "
-                          + DASH + " about {deep_target}.")
+        # production names the deep placeholders lo/hi/target like the others;
+        # arm B used deep_lo/deep_hi. Normalise before comparing, so the test
+        # measures the TEXT rather than a rename.
+        out = out.replace("{deep_lo}", "{lo}").replace("{deep_hi}", "{hi}")
+        out = out.replace("Write between {lo} and {hi} words.",
+                          "Write between {lo} and {hi} words " + DASH + " about {target}.")
     else:
         out = out.replace("Write between {lo} and {hi} words.",
                           "Write between {lo} and {hi} words " + DASH + " about {target}.")
@@ -40,14 +58,36 @@ def test_b3_is_arm_b_with_exactly_three_substitutions(name, deep):
     assert getattr(arm_b3, name) == _derive(getattr(arm_b, name), deep=deep)
 
 
-def test_the_register_change_lands_in_first_message_only():
-    """Applied strictly: it is defined as a REPLACEMENT for "Plain, intelligent
-    language", and that string exists only in arm B's FIRST_MESSAGE. Adding a
-    sentence where none existed would not be a replacement."""
-    assert arm_b3.REGISTER_NEW in arm_b3.FIRST_MESSAGE
-    assert arm_b3.REGISTER_NEW not in arm_b3.STANDARD
-    assert arm_b3.REGISTER_NEW not in arm_b3.DEEP
+def test_the_register_change_lands_in_all_three_variants():
+    """Founder ruling after the blind3 gate cleared. STANDARD and DEEP had
+    nothing to replace, so the clause is INSERTED there — and neither path was
+    sampled by the harness, which reads first messages only."""
+    for text in (arm_b3.FIRST_MESSAGE, arm_b3.STANDARD, arm_b3.DEEP):
+        assert arm_b3.REGISTER_NEW in text
     assert arm_b3.REGISTER_OLD not in arm_b3.FIRST_MESSAGE
+
+
+def test_every_registered_persona_yields_a_directive():
+    """The graceful-degradation path must only ever fire on mocks. If a real
+    persona returns "", reply_directive logs it as an error — and a reply ships
+    with no length or stance rule at all."""
+    from services import reply_directive as rd
+    for slug, p in PERSONA_REGISTRY.items():
+        for kw in (dict(first_message=True, deep=False),
+                   dict(first_message=False, deep=False),
+                   dict(first_message=True, deep=True)):
+            assert rd.directive(p, **kw), (slug, kw)
+
+
+def test_deep_floor_matches_the_arm_that_was_run():
+    """Pinned against arm B3's bands. A drift here means production sends a deep
+    range no run ever measured."""
+    from services.reply_directive import DEEP_FLOOR
+    assert set(DEEP_FLOOR) == set(arm_b.BANDS)
+    for slug, b in arm_b.BANDS.items():
+        assert DEEP_FLOOR[slug] == b["deep"][0], slug
+        assert (PERSONA_REGISTRY[slug].response_length_words.reflective_reply_max_words
+                == b["deep"][1]), slug
 
 
 @pytest.mark.parametrize("text", [arm_b3.FIRST_MESSAGE, arm_b3.STANDARD, arm_b3.DEEP])
