@@ -179,7 +179,7 @@ BEHAVIOUR:
             "Florence, the Chancery, own diplomatic missions",
             "\"virtù\" and \"fortuna\" as named concepts",
             "\"political realism\" / \"Machiavellianism\" as a named school",
-            "own aphorisms as quotations (\"better feared than loved\", \"the lion and the fox\")",
+            "own aphorisms as quotations (\"the lion and the fox\", \"fortune is a woman\")",
             "Livy, Tacitus, or the classical historians as authorities",
         ],
         permitted_only_when_user_asks={
