@@ -32,6 +32,7 @@ import asyncio
 import csv
 import json
 import os
+import hashlib
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -39,7 +40,7 @@ from pathlib import Path
 
 from personas import PERSONA_REGISTRY
 
-from . import harness
+from . import arm_b, harness
 from .prompt_set import DEEP_PROBLEM_IDS, Sample, build_samples, prompt_set_hash
 from .scorers import (
     CSV_COLUMNS,
@@ -156,6 +157,31 @@ def _manifest(arm: str, note: str, samples, completions, *, dry_run: bool,
         "models": sorted({c.model for c in completions}) if completions
                   else sorted({m for _, _, m in harness.ARMS_BY_PLAN}),
         "phenomenology_bridge_enabled": harness.PHENOMENOLOGY_BRIDGE_ENABLED,
+        # RECORDED, NOT GATED. Two arms are SUPPOSED to differ here, so
+        # compare.py must not refuse on it. It is recorded so that re-running
+        # the SAME arm after the directive was reworded is detectable — the
+        # prompt_set_hash lesson applied to the thing the arm itself changes.
+        "arm_directive_hash": (
+            hashlib.sha256(
+                (arm_b.FIRST_MESSAGE + arm_b.STANDARD + arm_b.DEEP
+                 + arm_b.bands_note()).encode("utf-8")
+            ).hexdigest()[:16] if arm in arm_b.ARMS and arm != "baseline" else None
+        ),
+        "arm_bands": arm_b.bands_note() if arm != "baseline" else None,
+        "arm_bands_note": (
+            "Scaled from each persona's current standard band midpoint by 1.7742 so "
+            "the mean target is 75 words, order preserved; lo = 0.8x target, hi = "
+            "1.2x target, rounded to 5; deep target = 1.6x standard. ONE EXCEPTION: "
+            "miyamoto_musashi scales to 75-110/120-180 and was moved by founder "
+            "ruling to 55-80/85-130, because his shipped (30, 75) band is the second "
+            "widest of the eleven and contradicts his own anchor_cuts_the_unnecessary "
+            "and his system_fragment's 'Short lines. One point per reply - cut the "
+            "rest'. Scaling inherits an existing error faithfully; this corrects it. "
+            "Mean standard target is therefore 72.6, not 75.0. FIRST MESSAGE uses the "
+            "same range as STANDARD: first_message_max_words never reached a prompt, "
+            "so expect fm_over near 100% as a design artefact, not a regression."
+            if arm != "baseline" else None
+        ),
         "postprocessing_enabled_env": os.getenv("POSTPROCESSING_ENABLED"),
         # Two different orders, and only the second is part of the measurement.
         "generation_order": "persona-major (persona, plan, problem) — a cost "
@@ -291,6 +317,7 @@ async def _main_async(args) -> int:
         for s in samples:
             system, bridge = harness.assemble_system(
                 PERSONA_REGISTRY[s.persona_slug], s.user_message, deep=s.deep,
+                arm=args.arm,
             )
             chars += len(system)
             bridged += 1 if bridge else 0
@@ -330,7 +357,7 @@ async def _main_async(args) -> int:
         sys.stderr.flush()
 
     completions = await harness.generate_all(
-        samples, concurrency=args.concurrency, progress=progress,
+        samples, concurrency=args.concurrency, progress=progress, arm=args.arm,
     )
     by_id = {s.sample_id: s for s in samples}
     scores = [score(c, by_id[c.sample_id]) for c in completions]
@@ -399,8 +426,9 @@ def _rescore(directory: str) -> int:
 
 def main() -> int:
     p = argparse.ArgumentParser(prog="python -m evals.run")
-    p.add_argument("--arm", default="baseline",
-                   help="label for this arm, e.g. baseline / tightened")
+    p.add_argument("--arm", default="baseline", choices=list(arm_b.ARMS),
+                   help="baseline = run-1 prompt, unchanged. tightened = arm B, "
+                        "the founder-approved directive appended last.")
     p.add_argument("--note", default="", help="one line into the manifest")
     p.add_argument("--out", default=None, help="output dir (default: dated folder)")
     p.add_argument("--persona", action="append", default=None,
@@ -419,6 +447,10 @@ def main() -> int:
 
     if args.rescore:
         return _rescore(args.rescore)
+    if args.arm not in arm_b.ARMS:
+        print(f"REFUSING: --arm {args.arm!r} is not one of {arm_b.ARMS}. "
+              f"Nothing has been sent.", file=sys.stderr)
+        return 2
     gate = _check_bridge(args.require_bridge)
     if gate:
         return gate
