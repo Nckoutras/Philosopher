@@ -72,12 +72,29 @@ def _git_sha() -> str:
 
 
 def _git_dirty() -> bool:
+    """Is the working tree dirty, EXCLUDING the harness's own output?
+
+    A run writes results/<stamp>/ and neither summary.csv nor manifest.json is
+    gitignored (they are the artefacts a finding cites). Counting them would
+    make every run after the first report git_dirty: true, and compare.py's
+    "no provenance" warning would fire on every diff forever — a warning that
+    always fires is one that is correctly ignored by the third viewing.
+
+    So this answers the question the flag is actually for: has the CODE that
+    produced this run been modified since its commit?
+    """
     try:
-        return bool(subprocess.check_output(
+        out = subprocess.check_output(
             ["git", "status", "--porcelain"], text=True, stderr=subprocess.DEVNULL
-        ).strip())
+        )
     except Exception:
         return False
+    ignore = "apps/api/evals/results/"
+    for line in out.splitlines():
+        path = line[3:].strip().strip('"')
+        if path and not path.startswith(ignore):
+            return True
+    return False
 
 
 def _cost(completions) -> dict:
@@ -355,6 +372,27 @@ def _rescore(directory: str) -> int:
         w = csv.DictWriter(fh, fieldnames=SUMMARY_COLUMNS)
         w.writeheader()
         w.writerows(summarise(scores))
+
+    # THE MANIFEST MUST MOVE TOO. A rescore changes what the numbers mean; if
+    # prompt_set_hash still described the scoring data the run was ORIGINALLY
+    # scored against, compare.py would gate on a claim that is no longer true —
+    # either refusing a legitimate comparison, or passing one it should refuse.
+    mpath = out / "manifest.json"
+    if mpath.exists():
+        m = json.loads(mpath.read_text(encoding="utf-8"))
+        before = m.get("prompt_set_hash")
+        now = prompt_set_hash()
+        if before != now:
+            m["rescored_from_prompt_set_hash"] = before
+            m["prompt_set_hash"] = now
+        m["rescored_at_utc"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        m["rescored_at_git_sha"] = _git_sha()
+        with open(mpath, "w", encoding="utf-8", newline=chr(10)) as fh:
+            json.dump(m, fh, indent=2, ensure_ascii=False)
+            fh.write(chr(10))
+        if before != now:
+            print(f"  manifest prompt_set_hash {before} -> {now}")
+
     print(f"rescored {len(scores)} completions in {out}")
     return 0
 
