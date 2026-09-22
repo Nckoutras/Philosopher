@@ -1931,8 +1931,10 @@ against the instruction; it was following one nobody had checked.
 `check_brevity` has been inert in production throughout — so nothing ever forced
 the question.
 
-**HAIKU SUBSTANTIALLY IGNORES A DIRECTIVE APPENDED LAST.** Three arms, and the
-clearest instruction made it worse:
+**HAIKU UNDER-WEIGHTS A SINGLE COPY OF THE LENGTH DIRECTIVE, WHEREVER IT SITS
+— AND LAST BEATS FIRST.** *(Amended 2026-09-22 by the H1/H2 placement runs; the
+original sentence is corrected at the foot of this entry, not silently rewritten.)*
+Three arms, and the clearest instruction made it worse:
 
 | | baseline | arm B | arm B2 |
 |---|---|---|---|
@@ -1943,8 +1945,8 @@ clearest instruction made it worse:
 
 B2 gave an explicit target ("about 70 words"). Sonnet moved two points; Haiku went to
 118 words and its in-band rate halved. **This bears on every future prompt change, not
-only this one.** A placement experiment is queued below; no model change is proposed
-and none is implied.
+only this one.** The placement experiment that this table motivated has since been
+run and is reported below; no model change is proposed and none is implied.
 
 **READERS CANNOT DISTINGUISH B FROM B2.** Two independent ChatGPT readings of the same
 eleven B-vs-B2 pairs, original and swapped, agreed on the text in 5 of 11 — and
@@ -1958,12 +1960,51 @@ free path is untouched deliberately: what Haiku should do about length is a prod
 decision about the free tier, and there is no usage data to make it on — 16
 distinct users, 10 with five or more messages, across the entire history.
 
-### QUEUED — Haiku directive placement, one experiment, ~$1
-The same locked B2 directive placed at the **TOP** of the system prompt, Haiku only;
-a second arm at **top and last**. The hypothesis is placement, not capability, and it
-is the cheapest test of the line above. Not now (founder ruling 2026-09-22). No model
-change; the free-tier length and paywall decision stays deferred until there are
-users to measure.
+### MODEL-001 AMENDMENT — the placement hypothesis was tested, and it is FALSE
+**Runs `2026-09-22T14-28_h1` and `2026-09-22T14-30_h2`, 110 Haiku completions each,
+0 errors, $0.9447. Full record and the founder ruling:
+`apps/api/evals/results/2026-09-22T14-30_h2/placement_record.md`.**
+
+The sentence above used to read **"Haiku substantially ignores a directive appended
+last."** That was an inference from one arm's position, never a measurement of it.
+H1 moved the identical block to the **top** of the system prompt — and it is the
+**worst** of the three arms.
+
+| Haiku, n=110 | B3 (last) | H1 (top) | H2 (top+last) |
+|---|---|---|---|
+| mean words | 125.5 | **144.7** | **115.3** |
+| in-band | 14% | 12% | 24% |
+| over the ceiling | 84% | 86% | 75% |
+| notice-family | 8.2% | 10.9% | 10.9% |
+
+Paired by `sample_id` — the same 110 prompts in every arm, so the paired test is the
+correct one: **B3 → H1 +19.1w** (t=+6.00, p<0.00001, longer on 79 of 110 prompts);
+**B3 → H2 −10.2w** (p=0.00006); **H1 → H2 −29.3w** (shorter on 88 of 110).
+
+**The four corrected claims, which is what this entry now asserts:**
+1. **Haiku under-weights a single copy of the directive wherever it is placed.**
+   Position is not the variable.
+2. **Last beats first.** The original sentence had the direction backwards.
+3. **Repetition shortens, but does not reach the band.** Saying it twice is the only
+   thing that moved the number, and even H2 sits at 24% in-band against Sonnet's 76%.
+4. **Deep mode is unaffected.** H2 gives the deep path a *third* copy of the same
+   ceiling and still leaves **28 of 33** replies over it (B3: 31/33). Not a dosage
+   problem.
+
+**AND THE RATE GAIN DOES NOT SURVIVE ITS OWN TEST.** H2's 14% → 24% is McNemar exact
+**p=0.052** against B3 — gained 19, lost 8 — and **misses 0.05**. It clears only
+against H1 (p=0.041). The *length* effect is robust; the in-band rate is not yet
+distinguishable from noise at n=110. This is written down because "H2 nearly doubles
+the in-band rate" is the sentence a later reader would otherwise carry forward, and
+it is exactly the kind of claim this file's failure log is made of.
+
+**FOUNDER RULING 2026-09-22: nothing ships. No further Haiku length arms — closed,
+not deferred.** Free-path length is **ACCEPTED as-is at ~115–145 words**, on the
+reader's own evidence: that range sits inside what the first blind read preferred,
+where the longer reply won 6 of 7 decided pairs and two of the three "neither" marks
+asked for more length. The band Haiku overruns is the one this very entry found to be
+wrong. What stays deferred is the narrower question of whether a persona's stated
+ceiling should bind the free path at all — a product decision, pending users.
 
 ### COST-001 — the free/Haiku path has ZERO prompt caching, and a breakpoint today would COST 25% more — **NEW**
 **Status: OPEN as a record. No action now (founder ruling 2026-09-22). This entry
