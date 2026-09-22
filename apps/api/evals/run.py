@@ -178,7 +178,8 @@ def persona_config_hash() -> str:
 def _arm_mod(arm: str):
     """The module whose directive this arm ships. baseline has none."""
     return {"tightened": arm_b, "b2": arm_b2, "b2clean": arm_b2,
-            "b3": arm_b3}.get(arm)
+            "b3": arm_b3,
+            "h1": arm_b3, "h2": arm_b3}.get(arm)
 
 
 def _manifest(arm: str, note: str, samples, completions, *, dry_run: bool,
@@ -343,6 +344,10 @@ def _check_bridge(require: str | None) -> int:
     return 2
 
 
+def _n_plans(args) -> int:
+    return len(args.plan) if args.plan else len(harness.ARMS_BY_PLAN)
+
+
 def _select(samples: list[Sample], personas, limit) -> list[Sample]:
     if personas:
         wanted = set(personas)
@@ -378,8 +383,8 @@ async def _main_async(args) -> int:
             "mean_system_prompt_chars": mean_chars,
             "approx_tokens_chars_over_3_6": int(mean_chars / 3.6),
             "samples_with_bridge_match": bridged,
-            "completions_that_would_be_sent":
-                len(samples) * len(harness.ARMS_BY_PLAN),
+            "completions_that_would_be_sent": len(samples) * _n_plans(args),
+            "plans": list(args.plan) if args.plan else ["free", "pro"],
         }
         stamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H-%M")
         out = Path(args.out) if args.out else RESULTS_DIR / f"{stamp}_{args.arm}_dryrun"
@@ -389,7 +394,8 @@ async def _main_async(args) -> int:
             fh.write("\n")
 
         print(f"dry run: {len(samples)} samples, "
-              f"{len(samples) * len(harness.ARMS_BY_PLAN)} completions would be sent")
+              f"{len(samples) * _n_plans(args)} completions would be sent "
+              f"on plan(s) {', '.join(args.plan) if args.plan else 'free, pro'}")
         print(f"mean system prompt: {mean_chars} chars "
               f"(~{int(mean_chars / 3.6)} tokens)")
         print(f"samples with a bridge match: {bridged}/{len(samples)}")
@@ -407,6 +413,7 @@ async def _main_async(args) -> int:
 
     completions = await harness.generate_all(
         samples, concurrency=args.concurrency, progress=progress, arm=args.arm,
+        plans=tuple(args.plan) if args.plan else None,
     )
     by_id = {s.sample_id: s for s in samples}
     scores = [score(c, by_id[c.sample_id]) for c in completions]
@@ -473,7 +480,14 @@ def _rescore(directory: str) -> int:
     return 0
 
 
-def main() -> int:
+def build_parser() -> argparse.ArgumentParser:
+    """Exposed so tests construct args through the REAL parser.
+
+    tests/test_eval_runner.py used to hand-build an argparse.Namespace, which
+    meant every new flag broke it with an AttributeError — the test's fixture
+    was a copy of the CLI rather than the CLI. Adding --plan is what surfaced
+    that; building from here, a new flag with a default cannot break it again.
+    """
     p = argparse.ArgumentParser(prog="python -m evals.run")
     p.add_argument("--arm", default="baseline", choices=list(arm_b.ARMS),
                    help="baseline = run-1 prompt, unchanged. tightened = arm B, "
@@ -484,6 +498,9 @@ def main() -> int:
                    help="restrict to a persona slug; repeatable")
     p.add_argument("--limit", type=int, default=None, help="first N samples only")
     p.add_argument("--concurrency", type=int, default=4)
+    p.add_argument("--plan", action="append", default=None, choices=["free", "pro"],
+                   help="restrict to one plan; repeatable. Default: both. "
+                        "The H1/H2 placement arms are --plan free (Haiku only).")
     p.add_argument("--dry-run", action="store_true",
                    help="assemble every prompt, send nothing, spend nothing; "
                         "writes manifest.json with dry_run: true")
@@ -492,7 +509,11 @@ def main() -> int:
                         "PHENOMENOLOGY_BRIDGE_ENABLED does not match")
     p.add_argument("--rescore", default=None, metavar="DIR",
                    help="re-score a stored run from its completions.jsonl")
-    args = p.parse_args()
+    return p
+
+
+def main() -> int:
+    args = build_parser().parse_args()
 
     if args.rescore:
         return _rescore(args.rescore)

@@ -1,0 +1,64 @@
+{
+  "arm": "b3",
+  "note": "B3: arm B base + register + challenge-not-speculate + target number; notice-family banned at prompt level; cleaned fragments and B2 bands",
+  "dry_run": false,
+  "generated_at_utc": "2026-09-22T12:59:54+00:00",
+  "git_sha": "8902fe221182f7610cbad9f0ed6fd1f882e1c292",
+  "git_dirty": false,
+  "prompt_set_hash": "0a2a2d868600bb26",
+  "persona_config_hash": "be4c9e3d3d7e7959",
+  "n_samples": 110,
+  "n_completions": 220,
+  "deep_problem_ids": [
+    "P03_burnout_anxiety_at_30",
+    "P08_recurring_dream_water",
+    "P10_running_out_of_time"
+  ],
+  "personas": [
+    "carl_jung",
+    "epictetus",
+    "george_orwell",
+    "lao_tzu",
+    "marcus_aurelius",
+    "miyamoto_musashi",
+    "niccolo_machiavelli",
+    "oscar_wilde",
+    "sigmund_freud",
+    "simone_de_beauvoir",
+    "socrates"
+  ],
+  "models": [
+    "claude-haiku-4-5-20251001",
+    "claude-sonnet-4-6"
+  ],
+  "phenomenology_bridge_enabled": true,
+  "arm_directive_hash": "7965ddb987428b8a",
+  "arm_bands": "lao_tzu std 45-65(~55) deep 70-100(~85); marcus_aurelius std 55-80(~70) deep 85-130(~110); socrates std 55-80(~70) deep 85-130(~110); epictetus std 55-80(~70) deep 85-130(~110); oscar_wilde std 55-80(~70) deep 85-130(~110); miyamoto_musashi std 55-80(~70) deep 85-130(~110); carl_jung std 60-90(~75) deep 95-145(~120); sigmund_freud std 60-90(~75) deep 95-145(~120); niccolo_machiavelli std 60-90(~75) deep 95-145(~120); simone_de_beauvoir std 65-100(~85) deep 110-160(~135); george_orwell std 80-120(~100) deep 130-195(~165)",
+  "arm_bands_note": "Scaled from each persona's current standard band midpoint by 1.7742 so the mean target is 75 words, order preserved; lo = 0.8x target, hi = 1.2x target, rounded to 5; deep target = 1.6x standard. ONE EXCEPTION: miyamoto_musashi scales to 75-110/120-180 and was moved by founder ruling to 55-80/85-130, because his shipped (30, 75) band is the second widest of the eleven and contradicts his own anchor_cuts_the_unnecessary and his system_fragment's 'Short lines. One point per reply - cut the rest'. Scaling inherits an existing error faithfully; this corrects it. Mean standard target is therefore 72.6, not 75.0. FIRST MESSAGE uses the same range as STANDARD: first_message_max_words never reached a prompt, so expect fm_over near 100% as a design artefact, not a regression.",
+  "postprocessing_enabled_env": null,
+  "generation_order": "persona-major (persona, plan, problem) — a cost optimisation for Sonnet's per-persona prefix cache; Haiku cannot cache, its minimum prefix is above ours",
+  "row_order": "sample_id, then plan — every output file is ordered independently of how generation was scheduled",
+  "errors": 0,
+  "cost": {
+    "claude-haiku-4-5-20251001": {
+      "input": 370705,
+      "cache_creation": 0,
+      "cache_read": 0,
+      "output": 17623,
+      "usd": 0.4588
+    },
+    "claude-sonnet-4-6": {
+      "input": 330,
+      "cache_creation": 174438,
+      "cache_read": 196047,
+      "output": 13136,
+      "usd": 0.911
+    },
+    "_total_usd": 1.3698
+  },
+  "caveats": [
+    "Rates only. No pass/fail: the spec's thresholds were written 2026-04-27 against a six-persona config whose per-persona bands match no current persona, and are unanchored until a baseline exists (founder ruling D4, 2026-09-22).",
+    "fm_over_rate scores against first_message_max_words, which reaches NO PROMPT. std_over_rate scores against the band the persona's own system_fragment states. The gap between them is BREV-002.",
+    "anti_flex_rate covers 77 full / 9 partial / 4 framed topics. A zero means no hit on what is covered, never 'no flexing'."
+  ]
+}

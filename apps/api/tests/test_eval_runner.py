@@ -96,11 +96,12 @@ async def test_dry_run_writes_a_manifest_and_sends_nothing(monkeypatch, tmp_path
     monkeypatch.setattr(harness, "generate", explode)
     monkeypatch.setattr(harness, "generate_all", explode)
 
-    args = runner.argparse.Namespace(
-        arm="baseline", note="test", out=str(tmp_path), persona=None,
-        limit=None, concurrency=1, dry_run=True, rescore=None,
-        require_bridge="true",
-    )
+    # Through the REAL parser, not a hand-built Namespace: the previous version
+    # duplicated the CLI's field list and broke with an AttributeError the first
+    # time a flag was added (--plan).
+    args = runner.build_parser().parse_args(
+        ["--arm", "baseline", "--note", "test", "--out", str(tmp_path),
+         "--concurrency", "1", "--dry-run", "--require-bridge", "true"])
     assert await runner._main_async(args) == 0
 
     manifest = json.loads((tmp_path / "manifest.json").read_text(encoding="utf-8"))
