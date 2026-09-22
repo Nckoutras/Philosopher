@@ -40,7 +40,7 @@ from pathlib import Path
 
 from personas import PERSONA_REGISTRY
 
-from . import arm_b, arm_b2, harness
+from . import arm_b, arm_b2, arm_b3, harness
 from .prompt_set import DEEP_PROBLEM_IDS, Sample, build_samples, prompt_set_hash
 from .scorers import (
     CSV_COLUMNS,
@@ -134,27 +134,41 @@ def _cost(completions) -> dict:
 
 
 def persona_config_hash() -> str:
-    """Digest of every persona input that reaches the prompt or the scorers.
+    """Digest of every persona input that reaches the PROMPT or the SCORERS.
 
-    NOTHING RECORDED THIS BEFORE, and it is the largest input of all. The
-    system prompt is mostly system_fragment; the deep directive is built from
-    reflective_reply_max_words; check_brevity reads all three band fields. Two
-    runs of the SAME arm against different persona configs produced identical
-    manifests apart from git_sha — which is a commit id, not a statement about
-    what the model read.
+    IT HASHES THE RENDERED PROMPT, not a list of fields, and that is the second
+    version. The first hashed system_fragment plus the three band numbers, and
+    it missed `forbidden_phrases` — which the template renders as "DO NOT USE:
+    ..." and is therefore prompt input. Adding the B3 notice-ban to all eleven
+    personas left the hash byte-identical, so B2-clean and B3 would have been
+    indistinguishable in their manifests.
 
-    Found when B2-clean needed to be told apart from B2: the arm, the prompt set
-    and the directive hash are all identical between them, and only the persona
-    files differ.
+    Enumerating fields means re-enumerating them every time the template reads a
+    new one. Rendering covers whatever system_base.jinja2 actually uses, by
+    construction. The date line is stripped because build_system stamps
+    date.today() and the hash must not change overnight.
+
+    The band fields are folded in separately: they do NOT reach the prompt (only
+    _deepen_directive reads reflective_reply_max_words, and that is appended by
+    the caller) but they DO drive check_brevity and _compute_max_tokens, so two
+    runs differing only in bands are scored differently and must not collide.
     """
     from personas import PERSONA_REGISTRY
+    from services.prompt_builder import prompt_builder
+    import re as _re
+
     h = hashlib.sha256()
     NUL = bytes([0])
     for slug in sorted(PERSONA_REGISTRY):
         p = PERSONA_REGISTRY[slug]
+        rendered = prompt_builder.build_system(
+            persona=p, memories=[], passages=[], phenomenology_bridge=None,
+            profile=None, include_cache_sentinel=False,
+        )
+        rendered = _re.sub(r"^Current date: .*$", "", rendered, flags=_re.M)
         r = p.response_length_words
         h.update(slug.encode("utf-8")); h.update(NUL)
-        h.update(p.system_fragment.encode("utf-8")); h.update(NUL)
+        h.update(rendered.encode("utf-8")); h.update(NUL)
         h.update(repr((r.standard_reply_words, r.reflective_reply_max_words,
                        r.first_message_max_words, r.council_mode_words)).encode("utf-8"))
         h.update(NUL)
@@ -163,7 +177,8 @@ def persona_config_hash() -> str:
 
 def _arm_mod(arm: str):
     """The module whose directive this arm ships. baseline has none."""
-    return {"tightened": arm_b, "b2": arm_b2, "b2clean": arm_b2}.get(arm)
+    return {"tightened": arm_b, "b2": arm_b2, "b2clean": arm_b2,
+            "b3": arm_b3}.get(arm)
 
 
 def _manifest(arm: str, note: str, samples, completions, *, dry_run: bool,

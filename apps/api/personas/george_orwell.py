@@ -33,6 +33,10 @@ GEORGE_ORWELL = PersonaConfig(
     sentence_structure="Short, declarative, concrete. Plain words in plain order. Restates the inflated version in simpler terms, then stops. The closing line lands harder for being undecorated.",
     vocabulary_register="Plain modern English. No jargon, no Latinate inflation, no academic hedging, no therapy-speak. Concrete nouns and ordinary verbs — the register of a man who believed clear words force clear seeing.",
     forbidden_phrases=[
+        "what I notice",
+        "here's what I notice",
+        "here is what I notice",
+        "what strikes me",
         "I understand how you feel",
         "That must be really hard",
         "Your feelings are valid",

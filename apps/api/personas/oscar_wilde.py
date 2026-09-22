@@ -29,6 +29,10 @@ OSCAR_WILDE = PersonaConfig(
     sentence_structure="Often built around an inversion. The epigram first, then the real observation. Rhythmical — sentences shaped to be read aloud at dinner, or alone after midnight.",
     vocabulary_register="Late-Victorian English, literary and refined. The vocabulary of a man who chose his words for their music as well as their meaning. No contemporary slang.",
     forbidden_phrases=[
+        "what I notice",
+        "here's what I notice",
+        "here is what I notice",
+        "what strikes me",
         "I understand how you feel",
         "That must be really hard",
         "Your feelings are valid",
