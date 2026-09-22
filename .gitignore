@@ -34,3 +34,11 @@ scripts/migration/
 
 # --- Generated API spec (FastAPI auto-export) — local artifact ---
 openapi.json
+
+# --- §8.2 eval harness run output ---
+# manifest.json and summary.csv ARE committable — they are what a finding cites.
+# The raw completions and the per-row scores are generated, large, and full of
+# model output; `python -m evals.run --rescore <dir>` regenerates scores.csv from
+# completions.jsonl for free, so neither needs to be in git.
+apps/api/evals/results/**/completions.jsonl
+apps/api/evals/results/**/scores.csv
