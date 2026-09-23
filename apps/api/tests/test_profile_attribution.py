@@ -83,11 +83,29 @@ def test_no_profile_means_no_block():
 
 
 def test_persona_config_hash_is_untouched_by_this_change():
-    """Pinned to the value the three stored §8.2 runs were measured at
-    (baseline/B3 and the H1/H2 placement arms all carry be4c9e3d3d7e7959).
-    If this fails, the stored runs are no longer comparable to a new one."""
+    """Pinned so that an UNINTENDED prompt change fails here rather than in a
+    silent comparison against a stored run.
+
+    IT HAS NOW MOVED ONCE, DELIBERATELY — be4c9e3d3d7e7959 -> 23cf9ac6c6ca0cb3,
+    2026-09-23, the Marcus + Musashi voice fix (BUG-009 / §8.2 distinctiveness).
+    The old value is the one the baseline, B3 and the H1/H2 placement arms were all
+    measured at; the new one is not comparable to them **for those two personas**.
+
+    THE OTHER NINE ARE STILL COMPARABLE, and that is what makes the spliced matrix
+    legitimate rather than a mixture. This hash is GLOBAL — it digests every
+    persona's rendered prompt, so it moves when any one changes and it cannot say
+    which. The per-persona argument is structural: that change touched
+    `personas/marcus_aurelius.py` and `personas/miyamoto_musashi.py` and nothing
+    else — not the template, not services, not the other nine persona files — so no
+    other persona's prompt can have moved.
+
+    When this fails again, the question is not "what is the new value" but **which
+    personas changed, and which stored results just stopped being comparable.**
+    Update the value only after answering that, and record it here as this entry
+    does.
+    """
     from evals.run import persona_config_hash
-    assert persona_config_hash() == "be4c9e3d3d7e7959"
+    assert persona_config_hash() == "23cf9ac6c6ca0cb3"
 
 
 @pytest.mark.parametrize("slug", sorted(PERSONA_REGISTRY))
