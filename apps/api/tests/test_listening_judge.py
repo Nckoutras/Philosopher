@@ -282,3 +282,49 @@ class TestCounts:
         src = inspect.getsource(L.main)
         assert src.index("write_csv(out, [_probe]") < src.index("asyncio.run(judge_all"), \
             "the write pre-flight must come BEFORE any API call"
+
+
+class TestDensityIsTheStandardMetric:
+    """FOUNDER RULING 2026-09-23: density is the standard (a)/(c) metric and the
+    binary rate is never reported alone.
+
+    The reason is measured, not stylistic. On the same 98 deep replies the two
+    disagree about which arm is best, completely:
+
+        binary (a):        baseline 84%   arm B 59%   B3 82%
+        (a) per 100 words: baseline 3.68  arm B 2.92  B3 1.91
+
+    Every arm in this project changes reply length, so a per-reply flag can never
+    rank arms by itself.
+    """
+
+    COUNTS = [{"sample_id": "s1", "a_n": "2", "c_n": "1"},
+              {"sample_id": "s2", "a_n": "0", "c_n": "0"}]
+    WORDS = {"s1": 100, "s2": 100}
+    BINARY = [{"sample_id": "s1", "a_v": "1", "c_v": "1"},
+              {"sample_id": "s2", "a_v": "0", "c_v": "0"}]
+
+    def test_it_returns_density_and_the_binary_rate_together(self):
+        out = L.summarise_density(self.COUNTS, self.WORDS, self.BINARY)
+        assert out["a"]["per_100_words"] == 1.0
+        assert out["a"]["binary_rate"] == 50.0
+        assert out["c"]["per_100_words"] == 0.5
+
+    def test_the_binary_rate_cannot_be_returned_without_density(self):
+        """The whole point: reporting one without the other must take deliberate
+        effort, so the shape enforces it."""
+        for rows in (self.BINARY, None):
+            out = L.summarise_density(self.COUNTS, self.WORDS, rows)
+            for c in L.COUNT_CRITERIA:
+                assert "per_100_words" in out[c]
+                assert "binary_rate" in out[c]
+
+    def test_binary_rate_is_None_when_no_binary_run_exists(self):
+        out = L.summarise_density(self.COUNTS, self.WORDS, None)
+        assert out["a"]["binary_rate"] is None
+        assert out["a"]["per_100_words"] == 1.0
+
+    def test_it_carries_the_denominator_so_a_rate_is_never_unanchored(self):
+        out = L.summarise_density(self.COUNTS, self.WORDS, self.BINARY)
+        assert out["a"]["n_replies"] == 2
+        assert out["a"]["total_words"] == 200

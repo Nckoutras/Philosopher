@@ -2239,6 +2239,48 @@ all three call sites, and `MEMORY_WINDOW_PRO` is referenced nowhere in `apps/api
 outside its own definition and one docstring. It is a dead constant with a false
 comment — small, but it is the exact shape this project's failure log keeps finding.
 
+### EVAL-001 — density is the standard Listening metric; the binary rate never stands alone — **NEW, ruled 2026-09-23**
+**Status: SETTLED convention. Enforced in code, not by memory.**
+
+**THE MEASUREMENT THAT SETTLED IT.** 98 deep replies, three arms, judged twice —
+once with a binary per-reply flag and once counting instances. The two rank the
+arms in **opposite orders**:
+
+| | baseline | arm B | B3 |
+|---|---|---|---|
+| binary (a) concealment | 84% | **59%** | 82% |
+| **(a) per 100 words** | 3.68 | 2.92 | **1.91** |
+| mean reply words | 50.9 | 62.3 | **126.9** |
+
+A per-reply *"does this reply contain X"* question is mechanically easier to trip
+in a longer reply. B3's deep replies run more than twice arm B's, and **every arm
+in this project changes reply length** — so the binary rate can never rank arms
+by itself.
+
+**THE RULE:** report **density** (instances per 100 words) as the (a)/(c) metric,
+with the binary rate beside it. Never the binary rate alone.
+`evals/listening.summarise_density()` returns both together and a test asserts it
+cannot return one without the other, so the convention is a mechanism rather than
+a habit — the distinction this file's 2026-09-14 entry is about.
+
+The three stored binary runs remain valid **as binary runs**. They are simply not
+a ranking.
+
+**WHAT THIS CLOSED.** A DEEP wording fix was ruled, scoped and about to be
+designed on the strength of "B3 regressed on deep, 59% → 82%". Two premises
+failed on checking: the three B3 changes **were** already in the shipped DEEP
+(a claim I had written down without verifying against the code), and the
+regression was the length artifact above. **B3's DEEP is the best text measured
+by density. It ships unchanged and the deep band stays as shipped.**
+
+**WHAT STAYS OPEN, deliberately.** Density and raw count disagree: per word B3
+over-interprets least, per reply a reader meets more of it (2.42 passages against
+arm B's 1.82, p=0.009). Both are true, and no measurement decides which matters —
+it is a question about how a reply is experienced. **Deferred to real user
+feedback**, not to another arm.
+
+Full record: `apps/api/evals/results/2026-09-22T12-59_b3/listening_counts_record.md`.
+
 ### RETRIEVAL-001 — RAG retrieval has never returned a passage, and the threshold is unreachable — **NEW**
 **Status: OPEN. NOT a bug to fix now — founder ruling 2026-09-21 is NO CHANGE. The
 decision is deferred to the §8.2 eval harness as an A/B arm.**

@@ -45,6 +45,17 @@ profile block never renders in the harness. Testing THAT needs production
 transcripts, a separate decision about reading real user conversations which has
 NOT been taken.
 
+DENSITY IS THE STANDARD (a)/(c) METRIC — founder ruling 2026-09-23. The binary
+rate is reported ALONGSIDE it and never alone. On the same 98 deep replies the
+two rank the arms in opposite orders:
+
+    binary (a):        baseline 84%   arm B 59%   B3 82%
+    (a) per 100 words: baseline 3.68  arm B 2.92  B3 1.91
+
+A per-reply "does this contain X" flag is mechanically easier to trip in a longer
+reply, and every arm in this project changes reply length. Use
+`summarise_density()`, which returns both together.
+
 NEVER RUNS IN CI, like the rest of evals/. Makes real API calls and costs money.
 """
 from __future__ import annotations
@@ -484,6 +495,42 @@ def write_csv(path: Path, judgements: list[Judgement], *, count: bool = False) -
         w.writeheader()
         for j in judgements:
             w.writerow(row(j))
+
+
+def summarise_density(count_rows: list[dict], word_counts: dict[str, int],
+                      binary_rows: list[dict] | None = None) -> dict:
+    """The standard (a)/(c) summary: DENSITY, with the binary rate beside it.
+
+    FOUNDER RULING 2026-09-23: density is the standard metric and the binary rate
+    is never reported alone. The reason is measured. On the same 98 deep replies
+    the two disagree about which arm is best, completely:
+
+        binary (a):        baseline 84%   arm B 59%   B3 82%
+        (a) per 100 words: baseline 3.68  arm B 2.92  B3 1.91
+
+    A per-reply "does this contain X" flag is mechanically easier to trip in a
+    longer reply, and B3's deep replies run 127 words against arm B's 62. Every
+    arm in this project changes reply length, so the binary rate can never rank
+    arms by itself.
+
+    This function returns both together so that reporting one without the other
+    takes deliberate effort. `binary_rate` is None only when no binary run
+    exists for the same replies.
+    """
+    out: dict = {}
+    total_w = sum(word_counts.get(r["sample_id"], 0) for r in count_rows)
+    for c in COUNT_CRITERIA:
+        n = sum(int(r[f"{c}_n"]) for r in count_rows if r[f"{c}_n"] != "")
+        per100 = (100.0 * n / total_w) if total_w else 0.0
+        rate = None
+        if binary_rows:
+            usable = [r for r in binary_rows if r.get(f"{c}_v") in ("0", "1")]
+            if usable:
+                rate = 100.0 * sum(1 for r in usable if r[f"{c}_v"] == "1") / len(usable)
+        out[c] = {"instances": n, "per_100_words": round(per100, 2),
+                  "binary_rate": None if rate is None else round(rate, 1),
+                  "n_replies": len(count_rows), "total_words": total_w}
+    return out
 
 
 def cost(judgements: list[Judgement]) -> dict:

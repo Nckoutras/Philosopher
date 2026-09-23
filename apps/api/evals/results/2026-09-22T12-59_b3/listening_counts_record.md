@@ -90,3 +90,37 @@ with exit 2 if it fails; and a test asserts the pre-flight precedes
 `judge_all` in source order. The rule the pre-flight encodes: *a long paid run
 must never reach its write step for the first time with the data already in
 memory and nowhere else.*
+
+---
+
+# FOUNDER RULINGS — 2026-09-23
+
+**1. NO DEEP CHANGE. NO ARM A.** B3's DEEP is the best text measured by density.
+**The binary flag was the defect, not the wording.** The DEEP block ships
+unchanged; the deep band stays as shipped.
+
+This closes a line of work that began from two premises that did not survive
+checking — that B3's three changes had not reached DEEP (they had), and that
+B3's deep path had regressed (it had not; a per-reply flag met replies twice as
+long). Recorded that way deliberately: the investigation was worth its ~$2.50
+because it stopped a wording change to the best-performing text.
+
+**2. THE PER-REPLY vs PER-WORD QUESTION IS OPEN, and deferred to real user
+feedback.** Density says B3 over-interprets least per word; raw count says a
+reader meets more of it per reply (2.42 vs arm B's 1.82). Both are true and no
+measurement settles which matters. It is a question about how a reply is
+experienced, so it waits for users rather than for another arm.
+
+**3. DENSITY IS NOW THE STANDARD (a)/(c) METRIC. The binary rate is reported
+ALONGSIDE it, never alone.**
+
+The reason is this run: on the binary flag the three arms rank
+baseline 84% / arm B 59% / B3 82%, and by density they rank
+3.68 / 2.92 / 1.91 — **a complete inversion of which text is best.** A binary
+per-reply flag cannot compare arms whose replies differ in length, and every arm
+in this project changes reply length.
+
+Enforced rather than remembered: `listening.summarise_density()` computes both
+and returns them together, and a test asserts it never returns one without the
+other. The three stored binary runs remain valid as binary runs; they are simply
+not a ranking on their own.
