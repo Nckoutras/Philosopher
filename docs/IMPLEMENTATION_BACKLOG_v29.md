@@ -1354,6 +1354,154 @@ for, since it is currently decoration.
 
 ---
 
+### TD-95 — one shared reply directive, at 94% of the prompt, prescribes one reply shape for all eleven personas — **NEW**
+**Status: OPEN. INVESTIGATION ONLY — founder ruling 2026-09-23: report, do not fix.
+No proposal is made here.**
+
+**THE STRUCTURE.** `reply_directive.FIRST_MESSAGE` is appended **last** to every
+persona's system prompt, after HARD RULE 8. Measured on Lao Tzu's assembled prompt
+(12,315 chars):
+
+| block | position | % through |
+|---|---|---|
+| the persona's own `system_fragment` | 805 | **7%** |
+| CONVERSATIONAL MOVES | 4,807 | 39% |
+| VOICE CALIBRATION | 7,377 | 60% |
+| HARD RULES | 10,004 | 81% |
+| **shared FIRST MESSAGE directive** | 11,541 | **94%** |
+
+The persona's own voice instruction is the **first** thing said about how to speak;
+the shared one is the **last**, and it is identical for all eleven.
+
+**IT PRESCRIBES THE THREE-BEAT SHAPE FOUND IN EVERY REPLY.** The §8.2 distinctiveness
+run found one shape across all eleven personas: acknowledge → interpret → open
+question. The directive states it:
+
+> "…**name something meaningful you notice**, and take a clear but proportionate
+> position on it. You may **offer an interpretation**, but offer it tentatively and
+> ground it in their own words… **Leave an easy opening to continue — usually one
+> natural, answerable question**…"
+
+That is not eleven voices converging. **It is the house style, written down, shared,
+and placed last.**
+
+---
+
+#### (1) The five RIGHT calibration examples the directive forbids
+
+The directive bans *"never tell them, directly or by implication, that they are
+hiding, avoiding, or failing to name something."* Measured against every persona's
+approved `voice_calibration_examples`:
+
+| persona | conflicting | of | the clause it breaks |
+|---|---|---|---|
+| **marcus_aurelius** | 2 | 6 | *"You're not avoiding the task. You're avoiding what finishing it would say about you."* / *"Name the one you're both avoiding."* |
+| **miyamoto_musashi** | 2 | 5 | *"you are only avoiding the cost of saying so"* / *"the elaboration you are hiding in"* |
+| **george_orwell** | 1 | 5 | *"where the real question is hiding"* |
+
+**5 examples across 3 of 11 personas (27%).**
+
+The prompt shows the model these at **60%** as *"RIGHT — match this pattern"*, then
+forbids the pattern at **94%**. The two blocks disagree and the later one is more
+specific.
+
+*(Musashi's two were rewritten in the 2026-09-23 voice fix, since they were teaching
+him to break a clause he was simultaneously being measured against. Marcus's two and
+Orwell's one are untouched and still conflict.)*
+
+---
+
+#### (2) Which clauses are SHAPE, and which are safety/quality
+
+`FIRST_MESSAGE` decomposes into eight clauses. Three are shape; five are not.
+
+| clause | kind |
+|---|---|
+| "Write between {lo} and {hi} words — about {target}" | **LENGTH** — per-persona already |
+| "name something meaningful you notice, and take a clear but proportionate position on it" | **SHAPE** (beats 1–2) |
+| "You may offer an interpretation, but offer it tentatively and ground it in their own words" | **SHAPE** (beat 2) |
+| "never tell them… they are hiding, avoiding, or failing to name something" | **QUALITY** — `CONCEAL_BAN` |
+| "You may challenge what they have said; do not speculate about what they have not" | **QUALITY** — `CHALLENGE` |
+| "Leave an easy opening to continue — usually one natural, answerable question, which may sit anywhere… never a closing seal" | **SHAPE** (beat 3) + quality tail |
+| "Plain, precise language in your own register — never contemporary slang" | **REGISTER** — `REGISTER` |
+| "no decorative aphorisms or fortune-cookie phrasing" | **QUALITY** |
+
+**THE QUALITY CLAUSES ARE THE LISTENING RUBRIC, TURNED INTO INSTRUCTIONS.** The
+correspondence is one-to-one with `evals/listening.py`'s criteria:
+
+- `CONCEAL_BAN` ↔ criterion **(a)** concealment / over-interpretation
+- "never a closing seal" ↔ criterion **(b)** sealing question
+- "no decorative aphorisms or fortune-cookie phrasing" ↔ criterion **(c)** oracular
+- "Respond specifically to what this person has actually said" ↔ criterion **(d)**
+- `CHALLENGE`'s second half ↔ criterion **(e)** misattribution
+
+**That is the finding.** The directive was built to move the listening metrics, and it
+did. **The three SHAPE clauses came along with it** — they are not measured by any
+instrument the project owns, and nothing has ever tested whether they should be
+shared. Distinctiveness was not a metric when this text was written.
+
+**Three of the eight clauses are already named constants** — `REGISTER`, `CHALLENGE`,
+`CONCEAL_BAN` are extracted and composed. The shape clauses are inline prose.
+
+---
+
+#### (3) Is a per-persona exemption feasible without rewriting the directive?
+
+**Yes, and the seam already exists.** `reply_directive.directive()` already:
+
+- takes `persona: PersonaConfig` as its first argument;
+- already varies per persona (`spec.standard_reply_words`, `DEEP_FLOOR.get(persona.slug)`);
+- already has a graceful-degradation path (`_report_degraded`) for a persona missing
+  what it needs;
+- already composes the string from named constants plus `.format()`.
+
+An exemption set — a per-persona field naming clauses to omit or replace, defaulting to
+none — is a small change to one function. **The directive text would not need
+rewriting**, only decomposing the three inline shape clauses into named constants
+alongside the three that already are.
+
+**WHAT IT WOULD BREAK, and this is the real cost:**
+
+1. **`arm_directive_hash` stops being well-defined.** It digests
+   `FIRST_MESSAGE + STANDARD + DEEP` as module constants (`evals/run.py:214`). If those
+   become per-persona, one hash can no longer describe a run, and the manifest's ability
+   to detect "the same arm re-run after a reworded directive" is lost unless it becomes
+   per-persona too.
+2. **`tests/test_harness_parity.py`** asserts byte equality between `assemble_system`
+   and an inline rebuild from production pieces, for all 11 personas × deep/standard ×
+   bridge on/off. It would need the persona-aware path on both sides.
+3. **`evals/arm_b3.py` re-exports the production strings** specifically so "the arm that
+   was measured and the prompt that ships are the same object". Per-persona directives
+   make that re-export ambiguous.
+4. **Every stored §8.2 baseline becomes incomparable for any exempted persona** — the
+   same cost as TD-94's render option, but scoped to whoever is exempted rather than all
+   eleven at once. That scoping is the main argument for the exemption over a rewrite.
+5. **The quality clauses must not be exemptible.** `CONCEAL_BAN` exists because a human
+   reader found concealment in 7 of 11 replies; it is the thing arm B was built to fix.
+   An exemption mechanism that can switch it off is a regression waiting for a persona
+   author in a hurry. If this is built, the shape clauses and the quality clauses need
+   to be different kinds of thing in the code, not two lists.
+
+**Evidence that the ceiling is the directive rather than the persona copy** — indirect,
+and stated as indirect. In the 2026-09-23 voice fix, Musashi's move had to be weakened
+specifically because its sharp form (*naming a rep the person has never done*) is
+forbidden by `CHALLENGE`'s second half. The weakened version still moved him 0/10 → 2/10
+and got him proposed for the first time in 220 judgements. Marcus, whose fix needed no
+directive exemption and received the strongest persona-level intervention available,
+moved 0/10 → 0/10. **One data point each, and they point the same way.** Neither
+establishes causation: that would need an arm that changes the directive, which has not
+been run.
+
+**NOT INVESTIGATED:** whether `STANDARD` and `DEEP` carry the same shape clauses (they
+are separate strings), and what the directive does across a whole conversation rather
+than a first message. Every §8.2 sample is a first message, so `FIRST_MESSAGE` is the
+only path with any measurement at all — `reply_directive.directive`'s own docstring says
+so.
+
+---
+
+---
+
 ### TD-94 — `character_anchors` reaches NOTHING: not the prompt, not the app, not a test — **NEW**
 **Status: RULED 2026-09-23 — DEMOTE. `character_anchors` stays as documentation only.
 Found the same day while implementing an approved voice fix, which it blocked.**
