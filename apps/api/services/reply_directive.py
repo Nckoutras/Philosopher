@@ -77,14 +77,60 @@ CONCEAL_BAN = (
     "or failing to name something."
 )
 
+# THE SEAL BAN, STANDING ALONE — 2026-09-23, arm E.
+#
+# Criterion (b)'s constraint used to live INSIDE the question prescription:
+# "…usually one natural, answerable question, which may sit anywhere in the reply
+# and is never a closing seal." Arm E removes the prescription, which would have
+# removed the ban with it. It is restated here so the constraint survives WITHOUT
+# mandating that a reply contain a question. Same constraint, no instruction to ask.
+SEAL_BAN = (
+    "If you end on a question, it must open rather than close — never a closing seal."
+)
+
+# FIRST_MESSAGE IS ARM E — founder ruling 2026-09-23, §8.2 test 1 (BUG-009).
+#
+# WHAT CHANGED: two SHAPE clauses removed, and nothing else.
+#   1. ": name something meaningful you notice, and take a clear but proportionate
+#      position on it"
+#   3. "Leave an easy opening to continue — usually one natural, answerable
+#      question, which may sit anywhere in the reply and"
+#
+# WHAT IS KEPT, byte-for-byte: the length sentence, "Respond specifically to what
+# this person has actually said", clause 2's HEDGE ("offer it tentatively and ground
+# it in their own words"), CONCEAL_BAN, CHALLENGE, REGISTER, the aphorism ban, and —
+# via SEAL_BAN above — criterion (b).
+#
+# WHY. The directive is appended LAST to every persona's system prompt (94% of the
+# way through it, against the persona's own voice block at 7%) and was identical for
+# all eleven. It prescribed one reply shape — acknowledge, interpret, open question —
+# and that shape was what §8.2 measured as eleven personas collapsing into three.
+# Measured, 77 replies per arm, against a control that differs ONLY in this string:
+#
+#   three personas NEVER named in 154 judgements   1 -> 15   (p=0.0004)
+#   personas never proposed at all                 2 -> 0
+#   recognition, all eleven                   29.9% -> 41.6%
+#   Socrates attractor, share of all guesses     32% -> 19%
+#   (a) over-interpretation per 100 words       1.68 -> 1.87
+#   (c) oracular per 100 words                  1.16 -> 1.23
+#
+# THE COST IS REAL AND IS NOT HIDDEN: (a) rose 11.3%. It missed a pre-set 10% gate
+# by 1.3 instances — 114 against 112.7 permitted — on a measure with ONE read per
+# reply and p=0.453. Founder override, 2026-09-23: "refusing a real gain over a
+# non-significant miss serves the threshold, not the product." The override and its
+# reasoning are recorded in evals/results/2026-09-23_armE/armE_record.md, including
+# that the gate would have passed at 112.
+#
+# STANDARD AND DEEP ARE UNTOUCHED, AND ALSO UNMEASURED. They carry their own shape
+# clauses. Every §8.2 sample is a first message, so NO ARM HAS EVER EXERCISED THEM —
+# they are not "kept because they tested well", they are kept because nothing tested
+# them at all. That is logged open-and-deferred, not closed.
 FIRST_MESSAGE = (
     "FIRST MESSAGE\n"
     "Write between {lo} and {hi} words — about {target}. Respond specifically to what "
-    "this person has actually said: name something meaningful you notice, and take a "
-    "clear but proportionate position on it. You may offer an interpretation, but offer "
+    "this person has actually said. You may offer an interpretation, but offer "
     "it tentatively and ground it in their own words; " + CONCEAL_BAN + " " + CHALLENGE
-    + " Leave an easy opening to continue — usually one natural, answerable question, "
-    "which may sit anywhere in the reply and is never a closing seal. Keep your own "
+    + " " + SEAL_BAN + " Keep your own "
     "voice. " + REGISTER + "; no decorative aphorisms or fortune-cookie phrasing."
 )
 

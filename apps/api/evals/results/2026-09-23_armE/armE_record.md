@@ -1,4 +1,4 @@
-# Arm E — the hypothesis held, the gate failed by two instances. §8.2 closes.
+# Arm E — the hypothesis held, the gate failed by two instances, and it shipped anyway.
 
 **2026-09-23.** 77 Sonnet standard replies, all 11 personas, arm `e`, bridge on,
 0 errors. Shape clauses 1 and 3 removed; clause 2's hedge kept **verbatim**. Judged
@@ -17,7 +17,42 @@ control `7965ddb987428b8a` → D `fb648d7bb909ae0a` → E `e45badf3494b09f7`.
 
 ---
 
-## THE OUTCOME UNDER THE FIXED DECISION RULE: SHIP NOTHING
+## FOUNDER OVERRIDE, 2026-09-23 — ARM E SHIPPED
+
+**The decision rule below was applied as written and returned "ship nothing". The
+founder then overrode it, and shipped arm E.** Both the rule's verdict and the
+override are kept here; the verdict is not edited away, because the override is only
+legible beside the thing it overrode.
+
+> *"The 10% gate was mine, set arbitrarily; arm E missed it by 1.3 instances on a
+> measure with one read per reply and p=0.453. It dominates both the control and arm
+> D on both axes. Refusing a real gain over a non-significant miss serves the
+> threshold, not the product."*
+
+**The arithmetic the override rests on.** The gate permitted 1.848 (a)-instances per
+100 words; over arm E's 6,100 words that is **112.7 instances**. Arm E returned
+**114**. **It would have passed at 112.** The (a) difference from control is
+**p = 0.453** on a single read per reply — a measure with no reliability figure at
+all, because the density protocol is one call.
+
+Against that: the three previously-unnameable personas went from **1 naming in 154 to
+15 (p = 0.0004)**, no column was left empty, and (a) came in *below* arm D while
+distinctiveness came in *above* it.
+
+**What shipped:** arm E's `FIRST_MESSAGE` text, into
+`services/reply_directive.py`. **`STANDARD` and `DEEP` are untouched — and also
+unmeasured.** They carry their own shape clauses in different wording, and no arm has
+ever exercised them, because every §8.2 sample is a first message. They are kept
+because nothing tested them, not because they tested well.
+
+**`arm_b3.FIRST_MESSAGE` was frozen as an inline literal in the same change.** It had
+been a re-export of the production string; leaving it so would have silently
+redefined `--arm b3` to generate arm E's replies under B3's name, with nothing
+failing. This is convention C-01 applied to an eval arm.
+
+---
+
+## The rule as it stood, and what it returned
 
 The rule, set before the run:
 
@@ -29,8 +64,8 @@ The rule, set before the run:
 | three dead personas named ≥ arm D | **15 vs 10** | **PASS** |
 | (a) density within 10% of control | **+11.3%** (allowed +10%) | **FAIL** |
 
-**Ship nothing. §8.2 closes.** Nothing from arms D or E goes to production;
-`services/reply_directive.py` is untouched and ships as it always has.
+**The rule returned: ship nothing.** That verdict was overridden the same day — see
+the section above. It is preserved here as written.
 
 ---
 
@@ -104,15 +139,25 @@ than 77.
 - The cost of doing so is a rise in over-interpretation that this instrument cannot
   resolve at n=77.
 
-**Not established:**
+**OPEN AND DEFERRED — §8.2 closes with these three explicitly unresolved.** Founder
+ruling 2026-09-23. They are deferred, not answered, and not closed:
 
-- Whether arm E's (a) rise is real. p=0.453, one read per reply.
-- Anything about `STANDARD` or `DEEP`, which carry their own shape clauses and were
-  never touched. Every §8.2 sample is a first message.
-- Whether a human reader agrees with the judge. 92–94% self-agreement is
-  consistency, not correctness; nobody has read the 77 arm-E replies.
-- Retrieval is not a variable anywhere in this: every reply in every arm was
-  generated with `passages=[]` (RETRIEVAL-001).
+1. **The (a) rise is unresolved at n=77.** Arm E's over-interpretation is 11.3% above
+   control at p=0.453, measured on a single read per reply. It could be a real
+   regression the run was too small to confirm, or noise. **Resolving it needs a
+   density protocol with more than one call per reply — there is currently no
+   reliability figure on that measure at all — or a larger n.**
+2. **`STANDARD` and `DEEP` carry their own shape clauses, untested.** They prescribe
+   a shape in different wording from `FIRST_MESSAGE`, and **no arm has ever exercised
+   them**, because every §8.2 sample is a first message. They ship unchanged because
+   nothing measured them. `tests/test_shipped_directive_is_arm_e.py` pins their shape
+   clauses so this stays visible rather than being assumed handled.
+3. **No human has read arm E's replies.** 92–94% judge self-agreement is internal
+   consistency, not correctness. The whole result rests on one LLM judge that nobody
+   has checked against a person on this corpus.
+
+**Also true, and not a deferral:** retrieval is not a variable anywhere in this. Every
+reply in every arm was generated with `passages=[]` (RETRIEVAL-001).
 
 **The arms remain in the harness.** `arm_d.py` and `arm_e.py` ship as eval code
 with their results stored, so re-opening this needs a decision and a run, not a
