@@ -179,3 +179,41 @@ def test_temperature_is_not_sent_because_opus_5_rejects_it():
     assert L.TEMPERATURE is None
     assert L.JUDGE_MODEL == "claude-opus-5"
     assert "temperature=" not in inspect.getsource(L.judge_one)
+
+
+# ── the mode flag, and why it exists ───────────────────────────────────────
+
+@pytest.mark.skipif(not (B3 / "completions.jsonl").exists(),
+                    reason="B3 completions.jsonl is gitignored; local runs only")
+class TestModes:
+    """THE FIRST FULL RUN JUDGED 77 REPLIES AND WOULD HAVE BEEN REPORTED AS 110.
+
+    The CLI's non-calibration path filtered `mode != "deep"`, so "the full B3
+    Sonnet 110" silently meant the 77 standard-mode replies. It was caught on a
+    row count, not by anything in the code. These tests are the mechanism that
+    replaces noticing — the repository's own failure log is mostly about habits
+    standing in for mechanisms.
+    """
+
+    def test_all_is_110_standard_is_77_deep_is_33(self):
+        assert len(L._pro_completions(B3, "all")) == 110
+        assert len(L._pro_completions(B3, "standard")) == 77
+        assert len(L._pro_completions(B3, "deep")) == 33
+
+    def test_standard_and_deep_partition_all(self):
+        """No reply may be in neither bucket, or a 'full' run silently drops it."""
+        a = {r["sample_id"] for r in L._pro_completions(B3, "all")}
+        s = {r["sample_id"] for r in L._pro_completions(B3, "standard")}
+        d = {r["sample_id"] for r in L._pro_completions(B3, "deep")}
+        assert s | d == a
+        assert s & d == set()
+
+    def test_the_default_is_standard_and_is_therefore_not_the_full_run(self):
+        """Stated as a test rather than a comment: a bare --run is 77, not 110.
+        The CLI prints the mode on every run so the number is never unlabelled."""
+        assert L.build_parser_default_mode() == "standard"
+
+    def test_the_calibration_set_is_standard_only_by_design(self):
+        """Not an oversight of the same kind: the deep band is a different
+        instruction, and calibrating across both would mix two populations."""
+        assert all(r["mode"] != "deep" for r in L.select_calibration(B3))

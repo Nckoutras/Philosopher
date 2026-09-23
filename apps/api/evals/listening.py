@@ -397,6 +397,17 @@ def cost(judgements: list[Judgement]) -> dict:
             "usd": round(tin * PRICE_IN / 1e6 + tout * PRICE_OUT / 1e6, 4)}
 
 
+def build_parser_default_mode() -> str:
+    """The CLI's default --mode, exposed so a test can pin it.
+
+    It is "standard", NOT "all": a bare --run judges 77 replies, not 110. That is
+    a deliberate default (the calibration and most iteration work on standard
+    mode) but it is exactly what made the first full run silently short, so the
+    mode is printed on every run and pinned here.
+    """
+    return "standard"
+
+
 def main() -> int:
     p = argparse.ArgumentParser(prog="python -m evals.listening")
     p.add_argument("--run", required=True, help="a results dir (source of replies)")
