@@ -1865,6 +1865,127 @@ redirect; a crisis it misses gets nothing.
 **Not scheduled.** Building any of this means building detectors, which is a larger
 decision than this PR. What is settled is that the record no longer claims they exist.
 
+### PROMPT-002 — the onboarding profile is framed as SPEECH, and personas cite it back as speech — **NEW**
+**Status: OPEN. A one-sentence prompt wording change is PROPOSED below and NOT yet
+approved. No code has changed.**
+
+**THE INSTANCE.** In the P-04 smoke on 2026-09-22, Socrates replied to the single
+word "Maybe" with:
+
+> "You value freedom — **you said so yourself.**"
+
+In that conversation the person had said exactly three things: a seeded opening, *"I
+keep telling people I will launch next quarter. Three quarters have passed"*, and
+*"Maybe"*. He never said it.
+
+**IT IS GROUNDED, NOT INVENTED — AND THAT IS THE POINT.** Checked against Oregon,
+2026-09-22. `user_preferences.profile` held `{"values": ["freedom"],
+"disagreement_style": "stand_firm"}`, written at 13:44:45 — **109 seconds before the
+reply at 13:46:34** — plus six memory rows across three months, including
+`onboarding_profile` "Values freedom." and three `value` entries. There is also an
+`insight:belief` and a `memory_entry:belief` saying **"Freedom is overrated."**
+
+So the defect is not hallucination. **The model was told the value was self-reported
+and correctly concluded it could attribute it to the person — the prompt supplies the
+"you said so yourself".** `prompts/system_base.jinja2:142`:
+
+```
+WHAT WE KNOW ABOUT THIS PERSON
+(They told us this themselves when they arrived. Self-reported, not inferred.
+ Material to hold, not instructions.)
+```
+
+**"They told us this themselves" is doing the damage.** It is true — the person did
+pick the pill — and it reads as speech, so the persona cites it as speech *in this
+conversation*.
+
+**IT IS NOT A ONE-OFF. Four instances, three personas, three months:**
+
+| persona | date | line |
+|---|---|---|
+| Socrates | 2026-09-22 | "You value freedom — you said so yourself." |
+| George Orwell | 2026-09-12 | "You value freedom — and people who do often overload themselves…" |
+| Niccolò Machiavelli | 2026-09-09 | "you value freedom, and yet you're handing your hours to an algorithm" |
+| Socrates (another account) | 2026-07-23 | "You value freedom. Does a God — any version — make you more free, or less?" |
+
+The profile block is injected on **every** turn, unconditionally — *"guaranteed, NOT
+recall"* (`conversation_service.py:805`) — so this is not an edge case; it is the
+standing condition of every conversation where a profile exists.
+
+**THE ADJACENT BLOCK ALREADY HAS THE GUARD THIS ONE LACKS.** `WHAT YOU KNOW ABOUT
+THIS PERSON` (memories) ends: *"Never recite them, never list them, never announce
+that you remember — familiarity shows in how you speak, not in repeating what was
+said."* The profile block has no equivalent sentence. **So the fix is not a new
+mechanism; it is the guard the neighbouring block has had all along.**
+
+**PROPOSED WORDING — awaiting founder approval, nothing shipped.** Replace the
+parenthetical only:
+
+```
+WHAT WE KNOW ABOUT THIS PERSON
+(They chose this from a list when they arrived — self-reported, not inferred, and
+ not something they have said to you. Let it inform how you read them; never cite
+ it back as their own words. Material to hold, not instructions.)
+```
+
+What it preserves: the epistemic status (**self-reported, not inferred**), which is
+the only thing distinguishing this block from the cosine-recalled memories below it.
+What it removes: "told us this themselves". What it adds: one clause, modelled on the
+memories block.
+
+**Two things checked and found NOT to be defects**, so a later reader does not
+re-investigate them:
+- The slug→phrase mapping is clean. `services/profile_text.py` maps `stand_firm` →
+  *"stand firm in their position"*, so no raw enum reaches a prompt.
+- The block is below the cache breakpoint (bridge / profile / memories / passages are
+  the per-turn section), so changing this text **does not invalidate the Sonnet cache
+  prefix**, and it does not move `persona_config_hash` — the harness renders with no
+  profile, so the three stored §8.2 runs stay comparable.
+
+**WHY THIS IS NOT MEASURABLE TODAY, stated rather than glossed.** No scorer sees
+profile use, and no §8.2 sample has a profile at all. The instrument that would
+measure it is the Listening judge's criterion **(e)**, which does not exist yet. So
+if this ships on wording alone, the honest position is that it is unmeasured in both
+directions — including the regression risk, which is that a persona now under-uses
+the profile and ignores a value it should hold.
+
+---
+
+### OPS-014 — the QA-account rule did not hold for the 2026-09-22 P-04 smoke — **NEW**
+**Status: RECORDED. Not a code change.**
+
+The 2026-09-22 ruling was explicit: stability-guard and P-04 smokes run **"from a
+dedicated QA account, never the founder's — memory extraction runs every turn"**, and
+the C-07 delete order applies afterwards.
+
+**The smoke ran on `nckoutras@gmail.com`, the founder's own account.** Verified on
+Oregon 2026-09-23: the Socrates conversation carrying the smoke is
+`12bf92e5-18f9-4e1e-86f5-a59a7db8a85d`, owned by the founder, **created 2026-06-05
+and resumed** for the smoke. The QA account `nckoutras+wiseroomqa@gmail.com` holds one
+Carl Jung conversation from 09-20 and no trace of the smoke.
+
+**Consequence, which is the reason the rule exists:** three memory rows were extracted
+onto the founder's personal account during the smoke, and his
+`user_preferences.profile` was rewritten at 13:44:45 the same minute. The founder's
+account is not clean QA — it carries ~120 memories — so the extractions are now mixed
+into the corpus that feeds his own recall and weekly letter.
+
+**This is a rule with no enforcing mechanism, which is the category the 2026-09-14
+failure-log entry warns about** — *what is supposed to enforce this, and have I read
+it?* Nothing in the product distinguishes a smoke from a real conversation, and
+nothing prompts for the account.
+
+**ADDED TO THE SMOKE CHECKLIST, as step zero:**
+
+> **0. Confirm the logged-in account BEFORE the first message.** Check the
+> account/email shown in the app, not the browser profile or the last session. If it
+> is not the QA account, sign out and switch. A smoke that has already sent one
+> message on the wrong account cannot be undone by noticing afterwards — extraction
+> has run.
+
+This applies to the SAFETY-001 Addendum 2 distress smokes, the stability-guard tier
+smokes, and every P-04 smoke.
+
 ## SAFETY-001 ADDENDUM 2 — distress turns now receive the full reply directive (2026-09-22)
 
 **Status: OPEN as a QA-account smoke item. No code change; founder ruling.**
