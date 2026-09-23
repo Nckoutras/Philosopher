@@ -27,15 +27,23 @@ CRITERION (d) IS INVERTED: yes is the GOOD answer. Every other criterion's yes i
 a fault. Anyone reading listening.csv has to hold that, so it is repeated in the
 rubric text and in the CSV header comment.
 
-CRITERION (e) CANNOT BE POSITIVELY CALIBRATED ON §8.2 DATA, and this is stated
-here rather than discovered later. `harness.assemble_system` passes
-`profile=None` and no memories, so a harness reply has no external material to
-misattribute FROM — the only source is the single user message the judge also
-sees. Calibration therefore measures (e)'s FALSE-POSITIVE rate only. The instance
-that motivated (e) came from production, where the onboarding profile IS injected
-on every turn ("You value freedom — you said so yourself", PROMPT-002). A real
-test of (e) needs production transcripts, which is a separate decision about
-reading real user conversations and has NOT been taken.
+CRITERION (e) — A PREDICTION MADE HERE WAS WRONG, AND IS CORRECTED RATHER THAN
+DELETED. This docstring originally said (e) "cannot be positively calibrated on
+§8.2 data": `harness.assemble_system` passes `profile=None` and no memories, so a
+harness reply has no external material to misattribute FROM, and calibration
+would therefore measure only its false-positive rate.
+
+The calibration falsified that. A founder-adjudicated split ruled "how long you
+have been making that same assumption" a TRUE misattribution — the person never
+mentioned duration. **A reply can invent an attribution out of nothing at all**,
+so (e) measures something real on this corpus, and its low rate is probably an
+under-count (κ +0.66, the lowest of the five).
+
+What still holds: the specific production defect (e) was written for — an
+onboarding value cited as speech, PROMPT-002 — cannot appear here, because the
+profile block never renders in the harness. Testing THAT needs production
+transcripts, a separate decision about reading real user conversations which has
+NOT been taken.
 
 NEVER RUNS IN CI, like the rest of evals/. Makes real API calls and costs money.
 """
@@ -176,11 +184,27 @@ def blind3_b3_sample_ids(b3_dir: Path) -> list[str]:
     return sorted(out)
 
 
-def _standard_pro_completions(b3_dir: Path) -> list[dict]:
+def _pro_completions(b3_dir: Path, mode: str = "standard") -> list[dict]:
+    """Sonnet completions from a stored run. `mode` is standard | deep | all.
+
+    The calibration set is standard-only, deliberately: the deep band is a
+    different instruction and mixing the two would calibrate on two populations.
+    A full run wants both, so the CLI exposes the choice rather than hard-coding
+    it — the first full run judged 77 and reported it as "110", which is the kind
+    of quiet undercount this flag exists to prevent.
+    """
     rows = [json.loads(l) for l in
             (b3_dir / "completions.jsonl").read_text(encoding="utf-8").splitlines() if l]
-    return [r for r in rows
-            if r["plan"] == "pro" and not r["error"] and r["mode"] != "deep"]
+    out = [r for r in rows if r["plan"] == "pro" and not r["error"]]
+    if mode == "standard":
+        return [r for r in out if r["mode"] != "deep"]
+    if mode == "deep":
+        return [r for r in out if r["mode"] == "deep"]
+    return out
+
+
+def _standard_pro_completions(b3_dir: Path) -> list[dict]:
+    return _pro_completions(b3_dir, "standard")
 
 
 def select_calibration(b3_dir: Path, per_persona: int = 4) -> list[dict]:
@@ -379,6 +403,9 @@ def main() -> int:
     p.add_argument("--calibrate", action="store_true",
                    help="44-reply calibration set, 2 independent calls each")
     p.add_argument("--calls", type=int, default=1)
+    p.add_argument("--mode", choices=["standard", "deep", "all"], default="standard",
+                   help="which Sonnet replies to judge. Ignored with --calibrate, "
+                        "whose set is standard-only by design.")
     p.add_argument("--concurrency", type=int, default=4)
     p.add_argument("--dry-run", action="store_true",
                    help="select and print the sample, send nothing")
@@ -387,11 +414,12 @@ def main() -> int:
 
     run_dir = Path(args.run)
     comps = (select_calibration(run_dir) if args.calibrate
-             else _standard_pro_completions(run_dir))
+             else _pro_completions(run_dir, args.mode))
     calls = 2 if args.calibrate else args.calls
 
     print(f"replies: {len(comps)}   calls each: {calls}   "
-          f"judgements: {len(comps) * calls}")
+          f"judgements: {len(comps) * calls}"
+          + ("" if args.calibrate else f"   mode: {args.mode}"))
     print(f"model: {JUDGE_MODEL}  temperature: not sent (deprecated on Opus 5)")
     if args.dry_run:
         for c in comps:
