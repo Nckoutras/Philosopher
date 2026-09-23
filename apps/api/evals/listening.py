@@ -45,6 +45,17 @@ profile block never renders in the harness. Testing THAT needs production
 transcripts, a separate decision about reading real user conversations which has
 NOT been taken.
 
+DENSITY IS THE STANDARD (a)/(c) METRIC — founder ruling 2026-09-23. The binary
+rate is reported ALONGSIDE it and never alone. On the same 98 deep replies the
+two rank the arms in opposite orders:
+
+    binary (a):        baseline 84%   arm B 59%   B3 82%
+    (a) per 100 words: baseline 3.68  arm B 2.92  B3 1.91
+
+A per-reply "does this contain X" flag is mechanically easier to trip in a longer
+reply, and every arm in this project changes reply length. Use
+`summarise_density()`, which returns both together.
+
 NEVER RUNS IN CI, like the rest of evals/. Makes real API calls and costs money.
 """
 from __future__ import annotations
@@ -151,6 +162,76 @@ Return only JSON, with no other text:
 
 {"a":{"v":true,"q":""},"b":{"v":false,"q":""},"c":{"v":false,"q":""},
  "d":{"v":true,"q":""},"e":{"v":false,"q":""}}"""
+
+
+# ── the COUNT variant, for the length-bias question ────────────────────────
+#
+# A binary "does this reply contain over-interpretation" flag is mechanically
+# easier to trip in a longer reply. That matters because B3's deep replies run
+# 127 words against arm B's 62, and pooled across arms, replies over 120 words
+# are flagged 96% of the time (23 of 24) — so the arms cannot be compared on the
+# binary flag without confounding wording with length.
+#
+# This rubric asks HOW MANY distinct instances, which makes a rate per 100 words
+# computable. Everything else is held identical: same two criteria, same
+# definitions word-for-word, same verbatim-quote audit. Only the answer type
+# changes, so a difference between the two readings is about the question asked
+# and not about a rewritten rubric.
+#
+# (b), (d) and (e) are not asked: (b) and (e) are rare and (d) has no variance,
+# so counting them would spend output tokens on nothing.
+RUBRIC_COUNT = """You are evaluating ONE reply from a reflective conversation application, in which
+a person talks with a persona modelled on a historical thinker.
+
+You will be shown a conversation. Judge ONLY the final reply from the persona.
+
+For each of the two questions below, count the DISTINCT instances in the reply
+and quote each one verbatim. Count separate passages, not repetitions of the same
+passage. If there are none, answer 0 with an empty list.
+
+(a) CONCEALMENT OR OVER-INTERPRETATION
+    Passages that imply the person is hiding, avoiding, evading, or failing to
+    name something — or that tell them what they feel, want, or have decided.
+    Offering an interpretation tentatively, grounded in what they said, is NOT
+    this. Asserting their inner state as settled fact is.
+
+(c) ORACULAR
+    Fortune-cookie or aphoristic pronouncements — lines shaped to be quotable
+    rather than said to this particular person.
+
+Return only JSON, with no other text. Every quote must be copied exactly from the
+reply:
+
+{"a":{"n":2,"q":["first passage","second passage"]},"c":{"n":0,"q":[]}}"""
+
+COUNT_CRITERIA = ("a", "c")
+
+
+def parse_counts(text: str, reply: str) -> tuple[dict, str]:
+    """-> ({crit: (count, [quotes])}, error). Same audit as the binary parser:
+    every quote must appear verbatim, and n must equal the number of quotes."""
+    t = text.strip()
+    if t.startswith("```"):
+        t = t.split(chr(10), 1)[1].rsplit("```", 1)[0] if chr(10) in t else t
+    try:
+        obj = json.loads(t)
+    except json.JSONDecodeError as e:
+        return {}, f"json: {e}"
+    norm = " ".join(reply.split()).lower()
+    out = {}
+    for c in COUNT_CRITERIA:
+        if c not in obj or not isinstance(obj[c], dict):
+            return {}, f"missing criterion {c}"
+        n, qs = obj[c].get("n"), obj[c].get("q")
+        if not isinstance(n, int) or not isinstance(qs, list):
+            return {}, f"criterion {c}: n must be int and q a list"
+        if n != len(qs):
+            return {}, f"criterion {c}: n={n} but {len(qs)} quotes"
+        for q in qs:
+            if not isinstance(q, str) or " ".join(q.split()).lower() not in norm:
+                return {}, f"criterion {c}: quote not verbatim"
+        out[c] = (n, qs)
+    return out, ""
 
 
 def conversation_block(user_message: str, reply: str) -> str:
@@ -315,7 +396,7 @@ def parse_verdict(text: str, reply: str) -> tuple[dict, str]:
     return out, ""
 
 
-async def judge_one(client, comp: dict, call: int) -> Judgement:
+async def judge_one(client, comp: dict, call: int, *, count: bool = False) -> Judgement:
     j = Judgement(sample_id=comp["sample_id"], persona_slug=comp["persona_slug"],
                   problem_id=comp["problem_id"], mode=comp["mode"],
                   plan=comp["plan"], call=call)
@@ -324,20 +405,21 @@ async def judge_one(client, comp: dict, call: int) -> Judgement:
             model=JUDGE_MODEL,
             max_tokens=MAX_TOKENS,
             thinking=THINKING,
-            system=RUBRIC,
+            system=RUBRIC_COUNT if count else RUBRIC,
             messages=[{"role": "user",
                        "content": conversation_block(comp["user_message"], comp["reply"])}],
         )
         text = "".join(b.text for b in resp.content if b.type == "text")
         j.tokens = (resp.usage.input_tokens, resp.usage.output_tokens)
-        j.verdicts, j.raw_error = parse_verdict(text, comp["reply"])
+        parse = parse_counts if count else parse_verdict
+        j.verdicts, j.raw_error = parse(text, comp["reply"])
     except Exception as e:  # noqa: BLE001 - an API failure is data, not a crash
         j.raw_error = f"api: {type(e).__name__}: {e}"
     return j
 
 
 async def judge_all(comps: list[dict], *, calls: int = 2, concurrency: int = 4,
-                    progress=None) -> list[Judgement]:
+                    progress=None, count: bool = False) -> list[Judgement]:
     """Each reply judged `calls` times in SEPARATE API calls.
 
     Independence is the whole point: the self-agreement figure is the judge's own
@@ -355,7 +437,7 @@ async def judge_all(comps: list[dict], *, calls: int = 2, concurrency: int = 4,
     async def one(i, comp, call):
         nonlocal done
         async with sem:
-            out[i] = await judge_one(client, comp, call)
+            out[i] = await judge_one(client, comp, call, count=count)
             done += 1
             if progress:
                 progress(done, len(jobs), out[i])
@@ -371,6 +453,21 @@ CSV_COLUMNS = [
 ]
 
 
+def to_count_row(j: Judgement) -> dict:
+    row = {"sample_id": j.sample_id, "persona_slug": j.persona_slug,
+           "problem_id": j.problem_id, "mode": j.mode, "plan": j.plan,
+           "call": j.call, "judge_model": JUDGE_MODEL, "raw_error": j.raw_error}
+    for c in COUNT_CRITERIA:
+        n, qs = j.verdicts.get(c, ("", []))
+        row[f"{c}_n"] = n
+        row[f"{c}_q"] = " || ".join(qs)
+    return row
+
+
+COUNT_COLUMNS = ["sample_id", "persona_slug", "problem_id", "mode", "plan", "call",
+                 "a_n", "a_q", "c_n", "c_q", "judge_model", "raw_error"]
+
+
 def to_row(j: Judgement) -> dict:
     row = {"sample_id": j.sample_id, "persona_slug": j.persona_slug,
            "problem_id": j.problem_id, "mode": j.mode, "plan": j.plan,
@@ -382,12 +479,58 @@ def to_row(j: Judgement) -> dict:
     return row
 
 
-def write_csv(path: Path, judgements: list[Judgement]) -> None:
+def write_csv(path: Path, judgements: list[Judgement], *, count: bool = False) -> None:
+    """Write the judgements. `count` selects the count schema over the binary one.
+
+    THIS FUNCTION ONCE DID NOT TAKE `count` WHILE ITS CALLER PASSED IT. The 99
+    API calls all completed and the process then died on the TypeError, losing
+    every judgement and about $0.75. The lesson is not "be careful with kwargs":
+    it is that a long, paid run must not be able to reach its write step for the
+    first time WITH the data already in memory and nowhere else.
+    """
+    cols = COUNT_COLUMNS if count else CSV_COLUMNS
+    row = to_count_row if count else to_row
     with open(path, "w", encoding="utf-8", newline="") as fh:
-        w = csv.DictWriter(fh, fieldnames=CSV_COLUMNS)
+        w = csv.DictWriter(fh, fieldnames=cols)
         w.writeheader()
         for j in judgements:
-            w.writerow(to_row(j))
+            w.writerow(row(j))
+
+
+def summarise_density(count_rows: list[dict], word_counts: dict[str, int],
+                      binary_rows: list[dict] | None = None) -> dict:
+    """The standard (a)/(c) summary: DENSITY, with the binary rate beside it.
+
+    FOUNDER RULING 2026-09-23: density is the standard metric and the binary rate
+    is never reported alone. The reason is measured. On the same 98 deep replies
+    the two disagree about which arm is best, completely:
+
+        binary (a):        baseline 84%   arm B 59%   B3 82%
+        (a) per 100 words: baseline 3.68  arm B 2.92  B3 1.91
+
+    A per-reply "does this contain X" flag is mechanically easier to trip in a
+    longer reply, and B3's deep replies run 127 words against arm B's 62. Every
+    arm in this project changes reply length, so the binary rate can never rank
+    arms by itself.
+
+    This function returns both together so that reporting one without the other
+    takes deliberate effort. `binary_rate` is None only when no binary run
+    exists for the same replies.
+    """
+    out: dict = {}
+    total_w = sum(word_counts.get(r["sample_id"], 0) for r in count_rows)
+    for c in COUNT_CRITERIA:
+        n = sum(int(r[f"{c}_n"]) for r in count_rows if r[f"{c}_n"] != "")
+        per100 = (100.0 * n / total_w) if total_w else 0.0
+        rate = None
+        if binary_rows:
+            usable = [r for r in binary_rows if r.get(f"{c}_v") in ("0", "1")]
+            if usable:
+                rate = 100.0 * sum(1 for r in usable if r[f"{c}_v"] == "1") / len(usable)
+        out[c] = {"instances": n, "per_100_words": round(per100, 2),
+                  "binary_rate": None if rate is None else round(rate, 1),
+                  "n_replies": len(count_rows), "total_words": total_w}
+    return out
 
 
 def cost(judgements: list[Judgement]) -> dict:
@@ -414,6 +557,9 @@ def main() -> int:
     p.add_argument("--calibrate", action="store_true",
                    help="44-reply calibration set, 2 independent calls each")
     p.add_argument("--calls", type=int, default=1)
+    p.add_argument("--count", action="store_true",
+                   help="COUNT instances of (a) and (c) instead of yes/no. Removes "
+                        "the length bias a binary per-reply flag carries.")
     p.add_argument("--mode", choices=["standard", "deep", "all"], default="standard",
                    help="which Sonnet replies to judge. Ignored with --calibrate, "
                         "whose set is standard-only by design.")
@@ -437,6 +583,23 @@ def main() -> int:
             print(f"  {c['sample_id']}")
         return 0
 
+    # PRE-FLIGHT THE WRITE, BEFORE SPENDING A CENT.
+    # A run once made all 99 calls and then died on a TypeError in write_csv,
+    # losing every judgement and ~$0.75. Exercising the exact write path with one
+    # synthetic row proves the schema, the directory and the permissions while
+    # the only thing at risk is a second of CPU.
+    out = Path(args.out) if args.out else run_dir / "listening.csv"
+    _probe = Judgement(sample_id="__preflight__", persona_slug="", problem_id="",
+                       mode="", plan="", call=0,
+                       verdicts=({c: (0, []) for c in COUNT_CRITERIA} if args.count
+                                 else {c: (False, "") for c in CRITERIA}))
+    try:
+        write_csv(out, [_probe], count=args.count)
+    except Exception as e:  # noqa: BLE001
+        print(f"REFUSING TO RUN: the output path failed its write test — {e}",
+              file=sys.stderr)
+        return 2
+
     def progress(done, total, j):
         sys.stderr.write("!" if j.raw_error else ".")
         if done % 20 == 0 or done == total:
@@ -444,9 +607,8 @@ def main() -> int:
         sys.stderr.flush()
 
     js = asyncio.run(judge_all(comps, calls=calls, concurrency=args.concurrency,
-                               progress=progress))
-    out = Path(args.out) if args.out else run_dir / "listening.csv"
-    write_csv(out, js)
+                               progress=progress, count=args.count))
+    write_csv(out, js, count=args.count)
     c = cost(js)
     bad = sum(1 for j in js if j.raw_error)
     print(f"\nwrote {out}")

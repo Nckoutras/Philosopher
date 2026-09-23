@@ -217,3 +217,114 @@ class TestModes:
         """Not an oversight of the same kind: the deep band is a different
         instruction, and calibrating across both would mix two populations."""
         assert all(r["mode"] != "deep" for r in L.select_calibration(B3))
+
+
+# ── the COUNT variant, and the write pre-flight ────────────────────────────
+
+class TestCounts:
+    """The count rubric exists because a binary per-reply flag is length-biased:
+    B3's deep replies run 127 words against arm B's 62, and pooled across arms
+    replies over 120 words are flagged 96% of the time."""
+
+    R = "The cat sat on the mat. A dog barked twice."
+
+    def test_counts_and_quotes_parse(self):
+        v, err = L.parse_counts(
+            '{"a":{"n":2,"q":["The cat sat","A dog barked"]},"c":{"n":0,"q":[]}}', self.R)
+        assert err == ""
+        assert v["a"][0] == 2 and v["c"] == (0, [])
+
+    def test_n_must_equal_the_number_of_quotes(self):
+        """Otherwise a judge can claim three instances and evidence one."""
+        v, err = L.parse_counts('{"a":{"n":3,"q":["The cat sat"]},"c":{"n":0,"q":[]}}', self.R)
+        assert v == {} and "but 1 quotes" in err
+
+    def test_every_quote_must_still_be_verbatim(self):
+        v, err = L.parse_counts(
+            '{"a":{"n":1,"q":["the hamster sang"]},"c":{"n":0,"q":[]}}', self.R)
+        assert v == {} and "not verbatim" in err
+
+    def test_the_two_rubrics_define_the_criteria_identically(self):
+        """A difference between the binary and count readings must be about the
+        QUESTION asked, not about a rewritten definition."""
+        # Whitespace-normalised: the two rubrics wrap their lines differently, so
+        # a raw substring test fails on a line break rather than on a wording
+        # change. That is exactly the false alarm this test must not produce.
+        flat_bin = " ".join(L.RUBRIC.split())
+        flat_cnt = " ".join(L.RUBRIC_COUNT.split())
+        for phrase in ("hiding, avoiding, evading, or failing to",
+                       "Asserting their inner state as settled fact is",
+                       "quotable rather than said to this particular person"):
+            assert phrase in flat_bin, phrase
+            assert phrase in flat_cnt, phrase
+        # (c) differs by ONE grammatical number — the binary rubric says "a line
+        # shaped to be quotable", the count rubric "lines shaped to be quotable",
+        # because counting requires the plural. That is the only divergence, and
+        # asserting the singular form here is what caught it.
+        assert "a line shaped" in flat_bin and "lines shaped" in flat_cnt
+
+    def test_count_mode_writes_its_own_schema(self, tmp_path):
+        j = L.Judgement(sample_id="s", persona_slug="p", problem_id="P", mode="deep",
+                        plan="pro", call=1, verdicts={"a": (2, ["x", "y"]), "c": (0, [])})
+        p = tmp_path / "c.csv"
+        L.write_csv(p, [j], count=True)
+        head = p.read_text(encoding="utf-8").splitlines()[0]
+        assert "a_n" in head and "c_n" in head
+        assert "b_v" not in head, "count mode asks only (a) and (c)"
+
+    def test_write_csv_accepts_count_which_is_how_a_paid_run_was_lost(self):
+        """write_csv once did not take `count` while main() passed it. All 99
+        API calls completed and the process died on the TypeError, losing every
+        judgement and ~$0.75. main() now pre-flights the write before spending."""
+        import inspect
+        assert "count" in inspect.signature(L.write_csv).parameters
+        assert "count" in inspect.signature(L.judge_all).parameters
+        src = inspect.getsource(L.main)
+        assert src.index("write_csv(out, [_probe]") < src.index("asyncio.run(judge_all"), \
+            "the write pre-flight must come BEFORE any API call"
+
+
+class TestDensityIsTheStandardMetric:
+    """FOUNDER RULING 2026-09-23: density is the standard (a)/(c) metric and the
+    binary rate is never reported alone.
+
+    The reason is measured, not stylistic. On the same 98 deep replies the two
+    disagree about which arm is best, completely:
+
+        binary (a):        baseline 84%   arm B 59%   B3 82%
+        (a) per 100 words: baseline 3.68  arm B 2.92  B3 1.91
+
+    Every arm in this project changes reply length, so a per-reply flag can never
+    rank arms by itself.
+    """
+
+    COUNTS = [{"sample_id": "s1", "a_n": "2", "c_n": "1"},
+              {"sample_id": "s2", "a_n": "0", "c_n": "0"}]
+    WORDS = {"s1": 100, "s2": 100}
+    BINARY = [{"sample_id": "s1", "a_v": "1", "c_v": "1"},
+              {"sample_id": "s2", "a_v": "0", "c_v": "0"}]
+
+    def test_it_returns_density_and_the_binary_rate_together(self):
+        out = L.summarise_density(self.COUNTS, self.WORDS, self.BINARY)
+        assert out["a"]["per_100_words"] == 1.0
+        assert out["a"]["binary_rate"] == 50.0
+        assert out["c"]["per_100_words"] == 0.5
+
+    def test_the_binary_rate_cannot_be_returned_without_density(self):
+        """The whole point: reporting one without the other must take deliberate
+        effort, so the shape enforces it."""
+        for rows in (self.BINARY, None):
+            out = L.summarise_density(self.COUNTS, self.WORDS, rows)
+            for c in L.COUNT_CRITERIA:
+                assert "per_100_words" in out[c]
+                assert "binary_rate" in out[c]
+
+    def test_binary_rate_is_None_when_no_binary_run_exists(self):
+        out = L.summarise_density(self.COUNTS, self.WORDS, None)
+        assert out["a"]["binary_rate"] is None
+        assert out["a"]["per_100_words"] == 1.0
+
+    def test_it_carries_the_denominator_so_a_rate_is_never_unanchored(self):
+        out = L.summarise_density(self.COUNTS, self.WORDS, self.BINARY)
+        assert out["a"]["n_replies"] == 2
+        assert out["a"]["total_words"] == 200
