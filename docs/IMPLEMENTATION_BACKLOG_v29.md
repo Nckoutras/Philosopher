@@ -1354,6 +1354,86 @@ for, since it is currently decoration.
 
 ---
 
+### TD-98 — retrieval forced-injection arm: no effect. The hypothesis CLOSES for now. — **NEW**
+**Status: CLOSED for now, measured — founder ruling 2026-09-23. Retrieval stays
+dead. RETRIEVAL-001 is unchanged and still open as a defect.**
+
+**THE QUESTION, and why it needed an arm rather than an argument.** Every §8.2 reply
+ever generated ran with `passages=[]`, because production retrieval has never
+returned a passage (RETRIEVAL-001). So the effect of grounding passages on
+distinctiveness had never been *measured*. The available argument was the mismatch
+between corpus size and recognition — Jung has **0 chunks** and is recognised, Wilde
+has **352** and is not — and that is suggestive rather than decisive, because
+retrieval was off for both.
+
+**THE DESIGN.** Top-1 chunk forced into the prompt **with no threshold**, for
+`sigmund_freud` and `epictetus` — the two personas with both a real corpus and the
+highest observed similarity. Their 7 standard replies each, under the **shipped arm E
+directive**. Control: their stored arm E replies, `passages=[]`, already judged.
+Judged 2 independent calls, 93% self-agreement.
+
+**THE PASSAGES WERE REAL AND THEIR SCORES ARE RECORDED**, which is the part that
+makes the negative result load-bearing:
+
+| | |
+|---|---|
+| injected cosine range | **0.1917 – 0.4172** |
+| mean | 0.2965 |
+| would clear the live 0.72 threshold | **0 of 14** |
+
+This arm therefore asks what **the best available passage** does, not what a good one
+would do.
+
+**THE RESULT: NO RISE IN EITHER PERSONA.**
+
+| persona | recall control | recall arm F | named control | named arm F |
+|---|---|---|---|---|
+| Sigmund Freud | 5/7 | **4/7** | 11 | 8 |
+| Epictetus | 5/7 | **5/7** | 10 | 10 |
+
+Freud drifted down, Epictetus was unchanged. Neither rose. **Both flat.**
+
+One side-effect worth recording: arm F's guesses drifted toward **Beauvoir (1 → 7
+of 28)**. A passage in the prompt did change something — it just did not make the
+persona more identifiable as itself.
+
+**AND THE PASSAGES DID NOT LEAK AS QUOTATION**, which was the product risk the
+14 replies were exported to check. Five of fourteen contain quotation marks; **all
+five are the persona quoting the USER back to themselves**, a normal move that
+predates this arm. No source title, no "as I wrote", no paraphrase attributed to a
+text. Replies are at a 70-word median, in band. The export is
+`evals/results/2026-09-23_armF/armF_replies.md`.
+
+**THE RULING, in the words it was given, because the distinction matters.** NOT
+"retrieval can never help". Rather: **"forcing the best available passage on the two
+best-equipped personas produced no visible effect at this sample size, and a bigger
+arm is not justified without one."** A rise in either persona would have reopened
+retrieval as a real workstream (threshold, chunking, coverage). Neither rose.
+
+**WHAT THIS DOES NOT SAY.** n=7 per persona. A real effect smaller than this arm
+could see is not excluded. What is excluded is the cheap version of the hypothesis —
+that the 0.72 threshold is the only thing standing between the corpus and better
+distinctiveness. It is not: the passages were injected *past* the threshold and
+nothing moved.
+
+**Constraints honoured.** Oregon access was **READ-ONLY by server enforcement**: the
+chunk fetch ran inside `BEGIN TRANSACTION READ ONLY` with `SHOW
+transaction_read_only` asserted `on` before any query, and was rolled back rather
+than committed. SELECT only — no writes, no DDL, no RPC creation, no temp tables.
+**Production code untouched**: the sole change outside `evals/` is an optional
+`passages=()` parameter on `harness.assemble_system` / `generate`, defaulting to
+empty, which is production identity — every other arm's prompt is byte-unchanged.
+
+**One operational finding, fixed in passing.** `PROD_DATABASE_URL` in
+`apps/api/.env` **broke the entire application and test suite**: `config.Settings`
+forbids extra inputs, so every import of `config` raised `ValidationError`. It was
+moved to `apps/api/.env.local`, which is gitignored and which `Settings` does not
+read. Anyone adding a local-only variable must put it there, not in `.env`.
+
+---
+
+---
+
 ### TD-97 — all three arm E smoke replies ended on a two-option question — **NEW, OBSERVATION ONLY**
 **Status: OPEN as a watch item. NO ACTION — founder ruling 2026-09-23. Nothing is
 proposed and nothing is changed.**
