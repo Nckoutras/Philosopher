@@ -1354,6 +1354,67 @@ for, since it is currently decoration.
 
 ---
 
+### TD-92 — Marcus carries `Meditations` twice: the full Gutenberg text and 19 hand-curated chunks of the same translation — **NEW**
+**Status: OPEN. Recorded, no action — founder ruling 2026-09-23.**
+
+**Found by** the per-persona corpus read done for RETRIEVAL-001 (Oregon,
+2026-09-23). It was reported as an anomaly and investigated as one. **It is not
+one** — and that correction is the reason this entry exists in the shape it does.
+
+| `source_title` | chunks | avg chars/chunk | ingested |
+|---|---|---|---|
+| `Meditations` | 212 | 2,116 | 2026-05-17 |
+| `Meditations (curated)` | 19 | 270 | 2026-05-17 |
+
+**FIRST READING, WRITTEN DOWN AND THEN FALSIFIED.** 270 characters against 2,116
+looks like a different chunking regime, so the obvious inference was a remnant of
+an older ingest that the full-text load never cleared. **That was wrong.**
+`scripts/curated_chunks.py` exists for exactly this, says so in its docstring, and
+its `CURATED_CHUNKS["marcus_aurelius"]` list holds **19 entries — the same 19**:
+
+> *"Hand-curated chunks: high-quality passages selected manually with precise
+> citation references... curated chunks use `source_title = "Meditations
+> (curated)"` while the auto-chunked Gutenberg run uses `source_title =
+> "Meditations"`."*
+
+The small chunks are the **point**, not the symptom: they are passages chosen by
+hand and carrying a real `page_ref`. Marcus is the only populated persona in that
+module, "recovered from pre-C3a `ingest_sources.py`". The deliberate disambiguation
+in the title is the thing that made this look accidental from the database alone.
+
+**WHAT IS NEVERTHELESS TRUE, and is the actual finding.** Both rows are the **same
+book in the same translation** — `CORPUS_SOURCES["marcus_aurelius"]` is Long (1862)
+from `gutenberg.org/cache/epub/2680`, and `curated_chunks.py` names *"Meditations
+(Long 1862, PD). Source: .../ebooks/2680"*. So the 19 curated chunks are not merely
+similar to the 212; **they are a hand-cited subset of the identical text, duplicated
+by construction.**
+
+**Same class as TD-90, one third the size, and better-founded.** TD-90's Epictetus
+overlap is two honest translations, accepted as the price of truthful attribution.
+This is one translation stored at two granularities on purpose. The mechanism of
+harm is identical and already written up there: `retrieval_service.retrieve`
+(`:31-44`) selects on `persona_slug` with **no dedup and no source filter**, and
+Marcus has `retrieval_top_k=4` (`personas/marcus_aurelius.py:58`), so a query could
+spend two of four slots on one passage in two sizes and the model could attribute
+it twice.
+
+**Today it can do none of that.** Marcus's measured top-1 cosine ceiling is
+**0.455** against the 0.72 threshold (RETRIEVAL-001), so **not one of his 231
+chunks has ever been returned to a prompt.** This is latent behind the same wall as
+TD-90 and becomes live in the same moment.
+
+**THE FIX IS TD-90's FIX, NOT A DELETION.** Deleting the curated 19 would discard
+the only hand-cited passages in the corpus and the only reason `curated_chunks.py`
+exists; deleting from the 212 would break the file-matches-config invariant #683
+established. A near-duplicate filter at retrieval time covers both this and TD-90
+at once. **Whoever takes TD-90 takes this with it** — and should note that TD-90's
+closing question, what `retrieval_sources` is actually for, is the same question
+here.
+
+---
+
+---
+
 ### TD-88 — Six UAT-1 findings are routed to a section number that does not exist — **NEW**
 **Status: OPEN. Not scheduled. Written because a citation a reader cannot follow is
 the defect TD-79 just closed, one document over.**
@@ -2283,7 +2344,14 @@ Full record: `apps/api/evals/results/2026-09-22T12-59_b3/listening_counts_record
 
 ### RETRIEVAL-001 — RAG retrieval has never returned a passage, and the threshold is unreachable — **NEW**
 **Status: OPEN. NOT a bug to fix now — founder ruling 2026-09-21 is NO CHANGE. The
-decision is deferred to the §8.2 eval harness as an A/B arm.**
+decision was deferred to the §8.2 eval harness as an A/B arm.**
+
+> **AMENDED 2026-09-23 — that A/B arm is WITHDRAWN, and the numbers below are
+> understated.** Re-measured against Oregon the same day: **0 non-empty retrievals in
+> 840 all-time assistant messages**, ceiling **0.462** against the 0.72 threshold, and
+> at the arm's proposed 0.42 only Freud and Epictetus would ever fire. The no-change
+> ruling stands; the instrument it deferred the decision to does not. **Read the
+> re-verification at the end of this entry before acting on anything in it.**
 
 **THE FACT.** Of **166 assistant messages in the last 60 days** with `retrieval_ids`
 recorded as a JSON array, **ZERO have a non-empty array**, on any persona. Retrieval
@@ -2357,6 +2425,105 @@ not anything also threw.
 (2584 chunks, all with embeddings) is invisible in production because of this line,
 not because of anything wrong with the ingest. Those chunks are correct and are what
 the §8.2 arm would switch on.
+
+**RE-VERIFIED 2026-09-23, INDEPENDENTLY — AND THE ENTRY ABOVE UNDERSTATES IT.**
+Read off Oregon (`bvzeuwzqgnqcghvqghtb`) via the Supabase MCP, measured rather than
+carried from the text above. **Founder ruling the same day: record, no action.**
+
+**The message count above is superseded, in the direction that matters.** The entry
+cites "166 assistant messages in the last 60 days". All time:
+
+| | |
+|---|---|
+| assistant messages, all time (2026-04-26 → 2026-09-23) | **840** |
+| …with `retrieval_ids` recorded as an array | 688 |
+| …with a **non-empty** array | **0** |
+| assistant messages, last 60 days | 185 |
+| …with a non-empty array | **0** |
+
+Not 166 empty arrays. **688 recorded arrays across 840 messages and the whole life
+of the database, zero of them non-empty.**
+
+**The ceiling was re-measured, not restated.** Same method as the founder's
+2026-09-21 reading — the 40 most recent `memory_entries` embeddings scored against
+every chunk of every corpus persona — and it reproduces:
+
+| persona | best top-1 **ever** | median | ≥ 0.72 | ≥ 0.42 |
+|---|---|---|---|---|
+| epictetus | **0.462** | 0.365 | 0 | 5/40 |
+| sigmund_freud | 0.458 | 0.393 | 0 | 12/40 |
+| marcus_aurelius | 0.455 | 0.361 | 0 | 2/40 |
+| socrates | 0.451 | 0.350 | 0 | 4/40 |
+| oscar_wilde | 0.417 | 0.330 | 0 | **0** |
+| niccolo_machiavelli | 0.391 | 0.310 | 0 | **0** |
+| lao_tzu | 0.387 | 0.300 | 0 | **0** |
+
+`score_threshold = 0.72` is the default at `services/retrieval_service.py:19`, and
+**all three call sites take the default** — `stream_response` (`:780`),
+`stream_another_mind` (`:1378`), `stream_go_deeper` (`:1640`). None passes an
+override, so there is no path with a lower bar. The ceiling is **0.462**.
+
+**THE DEFERRED §8.2 A/B ARM IS WITHDRAWN — founder ruling 2026-09-23.** The arm was
+"retrieval OFF vs ON (top-2, threshold ~0.42), judged on Distinctiveness and
+Anti-Flex". At 0.42 only **23 of 280** persona-query pairs fire, and they are not
+spread across the corpus: **Freud (12) and Epictetus (5) are 17 of the 23**, Socrates
+(4) and Marcus (2) are the rest, and **Lao Tzu, Wilde and Machiavelli reach 0.42
+exactly zero times.** An arm that turns retrieval on for two personas out of eleven
+and changes nothing whatsoever for the other nine cannot answer a question about
+Distinctiveness. **Not worth running on this corpus.** This does not reverse the
+2026-09-21 no-change ruling on the threshold — it removes the instrument that ruling
+deferred the decision to. Reopening it needs a different corpus or a different
+embedding, **not a different number on line 19.**
+
+**The corpus itself is in good order. This is a reachability defect and nothing
+else.** Same read, per persona:
+
+| persona | chunks | embeddings | sources | ingested |
+|---|---|---|---|---|
+| sigmund_freud | 816 | 816 | 2 | 2026-09-20 |
+| socrates | 794 | 794 | 4 | 2026-09-20 |
+| oscar_wilde | 352 | 352 | 3 | 2026-05-17 |
+| marcus_aurelius | 231 | 231 | 2 | 2026-05-17 |
+| epictetus | 212 | 212 | 2 | 2026-09-20 |
+| niccolo_machiavelli | 146 | 146 | 1 | 2026-05-17 |
+| lao_tzu | 33 | 33 | 1 | 2026-05-17 |
+| carl_jung / george_orwell / miyamoto_musashi / simone_de_beauvoir | **0** | — | — | — |
+
+**2,584 chunks, zero null embeddings, every vector 1536-dim**, matching
+`EMBEDDING_MODEL = "text-embedding-3-small"` (`config.py:31`). The 2026-09-20 Phase 2
+re-ingest reproduced its pre-written predictions exactly (epictetus 212, socrates
+794, freud 816) and `min(created_at)` reads 2026-09-20 for those three against
+2026-05-17 for the four it did not touch — so no delete was missed. **Lao Tzu's 33
+chunks are the whole Tao Te Ching**, one source; it is the smallest non-zero corpus
+in the project by a factor of four, and it also has the lowest ceiling of the seven.
+
+**The four zero-chunk personas, now confirmed rather than asserted.** `carl_jung`,
+`simone_de_beauvoir` and `george_orwell` are in `EXCLUDED_PERSONAS`
+(`scripts/corpus_sources.py:258`) for copyright — voice-engineered only, per C-03
+item 5. **`miyamoto_musashi` is NOT excluded**, and the comment at that line says so
+in as many words: his originals are public domain and he is simply absent from
+`CORPUS_SOURCES` until a rights-clean English translation is sourced. Three are
+**excluded**; one is **deferred**, and the distinction is the difference between
+"never" and "not yet". `CORPUS_SOURCES` holds exactly 7 slugs and exactly those 7
+have chunks.
+
+**WHY THIS WAS READ AT ALL — and what it settles about BUG-009.** The §8.2
+Distinctiveness test (a judge naming the thinker from one unlabelled reply) was about
+to be designed, and retrieval state was checked first in case grounding passages were
+a variable in it. **They are not, and cannot be.** `evals/harness.py:160` passes
+`passages=[]`; the template guard is `{% if passages %}`
+(`prompts/system_base.jinja2:164`), which an empty list fails, so the GROUNDING
+PASSAGES block does not render at all. **That is production-identity, not a stub** —
+production computes a list that is always empty and renders the same nothing.
+
+The recognition pattern does not track the corpus in either direction. Of the two
+personas a blind reader recognised every time, **Jung has ZERO chunks** and Freud has
+the largest corpus in the project. Of the five never recognised, **Musashi and
+Beauvoir have zero and Wilde has 352.** Every recognition difference measurable on the
+110 stored B3 replies is therefore **a property of the persona prompt alone** — and
+turning retrieval on would reach two personas of eleven, neither of them among the
+five that fail.
+
 
 ---
 
