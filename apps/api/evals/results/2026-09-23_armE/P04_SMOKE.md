@@ -1,5 +1,18 @@
 # P-04 smoke — arm E's directive in production
 
+## PASSED — 2026-09-23, founder, QA account. CLOSED SAME DAY AS THE MERGE (#719).
+
+**Result: Marcus Aurelius, Socrates and Lao Tzu, each a first message in a fresh
+conversation. All in band. Nothing broken.** The prompts, expectations and stop
+conditions below are the ones the run was checked against — they are left unedited
+so the pass is a comparison against a written expectation and not an impression.
+
+**One observation, logged no-action: all three replies ended on a two-option
+question.** See TD-97. It is the shape family arm E's deletions removed, reappearing
+— worth watching, not worth acting on at n=1 per persona.
+
+---
+
 **Owed the moment the merge lands. Same day. Not a pre-merge gate (P-04 as amended
 2026-09-18), and "smoke outstanding" past end of day is a FINDING, not a footnote.**
 
