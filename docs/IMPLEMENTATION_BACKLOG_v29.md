@@ -1355,8 +1355,26 @@ for, since it is currently decoration.
 ---
 
 ### TD-94 — `character_anchors` reaches NOTHING: not the prompt, not the app, not a test — **NEW**
-**Status: OPEN. Found 2026-09-23 while implementing an approved voice fix, which it
-blocked. No code change yet — the fix needs a founder ruling on where it should live.**
+**Status: RULED 2026-09-23 — DEMOTE. `character_anchors` stays as documentation only.
+Found the same day while implementing an approved voice fix, which it blocked.**
+
+> **THE RULING, and its reasoning.** Not deleted: it is the Section 5.7 design record and
+> the clearest statement of each persona's intent in the repo. Not rendered: wiring eleven
+> personas' anchors into the prompt at once would invalidate every stored §8.2 baseline in
+> a single step and surface eleven latent anchor/fragment contradictions simultaneously.
+> **Wiring anchors into the prompt is its own future decision, not a side effect of a
+> voice fix.**
+>
+> **Shipped for this ruling:** a `PersonaConfig` docstring naming which fields render and
+> which do not, per-field `DOC ONLY` / `LIVE` markers at the Section 5.7 declarations, and
+> `tests/test_persona_rendered_fields.py`, which pins the docstring's RENDERED list against
+> what `system_base.jinja2` actually reads — because a docstring is a doc claim, and this
+> file's standing lesson is that an unverified doc claim is evidence about the previous doc.
+> The second test fails deliberately if anchors are ever rendered, so that decision cannot
+> be taken in passing.
+>
+> **The investigation also widened the finding.** `character_anchors` is not the only dead
+> field — it is the one that bit us. **Seven** are read by nothing at all.
 
 **THE FACT.** `PersonaConfig.character_anchors` — 60+ authored rules across eleven
 personas, each with an `enforcement` paragraph and a `critical` flag — is **read by no
@@ -1421,7 +1439,19 @@ judged himself", while his `system_fragment` — which does render — says *"ne
 volunteer … 'I wrote to myself…'"*. The anchor is not merely inert; it asserts the
 opposite of what ships, and a reader auditing the persona would believe the anchor.
 
-**THREE OPTIONS, none taken — this needs a ruling.**
+**THE SEVEN DEAD FIELDS** (0 consumers across `services/ routers/ workers/ evals/
+scripts/` and the template, counted 2026-09-23): `character_anchors`, `anti_flexing`,
+`behavioral_parameters`, `behavioral_parameters_by_register`, `register_range`,
+`worldview`, `uses_personal_anecdote`.
+
+**`anti_flexing` is the instructive one, and it explains how this survived.** It is
+dead — and anti-flexing *works*. All **11 of 11** personas duplicate it as an
+"ANTI-FLEXING:" line inside `system_fragment`, which does render. So the field sits
+beside behaviour that visibly happens, and reads exactly like the cause of it. That is
+the shape of every trap in this file: **a dead thing next to a working thing is
+indistinguishable from the working thing until someone edits it.**
+
+**THREE OPTIONS — (3) WAS TAKEN, see the ruling at the top of this entry.**
 
 1. **Render them.** Add a `character_anchors` block to `system_base.jinja2`. Highest
    fidelity to the authoring intent, and the largest blast radius: it would add
