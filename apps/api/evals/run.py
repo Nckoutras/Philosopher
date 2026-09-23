@@ -40,7 +40,7 @@ from pathlib import Path
 
 from personas import PERSONA_REGISTRY
 
-from . import arm_b, arm_b2, arm_b3, arm_d, harness
+from . import arm_b, arm_b2, arm_b3, arm_d, arm_e, harness
 from .prompt_set import DEEP_PROBLEM_IDS, Sample, build_samples, prompt_set_hash
 from .scorers import (
     CSV_COLUMNS,
@@ -180,7 +180,7 @@ def _arm_mod(arm: str):
     return {"tightened": arm_b, "b2": arm_b2, "b2clean": arm_b2,
             "b3": arm_b3,
             "h1": arm_b3, "h2": arm_b3,
-            "d": arm_d}.get(arm)
+            "d": arm_d, "e": arm_e}.get(arm)
 
 
 def _manifest(arm: str, note: str, samples, completions, *, dry_run: bool,

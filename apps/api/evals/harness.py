@@ -90,7 +90,7 @@ from services.llm_client import llm_client
 from services.phenomenology_bridge_service import phenomenology_bridge_service
 from services.prompt_builder import CACHE_SPLIT_SENTINEL, prompt_builder
 
-from . import arm_b, arm_b2, arm_b3, arm_d
+from . import arm_b, arm_b2, arm_b3, arm_d, arm_e
 from .prompt_set import Sample
 
 # Read the same way conversation_service.py:214 reads it, so a run cannot
@@ -185,12 +185,13 @@ def assemble_system(
             system = system + "\n\n" + block
         return system, (bridge.matched_term if bridge else None)
 
-    if arm in ("tightened", "b2", "b2clean", "b3", "d"):
+    if arm in ("tightened", "b2", "b2clean", "b3", "d", "e"):
         # b2clean ships the SAME directive as b2. The two runs differ only in the
         # persona configs (stale length line removed, bands moved to the B2
         # table), which is why persona_config_hash exists.
         mod = {"tightened": arm_b, "b2": arm_b2,
-               "b2clean": arm_b2, "b3": arm_b3, "d": arm_d}[arm]
+               "b2clean": arm_b2, "b3": arm_b3, "d": arm_d,
+               "e": arm_e}[arm]
         system = system + "\n\n" + mod.directive(
             persona.slug, deep=deep, first_message=True
         )
