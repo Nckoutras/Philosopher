@@ -25,12 +25,39 @@ only {lo}, {hi}, {deep_lo} and {deep_hi} are substituted. Do not reword it,
 tighten it, or fix its punctuation. If it needs to change, it changes by a
 founder ruling and this docstring records the new one.
 
-INTERPRETATION IS NOT FORBIDDEN, CONCEALMENT-ACCUSATION IS. Freud and Jung were
-the only two personas a blind reader identified every single time (4/4 each,
-against five personas at 0/4). Their identifiability IS interpretation. The rule
-forbids telling the user they are hiding, avoiding or not naming something; it
-does not forbid reading beneath the surface, and a future edit that blurs those
-two is a regression.
+INTERPRETATION IS NOT FORBIDDEN, CONCEALMENT-ACCUSATION IS. The rule forbids
+telling the user they are hiding, avoiding or not naming something; it does not
+forbid reading beneath the surface, and a future edit that blurs those two is a
+regression.
+
+  THE EVIDENCE SENTENCE THAT USED TO STAND HERE IS FALSE, AND IS QUOTED RATHER
+  THAN DELETED because a shipped rule was reasoned from it:
+
+      "Freud and Jung were the only two personas a blind reader identified
+       every single time (4/4 each, against five personas at 0/4). Their
+       identifiability IS interpretation."
+
+  Both halves are falsified by the §8.2 distinctiveness run, 2026-09-23 — 110
+  replies, 220 judgements, one reply per call, persona name withheld:
+
+      Freud          3/10   — below the pre-registered threshold
+      Beauvoir       7/10   — named in the old sentence's own 0/4 group
+      Jung           7/10
+      Machiavelli    5/10   at 83% precision, the highest of the eleven
+      overall     29.9%     against 9.1% chance
+
+  So Freud and Jung were not "the only two", Freud is not among the strongest,
+  and Beauvoir — one of the five the sentence counted at 0/4 — is joint-best.
+  The old reading was n=4 per persona from a single ChatGPT pass that scored all
+  44 ids in ONE context (it reproduced its own guess 22/22) and produced a
+  perfectly uniform marginal, four guesses per persona. At n=4 against 1/11,
+  P(0/4 | no signal) = 0.683 — those five zeroes were the modal outcome and
+  carried nothing.
+
+  THE RULE ABOVE IS UNCHANGED AND IS NOT WHAT WAS WRONG. Interpretation still
+  distinguishes the personas that land; the sentence simply named the wrong two
+  as the proof. Full record:
+  evals/results/2026-09-22T12-59_b3/distinctiveness_record.md
 
 PLACEMENT. Appended after everything else, so it is the last thing in the system
 prompt — after HARD RULE 8, and after `_deepen_directive` on a deep sample.
