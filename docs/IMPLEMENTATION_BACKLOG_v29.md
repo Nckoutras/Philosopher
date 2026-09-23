@@ -1354,6 +1354,86 @@ for, since it is currently decoration.
 
 ---
 
+### TD-98 — retrieval forced-injection arm: no effect. The hypothesis CLOSES for now. — **NEW**
+**Status: CLOSED for now, measured — founder ruling 2026-09-23. Retrieval stays
+dead. RETRIEVAL-001 is unchanged and still open as a defect.**
+
+**THE QUESTION, and why it needed an arm rather than an argument.** Every §8.2 reply
+ever generated ran with `passages=[]`, because production retrieval has never
+returned a passage (RETRIEVAL-001). So the effect of grounding passages on
+distinctiveness had never been *measured*. The available argument was the mismatch
+between corpus size and recognition — Jung has **0 chunks** and is recognised, Wilde
+has **352** and is not — and that is suggestive rather than decisive, because
+retrieval was off for both.
+
+**THE DESIGN.** Top-1 chunk forced into the prompt **with no threshold**, for
+`sigmund_freud` and `epictetus` — the two personas with both a real corpus and the
+highest observed similarity. Their 7 standard replies each, under the **shipped arm E
+directive**. Control: their stored arm E replies, `passages=[]`, already judged.
+Judged 2 independent calls, 93% self-agreement.
+
+**THE PASSAGES WERE REAL AND THEIR SCORES ARE RECORDED**, which is the part that
+makes the negative result load-bearing:
+
+| | |
+|---|---|
+| injected cosine range | **0.1917 – 0.4172** |
+| mean | 0.2965 |
+| would clear the live 0.72 threshold | **0 of 14** |
+
+This arm therefore asks what **the best available passage** does, not what a good one
+would do.
+
+**THE RESULT: NO RISE IN EITHER PERSONA.**
+
+| persona | recall control | recall arm F | named control | named arm F |
+|---|---|---|---|---|
+| Sigmund Freud | 5/7 | **4/7** | 11 | 8 |
+| Epictetus | 5/7 | **5/7** | 10 | 10 |
+
+Freud drifted down, Epictetus was unchanged. Neither rose. **Both flat.**
+
+One side-effect worth recording: arm F's guesses drifted toward **Beauvoir (1 → 7
+of 28)**. A passage in the prompt did change something — it just did not make the
+persona more identifiable as itself.
+
+**AND THE PASSAGES DID NOT LEAK AS QUOTATION**, which was the product risk the
+14 replies were exported to check. Five of fourteen contain quotation marks; **all
+five are the persona quoting the USER back to themselves**, a normal move that
+predates this arm. No source title, no "as I wrote", no paraphrase attributed to a
+text. Replies are at a 70-word median, in band. The export is
+`evals/results/2026-09-23_armF/armF_replies.md`.
+
+**THE RULING, in the words it was given, because the distinction matters.** NOT
+"retrieval can never help". Rather: **"forcing the best available passage on the two
+best-equipped personas produced no visible effect at this sample size, and a bigger
+arm is not justified without one."** A rise in either persona would have reopened
+retrieval as a real workstream (threshold, chunking, coverage). Neither rose.
+
+**WHAT THIS DOES NOT SAY.** n=7 per persona. A real effect smaller than this arm
+could see is not excluded. What is excluded is the cheap version of the hypothesis —
+that the 0.72 threshold is the only thing standing between the corpus and better
+distinctiveness. It is not: the passages were injected *past* the threshold and
+nothing moved.
+
+**Constraints honoured.** Oregon access was **READ-ONLY by server enforcement**: the
+chunk fetch ran inside `BEGIN TRANSACTION READ ONLY` with `SHOW
+transaction_read_only` asserted `on` before any query, and was rolled back rather
+than committed. SELECT only — no writes, no DDL, no RPC creation, no temp tables.
+**Production code untouched**: the sole change outside `evals/` is an optional
+`passages=()` parameter on `harness.assemble_system` / `generate`, defaulting to
+empty, which is production identity — every other arm's prompt is byte-unchanged.
+
+**One operational finding, fixed in passing.** `PROD_DATABASE_URL` in
+`apps/api/.env` **broke the entire application and test suite**: `config.Settings`
+forbids extra inputs, so every import of `config` raised `ValidationError`. It was
+moved to `apps/api/.env.local`, which is gitignored and which `Settings` does not
+read. Anyone adding a local-only variable must put it there, not in `.env`.
+
+---
+
+---
+
 ### TD-97 — all three arm E smoke replies ended on a two-option question — **NEW, OBSERVATION ONLY**
 **Status: OPEN as a watch item. NO ACTION — founder ruling 2026-09-23. Nothing is
 proposed and nothing is changed.**
@@ -1403,58 +1483,6 @@ looks like 16%, this entry closes as coincidence.
 **Do not act on this entry.** It exists so that a recurrence is recognised as a
 recurrence rather than discovered fresh, which is the whole value of writing down an
 n=1.
-### TD-96 — Lao Tzu: the only available lever was tried and rejected. CLOSED. — **NEW**
-**Status: CLOSED 2026-09-23, measured. Lao Tzu ships unchanged. No further work
-proposed on this persona.**
-
-**THE FINDING BEHIND IT.** §8.2's distinctiveness run found Lao Tzu was **never
-proposed once** across 220 judgements — the judge did not name him for any reply,
-including his own. Under the shipped arm E directive he recovered to 2/7 recall, 4
-namings in 14. That recovery came from the directive, not from anything persona-level.
-
-**WHAT WAS AVAILABLE TO TRY, AND WHY IT WAS ONLY ONE THING.** Two persona-level
-changes were proposed for him on 2026-09-23:
-
-1. **The subtraction enforcement** — sharpening `anchor_reversal_not_instruction` so
-   his reversal leaves the user nothing to do. **NEVER SHIPPED.** It was written,
-   reverted when TD-94 established that `character_anchors` reaches no running code,
-   and would have been **inert even if merged**. It is also directly contradicted by
-   the shared directive, which requires leaving the user an easy opening — the reason
-   he was dropped from the earlier voice-fix arm.
-2. **The `emotional_acknowledgment` tier**, `warm` → `plain`. The only lever that
-   renders.
-
-So the tier was not one option among several. **It was the entire remaining surface
-for this persona**, and closing it closes him.
-
-**THE ARM.** 7 standard replies, generated under the SHIPPED arm E directive
-(`--arm e`, byte-equal to production, same `arm_directive_hash`), so the tier was the
-only difference from control. Control was his arm E replies, already judged. $0.128.
-
-| | control (`warm`) | tier arm (`plain`) |
-|---|---|---|
-| recall | **2/7** | **1/7** |
-| named at all (of 14) | **4** | **2** |
-| mistaken for | Jung 8, Socrates 2 | Jung 4, Socrates 2, Epictetus 2, Freud 2, Beauvoir 2 |
-| median words | 65 | 61 (in band 4/7 → 5/7) |
-
-**Worse on every distinctiveness measure, and the confusion DIFFUSED rather than
-resolving** — he went from concentrated on Jung to scattered across five names. At
-n=7 (2 recalls against 1) the verdict is thin, and it is not ambiguous in direction.
-
-**THE COLDNESS RISK DID NOT DECIDE IT.** All 7 replies were exported side-by-side
-with their controls for reading by eye, because Lao Tzu is free-tier first contact
-and no instrument here measures coldness — a reply that withholds warmth from someone
-bringing grief would score as a success on distinctiveness. The founder read them and
-ruled on the judge's numbers. **The export is kept** at
-`evals/results/2026-09-23_laotzu_tier/laotzu_tier.md`: a rejected arm is only
-re-openable if what it produced stays legible.
-
-**WHAT REMAINS TRUE ABOUT HIM, AND IS NOT A PROPOSAL.** Lao Tzu still has the
-tightest band of the eleven (45–65 words), still carries `warm` in that band, and
-under the shipped directive sits at 2/7. That is the state he ships in. It is
-recorded here so a future reader does not mistake silence for the question never
-having been asked.
 
 ---
 

@@ -129,6 +129,7 @@ def assemble_system(
     deep: bool,
     include_cache_sentinel: bool = True,
     arm: str = "baseline",
+    passages=(),
 ) -> tuple[str, str | None]:
     """Build the system prompt exactly as `stream_response` does for turn 1.
 
@@ -157,7 +158,7 @@ def assemble_system(
     system = prompt_builder.build_system(
         persona=persona,
         memories=[],
-        passages=[],
+        passages=list(passages),
         phenomenology_bridge=bridge,
         profile=None,
         include_cache_sentinel=include_cache_sentinel,
@@ -202,11 +203,19 @@ def assemble_system(
 
 
 async def generate(sample: Sample, plan: str, model: str,
-                   arm: str = "baseline") -> Completion:
-    """One completion. Streams, exactly as production does, and accumulates."""
+                   arm: str = "baseline", passages=()) -> Completion:
+    """One completion. Streams, exactly as production does, and accumulates.
+
+    `passages` DEFAULTS TO EMPTY, which is production identity (RETRIEVAL-001:
+    retrieval has never returned a passage). It is non-empty only for arm F, the
+    forced-injection arm, which supplies the top-1 chunk with NO threshold in
+    order to test whether grounding passages raise distinctiveness at all. Every
+    other arm's prompt is byte-unchanged by this parameter's existence.
+    """
     persona = PERSONA_REGISTRY[sample.persona_slug]
     system, bridge_term = assemble_system(
         persona, sample.user_message, deep=sample.deep, arm=arm,
+        passages=passages,
     )
     messages = [{"role": "user", "content": sample.user_message}]
     sink: dict = {}
