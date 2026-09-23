@@ -1354,6 +1354,63 @@ for, since it is currently decoration.
 
 ---
 
+### TD-96 — Lao Tzu: the only available lever was tried and rejected. CLOSED. — **NEW**
+**Status: CLOSED 2026-09-23, measured. Lao Tzu ships unchanged. No further work
+proposed on this persona.**
+
+**THE FINDING BEHIND IT.** §8.2's distinctiveness run found Lao Tzu was **never
+proposed once** across 220 judgements — the judge did not name him for any reply,
+including his own. Under the shipped arm E directive he recovered to 2/7 recall, 4
+namings in 14. That recovery came from the directive, not from anything persona-level.
+
+**WHAT WAS AVAILABLE TO TRY, AND WHY IT WAS ONLY ONE THING.** Two persona-level
+changes were proposed for him on 2026-09-23:
+
+1. **The subtraction enforcement** — sharpening `anchor_reversal_not_instruction` so
+   his reversal leaves the user nothing to do. **NEVER SHIPPED.** It was written,
+   reverted when TD-94 established that `character_anchors` reaches no running code,
+   and would have been **inert even if merged**. It is also directly contradicted by
+   the shared directive, which requires leaving the user an easy opening — the reason
+   he was dropped from the earlier voice-fix arm.
+2. **The `emotional_acknowledgment` tier**, `warm` → `plain`. The only lever that
+   renders.
+
+So the tier was not one option among several. **It was the entire remaining surface
+for this persona**, and closing it closes him.
+
+**THE ARM.** 7 standard replies, generated under the SHIPPED arm E directive
+(`--arm e`, byte-equal to production, same `arm_directive_hash`), so the tier was the
+only difference from control. Control was his arm E replies, already judged. $0.128.
+
+| | control (`warm`) | tier arm (`plain`) |
+|---|---|---|
+| recall | **2/7** | **1/7** |
+| named at all (of 14) | **4** | **2** |
+| mistaken for | Jung 8, Socrates 2 | Jung 4, Socrates 2, Epictetus 2, Freud 2, Beauvoir 2 |
+| median words | 65 | 61 (in band 4/7 → 5/7) |
+
+**Worse on every distinctiveness measure, and the confusion DIFFUSED rather than
+resolving** — he went from concentrated on Jung to scattered across five names. At
+n=7 (2 recalls against 1) the verdict is thin, and it is not ambiguous in direction.
+
+**THE COLDNESS RISK DID NOT DECIDE IT.** All 7 replies were exported side-by-side
+with their controls for reading by eye, because Lao Tzu is free-tier first contact
+and no instrument here measures coldness — a reply that withholds warmth from someone
+bringing grief would score as a success on distinctiveness. The founder read them and
+ruled on the judge's numbers. **The export is kept** at
+`evals/results/2026-09-23_laotzu_tier/laotzu_tier.md`: a rejected arm is only
+re-openable if what it produced stays legible.
+
+**WHAT REMAINS TRUE ABOUT HIM, AND IS NOT A PROPOSAL.** Lao Tzu still has the
+tightest band of the eleven (45–65 words), still carries `warm` in that band, and
+under the shipped directive sits at 2/7. That is the state he ships in. It is
+recorded here so a future reader does not mistake silence for the question never
+having been asked.
+
+---
+
+---
+
 ### TD-95 — one shared reply directive, at 94% of the prompt, prescribes one reply shape for all eleven personas — **NEW**
 **Status: OPEN. INVESTIGATION ONLY — founder ruling 2026-09-23: report, do not fix.
 No proposal is made here.**
