@@ -1,0 +1,2 @@
+persona_slug,mode,plan,model,n,mean_words,p95_words,fm_over_rate,std_over_rate,persona_lexicon_rate,universal_lexicon_rate,anti_flex_rate,modern_leak_rate,would_correct_rate,errors,ends_q_rate,no_opening_rate,stance_observation_rate,stance_any_rate
+lao_tzu,standard,pro,claude-sonnet-4-6,7,59.1,70,0.1429,0.1429,0.1429,0.0,0.0,0.0,0.1429,0,0.7143,0.1429,0.0,0.4286
