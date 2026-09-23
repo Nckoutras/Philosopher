@@ -56,8 +56,38 @@ from config import config
 RESULTS_DIR = Path(__file__).resolve().parent / "results"
 
 JUDGE_MODEL = "claude-opus-5"
-TEMPERATURE = 0.0
 MAX_TOKENS = 400
+
+# TEMPERATURE IS NOT SENT, AND CANNOT BE. The design ratified on 2026-09-22 said
+# temperature 0; Opus 5 rejects the parameter outright —
+#   400 invalid_request_error: `temperature` is deprecated for this model.
+# All 88 judgements of the first attempt failed on it, which is how this was
+# found. A 400 is not billed, so the discovery cost nothing.
+#
+# THIS CHANGES WHAT SELF-AGREEMENT MEASURES, and for the better. At temperature 0
+# the two calls would be near-deterministic, so their agreement would largely
+# have measured the decoder rather than the judgement — a high figure would have
+# meant little. Without it the calls are genuinely independent samples, and their
+# agreement is a real reliability floor, which is what the calibration is for.
+TEMPERATURE = None
+
+# THINKING IS DISABLED, AND THAT IS A COST DECISION, NOT A QUALITY JUDGEMENT.
+# Opus 5 defaults to adaptive thinking. With max_tokens=400 the ENTIRE budget
+# went to a thinking block and the response carried no text at all — the first
+# symptom was a JSON parse error, not an obvious one.
+#
+# Measured on the same reply, same rubric:
+#     adaptive thinking   1075 in / 791 out  ->  ~$2.21 for 88 judgements
+#     thinking disabled   1075 in / 183 out  ->  ~$0.88 for 88 judgements
+#
+# The approved ceiling was ~$0.94, computed from ~221 output tokens, i.e. it
+# assumed no thinking. Disabled keeps the run inside what was approved. Both
+# configurations produced well-formed JSON and agreed on this sample's verdicts.
+#
+# IF CALIBRATION SHOWS POOR SELF-AGREEMENT, THINKING IS THE FIRST THING TO TRY,
+# at 2.5x the cost. That is a founder decision, and it is the reason this is a
+# named constant rather than an omitted argument.
+THINKING = {"type": "disabled"}
 
 # $ per million tokens. Verified against platform.claude.com/docs pricing,
 # 2026-09-23. NOTE: an earlier estimate used $15/$75 — that is the RETIRED Opus
@@ -269,7 +299,7 @@ async def judge_one(client, comp: dict, call: int) -> Judgement:
         resp = await client.messages.create(
             model=JUDGE_MODEL,
             max_tokens=MAX_TOKENS,
-            temperature=TEMPERATURE,
+            thinking=THINKING,
             system=RUBRIC,
             messages=[{"role": "user",
                        "content": conversation_block(comp["user_message"], comp["reply"])}],
@@ -362,7 +392,7 @@ def main() -> int:
 
     print(f"replies: {len(comps)}   calls each: {calls}   "
           f"judgements: {len(comps) * calls}")
-    print(f"model: {JUDGE_MODEL}  temperature: {TEMPERATURE}")
+    print(f"model: {JUDGE_MODEL}  temperature: not sent (deprecated on Opus 5)")
     if args.dry_run:
         for c in comps:
             print(f"  {c['sample_id']}")
