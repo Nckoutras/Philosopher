@@ -1,0 +1,12 @@
+persona_slug,mode,plan,model,n,mean_words,p95_words,fm_over_rate,std_over_rate,persona_lexicon_rate,universal_lexicon_rate,anti_flex_rate,modern_leak_rate,would_correct_rate,errors,ends_q_rate,no_opening_rate,stance_observation_rate,stance_any_rate
+carl_jung,standard,pro,claude-sonnet-4-6,7,80.4,91,0.1429,0.1429,0.0,0.0,0.0,0.0,0.0,0,0.8571,0.1429,0.0,0.4286
+epictetus,standard,pro,claude-sonnet-4-6,7,75.6,88,0.1429,0.1429,0.0,0.0,0.0,0.0,0.0,0,0.1429,0.4286,0.1429,0.4286
+george_orwell,standard,pro,claude-sonnet-4-6,7,100.1,109,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0,0.8571,0.0,0.0,0.7143
+lao_tzu,standard,pro,claude-sonnet-4-6,7,63.0,74,0.2857,0.2857,0.0,0.0,0.0,0.0,0.0,0,1.0,0.0,0.0,0.2857
+marcus_aurelius,standard,pro,claude-sonnet-4-6,7,78.7,87,0.4286,0.4286,0.0,0.0,0.0,0.0,0.0,0,0.4286,0.2857,0.0,0.1429
+miyamoto_musashi,standard,pro,claude-sonnet-4-6,7,67.6,88,0.1429,0.1429,0.0,0.0,0.0,0.0,0.0,0,0.8571,0.1429,0.0,0.4286
+niccolo_machiavelli,standard,pro,claude-sonnet-4-6,7,80.7,86,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0,0.8571,0.1429,0.1429,0.8571
+oscar_wilde,standard,pro,claude-sonnet-4-6,7,75.6,86,0.2857,0.2857,0.0,0.0,0.0,0.0,0.0,0,0.8571,0.0,0.0,0.2857
+sigmund_freud,standard,pro,claude-sonnet-4-6,7,81.6,95,0.1429,0.1429,0.0,0.0,0.0,0.0,0.0,0,1.0,0.0,0.0,0.1429
+simone_de_beauvoir,standard,pro,claude-sonnet-4-6,7,86.9,102,0.1429,0.1429,0.0,0.0,0.0,0.0,0.0,0,0.7143,0.1429,0.1429,0.7143
+socrates,standard,pro,claude-sonnet-4-6,7,65.6,78,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0,1.0,0.0,0.5714,0.5714

@@ -40,7 +40,7 @@ from pathlib import Path
 
 from personas import PERSONA_REGISTRY
 
-from . import arm_b, arm_b2, arm_b3, harness
+from . import arm_b, arm_b2, arm_b3, arm_d, harness
 from .prompt_set import DEEP_PROBLEM_IDS, Sample, build_samples, prompt_set_hash
 from .scorers import (
     CSV_COLUMNS,
@@ -179,7 +179,8 @@ def _arm_mod(arm: str):
     """The module whose directive this arm ships. baseline has none."""
     return {"tightened": arm_b, "b2": arm_b2, "b2clean": arm_b2,
             "b3": arm_b3,
-            "h1": arm_b3, "h2": arm_b3}.get(arm)
+            "h1": arm_b3, "h2": arm_b3,
+            "d": arm_d}.get(arm)
 
 
 def _manifest(arm: str, note: str, samples, completions, *, dry_run: bool,
@@ -348,10 +349,21 @@ def _n_plans(args) -> int:
     return len(args.plan) if args.plan else len(harness.ARMS_BY_PLAN)
 
 
-def _select(samples: list[Sample], personas, limit) -> list[Sample]:
+def _select(samples: list[Sample], personas, limit, mode: str = "all") -> list[Sample]:
+    """`mode` is standard | deep | all.
+
+    Added 2026-09-23 for arm D, which is a FIRST-MESSAGE-only change: generating
+    its 33 deep samples would have produced replies identical in spec to the
+    baseline's and spent money to do it. Defaults to "all", so every prior
+    invocation selects exactly what it selected before.
+    """
     if personas:
         wanted = set(personas)
         samples = [s for s in samples if s.persona_slug in wanted]
+    if mode == "standard":
+        samples = [s for s in samples if s.mode != "deep"]
+    elif mode == "deep":
+        samples = [s for s in samples if s.mode == "deep"]
     if limit:
         samples = samples[:limit]
     return samples
@@ -360,7 +372,7 @@ def _select(samples: list[Sample], personas, limit) -> list[Sample]:
 async def _main_async(args) -> int:
     # Before anything is written. See _manifest's note on git_dirty.
     dirty_at_start = _git_dirty()
-    samples = _select(build_samples(), args.persona, args.limit)
+    samples = _select(build_samples(), args.persona, args.limit, args.mode)
 
     if args.dry_run:
         # Assemble every prompt and send nothing. Proves the harness runs, prints
@@ -497,6 +509,9 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--persona", action="append", default=None,
                    help="restrict to a persona slug; repeatable")
     p.add_argument("--limit", type=int, default=None, help="first N samples only")
+    p.add_argument("--mode", choices=["standard", "deep", "all"], default="all",
+                   help="which samples to generate. Default 'all' — every prior "
+                        "invocation is unaffected.")
     p.add_argument("--concurrency", type=int, default=4)
     p.add_argument("--plan", action="append", default=None, choices=["free", "pro"],
                    help="restrict to one plan; repeatable. Default: both. "
