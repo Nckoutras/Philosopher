@@ -68,13 +68,41 @@ from services import reply_directive
 from .arm_b import BANDS          # same ranges as B and B2
 from .arm_b2 import TARGETS       # same midpoints, rounded to 5, ties up
 
-# STRUCTURAL PARITY. These are the PRODUCTION strings, re-exported — not a copy.
-# The arm that was measured and the prompt that ships are the same object, so
-# tests/test_harness_parity.py compares production against itself and cannot
-# drift. Arm B3 was RUN against a local copy that differed from these only in
-# the register clause reaching STANDARD and DEEP, which the founder ruled in
-# afterwards; FIRST_MESSAGE — the only path the suite samples — is byte-identical.
-FIRST_MESSAGE = reply_directive.FIRST_MESSAGE
+# FIRST_MESSAGE IS NOW A FROZEN LITERAL, AND THAT IS A CHANGE — 2026-09-23.
+#
+# It used to be `reply_directive.FIRST_MESSAGE`, re-exported, on the reasoning that
+# "the arm that was measured and the prompt that ships are the same object, so
+# tests/test_harness_parity.py compares production against itself and cannot drift."
+# That reasoning was sound for exactly as long as production never moved.
+#
+# Production has now moved: §8.2 shipped ARM E's first-message text
+# (services/reply_directive.py, 2026-09-23). Re-exporting would have silently
+# redefined what `--arm b3` means — every stored B3 run would have become
+# unreproducible, and `--arm b3` would have generated arm E's replies under B3's
+# name. Nothing would have failed loudly; the arm would simply have started lying.
+#
+# So the string is FROZEN as an immutable inline snapshot, byte-identical to what
+# production carried when B3 was run and measured. This is convention C-01 —
+# "a migration must not import app code; freeze the payload as an inline literal" —
+# applied to an eval arm, and for the same reason: **runtime app code drifts, and a
+# record of what was measured must reproduce forever.**
+#
+# STANDARD and DEEP are still re-exported, deliberately: arm E changed
+# FIRST_MESSAGE only, so those two are still byte-identical to production and
+# re-exporting keeps them honest if production ever changes them. If a future
+# change touches STANDARD or DEEP, they must be frozen here too, for this reason.
+FIRST_MESSAGE = (
+    "FIRST MESSAGE\n"
+    "Write between {lo} and {hi} words — about {target}. Respond specifically to what "
+    "this person has actually said: name something meaningful you notice, and take a "
+    "clear but proportionate position on it. You may offer an interpretation, but offer "
+    "it tentatively and ground it in their own words; " + reply_directive.CONCEAL_BAN
+    + " " + reply_directive.CHALLENGE
+    + " Leave an easy opening to continue — usually one natural, answerable question, "
+    "which may sit anywhere in the reply and is never a closing seal. Keep your own "
+    "voice. " + reply_directive.REGISTER
+    + "; no decorative aphorisms or fortune-cookie phrasing."
+)
 STANDARD = reply_directive.STANDARD
 DEEP = reply_directive.DEEP
 REGISTER_NEW = reply_directive.REGISTER
