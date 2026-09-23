@@ -1865,9 +1865,26 @@ redirect; a crisis it misses gets nothing.
 **Not scheduled.** Building any of this means building detectors, which is a larger
 decision than this PR. What is settled is that the record no longer claims they exist.
 
-### PROMPT-002 — the onboarding profile is framed as SPEECH, and personas cite it back as speech — **NEW**
-**Status: OPEN. A one-sentence prompt wording change is PROPOSED below and NOT yet
-approved. No code has changed.**
+### PROMPT-002 — the onboarding profile is framed as SPEECH, and personas cite it back as speech — **CLOSED, verified in production 2026-09-23**
+**Status: CLOSED. The wording change shipped, and the P-04 smoke PASSED on
+2026-09-23 — the persona used the value without citing it as speech. Verified in
+the running product, not inferred from a diff.**
+
+**WHAT THE SMOKE ESTABLISHED, AND WHAT IT DID NOT.** It ran on a QA account with
+a profile set first; without one the block never renders and the smoke proves
+nothing. The persona still USED the value — the regression risk of this change
+was a persona that now ignores the profile — and no longer attributed it to
+anything the person had said. Both halves of the fix, checked in production.
+
+It remains a **single observation, not a rate.** The instrument that could give a
+rate is the Listening judge's criterion (e), and (e) is now known to fire on
+invented attributions even with NO profile present — founder-adjudicated, see
+`apps/api/evals/results/2026-09-22T12-59_b3/listening_record.md`. So the class of
+defect this entry describes outlives the specific mechanism it fixed.
+
+---
+
+**ORIGINAL ENTRY, kept as written:**
 
 **THE INSTANCE.** In the P-04 smoke on 2026-09-22, Socrates replied to the single
 word "Maybe" with:

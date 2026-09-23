@@ -170,6 +170,12 @@ def test_the_opus_price_is_the_current_one_not_the_retired_one():
     assert (L.PRICE_IN, L.PRICE_OUT) == (5.0, 25.0)
 
 
-def test_the_judge_is_deterministic_by_configuration():
-    assert L.TEMPERATURE == 0.0
+def test_temperature_is_not_sent_because_opus_5_rejects_it():
+    """The ratified design said temperature 0. Opus 5 returns
+    400 `temperature` is deprecated for this model, and all 88 judgements of the
+    first attempt failed on it. Sending it again would fail an entire run, so it
+    is pinned here rather than left to memory."""
+    import inspect
+    assert L.TEMPERATURE is None
     assert L.JUDGE_MODEL == "claude-opus-5"
+    assert "temperature=" not in inspect.getsource(L.judge_one)
