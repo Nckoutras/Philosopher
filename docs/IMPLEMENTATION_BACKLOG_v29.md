@@ -3318,6 +3318,75 @@ verification that quietly stops being mentioned is the failure the rule exists t
 prevent. The behaviour check is closed and said so with its method; the
 measurement is not, and says why.
 
+### OPS-015 — DB password rotated; the new connection string lost its driver prefix and the worker crashed — **RESOLVED same day**
+**Status: RESOLVED 2026-09-23. Both services up. Recorded as a standing checklist
+item, because the failure is silent at the point where the mistake is made and loud
+somewhere else.**
+
+**WHAT HAPPENED.** The Supabase database password was rotated. The new connection
+string was pasted into Render **as Supabase gives it** — with a plain
+`postgresql://` prefix. `philosopher-worker` crashed with:
+
+```
+ModuleNotFoundError: No module named 'psycopg2'
+```
+
+Fixed by restoring the `postgresql+asyncpg://` prefix. Both services back up.
+
+**WHY THAT ERROR, AND WHY IT NAMES A LIBRARY NOBODY INSTALLED.** Reproduced locally
+rather than inferred:
+
+```
+create_async_engine("postgresql://u:p@h:5432/d")         -> ModuleNotFoundError: No module named 'psycopg2'
+create_async_engine("postgresql+asyncpg://u:p@h:5432/d") -> driver asyncpg
+```
+
+SQLAlchemy reads the driver from the URL scheme. `postgresql://` with no `+driver`
+means **the default DBAPI, which is psycopg2** — and `requirements.txt` pins
+`asyncpg==0.29.0` and nothing else, so psycopg2 has never been installed. The
+traceback therefore names a library that is not a dependency, is not missing from
+the build, and has nothing to do with the password. **The error message points at
+the wrong thing entirely**, which is what makes this worth writing down.
+
+**IT FAILS AT BOOT, NOT AT FIRST QUERY.** `db/session.py:28` calls
+`create_async_engine` at module import, so the dialect resolves while the module is
+loading. The service does not start degraded and fall over on first use — it dies on
+startup. That is the one mercy here: it is immediately visible on the service that
+restarts first, rather than lurking until traffic arrives.
+
+**THE TRAP, STATED PLAINLY: the same string is CORRECT in one place and FATAL in
+another.** Supabase's dashboard gives `postgresql://...`, which is a valid libpq
+URL. Code that calls **raw `asyncpg.connect()`** takes exactly that form and works —
+the arm F chunk fetch does this, from `PROD_DATABASE_URL` in `apps/api/.env.local`,
+with a plain `postgresql://` prefix, correctly. Code that calls **SQLAlchemy's
+`create_async_engine`** needs `postgresql+asyncpg://`. Copying the dashboard value
+into `DATABASE_URL` is therefore not an obvious mistake; it is pasting a
+correct-looking string into the one consumer that cannot accept it.
+
+**THE CHECKLIST ITEM — after ANY database password rotation:**
+
+1. **Check the prefix on EVERY Render service**, not just the one you restarted.
+   `philosopher-api` and `philosopher-worker` both read `DATABASE_URL`. A rotation
+   touches all of them, and a service that happens not to restart keeps running on
+   the old value until something makes it restart — which is a crash deferred, not
+   avoided.
+2. The value must begin **`postgresql+asyncpg://`**. Supabase's dashboard does not
+   give it that way. Adding the `+asyncpg` is a manual step every single time.
+3. **Confirm the app responds before walking away.** Not "the deploy went green" —
+   an actual request served, and the worker writing a heartbeat. The whole cost of
+   this incident was the gap between pasting and checking.
+
+**RELATED, and the same class of mistake in the opposite direction:** TD-98 records
+that putting `PROD_DATABASE_URL` in `apps/api/.env` broke the entire local app and
+test suite, because `config.Settings` forbids extra inputs. Between them these two
+say the same thing: **a database URL is not one value with one home.** Where it goes
+and what prefix it carries depend on which consumer reads it, and neither is
+checkable by looking at the string.
+
+---
+
+---
+
 ### OPS-013 — #690 merged; smoke OWED, DEFERRED by founder to 2026-09-22
 **Status: OPEN. The smoke has NOT run. It is deferred by explicit founder decision
 to 2026-09-22, not skipped and not forgotten.**
