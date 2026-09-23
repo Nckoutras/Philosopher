@@ -2857,10 +2857,34 @@ defect rather than a retrieval one and would be far harder to see than an empty 
 Precision cannot be bought by moving a line through the middle of a distribution that
 has no shoulder.
 
-**DEFERRED TO §8.2**, as an A/B arm in the eval harness: **retrieval OFF vs ON
+**~~DEFERRED TO §8.2**, as an A/B arm in the eval harness: **retrieval OFF vs ON
 (top-2, threshold ~0.42)**, judged on **Distinctiveness** and **Anti-Flex**. That is
 the instrument that can see the cost the threshold move would incur; the backlog
-cannot.
+cannot.~~**
+
+> **SUPERSEDED — do not act on the paragraph above.** That arm was **withdrawn**
+> (2026-09-23), and the question it was meant to answer has since been settled by a
+> different arm that **was** run. The struck text is kept because the reasoning that
+> led to it is still the right reasoning; only its conclusion was overtaken.
+>
+> - **The A/B arm was withdrawn** at the top of this entry: at ~0.42 only 23 of 280
+>   persona-query pairs fire, 17 of them Freud and Epictetus, and Lao Tzu, Wilde and
+>   Machiavelli fire zero times. An arm reaching two personas of eleven cannot answer
+>   a Distinctiveness question.
+> - **What was run instead (TD-98, arm F):** the top-1 chunk forced in with **no
+>   threshold at all**, for Freud and Epictetus. Recall did not rise — Freud 5/7 →
+>   4/7, Epictetus 5/7 → 5/7. Injected cosines 0.1917–0.4172, **none** of which would
+>   clear 0.72.
+> - **Therefore the threshold is not the blocker it was assumed to be here.** The
+>   passages were injected *past* it and nothing moved. Founder ruling: the
+>   hypothesis closes **for now** — not "retrieval can never help", but "forcing the
+>   best available passage on the two best-equipped personas produced no visible
+>   effect at this sample size, and a bigger arm is not justified without one."
+>
+> **RETRIEVAL-001 itself remains OPEN as a defect.** Retrieval is still dead in
+> production and the 0.72 line is still unreachable. What closed is the *hypothesis
+> that fixing it would improve distinctiveness*, not the observation that it is
+> broken.
 
 **A SECOND FINDING FROM THE SAME INVESTIGATION — `retrieval_sources` IS DECORATIVE.**
 Every persona config carries a `retrieval_sources` list (`personas/_base.py:46`), and
