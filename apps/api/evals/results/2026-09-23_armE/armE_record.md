@@ -120,6 +120,24 @@ than 77.
 
 ---
 
+## §8.2 IS CLOSED — 2026-09-23
+
+**Arm E merged (#719) and the P-04 smoke passed the same day** — Marcus, Socrates and
+Lao Tzu, first message, QA account, all in band, nothing broken
+(`P04_SMOKE.md`). That was the last open gate.
+
+**What shipped out of §8.2, in total:** one string. Two shape clauses removed from
+`reply_directive.FIRST_MESSAGE`. Nothing else in the product changed — the eleven
+persona configs are as they were except Marcus's and Musashi's `system_fragment`
+(#716), and Lao Tzu was measured and left alone (TD-96).
+
+**One observation is logged no-action:** all three smoke replies ended on a
+two-option question, which is the shape family the deletions removed, reappearing at
+n=1 per persona. TD-97 records the base rates that make it worth watching (arm E
+overall 16%, those three personas 9.5%) and the caveat that keeps it an observation.
+
+---
+
 ## What §8.2 established, and what it did not
 
 **Established:**

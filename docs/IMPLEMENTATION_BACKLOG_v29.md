@@ -1354,6 +1354,55 @@ for, since it is currently decoration.
 
 ---
 
+### TD-97 — all three arm E smoke replies ended on a two-option question — **NEW, OBSERVATION ONLY**
+**Status: OPEN as a watch item. NO ACTION — founder ruling 2026-09-23. Nothing is
+proposed and nothing is changed.**
+
+**THE OBSERVATION.** The P-04 smoke for arm E (#719) passed — Marcus, Socrates and
+Lao Tzu, first message, QA account, all in band, nothing broken. But **all three
+replies ended on a two-option question**: *"which is heavier"*, *"which would you act
+on"*, *"what would it feel like"*.
+
+That is the shape family arm E's deletions removed — the directive no longer tells
+any persona to *"Leave an easy opening to continue — usually one natural, answerable
+question"* — **reappearing**.
+
+**MEASURED AGAINST THE STORED ARM E CORPUS, because "may be coincidence" is testable
+and the base rate was free to compute.** Counting replies whose LAST sentence is an
+X-or-Y or "which/whether" question:
+
+| | last sentence is a two-option question |
+|---|---|
+| control (production before arm E) | 18/77 — **23%** |
+| arm D (all three shape clauses out) | 13/77 — 17% |
+| **arm E (shipped)** | 12/77 — **16%** |
+| …arm E, the three smoke personas only | **2/21 — 9.5%** (Marcus 0/7, Socrates 2/7, Lao Tzu 0/7) |
+
+**Two things follow, and they point opposite ways.**
+
+1. **Arm E did not increase this shape — it reduced it.** 23% → 16% overall. So the
+   deletions did not backfire in aggregate, and the smoke is not evidence that they
+   did.
+2. **3 of 3 is nonetheless unlikely.** Against the 9.5% base rate for those three
+   personas, P(3 of 3) ≈ **0.0009**; against arm E's overall 16%, ≈ **0.004**. Marcus
+   and Lao Tzu end on a two-option question in **zero** of their 14 stored arm E
+   replies, and in the smoke both did.
+
+**THE CAVEAT THAT KEEPS THIS AN OBSERVATION.** Only one of the three smoke prompts
+(Marcus's ghosting prompt) is from the stored problem set; the Socrates and Lao Tzu
+prompts were written for the smoke and have never been run through an arm. So the
+base rate is a prior, not a matched control, and the comparison is suggestive rather
+than clean. **n=1 per persona.**
+
+**WHAT WOULD SETTLE IT, and it is cheap:** the next smoke, or any handful of
+production first messages, counted the same way. If two-option endings keep landing
+at 3-in-3 against a 10-16% base, that is a real shape the deletions displaced rather
+than removed — the model finding another route to the same move. If the next batch
+looks like 16%, this entry closes as coincidence.
+
+**Do not act on this entry.** It exists so that a recurrence is recognised as a
+recurrence rather than discovered fresh, which is the whole value of writing down an
+n=1.
 ### TD-96 — Lao Tzu: the only available lever was tried and rejected. CLOSED. — **NEW**
 **Status: CLOSED 2026-09-23, measured. Lao Tzu ships unchanged. No further work
 proposed on this persona.**
