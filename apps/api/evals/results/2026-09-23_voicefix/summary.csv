@@ -1,0 +1,7 @@
+persona_slug,mode,plan,model,n,mean_words,p95_words,fm_over_rate,std_over_rate,persona_lexicon_rate,universal_lexicon_rate,anti_flex_rate,modern_leak_rate,would_correct_rate,errors,ends_q_rate,no_opening_rate,stance_observation_rate,stance_any_rate
+lao_tzu,deep,pro,claude-sonnet-4-6,3,84.7,90,1.0,0.0,0.0,0.0,0.0,0.0,0.0,0,1.0,0.0,0.0,0.6667
+lao_tzu,standard,pro,claude-sonnet-4-6,7,58.3,73,0.2857,0.2857,0.0,0.0,0.0,0.0,0.0,0,0.8571,0.0,0.0,0.2857
+marcus_aurelius,deep,pro,claude-sonnet-4-6,3,108.3,123,0.6667,0.0,0.0,0.0,0.0,0.0,0.0,0,0.6667,0.0,0.0,0.3333
+marcus_aurelius,standard,pro,claude-sonnet-4-6,7,71.9,82,0.2857,0.2857,0.0,0.0,0.0,0.0,0.0,0,1.0,0.0,0.0,0.7143
+miyamoto_musashi,deep,pro,claude-sonnet-4-6,3,108.7,140,1.0,0.3333,0.0,0.0,0.0,0.0,0.0,0,0.6667,0.0,0.0,0.3333
+miyamoto_musashi,standard,pro,claude-sonnet-4-6,7,74.9,86,0.1429,0.1429,0.0,0.0,0.0,0.0,0.0,0,0.7143,0.0,0.0,0.2857
