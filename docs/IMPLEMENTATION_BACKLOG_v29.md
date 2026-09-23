@@ -1354,6 +1354,162 @@ for, since it is currently decoration.
 
 ---
 
+### TD-94 — `character_anchors` reaches NOTHING: not the prompt, not the app, not a test — **NEW**
+**Status: OPEN. Found 2026-09-23 while implementing an approved voice fix, which it
+blocked. No code change yet — the fix needs a founder ruling on where it should live.**
+
+**THE FACT.** `PersonaConfig.character_anchors` — 60+ authored rules across eleven
+personas, each with an `enforcement` paragraph and a `critical` flag — is **read by no
+code that runs.**
+
+Checked, 2026-09-23, and each of these is a separate search:
+
+| consumer | result |
+|---|---|
+| `prompts/system_base.jinja2` | `grep -c anchor` → **0**. The template never mentions it |
+| app code (`services/`, `routers/`, `workers/`) | **no references** |
+| `evals/` scorers and harness | **no references** |
+| the test suite | **not one test asserts on it** |
+| `db/migrations/` | the only references — frozen into `personas.config` jsonb |
+
+And the one place it lands is itself dead: **TD-91** records that `personas.config` in
+production is badly stale and nothing reads it. So the field is serialised into a
+column no code queries.
+
+**WHAT THE TEMPLATE ACTUALLY READS**, enumerated the same day (every `persona.<field>`
+in `system_base.jinja2`):
+
+> `challenge_level`, `challenge_style`, `conversational_moves`,
+> `emotional_acknowledgment`, `forbidden_phrases`, `questioning_pattern`,
+> `sentence_structure`, `system_fragment`, `tone`, `vocabulary_register`,
+> `voice_calibration_examples`
+
+**Declared on `PersonaConfig` and never read by the template:** `character_anchors`,
+`anti_flexing`, `register_range`, `response_length_words`,
+`forbidden_lexicon_persona_specific`, `behavioral_parameters`,
+`behavioral_parameters_by_register`, `worldview`, `uses_personal_anecdote`,
+`opening_invocation`, `tagline`, `era`, `tradition`.
+
+Several of those are read elsewhere — `response_length_words` by the arm band logic,
+`forbidden_lexicon_persona_specific` by postprocessing — and are NOT dead. **This entry
+is about `character_anchors` specifically, which has no consumer anywhere.** The others
+are listed because the same question will be asked of them and the list is the answer.
+
+**HOW IT WAS FOUND, and why the detection worked.** Three persona configs were edited
+under an approved voice fix (Marcus, Lao Tzu, Musashi — all four diffs were
+`character_anchors` edits). 30 replies were regenerated. `run.py`'s
+`persona_config_hash` came back **`be4c9e3d3d7e7959` — byte-identical to the B3 run the
+edits were meant to change.**
+
+That hash is the reason this was caught within one run instead of being read out of a
+noisy matrix. Its docstring explains that it hashes **the rendered prompt** rather than
+a list of fields, precisely because an earlier field-enumerating version missed
+`forbidden_phrases` and would have made two different arms indistinguishable. It did
+exactly the job it was built for: **an edit that cannot change the prompt cannot change
+the hash.**
+
+Confirmed independently: of the 30 regenerated samples, the 21 standard ones have
+`system_prompt_chars` identical to B3. (The 9 deep ones differ by a constant +73 chars —
+that is the register clause reaching DEEP, a founder-ruled change since the B3 run and
+documented in `evals/arm_b3.py`. Unrelated to the edits.)
+
+**THE COST OF THE GAP IS NOT THE $0.22.** It is that every anchor reads like an
+enforced rule and none is enforced — including ones that describe behaviour the
+rendered prompt actively contradicts. `marcus_aurelius`'s
+`anchor_private_admonition_not_public_instruction` says he "speaks as one who has first
+judged himself", while his `system_fragment` — which does render — says *"never
+volunteer … 'I wrote to myself…'"*. The anchor is not merely inert; it asserts the
+opposite of what ships, and a reader auditing the persona would believe the anchor.
+
+**THREE OPTIONS, none taken — this needs a ruling.**
+
+1. **Render them.** Add a `character_anchors` block to `system_base.jinja2`. Highest
+   fidelity to the authoring intent, and the largest blast radius: it would add
+   substantial text to all eleven system prompts at once, invalidating every stored
+   §8.2 baseline in the same stroke. It would also surface every latent contradiction
+   between an anchor and its own `system_fragment` simultaneously.
+2. **Delete the field.** Honest, and discards real authoring work that is the clearest
+   statement of each persona's intent anywhere in the repo.
+3. **Demote it to documentation.** Keep it, rename it so it cannot be mistaken for
+   enforcement, and state at the dataclass that it is authoring intent with no runtime
+   effect. Cheapest, and leaves the contradiction in (1) unresolved but visible.
+
+**Whichever is chosen, `PersonaConfig` needs a docstring saying which fields reach the
+prompt.** The field list above took three separate greps to establish, and the absence
+of that list is what let four approved diffs be written against a dead field — by
+Claude, in a proposal, and approved without either party catching it. That is the same
+class as this file's standing lesson: **a config field that looks load-bearing is a
+claim, and it had never been checked against the template.**
+
+---
+
+---
+
+### TD-93 — HARD RULE 4 asks for ~40% question-endings and every persona runs at 80–90% — **NEW**
+**Status: OPEN. Recorded, out of scope — founder ruling 2026-09-23.**
+
+**Found by** the §8.2 distinctiveness investigation, as a control measurement rather
+than a target: the question was whether reply SHAPE explained why three personas are
+unrecognisable. It does not, and that is why this is its own item instead of part of
+the voice fix.
+
+`system_base.jinja2` HARD RULE 4 is explicit about the mix:
+
+> *"most replies should NOT end in a question. Vary your endings: roughly 40% end
+> with a question, 40% end with no question at all …, 20% a brief statement THEN a
+> question. A question every single reply turns dialogue into interrogation."*
+
+Measured over the 110 stored B3 Sonnet replies, 10 per persona:
+
+| persona | ends on "?" | replies with 2+ questions |
+|---|---|---|
+| Niccolò Machiavelli | 90% | 1 |
+| Carl Jung | 90% | 1 |
+| Simone de Beauvoir | 90% | 0 |
+| Marcus Aurelius | 90% | 0 |
+| Lao Tzu | 90% | 0 |
+| Epictetus | 80% | 2 |
+| Miyamoto Musashi | 80% | 3 |
+
+**Every persona measured is at double the target or more.** The rule is not being
+partially followed — it is not operating at all.
+
+**WHY THIS IS NOT A DISTINCTIVENESS DEFECT, which is the useful half of the
+finding.** The obvious reading is that a uniform ending shape makes the personas
+interchangeable. The data refuses it: **Machiavelli sits at 90% and is the most
+recognisable voice in the product** (83% precision, the highest of the eleven),
+while Lao Tzu sits at the same 90% and was never once identified. A variable that
+takes the same value for the best and worst cases explains neither. Distinctiveness
+lives in the middle of the reply, not its last sentence — see
+`evals/results/2026-09-22T12-59_b3/distinctiveness_record.md`.
+
+So this is a **conversational-quality** defect on its own terms, and the rule states
+the cost itself: a question every single reply "turns dialogue into interrogation".
+Three of the sampled replies carry 2+ questions against personas whose own configs
+say to ask at most one — Musashi's `questioning_pattern` says "Ask sparingly — state
+and instruct more than you ask" and he has the most multi-question replies of any
+persona.
+
+**NOT DIAGNOSED, and it should be before anything is changed.** Whether this is the
+rule being ignored, or being outweighed by something else in the prompt, is unknown.
+Candidates, none checked: every persona also carries an `anchor_..._one_question`
+rule that says at most one question and may be read as *at least* one; the
+`conversational_moves` block asks for one move per reply and several moves are
+question-shaped; the eval corpus is all FIRST messages, where an ending question is
+the most natural move and the true production rate across a whole conversation may
+differ. **The last of those would change what the number means**, and it is a
+property of the eval set rather than the product.
+
+**Explicitly out of scope of the voice fix** (`feat/voice-distinctiveness-three`),
+which touches three persona configs and is measured on whether three personas become
+identifiable. Changing endings product-wide is a different change with a different
+blast radius — it would touch all eleven and the shared directive — and mixing it in
+would make neither measurable. P-02.
+
+---
+
+---
+
 ### TD-92 — Marcus carries `Meditations` twice: the full Gutenberg text and 19 hand-curated chunks of the same translation — **NEW**
 **Status: OPEN. Recorded, no action — founder ruling 2026-09-23.**
 
