@@ -7,7 +7,7 @@ import { MessageCircle, Loader2, Bookmark, BookmarkCheck, Share2, CornerDownLeft
 import { track } from '@/lib/analytics'
 import { useStore } from '@/lib/store'
 import { useAuthGate } from '@/lib/useAuthGate'
-import { api, RateLimitError } from '@/lib/api'
+import { api, RateLimitError, type FairUsePeriod } from '@/lib/api'
 import { fairUseMessage } from '@/lib/fairUseCopy'
 import toast from 'react-hot-toast'
 import type { Counterview, CounterviewListItem } from '@/lib/api'
@@ -90,6 +90,7 @@ export default function CounterviewPage() {
   // limitResetAt because the two render differently: that one is the upgrade
   // wall, and this reader already pays for Pro.
   const [fairUseResetAt, setFairUseResetAt] = useState<Date | null>(null)
+  const [fairUsePeriod, setFairUsePeriod] = useState<FairUsePeriod | undefined>(undefined)
 
   useEffect(() => {
     if (!authed) return
@@ -120,7 +121,8 @@ export default function CounterviewPage() {
           setCounterview(await api.counterviewFromInsight(insightId))
         } catch (e) {
           if (e instanceof RateLimitError && e.errorCode === 'fair_use_limit') {
-            toast(fairUseMessage(e.resetAt))
+            toast(fairUseMessage(e.resetAt, e.period))
+            setFairUsePeriod(e.period)
             setFairUseResetAt(e.resetAt)
           }
           setCounterview(null)
@@ -167,7 +169,7 @@ export default function CounterviewPage() {
       // upgrade_clicked against it. Plain notice instead, in the same approved
       // words the chat paths use.
       if (e instanceof RateLimitError && e.errorCode === 'fair_use_limit') {
-        toast(fairUseMessage(e.resetAt))
+        toast(fairUseMessage(e.resetAt, e.period))
       } else if (e instanceof RateLimitError) {
         // Free daily cap → the upgrade wall, which is the right thing to show a
         // free user. Other errors fall through to the neutral "no clear case"
@@ -459,7 +461,7 @@ export default function CounterviewPage() {
             The Wise Room
           </p>
           <p className="font-cormorant text-[24px] text-ink leading-snug max-w-[300px]">
-            {fairUseMessage(fairUseResetAt)}
+            {fairUseMessage(fairUseResetAt, fairUsePeriod)}
           </p>
         </div>
       </main>

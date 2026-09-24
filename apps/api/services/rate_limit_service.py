@@ -103,11 +103,26 @@ class RateLimitResult:
     remaining: int
     reset_at: datetime
     limit: int
+    # Which window this result describes. Only check_fair_use_limit ever sets
+    # "month"; every other budget in this module is daily and keeps the default.
+    period: str = "day"
 
 
 def next_utc_midnight() -> datetime:
     tomorrow = datetime.now(timezone.utc).date() + timedelta(days=1)
     return datetime(tomorrow.year, tomorrow.month, tomorrow.day, tzinfo=timezone.utc)
+
+
+def utc_month_start() -> date:
+    """The first day of the current UTC month — where a monthly budget begins."""
+    return utc_today().replace(day=1)
+
+
+def next_utc_month_start() -> datetime:
+    """00:00 UTC on the first of next month — when a monthly budget resets."""
+    first = utc_month_start()
+    year, month = (first.year + 1, 1) if first.month == 12 else (first.year, first.month + 1)
+    return datetime(year, month, 1, tzinfo=timezone.utc)
 
 
 def utc_today() -> date:
@@ -139,6 +154,27 @@ def utc_today() -> date:
 # A PAYING CUSTOMER, so the number is deliberately generous and the copy
 # deliberately non-punitive.
 PRO_DAILY_FAIR_USE_LIMIT = 150
+
+# The monthly ceiling (founder ruling 2026-09-24). THIS is the cost cap; the daily
+# one above stays generous so an intense day is never refused on its own account.
+#
+# Per calendar month in UTC, not per billing period: subscriptions carries no
+# period start, a yearly plan's billing period is a year (400 a YEAR is not the
+# ruling), and comp grants have no period at all. The cost of the choice is that
+# a user who subscribes on the 28th gets a fresh 400 on the 1st.
+#
+# WHAT 400 COSTS, measured 2026-09-24 against the 66 production replies that
+# carry token components (2026-08-28..09-23): per Pro reply 1430 input + 1113
+# cache-write + 1089 cache-read + 76 output tokens = $0.0099 at Sonnet 4.6 rates
+# ($3 / $3.75 / $0.30 / $15 per MTok). 400 replies = $3.97/month ($4.35 at p90
+# reply size), against EUR 11.99 monthly or ~EUR 8.33 on the yearly plan. For
+# comparison, 150/day x 30 with no monthly cap was $44.69. The heaviest real
+# month on record is 137 messages (~$1.36).
+#
+# Replies only: memory extraction, embeddings and counterviews are NOT priced in.
+# A counterview counts as one unit here but is five generations, and their tokens
+# are not stored — so a month spent entirely on counterviews is unmeasured.
+PRO_MONTHLY_FAIR_USE_LIMIT = 400
 
 
 async def check_rate_limit(
@@ -334,7 +370,7 @@ async def check_fair_use_limit(
     user_id: str | UUID,
     user_tier: str | None = None,
 ) -> RateLimitResult:
-    """Pro/premium daily cap across every path that spends tokens.
+    """Pro/premium caps — daily, then monthly — across the paths that spend tokens.
 
     FREE USERS ARE UNAFFECTED and return allowed unconditionally — they are
     already bounded by check_rate_limit, check_go_deeper_limit,
@@ -343,12 +379,27 @@ async def check_fair_use_limit(
     wrong.
 
     COUNTS TWO SOURCES, because one is not enough:
-      daily_usage.message_count, SUMMED across personas — the per-(user,
-        persona, day) rows the chat paths already write. This covers
-        send-message, another-mind and go-deeper, which is where the volume is.
-      today's counterviews — five persona generations each, in their own table,
+      daily_usage.message_count + go_deeper_count, SUMMED across personas — the
+        per-(user, persona, day) rows the chat paths already write.
+        message_count is written by send-message only; go-deeper bumps
+        go_deeper_count and never message_count, so it is added here or it is
+        not counted at all (it was not, until 2026-09-24).
+        ANOTHER-MIND IS STILL NOT COUNTED: it writes no daily_usage row. It is
+        refused at the cap like every other path, but does not move the counter.
+        Closing that needs a counter column, and is its own change.
+      counterviews — five persona generations each, in their own table,
         counted nowhere else. Left out, the cap has an uncapped door beside it,
         and an abuse channel that exists is the one that gets used.
+
+    THE SAME TWO SOURCES over two windows: today (PRO_DAILY_FAIR_USE_LIMIT) and
+    the UTC calendar month (PRO_MONTHLY_FAIR_USE_LIMIT). The day is checked
+    first, so a refusal names the window that will reset soonest. When both
+    allow, the DAILY result is returned — the month is a ceiling, not the budget
+    a user sees from one day to the next.
+
+    Because both windows read the same counters, the monthly cap inherits every
+    exemption the daily one has: a crisis message, a ritual reply and a failed
+    generation increment nothing, so they consume nothing from either.
 
     NOT counted: rituals (cron-seeded, and the chat increment already skips
     them), letters and mirrors (cron-driven, not user-triggerable), council and
@@ -366,28 +417,56 @@ async def check_fair_use_limit(
             allowed=True, remaining=-1, limit=-1, reset_at=next_utc_midnight(),
         )
 
-    today = utc_today()
-    chat_used = (await db.execute(
-        select(func.coalesce(func.sum(DailyUsage.message_count), 0)).where(
-            DailyUsage.user_id == str(user_id),
-            DailyUsage.usage_date == today,
-        )
-    )).scalar_one()
-
     # next_utc_midnight() is tomorrow 00:00 UTC; minus a day is today 00:00 UTC.
     # Same expression check_counterview_limit uses, so the two agree on the day.
     today_start = next_utc_midnight() - timedelta(days=1)
-    counterviews_used = (await db.execute(
-        select(func.count()).select_from(Counterview).where(
-            Counterview.user_id == str(user_id),
-            Counterview.created_at >= today_start,
-        )
-    )).scalar_one()
-
-    used = int(chat_used) + int(counterviews_used)
-    return RateLimitResult(
-        allowed=used < PRO_DAILY_FAIR_USE_LIMIT,
-        remaining=max(0, PRO_DAILY_FAIR_USE_LIMIT - used),
+    day_used = await _fair_use_units(
+        db, user_id,
+        DailyUsage.usage_date == utc_today(),
+        Counterview.created_at >= today_start,
+    )
+    daily = RateLimitResult(
+        allowed=day_used < PRO_DAILY_FAIR_USE_LIMIT,
+        remaining=max(0, PRO_DAILY_FAIR_USE_LIMIT - day_used),
         limit=PRO_DAILY_FAIR_USE_LIMIT,
         reset_at=next_utc_midnight(),
     )
+    if not daily.allowed:
+        return daily
+
+    month_start = utc_month_start()
+    month_used = await _fair_use_units(
+        db, user_id,
+        DailyUsage.usage_date >= month_start,
+        Counterview.created_at >= datetime(
+            month_start.year, month_start.month, 1, tzinfo=timezone.utc
+        ),
+    )
+    if month_used >= PRO_MONTHLY_FAIR_USE_LIMIT:
+        return RateLimitResult(
+            allowed=False,
+            remaining=0,
+            limit=PRO_MONTHLY_FAIR_USE_LIMIT,
+            reset_at=next_utc_month_start(),
+            period="month",
+        )
+    return daily
+
+
+async def _fair_use_units(db: AsyncSession, user_id, usage_window, counterview_window) -> int:
+    """Units the fair-use caps count, over one window. See check_fair_use_limit."""
+    chat_used = (await db.execute(
+        select(func.coalesce(
+            func.sum(DailyUsage.message_count + DailyUsage.go_deeper_count), 0
+        )).where(
+            DailyUsage.user_id == str(user_id),
+            usage_window,
+        )
+    )).scalar_one()
+    counterviews_used = (await db.execute(
+        select(func.count()).select_from(Counterview).where(
+            Counterview.user_id == str(user_id),
+            counterview_window,
+        )
+    )).scalar_one()
+    return int(chat_used) + int(counterviews_used)

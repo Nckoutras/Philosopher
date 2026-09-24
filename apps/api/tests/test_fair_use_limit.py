@@ -19,8 +19,10 @@ THE TWO THINGS IT MUST NEVER DO, both pinned below:
      150. Stacking a ceiling on the tier that cannot reach it would only add a
      way to be wrong.
 
-COUNTING is option B: daily_usage.message_count summed across personas (chat,
-another-mind, go-deeper) PLUS today's counterview rows. Counterviews are five
+COUNTING is option B: daily_usage.message_count + go_deeper_count summed across
+personas (message_count is send-message only; go-deeper was uncounted until
+2026-09-24; another-mind writes no daily_usage row and is still uncounted) PLUS
+today's counterview rows. Counterviews are five
 persona generations each and live in their own table; a cap that counted them
 but did not enforce on them — or enforced without counting — would have an open
 door beside it.
@@ -184,3 +186,125 @@ def test_read_and_write_use_the_same_helper():
     assert "today = date.today()" not in src, (
         "a daily_usage write still uses the server-local date"
     )
+
+
+# ── The monthly ceiling (founder ruling 2026-09-24) ──────────────────────────
+# 400 units per UTC calendar month over the same two sources. The daily cap is
+# unchanged at 150 — the month is the cost ceiling, the day stays generous.
+
+from services.rate_limit_service import (  # noqa: E402
+    PRO_MONTHLY_FAIR_USE_LIMIT,
+    next_utc_month_start,
+)
+
+TODAY = date(2026, 9, 24)
+TOMORROW_MIDNIGHT = datetime(2026, 9, 25, tzinfo=timezone.utc)
+MONTH_START = datetime(2026, 9, 1, tzinfo=timezone.utc)
+
+
+def _db_windows(day_chat=0, day_cv=0, month_chat=0, month_cv=0):
+    """Answers each counting query by table AND window. The window is read from
+    the statement itself: the daily_usage day query compares usage_date with
+    '=', the month one with '>='; the counterview queries differ by the bound
+    lower edge (today 00:00 vs the 1st 00:00). TODAY is pinned mid-month so the
+    two edges can never coincide."""
+    db = MagicMock()
+    seen = []
+
+    async def execute(stmt, *a, **kw):
+        text = str(stmt)
+        params = stmt.compile().params
+        result = MagicMock()
+        if "daily_usage" in text:
+            seen.append(text)
+            monthly = "usage_date >=" in text
+            result.scalar_one.return_value = month_chat if monthly else day_chat
+        else:
+            monthly = MONTH_START in params.values()
+            result.scalar_one.return_value = month_cv if monthly else day_cv
+        return result
+
+    db.execute = AsyncMock(side_effect=execute)
+    db.seen_daily_usage_sql = seen
+    return db
+
+
+@pytest.fixture
+def pinned_today():
+    with patch("services.rate_limit_service.utc_today", return_value=TODAY), \
+         patch("services.rate_limit_service.next_utc_midnight", return_value=TOMORROW_MIDNIGHT):
+        yield
+
+
+async def test_the_daily_cap_is_still_150():
+    """The 2026-09-24 ruling revised this back: 40/day would have refused a real
+    subscriber twice (44 and 81 messages) without protecting anything the
+    monthly cap does not."""
+    assert PRO_DAILY_FAIR_USE_LIMIT == 150
+    assert PRO_MONTHLY_FAIR_USE_LIMIT == 400
+
+
+async def test_the_month_refuses_when_the_day_would_not(pinned_today):
+    db = _db_windows(day_chat=10, month_chat=395, month_cv=5)   # 400 this month
+    result = await check_fair_use_limit(db, "u1", user_tier="pro")
+    assert result.allowed is False
+    assert result.period == "month"
+    assert result.limit == 400
+    assert result.remaining == 0
+    assert result.reset_at == datetime(2026, 10, 1, tzinfo=timezone.utc)
+
+
+async def test_one_below_the_monthly_cap_is_allowed_and_reports_the_day(pinned_today):
+    """Under both ceilings the DAILY result comes back — the month is a ceiling,
+    not the budget a user sees day to day."""
+    db = _db_windows(day_chat=10, month_chat=399)
+    result = await check_fair_use_limit(db, "u1", user_tier="pro")
+    assert result.allowed is True
+    assert result.period == "day"
+    assert result.limit == 150
+    assert result.remaining == 140
+
+
+async def test_the_day_is_named_first_when_both_are_exhausted(pinned_today):
+    """The refusal names the window that resets soonest."""
+    db = _db_windows(day_chat=150, month_chat=500)
+    result = await check_fair_use_limit(db, "u1", user_tier="pro")
+    assert result.allowed is False
+    assert result.period == "day"
+    assert result.reset_at == TOMORROW_MIDNIGHT
+
+
+async def test_counterviews_count_toward_the_month(pinned_today):
+    """The mutation: drop the counterview term from the month and this fails."""
+    db = _db_windows(month_chat=390, month_cv=10)
+    result = await check_fair_use_limit(db, "u1", user_tier="pro")
+    assert result.period == "month" and result.allowed is False
+
+
+async def test_go_deeper_is_counted_in_both_windows(pinned_today):
+    """go-deeper bumps go_deeper_count and never message_count, so until
+    2026-09-24 it spent tokens at the cap without moving the counter. Both the
+    day and the month sums must include it."""
+    db = _db_windows()
+    await check_fair_use_limit(db, "u1", user_tier="pro")
+    assert len(db.seen_daily_usage_sql) == 2
+    for sql in db.seen_daily_usage_sql:
+        assert "go_deeper_count" in sql, sql
+        assert "message_count" in sql, sql
+
+
+async def test_a_free_user_is_not_counted_monthly_either():
+    db = _db_windows(month_chat=10_000)
+    result = await check_fair_use_limit(db, "u1", user_tier="free")
+    assert result.allowed is True
+    db.execute.assert_not_awaited()
+
+
+@pytest.mark.parametrize("today,expected", [
+    (date(2026, 9, 24), datetime(2026, 10, 1, tzinfo=timezone.utc)),
+    (date(2026, 12, 31), datetime(2027, 1, 1, tzinfo=timezone.utc)),
+    (date(2027, 1, 1), datetime(2027, 2, 1, tzinfo=timezone.utc)),
+])
+def test_the_month_resets_at_the_first_00_00_utc(today, expected):
+    with patch("services.rate_limit_service.utc_today", return_value=today):
+        assert next_utc_month_start() == expected

@@ -133,7 +133,8 @@ def test_a_first_tap_at_the_cap_is_refused_with_the_right_code():
             res = client.post(URL)
 
         assert res.status_code == 429
-        assert res.json() == {"error_code": "fair_use_limit"}
+        # period names the window (day | month) so the client can word the notice.
+        assert res.json() == {"error_code": "fair_use_limit", "period": "day"}
         # Refused BEFORE generation — a capped call must cost zero LLM.
         gen.assert_not_awaited()
     finally:

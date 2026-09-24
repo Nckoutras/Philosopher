@@ -25,7 +25,9 @@ from uuid import uuid4
 import pytest
 from fastapi.testclient import TestClient
 
-from services.rate_limit_service import PRO_DAILY_FAIR_USE_LIMIT, RateLimitResult
+from services.rate_limit_service import (
+    PRO_DAILY_FAIR_USE_LIMIT, PRO_MONTHLY_FAIR_USE_LIMIT, RateLimitResult,
+)
 
 CONV_ID = "11111111-1111-1111-1111-111111111111"
 URL = f"/api/v1/conversations/{CONV_ID}/messages"
@@ -226,5 +228,94 @@ def test_the_free_tier_path_is_unchanged():
 
         assert res.status_code == 429
         assert res.json()["error_code"] == "rate_limited"   # paywall path, unchanged
+    finally:
+        _reset()
+
+
+# ── The monthly ceiling (founder ruling 2026-09-24) ──────────────────────────
+# Same error_code, same exemptions — only the window and the wording differ.
+# The client picks the monthly sentence from `period`; a new error_code would
+# have fallen through useStream's else-branch to the PaywallModal.
+
+MONTH_RESET = datetime(2026, 10, 1, tzinfo=timezone.utc)
+CAPPED_MONTH = RateLimitResult(
+    allowed=False, remaining=0, limit=PRO_MONTHLY_FAIR_USE_LIMIT,
+    reset_at=MONTH_RESET, period="month",
+)
+
+
+def _post_at(cap_result, text, user, analytics=None):
+    client = _client(user)
+    with patch("routers.conversations.AsyncSessionLocal",
+               return_value=_session(_conv(user.id), _persona())), \
+         patch("routers.conversations.rate_limit_service.check_rate_limit",
+               new=AsyncMock(return_value=ALLOWED)), \
+         patch("routers.conversations.rate_limit_service.check_fair_use_limit",
+               new=AsyncMock(return_value=cap_result)) as cap, \
+         patch("routers.conversations.analytics_service", analytics or MagicMock()), \
+         patch("routers.conversations.conversation_service.stream_response") as stream:
+        stream.return_value = iter([b"data: {}\n\n"])
+        res = client.post(URL, json={"content": text})
+    return res, cap, stream
+
+
+@pytest.mark.parametrize("text", CRISIS_TEXTS)
+def test_crisis_text_at_the_monthly_cap_still_reaches_the_service(text):
+    """400/400 is no different from 150/150: a crisis message is never answered
+    with a quota, and the cap is not even consulted."""
+    user = _user()
+    try:
+        res, cap, stream = _post_at(CAPPED_MONTH, text, user)
+        assert res.status_code == 200, res.text
+        assert "fair_use_limit" not in res.text
+        cap.assert_not_awaited()
+        stream.assert_called_once()
+    finally:
+        _reset()
+
+
+def test_an_admin_is_not_capped_monthly_either():
+    user = _user(is_admin=True)
+    try:
+        res, cap, stream = _post_at(CAPPED_MONTH, "testing", user)
+        assert res.status_code == 200
+        cap.assert_not_awaited()
+    finally:
+        _reset()
+
+
+def test_the_monthly_refusal_names_its_window_and_never_sells():
+    user = _user()
+    try:
+        res, _, stream = _post_at(CAPPED_MONTH, "an ordinary question", user)
+        assert res.status_code == 429, res.text
+        assert res.json() == {"error_code": "fair_use_limit", "period": "month"}
+        assert "rate_limited" not in res.text
+        assert res.headers["X-RateLimit-Limit"] == str(PRO_MONTHLY_FAIR_USE_LIMIT)
+        assert res.headers["X-RateLimit-Reset"] == MONTH_RESET.isoformat()
+        stream.assert_not_called()
+    finally:
+        _reset()
+
+
+def test_the_daily_refusal_says_day():
+    user = _user()
+    try:
+        res, _, _ = _post_at(CAPPED, "an ordinary question", user)
+        assert res.json() == {"error_code": "fair_use_limit", "period": "day"}
+    finally:
+        _reset()
+
+
+def test_the_monthly_refusal_has_its_own_cap_kind():
+    """Separate from pro_fair_use so the dashboard can tell the ceiling that
+    bounds cost from the one that bounds a single day."""
+    user = _user()
+    analytics = MagicMock()
+    try:
+        _post_at(CAPPED_MONTH, "the user's own words", user, analytics=analytics)
+        event, _, props = analytics.track.call_args.args
+        assert event == "usage_cap_hit"
+        assert props == {"tier": "pro", "cap_kind": "pro_fair_use_monthly", "path": "chat"}
     finally:
         _reset()

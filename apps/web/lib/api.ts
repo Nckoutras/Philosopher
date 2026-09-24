@@ -53,7 +53,12 @@ export type SSEEvent =
 export interface LLMErrorResponse {
   error_code: string
   persona_voice: string
+  // Sent with fair_use_limit only: which Pro ceiling refused — today's, or the
+  // calendar month's. Absent on every other 429.
+  period?: FairUsePeriod
 }
+
+export type FairUsePeriod = 'day' | 'month'
 
 // ── RateLimitError ────────────────────────────────────────────────────────────
 
@@ -65,6 +70,9 @@ export class RateLimitError extends Error {
   personaVoice?: string
   // Single Pro tier — there is no Premium to upgrade to.
   upgradeTarget: 'pro'
+  // fair_use_limit only. Undefined reads as 'day', the only window that existed
+  // before the monthly ceiling, so an older API response words itself as before.
+  period?: FairUsePeriod
 
   constructor(opts: {
     resetAt: Date
@@ -73,6 +81,7 @@ export class RateLimitError extends Error {
     errorCode: string
     personaVoice?: string
     upgradeTarget: 'pro'
+    period?: FairUsePeriod
   }) {
     super('RATE_LIMIT')
     this.name = 'RateLimitError'
@@ -82,6 +91,7 @@ export class RateLimitError extends Error {
     this.errorCode = opts.errorCode
     this.personaVoice = opts.personaVoice
     this.upgradeTarget = opts.upgradeTarget
+    this.period = opts.period
   }
 }
 
@@ -1102,6 +1112,7 @@ class ApiClient {
           errorCode: body.error_code ?? 'rate_limited',
           personaVoice: body.persona_voice,
           upgradeTarget: 'pro',
+          period: body.period,
         })
       }
       throw new Error('Stream failed')
@@ -1135,6 +1146,7 @@ class ApiClient {
           errorCode: body.error_code ?? 'rate_limited',
           personaVoice: body.persona_voice,
           upgradeTarget: 'pro',
+          period: body.period,
         })
       }
       throw new Error('Stream failed')
@@ -1168,6 +1180,7 @@ class ApiClient {
           errorCode: body.error_code ?? 'rate_limited',
           personaVoice: body.persona_voice,
           upgradeTarget: 'pro',
+          period: body.period,
         })
       }
       throw new Error('Stream failed')
@@ -1443,6 +1456,7 @@ class ApiClient {
           // fallback names the cap that CAN occur rather than one that cannot.
           errorCode: body.error_code ?? 'fair_use_limit',
           upgradeTarget: 'pro',
+          period: body.period,
         })
       }
       const error = await res.json().catch(() => ({ detail: res.statusText }))
@@ -1481,7 +1495,8 @@ class ApiClient {
           limit: parseInt(res.headers.get('X-RateLimit-Limit') ?? '0', 10),
           remaining: parseInt(res.headers.get('X-RateLimit-Remaining') ?? '0', 10),
           errorCode: body.error_code ?? 'daily_limit',
-          upgradeTarget: 'pro', // counterview cap is free-only; Pro is uncapped
+          upgradeTarget: 'pro', // the free cap's wall; fair_use_limit is routed apart
+          period: body.period,
         })
       }
       const error = await res.json().catch(() => ({ detail: res.statusText }))
