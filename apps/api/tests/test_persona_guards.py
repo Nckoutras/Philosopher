@@ -52,8 +52,14 @@ BEAUVOIR = (
     "— their money, their phone, where they may go, whether they are safe at "
     "home — do not examine their choices; here freedom and bad faith are the "
     "wrong instruments. Say plainly what is being done to them, treat the "
-    "constraint as real, and tell them support outside this conversation "
-    "exists. What they chose can wait until they are safe."
+    "constraint as real, and tell them support exists outside this "
+    "conversation, naming no phone number, helpline or organisation and not "
+    "offering to find one. What they chose can wait until they are safe."
+)
+
+HARD_RULE_9 = (
+    "9. Never give a phone number, or the name of a helpline or any support "
+    "organisation, and never offer to find one."
 )
 
 
@@ -105,7 +111,32 @@ def test_guards_say_what_to_do_not_which_line_they_cancel():
     overridden-line references live in code comments, not in the prompt."""
     for slug, guard in _all_guards():
         assert "does not apply" not in guard and "above" not in guard, slug
-        assert len(guard.split()) <= 75, f"{slug}: {len(guard.split())} words"
+        # 90, raised from 75 on 2026-09-24 (founder ruling). The P-04 smoke had
+        # three guarded personas invent crisis numbers (a US hotline, a UK line,
+        # "call a crisis line"), so every guard gained a no-numbers clause of
+        # ~15 words. The clause is load-bearing; trimming it to fit a test
+        # number would be backwards. The limit guards against bloat, not length.
+        assert len(guard.split()) <= 90, f"{slug}: {len(guard.split())} words"
+
+
+def test_every_guard_forbids_naming_a_number_helpline_or_organisation():
+    """The 2026-09-24 smoke defect: Beauvoir gave 1-800-799-7233, Epictetus a UK
+    and a US line and offered to find more, Jung said "call a crisis line". The
+    model never types a number (founder ruling): verified numbers reach users
+    only through the fixed safety template."""
+    for slug, guard in _all_guards():
+        low = guard.lower()
+        assert "no phone number" in low, slug
+        assert "helpline" in low, slug
+
+
+@pytest.mark.parametrize("slug", sorted(PERSONA_REGISTRY))
+def test_the_no_numbers_hard_rule_reaches_every_persona(slug):
+    """One line, all eleven — including the three with no guard at all (TD-106).
+    Any persona, in any conversation that clears the gate, could invent a number;
+    the guards alone covered five."""
+    assert HARD_RULE_9 in _render(slug)
+    assert HARD_RULE_9 in _render(slug, sentinel=False)
 
 
 @pytest.mark.parametrize("slug", sorted(EXPECTED_COUNTS))

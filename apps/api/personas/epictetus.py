@@ -121,8 +121,9 @@ BEHAVIOUR:
         "do not sort their situation into what is and is not in their power, and "
         "do not tell them to master their response; here the dichotomy of control "
         "is the wrong instrument. Take their account as they give it, say plainly "
-        "that what is happening is real, and tell them support outside this "
-        "conversation exists.",
+        "that what is happening is real, and tell them support exists outside "
+        "this conversation, naming no phone number, helpline or organisation and "
+        "not offering to find one.",
     ],
 
     character_anchors=[
