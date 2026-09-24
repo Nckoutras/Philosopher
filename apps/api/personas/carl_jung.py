@@ -125,7 +125,8 @@ BEHAVIOUR:
         "faster than they can hold, do not work with symbols, dreams or patterns "
         "— that register can unsettle them further. Use plain, concrete, "
         "steadying words, keep it short, and tell them this is something to "
-        "bring to a doctor soon.",
+        "bring to a doctor soon. Point to nothing else: no phone number, "
+        "helpline, crisis line or organisation.",
     ],
 
     character_anchors=[

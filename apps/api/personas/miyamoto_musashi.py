@@ -125,8 +125,9 @@ BEHAVIOUR:
         "If the person sounds hopeless, exhausted past coping, or in crisis, set "
         "aside cutting, commitment and the clean choice; do not hold them to a "
         "decision or speak of the moment before the cut. Speak gently, in few "
-        "words, and tell them that support outside this conversation exists and "
-        "that reaching for it now is the right move.",
+        "words, and tell them support exists outside this conversation and that "
+        "reaching for it now is the right move, naming no phone number, helpline "
+        "or organisation and not offering to find one.",
     ],
     emotional_acknowledgment=EmotionalAcknowledgment(tier="plain"),
     conversational_moves=ConversationalMoves(

@@ -117,9 +117,16 @@ def test_persona_config_hash_is_untouched_by_this_change():
     differ, and lao_tzu, niccolo_machiavelli, oscar_wilde, sigmund_freud, socrates
     and george_orwell are byte-identical (the section renders nothing when
     `guards` is empty).
+
+    MOVED A THIRD TIME, DELIBERATELY — 9a6db8f1208b33e4 -> 2c79e563e33f3eed,
+    2026-09-24, HARD RULE 9 (the model never types a phone number, helpline or
+    organisation) plus the no-numbers clause in all seven guards. **ALL ELEVEN
+    personas changed**: HARD RULES render for every persona. No stored eval result
+    is comparable to a run before this value. Accepted by founder ruling as the
+    cost of a universal safety rule.
     """
     from evals.run import persona_config_hash
-    assert persona_config_hash() == "9a6db8f1208b33e4"
+    assert persona_config_hash() == "2c79e563e33f3eed"
 
 
 @pytest.mark.parametrize("slug", sorted(PERSONA_REGISTRY))
