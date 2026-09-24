@@ -1533,11 +1533,44 @@ class ConversationService:
 
         full_response = "".join(_buf)
 
+        # ── POST-GEN SAFETY (TD-101) — parity with stream_response ───────────
+        # This path used to skip check_output entirely: a generated reply
+        # reached the user without the gate every other generation path runs.
+        # The shape is stream_response's, deliberately: the check runs once the
+        # stream is complete (the reply has already been on screen), and on a
+        # positive the client is told to replace it — safety_override flips
+        # safetyActive, which unmounts the streamed text and renders
+        # SafetyBubble. The app-voice response then streams in the user's
+        # language and is what gets saved, marked persona_override. The
+        # suppressed reply is logged (first 100 chars) and never persisted.
+        safety_out = await safety_service.check_output(full_response)
+        if safety_out.should_suppress_persona:
+            logger.warning(
+                "post_gen_safety_override",
+                extra={
+                    "path": "another_mind",
+                    "persona_slug": persona.slug,
+                    "safety_level": safety_out.level,
+                    "conversation_id": str(conversation_id),
+                    "user_id": str(user_id),
+                    "exposed_content_first_100": full_response[:100],
+                },
+            )
+            yield f"data: {json.dumps({'type': 'safety_override', 'level': safety_out.level})}\n\n"
+            full_response = prompt_builder.build_safety_response(
+                level=safety_out.level, language=dominant_language([last_user_text]),
+            )
+            for chunk in self._chunk_text(full_response):
+                yield f"data: {json.dumps({'type': 'chunk', 'data': chunk})}\n\n"
+            await self._log_safety_event(db, user_id, conv.id, None, safety_out, "post_generation")
+
         # ── 6. PERSIST ASSISTANT MESSAGE WITH TARGET PERSONA ID ───────────────
         assistant_msg = await self._save_message(
             db, conv, user_id, "assistant", full_response,
             retrieval_ids=[str(p.id) for p in passages],
             persona_id=target_db.id,
+            safety_level=safety_out.level,
+            persona_override=safety_out.should_suppress_persona,
             model_used=model,
             tokens_used=_token_sink.get("total") or None,
             input_tokens=_token_sink.get("input"),
@@ -1567,7 +1600,10 @@ class ConversationService:
         # requests making the day's first write for the same (user, persona)
         # would collide on the primary key, and the failed commit would take the
         # saved reply down with it. ON CONFLICT cannot collide.
-        if not is_admin and conv.ritual_id is None:
+        #
+        # Not counted when the reply was suppressed (TD-101), as send-message
+        # does: the user received the safety response, not a reply.
+        if not is_admin and conv.ritual_id is None and not safety_out.should_suppress_persona:
             await db.execute(another_mind_usage_upsert(user_id, target_db.id, utc_today()))
         await db.commit()
 
@@ -1813,12 +1849,45 @@ class ConversationService:
 
         full_response = "".join(_buf)
 
+        # ── POST-GEN SAFETY (TD-101) — parity with stream_response ───────────
+        # This path used to skip check_output entirely: a generated reply
+        # reached the user without the gate every other generation path runs.
+        # The shape is stream_response's, deliberately: the check runs once the
+        # stream is complete (the reply has already been on screen), and on a
+        # positive the client is told to replace it — safety_override flips
+        # safetyActive, which unmounts the streamed text and renders
+        # SafetyBubble. The app-voice response then streams in the user's
+        # language and is what gets saved, marked persona_override. The
+        # suppressed reply is logged (first 100 chars) and never persisted.
+        safety_out = await safety_service.check_output(full_response)
+        if safety_out.should_suppress_persona:
+            logger.warning(
+                "post_gen_safety_override",
+                extra={
+                    "path": "go_deeper",
+                    "persona_slug": persona.slug,
+                    "safety_level": safety_out.level,
+                    "conversation_id": str(conversation_id),
+                    "user_id": str(user_id),
+                    "exposed_content_first_100": full_response[:100],
+                },
+            )
+            yield f"data: {json.dumps({'type': 'safety_override', 'level': safety_out.level})}\n\n"
+            full_response = prompt_builder.build_safety_response(
+                level=safety_out.level, language=dominant_language([last_user_text]),
+            )
+            for chunk in self._chunk_text(full_response):
+                yield f"data: {json.dumps({'type': 'chunk', 'data': chunk})}\n\n"
+            await self._log_safety_event(db, user_id, conv.id, None, safety_out, "post_generation")
+
         # ── 6. PERSIST ASSISTANT MESSAGE WITH TARGET PERSONA ID ───────────────
         assistant_msg = await self._save_message(
             db, conv, user_id, "assistant", full_response,
             retrieval_ids=[str(p.id) for p in passages],
             persona_id=target_db.id,
             message_kind='go_deeper',
+            safety_level=safety_out.level,
+            persona_override=safety_out.should_suppress_persona,
             model_used=model,
             tokens_used=_token_sink.get("total") or None,
             input_tokens=_token_sink.get("input"),
@@ -1839,8 +1908,10 @@ class ConversationService:
         # sticky guests cannot reset the limit. Reached only on a successful
         # generation (a mid-stream failure returns earlier, before this), so a
         # failed go-deeper never consumes the user's daily allowance. Skipped for
-        # admins and ritual conversations, matching the check.
-        if not is_admin and conv.ritual_id is None:
+        # admins and ritual conversations, matching the check — and for a
+        # suppressed reply (TD-101), as send-message does: the user received the
+        # safety response, not a go-deeper.
+        if not is_admin and conv.ritual_id is None and not safety_out.should_suppress_persona:
             # utc_today() — see the note at the other daily_usage write site.
             today = utc_today()
             gd_usage_result = await db.execute(

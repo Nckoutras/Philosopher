@@ -2776,3 +2776,157 @@ async def test_an_admin_another_mind_reply_is_not_counted():
 @pytest.mark.asyncio
 async def test_a_ritual_another_mind_reply_is_not_counted():
     assert _usage_upserts(await _run_another_mind_for_counter(ritual_id="ritual-1")) == []
+
+
+# ── TD-101: post-generation safety on another-mind and go-deeper ─────────────
+# Both paths used to skip check_output. They now run it exactly as
+# stream_response does: after the stream, on the full reply; on a positive, a
+# safety_override event, the app-voice response streamed and SAVED in place of
+# the reply (persona_override), a safety_events row, and no allowance consumed.
+# The REAL safety_service runs here — the reply carries one of its own output
+# phrases — so these pin behaviour against the shipped thresholds, not a mock.
+
+import json  # noqa: E402
+
+HARMFUL_REPLY = "Some would speak of a lethal dose; the Stoic would not."
+CLEAN_REPLY = "Consider what is in your power today."
+SAFE_TEXT = "APP-VOICE SAFETY RESPONSE"
+
+
+async def _run_guest_safety(which, reply, *, is_admin=False):
+    import sys
+    service = ConversationService()
+
+    conv = _mock_conv()
+    conv.ritual_id = None   # C-06: explicit, or the counters are skipped for a MagicMock
+    # go-deeper's free limit check does UUID(user_id) / UUID(conv.persona_id)
+    # before it is reached, so this path needs real UUID strings. The check itself
+    # is patched to allow — it is not what these tests are about.
+    user_id = USER_ID
+    if which == "go_deeper":
+        import uuid as _uuid
+        user_id = str(_uuid.uuid4())
+        conv.persona_id = str(_uuid.uuid4())
+
+    async def one_reply(*a, **kw):
+        yield reply
+
+    mock_llm = MagicMock()
+    mock_llm.stream = one_reply
+
+    with (
+        patch.object(sys.modules[__name__], "_mock_conv", return_value=conv),
+        patch("services.conversation_service.memory_service") as mock_memory,
+        patch("services.conversation_service.retrieval_service") as mock_retrieval,
+        patch("services.conversation_service.llm_client", mock_llm),
+        patch("services.conversation_service.prompt_builder") as mock_prompt,
+        patch("services.conversation_service.get_persona") as mock_get_persona,
+        patch("services.conversation_service.rate_limit_service.check_go_deeper_limit",
+              new=AsyncMock(return_value=MagicMock(allowed=True))),
+    ):
+        mock_memory.recall = AsyncMock(return_value=[])
+        mock_retrieval.retrieve = AsyncMock(return_value=[])
+        _use_real_cache_split(mock_prompt)
+        mock_prompt.build_safety_response.return_value = SAFE_TEXT
+        persona_config = MagicMock()
+        persona_config.slug = "socrates"
+        persona_config.name = "Socrates"
+        mock_get_persona.return_value = persona_config
+        service._save_message = AsyncMock(return_value=_saved_msg())
+        service._log_safety_event = AsyncMock()
+
+        if which == "another_mind":
+            db = _make_db_seeded_history(_seeded_history(4), 10)
+        else:
+            db = _make_db_go_deeper_history(_seeded_history(4), 10)
+        inner = db.execute
+        executed = []
+
+        async def recording(stmt, *a, **kw):
+            executed.append(stmt)
+            return await inner(stmt, *a, **kw)
+
+        db.execute = recording
+        if which == "another_mind":
+            gen = service.stream_another_mind(
+                db=db, conversation_id=CONV_ID, user_id=user_id,
+                target_persona_slug="socrates", user_plan="pro", is_admin=is_admin,
+            )
+        else:
+            gen = service.stream_go_deeper(
+                db=db, conversation_id=CONV_ID, user_id=user_id,
+                user_plan="pro", is_admin=is_admin,
+            )
+        events = [json.loads(e[len("data: "):]) async for e in gen if e.startswith("data: ")]
+
+    return {
+        "events": events,
+        "saved": service._save_message.call_args,
+        "logged": service._log_safety_event,
+        "executed": executed,
+        "db": db,
+    }
+
+
+def _usage_writes(run):
+    """Every daily_usage write either path makes: the another-mind upsert, and
+    go-deeper's select-then-add (a SELECT on daily_usage, then db.add or a bump)."""
+    def touches_daily_usage(stmt):
+        # Structural, not str(stmt): rendering the upsert would bind-process the
+        # fake "user-uuid-1" as a UUID and raise.
+        table = getattr(stmt, "table", None)
+        if getattr(table, "name", None) == "daily_usage":
+            return True
+        froms = stmt.get_final_froms() if hasattr(stmt, "get_final_froms") else []
+        return any(getattr(f, "name", None) == "daily_usage" for f in froms)
+
+    stmts = [s for s in run["executed"] if touches_daily_usage(s)]
+    adds = [c.args[0] for c in run["db"].add.call_args_list
+            if type(c.args[0]).__name__ == "DailyUsage"]
+    return stmts + adds
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("which", ["another_mind", "go_deeper"])
+async def test_a_harmful_guest_reply_is_replaced_saved_as_safety_and_logged(which):
+    run = await _run_guest_safety(which, HARMFUL_REPLY)
+    types = [e["type"] for e in run["events"]]
+
+    # The client is told to replace what it streamed…
+    assert "safety_override" in types
+    i = types.index("safety_override")
+    assert run["events"][i]["level"] == "high"
+    # …the app-voice response follows it…
+    after = "".join(e["data"] for e in run["events"][i + 1:] if e["type"] == "chunk")
+    assert after == SAFE_TEXT
+    assert types[-1] == "done"
+
+    # …and it, not the reply, is what is saved.
+    args, kwargs = run["saved"].args, run["saved"].kwargs
+    assert args[4] == SAFE_TEXT
+    assert HARMFUL_REPLY not in str(run["saved"])
+    assert kwargs["persona_override"] is True
+    assert kwargs["safety_level"] == "high"
+
+    run["logged"].assert_awaited_once()
+    assert run["logged"].await_args.args[5] == "post_generation"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("which", ["another_mind", "go_deeper"])
+async def test_a_suppressed_guest_reply_consumes_no_allowance(which):
+    """Parity with send-message: the user received the safety response, not a
+    reply, so neither another_mind_count nor go_deeper_count moves."""
+    assert _usage_writes(await _run_guest_safety(which, HARMFUL_REPLY)) == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("which", ["another_mind", "go_deeper"])
+async def test_a_clean_guest_reply_is_untouched_and_counted(which):
+    run = await _run_guest_safety(which, CLEAN_REPLY)
+    assert "safety_override" not in [e["type"] for e in run["events"]]
+    assert run["saved"].args[4] == CLEAN_REPLY
+    assert run["saved"].kwargs["persona_override"] is False
+    assert run["saved"].kwargs["safety_level"] == "none"
+    run["logged"].assert_not_awaited()
+    assert _usage_writes(run) != []   # the harness can see a count when one happens
