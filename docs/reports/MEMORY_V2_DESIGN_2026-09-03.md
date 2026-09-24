@@ -114,6 +114,17 @@ every letter.
 
 The widening is **contingent on PR-0 shipping first**; §4c is why.
 
+**Addendum 2026-09-24 — #7c and CLAUDE.md C-07 each govern their own case
+(founder ruling).** C-07 (codified 2026-09-22) says to delete `memory_entries`,
+`insights` and `safety_events` first when *removing* conversation-derived content.
+That is the rule for cleanup procedures. #7c is the rule for the user's own
+`DELETE /conversations/{id}`: memories and insights are kept, and the delete dialog
+says so. Neither overrules the other. Re-affirmed on 2026-09-24 after a review
+misread the kept rows as a C-07 violation. Production then held zero orphaned rows:
+all 709 chat-extracted memories and 32 insights still carried their
+`conversation_id`. The gap #7c leaves — a kept memory cannot be seen or removed by
+the user — is TD-111 in the backlog.
+
 ---
 
 ## 1. DRIFT — the investigation report vs. current main
