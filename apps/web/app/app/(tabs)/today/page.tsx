@@ -156,6 +156,10 @@ export default function TodayPage() {
         // even though the "Continuing." card itself now lives in Library.
         const convRes = await api.getLastConversation()
         setLastConv(convRes)
+      } catch (err) {
+        // TD-103. Without this catch a failed request was an unhandled rejection.
+        // lastConv stays null, so the page renders its empty state once loading ends.
+        console.error('today load failed:', err)
       } finally {
         setLoading(false)
       }

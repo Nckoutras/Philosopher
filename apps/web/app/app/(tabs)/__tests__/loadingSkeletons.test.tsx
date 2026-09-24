@@ -46,10 +46,24 @@ beforeEach(() => {
   // RESOLVE either — a resolved promise would flip `loading` false and this test
   // would assert the loaded page instead of the branch it is about. A promise that
   // never settles holds the page in exactly the state under test.
+  // The methods are on the prototype, not the instance: see 'the harness' below.
   const never = () => new Promise(() => {})
-  for (const m of Object.keys(api) as (keyof typeof api)[]) {
-    if (typeof api[m] === 'function') vi.spyOn(api, m).mockImplementation(never as never)
+  const proto = Object.getPrototypeOf(api)
+  for (const m of Object.getOwnPropertyNames(proto)) {
+    if (m !== 'constructor' && typeof proto[m] === 'function') {
+      vi.spyOn(api, m as keyof typeof api).mockImplementation(never as never)
+    }
   }
+})
+
+describe('the harness', () => {
+  // TD-103. The loop above used to walk Object.keys(api). `api` is an ApiClient
+  // instance, so its methods live on the prototype and Object.keys never saw
+  // them: nothing was mocked, a real request left the test, and its rejection
+  // landed as an unhandled error that made a green run exit 1.
+  it('mocks the requests the pages make on mount', () => {
+    expect(vi.isMockFunction(api.getLastConversation)).toBe(true)
+  })
 })
 
 describe('the Home loading branch is not a blank screen', () => {

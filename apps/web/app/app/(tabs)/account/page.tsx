@@ -160,7 +160,11 @@ export default function AccountPage() {
     signOut()
   }
 
-  if (!authed) {
+  // TD-87. The guard was on `authed` alone and the profile card read `user` bare.
+  // store.setAuth / clearAuth write `user` and `token` together, so `authed && !user`
+  // should not occur; if it does (a partial or hand-edited localStorage), the page
+  // holds on this placeholder instead of throwing.
+  if (!authed || !user) {
     return <div className="min-h-screen [min-height:100svh] bg-vellum" />
   }
 

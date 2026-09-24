@@ -32,7 +32,9 @@ function OAuthFinish() {
       return
     }
 
-    async function finish() {
+    // Takes the token as a parameter: TypeScript does not carry the `!token`
+    // narrowing above into a nested function, so the closure saw `string | null`.
+    async function finish(token: string) {
       try {
         api.setToken(token)
         const user = await api.me()
@@ -76,7 +78,7 @@ function OAuthFinish() {
       }
     }
 
-    finish()
+    finish(token)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
