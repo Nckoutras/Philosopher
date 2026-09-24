@@ -3038,9 +3038,18 @@ five that fail.
 A global 5/day would be 3× stricter than today. Tightening a live free limit changes
 what existing users can do, so it stays a product decision to take with usage data.
 
-**Caveat, not verified here:** `BETA_GRANT_PRO_TO_ALL` defaults to `False` in
-`config.py`. If enabled on Render, every user resolves to Pro and the free cap
-applies to nobody.
+**`BETA_GRANT_PRO_TO_ALL` = `false` on Render (API service) — FOUNDER-VERIFIED
+2026-09-24.** The free cap is live. This had been carried as unverified since
+PROJECT_STATE_v25, most recently as item 9 of PROJECT_STATE_v29's "FOUNDER-REPORTED
+— not verified" list; v20–v24's "OFF (2026-06-03)" was a copied claim, not a reading.
+
+**What the verification does NOT buy:** there is no record of *when* the flag last
+changed, so a stored reply still cannot be tied to a tier retroactively — any row
+could date from a window in which the flag was on and every user resolved to Pro.
+That is why `messages.model_used` is now written at every LLM-backed assistant save
+(the three streaming paths and the revisit opening): from the deploy of that change
+forward, the model that produced a reply is recorded on the row itself, independent
+of the flag's history. Nothing before it is recovered.
 
 ---
 
@@ -3060,6 +3069,13 @@ disagree, which is the whole of the problem. (The line was cited as `:103` until
 observe a live checkout charging the displayed amount. Test and live price objects
 are separate and nothing carries across. **Nothing about the live switch should
 proceed until a live checkout has been observed charging what the page says.**
+
+**Stripe Tax — before the first real sale:** enable Stripe Tax in the **live**
+dashboard, then set `STRIPE_TAX_ENABLED=true` on the API service. Until both are
+done, checkout collects no VAT (EU B2C digital services: VAT is due in the
+customer's country) and every checkout logs *"checkout created with no VAT
+calculation; STRIPE_TAX_ENABLED is off"*. Order matters: the flag without the
+dashboard makes `automatic_tax` error and breaks checkout.
 
 **This also blocks structured-data pricing (Batch D, 2026-09-17).** The homepage
 JSON-LD deliberately carries no `offers`/`price`: publishing €99.99 as machine-

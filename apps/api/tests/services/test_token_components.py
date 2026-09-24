@@ -97,7 +97,7 @@ def _fake_stream(components):
     return fake_stream
 
 
-async def _run(components=(INPUT_T, CACHE_WR, CACHE_RD, OUTPUT_T)):
+async def _run(components=(INPUT_T, CACHE_WR, CACHE_RD, OUTPUT_T), user_plan="pro"):
     """Drive stream_response with _save_message REAL, so assertions cover the
     actual Message constructor rather than a mock's call args."""
     service = ConversationService()
@@ -136,7 +136,7 @@ async def _run(components=(INPUT_T, CACHE_WR, CACHE_RD, OUTPUT_T)):
             conversation_id=CONV_ID,
             user_id=USER_ID,
             user_text="What is virtue?",
-            user_plan="pro",
+            user_plan=user_plan,
         ):
             pass
 
@@ -282,3 +282,81 @@ async def test_every_sink_key_accumulates_in_lockstep():
     # stored output_tokens column.
     derived = sink["total"] - (sink["input"] + sink["cache_creation"] + sink["cache_read"])
     assert derived == 2 * OUTPUT_T
+
+
+# ── messages.model_used ──────────────────────────────────────────────────────
+# NULL on every row before this was wired, so no stored reply can be tied to the
+# model that produced it — and BETA_GRANT_PRO_TO_ALL has no change history, so
+# the tier cannot stand in for it retroactively either. These pin the column
+# being written from here on.
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("user_plan,expected", [
+    ("pro", "claude-sonnet-4-6"),
+    ("free", "claude-haiku-4-5-20251001"),
+])
+async def test_stream_response_records_the_model_that_was_called(user_plan, expected):
+    from services.conversation_service import MODEL_FREE, MODEL_PRO
+
+    # Literals above on purpose, cross-checked here: a renamed constant should
+    # not silently re-point what this test believes each tier gets.
+    assert {"pro": MODEL_PRO, "free": MODEL_FREE}[user_plan] == expected
+    db = await _run(user_plan=user_plan)
+    assert _assistant(db).model_used == expected
+
+
+@pytest.mark.asyncio
+async def test_save_message_leaves_model_used_null_when_not_given():
+    """User turns and the no-LLM safety line (:749) must stay NULL — a model id
+    there would claim a generation that never happened."""
+    service = ConversationService()
+    db = AsyncMock()
+    db.add = MagicMock()
+    msg = await service._save_message(db, _mock_conv(), USER_ID, "user", "hi")
+    assert msg.model_used is None
+
+
+def _assistant_saves_by_function():
+    """{function name: [model_used keyword source per assistant save, in source
+    order]}. None where the keyword is absent."""
+    import ast
+    import inspect
+    import services.conversation_service as cs
+
+    tree = ast.parse(inspect.getsource(cs))
+    out = {}
+    for fn in ast.walk(tree):
+        if not isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        for node in ast.walk(fn):
+            if not (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Attribute)
+                and node.func.attr == "_save_message"
+                and len(node.args) >= 4
+                and isinstance(node.args[3], ast.Constant)
+                and node.args[3].value == "assistant"
+            ):
+                continue
+            kw = {k.arg: ast.unparse(k.value) for k in node.keywords}
+            out.setdefault(fn.name, []).append((node.lineno, kw.get("model_used")))
+    return {name: [v for _, v in sorted(saves)] for name, saves in out.items()}
+
+
+def test_every_llm_backed_assistant_save_records_its_model():
+    """The streaming paths other than stream_response have no real-save harness,
+    so their wiring is pinned at the source: each passes the `model` it streamed
+    with, and the revisit opening passes the MODEL_PRO it completed with."""
+    saves = _assistant_saves_by_function()
+
+    # stream_response has two: first the pre-generation safety line (no LLM
+    # call, so NULL is the correct value), then the streamed reply.
+    assert saves["stream_response"] == [None, "model"]
+    assert saves["stream_another_mind"] == ["model"]
+    assert saves["stream_go_deeper"] == ["model"]
+    assert saves["create_reading_revisit"] == ["MODEL_PRO"]
+    # And nowhere else: a new assistant save must decide its model_used here.
+    assert set(saves) == {
+        "stream_response", "stream_another_mind", "stream_go_deeper",
+        "create_reading_revisit",
+    }, f"unexpected assistant save sites: {saves}"

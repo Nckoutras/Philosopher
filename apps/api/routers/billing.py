@@ -192,6 +192,16 @@ async def create_checkout(
         checkout_kwargs["metadata"] = {"source": body.source}
         checkout_kwargs["subscription_data"] = {"metadata": {"source": body.source}}
 
+    # Stripe Tax, behind a flag: automatic_tax errors unless Stripe Tax is also
+    # enabled in the dashboard for this mode, so the code ships dark and the
+    # flag is flipped on the API service once the live dashboard is set up.
+    # customer_update is required because an existing customer is passed —
+    # Stripe needs leave to write the collected address back to it.
+    if config.STRIPE_TAX_ENABLED:
+        checkout_kwargs["automatic_tax"] = {"enabled": True}
+        checkout_kwargs["customer_update"] = {"address": "auto"}
+        checkout_kwargs["billing_address_collection"] = "required"
+
     session = stripe.checkout.Session.create(
         customer=customer_id,
         mode="subscription",
@@ -201,6 +211,9 @@ async def create_checkout(
         allow_promotion_codes=True,
         **checkout_kwargs,
     )
+    if not config.STRIPE_TAX_ENABLED:
+        # After create, not before: the message says a checkout WAS created.
+        logger.warning("checkout created with no VAT calculation; STRIPE_TAX_ENABLED is off")
 
     analytics_service.track("checkout_started", user.id, {
         "plan": body.plan,

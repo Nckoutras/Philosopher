@@ -76,6 +76,14 @@ class Settings(BaseSettings):
     # Cold beta override: grants Pro tier to all users regardless of subscription
     BETA_GRANT_PRO_TO_ALL: bool = False
 
+    # Stripe Tax on checkout (EU B2C digital services: VAT is due in the
+    # customer's country). Off by default because automatic_tax ERRORS unless
+    # Stripe Tax is also enabled in the Stripe dashboard for the same mode —
+    # shipping the code must not break checkout before that is done. Set true
+    # on the API service only after the live dashboard is configured. While
+    # off, every checkout logs a warning (routers/billing.py).
+    STRIPE_TAX_ENABLED: bool = False
+
     # Frontend base URL — used for OAuth redirects, email links, Stripe return URLs
     FRONTEND_URL: str = "http://localhost:3000"
 
