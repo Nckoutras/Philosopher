@@ -3,9 +3,10 @@
 The summary is a kind, plain mirror of HOW a user answers — generated once and
 cached on user_preferences.portrait_cache (migration 039), regenerated whenever the
 ANSWER SET changes (see answers_fingerprint). Best-fit personas are chosen rule-based via
-matching_service.compute_matches, fed by a frequency-ranked set of themes derived
-from the user's answered questions through the approved bridge map below; the LLM
-authors only the prose (summary + per-persona "why" lines), never the selection.
+matching_service.compute_matches, fed by the user's top themes — scored from the
+CHOSEN pills' weights through the approved bridge map below (themes_from_answers);
+the LLM authors only the prose (summary + per-persona "why" lines), never the
+selection.
 
 Best-effort throughout: any failure returns None so the endpoint falls back to the
 forming preview and still returns 200. Never raises into the request path.
@@ -48,6 +49,12 @@ BEST_FIT_PERSONAS = 2  # surface the top 1-2
 # retry resumes once this elapses, so a transient outage self-heals.
 GENERATION_RETRY_COOLDOWN_SECONDS = 600  # 10 minutes
 
+# Bumped when the RULE that turns answers into the cached portrait changes, so every
+# cache written under the old rule stops matching answers_fingerprint and regenerates
+# once. 2 = best-fit themes read the chosen pill (2026-09-24); caches written before
+# it hold best-fit personas chosen without reading a single answer.
+PORTRAIT_SCORING_VERSION = 2
+
 # ── Bridge map: self-portrait theme_tags (20-word vocab) → matching themes ──────
 #
 # matching_service.compute_matches scores against a DIFFERENT 12-word vocabulary
@@ -88,20 +95,69 @@ SELF_PORTRAIT_TAG_TO_THEME: dict[str, tuple[str, ...]] = {
 }
 
 
+def _pill_theme_weights(q: dict, pill_index: int) -> Counter[str]:
+    """Matching-theme weight one pill puts down: its authored pill_weights, each tag
+    sent through the approved bridge (identity lands on two themes). The SAME
+    founder-approved weights the radar reads (self_portrait._pill_axis_sums); a
+    question without weights falls back to 1 per tag for every pill, as there."""
+    out: Counter[str] = Counter()
+    weights = q.get("pill_weights")
+    if isinstance(weights, list) and 0 <= pill_index < len(weights):
+        tag_weights = weights[pill_index] or {}
+    else:
+        tag_weights = {tag: 1 for tag in (q.get("theme_tags") or [])}
+    for tag, value in tag_weights.items():
+        for theme in SELF_PORTRAIT_TAG_TO_THEME.get(tag, ()):
+            out[theme] += value
+    return out
+
+
 def themes_from_answers(answers: dict, top_n: int = USER_THEMES_N) -> list[str]:
-    """Aggregate the answered questions' INTERNAL theme_tags, map each through the
-    bridge (identity yields two), frequency-rank, and return the top N matching
-    themes. Deterministic: ties break alphabetically. Unknown ids / unmapped tags
-    are skipped."""
-    counts: Counter[str] = Counter()
-    for qid in answers or {}:
+    """The user's top N matching themes, read from the pills they CHOSE.
+
+    Scored exactly as the radar scores its axes (self_portrait.portrait_theme_scores),
+    over the 12 matching themes instead of the 8 axes:
+
+      raw_T        = sum of the chosen pill's weights landing on theme T
+      achievable_T = sum, per answered question, of the MAX any of its pills puts on T
+      share_T      = raw_T / achievable_T   — how far their answers went toward T
+
+    Ranked by share, then raw weight (more evidence wins a tie), then name. A theme
+    no chosen pill reached (raw 0) is never returned.
+
+    WHY NOT A TAG COUNT (what this replaced, founder ruling 2026-09-24). Counting the
+    answered QUESTIONS' tags never read the answer, so the themes — and the two
+    best-fit personas — were a function of which questions were answered: every free
+    user who finished the fixed 15 got Socrates + Orwell, whatever they chose.
+    A raw weight sum was measured and rejected too: `identity` is the most frequent
+    tag and feeds both purpose and doubt, so raw sums returned Socrates + Orwell for
+    72.6% of random free profiles. Share-of-achievable is what lets a person's lean
+    show.
+
+    Also the source of the quote nudge's candidate themes (quote_suggest) — one
+    definition of the person's themes, so both surfaces read the answers.
+
+    Unknown ids and out-of-range pill indices are skipped from numerator AND
+    denominator, as in the radar."""
+    raw: Counter[str] = Counter()
+    achievable: Counter[str] = Counter()
+    for qid, pill_index in (answers or {}).items():
         q = get_question(qid)
         if q is None:
             continue
-        for tag in (q.get("theme_tags") or []):
-            for theme in SELF_PORTRAIT_TAG_TO_THEME.get(tag, ()):
-                counts[theme] += 1
-    ranked = sorted(counts, key=lambda t: (-counts[t], t))
+        pills = q.get("pills") or []
+        if not isinstance(pill_index, int) or isinstance(pill_index, bool) \
+                or not (0 <= pill_index < len(pills)):
+            continue
+        raw.update(_pill_theme_weights(q, pill_index))
+        best: Counter[str] = Counter()
+        for i in range(len(pills)):
+            for theme, value in _pill_theme_weights(q, i).items():
+                best[theme] = max(best[theme], value)
+        achievable.update(best)
+
+    share = {t: raw[t] / achievable[t] for t in achievable if achievable[t] > 0 and raw[t] > 0}
+    ranked = sorted(share, key=lambda t: (-share[t], -raw[t], t))
     return ranked[:top_n]
 
 
@@ -201,7 +257,11 @@ def answers_fingerprint(answers: dict | None) -> str:
     portrait open.
     """
     pairs = [[str(qid), (answers or {})[qid]] for qid in sorted(answers or {})]
-    payload = json.dumps(pairs, separators=(",", ":"), ensure_ascii=False)
+    # The scoring version is part of the identity: a cache written under an older
+    # best-fit rule no longer matches, so it regenerates once on the next open.
+    payload = json.dumps(
+        [PORTRAIT_SCORING_VERSION, pairs], separators=(",", ":"), ensure_ascii=False,
+    )
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:32]
 
 

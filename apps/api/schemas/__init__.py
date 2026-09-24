@@ -482,8 +482,10 @@ class SelfPortraitOut(BaseModel):
 
 
 class BestFitOut(BaseModel):
-    """One best-fit persona for the Self-Portrait payoff. POPULATED IN 5b — the
-    fields are reserved here so the contract is stable; 5a never emits these."""
+    """One best-fit persona for the Self-Portrait payoff, emitted once the portrait
+    is `ready` (live since #396). Chosen rule-based from the user's top themes
+    (self_portrait_summary.themes_from_answers → compute_matches); `why` is the
+    LLM-authored line, the selection never is."""
     slug: str
     name: str
     portrait_url: str | None = None
@@ -505,14 +507,14 @@ class SelfPortraitPortraitOut(BaseModel):
 
     Breadth-aware: `state` is 'forming' until the user's answers span enough life
     areas, then 'ready'. The payload NEVER carries a count/%/fraction — only the
-    state plus the surfaced content. In 5a only `state` + `preview` are emitted;
-    `summary` and `best_fit` are reserved for 5b (the cached Sonnet summary +
-    persona best-fit) and stay null/empty until then. Phase B adds `theme_scores`
-    (the curated radar axes), present in every state and `[]` for backward-compat."""
+    state plus the surfaced content. `preview` carries the forming observation lines.
+    `summary` (the cached Sonnet summary) and `best_fit` (1-2 personas) are emitted
+    when `ready` and a generated portrait exists (live since #396); null/empty
+    otherwise. `theme_scores` (the curated radar axes) is present in every state."""
     state: str  # "forming" | "ready"
     preview: list[str] = []        # forming-style observation lines (always usable)
-    summary: str | None = None     # 5b: cached LLM summary
-    best_fit: list[BestFitOut] = []  # 5b: top 1-2 personas
+    summary: str | None = None     # cached LLM summary (ready only)
+    best_fit: list[BestFitOut] = []  # top 1-2 personas (ready only)
     theme_scores: list[ThemeScoreOut] = []  # B1: curated radar axes, fixed octagon order
 
 
