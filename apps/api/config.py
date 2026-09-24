@@ -6,7 +6,10 @@ class Settings(BaseSettings):
     # App
     APP_NAME: str = "Philosopher"
     ENV: str = "development"
-    DEBUG: bool = True
+    # OFF unless set. DEBUG serves /docs and echoes every SQL statement to the
+    # log, so an unset value must not turn both on in production. Local dev
+    # sets DEBUG=true in .env (.env.example). main._warn_if_debug logs it.
+    DEBUG: bool = False
     API_SECRET_KEY: str = "change-me-in-production"
 
     # Database

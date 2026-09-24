@@ -1404,6 +1404,46 @@ keep these phrases out.
 
 ---
 
+### TD-110 — the admin persona editor writes a column no chat path reads — **OPEN**
+**Status: OPEN. Logged 2026-09-24 (founder ruling): log it, do not fix it here.
+The editor silently does nothing.**
+
+**What happens.** `PATCH /api/v1/admin/personas/{persona_id}`
+(`routers/admin.py:242-257`, unchanged since the initial commit `3af5f706`)
+merges the request body into `personas.config` and returns the merged dict. Its
+docstring promises "tuning without code deploy". But every generation path takes the
+persona from the Python registry, not from that column:
+
+- chat: `conversation_service.py:761` `get_persona(persona_db.slug)` →
+  `personas/__init__.py:30-31` `PERSONA_REGISTRY.get(slug)` → `prompt_builder.build_system`
+- Council: `council_service.py:284`, the same lookup
+- `routers/conversations.py:136`, `:276`, `:532`, the same lookup
+
+`personas.config` is read only as a fallback for `tagline` / `avatar_emoji` when a
+slug is missing from the registry (`routers/personas.py:34-35`, `routers/home.py:77`),
+and every live slug is in the registry.
+
+**Why it is worse than dead code.** The endpoint answers 200 and echoes the edited
+config back, so it reports success for an edit that changes nothing a user sees.
+An admin tuning a persona through it would see the new value in the response and
+in the database, and the same replies as before.
+
+**Not reachable from the product today.** No web code calls it (the 2026-09-24
+dead-code audit found no caller for any `/admin/*` route), and the route is
+admin-gated: an unauthenticated request in production answered 403 on 2026-09-24.
+So this is a trap for a future operator, not a live defect.
+
+**Relation to TD-91.** TD-91 records that `personas.config` is stale and read by
+nothing, and says the column is written only by migrations 006/027 and `db/seed.py`.
+That list is incomplete: this endpoint writes it too. TD-91's text is left as it
+was; this entry is the correction.
+
+**Options, undecided:** delete the endpoint; make it answer 410 with a pointer
+to the persona modules; or make runtime read the column, which is a design change
+C-01 and the registry were built to avoid. No urgency: nothing calls it.
+
+---
+
 ### TD-109 — the persona opening renders two ways for the same conversation — **OPEN, target ruled**
 **Status: OPEN. No fix now. TARGET RULED 2026-09-24: the bare italic is correct
 everywhere for the persona `opening_invocation` — the opening is a greeting, not a
