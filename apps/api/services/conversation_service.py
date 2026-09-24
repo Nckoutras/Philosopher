@@ -691,6 +691,7 @@ class ConversationService:
             db, conv, user_id, "assistant", text,
             safety_level=safety_out.level,
             persona_override=safety_out.should_suppress_persona,
+            model_used=MODEL_PRO,
         )
         await db.commit()
         return conv
@@ -1206,6 +1207,7 @@ class ConversationService:
                 safety_level=max(safety_in.level, safety_out.level, key=lambda l: ["none","low","medium","high","critical"].index(l)),
                 persona_override=safety_out.should_suppress_persona,
                 latency_ms=latency_ms,
+                model_used=model,
                 # tokens_used keeps `or None` — its established meaning, where a
                 # falsy total means the usage read failed. The components use a
                 # plain .get(): absent -> None (no reading), present -> the int,
@@ -1511,6 +1513,7 @@ class ConversationService:
             db, conv, user_id, "assistant", full_response,
             retrieval_ids=[str(p.id) for p in passages],
             persona_id=target_db.id,
+            model_used=model,
             tokens_used=_token_sink.get("total") or None,
             input_tokens=_token_sink.get("input"),
             cache_creation_tokens=_token_sink.get("cache_creation"),
@@ -1774,6 +1777,7 @@ class ConversationService:
             retrieval_ids=[str(p.id) for p in passages],
             persona_id=target_db.id,
             message_kind='go_deeper',
+            model_used=model,
             tokens_used=_token_sink.get("total") or None,
             input_tokens=_token_sink.get("input"),
             cache_creation_tokens=_token_sink.get("cache_creation"),
@@ -1848,6 +1852,7 @@ class ConversationService:
         input_tokens: int | None = None,
         cache_creation_tokens: int | None = None,
         cache_read_tokens: int | None = None,
+        model_used: str | None = None,
     ) -> Message:
         msg = Message(
             conversation_id=conv.id,
@@ -1864,6 +1869,7 @@ class ConversationService:
             input_tokens=input_tokens,
             cache_creation_tokens=cache_creation_tokens,
             cache_read_tokens=cache_read_tokens,
+            model_used=model_used,
         )
         db.add(msg)
         await db.flush()

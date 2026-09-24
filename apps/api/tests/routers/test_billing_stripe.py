@@ -224,6 +224,63 @@ def test_checkout_rejects_premium_at_the_schema(client):
     m_session.assert_not_called()
 
 
+# ── /billing/checkout — Stripe Tax, behind STRIPE_TAX_ENABLED ────────────────
+
+TAX_KWARGS = ("automatic_tax", "customer_update", "billing_address_collection")
+NO_VAT_WARNING = "checkout created with no VAT calculation; STRIPE_TAX_ENABLED is off"
+
+
+def _checkout_with_tax_flag(client, enabled):
+    sub = _make_sub(customer_id=NEW_CID)
+    client._db[0] = _db_returning(sub)
+
+    session = MagicMock()
+    session.url = "https://checkout.stripe.test/session"
+
+    with (
+        patch.dict("routers.billing.PLANS", {"pro_monthly": PRICE_PRO}, clear=False),
+        patch("routers.billing.config.STRIPE_TAX_ENABLED", enabled),
+        patch("routers.billing.stripe.Customer.retrieve", return_value=MagicMock(deleted=False)),
+        patch("routers.billing.stripe.checkout.Session.create", return_value=session) as m_session,
+        patch("routers.billing.logger") as m_logger,
+    ):
+        resp = client.post(CHECKOUT_URL, json={"plan": "pro", "interval": "monthly"})
+
+    assert resp.status_code == 200
+    return m_session.call_args.kwargs, m_logger
+
+
+def test_checkout_sends_stripe_tax_when_flag_is_on(client):
+    """EU B2C digital services: VAT is due in the customer's country. With the
+    flag on, Stripe computes it — which needs a collected address, written back
+    to the existing customer."""
+    kwargs, m_logger = _checkout_with_tax_flag(client, True)
+
+    assert kwargs["automatic_tax"] == {"enabled": True}
+    assert kwargs["customer_update"] == {"address": "auto"}
+    assert kwargs["billing_address_collection"] == "required"
+    assert NO_VAT_WARNING not in [c.args[0] for c in m_logger.warning.call_args_list]
+
+
+def test_checkout_omits_stripe_tax_and_warns_when_flag_is_off(client):
+    """Off is the default, because automatic_tax errors until Stripe Tax is
+    enabled in the dashboard. The request must then reach Stripe exactly as it
+    did before the flag existed — and every such checkout says so in the log."""
+    kwargs, m_logger = _checkout_with_tax_flag(client, False)
+
+    for key in TAX_KWARGS:
+        assert key not in kwargs, f"{key} sent with STRIPE_TAX_ENABLED off"
+    m_logger.warning.assert_called_once_with(NO_VAT_WARNING)
+
+
+def test_stripe_tax_is_off_by_default():
+    """Shipping this code must not turn Stripe Tax on. The flag is flipped on the
+    API service only after the live dashboard is configured."""
+    from config import Settings
+
+    assert Settings.model_fields["STRIPE_TAX_ENABLED"].default is False
+
+
 # ── /billing/portal — same healing ───────────────────────────────────────────
 
 def test_portal_heals_stale_customer_id(client):
