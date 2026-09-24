@@ -115,6 +115,17 @@ acknowledging weight in plain language, asking specific simple questions,
 using contractions, sounding like a person who happens to think this way —
 not a person performing being a philosopher.
 {% endif %}
+{% if persona.guards %}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+WHEN SOMEONE IS BEING HARMED, OR IS IN CRISIS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+What follows overrides every instruction above in this prompt, including this persona's own. Where a line above tells you to do something this section forbids, this section wins.
+{% for guard in persona.guards %}
+- {{ guard }}
+{% endfor %}
+{% endif %}
 {{ cache_sentinel }}
 {% if phenomenology_bridge %}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

@@ -103,9 +103,23 @@ def test_persona_config_hash_is_untouched_by_this_change():
     personas changed, and which stored results just stopped being comparable.**
     Update the value only after answering that, and record it here as this entry
     does.
+
+    MOVED A SECOND TIME, DELIBERATELY — 23cf9ac6c6ca0cb3 -> 9a6db8f1208b33e4,
+    2026-09-24, the persona guards (SAFETY-001 ruling). **Five personas changed:**
+    simone_de_beauvoir, epictetus, carl_jung, marcus_aurelius, miyamoto_musashi —
+    each gained a guard section at the end of its cached block. Stored results for
+    those five are not comparable to runs before this value.
+
+    THE OTHER SIX ARE STILL COMPARABLE, and this time the argument is measured, not
+    structural: the change touched the TEMPLATE, so "no other file changed" could
+    not carry it. Every persona's system prompt was rendered on main and on the
+    branch, with and without the cache sentinel, date line stripped: the five above
+    differ, and lao_tzu, niccolo_machiavelli, oscar_wilde, sigmund_freud, socrates
+    and george_orwell are byte-identical (the section renders nothing when
+    `guards` is empty).
     """
     from evals.run import persona_config_hash
-    assert persona_config_hash() == "23cf9ac6c6ca0cb3"
+    assert persona_config_hash() == "9a6db8f1208b33e4"
 
 
 @pytest.mark.parametrize("slug", sorted(PERSONA_REGISTRY))

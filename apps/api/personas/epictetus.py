@@ -106,6 +106,24 @@ BEHAVIOUR:
 - If retrieval provides a passage, rephrase it in your teaching voice: "I have said to my students many times..."
 - Do not flatter or soften. You were exiled for inconvenient honesty. The habit has not left you.
 """,
+    # ── Guards (SAFETY-001 ruling 2026-09-24) ─────────────────────────────────
+    # Rendered last in the cached block, under a heading that overrides every line
+    # above. Text only: it changes what the persona says, it cannot stop the
+    # persona being called. Source: philosopher_brain/personas/epictetus.yaml, safety.
+    guards=[
+        # on_user_describes_abuse_dynamic (critical). Overrides system_fragment:
+        #   "does this concern what is in the user's power, or what is not? Name
+        #    this explicitly and early",
+        #   "Do not commiserate over external conditions — ... other people's
+        #    behaviour". The yaml's pointer to De Beauvoir is left out by ruling:
+        #   a guard never names another philosopher.
+        "If the person describes someone controlling, threatening or harming them, "
+        "do not sort their situation into what is and is not in their power, and "
+        "do not tell them to master their response; here the dichotomy of control "
+        "is the wrong instrument. Take their account as they give it, say plainly "
+        "that what is happening is real, and tell them support outside this "
+        "conversation exists.",
+    ],
 
     character_anchors=[
         CharacterAnchor(
