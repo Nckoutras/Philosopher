@@ -18,16 +18,17 @@ from ._models import (
 class PersonaConfig:
     """A persona's full definition. NOT ALL OF IT REACHES THE MODEL.
 
-    READ THIS BEFORE EDITING A PERSONA TO CHANGE ITS BEHAVIOUR. Only eleven of
+    READ THIS BEFORE EDITING A PERSONA TO CHANGE ITS BEHAVIOUR. Only twelve of
     these fields are rendered into the system prompt by `system_base.jinja2`.
     Editing any other field changes the repo and changes nothing the model sees.
 
-    RENDERED — these eleven reach the prompt, and are the only levers on voice:
+    RENDERED — these twelve reach the prompt, and are the only levers on voice:
 
         challenge_level        questioning_pattern     tone
         challenge_style        sentence_structure      vocabulary_register
         conversational_moves   system_fragment         voice_calibration_examples
         emotional_acknowledgment                       forbidden_phrases
+        guards                 -- last in the cached block; OVERRIDES the rest
 
     NOT RENDERED, but read by code elsewhere — real fields, different consumers:
 
@@ -111,6 +112,17 @@ class PersonaConfig:
 
     # Voice calibration: paired WRONG/RIGHT examples injected into system prompt
     voice_calibration_examples: list[dict] = field(default_factory=list)
+
+    # Persona guards (SAFETY-001 ruling 2026-09-24). Prompt text, not a gate: each
+    # entry is rendered under the "WHEN SOMEONE IS BEING HARMED, OR IS IN CRISIS"
+    # section, the LAST block before the cache sentinel, whose heading states that
+    # it overrides every instruction above it — this persona's own lines included.
+    # Guards say what to do, never which line they cancel; the lines each one
+    # overrides are recorded in a comment beside it in the persona module.
+    # Drawn only from the `critical: true` promises in philosopher_brain/personas/
+    # *.yaml. A guard changes what the persona SAYS; it cannot stop the persona
+    # from being called — nothing detects these situations (SAFETY-001).
+    guards: list[str] = field(default_factory=list)
 
     # Section 5.7 — Phase 1 schema extension (all optional, all None by default)
     #
