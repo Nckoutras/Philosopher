@@ -1404,6 +1404,89 @@ keep these phrases out.
 
 ---
 
+### TD-109 — the persona opening renders two ways for the same conversation — **OPEN, target ruled**
+**Status: OPEN. No fix now. TARGET RULED 2026-09-24: the bare italic is correct
+everywhere for the persona `opening_invocation` — the opening is a greeting, not a
+turn. RITUAL PROMPTS ARE TURNS, NOT GREETINGS (ruled the same day): the user answers
+them, so they keep the bubble. The ruling covers `opening_invocation` only.**
+
+**What happens.** One static line, `PersonaConfig.opening_invocation`, reaches the screen
+two ways, and the ENTRY ROUTE alone decides which (not persona, plan or device —
+checked 2026-09-24):
+
+- **`/app/chat/[slug]`** (fresh persona open): the page never loads history. It renders
+  `conv.persona.opening_invocation` from the create response as `<OpeningInvocation>` —
+  centred italic, no bubble.
+- **`/app/chat/conv/[id]`** (return, reload, resumed thread, any link): the page loads
+  messages, and the opening is a stored assistant row
+  (`conversation_service.create_or_resume`, `:549`; backfilled for a reused empty
+  conversation at `:520`), so it renders as an ordinary assistant bubble. The italic
+  fallback there fires only when the thread has zero messages.
+
+So the same conversation is italic on first open and a bubble on every return. Seen on
+Musashi and Marcus on the QA account, 2026-09-24.
+
+**The stored row is also why `model_used` is NULL on openings** — it is inserted with
+`Message(...)` directly, not `_save_message`, and no model wrote it. That is correct.
+
+**Production, 2026-09-24:** 194 conversations with messages; **150 start with an assistant
+row** — 115 match the persona's stored opening text, 4 are ritual prompts, 31 match
+neither (not investigated; likely older opening texts). **6 saved lines point at an
+opening row** (users saved the greeting). 0 safety events do.
+
+**Candidate fix A — render the stored row as the italic header on the conversation page.**
+Keep storing it; the conversation page recognises the opening row and renders it as
+`<OpeningInvocation>` instead of a bubble.
+- **Recognising it is the hard part.** Nothing marks the row: `message_kind='standard'`,
+  `persona_id=NULL`, like any reply. "First assistant row before any user row" catches
+  it, but also catches the **4 ritual prompts** — which `routers/rituals.py:75` writes
+  by OVERWRITING the opening row with a personalised prompt the user answers. Whether a
+  ritual prompt is a greeting or a turn is not covered by the ruling. Matching on the
+  persona's current text misses the 31 rows that no longer match. A new marker
+  (e.g. `message_kind='opening'`) is the reliable route: a migration plus a backfill.
+- **Saved lines:** the 6 existing ones survive; the save action disappears from a
+  rendered header, so no new ones can be made.
+- **Untouched:** the W3 strip (the row stays and is still dropped from model history),
+  the data export (the row is still a message), `create_or_resume`'s backfill.
+
+**Candidate fix B — stop storing the row; the opening is presentation only.**
+`create_or_resume` stops inserting it; both pages render the header from
+`persona.opening_invocation`.
+- **The W3 strip** — `while lm_messages[0]["role"] == "assistant": pop` at
+  `conversation_service.py:905`, `:1466`, `:1782` — exists because the opening row is an
+  assistant turn with no user turn before it (the API requires user-first). With no row
+  it strips nothing for new conversations but must stay for the 150 existing ones and
+  for rituals. **Its comment at `:902` is already stale in one respect:** it names
+  "cross-persona bootstrap" as a second source, but `:571` says no bootstrap message is
+  created.
+- **Rituals break outright:** `rituals.py:75` finds the first assistant row and
+  overwrites it with the ritual prompt. With no opening row there is nothing to
+  overwrite; the ritual path would have to insert its own row.
+- **`create_or_resume`'s dedup/backfill** (`:497-533`) reasons about "a row that could
+  already have an opening message even though message_count == 0" and inserts a
+  missing one — that logic is removed or rewritten.
+- **The existing 150 rows stay** unless deleted, so the conversation page still needs
+  A's recognition for history. **Deleting them cascades:** `SavedLine.message_id` is
+  `ON DELETE CASCADE`, so the 6 saved greetings would be destroyed — the C-07 class of
+  problem.
+- **Tests:** `tests/services/test_conversation_service.py`, `tests/test_conversations.py`
+  and `tests/test_personas.py` all reference `opening_invocation`.
+
+**B alone does not reach the ruled target for existing conversations** — history still
+holds 150 rows. Either way, the conversation page needs a rule for the rows that already
+exist.
+
+**The ritual ruling decides between them.** Ritual prompts keep the bubble and persona
+openings become the italic header, so any fix must tell the two apart. A
+"first assistant row before any user row" rule cannot — `rituals.py:75` writes the
+ritual prompt INTO the opening row, so both occupy the same position. **That is an
+argument for Fix A with an explicit marker** (e.g. `message_kind='opening'`, set at
+insert and backfilled for the 115 matching rows, with rituals left `standard`), not for
+a positional rule. The 31 rows that match neither the current opening text nor a ritual
+still need classifying before any backfill.
+
+---
+
 ### TD-106 — three live personas have no safety promises authored — **OPEN DECISION**
 **Status: OPEN — a decision, not a defect to fix in the guard PR (founder ruling
 2026-09-24: "not something to improvise").**
