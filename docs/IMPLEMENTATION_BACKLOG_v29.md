@@ -1354,6 +1354,42 @@ for, since it is currently decoration.
 
 ---
 
+### TD-103 — `loadingSkeletons.test.tsx` intermittently leaks unhandled rejections — **NEW**
+**Status: OPEN. Blocks nothing today — web tests run under `continue-on-error: true`
+(TD-86) — and makes the web suite's exit code unreadable, which is the cost.**
+
+**What happens.** A full `vitest run` sometimes ends *"Vitest caught 3 unhandled
+errors"* — `Error: Not authenticated` from `ApiClient.request` (`lib/api.ts:777`),
+reached from `load()` in `app/app/(tabs)/today/page.tsx`, attributed to
+`app/app/(tabs)/__tests__/loadingSkeletons.test.tsx`. Every test still PASSES; the
+run exits 1.
+
+**Measured 2026-09-24, while verifying TD-101:**
+- **main** (`66618821`), full suite: **1 of 3 runs** hit it.
+- **the TD-101 branch**, full suite: **5 of 5 runs** — 3 with the new
+  `guestPathSafety.test.tsx`, 2 with it moved aside (so not caused by that file).
+- **the file run alone**: clean on main and on the branch (3 runs).
+- Neither `loadingSkeletons.test.tsx` nor the Today page imports `useStream`, the only
+  web file the branch changed. The higher rate on the branch is unexplained; it is
+  consistent with a timing-dependent failure and was not investigated further.
+
+**Cause.** Today's `load()` wraps `api.getLastConversation()` in `try/finally` with no
+`catch`, and the test mocks the auth gate and sets a token but does **not** mock
+`api` — so a real request is made and rejects, and nothing handles the rejection.
+Whether vitest attributes it depends on whether it lands while the test file is still
+running, which is why it is intermittent.
+
+**Why it matters although it blocks nothing.** An exit code that is sometimes 1 on a
+green suite trains everyone to ignore it — the same failure mode as "no run is not
+green" (CLAUDE.md, 2026-09-01). The day `continue-on-error` is removed from the web
+job, this becomes a random red build.
+
+**Two halves, both small, neither done here:** mock `api` in the test (the test's own
+defect), and decide whether Today's `load()` should catch — an unhandled rejection
+there is also what production does when that request fails.
+
+---
+
 ### TD-102 — the post-generation safety gate runs after the reply has been on screen — **OPEN DECISION**
 **Status: OPEN — a decision, not a defect. Logged 2026-09-24 (founder ruling): to be
 decided once, for all three chat paths together. Not proposed yet.**
