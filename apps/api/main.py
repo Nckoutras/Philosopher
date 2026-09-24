@@ -41,9 +41,26 @@ logging.basicConfig(level=logging.INFO if not config.DEBUG else logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 
+def _warn_if_debug() -> None:
+    """Say so at startup when DEBUG is on: /docs is served and SQL is echoed.
+
+    ERROR outside development, so Sentry's logging integration raises an event;
+    a WARNING there would sit in the log unread, which is how DEBUG stayed a
+    default-on setting nobody noticed.
+    """
+    if not config.DEBUG:
+        return
+    message = f"DEBUG is ON [{config.ENV}] — /docs is served and every SQL statement is logged."
+    if config.ENV == "development":
+        logger.warning(message)
+    else:
+        logger.error(message)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info(f"Starting Philosopher API [{config.ENV}]")
+    _warn_if_debug()
     if config.BETA_GRANT_PRO_TO_ALL:
         logger.warning("⚠️ BETA_GRANT_PRO_TO_ALL is ENABLED — all users granted Pro tier. Disable before production launch.")
 
