@@ -11,6 +11,7 @@ import anthropic
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import func, select, update
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from models import Conversation, DailyUsage, Message, Persona, Ritual, SafetyEvent, SavedLine, User, WeeklyLetter
 from personas import get_persona, is_persona_accessible
@@ -358,6 +359,30 @@ def _adaptive_band_for_input(user_text: str, persona) -> tuple[int, int] | None:
         return low + round(span * ADAPTIVE_LENGTH_LONG_FRACTION), high
     # Medium input: the persona's own band governs.
     return None
+
+
+def another_mind_usage_upsert(user_id, persona_id, usage_date):
+    """+1 another_mind_count on the (user, persona, day) row, creating it at 1.
+
+    A module-level function so tests/db_live can execute the exact statement
+    against Postgres: ON CONFLICT is SQL a mocked session cannot check.
+    """
+    return (
+        pg_insert(DailyUsage)
+        .values(
+            user_id=user_id,
+            persona_id=persona_id,
+            usage_date=usage_date,
+            another_mind_count=1,
+        )
+        .on_conflict_do_update(
+            index_elements=[DailyUsage.user_id, DailyUsage.persona_id, DailyUsage.usage_date],
+            set_={
+                "another_mind_count": DailyUsage.another_mind_count + 1,
+                "updated_at": func.now(),
+            },
+        )
+    )
 
 
 class ConversationService:
@@ -1527,6 +1552,23 @@ class ConversationService:
                 last_message_at=assistant_msg.created_at,
             )
         )
+
+        # ── 7. COUNT THE REPLY toward the Pro fair-use caps (TD-100) ─────────
+        # Reached only after a successful generation — a failed stream returned
+        # above — so a failed another-mind never consumes an allowance. Skipped
+        # for admins and ritual conversations, matching the router's checks and
+        # go-deeper's counter.
+        #
+        # another_mind_count, NOT message_count: check_rate_limit sums
+        # message_count for the FREE tier, and bumping it here would tighten a
+        # free limit. Only check_fair_use_limit reads this column.
+        #
+        # An UPSERT, not the select-then-add the other two counters use: two
+        # requests making the day's first write for the same (user, persona)
+        # would collide on the primary key, and the failed commit would take the
+        # saved reply down with it. ON CONFLICT cannot collide.
+        if not is_admin and conv.ritual_id is None:
+            await db.execute(another_mind_usage_upsert(user_id, target_db.id, utc_today()))
         await db.commit()
 
         yield f"data: {json.dumps({'type': 'done', 'message_id': assistant_msg.id})}\n\n"

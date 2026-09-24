@@ -379,14 +379,14 @@ async def check_fair_use_limit(
     wrong.
 
     COUNTS TWO SOURCES, because one is not enough:
-      daily_usage.message_count + go_deeper_count, SUMMED across personas — the
-        per-(user, persona, day) rows the chat paths already write.
-        message_count is written by send-message only; go-deeper bumps
-        go_deeper_count and never message_count, so it is added here or it is
-        not counted at all (it was not, until 2026-09-24).
-        ANOTHER-MIND IS STILL NOT COUNTED: it writes no daily_usage row. It is
-        refused at the cap like every other path, but does not move the counter.
-        Closing that needs a counter column, and is its own change.
+      daily_usage.message_count + go_deeper_count + another_mind_count, SUMMED
+        across personas — the per-(user, persona, day) rows the chat paths
+        write. Each path has its own column: send-message bumps message_count,
+        go-deeper go_deeper_count, another-mind another_mind_count (069). All
+        three are added here; before 2026-09-24 only the first was, and the
+        other two were refused at the cap without ever moving it.
+        The free limits read none of the latter two — which is why another-mind
+        got a column of its own rather than a message_count bump.
       counterviews — five persona generations each, in their own table,
         counted nowhere else. Left out, the cap has an uncapped door beside it,
         and an abuse channel that exists is the one that gets used.
@@ -457,7 +457,11 @@ async def _fair_use_units(db: AsyncSession, user_id, usage_window, counterview_w
     """Units the fair-use caps count, over one window. See check_fair_use_limit."""
     chat_used = (await db.execute(
         select(func.coalesce(
-            func.sum(DailyUsage.message_count + DailyUsage.go_deeper_count), 0
+            func.sum(
+                DailyUsage.message_count
+                + DailyUsage.go_deeper_count
+                + DailyUsage.another_mind_count
+            ), 0
         )).where(
             DailyUsage.user_id == str(user_id),
             usage_window,

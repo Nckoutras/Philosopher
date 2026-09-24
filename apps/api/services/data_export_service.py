@@ -584,6 +584,7 @@ async def build_export(db: AsyncSession, user: User) -> dict[str, Any]:
             "message_count": d.message_count,
             "go_deeper_count": d.go_deeper_count,
             "deep_mode_count": d.deep_mode_count,
+            "another_mind_count": d.another_mind_count,
         }
         for d in await _scalars(
             db, select(DailyUsage).where(DailyUsage.user_id == user_id)

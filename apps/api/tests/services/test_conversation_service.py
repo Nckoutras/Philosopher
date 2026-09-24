@@ -2672,3 +2672,107 @@ def test_estimate_tokens_fallback_when_tiktoken_unavailable():
         assert _estimate_tokens(greek) > _estimate_tokens(english)
         # ASCII path: ~4 chars/token.
         assert _estimate_tokens("a" * 400) == 100
+
+
+# ── another-mind counts toward the Pro caps (TD-100) ─────────────────────────
+# stream_another_mind wrote no daily_usage row, so it was refused at the Pro
+# fair-use caps but never counted. It now upserts another_mind_count on the
+# responding persona's row — never message_count, which the FREE daily allowance
+# sums. These drive the real function; the ON CONFLICT SQL itself is executed
+# against Postgres in tests/db_live/test_another_mind_count.py.
+
+from sqlalchemy.dialects import postgresql as _pg  # noqa: E402
+from sqlalchemy.dialects.postgresql import Insert as _PgInsert  # noqa: E402
+
+
+async def _run_another_mind_for_counter(*, is_admin=False, ritual_id=None, llm_fails=False):
+    """Returns every statement stream_another_mind executed.
+
+    ritual_id is set EXPLICITLY on the conversation (C-06): _mock_conv leaves it
+    as an auto-created MagicMock, which is not None, so a counter gated on
+    `ritual_id is None` would be skipped for a reason no test intended."""
+    import sys
+    service = ConversationService()
+
+    conv = _mock_conv()
+    conv.ritual_id = ritual_id
+
+    async def ok_stream(*a, **kw):
+        yield "A reply."
+
+    async def failing_stream(*a, **kw):
+        raise _anthropic.APIConnectionError(request=MagicMock())
+        yield  # pragma: no cover — makes this an async generator
+
+    mock_llm = MagicMock()
+    mock_llm.stream = failing_stream if llm_fails else ok_stream
+
+    with (
+        patch.object(sys.modules[__name__], "_mock_conv", return_value=conv),
+        patch("services.conversation_service.memory_service") as mock_memory,
+        patch("services.conversation_service.retrieval_service") as mock_retrieval,
+        patch("services.conversation_service.llm_client", mock_llm),
+        patch("services.conversation_service.prompt_builder") as mock_prompt,
+        patch("services.conversation_service.get_persona") as mock_get_persona,
+        patch("services.conversation_service.asyncio.sleep", new=AsyncMock()),
+    ):
+        mock_memory.recall = AsyncMock(return_value=[])
+        mock_retrieval.retrieve = AsyncMock(return_value=[])
+        _use_real_cache_split(mock_prompt)
+        persona_config = MagicMock()
+        persona_config.slug = "socrates"
+        persona_config.name = "Socrates"
+        mock_get_persona.return_value = persona_config
+        service._save_message = AsyncMock(return_value=_saved_msg())
+
+        db = _make_db_seeded_history(_seeded_history(4), 10)
+        inner = db.execute
+        executed = []
+
+        async def recording(stmt, *a, **kw):
+            executed.append(stmt)
+            return await inner(stmt, *a, **kw)
+
+        db.execute = recording
+        await _drain(service.stream_another_mind(
+            db=db, conversation_id=CONV_ID, user_id=USER_ID,
+            target_persona_slug="socrates", user_plan="pro", is_admin=is_admin,
+        ))
+    return executed
+
+
+def _usage_upserts(executed):
+    return [s for s in executed
+            if isinstance(s, _PgInsert) and s.table.name == "daily_usage"]
+
+
+@pytest.mark.asyncio
+async def test_a_successful_another_mind_reply_counts_once():
+    ups = _usage_upserts(await _run_another_mind_for_counter())
+    assert len(ups) == 1
+    compiled = ups[0].compile(dialect=_pg.dialect())
+    sql = str(compiled)
+    assert "ON CONFLICT (user_id, persona_id, usage_date) DO UPDATE SET" in sql
+    # The free allowance sums message_count; this path must never move it. A new
+    # row carries the column's 0 in VALUES — the conflict branch must not touch it.
+    update_clause = sql.split("DO UPDATE SET", 1)[1]
+    assert "another_mind_count" in update_clause
+    assert "message_count" not in update_clause
+    assert compiled.params["another_mind_count"] == 1
+    # The stored value of a NEW row's message_count (the model default, filled in
+    # at execution, not compile) is asserted against Postgres in db_live.
+
+
+@pytest.mark.asyncio
+async def test_a_failed_another_mind_generation_counts_nothing():
+    assert _usage_upserts(await _run_another_mind_for_counter(llm_fails=True)) == []
+
+
+@pytest.mark.asyncio
+async def test_an_admin_another_mind_reply_is_not_counted():
+    assert _usage_upserts(await _run_another_mind_for_counter(is_admin=True)) == []
+
+
+@pytest.mark.asyncio
+async def test_a_ritual_another_mind_reply_is_not_counted():
+    assert _usage_upserts(await _run_another_mind_for_counter(ritual_id="ritual-1")) == []
