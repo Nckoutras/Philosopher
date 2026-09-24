@@ -1354,6 +1354,47 @@ for, since it is currently decoration.
 
 ---
 
+### TD-100 — another-mind is refused at the Pro caps but never counted toward them — **NEW**
+**Status: OPEN. Founder ruling 2026-09-24: separate PR, needs a migration.**
+
+`check_fair_use_limit` counts `daily_usage.message_count + go_deeper_count` plus
+counterviews. `stream_another_mind` writes **no `daily_usage` row at all** — the only
+`message_count` increment is `stream_response` (`conversation_service.py`, Phase C2).
+So another-mind is refused once a Pro user is at 150/day or 400/month, but every
+another-mind reply before that is free against both, and the monthly ceiling is not
+a hard ceiling while this stands.
+
+**The fix needs a counter column** (e.g. `daily_usage.another_mind_count`), not a
+`message_count` bump: `check_rate_limit` sums `message_count` for the FREE tier, so
+reusing it would silently tighten a free limit — out of scope for a cost change.
+Go-deeper was closed the same way on 2026-09-24, using the `go_deeper_count` column
+that already existed. Proposal owed after the cost-ceiling PR merges.
+
+---
+
+### TD-99 — `ANTHROPIC_MODEL` defaults to deprecated Claude Sonnet 4 — **NEW**
+**Status: OPEN. Logged 2026-09-24, no action yet (founder ruling).**
+
+`config.py` sets `ANTHROPIC_MODEL = "claude-sonnet-4-20250514"`, which Anthropic lists
+as **deprecated** (retirement date not yet announced). It is not only counterview:
+`counterview_service.py` (three calls), `insight_mirror_service.py`,
+`workers/arq_worker.py` (four calls, one commented as the "gravity/differentiation
+artifact"), and `llm_client.stream`'s fallback when a caller passes no model.
+
+**NOT VERIFIED:** whether Render sets `ANTHROPIC_MODEL` and overrides the default.
+Read the API and worker services' env before acting — if it is set, the deployed model
+is whatever it says, not this default.
+
+**Migration target: `claude-sonnet-4-6`** — the model the Pro chat path already runs
+(`MODEL_PRO`), at the same per-token price ($3 / $15 per MTok), so the change moves no
+cost. The current-generation alternative is `claude-sonnet-5` ($2 / $10), but its
+tokenizer produces ~30% more tokens for the same text and its behaviour would need
+re-judging on every surface above; that is a quality decision, not a deprecation fix.
+The counterview, mirror and letter surfaces were tuned on Sonnet 4 output, so the
+switch owes a before/after read of each, not only a config edit.
+
+---
+
 ### TD-98 — retrieval forced-injection arm: no effect. The hypothesis CLOSES for now. — **NEW**
 **Status: CLOSED for now, measured — founder ruling 2026-09-23. Retrieval stays
 dead. RETRIEVAL-001 is unchanged and still open as a defect.**
@@ -3030,10 +3071,24 @@ five that fail.
   `marcus_aurelius`, `socrates` carry `tier="free"`).
 - `FREE_DAILY_LIMIT_PER_PERSONA = 5` (`:49`) and the check filters on
   `DailyUsage.persona_id`, so the cap is **per persona**: 3 × 5 = **15 messages/day**.
-- `PRO_DAILY_FAIR_USE_LIMIT = 150` (`:107`).
-- A grep for `monthly_limit|FREE_MONTHLY|per_month` across `apps/api` returns
-  **nothing**. The July intent of "5/day + 30/month, server-side" has a per-persona
-  daily cap and **no monthly cap at all**.
+- `PRO_DAILY_FAIR_USE_LIMIT = 150` — unchanged by the 2026-09-24 ruling, which
+  first set 40 and then revised it back: 40 would have refused a real Pro subscriber
+  on two days on record (44 and 81 messages) without protecting anything the monthly
+  ceiling does not.
+- **`PRO_MONTHLY_FAIR_USE_LIMIT = 400`** per UTC calendar month (founder ruling
+  2026-09-24) — the Pro cost ceiling. Same two sources as the daily cap. Priced at
+  **$0.0099/reply** (Sonnet 4.6 rates over the 66 production replies carrying token
+  components, 2026-08-28..09-23), 400 = **$3.97/month** ($4.35 at p90 reply size)
+  against €11.99 (monthly) or ~€8.33 (yearly). 150/day × 30 with no monthly cap was
+  $44.69. Heaviest real month on record: 137. Replies only — memory extraction,
+  embeddings and counterviews (five generations per unit, tokens not stored) are not
+  priced in. The reasoning is also in the comment at the constant.
+- The fair-use count is `message_count + go_deeper_count` + counterviews since
+  2026-09-24. Before that, **go-deeper was refused at the cap but never counted**
+  (it writes `go_deeper_count` only), and the check's docstring claimed otherwise.
+  **Another-mind is still uncounted** — TD-100.
+- The **free tier has no monthly cap**; this entry's free-tier figures above were not
+  re-verified in the 2026-09-24 change, which did not touch free limits.
 
 A global 5/day would be 3× stricter than today. Tightening a live free limit changes
 what existing users can do, so it stays a product decision to take with usage data.

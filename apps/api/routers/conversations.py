@@ -463,12 +463,14 @@ async def send_message(
             if not fair_use.allowed:
                 analytics_service.track("usage_cap_hit", user.id, {
                     "tier": plan,
-                    "cap_kind": "pro_fair_use",
+                    "cap_kind": (
+                        "pro_fair_use_monthly" if fair_use.period == "month" else "pro_fair_use"
+                    ),
                     "path": "chat",
                 })
                 return JSONResponse(
                     status_code=429,
-                    content={"error_code": "fair_use_limit"},
+                    content={"error_code": "fair_use_limit", "period": fair_use.period},
                     headers={
                         "X-RateLimit-Limit": str(fair_use.limit),
                         "X-RateLimit-Remaining": "0",
@@ -574,12 +576,14 @@ async def another_mind(
         if not fair_use.allowed:
             analytics_service.track("usage_cap_hit", user.id, {
                 "tier": plan,
-                "cap_kind": "pro_fair_use",
+                "cap_kind": (
+                    "pro_fair_use_monthly" if fair_use.period == "month" else "pro_fair_use"
+                ),
                 "path": "another_mind",
             })
             return JSONResponse(
                 status_code=429,
-                content={"error_code": "fair_use_limit"},
+                content={"error_code": "fair_use_limit", "period": fair_use.period},
                 headers={
                     "X-RateLimit-Limit": str(fair_use.limit),
                     "X-RateLimit-Remaining": "0",
@@ -778,12 +782,14 @@ async def go_deeper(
         if not fair_use.allowed:
             analytics_service.track("usage_cap_hit", user.id, {
                 "tier": plan,
-                "cap_kind": "pro_fair_use",
+                "cap_kind": (
+                    "pro_fair_use_monthly" if fair_use.period == "month" else "pro_fair_use"
+                ),
                 "path": "go_deeper",
             })
             return JSONResponse(
                 status_code=429,
-                content={"error_code": "fair_use_limit"},
+                content={"error_code": "fair_use_limit", "period": fair_use.period},
                 headers={
                     "X-RateLimit-Limit": str(fair_use.limit),
                     "X-RateLimit-Remaining": "0",

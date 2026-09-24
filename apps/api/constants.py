@@ -228,10 +228,11 @@ ANALYTICS_EVENTS = {
     # here and cannot be — a cap event describes the refusal, not the request.
     #
     # cap_kind exists so ceilings that mean different things stay separable in
-    # the dashboard rather than averaging into one meaningless rate. Two values
-    # today: "pro_fair_use" (five sites — a cost signal) and "council" (the
-    # weekly 1-per-source council limit — a product shape, not a cost control,
-    # and a conversion signal rather than a spend one).
+    # the dashboard rather than averaging into one meaningless rate. Three values
+    # today: "pro_fair_use" (the Pro daily cap, five sites), "pro_fair_use_monthly"
+    # (the Pro monthly ceiling, the same five sites — the cost signal proper) and
+    # "council" (the weekly 1-per-source council limit — a product shape, not a
+    # cost control, and a conversion signal rather than a spend one).
     "usage_cap_hit":          ["tier", "cap_kind", "path"],
 
     # ── Recognition (Γ-2) ────────────────────────────────────────────────────

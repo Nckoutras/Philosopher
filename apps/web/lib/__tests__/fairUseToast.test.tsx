@@ -167,3 +167,34 @@ describe.each(BRANCHES)('fair-use cap on $name', (branch) => {
     expect(toast).not.toHaveBeenCalled()
   })
 })
+
+// ── The monthly ceiling (2026-09-24) — same three branches, same rule ────────
+// Same error_code, so the same no-paywall branch; only the words and the reset
+// suffix differ, chosen from err.period.
+
+function monthlyError(): RateLimitError {
+  return new RateLimitError({
+    resetAt: new Date('2026-10-01T00:00:00Z'),
+    limit: 400,
+    remaining: 0,
+    errorCode: 'fair_use_limit',
+    upgradeTarget: 'pro',
+    period: 'month',
+  })
+}
+
+describe.each(BRANCHES)('monthly fair-use cap on $name', (branch) => {
+  it('shows the approved monthly notice with a date, and never the paywall', async () => {
+    await run(branch, monthlyError())
+
+    expect(toast).toHaveBeenCalledTimes(1)
+    const shown = vi.mocked(toast).mock.calls[0][0] as string
+    expect(shown).toContain(FAIR_USE_COPY.monthly)
+    expect(shown).toContain(
+      "You've reached this month's limit. Everything here will be waiting when it resets.",
+    )
+    expect(shown.slice(FAIR_USE_COPY.monthly.length)).toMatch(/^ Resets on .+\.$/)
+    expect(useStore.getState().showPaywall).toBe(false)
+    expect(toast.error).not.toHaveBeenCalled()
+  })
+})

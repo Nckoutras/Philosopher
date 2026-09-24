@@ -199,7 +199,7 @@ export function useStream() {
       if (err instanceof RateLimitError && err.errorCode === 'fair_use_limit') {
         // Pro fair-use cap. NEVER the paywall: this user is already a
         // subscriber and there is nothing to sell them. Plain notice only.
-        toast(fairUseMessage(err.resetAt))
+        toast(fairUseMessage(err.resetAt, err.period))
       } else if (err instanceof RateLimitError) {
         // RF-02: show paywall modal instead of toast
         setShowPaywall(true, {
@@ -316,7 +316,7 @@ export function useStream() {
       if (err instanceof RateLimitError && err.errorCode === 'fair_use_limit') {
         // Pro fair-use cap. NEVER the paywall: this user is already a
         // subscriber and there is nothing to sell them. Plain notice only.
-        toast(fairUseMessage(err.resetAt))
+        toast(fairUseMessage(err.resetAt, err.period))
       } else if (err instanceof RateLimitError) {
         setShowPaywall(true, {
           upgradeTarget: err.upgradeTarget,
@@ -441,7 +441,7 @@ export function useStream() {
       if (err instanceof RateLimitError && err.errorCode === 'fair_use_limit') {
         // Pro fair-use cap. NEVER the paywall: this user is already a
         // subscriber and there is nothing to sell them. Plain notice only.
-        toast(fairUseMessage(err.resetAt))
+        toast(fairUseMessage(err.resetAt, err.period))
       } else if (err instanceof RateLimitError) {
         setShowPaywall(true, {
           upgradeTarget: err.upgradeTarget,

@@ -258,12 +258,14 @@ async def counterview_insight(
                 # question that found TD-70 in the first place.
                 analytics_service.track("usage_cap_hit", user.id, {
                     "tier": tier,
-                    "cap_kind": "pro_fair_use",
+                    "cap_kind": (
+                        "pro_fair_use_monthly" if fair_use.period == "month" else "pro_fair_use"
+                    ),
                     "path": "insight_counterview",
                 })
                 return JSONResponse(
                     status_code=429,
-                    content={"error_code": "fair_use_limit"},
+                    content={"error_code": "fair_use_limit", "period": fair_use.period},
                     headers={
                         "X-RateLimit-Limit": str(fair_use.limit),
                         "X-RateLimit-Remaining": "0",
