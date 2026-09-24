@@ -293,6 +293,39 @@ async def test_go_deeper_is_counted_in_both_windows(pinned_today):
         assert "message_count" in sql, sql
 
 
+async def test_another_mind_is_counted_in_both_windows(pinned_today):
+    """TD-100: another-mind wrote no daily_usage row and was refused at the cap
+    without moving it. It now has its own column (069), summed here."""
+    db = _db_windows()
+    await check_fair_use_limit(db, "u1", user_tier="pro")
+    assert len(db.seen_daily_usage_sql) == 2
+    for sql in db.seen_daily_usage_sql:
+        assert "another_mind_count" in sql, sql
+
+
+async def test_the_free_allowance_does_not_read_the_pro_only_counters():
+    """The reason another-mind got a column instead of a message_count bump: the
+    FREE daily allowance sums message_count. If it ever read another_mind_count
+    (or go_deeper_count), a Pro cost change would have tightened a free limit."""
+    from services.rate_limit_service import check_rate_limit
+
+    seen = []
+    db = MagicMock()
+
+    async def execute(stmt, *a, **kw):
+        seen.append(str(stmt))
+        result = MagicMock()
+        result.scalar_one.return_value = 0
+        return result
+
+    db.execute = AsyncMock(side_effect=execute)
+    await check_rate_limit(db, "u1", user_tier="free")
+    assert len(seen) == 1
+    assert "message_count" in seen[0]
+    assert "another_mind_count" not in seen[0]
+    assert "go_deeper_count" not in seen[0]
+
+
 async def test_a_free_user_is_not_counted_monthly_either():
     db = _db_windows(month_chat=10_000)
     result = await check_fair_use_limit(db, "u1", user_tier="free")

@@ -264,6 +264,25 @@ async def test_message_telemetry_is_excluded_but_the_words_are_kept():
         assert planted not in blob, planted
 
 
+async def test_daily_usage_exports_every_counter_including_another_mind():
+    """069 added another_mind_count. The export lists daily_usage columns by
+    name, so a counter the product stores about a person but the export omits is
+    a silent gap — each counter is planted with a distinct value and read back."""
+    usage = _Row(
+        user_id="u1", persona_id=None, usage_date=date(2026, 9, 24),
+        message_count=7001, go_deeper_count=7002, deep_mode_count=7003,
+        another_mind_count=7004,
+        created_at=datetime(2026, 9, 24, tzinfo=timezone.utc),
+        updated_at=datetime(2026, 9, 24, tzinfo=timezone.utc),
+    )
+    payload = await build_export(_fake_db({"DailyUsage": [usage]}), _user())
+    row = payload["daily_usage"][0]
+    assert row["message_count"] == 7001
+    assert row["go_deeper_count"] == 7002
+    assert row["deep_mode_count"] == 7003
+    assert row["another_mind_count"] == 7004
+
+
 # ── Soft-deleted rows are included, per the ruling ────────────────────────────
 
 async def test_soft_deleted_rows_are_included_with_their_deleted_at():

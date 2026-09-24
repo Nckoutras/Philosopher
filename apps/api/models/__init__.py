@@ -715,6 +715,10 @@ class DailyUsage(Base):
     # allowance (5/day) is metered on the GLOBAL SUM across personas, not this row
     # alone (see rate_limit_service.check_deep_mode_limit). Pro/premium never bump it.
     deep_mode_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    # Per-(user, persona, day) count of successful another-mind replies, on the
+    # RESPONDING persona's row (069). Read by the Pro fair-use caps only — never
+    # by a free limit, which is why it is not folded into message_count.
+    another_mind_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 

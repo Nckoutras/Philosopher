@@ -1354,8 +1354,44 @@ for, since it is currently decoration.
 
 ---
 
-### TD-100 — another-mind is refused at the Pro caps but never counted toward them — **NEW**
-**Status: OPEN. Founder ruling 2026-09-24: separate PR, needs a migration.**
+### TD-101 — another-mind and go-deeper replies skip the post-generation safety gate — **HIGH**
+**Status: OPEN. HIGH — a user-safety gap, not a cost or quality one. Logged
+2026-09-24 (founder ruling); description only here. It is the NEXT piece of work.**
+
+**What it is.** `stream_another_mind` and `stream_go_deeper` never call
+`safety_service.check_output`. A reply generated on either path reaches the user
+without the post-generation safety gate that `stream_response`
+(`conversation_service.py:1081`) and the revisit opening (`:698`) both run — and
+without the suppression, app-voice replacement and `safety_events` row that gate
+produces when it fires.
+
+**How it was found.** While confirming crisis behaviour for TD-100: neither function
+references `safety_service` at all (grep of both bodies, 2026-09-24). The router's
+note on these paths — *"No user text on this path; safety ordering enforced at
+send-message"* — is about the INPUT gate, and is true: another-mind and go-deeper
+carry no new user text, so there is no crisis message to route. It says nothing
+about the OUTPUT, and the output is new model text on every call.
+
+**These two are the exceptions, not a pattern.** Every other generation path checks
+its output: council (`council_service.py:576`), counterview (`counterview_service.py`,
+five sites), self-comparison (`self_comparison_service.py:212`), the worker's letter
+and ritual lines (`arq_worker.py`).
+
+**Not measured:** whether any another-mind or go-deeper reply in production would
+have tripped the gate. That is a question for the fix's investigation step, not a
+reason to rank this lower — the gate exists for the reply nobody predicted.
+
+---
+
+### TD-100 — another-mind is refused at the Pro caps but never counted toward them — **CLOSED**
+**Status: CLOSED 2026-09-24 — migration `069_another_mind_count`. Every successful
+another-mind reply (not admin, not ritual) upserts `daily_usage.another_mind_count`
+on the responding persona's row, and `check_fair_use_limit` sums it with
+`message_count` and `go_deeper_count` in both windows. `message_count` is untouched,
+so no free limit moved; the data export carries the new column. The upsert is
+executed against Postgres in `tests/db_live/test_another_mind_count.py`.**
+
+*As logged:*
 
 `check_fair_use_limit` counts `daily_usage.message_count + go_deeper_count` plus
 counterviews. `stream_another_mind` writes **no `daily_usage` row at all** — the only
@@ -3083,10 +3119,11 @@ five that fail.
   $44.69. Heaviest real month on record: 137. Replies only — memory extraction,
   embeddings and counterviews (five generations per unit, tokens not stored) are not
   priced in. The reasoning is also in the comment at the constant.
-- The fair-use count is `message_count + go_deeper_count` + counterviews since
-  2026-09-24. Before that, **go-deeper was refused at the cap but never counted**
-  (it writes `go_deeper_count` only), and the check's docstring claimed otherwise.
-  **Another-mind is still uncounted** — TD-100.
+- The fair-use count is `message_count + go_deeper_count + another_mind_count` +
+  counterviews since 2026-09-24. Before that, **go-deeper was refused at the cap but
+  never counted** (it writes `go_deeper_count` only), and the check's docstring
+  claimed otherwise.
+  Another-mind is counted too since `069_another_mind_count` (TD-100, closed).
 - The **free tier has no monthly cap**; this entry's free-tier figures above were not
   re-verified in the 2026-09-24 change, which did not touch free limits.
 
