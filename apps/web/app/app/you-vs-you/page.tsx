@@ -134,7 +134,10 @@ export default function YouVsYouPage() {
             const w = ev.which ?? active
             if (w === 'then') setThenText((t) => t + (ev.data ?? ''))
             else if (w === 'now') setNowText((t) => t + (ev.data ?? ''))
-          } else if (ev.type === 'safety') {
+          } else if (ev.type === 'safety' || ev.type === 'safety_override') {
+            // safety_override: an answer that already streamed was withheld
+            // after the fact (post-generation check, TD-101 pattern). The
+            // safety state unmounts both answers, so the text goes too.
             setStreamError('safety')
           } else if (ev.type === 'error') {
             setStreamError(ev.error_code ?? 'error')

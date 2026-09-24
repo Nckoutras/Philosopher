@@ -25,6 +25,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from models import MemoryEntry, Persona
 from services.llm_client import llm_client
 from services.matching_service import compute_matches
+from services.output_gate import output_is_unsafe
+from services.safety_event_log import STAGE_PORTRAIT_SUMMARY_OUTPUT
 from services.self_portrait import answers_to_statements, get_question
 from services.self_portrait_prompts import SELF_PORTRAIT_SUMMARY_PROMPT
 from text_utils import dominant_language, language_directive, language_matches
@@ -373,6 +375,15 @@ async def generate_portrait(
         for e in (data.get("best_fit") or [])
         if isinstance(e, dict)
     }
+
+    # Post-generation safety (founder ruling 2026-09-24), over the summary AND the
+    # best-fit "why" lines, which render on the same page. None is the caller's
+    # existing path: the previous good summary is kept and the cooldown applies.
+    if await output_is_unsafe(
+        db, [summary, *[w for w in why_by_slug.values() if isinstance(w, str)]],
+        user_id=user_id, stage=STAGE_PORTRAIT_SUMMARY_OUTPUT,
+    ):
+        return None
     best_fit = [
         {
             "slug": slug,

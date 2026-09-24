@@ -32,6 +32,14 @@ from text_utils import (
     language_matches,
 )
 from services.insight_mirror_service import payload_language_matches
+from services.output_gate import output_is_unsafe
+from services.safety_event_log import (
+    STAGE_CONCLUSION_OUTPUT,
+    STAGE_MIRROR_OUTPUT,
+    STAGE_MONTHLY_LETTER_OUTPUT,
+    STAGE_TITLE_OUTPUT,
+    STAGE_WEEKLY_LETTER_OUTPUT,
+)
 from observability import init_sentry
 
 # `arq workers.arq_worker.WorkerSettings` runs as its own process and never
@@ -1239,6 +1247,16 @@ async def assess_conclusion_task(ctx, conversation_id: str, user_id: str):
                 logger.info("Conclusion: not yet for conv=%s", conversation_id)
                 return
 
+            # Post-generation safety (founder ruling 2026-09-24): no row. Writing
+            # nothing is this path's ordinary outcome (see the language gate below),
+            # so the cadence gate simply re-triggers on a later turn.
+            if await output_is_unsafe(
+                db, text, user_id=user_id, stage=STAGE_CONCLUSION_OUTPUT,
+                conversation_id=conversation_id,
+            ):
+                await db.commit()
+                return
+
             # ── OUTPUT LANGUAGE GATE ─────────────────────────────────────────
             # Writing nothing is this path's ORDINARY outcome, not its failure mode:
             # NOT_YET returns here on most turns. So the block costs almost nothing
@@ -1363,6 +1381,17 @@ async def generate_conversation_title(ctx, conversation_id: str):
                     conversation_id, cleaned,
                 )
                 return  # Leave title NULL; can be retried via backfill
+
+            # Post-generation safety (founder ruling 2026-09-24): leave the title
+            # NULL, the library's default (it shows the last message snippet).
+            # The task takes no user_id, so the record takes it from the thread's
+            # own messages, which all carry it.
+            if await output_is_unsafe(
+                db, cleaned, user_id=messages[0].user_id, stage=STAGE_TITLE_OUTPUT,
+                conversation_id=conversation_id,
+            ):
+                await db.commit()
+                return
             title = cleaned[:80]
 
             result = await db.execute(
@@ -1553,6 +1582,26 @@ async def generate_weekly_mirror_task(ctx, user_id: str, persona_slug: str, kind
                 "thread": data.get("thread"),
                 "moments": data.get("moments"),
             }
+
+            # ── POST-GENERATION SAFETY (founder ruling 2026-09-24) ───────────
+            # status='suppressed', the row the input-side gate above already
+            # writes. Unlike the language gate below, this DOES write a row: a
+            # suppressed mirror is a handled week, not a retryable failure. Like
+            # every Mirror row it also ends preview eligibility
+            # (dispatch_preview_mirrors selects users with none), which is the
+            # same outcome the input-side suppression has always had.
+            if await output_is_unsafe(db, payload, user_id=user_id, stage=STAGE_MIRROR_OUTPUT):
+                db.add(Mirror(
+                    user_id=user_id,
+                    host_persona_id=host_persona_id,
+                    period_start=period_start,
+                    period_end=period_end,
+                    kind=kind,
+                    status="suppressed",
+                ))
+                await db.commit()
+                logger.info(f"Mirror suppressed for user={user_id} (post-generation safety)")
+                return
 
             # ── OUTPUT LANGUAGE GATE ─────────────────────────────────────────
             # NO ROW, deliberately, and NOT status='empty' — for two reasons.
@@ -1798,6 +1847,37 @@ async def _clean_avoidance(value) -> str | None:
     if (await safety_service.check_output(text)).should_suppress_persona:
         return None
     return text
+
+
+async def _letter_output_withheld(
+    db, *, user_id, data, stage, voice_persona_id, period_start, period_end, kind,
+) -> bool:
+    """Post-generation safety on a whole letter (founder ruling 2026-09-24).
+
+    Called on the CLEANED payload, after _clean_avoidance has already nulled a
+    flagged avoidance line on its own. That line is the one field allowed to fail
+    alone; anything else flagged withholds the letter.
+
+    On a positive: a status='suppressed' row, the same one the input-side safety
+    gate writes, so the letter is never emailed and never listed, and the period
+    is recorded as handled. Plus a safety_events row naming the letter kind.
+    Returns True when the caller must stop.
+    """
+    from models import WeeklyLetter
+
+    if not await output_is_unsafe(db, data, user_id=user_id, stage=stage):
+        return False
+    db.add(WeeklyLetter(
+        user_id=user_id,
+        voice_persona_id=voice_persona_id,
+        period_start=period_start,
+        period_end=period_end,
+        status="suppressed",
+        kind=kind,
+    ))
+    await db.commit()
+    logger.info(f"Letter suppressed for user={user_id} kind={kind} (post-generation safety)")
+    return True
 
 
 async def generate_weekly_letter_task(ctx, user_id: str, voice_persona_slug: str,
@@ -2251,6 +2331,12 @@ async def generate_weekly_letter_task(ctx, user_id: str, voice_persona_slug: str
                 "suggested_ritual_slug": ritual_slug,
                 "ritual_proposal": ritual_proposal,
             }
+            if await _letter_output_withheld(
+                db, user_id=user_id, data=payload, stage=STAGE_WEEKLY_LETTER_OUTPUT,
+                voice_persona_id=voice_persona_id, period_start=period_start,
+                period_end=period_end, kind="weekly",
+            ):
+                return
             letter = WeeklyLetter(
                 user_id=user_id,
                 voice_persona_id=voice_persona_id,
@@ -2642,6 +2728,12 @@ async def generate_monthly_letter_task(ctx, user_id: str, voice_persona_slug: st
                 "practical_takeaway": data.get("practical_takeaway"),
                 "suggested_persona_slug": suggested_slug,
             }
+            if await _letter_output_withheld(
+                db, user_id=user_id, data=payload, stage=STAGE_MONTHLY_LETTER_OUTPUT,
+                voice_persona_id=voice_persona_id, period_start=period_start,
+                period_end=period_end, kind="monthly",
+            ):
+                return
             letter = WeeklyLetter(
                 user_id=user_id,
                 voice_persona_id=voice_persona_id,
