@@ -1354,9 +1354,82 @@ for, since it is currently decoration.
 
 ---
 
-### TD-101 — another-mind and go-deeper replies skip the post-generation safety gate — **HIGH**
-**Status: OPEN. HIGH — a user-safety gap, not a cost or quality one. Logged
-2026-09-24 (founder ruling); description only here. It is the NEXT piece of work.**
+### TD-103 — `loadingSkeletons.test.tsx` intermittently leaks unhandled rejections — **NEW**
+**Status: OPEN. Blocks nothing today — web tests run under `continue-on-error: true`
+(TD-86) — and makes the web suite's exit code unreadable, which is the cost.**
+
+**What happens.** A full `vitest run` sometimes ends *"Vitest caught 3 unhandled
+errors"* — `Error: Not authenticated` from `ApiClient.request` (`lib/api.ts:777`),
+reached from `load()` in `app/app/(tabs)/today/page.tsx`, attributed to
+`app/app/(tabs)/__tests__/loadingSkeletons.test.tsx`. Every test still PASSES; the
+run exits 1.
+
+**Measured 2026-09-24, while verifying TD-101:**
+- **main** (`66618821`), full suite: **1 of 3 runs** hit it.
+- **the TD-101 branch**, full suite: **5 of 5 runs** — 3 with the new
+  `guestPathSafety.test.tsx`, 2 with it moved aside (so not caused by that file).
+- **the file run alone**: clean on main and on the branch (3 runs).
+- Neither `loadingSkeletons.test.tsx` nor the Today page imports `useStream`, the only
+  web file the branch changed. The higher rate on the branch is unexplained; it is
+  consistent with a timing-dependent failure and was not investigated further.
+
+**Cause.** Today's `load()` wraps `api.getLastConversation()` in `try/finally` with no
+`catch`, and the test mocks the auth gate and sets a token but does **not** mock
+`api` — so a real request is made and rejects, and nothing handles the rejection.
+Whether vitest attributes it depends on whether it lands while the test file is still
+running, which is why it is intermittent.
+
+**Why it matters although it blocks nothing.** An exit code that is sometimes 1 on a
+green suite trains everyone to ignore it — the same failure mode as "no run is not
+green" (CLAUDE.md, 2026-09-01). The day `continue-on-error` is removed from the web
+job, this becomes a random red build.
+
+**Two halves, both small, neither done here:** mock `api` in the test (the test's own
+defect), and decide whether Today's `load()` should catch — an unhandled rejection
+there is also what production does when that request fails.
+
+---
+
+### TD-102 — the post-generation safety gate runs after the reply has been on screen — **OPEN DECISION**
+**Status: OPEN — a decision, not a defect. Logged 2026-09-24 (founder ruling): to be
+decided once, for all three chat paths together. Not proposed yet.**
+
+**What it is.** On send-message, another-mind and go-deeper alike, `check_output` runs
+on the COMPLETE reply, after every chunk has already been streamed and rendered. On a
+positive the client replaces what it showed (`safety_override` → `SafetyBubble`), and
+the replaced text is never saved — but the user has seen it for as long as the stream
+took. Replies average ~76 output tokens (2026-09-24 measurement), so the window is a
+few seconds; it is not zero.
+
+**The trade-off, and it is the whole decision:**
+- **Keep streaming (today).** The reply appears as it is written. Exposure lasts the
+  length of the stream.
+- **Buffer, then check, then send.** Exposure drops to nothing. The reply stops
+  streaming on all three paths: the user waits for the whole reply, then sees it at
+  once.
+- **Check the growing text after each chunk and cut the stream at the first match.**
+  Streaming is kept and exposure shrinks to the text before the match — but a phrase
+  split across chunks is only caught once complete, so exposure is shorter, not zero.
+  The check is ~72 µs on a 306-character reply and grows with length, run once per
+  chunk.
+
+**Scope when decided:** all three paths at once. A gate that behaves differently per
+path is the defect TD-101 just closed.
+
+---
+
+### TD-101 — another-mind and go-deeper replies skip the post-generation safety gate — **CLOSED**
+**Status: CLOSED 2026-09-24. Both paths now run `check_output` exactly as
+`stream_response` does: after the stream, on the full reply; on a positive, a
+`safety_override` event, the app-voice response streamed in the user's language and
+SAVED in place of the reply (`persona_override=True`), a `safety_events` row, and no
+allowance consumed (`another_mind_count` / `go_deeper_count` not moved — the
+send-message rule). The web client's `sendAnotherMind` and `sendGoDeeper` gained the
+`safety_override` case `send` already had; without it the safety text would have been
+appended after the harmful text in one bubble. Thresholds, crisis copy and send-message
+untouched. When the check runs — after the stream — is TD-102.**
+
+*As logged (HIGH):*
 
 **What it is.** `stream_another_mind` and `stream_go_deeper` never call
 `safety_service.check_output`. A reply generated on either path reaches the user

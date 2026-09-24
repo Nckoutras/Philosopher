@@ -236,6 +236,7 @@ export function useStream() {
       const decoder = new TextDecoder()
       let buffer = ''
       let fullContent = ''
+      let isSafety = false
       let broughtInSlug: string | undefined
       let broughtInName: string | undefined
       let pendingStreamError: { error_code: string; persona_voice: string } | null = null
@@ -269,8 +270,23 @@ export function useStream() {
               break
             }
             case 'chunk':
+              if (isSafety) {
+                appendSafetyText(event.data)
+                break
+              }
               fullContent += event.data
               appendStreamingContent(event.data)
+              break
+            case 'safety_override':
+              // TD-101: this path now runs the post-generation safety gate, as
+              // send does. The chunks that follow are the app-voice response —
+              // route them to safetyText and clear what was streamed, exactly as
+              // send's handler does, so the replaced reply leaves the screen.
+              isSafety = true
+              setSafetyActive(true)
+              setSafetyText('')
+              fullContent = ''
+              useStore.getState().setStreamingContent('')
               break
             case 'done': {
               // first_reply_rendered: the reply is on screen NOW. The server
@@ -282,17 +298,20 @@ export function useStream() {
                 latency_bucket: latencyBucket(Date.now() - _t0),
                 origin: 'another_mind',
               })
-              const assistantMsg: Message = {
-                id: event.message_id ?? crypto.randomUUID(),
-                role: 'assistant',
-                content: fullContent,
-                safety_level: 'none',
-                persona_override: false,
-                created_at: new Date().toISOString(),
-                persona_slug: broughtInSlug ?? null,
-                persona_name: broughtInName ?? null,
+              // Safety fired: SafetyBubble represents the response, as in send.
+              if (!isSafety) {
+                const assistantMsg: Message = {
+                  id: event.message_id ?? crypto.randomUUID(),
+                  role: 'assistant',
+                  content: fullContent,
+                  safety_level: 'none',
+                  persona_override: false,
+                  created_at: new Date().toISOString(),
+                  persona_slug: broughtInSlug ?? null,
+                  persona_name: broughtInName ?? null,
+                }
+                appendMessage(assistantMsg)
               }
-              appendMessage(assistantMsg)
               resetStreaming()
               break
             }
@@ -333,7 +352,7 @@ export function useStream() {
       }
       console.error(err)
     }
-  }, [activeConversationId, appendMessage, setStreaming, appendStreamingContent, resetStreaming, setSafetyActive, setStreamError, setShowPaywall, setStreamingBroughtIn, router])
+  }, [activeConversationId, appendMessage, setStreaming, appendStreamingContent, resetStreaming, setSafetyActive, setSafetyText, appendSafetyText, setStreamError, setShowPaywall, setStreamingBroughtIn, router])
 
   const sendGoDeeper = useCallback(async () => {
     // Clock for first_reply_rendered, started at the send rather than at the
@@ -356,6 +375,7 @@ export function useStream() {
       const decoder = new TextDecoder()
       let buffer = ''
       let fullContent = ''
+      let isSafety = false
       let pendingStreamError: { error_code: string; persona_voice: string } | null = null
 
       while (true) {
@@ -383,8 +403,23 @@ export function useStream() {
               break
             }
             case 'chunk':
+              if (isSafety) {
+                appendSafetyText(event.data)
+                break
+              }
               fullContent += event.data
               appendStreamingContent(event.data)
+              break
+            case 'safety_override':
+              // TD-101: this path now runs the post-generation safety gate, as
+              // send does. The chunks that follow are the app-voice response —
+              // route them to safetyText and clear what was streamed, exactly as
+              // send's handler does, so the replaced reply leaves the screen.
+              isSafety = true
+              setSafetyActive(true)
+              setSafetyText('')
+              fullContent = ''
+              useStore.getState().setStreamingContent('')
               break
             case 'done': {
               // first_reply_rendered: the reply is on screen NOW. The server
@@ -396,17 +431,20 @@ export function useStream() {
                 latency_bucket: latencyBucket(Date.now() - _t0),
                 origin: 'go_deeper',
               })
-              const assistantMsg: Message = {
-                id: event.message_id ?? crypto.randomUUID(),
-                role: 'assistant',
-                content: fullContent,
-                safety_level: 'none',
-                persona_override: false,
-                created_at: new Date().toISOString(),
-                persona_slug: null,
-                persona_name: null,
+              // Safety fired: SafetyBubble represents the response, as in send.
+              if (!isSafety) {
+                const assistantMsg: Message = {
+                  id: event.message_id ?? crypto.randomUUID(),
+                  role: 'assistant',
+                  content: fullContent,
+                  safety_level: 'none',
+                  persona_override: false,
+                  created_at: new Date().toISOString(),
+                  persona_slug: null,
+                  persona_name: null,
+                }
+                appendMessage(assistantMsg)
               }
-              appendMessage(assistantMsg)
               resetStreaming()
               break
             }
@@ -460,7 +498,7 @@ export function useStream() {
       }
       console.error(err)
     }
-  }, [activeConversationId, appendMessage, setStreaming, appendStreamingContent, resetStreaming, setSafetyActive, setStreamError, setShowPaywall, router])
+  }, [activeConversationId, appendMessage, setStreaming, appendStreamingContent, resetStreaming, setSafetyActive, setSafetyText, appendSafetyText, setStreamError, setShowPaywall, router])
 
   return { send, sendAnotherMind, sendGoDeeper }
 }
