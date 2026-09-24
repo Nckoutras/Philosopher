@@ -556,3 +556,48 @@ that is the authoritative version and it does not exist yet.
 window is also what makes the prefix cacheable (`_history_cache_control`), so a
 cap trades a cost problem for a cache problem. Revisit with beta evidence.
 
+## 9. Council v2 — the trigger that reopens verdict memory
+
+**Status: CLOSED-with-trigger (founder ruling 2026-09-24).** Council does not
+remember its own prior verdicts. That was deferred to post-beta on 2026-09-15;
+this section is what reopens it.
+
+**The trigger: `users_with_more_than_one_non_admin >= 10`.** Verdict memory is
+revisited when ten non-admin users have each run more than one council. **Staff
+traffic is not signal**, so the threshold reads the non-admin column; the
+all-accounts column stays alongside it so the difference is visible, not hidden.
+
+At the ruling, 2026-09-24: **7 users, 3 with more than one council — of whom 2 are
+admin accounts (21 and 25 councils) and 1 is not (6)**. So the trigger read **1**.
+**56 cases, 0 reused**: `CouncilCase.session_count` / `CouncilSession.session_number`
+are multi-session scaffolding no code path has exercised — every council opens a new
+case at session 1. The query was run against production that day and returned
+exactly those numbers.
+
+If verdict memory is built, **the synthesis step is the only admissible injection
+point** (HANDOFF_BRIEF_v30): the four member calls take `memories=[]` by design, and
+per-user text in their prompts would forfeit the prompt cache across all four
+Sonnet calls.
+
+```sql
+-- Council v2 trigger — verdict memory is revisited when
+-- users_with_more_than_one_non_admin >= 10 (founder ruling 2026-09-24).
+SELECT
+  count(*)                                             AS users,
+  count(*) FILTER (WHERE cases > 1)                    AS users_with_more_than_one,
+  count(*) FILTER (WHERE cases > 1 AND NOT is_admin)   AS users_with_more_than_one_non_admin,
+  coalesce(sum(cases), 0)                              AS cases,
+  coalesce(sum(reused), 0)                             AS cases_reused
+FROM (
+  SELECT c.user_id,
+         count(*)                                      AS cases,
+         count(*) FILTER (WHERE c.session_count > 1)   AS reused,
+         bool_or(u.is_admin)                           AS is_admin
+  FROM council_cases c
+  JOIN users u ON u.id = c.user_id
+  GROUP BY c.user_id
+) per_user;
+```
+
+One row always, including over an empty table: the outer aggregate has no
+`GROUP BY`, so "nobody yet" is a row of zeroes, not an absent row.

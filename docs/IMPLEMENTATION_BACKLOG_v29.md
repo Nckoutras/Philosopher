@@ -1400,6 +1400,21 @@ nothing to put in the path.
 other eight — the founder's content, not an engineering one. Until then they run with
 the shared `system_base.jinja2` steer only ("You are not a therapist… You do not
 diagnose"), which is a steer, not a guard.
+### COUNCIL-V2 — verdict memory — **CLOSED-with-trigger**
+**Status: CLOSED-with-trigger (founder ruling 2026-09-24). Reopens when
+`users_with_more_than_one_non_admin >= 10` — the query is `RUNBOOK_LOOP_METRICS.md`
+§9, executed by CI out of the markdown.**
+
+**What is and is not deferred.** Council already reads memory at the synthesis step
+(`council_service.py:406`, #598); the four members take `memories=[]` by design
+(`:305`, pinned by `test_council_synthesis_memory.py`). What Council lacks is memory
+of **its own prior verdicts** — deferred to post-beta on 2026-09-15. This entry gives
+that deferral the threshold it did not have, so it stops being an open question.
+
+**At the ruling:** 7 users, 3 with more than one council, **2 of them admin accounts**
+— so the trigger, which reads non-admins only ("staff traffic is not signal"), stood
+at **1**. 56 cases, 0 ever reused. If built, the synthesis step is the only
+admissible injection point (HANDOFF_BRIEF_v30).
 
 ---
 
