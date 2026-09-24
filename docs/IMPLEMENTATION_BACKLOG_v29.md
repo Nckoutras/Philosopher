@@ -1354,6 +1354,64 @@ for, since it is currently decoration.
 
 ---
 
+### TD-105 — thin theme coverage in the approved bridge map concentrates best fit — **OPEN**
+**Status: OPEN. Logged 2026-09-24 (founder ruling): a finding about the LOCKED map,
+not a defect in the TD-104 scoring. Do not touch the map without a ruling.**
+
+**What it is.** Since TD-104, best-fit themes are scored as share-of-achievable: how
+far the chosen pills went toward a theme, against how far they could have. A theme
+backed by few questions reaches a high share from one or two strong answers. In the
+approved `SELF_PORTRAIT_TAG_TO_THEME` map, `controversy` is fed by ONE tag (`power`),
+and in the free 15 only **3 questions** can put weight on it (`dilemma`: 1, `work`: 2).
+
+**Measured 2026-09-24, 2,000 random completions of the free 15, per need_most:**
+
+| need_most | distinct pairs | most common pair | most present personas |
+|---|---|---|---|
+| challenge | 35 | machiavelli + socrates, 16.7% | **machiavelli 62%**, socrates 55%, musashi 25% |
+| practical_steadiness | 15 | epictetus + marcus_aurelius, 39.7% | marcus_aurelius 73%, epictetus 71%, machiavelli 43% |
+| comfort | 12 | lao_tzu + simone_de_beauvoir, 44.5% | lao_tzu 93%, beauvoir 61%, freud 22% |
+| interpretation | 8 | beauvoir + carl_jung, 44.1% | jung 87%, beauvoir 84%, freud 28% |
+
+Questions (of the free 15 / of all 360) that can put weight on each theme:
+doubt 8/172 · purpose 6/157 · freedom 5/177 · anxiety 4/75 · grief 4/80 ·
+separation 4/59 · acceptance 3/69 · **controversy 3/44** · relationships 3/58 ·
+fear 3/107 · work 2/80 · **dilemma 1/38**.
+
+**Two effects, not one.** Machiavelli under `challenge` is the thin-coverage effect.
+The single-persona dominance under `comfort` and `interpretation` is a different one:
+`compute_matches` counts need_most at twice a theme, so the need picks most of the
+pair whoever answered what. Both are recorded; neither is proposed on.
+
+---
+
+### TD-104 — best-fit philosophers never read the chosen answer — **CLOSED**
+**Status: CLOSED 2026-09-24 (founder ruling: read the chosen option, with the same
+per-answer weights the radar uses; no third scoring system).**
+
+**What it was.** `themes_from_answers` counted the tags of the answered QUESTIONS and
+never read the answer, so the three matching themes — and the two best-fit
+philosophers `compute_matches` picks from them — depended only on which questions were
+answered. Named in the 2026-08-25 teardown alongside the radar; the radar was fixed
+(`pill_weights`, #607 / #612–#614) and this path was not, and it had no backlog entry.
+Measured: **2,000 random completions of the free 15 → 1 theme set, 1 pair
+(Socrates + Orwell) for everyone.** All 3 `ready` portraits in production carried
+exactly that pair.
+
+**What changed.** Themes are scored from the chosen pills' `pill_weights` through the
+locked bridge map, as share-of-achievable (the radar's semantics), ranked by share,
+then raw weight, then name. Raw weight sums were measured and rejected (72.6% still
+Socrates + Orwell). After: **592 theme sets, 35 pairs, top pair 16.7%** under
+`challenge`. `PORTRAIT_SCORING_VERSION` is part of `answers_fingerprint`, so every
+portrait cached under the old rule regenerates once on its next open.
+
+**Also follows, intended:** the Today quote nudge (`quote_suggest.candidate_themes`)
+reads the same function — one definition of the person's themes, so it now follows
+the answers too. Radar, question bank, summary prompt, free/Pro split and the bridge
+map untouched. The concentration this exposes is TD-105.
+
+---
+
 ### TD-103 — `loadingSkeletons.test.tsx` intermittently leaks unhandled rejections — **NEW**
 **Status: OPEN. Blocks nothing today — web tests run under `continue-on-error: true`
 (TD-86) — and makes the web suite's exit code unreadable, which is the cost.**
