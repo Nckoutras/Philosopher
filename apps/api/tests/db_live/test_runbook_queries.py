@@ -84,20 +84,21 @@ def _sql_blocks() -> list[str]:
     ]
 
 
-def test_the_runbook_still_has_the_four_queries_this_file_checks():
+def test_the_runbook_still_has_the_five_queries_this_file_checks():
     """A guard on the guard. If someone removes or renames a block, the
     parametrised test below would quietly check fewer queries and stay green —
     the same 'absence looks like success' shape as the 2026-09-01 no-run trap.
     """
     blocks = _sql_blocks()
-    assert len(blocks) == 4, (
-        f"expected 4 SQL blocks in {RUNBOOK.name}, found {len(blocks)}. If a query "
+    assert len(blocks) == 5, (
+        f"expected 5 SQL blocks in {RUNBOOK.name}, found {len(blocks)}. If a query "
         f"was added, extend this file; if one was removed, say so here."
     )
     assert "Activation" in blocks[0]
     assert "Memory trust" in blocks[1]
     assert "Sameness A" in blocks[2]
     assert "Sameness B" in blocks[3]
+    assert "Council v2 trigger" in blocks[4]
 
 
 @pytest.mark.parametrize(
@@ -107,6 +108,7 @@ def test_the_runbook_still_has_the_four_queries_this_file_checks():
         (1, "memory_trust"),
         (2, "sameness_lexical"),
         (3, "sameness_structural"),
+        (4, "council_trigger"),
     ],
 )
 async def test_the_runbook_query_is_valid_against_the_live_schema(db, index, label):
@@ -155,6 +157,16 @@ async def test_the_runbook_query_is_valid_against_the_live_schema(db, index, lab
         # defined. "No pairs" is an empty result, not a row of zeroes.
         assert result.keys() == ["kind", "band", "pairs", "mean_jaccard", "p90_jaccard"]
         assert rows == []
+    elif label == "council_trigger":
+        # ONE ROW over an empty table: the outer aggregate has no GROUP BY, so
+        # "no councils yet" is a row of zeroes. The trigger column must be there
+        # by name — the threshold (>= 10, founder ruling 2026-09-24) reads it.
+        assert result.keys() == [
+            "users", "users_with_more_than_one", "users_with_more_than_one_non_admin",
+            "cases", "cases_reused",
+        ]
+        assert len(rows) == 1
+        assert tuple(rows[0]) == (0, 0, 0, 0, 0)
     elif label == "sameness_structural":
         assert result.keys() == [
             "band", "replies", "pct_end_question", "mean_words", "sd_words",
@@ -278,3 +290,13 @@ async def test_the_structural_query_still_measures_the_ending():
     sql = _sql_blocks()[3]
     assert "LIKE '%?'" in sql, "the question-ending measure is gone"
     assert "pct_end_question" in sql
+
+
+async def test_the_council_trigger_reads_the_non_admin_column():
+    """Staff traffic is not signal (founder ruling 2026-09-24): at the ruling, 2 of
+    the 3 repeat council users were admin accounts, so an all-accounts threshold
+    would have read 3 where the real number was 1. The non-admin column must
+    exclude admins, and the runbook must name it as the trigger."""
+    sql = _sql_blocks()[4]
+    assert "AND NOT is_admin" in sql
+    assert "users_with_more_than_one_non_admin >= 10" in sql
