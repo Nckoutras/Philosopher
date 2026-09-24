@@ -1354,6 +1354,30 @@ for, since it is currently decoration.
 
 ---
 
+### TD-106 — three live personas have no safety promises authored — **OPEN DECISION**
+**Status: OPEN — a decision, not a defect to fix in the guard PR (founder ruling
+2026-09-24: "not something to improvise").**
+
+**What it is.** The persona guards are drawn from the `safety` blocks in
+`philosopher_brain/personas/*.yaml`. Nine yaml files exist; eight are live personas
+(the ninth is Nietzsche, not in `PERSONA_REGISTRY`). **Lao Tzu, Oscar Wilde and
+Niccolò Machiavelli have no yaml at all** — no safety promise was ever authored for
+them, critical or otherwise.
+
+**Two of them are in the smoke set.** Of the ten disclosures pinned in
+`tests/test_safety_detection_gaps.py` — all of which clear the safety gate at
+`level="none"`, so the persona answers and nothing intercepts — one targets
+**lao_tzu** (a threat, and fear of going home) and one **oscar_wilde** (public
+humiliation after a marriage ended). For those two situations the guard PR will have
+nothing to put in the path.
+
+**What deciding it needs:** authored promises for the three, in the same shape as the
+other eight — the founder's content, not an engineering one. Until then they run with
+the shared `system_base.jinja2` steer only ("You are not a therapist… You do not
+diagnose"), which is a steer, not a guard.
+
+---
+
 ### TD-105 — thin theme coverage in the approved bridge map concentrates best fit — **OPEN**
 **Status: OPEN. Logged 2026-09-24 (founder ruling): a finding about the LOCKED map,
 not a defect in the TD-104 scoring. Do not touch the map without a ruling.**
@@ -2739,6 +2763,36 @@ nothing prompts for the account.
 
 This applies to the SAFETY-001 Addendum 2 distress smokes, the stability-guard tier
 smokes, and every P-04 smoke.
+
+## SAFETY-001 RULING — persona guards as prompt text: APPROVED (2026-09-24)
+
+**Status: RULED. Scoped; nothing drafted yet.**
+
+**What the record said before this.** The 2026-09-21 ruling ("NOT to be built now")
+covered **detection** — its own closing line: *"Building any of this means building
+detectors."* The 2026-09-22 addendum (#695) then described "stability guards being
+added to the personas' `system_fragment` (tiers 1-3)" — prompt text, which needs no
+detector — but no ruling had approved that. The addendum assumed it. This entry is
+the ruling it assumed.
+
+**Ruled, 2026-09-24:**
+- **Guards as prompt text: APPROVED.** No classifiers, no detectors, **no crisis
+  numbers** (the 2026-09-02 phone-verification rule stands). Guard text only.
+- **The three-tier framing is DROPPED.** No definition of tiers 1-3 exists anywhere
+  reachable — not in the repo, any branch, `docs/reports`, or the eval scripts — and
+  reconstructing it would be invented work.
+- **Scope of the first PR: the 7 `critical: true` promises** in
+  `philosopher_brain/personas/*.yaml`, across the 8 live personas that have a yaml.
+  The founder approves the set, and the precedence mechanism, before any persona text
+  is written.
+- **A guard must OUTRANK the persona's existing lines, not sit beside them.** The
+  instance that makes this non-negotiable: Simone de Beauvoir's live prompt says
+  *"When someone says 'I had no choice', examine that with them"* and *"Do not
+  validate victimhood narratives without examination"*
+  (`personas/simone_de_beauvoir.py:95-98`) — the move her own yaml marks critical as
+  forbidden in abuse.
+- **Lao Tzu, Oscar Wilde and Machiavelli get no guard in that PR** — they have no
+  authored promises. TD-106.
 
 ## SAFETY-001 ADDENDUM 2 — distress turns now receive the full reply directive (2026-09-22)
 
