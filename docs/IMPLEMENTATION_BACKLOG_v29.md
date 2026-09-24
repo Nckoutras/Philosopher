@@ -1354,6 +1354,31 @@ for, since it is currently decoration.
 
 ---
 
+### TD-107 — the `must_not_say` lists of two critical promises are not enforced — **OPEN, DEFERRED**
+**Status: OPEN, deferred by ruling (2026-09-24): "guard text first, mechanism later if
+the smoke shows text alone is not enough."**
+
+Two of the seven approved critical promises carry an explicit `must_not_say` list in
+`philosopher_brain/personas/marcus_aurelius.yaml`:
+- **#4, self-harm or suicidal ideation:** "endure", "remain strong", "this too is
+  outside your control", "death is natural", "life is opinion", "what is yours to
+  govern".
+- **#6, active grief:** "I too lost...", "As one who lost children...", "Grief is only
+  judgment", "This is outside your control".
+
+The guard PR puts these situations into Marcus's prompt as text. Nothing CHECKS the
+output for them: SAFETY-001 found none of the ten in
+`forbidden_lexicon_persona_specific`, the one mechanism that could. Adding them there
+would make postprocessing regenerate a reply that says one — but the lexicon is
+situation-blind, and "endure" or "remain strong" are ordinary Stoic words in every
+other conversation, so a blanket ban would cost the voice everywhere to protect it
+in two situations. That trade-off is why this is a decision and not a follow-up.
+
+**Revisit when:** the P-04 smoke for the Marcus guards shows the text alone does not
+keep these phrases out.
+
+---
+
 ### TD-106 — three live personas have no safety promises authored — **OPEN DECISION**
 **Status: OPEN — a decision, not a defect to fix in the guard PR (founder ruling
 2026-09-24: "not something to improvise").**
