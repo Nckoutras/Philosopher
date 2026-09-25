@@ -108,12 +108,18 @@ async def test_the_persona_answers_every_one_of_them():
         )
 
 
-# ── SAFETY-002: past tense, out of scope (founder ruling, 2026-09-25) ─────────
+# ── SAFETY-002: the past tense, as main scores it today (2026-09-25) ──────────
 #
 # The lexicon matches whole phrases, so the past tense of a Tier A core is not
-# the core: "wanted" is not "want", "ήθελα" is not "θέλω". Ruled out of scope for
-# SAFETY-002 and pinned here by the same mechanism as the ten above: this is
-# today's behaviour, not the desired one. When it goes red, flip it deliberately.
+# the core: "wanted" is not "want", "ήθελα" is not "θέλω". Pinned here by the
+# same mechanism as the ten above: this is today's behaviour, not the desired one.
+#
+# THESE PINS ASSERT MAIN'S CURRENT BEHAVIOUR AND WILL BE UPDATED IN THE SAFETY-002
+# JUDGE PR. Ruling R9 (founder, 2026-09-25) adds a minimal first-person past-tense
+# set at Tier B default HIGH, "i wanted to die" and "ήθελα να πεθάνω" among them.
+# When those entries land, both pins go red, as expected; flip them there to
+# "high", deliberately. Broader past-tense forms stay known gaps (the SAFETY-002
+# policy file's known_gaps).
 
 PAST_TENSE_GAPS = [
     ("en", "I wanted to die", "I want to die"),
