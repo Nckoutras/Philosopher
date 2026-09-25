@@ -8,7 +8,7 @@ from typing import AsyncGenerator
 
 import anthropic
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 
 from models import CouncilCase, CouncilSession, CouncilResponse, Message
 from personas import get_persona
@@ -29,7 +29,10 @@ from text_utils import (
     language_matches,
     language_matches_set,
 )
-from services.safety_event_log import log_safety_event, STAGE_COUNCIL_INPUT
+from services.output_gate import output_is_unsafe
+from services.safety_event_log import (
+    log_safety_event, STAGE_COUNCIL_INPUT, STAGE_COUNCIL_MEMBER_OUTPUT,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -368,6 +371,29 @@ class CouncilService:
                 continue
 
             verdict_text = "".join(_buf)
+
+            # POST-GENERATION SAFETY, the TD-101 pattern (founder ruling 2026-09-24).
+            # The verdict has already streamed (TD-102), so the client is told to
+            # replace it: it already maps safety_override to the council's safety
+            # panel. The council then ENDS, as it does on unsafe input: no further
+            # members, no synthesis, and the case is deleted so the week's allowance
+            # (a count of council_cases rows) is not spent. Nothing of the flagged
+            # verdict is persisted; the safety_events row is the record.
+            flagged = await output_is_unsafe(
+                db, verdict_text, user_id=user_id, stage=STAGE_COUNCIL_MEMBER_OUTPUT,
+            )
+            if flagged:
+                yield f"data: {json.dumps({'type': 'safety_override', 'level': flagged.level})}\n\n"
+                safe = prompt_builder.build_safety_response(
+                    level=flagged.level, language=dominant_language([matter]),
+                )
+                for chunk in _chunk_text(safe):
+                    yield f"data: {json.dumps({'type': 'chunk', 'data': chunk})}\n\n"
+                await db.execute(delete(CouncilCase).where(CouncilCase.id == case.id))
+                await db.commit()
+                yield f"data: {json.dumps({'type': 'done'})}\n\n"
+                return
+
             verdicts.append((persona.name, verdict_text))
             db.add(CouncilResponse(
                 session_id=session.id,

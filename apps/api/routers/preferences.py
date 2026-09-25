@@ -124,6 +124,7 @@ async def profile_reflection(
     # it. This endpoint fires once, at the end of onboarding.
     bullets = await self_comparison_service.forming_reflection(
         statements, language=await self_portrait_summary.person_language(db, user.id),
+        db=db, user_id=user.id,
     )
     return ProfileReflectionOut(bullets=bullets)
 
@@ -294,6 +295,7 @@ async def read_self_portrait_portrait(
         # HAS rows — this is the caller where reading them actually pays.
         preview = (await self_comparison_service.forming_reflection(
             statements, language=await self_portrait_summary.person_language(db, user.id),
+            db=db, user_id=user.id,
         ))[:2]
         if preview:
             merged = dict(cache) if isinstance(cache, dict) else {}
