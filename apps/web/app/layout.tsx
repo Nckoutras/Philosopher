@@ -1,23 +1,48 @@
 import type { Metadata, Viewport } from 'next'
-import { Cormorant_Garamond, Lora } from 'next/font/google'
+import localFont from 'next/font/local'
 import { ThemeProvider } from 'next-themes'
 import { Toaster } from 'react-hot-toast'
 import QueryProvider from '@/components/ui/QueryProvider'
 import AnalyticsProvider from '@/components/analytics/AnalyticsProvider'
 import './globals.css'
 
-const cormorant = Cormorant_Garamond({
-  subsets: ['latin'],
-  weight: ['300', '400', '500'],
+// SELF-HOSTED, so `next build` makes no network call for fonts.
+//
+// These were next/font/google. At build time that loader downloads every subset
+// file Google lists and reads each URL's extension with /\.(woff2|…)$/.exec(url)[1].
+// Google intermittently serves some subsets as fonts.gstatic.com/l/font?kit=…
+// URLs with no extension (measured 2026-09-25: 4 of 60 Cormorant responses), and
+// the build dies with "TypeError: Cannot read properties of null (reading '1')" —
+// ~3% of CI builds, and Netlify production deploys run the same build.
+//
+// The files in ./fonts are Google's own latin-subset woff2 files, byte-identical
+// to what the Google loader embedded (sha256 checked). Both are VARIABLE fonts:
+// one file covers every weight, so each weight below points at the same file,
+// exactly as the generated CSS did before. Latin only, by ruling: characters
+// outside it (Ł, ş, Cyrillic, Vietnamese) now fall back to the serif stack;
+// neither font has Greek, so Greek text is unchanged. Licences: ./fonts/OFL-*.txt.
+//
+// adjustFontFallback 'Times New Roman' matches what the Google loader chose for
+// these serif faces; the local loader otherwise defaults to Arial.
+const cormorant = localFont({
+  src: [
+    { path: './fonts/cormorant-garamond-latin.woff2', weight: '300', style: 'normal' },
+    { path: './fonts/cormorant-garamond-latin.woff2', weight: '400', style: 'normal' },
+    { path: './fonts/cormorant-garamond-latin.woff2', weight: '500', style: 'normal' },
+  ],
   variable: '--font-cormorant',
   display: 'swap',
+  adjustFontFallback: 'Times New Roman',
 })
 
-const lora = Lora({
-  subsets: ['latin'],
-  weight: ['400', '500'],
+const lora = localFont({
+  src: [
+    { path: './fonts/lora-latin.woff2', weight: '400', style: 'normal' },
+    { path: './fonts/lora-latin.woff2', weight: '500', style: 'normal' },
+  ],
   variable: '--font-lora',
   display: 'swap',
+  adjustFontFallback: 'Times New Roman',
 })
 
 export const viewport: Viewport = {
