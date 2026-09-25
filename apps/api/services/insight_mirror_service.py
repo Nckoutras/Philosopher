@@ -9,6 +9,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from config import config
 from models import Insight, Message, Mirror, Persona, User
 from services.llm_client import llm_client
+from services.output_gate import output_is_unsafe
+from services.safety_event_log import STAGE_INSIGHT_MIRROR_OUTPUT
 from text_utils import dominant_language, language_directive, language_matches
 
 logger = logging.getLogger(__name__)
@@ -191,6 +193,16 @@ async def generate_insight_mirror(
     if payload is None:
         return await _write_mirror(
             db, user_id, insight_id, host_persona_id, now, status="empty"
+        )
+
+    # Post-generation safety (founder ruling 2026-09-24): status='suppressed', the
+    # row the input-side gate above already writes. The safety_events row is added
+    # to this session and committed with the mirror by _write_mirror.
+    if await output_is_unsafe(
+        db, payload, user_id=user_id, stage=STAGE_INSIGHT_MIRROR_OUTPUT,
+    ):
+        return await _write_mirror(
+            db, user_id, insight_id, host_persona_id, now, status="suppressed"
         )
 
     return await _write_mirror(

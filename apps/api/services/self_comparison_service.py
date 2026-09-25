@@ -13,7 +13,13 @@ from services.llm_client import llm_client
 from services.prompt_builder import prompt_builder
 from services.safety_service import safety_service
 from text_utils import dominant_language, language_directive, language_matches
-from services.safety_event_log import log_safety_event, STAGE_SELF_COMPARISON_INPUT
+from services.output_gate import output_is_unsafe
+from services.safety_event_log import (
+    log_safety_event,
+    STAGE_FORMING_REFLECTION_OUTPUT,
+    STAGE_SELF_COMPARISON_INPUT,
+    STAGE_SELF_COMPARISON_OUTPUT,
+)
 from services.self_model_service import self_model_service
 from services.self_portrait import answers_to_statements
 from services.self_comparison_prompts import SELF_SYSTEM_PROMPT, CLOSING_PROMPT, FORMING_REFLECTION_PROMPT
@@ -59,7 +65,9 @@ def _format_signals(by_type: dict) -> str:
 
 class SelfComparisonService:
 
-    async def forming_reflection(self, signals: list[str], *, language: str) -> list[str]:
+    async def forming_reflection(
+        self, signals: list[str], *, language: str, db=None, user_id=None,
+    ) -> list[str]:
         """Synthesize the raw recent memory signals into a short, warm, second-person
         reflection for the "what's beginning to take shape" block.
 
@@ -119,6 +127,15 @@ class SelfComparisonService:
                 extra={"expected_language": language,
                        "got_script": dominant_language(bullets)},
             )
+            return []
+
+        # Post-generation safety (founder ruling 2026-09-24): [] hides the block,
+        # the same failure path as above. `db` / `user_id` are optional only so a
+        # caller without a session still gets the gate; all three callers pass
+        # them, so a positive is recorded as well as withheld.
+        if bullets and await output_is_unsafe(
+            db, bullets, user_id=user_id, stage=STAGE_FORMING_REFLECTION_OUTPUT,
+        ):
             return []
         return bullets
 
@@ -303,14 +320,33 @@ class SelfComparisonService:
                 yield f"data: {json.dumps({'type': 'error', 'error_code': 'self_unavailable', 'which': which})}\n\n"
             answers[which] = "".join(buf)
 
-            # LOG-ONLY, AND STRUCTURALLY SO. Every chunk above was already yielded
-            # to the client as it arrived, so by the time an answer can be read as a
-            # whole the person has watched it type itself out. There is nothing left
-            # to block: the directive in the system prompt is the entire protection
-            # on this path, and this line only makes a failure visible. DO NOT "fix"
-            # this later by adding a guard here — it would be dead code. Blocking
-            # would mean buffering the stream, which is a product decision about
-            # You-vs-You, not a language fix.
+            # POST-GENERATION SAFETY, the TD-101 pattern (founder ruling 2026-09-24).
+            # The answer has already streamed (TD-102), so the client is told to
+            # replace it: safety_override puts the page into its safety state, which
+            # unmounts both answers. The run then ENDS: no second self, no closing,
+            # and the pending row is removed, because weekly_remaining counts every
+            # row and an overridden run must not spend the allowance. The
+            # safety_events row is the record.
+            flagged = await output_is_unsafe(
+                db, answers[which], user_id=user_id, stage=STAGE_SELF_COMPARISON_OUTPUT,
+            )
+            if flagged:
+                yield f"data: {json.dumps({'type': 'safety_override', 'level': flagged.level})}\n\n"
+                safe = prompt_builder.build_safety_response(level=flagged.level, language=language)
+                yield f"data: {json.dumps({'type': 'chunk', 'which': 'safety', 'data': safe})}\n\n"
+                await db.delete(row)
+                await db.commit()
+                yield f"data: {json.dumps({'type': 'done'})}\n\n"
+                return
+
+            # THE LANGUAGE CHECK IS LOG-ONLY, AND STRUCTURALLY SO. Every chunk above
+            # was already yielded to the client as it arrived, so by the time an
+            # answer can be read as a whole the person has watched it type itself
+            # out. For LANGUAGE there is nothing worth blocking: the directive in the
+            # system prompt is the entire protection, and this line only makes a
+            # failure visible. Safety, above, is different: it replaces the answer on
+            # screen and ends the run. Buffering the stream would be a product
+            # decision about You-vs-You, not a language fix (TD-102).
             if answers[which] and not language_matches(answers[which], language):
                 logger.warning(
                     "self_comparison_language_mismatch",

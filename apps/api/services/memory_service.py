@@ -8,6 +8,8 @@ from models import MemoryEntry, Insight
 from schemas import THEME_VALUES
 from services.llm_client import llm_client
 from services.embedding_client import embedding_client
+from services.output_gate import output_is_unsafe
+from services.safety_event_log import STAGE_INSIGHT_OUTPUT
 from text_utils import dominant_language, language_directive, language_matches
 from config import config
 
@@ -785,6 +787,15 @@ class MemoryService:
                     )
                     if signal is not None:
                         break
+                if signal is not None and await output_is_unsafe(
+                    db, signal.get("content"), user_id=user_id,
+                    stage=STAGE_INSIGHT_OUTPUT, conversation_id=conversation_id,
+                ):
+                    # Post-generation safety (founder ruling 2026-09-24): the
+                    # insight reaches Today and the letter, so it is not written.
+                    # Checked BEFORE the throttle, so a withheld insight never
+                    # starts the 6h window.
+                    signal = None
                 if signal is not None:
                     blocked = await self._insight_gate_blocked(db, user_id, conversation_id)
                     if blocked is None:
@@ -1104,6 +1115,17 @@ class MemoryService:
                 content = content[1:-1].strip()
             if not content:
                 logger.info("Recurrence: empty phrasing for conv=%s", conversation_id)
+                return
+
+            # Post-generation safety (founder ruling 2026-09-24): not written, for the
+            # reason the language gate above gives — the memory rows are untouched and
+            # the throttle counts only insights that exist, so this costs nothing
+            # lasting. The safety_events row is committed on its own.
+            if await output_is_unsafe(
+                db, content, user_id=user_id, stage=STAGE_INSIGHT_OUTPUT,
+                conversation_id=conversation_id,
+            ):
+                await db.commit()
                 return
 
             db.add(Insight(

@@ -1686,6 +1686,17 @@ few seconds; it is not zero.
 **Scope when decided:** all three paths at once. A gate that behaves differently per
 path is the defect TD-101 just closed.
 
+**Widened 2026-09-24: it now covers FOUR streamed surfaces, not three chat paths.**
+The output-safety PR (founder ruling 2026-09-24) gave the two other streamed
+generators the same post-stream gate: **Council member verdicts** and **You-vs-You
+then/now answers**. Both check the complete answer after it has streamed and, on a
+positive, send `safety_override`. The Council page drops to its safety panel; the
+You-vs-You page unmounts both answers. So both carry exactly the exposure window
+described above. Whatever is decided here applies to chat (send-message,
+another-mind, go-deeper), Council members and You-vs-You together. The nine
+non-streamed generators in the same PR check before anything is shown, and are
+not part of this decision.
+
 ---
 
 ### TD-101 — another-mind and go-deeper replies skip the post-generation safety gate — **CLOSED**

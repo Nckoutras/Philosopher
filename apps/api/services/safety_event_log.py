@@ -27,12 +27,30 @@ from models import SafetyEvent
 # trigger_stage legible and leaves the chat values untouched so existing rows keep their
 # meaning.
 #
-# INPUT SIDE ONLY, deliberately: the record answers "what did this person write", not
-# "what did a persona nearly say". The six check_output sites stay unlogged.
+# Input side: the record answers "what did this person write".
 STAGE_COUNCIL_INPUT              = "council_input"
 STAGE_COUNTERVIEW_INPUT          = "counterview_input"
 STAGE_COUNTERVIEW_REBUTTAL_INPUT = "counterview_rebuttal_input"
 STAGE_SELF_COMPARISON_INPUT      = "self_comparison_input"
+
+# Output side, added 2026-09-24 (founder ruling): the eleven generators that had no
+# post-generation gate now record a suppressed output here. This used to say "input
+# side only, the check_output sites stay unlogged". That was true of a design in
+# which a flagged output was nulled silently. A flagged output now withholds a
+# letter, a mirror or a title, and an operator must be able to see why it is
+# missing. Same {surface}_output shape as the inputs, so GROUP BY stays legible.
+# Written through services/output_gate.py, never directly.
+STAGE_COUNCIL_MEMBER_OUTPUT      = "council_member_output"
+STAGE_SELF_COMPARISON_OUTPUT     = "self_comparison_output"
+STAGE_WEEKLY_LETTER_OUTPUT       = "weekly_letter_output"
+STAGE_MONTHLY_LETTER_OUTPUT      = "monthly_letter_output"
+STAGE_MIRROR_OUTPUT              = "mirror_output"
+STAGE_INSIGHT_MIRROR_OUTPUT      = "insight_mirror_output"
+STAGE_PORTRAIT_SUMMARY_OUTPUT    = "portrait_summary_output"
+STAGE_CONCLUSION_OUTPUT          = "conclusion_output"
+STAGE_TITLE_OUTPUT               = "title_output"
+STAGE_INSIGHT_OUTPUT             = "insight_output"
+STAGE_FORMING_REFLECTION_OUTPUT  = "forming_reflection_output"
 STAGE_SCHEDULED_EMAIL_INPUT      = "scheduled_email_input"
 
 

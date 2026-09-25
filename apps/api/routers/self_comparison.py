@@ -79,6 +79,7 @@ async def get_self_comparison_status(
         data["forming_preview"] = await self_comparison_service.forming_reflection(
             data["forming_preview"],
             language=language_from_signals(data["forming_preview"]),
+            db=db, user_id=user.id,
         )
     return SelfModelStatusOut(**data)
 
