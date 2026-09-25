@@ -1559,6 +1559,91 @@ forms are Tier A via the subject rule.
 
 Level changes (…better off without me family → Tier A): APPROVED.
 
+**SAFETY-002 lists v0.4.0 — review-pack rulings (founder, 2026-09-25, verbatim):**
+
+R1 (A_GR_04, A_GR_09 — and English locative HIGH finding, same rule):
+DEMOTION, not exemption. When a Tier A core is followed by a locative
+preposition (EL: σε/στο/στη/στην/στον/στις/στα/στους; EN: in/at/near/with),
+the match DEMOTES to Tier B with default HIGH — never to none. Bare cores
+and existential continuations (πια, άλλο, anymore, any longer) stay Tier A.
+The future judge prompt must state: first-person existential ideation with a
+locative object ("να ζω σ' αυτόν τον κόσμο", "live in this world/this life")
+is NEVER released. Record that sentence in the policy file now.
+
+R2 (English subject rule): the bind BREAKS if any second/third-person subject
+token intervenes between the first-person subject and the core
+(you, u, they, we, he, she, it, people, everyone, anyone, nobody, no one).
+Side-by-side tests required: "I really want to die" (HIT A) vs
+"I know you want to die" (NOT Tier A).
+
+R3 (backstop invariant): every Tier A core governed by a subject rule or a
+demotion rule must also exist BARE in Tier B at default HIGH. Verify this
+holds for all such entries; add any missing bare forms. A failed bind must
+degrade to today's behaviour, never to no match.
+
+R4: every HIT/MISS pair in the file becomes a parameterized test generated
+from the JSON itself, plus adversarial variants (subject switching, locatives,
+quotation, tense, greeklish spellings). These are a build requirement:
+the lexicon does not freeze until they pass 100%.
+
+R5: add one explicit transition table to the policy file: starting level →
+allowed judge verdicts → response mapping. Code and tests read this table.
+
+**SAFETY-002 v0.4.0 — founder rulings on the flagged calls (2026-09-25, verbatim):**
+
+1. Demotion scope (live/living/alive/existing/ζω/υπάρχω only): APPROVED.
+2. Bare tired-of-living backstop at HIGH: APPROVED (consistent with Q3).
+3. σ' in Greek locatives: APPROVED.
+4. MEDIUM+intent stays MEDIUM: APPROVED, with one addition to the policy
+   file: the judge's full verdict (including detected intent) is ALWAYS
+   logged, so intent-on-MEDIUM occurrences in production are countable.
+   Revisit trigger: first real occurrence.
+5. Past tense: APPROVED as out of scope. Pin "I wanted to die" /
+   "ήθελα να πεθάνω" as known-gap tests alongside the SAFETY-001 ten
+   (same mechanism), asserting today's no-match behaviour.
+
+Greeklish spelling fold (8→th etc.): REJECTED for now — it needs its own
+matching pass to avoid corrupting English text. Log as TD with that
+sentence as the reason. Enumerated spellings remain the approach;
+"8elo na pe8ano" stays as added.
+
+No further list changes. The freeze signal comes from the founder after
+his delta read; do nothing until then.
+
+**Where these landed.** The lists and policy file are v0.4.0-draft. It is not yet
+in the repository; it lands with the judge build, after the freeze. Two findings
+came out of R4's adversarial variants while the lists were being built:
+- A first-person core inside quotation marks failed to bind, because the quote mark
+  stuck to the first word. The subject rule now strips surrounding quote marks from
+  tokens.
+- `8elo na pe8ano` matched nothing at either tier.
+
+The past-tense pin is on its own branch, `test/safety-002-past-tense-gaps`. The
+spelling fold is TD-112.
+
+---
+
+### TD-112 — greeklish spellings are enumerated, not folded — **OPEN, deferred**
+**Status: OPEN, deferred (founder ruling, 2026-09-25).**
+
+**What.** The lexicon's greeklish entries list each spelling by hand
+(`thelo na pethano`, `thelw na pethanw`, `8elw na pe8anw`, …). A spelling nobody
+listed matches nothing. `8elo na pe8ano` was found that way, by the SAFETY-002
+v0.4.0 adversarial check, although three of its sibling spellings were listed; it
+was added by hand. The general fix is a fold applied before matching (8→th, w→o,
+y/h→i, …), so one entry covers every spelling.
+
+**Why not now (founder, verbatim):** "it needs its own matching pass to avoid
+corrupting English text." The fold rewrites letters that English uses too, so it
+cannot run over the whole message the way accent-stripping does. It needs a
+separate pass over greeklish entries only.
+
+**Until then:** enumerated spellings remain the approach, and each greeklish
+entry's spellings are reviewed by hand.
+
+**Revisit when:** a missed greeklish spelling shows up in production or in a
+SAFETY-002 test, or the judge build revisits matching.
+
 ---
 
 ### TD-111 — a kept memory cannot be seen or removed by the user — **OPEN, HIGH**
