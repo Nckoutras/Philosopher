@@ -81,10 +81,20 @@ RISK_HIGH_EN = [
     "not worth living", "better off dead", "can't keep living",
     "planning to end", "goodbye forever", "end it all", "ending it all",
     "no reason to live", "ready to die", "want it to be over",
+    # ── Added 2026-09-25 (founder ruling) ────────────────────────────────────
+    # Crisis forms the substring match never reached: "suicide" is not a prefix of
+    # "suicidal", "kill myself" is not inside "killing myself". Measured before this
+    # change: all of these returned level NONE.
+    "suicidal", "killing myself", "want to kill myself",
+    "don't want to live", "dont want to live", "do not want to live",
+    "thinking about ending it", "wish i were dead", "take my own life",
+    "taking my own life", "harming myself", "hurting myself", "self-harm",
+    "self harming", "self-harming", "overdosed", "overdosing",
 ]
 
 RISK_MEDIUM_EN = [
-    "can't go on", "no point anymore", "no point to anything", "hopeless",
+    "can't go on", "cant go on", "hopelessness",  # 2026-09-25: see RISK_HIGH_EN
+    "no point anymore", "no point to anything", "hopeless",
     "disappear", "nothing matters", "can't take it anymore", "want to disappear",
     "everyone would be better without me", "so done with everything",
     "exhausted with living", "tired of existing", "don't see the point",
@@ -154,6 +164,30 @@ RISK_HIGH_GR = [
     "ειμαι ετοιμη να πεθανω",      # I am ready to die (f.)
     "θελω να τελειωσουν ολα",      # I want it all to be over
     # "αντιο για παντα" moved to LOW_SIGNALS_GR 2026-09-09 — as often a breakup.
+    # ── Added 2026-09-25 (founder ruling; founder reads the Greek before merge) ──
+    # Equivalents of the English crisis forms added the same day, plus the
+    # inflections whole-phrase matching no longer reaches by accident.
+    "αυτοκτονικοσ",                # suicidal (m.)
+    "αυτοκτονικη",                 # suicidal (f.)
+    "αυτοκτονικο",                 # suicidal (n.)
+    "αυτοκτονικεσ",                # suicidal (pl., e.g. αυτοκτονικές σκέψεις)
+    "αυτοκτονιασ",                 # of suicide (genitive)
+    "αυτοκτονιεσ",                 # suicides (plural)
+    "δεν θελω πια να ζω",          # I don't want to live anymore
+    "δε θελω πια να ζω",           # variant negation
+    "να σκοτωσω τον εαυτο μου",    # to kill myself (literal)
+    "να τα τελειωσω ολα",          # to end it all
+    "μακαρι να ημουν νεκροσ",      # I wish I were dead (m.)
+    "μακαρι να ημουν νεκρη",       # I wish I were dead (f.)
+    "να αφαιρεσω τη ζωη μου",      # to take my own life
+    # NOT "να παρω τη ζωη μου": native review 2026-09-25 — in everyday Greek it
+    # reads "to get my life back", the opposite meaning, and fired HIGH on it.
+    "βλαπτω τον εαυτο μου",        # I harm myself
+    "αυτοτραυματιζομαι",           # I self-harm
+    "αυτοτραυματισμο",             # self-harm (accusative)
+    "αυτοτραυματισμου",            # of self-harm (genitive)
+    "υπερβολικησ δοσησ",           # of an overdose (genitive)
+    "υπερβολικεσ δοσεισ",          # overdoses (plural)
 ]
 
 RISK_MEDIUM_GR = [
