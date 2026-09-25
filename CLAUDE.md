@@ -649,6 +649,19 @@ Verified against `information_schema.referential_constraints` on Oregon, 2026-09
 The full cleanup procedure, scoped to one account by email, is in the tier-1
 stability-guard PR narrative.
 
+**Scope: C-07 governs CLEANUP, not the user's own delete (founder ruling,
+2026-09-24).** The rule above is for procedures that remove content — QA-account
+cleanup, scripted or admin removal. The user-facing `DELETE /conversations/{id}`
+is governed by **Memory-v2 Ruling #7c** (widened 2026-09-03, migration
+`057_memory_conv_fk_set_null`): *"deleting a thread must not erase what the room
+learned."* It deliberately keeps memories and insights, and the delete dialog tells
+the user so ("Insights and memories from this conversation will be kept."). That
+behaviour is the ruling working, not a violation of this rule — a 2026-09-24
+review misread it as one, and this paragraph exists so the next reader does not.
+The gap it leaves (a kept memory cannot be seen or removed by the user) is TD-111.
+`safety_events` stay on a conversation delete too: they are a safety record, not
+user content, and account deletion anonymises them.
+
 ---
 
 ## Known tech debt

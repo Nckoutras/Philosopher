@@ -1404,6 +1404,53 @@ keep these phrases out.
 
 ---
 
+### TD-111 — a kept memory cannot be seen or removed by the user — **OPEN, HIGH**
+**Status: OPEN, HIGH (founder ruling 2026-09-24). Do not build the screen yet.**
+
+**Why HIGH.** The product sells "it remembers you". A reader has no way to see what
+it remembers, or to correct or remove any of it. That is a trust gap, not a
+feature gap. The only remedy available today is deleting the whole account.
+
+**How the gap arises.** Ruling #7c keeps memories and insights when a conversation
+is deleted, and the delete dialog says so. That is correct and stays (see CLAUDE.md
+C-07, "Scope"). But the kept rows then have no user-facing surface at all:
+
+- `GET /api/v1/memory`, `PATCH /api/v1/memory/{id}` and `DELETE /api/v1/memory/{id}`
+  exist (`routers/memory.py:37, 51, 72`), and **no web code calls any of them**.
+  `api.getMemory` / `api.deleteMemory` (`lib/api.ts:1393, 1397`) have no callers.
+- `/app/explore/memory` is a static explainer page, and has been since before
+  2026-08-25. The 2026-08-25 teardown credited it with memory controls it never had.
+- The data export (`GET /auth/me/export`) is the only place a reader can see their
+  memories, as JSON.
+
+**INHERITED DEFECTS — whoever builds the screen must fix these FIRST (founder
+ruling 2026-09-24).** The endpoints exist but have never had a caller, so none of
+these has ever been exercised:
+
+1. **`PATCH` does not re-embed.** It rewrites `content` and leaves `embedding` as it
+   was, so an edited memory is still recalled by the meaning of its OLD text
+   (`routers/memory.py:62-66`). A user who corrects a memory would see the correction
+   and keep getting the original.
+2. **`GET` caps at 100.** It returns the newest 100 active rows, and production has a
+   user with 371. A screen built on it would silently hide most of a long-standing
+   reader's memories.
+3. **`DELETE` is soft.** It sets `is_active = False`. Recall filters on `is_active`, so
+   the memory stops being used, but the row stays until account deletion. Whether a
+   user-facing "delete" should mean removal is a ruling for the screen's brief, and
+   the answer must match what the button says.
+
+Also, as it stands:
+
+- Nothing shows where a memory came from (a conversation, the portrait, onboarding,
+  a Council edit). Memories kept by #7c after a thread delete have `conversation_id`
+  NULL, so a screen could not trace them back even if it tried.
+
+**Not in scope of this entry:** `safety_events`. They stay on a conversation delete
+and are anonymised on account deletion: a safety record, not user content (founder
+ruling 2026-09-24).
+
+---
+
 ### TD-110 — the admin persona editor writes a column no chat path reads — **OPEN**
 **Status: OPEN. Logged 2026-09-24 (founder ruling): log it, do not fix it here.
 The editor silently does nothing.**
