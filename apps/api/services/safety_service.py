@@ -52,7 +52,7 @@ from typing import Optional
 import logging
 
 from constants import RISK_LEVELS
-from text_utils import normalize
+from text_utils import normalize, phrase_pattern
 from config import config
 from services.safety_lexicons import (
     ALL_BANDS,
@@ -97,6 +97,13 @@ def _assert_lexicons_are_prenormalised() -> None:
 
 
 _assert_lexicons_are_prenormalised()
+
+# The output list is matched as WHOLE PHRASES (ruling 2026-09-25). A substring test
+# let "way to end" fire inside "way to endure" and flagged six of six ordinary
+# sentences about mortality; since #739 that list gates eleven generated surfaces.
+# Compiled once: the list is module-level and fixed. The input bands (RISK_HIGH /
+# RISK_MEDIUM / LOW_SIGNALS) still match as substrings — a separate change.
+_OUTPUT_PATTERNS = [(p, phrase_pattern(p)) for p in OUTPUT_RISK_PHRASES]
 
 
 # ── Result dataclass ──────────────────────────────────────────────────────────
@@ -166,7 +173,7 @@ class SafetyService:
         walked straight through the English-only list.
         """
         normalized = _normalize(response_text)
-        flags = [p for p in OUTPUT_RISK_PHRASES if p in normalized]
+        flags = [p for p, pattern in _OUTPUT_PATTERNS if pattern.search(normalized)]
 
         if flags:
             logger.error(f"Safety POST-GEN flags: {flags}")

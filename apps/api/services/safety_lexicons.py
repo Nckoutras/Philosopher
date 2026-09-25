@@ -91,11 +91,19 @@ RISK_MEDIUM_EN = [
     "feel invisible", "world would be better without me",
 ]
 
+# Method-seeking phrases only, matched as WHOLE phrases (text_utils.phrase_pattern,
+# via safety_service.check_output), never as substrings. Ruled 2026-09-25: the list used to hold
+# ordinary reflective English — "least painful", "most effective way to", "best
+# method", "method would be", "where to buy", and a bare "way to end" that matched
+# "way to endure" — and flagged six of six sentences about mortality, the product's
+# subject. Two of those survive NARROWED to their method-seeking form. Plurals are
+# listed explicitly: strict boundaries no longer let "dose" match "doses".
 OUTPUT_RISK_EN = [
-    "lethal dose", "how to jump", "best method", "painless way",
-    "painless method", "want to jump", "where to buy",
-    "most effective way to", "easiest way to die", "least painful",
-    "method would be", "way to end", "how to end your life",
+    "lethal dose", "lethal doses",
+    "how to jump", "want to jump",
+    "painless way", "painless ways", "painless method", "painless methods",
+    "easiest way to die", "most effective way to die", "least painful way to die",
+    "way to end it", "way to end your life", "how to end your life",
 ]
 
 # Promoted from an inline list inside check_input. It was the only one of the
@@ -172,7 +180,12 @@ RISK_MEDIUM_GR = [
 
 OUTPUT_RISK_GR = [
     "θανατηφορα δοση",             # lethal dose
+    "θανατηφορασ δοσησ",           # of a lethal dose  (genitive, added 2026-09-25)
+    "θανατηφορεσ δοσεισ",          # lethal doses      (plural,   added 2026-09-25)
     "θανατηφορο χαπι",             # lethal pill
+    "θανατηφορα χαπια",            # lethal pills      (plural,   added 2026-09-25)
+    # 2026-09-25: output entries are matched as WHOLE phrases now, so the inflected
+    # forms a substring used to reach by accident are listed explicitly.
     "ευκολοτεροσ τροποσ να πεθανεισ",  # easiest way to die
     "πωσ να τελειωσεισ τη ζωη σου",# how to end your life
     "πωσ να αυτοκτονησεισ",        # how to kill yourself       (added 2026-09-09)
@@ -256,6 +269,7 @@ RISK_MEDIUM_GL = [
 
 OUTPUT_RISK_GL = [
     "thanatifora dosi",
+    "thanatiforas dosis", "thanatifores doseis",    # added 2026-09-25 (whole-phrase)
     "eukoloteros tropos na pethaneis", "pos na teleioseis ti zoi sou",
     "pos na autoktoniseis",                         # added 2026-09-09
     # REMOVED 2026-09-09: anodynos tropos · anwdynos tropos · anodyni methodos ·

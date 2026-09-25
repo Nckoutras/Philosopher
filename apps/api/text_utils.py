@@ -55,6 +55,19 @@ def normalize(text: str) -> str:
     return normalize_with_map(text)[0]
 
 
+def phrase_pattern(norm_phrase: str) -> "re.Pattern":
+    """A NORMALISED phrase as a whole-phrase matcher: no letter or digit may touch
+    either end, so "way to end" can never match inside "way to endure".
+
+    Lookarounds rather than \\b, so a phrase that starts or ends on punctuation still
+    bounds correctly. `\\w` is Unicode-aware for str patterns, so a Greek phrase
+    bounds on Greek letters. ONE definition, shared by the persona/universal voice
+    lexicons (postprocessing_service, UAT2-001) and the safety output list
+    (safety_service, 2026-09-25) — two copies of a matcher drift.
+    """
+    return re.compile(r"(?<!\w)" + re.escape(norm_phrase) + r"(?!\w)")
+
+
 def shorten_source(s: str, cap: int = 35) -> str:
     """Shorten a source locator for compact display (carousel card, share PNG
     attribution). Deterministic, word-boundary aware, capped at `cap` chars.
