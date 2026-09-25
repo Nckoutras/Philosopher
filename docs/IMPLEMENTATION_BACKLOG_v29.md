@@ -1621,6 +1621,56 @@ came out of R4's adversarial variants while the lists were being built:
 The past-tense pin is on its own branch, `test/safety-002-past-tense-gaps`. The
 spelling fold is TD-112.
 
+**SAFETY-002 v0.5.0 — second-reader rulings (founder, 2026-09-25, verbatim):**
+
+R6 (amends R1): demotion rule becomes core → optional continuation tokens
+(EL: πια, άλλο, πλέον; EN: anymore, any longer) → locative → demote to
+B:HIGH. Continuation tokens may sit between core parts ("δεν θέλω πια να
+ζω…") or after the core. Bare core + continuation with NO locative stays
+Tier A. Required cases: "Δεν θέλω να ζω άλλο σε αυτό το σπίτι" → B:HIGH,
+"Δεν θέλω πια να ζω σε αυτή την πόλη" → B:HIGH, "Κουράστηκα να ζω πια
+στην Αθήνα" → B:HIGH, "Δεν θέλω να ζω πια." → A, "Δεν θέλω πια να ζω." → A.
+
+R7: Greek locative tokens gain εδω, εκει (normalised). "Δεν θέλω να ζω
+εδώ." → B:HIGH. αλλού and με NOT added — log both as candidates.
+Judge never-released rule already covers existential "εδώ".
+
+R8 (amends the MEDIUM+intent ruling): the judge verdict set gains
+INTENT. On an affirmative INTENT verdict, ANY starting level maps to the
+crisis response. Timeout, error or unparseable reply NEVER escalates — the
+lexicon level stands, exactly as Q1 ruled. Update the R5 transition table
+accordingly; all verdicts still logged.
+
+R9 (amends Flag 7): add a MINIMAL first-person past-tense set at Tier B
+default HIGH — EN: i wanted to die, i wanted to end it; EL: ήθελα να
+πεθάνω, δεν ήθελα να ζω (+ greeklish parallels, enumerated). Recovery
+narratives release via the judge; current-risk past tense escalates via
+INTENT. Cases: "Years ago I wanted to die, but I came through it" →
+released; "Χθες ήθελα να πεθάνω" → judge, INTENT expected.
+Broader past-tense coverage stays a known-gap test.
+
+R10 (implementation constraint on Call 3): quote stripping must not
+consume the apostrophe of Greek contractions. Tests: "σ' αυτόν" and
+"σ’ αυτόν" (straight AND curly) both demote; "'I want to die'" still
+binds. Add third-person non-bind test: "Κουράστηκε να ζει στην Αθήνα"
+→ no A_GR_09 match.
+
+**SEQUENCING CORRECTION (founder, 2026-09-25, verbatim) — the two supersessions:**
+
+- R8 supersedes "MEDIUM+intent stays MEDIUM": judge verdict set gains
+  INTENT; affirmative INTENT → crisis response from ANY starting level;
+  timeout/error/unparseable NEVER escalates (Q1 unchanged). Transition
+  table updated; full-verdict logging stays; the "first real occurrence"
+  revisit trigger is removed.
+- R9 supersedes "past tense out of scope": minimal first-person past-tense
+  set enters Tier B at default HIGH (as specified in R9). The known-gaps
+  section now covers broader past-tense forms only.
+
+**Consequence for the pin branch.** `test/safety-002-past-tense-gaps` pins
+"I wanted to die" and "ήθελα να πεθάνω" at `none`. That is main's behaviour today,
+and the file says so. Both pins go red in the SAFETY-002 judge PR when R9's entries
+land, and are flipped to `high` there, deliberately.
+
 ---
 
 ### TD-112 — greeklish spellings are enumerated, not folded — **OPEN, deferred**
