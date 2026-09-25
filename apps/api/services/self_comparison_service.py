@@ -8,7 +8,7 @@ import anthropic
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from models import SelfComparison, Message, Conversation, UserPreference, MemoryEntry
+from models import SelfComparison, Message, UserPreference, MemoryEntry
 from services.llm_client import llm_client
 from services.prompt_builder import prompt_builder
 from services.safety_service import safety_service
@@ -20,7 +20,7 @@ from services.safety_event_log import (
     STAGE_SELF_COMPARISON_INPUT,
     STAGE_SELF_COMPARISON_OUTPUT,
 )
-from services.self_model_service import self_model_service
+from services.self_model_service import conversation_key, self_model_service
 from services.self_portrait import answers_to_statements
 from services.self_comparison_prompts import SELF_SYSTEM_PROMPT, CLOSING_PROMPT, FORMING_REFLECTION_PROMPT
 
@@ -40,6 +40,9 @@ MODEL_PRO = "claude-sonnet-4-6"   # same model Council uses
 WEEKLY_LIMIT_BY_TIER = {"pro": 5, "premium": 30}   # asks/week; premium capped (cost safety)
 DEFAULT_WEEKLY_LIMIT = 5
 CANDIDATES_PER_WINDOW = 8
+# A high/critical message this recent refuses the comparison (ruling 2026-09-25);
+# older flags exclude their conversation's material instead of refusing.
+RECENT_CRISIS_DAYS = 14
 QUOTE_TRUNC = 200
 FORMING_REFLECTION_MAX_TOKENS = 220
 
@@ -148,32 +151,57 @@ class SelfComparisonService:
         )
         return max(0, weekly_limit(plan) - result.scalar_one())
 
-    async def _candidates(self, db: AsyncSession, user_id: str, start, end) -> list[dict]:
+    async def _candidates(
+        self, db: AsyncSession, user_id: str, start, end, *,
+        exclude_conversation_ids: set | None = None,
+    ) -> list[dict]:
+        """The person's own messages in a window, citable by id. Messages from a
+        conversation that held a high/critical message are never offered (ruling
+        2026-09-25): a citation would put crisis words back on screen."""
+        conditions = [
+            Message.user_id == user_id,
+            Message.role == "user",
+            Message.created_at >= start,
+            Message.created_at <= end,
+        ]
+        if exclude_conversation_ids:
+            conditions.append(Message.conversation_id.notin_(
+                sorted(conversation_key(c) for c in exclude_conversation_ids)
+            ))
         result = await db.execute(
             select(Message.id, Message.content, Message.created_at)
-            .where(
-                Message.user_id == user_id,
-                Message.role == "user",
-                Message.created_at >= start,
-                Message.created_at <= end,
-            )
+            .where(*conditions)
             .order_by(Message.created_at.asc())
             .limit(CANDIDATES_PER_WINDOW)
         )
         return [{"id": r.id, "text": r.content, "date": r.created_at} for r in result.all()]
 
-    async def _window_has_crisis(self, db, user_id, start, end) -> bool:
+    # ── The crisis gate (ruling 2026-09-25) ──────────────────────────────────
+    # It used to refuse whenever ANY high/critical message fell between the earlier
+    # window's start and the recent window's end — months, for a long-standing
+    # person, so one flagged message closed the ritual for months. Now RECENCY
+    # refuses and older flags EXCLUDE. Both read the person's own messages across
+    # every conversation, not only the windows.
+
+    async def _recent_crisis(self, db, user_id) -> bool:
+        since = datetime.now(timezone.utc) - timedelta(days=RECENT_CRISIS_DAYS)
         result = await db.execute(
-            select(func.count()).select_from(Message)
-            .join(Conversation, Conversation.id == Message.conversation_id)
-            .where(
-                Conversation.user_id == user_id,
-                Message.created_at >= start,
-                Message.created_at <= end,
+            select(func.count()).select_from(Message).where(
+                Message.user_id == user_id,
+                Message.created_at >= since,
                 Message.safety_level.in_(("high", "critical")),
             )
         )
         return result.scalar_one() > 0
+
+    async def _flagged_conversation_ids(self, db, user_id) -> set:
+        result = await db.execute(
+            select(Message.conversation_id).distinct().where(
+                Message.user_id == user_id,
+                Message.safety_level.in_(("high", "critical")),
+            )
+        )
+        return {conversation_key(cid) for cid in result.scalars().all() if cid is not None}
 
     async def _self_portrait_context(self, db: AsyncSession, user_id: str) -> tuple[str, str]:
         """Build the (standing_block, shifts_block) Self-Portrait context for You-vs-You.
@@ -244,19 +272,27 @@ class SelfComparisonService:
             yield f"data: {json.dumps({'type': 'done'})}\n\n"
             return
 
-        # 2. Require unlocked self-model
-        model = await self_model_service.build(db, user_id, bypass_gate=bypass_gate)
+        # 2. The crisis gate (ruling 2026-09-25). A RECENT high/critical message
+        # refuses before anything is generated; the page shows "Let's leave this
+        # comparison for another day." and names no reason — support routing already
+        # happened where the flag was raised. OLDER flags do not refuse: their
+        # conversations are excluded from what the comparison reads, below.
+        if await self._recent_crisis(db, user_id):
+            yield f"data: {json.dumps({'type': 'safety', 'level': 'recent'})}\n\n"
+            yield f"data: {json.dumps({'type': 'done'})}\n\n"
+            return
+        crisis_conversations = await self._flagged_conversation_ids(db, user_id)
+
+        # 3. Require unlocked self-model (the gate counts every row; the windows
+        #    leave out the flagged conversations)
+        model = await self_model_service.build(
+            db, user_id, bypass_gate=bypass_gate, exclude_conversation_ids=crisis_conversations,
+        )
         if not model["unlocked"]:
             yield f"data: {json.dumps({'type': 'error', 'error_code': 'not_unlocked'})}\n\n"
             return
 
         then_w, now_w = model["then"], model["now"]
-
-        # 3. Window crisis-content safety gate (weekly-mirror inheritance)
-        if await self._window_has_crisis(db, user_id, then_w["start"], now_w["end"]):
-            yield f"data: {json.dumps({'type': 'safety', 'level': 'suppressed'})}\n\n"
-            yield f"data: {json.dumps({'type': 'done'})}\n\n"
-            return
 
         # 4. Create pending row
         row = SelfComparison(
@@ -358,8 +394,10 @@ class SelfComparisonService:
 
         # ── 6. App-voice closing + evidence ──────────────────────────────
         candidates = {
-            "then": await self._candidates(db, user_id, then_w["start"], then_w["end"]),
-            "now":  await self._candidates(db, user_id, now_w["start"], now_w["end"]),
+            "then": await self._candidates(db, user_id, then_w["start"], then_w["end"],
+                                           exclude_conversation_ids=crisis_conversations),
+            "now":  await self._candidates(db, user_id, now_w["start"], now_w["end"],
+                                           exclude_conversation_ids=crisis_conversations),
         }
         by_id = {c["id"]: c for side in candidates.values() for c in side}
 

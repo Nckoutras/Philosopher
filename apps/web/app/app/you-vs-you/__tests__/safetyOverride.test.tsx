@@ -55,6 +55,15 @@ describe('You vs You — a self answer withheld after it streamed', () => {
     expect(screen.queryByText(HARMFUL)).toBeNull()
   })
 
+  // The crisis gate (ruling 2026-09-25): a high/critical message in the last 14
+  // days refuses before anything is generated. Approved copy, and it names no
+  // reason — support routing already happened where the flag was raised.
+  it('shows the approved line when a recent crisis closes the comparison', async () => {
+    await ask([{ type: 'safety', level: 'recent' }, { type: 'done' }])
+    expect(await screen.findByText('Let’s leave this comparison for another day.')).toBeTruthy()
+    expect(screen.queryByText('Let’s set this one aside for now.')).toBeNull()
+  })
+
   it('leaves a clean run alone', async () => {
     await ask([
       { type: 'self', which: 'then', start: '2026-06-01', end: '2026-07-01' },
