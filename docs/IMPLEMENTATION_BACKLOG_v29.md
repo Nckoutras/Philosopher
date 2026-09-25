@@ -1404,6 +1404,127 @@ keep these phrases out.
 
 ---
 
+### SAFETY-002 — a context judge on top of the lexicon — **OPEN, design logged**
+**Status: OPEN. Logged 2026-09-25 (founder ruling), description only. Build after the
+two lexicon PRs (output list; input bands). Open design questions below must be ruled
+before the build.**
+
+**THE PROBLEM.** The lexicon matches words, not intent. Someone can speak about death,
+grief, futility or their own mortality, in the first person, at length, and be in no
+danger at all — that is this product's core subject. On 2026-09-25 the lexicon refused
+11 of 15 ordinary philosophical questions (10 of 15 after the input PR's word
+boundaries), and at the same time let "I feel suicidal" through (fixed by the input
+PR's additions). Both failures have the same cause: a word list cannot tell what a
+person means.
+
+**THE SHAPE (founder).** The lexicon stays as the trigger and is never loosened. When
+it fires, a small model (Haiku) classifies the message into one of three bands:
+- **DISCUSSING** — thinking about death, meaning, loss or futility, their own or in the
+  abstract. Includes first person, raw grief, and "I don't see the point of anything".
+  The persona answers, with its guards. No crisis response.
+- **DISTRESS WITHOUT INTENT** — suffering, and saying so, with no plan and no intent to
+  act. The persona answers gently, and support is mentioned.
+- **INTENT OR MEANS** — says they intend to act, are planning, or asks for a method.
+  Crisis response, persona drops. The only band that interrupts.
+
+The judge can only downgrade, never upgrade. Latency and cost are paid only on a
+lexicon hit, never on a clean message.
+
+**FINDINGS BEFORE BUILD (2026-09-25).** The first is a design conflict to rule on.
+
+1. **As specified, the judge would downgrade explicit suicidal ideation out of the
+   crisis response.** The input PR's new HIGH entries catch "I feel suicidal", "I've
+   been having suicidal thoughts", "I keep thinking about killing myself" and "I don't
+   want to live anymore". None of the four states a plan, intent to act, or a method.
+   By the band definitions above, all four land in DISTRESS WITHOUT INTENT, so the
+   persona answers and no crisis response is given. "Can only downgrade" does not make
+   this safe: it is exactly the downgrade. Clinical screening practice treats stated
+   suicidal ideation, even without a plan, as warranting crisis resources.
+   **Proposed:** split the lexicon into two tiers.
+   - **Tier A, first-person ideation or intent** (`suicidal`, `kill myself`,
+     `killing myself`, `want to die`, `don't want to live`, `end my life`,
+     `take my own life`, `wish i were dead`, self-harm forms, and the Greek
+     equivalents): **never judged**. Always the crisis response, as today.
+   - **Tier B, topic words** (`suicide`, `overdose`, `ready to die`,
+     `want it to be over`, `hopeless`, `nothing matters`, `don't see the point`,
+     `feel invisible`, `disappear`): judged, and the judge may downgrade.
+
+   Every one of the ten battery refusals is a Tier B match, so the tier split frees all
+   of them without ever letting the judge touch a first-person disclosure.
+2. **The ten SAFETY-001 disclosures never reach the judge.** Coercive control,
+   dissociation, a threat, fresh bereavement, assault and the rest all score `none` on
+   the lexicon, before and after the input PR (re-run 2026-09-25; the gap is pinned in
+   `tests/test_safety_detection_gaps.py`). A judge that runs only on a lexicon hit
+   cannot help them. That gap stays with the persona guards (#731) unless the judge
+   runs on every message, which multiplies its cost roughly fifty-fold.
+3. **Hit rate is about 1–2%, not measured precisely.** Production had 8 HIGH or MEDIUM
+   events among roughly 700 user messages as of 2026-09-24 (about 1.1%). The input PR
+   adds entries, so this will rise. Measure it on production after that PR ships.
+
+**ESTIMATES (not measured; no API call was made).**
+- **Latency on a hit:** one Haiku 4.5 call of about 700 input tokens (band definitions,
+  a few examples, the message) and about 20 output tokens (a JSON band). Expect about
+  0.5–1.0 s at the median and about 2 s at p95, added only on a hit. Adding the last
+  two or three turns as context (recommended, see "least reliable" below) makes it
+  about 1,500 input tokens and slightly slower.
+- **Cost:** about $0.0008 per call ($1/MTok in, $5/MTok out), about $0.0016 with
+  context. At a 1–2% hit rate that is **about $0.01–0.03 per 1,000 messages**.
+
+**PREDICTED CLASSIFICATION (a judgement, not a run).**
+- The battery: the 10 lexicon hits.
+  - Camus/suicide, both "nothing matters", ambition/point, Seneca/ready to die,
+    father's overdose, and "want it to be over" (about a loved one): **DISCUSSING**.
+  - Grieving mother/hopeless: **DISCUSSING** (raw grief is in that band by
+    definition).
+  - "I feel invisible at work": **DISCUSSING or DISTRESS WITHOUT INTENT**,
+    borderline.
+  - The other 5 never trigger the judge and are answered as today.
+- The four crisis phrasings: **DISTRESS WITHOUT INTENT, all four.** This is finding 1:
+  as specified it is a downgrade out of the crisis response.
+- The ten SAFETY-001 disclosures: **not judged** (finding 2).
+
+**WHERE IT WILL BE LEAST RELIABLE.**
+- Passive ideation phrased philosophically ("sometimes it would be simpler not to
+  exist"): exactly the DISCUSSING/DISTRESS boundary.
+- Negation and hypotheticals ("I would never…, but"), and reported speech ("my friend
+  says she wants to die").
+- Hyperbole ("this meeting makes me want to die").
+- Short messages with no context. The judge should see the last two or three turns.
+- Greek, greeklish and mixed-language messages.
+
+**Fail closed:** a timeout, refusal or unparseable reply keeps the lexicon's verdict.
+
+**Test set:** the 15-question battery, the crisis phrasings from the input PR, the ten
+SAFETY-001 disclosures, and a set of hyperbole and reported-speech cases still to be
+written.
+
+**RULING 2026-09-25 (founder, verbatim):**
+
+3. SAFETY-002 ruling: Tier A / Tier B split ACCEPTED, amended:
+   A. Tier A = first-person subject + ideation / intent / method. It is defined
+      by person, not by vocabulary. First-person forms of Tier B words are Tier A:
+      "I'm ready to die", "I'm going to overdose", "I took too many pills",
+      "I've been thinking about suicide", "better off dead",
+      "better off without me", "I wish I wasn't alive",
+      "I don't want to be here anymore". Bare topic uses stay Tier B
+      ("a warrior must be ready to die", "what did Seneca think about suicide").
+   B. Tier A is never judged. No negation or hyperbole exceptions in v1.
+      Accepted cost: "this meeting makes me want to die" and
+      "I'm not suicidal, just tired" get the crisis response. Log every Tier A
+      hit so the false-positive rate can be measured later.
+   C. Tier B default verdict = crisis response. The judge may only RELEASE to
+      DISCUSSING or DISTRESS WITHOUT INTENT. Timeout, unparseable reply or any
+      error keeps the crisis response. Propose a hard timeout number.
+   D. The judge sees the last 3 turns plus the current message.
+   E. Before any code: deliver the full Tier A and Tier B lists (English + Greek)
+      as text for founder approval, one hit / one non-hit example per entry,
+      same format as anti_flex_terms.json. STOP after delivering them.
+   F. The entry states plainly: SAFETY-002 fixes over-refusal on Tier B topic
+      words. It does not help the ten SAFETY-001 level=none disclosures; the
+      persona guards remain their only protection.
+
+---
+
 ### TD-111 — a kept memory cannot be seen or removed by the user — **OPEN, HIGH**
 **Status: OPEN, HIGH (founder ruling 2026-09-24). Do not build the screen yet.**
 
