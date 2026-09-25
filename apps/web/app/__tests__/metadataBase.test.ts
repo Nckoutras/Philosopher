@@ -9,7 +9,7 @@
 // dashboard value this fallback IS the answer — which is what this test pins.
 //
 // WHY A SOURCE ASSERTION rather than importing `../layout.tsx` and reading
-// `metadata.metadataBase`. That import pulls in `next/font/google` and
+// `metadata.metadataBase`. That import pulls in `next/font/local` and
 // `./globals.css`, and this vitest config handles neither — no CSS plugin, no font
 // mock, `environment: 'node'`. The same reasoning as #578: pin the DECISION in the
 // source rather than a value the runner has to construct, because a test that
