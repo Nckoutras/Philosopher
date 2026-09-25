@@ -1523,6 +1523,42 @@ written.
       words. It does not help the ten SAFETY-001 level=none disclosures; the
       persona guards remain their only protection.
 
+**SAFETY-002 RULINGS (founder, 2026-09-25, verbatim) — on the Tier A / Tier B lists:**
+
+Subject rule (English): APPROVED — core phrase + first-person subject within
+3 preceding words.
+
+Timeout: APPROVED at 2.5 s as a starting number; measure real p95 during the
+build and adjust in the same PR if needed. On timeout/error the fallback below
+stands.
+
+Q1: ACCEPTED, and this AMENDS ruling C. Tier B default verdict = the entry's
+CURRENT lexicon level (high stays high, medium stays medium). The judge may
+only RELEASE downward from that level, never raise it. On timeout, error or
+unparseable reply, the current lexicon level stands. Rationale: fail-closed
+means "no worse than today", not "upgrade every medium to crisis on an API
+hiccup".
+
+Q2: ACCEPTED. hurt myself / κόβομαι → Tier B. harming myself, cutting myself,
+χαράζομαι → Tier A.
+
+Q3: ACCEPTED. tired of existing / κουράστηκα να ζω → Tier A. Passive ideation
+is ideation; the upgrade from MEDIUM is intended.
+
+Q4: ACCEPTED. καλύτερα νεκρός → Tier B (idiom risk, judge sees context).
+better off dead stays Tier A under the subject rule.
+
+Q5: APPROVED — add both missing Greek phrases as Tier A:
+"να βάλω τέλος στη ζωή μου" (and inflections consistent with the existing
+βάζω τέλος entry), "καλύτερα να μην υπήρχα".
+
+Q6: ACCEPTED. Bare planning to end / goodbye forever / can't keep living /
+no reason to live → Tier B. Safe because per Q1 their default stays HIGH
+(today's behaviour) and the judge can only release with context. First-person
+forms are Tier A via the subject rule.
+
+Level changes (…better off without me family → Tier A): APPROVED.
+
 ---
 
 ### TD-111 — a kept memory cannot be seen or removed by the user — **OPEN, HIGH**
