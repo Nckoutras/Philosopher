@@ -1404,6 +1404,298 @@ keep these phrases out.
 
 ---
 
+### SAFETY-002 — a context judge on top of the lexicon — **OPEN, design logged**
+**Status: OPEN. Logged 2026-09-25 (founder ruling), description only. Build after the
+two lexicon PRs (output list; input bands). Open design questions below must be ruled
+before the build.**
+
+**THE PROBLEM.** The lexicon matches words, not intent. Someone can speak about death,
+grief, futility or their own mortality, in the first person, at length, and be in no
+danger at all — that is this product's core subject. On 2026-09-25 the lexicon refused
+11 of 15 ordinary philosophical questions (10 of 15 after the input PR's word
+boundaries), and at the same time let "I feel suicidal" through (fixed by the input
+PR's additions). Both failures have the same cause: a word list cannot tell what a
+person means.
+
+**THE SHAPE (founder).** The lexicon stays as the trigger and is never loosened. When
+it fires, a small model (Haiku) classifies the message into one of three bands:
+- **DISCUSSING** — thinking about death, meaning, loss or futility, their own or in the
+  abstract. Includes first person, raw grief, and "I don't see the point of anything".
+  The persona answers, with its guards. No crisis response.
+- **DISTRESS WITHOUT INTENT** — suffering, and saying so, with no plan and no intent to
+  act. The persona answers gently, and support is mentioned.
+- **INTENT OR MEANS** — says they intend to act, are planning, or asks for a method.
+  Crisis response, persona drops. The only band that interrupts.
+
+The judge can only downgrade, never upgrade. Latency and cost are paid only on a
+lexicon hit, never on a clean message.
+
+**FINDINGS BEFORE BUILD (2026-09-25).** The first is a design conflict to rule on.
+
+1. **As specified, the judge would downgrade explicit suicidal ideation out of the
+   crisis response.** The input PR's new HIGH entries catch "I feel suicidal", "I've
+   been having suicidal thoughts", "I keep thinking about killing myself" and "I don't
+   want to live anymore". None of the four states a plan, intent to act, or a method.
+   By the band definitions above, all four land in DISTRESS WITHOUT INTENT, so the
+   persona answers and no crisis response is given. "Can only downgrade" does not make
+   this safe: it is exactly the downgrade. Clinical screening practice treats stated
+   suicidal ideation, even without a plan, as warranting crisis resources.
+   **Proposed:** split the lexicon into two tiers.
+   - **Tier A, first-person ideation or intent** (`suicidal`, `kill myself`,
+     `killing myself`, `want to die`, `don't want to live`, `end my life`,
+     `take my own life`, `wish i were dead`, self-harm forms, and the Greek
+     equivalents): **never judged**. Always the crisis response, as today.
+   - **Tier B, topic words** (`suicide`, `overdose`, `ready to die`,
+     `want it to be over`, `hopeless`, `nothing matters`, `don't see the point`,
+     `feel invisible`, `disappear`): judged, and the judge may downgrade.
+
+   Every one of the ten battery refusals is a Tier B match, so the tier split frees all
+   of them without ever letting the judge touch a first-person disclosure.
+2. **The ten SAFETY-001 disclosures never reach the judge.** Coercive control,
+   dissociation, a threat, fresh bereavement, assault and the rest all score `none` on
+   the lexicon, before and after the input PR (re-run 2026-09-25; the gap is pinned in
+   `tests/test_safety_detection_gaps.py`). A judge that runs only on a lexicon hit
+   cannot help them. That gap stays with the persona guards (#731) unless the judge
+   runs on every message, which multiplies its cost roughly fifty-fold.
+3. **Hit rate is about 1–2%, not measured precisely.** Production had 8 HIGH or MEDIUM
+   events among roughly 700 user messages as of 2026-09-24 (about 1.1%). The input PR
+   adds entries, so this will rise. Measure it on production after that PR ships.
+
+**ESTIMATES (not measured; no API call was made).**
+- **Latency on a hit:** one Haiku 4.5 call of about 700 input tokens (band definitions,
+  a few examples, the message) and about 20 output tokens (a JSON band). Expect about
+  0.5–1.0 s at the median and about 2 s at p95, added only on a hit. Adding the last
+  two or three turns as context (recommended, see "least reliable" below) makes it
+  about 1,500 input tokens and slightly slower.
+- **Cost:** about $0.0008 per call ($1/MTok in, $5/MTok out), about $0.0016 with
+  context. At a 1–2% hit rate that is **about $0.01–0.03 per 1,000 messages**.
+
+**PREDICTED CLASSIFICATION (a judgement, not a run).**
+- The battery: the 10 lexicon hits.
+  - Camus/suicide, both "nothing matters", ambition/point, Seneca/ready to die,
+    father's overdose, and "want it to be over" (about a loved one): **DISCUSSING**.
+  - Grieving mother/hopeless: **DISCUSSING** (raw grief is in that band by
+    definition).
+  - "I feel invisible at work": **DISCUSSING or DISTRESS WITHOUT INTENT**,
+    borderline.
+  - The other 5 never trigger the judge and are answered as today.
+- The four crisis phrasings: **DISTRESS WITHOUT INTENT, all four.** This is finding 1:
+  as specified it is a downgrade out of the crisis response.
+- The ten SAFETY-001 disclosures: **not judged** (finding 2).
+
+**WHERE IT WILL BE LEAST RELIABLE.**
+- Passive ideation phrased philosophically ("sometimes it would be simpler not to
+  exist"): exactly the DISCUSSING/DISTRESS boundary.
+- Negation and hypotheticals ("I would never…, but"), and reported speech ("my friend
+  says she wants to die").
+- Hyperbole ("this meeting makes me want to die").
+- Short messages with no context. The judge should see the last two or three turns.
+- Greek, greeklish and mixed-language messages.
+
+**Fail closed:** a timeout, refusal or unparseable reply keeps the lexicon's verdict.
+
+**Test set:** the 15-question battery, the crisis phrasings from the input PR, the ten
+SAFETY-001 disclosures, and a set of hyperbole and reported-speech cases still to be
+written.
+
+**RULING 2026-09-25 (founder, verbatim):**
+
+3. SAFETY-002 ruling: Tier A / Tier B split ACCEPTED, amended:
+   A. Tier A = first-person subject + ideation / intent / method. It is defined
+      by person, not by vocabulary. First-person forms of Tier B words are Tier A:
+      "I'm ready to die", "I'm going to overdose", "I took too many pills",
+      "I've been thinking about suicide", "better off dead",
+      "better off without me", "I wish I wasn't alive",
+      "I don't want to be here anymore". Bare topic uses stay Tier B
+      ("a warrior must be ready to die", "what did Seneca think about suicide").
+   B. Tier A is never judged. No negation or hyperbole exceptions in v1.
+      Accepted cost: "this meeting makes me want to die" and
+      "I'm not suicidal, just tired" get the crisis response. Log every Tier A
+      hit so the false-positive rate can be measured later.
+   C. Tier B default verdict = crisis response. The judge may only RELEASE to
+      DISCUSSING or DISTRESS WITHOUT INTENT. Timeout, unparseable reply or any
+      error keeps the crisis response. Propose a hard timeout number.
+   D. The judge sees the last 3 turns plus the current message.
+   E. Before any code: deliver the full Tier A and Tier B lists (English + Greek)
+      as text for founder approval, one hit / one non-hit example per entry,
+      same format as anti_flex_terms.json. STOP after delivering them.
+   F. The entry states plainly: SAFETY-002 fixes over-refusal on Tier B topic
+      words. It does not help the ten SAFETY-001 level=none disclosures; the
+      persona guards remain their only protection.
+
+**SAFETY-002 RULINGS (founder, 2026-09-25, verbatim) — on the Tier A / Tier B lists:**
+
+Subject rule (English): APPROVED — core phrase + first-person subject within
+3 preceding words.
+
+Timeout: APPROVED at 2.5 s as a starting number; measure real p95 during the
+build and adjust in the same PR if needed. On timeout/error the fallback below
+stands.
+
+Q1: ACCEPTED, and this AMENDS ruling C. Tier B default verdict = the entry's
+CURRENT lexicon level (high stays high, medium stays medium). The judge may
+only RELEASE downward from that level, never raise it. On timeout, error or
+unparseable reply, the current lexicon level stands. Rationale: fail-closed
+means "no worse than today", not "upgrade every medium to crisis on an API
+hiccup".
+
+Q2: ACCEPTED. hurt myself / κόβομαι → Tier B. harming myself, cutting myself,
+χαράζομαι → Tier A.
+
+Q3: ACCEPTED. tired of existing / κουράστηκα να ζω → Tier A. Passive ideation
+is ideation; the upgrade from MEDIUM is intended.
+
+Q4: ACCEPTED. καλύτερα νεκρός → Tier B (idiom risk, judge sees context).
+better off dead stays Tier A under the subject rule.
+
+Q5: APPROVED — add both missing Greek phrases as Tier A:
+"να βάλω τέλος στη ζωή μου" (and inflections consistent with the existing
+βάζω τέλος entry), "καλύτερα να μην υπήρχα".
+
+Q6: ACCEPTED. Bare planning to end / goodbye forever / can't keep living /
+no reason to live → Tier B. Safe because per Q1 their default stays HIGH
+(today's behaviour) and the judge can only release with context. First-person
+forms are Tier A via the subject rule.
+
+Level changes (…better off without me family → Tier A): APPROVED.
+
+**SAFETY-002 lists v0.4.0 — review-pack rulings (founder, 2026-09-25, verbatim):**
+
+R1 (A_GR_04, A_GR_09 — and English locative HIGH finding, same rule):
+DEMOTION, not exemption. When a Tier A core is followed by a locative
+preposition (EL: σε/στο/στη/στην/στον/στις/στα/στους; EN: in/at/near/with),
+the match DEMOTES to Tier B with default HIGH — never to none. Bare cores
+and existential continuations (πια, άλλο, anymore, any longer) stay Tier A.
+The future judge prompt must state: first-person existential ideation with a
+locative object ("να ζω σ' αυτόν τον κόσμο", "live in this world/this life")
+is NEVER released. Record that sentence in the policy file now.
+
+R2 (English subject rule): the bind BREAKS if any second/third-person subject
+token intervenes between the first-person subject and the core
+(you, u, they, we, he, she, it, people, everyone, anyone, nobody, no one).
+Side-by-side tests required: "I really want to die" (HIT A) vs
+"I know you want to die" (NOT Tier A).
+
+R3 (backstop invariant): every Tier A core governed by a subject rule or a
+demotion rule must also exist BARE in Tier B at default HIGH. Verify this
+holds for all such entries; add any missing bare forms. A failed bind must
+degrade to today's behaviour, never to no match.
+
+R4: every HIT/MISS pair in the file becomes a parameterized test generated
+from the JSON itself, plus adversarial variants (subject switching, locatives,
+quotation, tense, greeklish spellings). These are a build requirement:
+the lexicon does not freeze until they pass 100%.
+
+R5: add one explicit transition table to the policy file: starting level →
+allowed judge verdicts → response mapping. Code and tests read this table.
+
+**SAFETY-002 v0.4.0 — founder rulings on the flagged calls (2026-09-25, verbatim):**
+
+1. Demotion scope (live/living/alive/existing/ζω/υπάρχω only): APPROVED.
+2. Bare tired-of-living backstop at HIGH: APPROVED (consistent with Q3).
+3. σ' in Greek locatives: APPROVED.
+4. MEDIUM+intent stays MEDIUM: APPROVED, with one addition to the policy
+   file: the judge's full verdict (including detected intent) is ALWAYS
+   logged, so intent-on-MEDIUM occurrences in production are countable.
+   Revisit trigger: first real occurrence.
+5. Past tense: APPROVED as out of scope. Pin "I wanted to die" /
+   "ήθελα να πεθάνω" as known-gap tests alongside the SAFETY-001 ten
+   (same mechanism), asserting today's no-match behaviour.
+
+Greeklish spelling fold (8→th etc.): REJECTED for now — it needs its own
+matching pass to avoid corrupting English text. Log as TD with that
+sentence as the reason. Enumerated spellings remain the approach;
+"8elo na pe8ano" stays as added.
+
+No further list changes. The freeze signal comes from the founder after
+his delta read; do nothing until then.
+
+**Where these landed.** The lists and policy file are v0.4.0-draft. It is not yet
+in the repository; it lands with the judge build, after the freeze. Two findings
+came out of R4's adversarial variants while the lists were being built:
+- A first-person core inside quotation marks failed to bind, because the quote mark
+  stuck to the first word. The subject rule now strips surrounding quote marks from
+  tokens.
+- `8elo na pe8ano` matched nothing at either tier.
+
+The past-tense pin is on its own branch, `test/safety-002-past-tense-gaps`. The
+spelling fold is TD-112.
+
+**SAFETY-002 v0.5.0 — second-reader rulings (founder, 2026-09-25, verbatim):**
+
+R6 (amends R1): demotion rule becomes core → optional continuation tokens
+(EL: πια, άλλο, πλέον; EN: anymore, any longer) → locative → demote to
+B:HIGH. Continuation tokens may sit between core parts ("δεν θέλω πια να
+ζω…") or after the core. Bare core + continuation with NO locative stays
+Tier A. Required cases: "Δεν θέλω να ζω άλλο σε αυτό το σπίτι" → B:HIGH,
+"Δεν θέλω πια να ζω σε αυτή την πόλη" → B:HIGH, "Κουράστηκα να ζω πια
+στην Αθήνα" → B:HIGH, "Δεν θέλω να ζω πια." → A, "Δεν θέλω πια να ζω." → A.
+
+R7: Greek locative tokens gain εδω, εκει (normalised). "Δεν θέλω να ζω
+εδώ." → B:HIGH. αλλού and με NOT added — log both as candidates.
+Judge never-released rule already covers existential "εδώ".
+
+R8 (amends the MEDIUM+intent ruling): the judge verdict set gains
+INTENT. On an affirmative INTENT verdict, ANY starting level maps to the
+crisis response. Timeout, error or unparseable reply NEVER escalates — the
+lexicon level stands, exactly as Q1 ruled. Update the R5 transition table
+accordingly; all verdicts still logged.
+
+R9 (amends Flag 7): add a MINIMAL first-person past-tense set at Tier B
+default HIGH — EN: i wanted to die, i wanted to end it; EL: ήθελα να
+πεθάνω, δεν ήθελα να ζω (+ greeklish parallels, enumerated). Recovery
+narratives release via the judge; current-risk past tense escalates via
+INTENT. Cases: "Years ago I wanted to die, but I came through it" →
+released; "Χθες ήθελα να πεθάνω" → judge, INTENT expected.
+Broader past-tense coverage stays a known-gap test.
+
+R10 (implementation constraint on Call 3): quote stripping must not
+consume the apostrophe of Greek contractions. Tests: "σ' αυτόν" and
+"σ’ αυτόν" (straight AND curly) both demote; "'I want to die'" still
+binds. Add third-person non-bind test: "Κουράστηκε να ζει στην Αθήνα"
+→ no A_GR_09 match.
+
+**SEQUENCING CORRECTION (founder, 2026-09-25, verbatim) — the two supersessions:**
+
+- R8 supersedes "MEDIUM+intent stays MEDIUM": judge verdict set gains
+  INTENT; affirmative INTENT → crisis response from ANY starting level;
+  timeout/error/unparseable NEVER escalates (Q1 unchanged). Transition
+  table updated; full-verdict logging stays; the "first real occurrence"
+  revisit trigger is removed.
+- R9 supersedes "past tense out of scope": minimal first-person past-tense
+  set enters Tier B at default HIGH (as specified in R9). The known-gaps
+  section now covers broader past-tense forms only.
+
+**Consequence for the pin branch.** `test/safety-002-past-tense-gaps` pins
+"I wanted to die" and "ήθελα να πεθάνω" at `none`. That is main's behaviour today,
+and the file says so. Both pins go red in the SAFETY-002 judge PR when R9's entries
+land, and are flipped to `high` there, deliberately.
+
+---
+
+### TD-112 — greeklish spellings are enumerated, not folded — **OPEN, deferred**
+**Status: OPEN, deferred (founder ruling, 2026-09-25).**
+
+**What.** The lexicon's greeklish entries list each spelling by hand
+(`thelo na pethano`, `thelw na pethanw`, `8elw na pe8anw`, …). A spelling nobody
+listed matches nothing. `8elo na pe8ano` was found that way, by the SAFETY-002
+v0.4.0 adversarial check, although three of its sibling spellings were listed; it
+was added by hand. The general fix is a fold applied before matching (8→th, w→o,
+y/h→i, …), so one entry covers every spelling.
+
+**Why not now (founder, verbatim):** "it needs its own matching pass to avoid
+corrupting English text." The fold rewrites letters that English uses too, so it
+cannot run over the whole message the way accent-stripping does. It needs a
+separate pass over greeklish entries only.
+
+**Until then:** enumerated spellings remain the approach, and each greeklish
+entry's spellings are reviewed by hand.
+
+**Revisit when:** a missed greeklish spelling shows up in production or in a
+SAFETY-002 test, or the judge build revisits matching.
+
+---
+
 ### TD-111 — a kept memory cannot be seen or removed by the user — **OPEN, HIGH**
 **Status: OPEN, HIGH (founder ruling 2026-09-24). Do not build the screen yet.**
 
