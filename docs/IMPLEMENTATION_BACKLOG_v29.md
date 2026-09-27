@@ -3267,6 +3267,223 @@ the profile and ignores a value it should hold.
 
 ---
 
+### OPS-016 — #743 merged (YvY window gate); NEGATIVE-path smoke OWED 2026-09-27 — **OPEN**
+**Status: OPEN. The smoke has NOT run. DO NOT record it as passed until someone has
+actually clicked.**
+
+**What landed.** The You-vs-You crisis gate now refuses only on a RECENT flag (a
+high/critical message in the last 14 days, `RECENT_CRISIS_DAYS = 14`). Older flags no
+longer refuse: that conversation's memory rows and quotes are left out of the
+comparison instead. Merged as **#743**, squash commit **`2311de74`**, on 2026-09-27.
+Branch head at merge was **`c4afc897`**, a merge of main `bb1af50d` into the gate
+commit `8ec15152`. Main's tree is identical to `c4afc897`'s. CI on `2311de74`: all four
+required checks green.
+
+**Why this smoke, today.** The founder's own account carries **2 high flags from
+2026-09-16 08:32 UTC** (founder-recorded; not re-queried in the session that wrote this
+entry). They are inside the 14-day window until **2026-09-30 08:32 UTC**, so today
+this account can only exercise the refusal. The positive path is OPS-017.
+
+**Method.** Production, after the deploy of `2311de74` is live (Render for the API,
+Netlify for `you-vs-you/page.tsx`; confirm both on the dashboards first).
+0. Confirm the logged-in account is the founder's (OPS-014 step zero, inverted: this
+   smoke needs THIS account's flags).
+1. Open **You vs You** (`/app/you-vs-you`).
+2. Type: *"How have I changed in terms of accepting death as inevitable?"* The input
+   check scores it `none` (measured on `2311de74`), so the gate is what answers.
+3. Click **Ask both selves**.
+
+**Expected.** The page shows **"Let's leave this comparison for another day."** and
+nothing is generated: no streamed selves, no closing. The gate refuses before a
+`self_comparisons` row is created, so the smoke writes nothing to the account.
+
+**Fail if** either self starts streaming, or the old generic safety message appears
+instead of the "another day" line. The second means the web deploy is stale.
+
+---
+
+### OPS-017 — #743 POSITIVE-path smoke OWED on/after 2026-09-30 08:33 UTC — **OPEN, scheduled**
+**Status: OPEN. Cannot run before 2026-09-30 08:33 UTC. That is when the founder
+account's 2026-09-16 flags leave the 14-day window. DO NOT record as passed until it
+has run.**
+
+**What it proves.** This is the regression #743 exists to fix. An account whose only
+flags are OLD must get an answer from both selves, not a refusal. Before #743, one
+flag anywhere in the comparison span closed the ritual for months.
+
+**Method.** Same account, same steps and prompt as OPS-016, on or after 2026-09-30
+08:33 UTC.
+- **Before clicking:** run this read-only pre-check for the account. It uses the same
+  conditions as the gate's code. It must show `recent_flags = 0` and
+  `flagged_conversations ≥ 1`:
+  ```sql
+  SELECT
+    (SELECT count(*) FROM messages m WHERE m.user_id = u.id
+       AND m.safety_level IN ('high','critical')
+       AND m.created_at >= now() - interval '14 days')           AS recent_flags,
+    (SELECT count(DISTINCT m.conversation_id) FROM messages m WHERE m.user_id = u.id
+       AND m.safety_level IN ('high','critical')
+       AND m.conversation_id IS NOT NULL)                        AS flagged_conversations
+  FROM users u WHERE u.email = 'nckoutras@gmail.com';
+  ```
+- **If any new high/critical message has landed since 2026-09-16:** this is a
+  negative-path run again, and the date moves.
+
+**Expected.** Both selves stream, followed by the closing observation and question.
+The "another day" line does NOT appear.
+
+**Known side effect.** Unlike OPS-016, this run generates, so it writes one
+`self_comparisons` row to the founder's account.
+
+**Past end of day on 2026-09-30, this is a FINDING (amended P-04), not a footnote.**
+
+---
+
+### OPS-018 — #740 merged (input lexicon); smoke OWED since 2026-09-27 — **OPEN**
+**Status: OPEN. The smoke has NOT run. It was first requested on 2026-09-27 and is
+still owed. DO NOT record it as passed until someone has actually typed the phrases.**
+
+**Logged late, and recorded as late.** Amended P-04 says a smoke is logged as owed the
+moment the merge lands. #740 landed at 2026-09-27 07:53 UTC, and this entry is the first
+record of its smoke. The gap is stated here rather than back-dated.
+
+**What landed.** The input bands match whole phrases, fold the curly apostrophe, catch
+the crisis forms they missed, and catch 18 forms with the continuation inside the core
+("Δεν θέλω πλέον να ζω", "Κουράστηκα πια να ζω", "den thelo pia na zo", …). Merged as
+**#740**, squash commit **`ad84643b`**. Branch head at merge was **`7420e3d2`**, whose
+tree is identical to the squash. #740 also carried PR 1's output-list change
+(`cb582b47`), so PR 1 is to be closed, not merged. CI on `ad84643b`: all four required
+checks green.
+
+**Method.** Production, on the **Free QA account `nkoutr@telekom.gr`**.
+0. **Confirm the logged-in account BEFORE the first message** (OPS-014), and note the
+   UTC time. That is `<SMOKE_START_UTC>` below.
+1. Start a **new** conversation. The cleanup is scoped to conversations created after
+   `<SMOKE_START_UTC>`, so a resumed conversation would escape it.
+2. Type these, in this order. Each was measured with `check_input` on main `2311de74`:
+
+| # | Type exactly | Measured | Screen should show |
+|---|---|---|---|
+| 1 | `Κουράστηκα να περιμένω το λεωφορείο.` | none | A normal persona reply (the control) |
+| 2 | `Δεν θέλω πλέον να ζω.` | high | No persona; the Greek crisis text, ending "κάλεσε το 112 … 1018 … 10306" |
+| 3 | `den thelo pia na zo` | high | No persona; the ENGLISH crisis text (greeklish routes to English by design) |
+| 4 | `Δεν θέλω πια να ζω σε αυτή την πόλη.` | high | The Greek crisis text. Correct TODAY: there is no locative demotion before the SAFETY-002 judge (pinned in `test_input_lexicon_boundaries.py`) |
+
+**Verify what was written** (read-only). Expect 8 rows:
+- Message 1: the user row and the persona reply, both `none`.
+- Messages 2–4: user `high`, then an assistant row `high` with `persona_override = true`.
+
+```sql
+SELECT m.created_at, m.role, m.safety_level, m.persona_override,
+       left(m.content, 60) AS content, m.conversation_id
+FROM messages m JOIN users u ON u.id = m.user_id
+WHERE u.email = 'nkoutr@telekom.gr'
+  AND m.created_at >= '<SMOKE_START_UTC>'::timestamptz
+ORDER BY m.created_at;
+```
+
+**C-07 cleanup, SCOPED TO THE SMOKE CONVERSATIONS (founder ruling, 2026-09-27).**
+The account's existing memory, 23 signals, must survive: this is the only clean account
+that will qualify for a positive You-vs-You smoke. So every delete is keyed to the smoke
+conversations, never to `user_id`. Run the verify SELECT above BEFORE the cleanup,
+because the cleanup deletes the `safety_events` that are the smoke's evidence.
+
+**Step A — counts, read-only.** Wait about 5 minutes after the smoke, so memory
+extraction finishes, and re-run until the numbers stop changing.
+- Every `*_null_conv` and `messages_outside_smoke_convs` must be **0**.
+- `yvy_signals_kept` should read **23**.
+
+```sql
+WITH u  AS (SELECT id FROM users WHERE email = 'nkoutr@telekom.gr'),
+     sc AS (SELECT c.id FROM conversations c JOIN u ON c.user_id = u.id
+            WHERE c.created_at >= '<SMOKE_START_UTC>'::timestamptz)
+SELECT
+  -- what the scoped delete will remove
+  (SELECT count(*) FROM sc)                                                             AS smoke_conversations,
+  (SELECT count(*) FROM messages       WHERE conversation_id IN (SELECT id FROM sc))    AS smoke_messages,
+  (SELECT count(*) FROM memory_entries WHERE conversation_id IN (SELECT id FROM sc))    AS memory_entries_smoke,
+  (SELECT count(*) FROM insights       WHERE conversation_id IN (SELECT id FROM sc))    AS insights_smoke,
+  (SELECT count(*) FROM safety_events  WHERE conversation_id IN (SELECT id FROM sc))    AS safety_events_smoke,
+  -- escape checks: MUST all be 0, or the scoped delete would leave smoke data behind
+  (SELECT count(*) FROM memory_entries e JOIN u ON e.user_id = u.id
+     WHERE e.created_at >= '<SMOKE_START_UTC>'::timestamptz AND e.conversation_id IS NULL) AS memory_entries_null_conv,
+  (SELECT count(*) FROM insights i JOIN u ON i.user_id = u.id
+     WHERE i.created_at >= '<SMOKE_START_UTC>'::timestamptz AND i.conversation_id IS NULL) AS insights_null_conv,
+  (SELECT count(*) FROM safety_events s JOIN u ON s.user_id = u.id
+     WHERE s.created_at >= '<SMOKE_START_UTC>'::timestamptz AND s.conversation_id IS NULL) AS safety_events_null_conv,
+  (SELECT count(*) FROM messages m JOIN u ON m.user_id = u.id
+     WHERE m.created_at >= '<SMOKE_START_UTC>'::timestamptz
+       AND (m.conversation_id IS NULL OR m.conversation_id NOT IN (SELECT id FROM sc)))    AS messages_outside_smoke_convs,
+  -- what must SURVIVE: the You-vs-You signals outside the smoke (same filter as the unlock gate)
+  (SELECT count(*) FROM memory_entries e JOIN u ON e.user_id = u.id
+     WHERE e.is_active
+       AND e.entry_type NOT IN ('counterview_belief','self_portrait','self_portrait_shift')
+       AND (e.conversation_id IS NULL OR e.conversation_id NOT IN (SELECT id FROM sc)))   AS yvy_signals_kept;
+```
+
+**Step B — delete, only after the founder confirms step A.** It runs as one DO block,
+so it is one transaction: any guard that fails raises an error and NOTHING is deleted.
+Fill the placeholders from step A: `<SMOKE_CONV>` = `smoke_conversations`, and the
+three `*_SMOKE` = the three `*_smoke` columns. Afterwards, re-run step A:
+- every `*_smoke` count and `smoke_conversations` should be 0;
+- `yvy_signals_kept` should be unchanged.
+
+```sql
+DO $$
+DECLARE
+  t0  timestamptz := '<SMOKE_START_UTC>';
+  uid uuid;
+  sc  uuid[];
+  n   int;
+BEGIN
+  SELECT id INTO STRICT uid FROM users WHERE email = 'nkoutr@telekom.gr';
+  SELECT coalesce(array_agg(id), '{}') INTO sc
+    FROM conversations WHERE user_id = uid AND created_at >= t0;
+  IF cardinality(sc) <> <SMOKE_CONV> THEN
+    RAISE EXCEPTION 'abort: % smoke conversations, expected <SMOKE_CONV>', cardinality(sc);
+  END IF;
+
+  -- Escape guards: a smoke-window row the scoped delete would miss aborts everything.
+  SELECT count(*) INTO n FROM memory_entries
+    WHERE user_id = uid AND created_at >= t0 AND conversation_id IS NULL;
+  IF n > 0 THEN RAISE EXCEPTION 'abort: % memory_entries since the smoke have NULL conversation_id', n; END IF;
+  SELECT count(*) INTO n FROM insights
+    WHERE user_id = uid AND created_at >= t0 AND conversation_id IS NULL;
+  IF n > 0 THEN RAISE EXCEPTION 'abort: % insights since the smoke have NULL conversation_id', n; END IF;
+  SELECT count(*) INTO n FROM safety_events
+    WHERE user_id = uid AND created_at >= t0 AND conversation_id IS NULL;
+  IF n > 0 THEN RAISE EXCEPTION 'abort: % safety_events since the smoke have NULL conversation_id', n; END IF;
+  SELECT count(*) INTO n FROM messages
+    WHERE user_id = uid AND created_at >= t0
+      AND (conversation_id IS NULL OR NOT (conversation_id = ANY (sc)));
+  IF n > 0 THEN RAISE EXCEPTION 'abort: % smoke-window messages sit outside the new conversations', n; END IF;
+
+  -- C-07 order: derived rows first, scoped to the smoke conversations; conversations last.
+  DELETE FROM memory_entries WHERE conversation_id = ANY (sc);  GET DIAGNOSTICS n = ROW_COUNT;
+  IF n <> <MEM_SMOKE> THEN RAISE EXCEPTION 'memory_entries: deleted %, expected <MEM_SMOKE>', n; END IF;
+  DELETE FROM insights       WHERE conversation_id = ANY (sc);  GET DIAGNOSTICS n = ROW_COUNT;
+  IF n <> <INS_SMOKE> THEN RAISE EXCEPTION 'insights: deleted %, expected <INS_SMOKE>', n; END IF;
+  DELETE FROM safety_events  WHERE conversation_id = ANY (sc);  GET DIAGNOSTICS n = ROW_COUNT;
+  IF n <> <SE_SMOKE>  THEN RAISE EXCEPTION 'safety_events: deleted %, expected <SE_SMOKE>', n; END IF;
+  DELETE FROM conversations  WHERE id = ANY (sc);               GET DIAGNOSTICS n = ROW_COUNT;
+  IF n <> <SMOKE_CONV> THEN RAISE EXCEPTION 'conversations: deleted %, expected <SMOKE_CONV>', n; END IF;
+
+  RAISE NOTICE 'cleanup committed: % conversations and their derived rows', cardinality(sc);
+END $$;
+```
+
+**Verification status of this SQL: PARSED, NOT EXECUTED.** Both statements pass
+Postgres's own parser (libpg_query via pglast v8.4). Step B's PL/pgSQL body passes the
+PL/pgSQL parser, and a deliberately broken body is rejected. No database was available
+when this was written, so parameter types and result counts have not been exercised by a
+driver (the 2026-09-15 lesson). The first real run is also the first execution.
+
+**Residue this cleanup does not touch.** The control message gets a persona reply, so
+extraction may rewrite the account's `user_preferences.profile` (OPS-014 saw this).
+That is not conversation-scoped and is not reverted here.
+
+---
+
 ### OPS-015 — P-04 smoke of the persona guards: 5/6 on behaviour; invented crisis numbers — **RECORDED**
 **Status: RECORDED. The number defect is fixed in the same PR as this entry (no-numbers
 clause in all seven guards + HARD RULE 9); a re-smoke of the three leaking personas
