@@ -48,7 +48,7 @@ from pathlib import Path
 from typing import Optional
 
 from personas._base import PersonaConfig
-from text_utils import normalize, normalize_with_map
+from text_utils import normalize, normalize_with_map, phrase_pattern
 
 logger = logging.getLogger(__name__)
 
@@ -115,8 +115,11 @@ def _boundary_pattern(norm_phrase: str) -> re.Pattern:
     Built from the NORMALISED phrase and matched against the NORMALISED reply, so
     TD-60's Greek fold is preserved: `\\w` is Unicode-aware for str patterns, so a
     Greek entry still bounds on Greek letters.
+
+    The pattern itself now lives in text_utils.phrase_pattern (2026-09-25), shared
+    with the safety output list, so the two matchers cannot drift apart.
     """
-    return re.compile(r"(?<!\w)" + re.escape(norm_phrase) + r"(?!\w)")
+    return phrase_pattern(norm_phrase)
 
 
 # Compiled patterns, keyed on the PHRASE STRING rather than on a persona slug.
