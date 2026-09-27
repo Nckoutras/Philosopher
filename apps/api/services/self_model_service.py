@@ -4,6 +4,7 @@ Reads existing memory_entries (no new extraction) and splits them into a "then"
 and "now" window to characterize the user's earlier and recent self.
 Pure read + aggregation. No LLM, no writes.
 """
+import uuid
 from datetime import timedelta
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,9 +17,32 @@ MIN_SPAN_DAYS = 14        # minimum days between earliest and latest signal
 FORMING_PREVIEW_SIZE = 4  # recent signals surfaced while still "forming"
 
 
+def conversation_key(value) -> str | None:
+    """THE one representation of a conversation id for the crisis-gate exclusion.
+
+    Every consumer goes through this: the set built from messages
+    (_flagged_conversation_ids), the memory windows (build below) and the
+    candidates query (_candidates). The columns are UUID(as_uuid=False), so the
+    ORM hands back str at runtime (asyncpg's uuid.UUID is converted by
+    SQLAlchemy's result processor); canonicalising through uuid.UUID means a
+    uuid.UUID object, an upper-case string or a braced string all compare equal,
+    so a caller that passes a different form cannot silently exclude nothing.
+    """
+    if value is None:
+        return None
+    return str(uuid.UUID(str(value)))
+
+
 class SelfModelService:
 
-    async def build(self, db: AsyncSession, user_id: str, *, bypass_gate: bool = False) -> dict:
+    async def build(
+        self, db: AsyncSession, user_id: str, *, bypass_gate: bool = False,
+        exclude_conversation_ids: set | None = None,
+    ) -> dict:
+        """exclude_conversation_ids (ruling 2026-09-25): conversations that held a
+        high/critical message. Their rows are dropped from the then/now WINDOWS so
+        crisis content is never replayed, but still COUNT toward the unlock gate —
+        an old flag must not lock anyone out. Rows with no conversation are kept."""
         result = await db.execute(
             select(MemoryEntry)
             .where(
@@ -56,8 +80,18 @@ class SelfModelService:
             if span < timedelta(days=MIN_SPAN_DAYS):
                 return self._forming(entries, total)
 
-        then_entries = entries[:WINDOW_SIZE]
-        now_entries = entries[-WINDOW_SIZE:]
+        windowed = entries
+        if exclude_conversation_ids:
+            excluded = {conversation_key(c) for c in exclude_conversation_ids}
+            windowed = [e for e in entries if conversation_key(e.conversation_id) not in excluded]
+            if not windowed:
+                # Every signal sits in a flagged conversation: nothing is left to
+                # compare, so the person reads as still forming (not_unlocked in
+                # the stream). A known property, stated in the PR narrative.
+                return self._forming(windowed, total)
+
+        then_entries = windowed[:WINDOW_SIZE]
+        now_entries = windowed[-WINDOW_SIZE:]
         return {
             "unlocked": True,
             "total_signals": total,

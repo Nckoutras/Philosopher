@@ -27,6 +27,7 @@ type YvYEvent = {
   start?: string
   end?: string
   error_code?: string
+  level?: string
   observation?: string
   question?: string
   then_quote?: Quote | null
@@ -138,7 +139,9 @@ export default function YouVsYouPage() {
             // safety_override: an answer that already streamed was withheld
             // after the fact (post-generation check, TD-101 pattern). The
             // safety state unmounts both answers, so the text goes too.
-            setStreamError('safety')
+            // level 'recent': the crisis gate (a high/critical message in the
+            // last 14 days) closed the comparison before anything generated.
+            setStreamError(ev.level === 'recent' ? 'recent' : 'safety')
           } else if (ev.type === 'error') {
             setStreamError(ev.error_code ?? 'error')
           } else if (ev.type === 'closing') {
@@ -373,6 +376,9 @@ export default function YouVsYouPage() {
             <p className="font-lora text-[14px] text-charcoal text-center">
               {streamError === 'rate_limit' ? 'You\u2019ve reached this week\u2019s limit. Try again next week.'
                 : streamError === 'safety' ? 'Let\u2019s set this one aside for now.'
+                // Approved 2026-09-25. Names no reason, deliberately: saying why on
+                // this screen would read as surveillance.
+                : streamError === 'recent' ? 'Let\u2019s leave this comparison for another day.'
                 : 'Something went wrong. Try again in a moment.'}
             </p>
           )}
