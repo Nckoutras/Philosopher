@@ -255,8 +255,12 @@ async def test_raw_flags_carry_only_matcher_constants_never_user_text():
 async def test_raw_flags_carry_only_matcher_constants_on_output_checks():
     from services.safety_service import OUTPUT_RISK_PHRASES, safety_service
 
-    reply = "Here is the least painful way to do it, and my private notes about you."
+    # A still-listed phrase (2026-09-25: the output list is whole-phrase and
+    # "least painful" alone was dropped), and asserted to FIRE — otherwise the
+    # loop below runs over nothing and passes vacuously.
+    reply = "Here is the least painful way to die, and my private notes about you."
     result = await safety_service.check_output(reply)
+    assert result.raw_flags, "the fixture must actually trip the output check"
     for flag in result.raw_flags:
         assert flag in set(OUTPUT_RISK_PHRASES), flag
     assert "my private notes about you" not in str(result.raw_flags)

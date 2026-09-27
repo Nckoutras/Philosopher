@@ -52,7 +52,7 @@ from typing import Optional
 import logging
 
 from constants import RISK_LEVELS
-from text_utils import normalize
+from text_utils import normalize, phrase_pattern
 from config import config
 from services.safety_lexicons import (
     ALL_BANDS,
@@ -98,6 +98,26 @@ def _assert_lexicons_are_prenormalised() -> None:
 
 _assert_lexicons_are_prenormalised()
 
+# EVERY band is matched as WHOLE PHRASES (ruling 2026-09-25), never as substrings.
+# A substring test fired inside words — "way to end" in "way to endure",
+# "disappear" in "disappearance", "tired" in "retired" — and could not reach the
+# crisis forms next to its entries ("suicidAL", "killING myself"), which the
+# lexicon now lists explicitly. Compiled once: the lists are module-level and fixed.
+_OUTPUT_PATTERNS = [(p, phrase_pattern(p)) for p in OUTPUT_RISK_PHRASES]
+_HIGH_PATTERNS = [(p, phrase_pattern(p)) for p in RISK_HIGH]
+_MEDIUM_PATTERNS = [(p, phrase_pattern(p)) for p in RISK_MEDIUM]
+_LOW_PATTERNS = [(p, phrase_pattern(p)) for p in LOW_SIGNALS]
+
+# A phone keyboard types ’ (U+2019), not '. normalize() leaves it alone, so every
+# entry with an apostrophe missed "I can’t go on" (measured 2026-09-25: level
+# NONE). Folded here, for the safety check only, so the shared normalize() — whose
+# character map postprocessing relies on — is untouched.
+_APOSTROPHES = str.maketrans({"’": "'", "‘": "'", "ʼ": "'", "′": "'"})
+
+
+def _prepare(text: str) -> str:
+    return _normalize(text.translate(_APOSTROPHES))
+
 
 # ── Result dataclass ──────────────────────────────────────────────────────────
 
@@ -129,11 +149,11 @@ class SafetyService:
         Every band is matched against every message. See the module docstring on
         why language detection does not gate this.
         """
-        normalized = _normalize(text)
+        normalized = _prepare(text)
 
         # High risk — immediate suppression
-        for phrase in RISK_HIGH:
-            if phrase in normalized:
+        for phrase, pattern in _HIGH_PATTERNS:
+            if pattern.search(normalized):
                 logger.warning(f"Safety HIGH [{phrase[:20]}] user={user_id}")
                 return SafetyResult(
                     level="high",
@@ -142,8 +162,8 @@ class SafetyService:
                 )
 
         # Medium risk — redirect with support signpost
-        for phrase in RISK_MEDIUM:
-            if phrase in normalized:
+        for phrase, pattern in _MEDIUM_PATTERNS:
+            if pattern.search(normalized):
                 logger.info(f"Safety MEDIUM [{phrase[:20]}] user={user_id}")
                 return SafetyResult(
                     level="medium",
@@ -152,7 +172,7 @@ class SafetyService:
                 )
 
         # Low risk signals — log, continue with persona intact
-        flags = [s for s in LOW_SIGNALS if s in normalized]
+        flags = [s for s, pattern in _LOW_PATTERNS if pattern.search(normalized)]
         if flags:
             return SafetyResult(level="low", category="distress_signal", raw_flags=flags)
 
@@ -165,8 +185,8 @@ class SafetyService:
         it was addressed in, so a Greek reply containing method detail would have
         walked straight through the English-only list.
         """
-        normalized = _normalize(response_text)
-        flags = [p for p in OUTPUT_RISK_PHRASES if p in normalized]
+        normalized = _prepare(response_text)
+        flags = [p for p, pattern in _OUTPUT_PATTERNS if pattern.search(normalized)]
 
         if flags:
             logger.error(f"Safety POST-GEN flags: {flags}")
