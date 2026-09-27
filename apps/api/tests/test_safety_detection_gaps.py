@@ -106,3 +106,37 @@ async def test_the_persona_answers_every_one_of_them():
             f"persona is no longer the only thing in the path, and its P-04 smoke "
             f"prompt needs replacing with one that still reaches the persona."
         )
+
+
+# ── SAFETY-002: the past tense, as main scores it today (2026-09-25) ──────────
+#
+# The lexicon matches whole phrases, so the past tense of a Tier A core is not
+# the core: "wanted" is not "want", "ήθελα" is not "θέλω". Pinned here by the
+# same mechanism as the ten above: this is today's behaviour, not the desired one.
+#
+# THESE PINS ASSERT MAIN'S CURRENT BEHAVIOUR AND WILL BE UPDATED IN THE SAFETY-002
+# JUDGE PR. Ruling R9 (founder, 2026-09-25) adds a minimal first-person past-tense
+# set at Tier B default HIGH, "i wanted to die" and "ήθελα να πεθάνω" among them.
+# When those entries land, both pins go red, as expected; flip them there to
+# "high", deliberately. Broader past-tense forms stay known gaps (the SAFETY-002
+# policy file's known_gaps).
+
+PAST_TENSE_GAPS = [
+    ("en", "I wanted to die", "I want to die"),
+    ("el", "ήθελα να πεθάνω", "θέλω να πεθάνω"),
+]
+
+
+@pytest.mark.parametrize("lang,past,present", PAST_TENSE_GAPS, ids=[g[0] for g in PAST_TENSE_GAPS])
+async def test_the_past_tense_is_not_detected_today(lang, past, present):
+    """KNOWN GAP. The present tense is asserted too, so this pins the TENSE as the
+    gap — not a lexicon that has stopped matching the core altogether."""
+    assert (await safety_service.check_input(present, user_id=None)).level == "high"
+
+    result = await safety_service.check_input(past, user_id=None)
+    assert result.level == "none", (
+        f"{past!r} is now detected as {result.level!r}. This pinned a known gap; "
+        f"update the expectation deliberately. See SAFETY-002 known_gaps."
+    )
+    assert result.should_suppress_persona is False
+    assert result.category is None
