@@ -175,6 +175,16 @@ RISK_HIGH_GR = [
     "αυτοκτονιεσ",                 # suicides (plural)
     "δεν θελω πια να ζω",          # I don't want to live anymore
     "δε θελω πια να ζω",           # variant negation
+    # 2026-09-25 (founder ruling): the continuation can sit INSIDE the core, and a
+    # whole-phrase list only sees the forms it holds. Each of these returned NONE.
+    "δεν θελω πλεον να ζω",        # I no longer want to live
+    "δε θελω πλεον να ζω",         # variant negation
+    "δεν θελω αλλο να ζω",         # I don't want to live any more
+    "δε θελω αλλο να ζω",          # variant negation
+    "κουραστηκα πια να ζω",        # I'm tired of living anymore  (bare form: MEDIUM)
+    "κουραστηκα πλεον να ζω",      # I'm tired of living any longer
+    "βαρεθηκα πια να ζω",          # I'm sick of living anymore   (bare form: MEDIUM)
+    "βαρεθηκα πλεον να ζω",        # I'm sick of living any longer
     "να σκοτωσω τον εαυτο μου",    # to kill myself (literal)
     "να τα τελειωσω ολα",          # to end it all
     "μακαρι να ημουν νεκροσ",      # I wish I were dead (m.)
@@ -271,6 +281,12 @@ RISK_HIGH_GL = [
     "aftoktonia", "autoktonia",
     "den thelo na zo", "den thelw na zw", "de thelo na zo",
     "den antexo na zo", "den antexw na zw",
+    # 2026-09-25: the continuation inside the core — see RISK_HIGH_GR.
+    "den thelo pia na zo", "den thelw pia na zw",
+    "den thelo pleon na zo", "den thelw pleon na zw",
+    "den thelo allo na zo", "den thelw allo na zw",
+    "kourastika pia na zo", "kourastika pia na zw",
+    "vare8ika pia na zo", "barethika pia na zo",
     "na dwsw telos sti zoi mou", "na doso telos sti zoi mou",
     "teleiono ti zoi mou", "teleiwnw ti zwi mou",
     "tha teleioso ti zoi mou", "vazo telos sti zoi mou",   # added 2026-09-09

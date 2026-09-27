@@ -77,6 +77,47 @@ async def test_the_native_review_rulings_hold(text, level):
     assert result.level == level, f"{text!r} -> {result.level} ({result.trigger})"
 
 
+# 2026-09-25 (founder ruling): a continuation INSIDE the core. Each returned NONE
+# before; a whole-phrase list only sees the forms it holds.
+CONTINUATION_HIGH = [
+    "Δεν θέλω πλέον να ζω",
+    "Δε θέλω πλέον να ζω",
+    "Δεν θέλω άλλο να ζω",
+    "Δε θέλω άλλο να ζω",
+    "Κουράστηκα πια να ζω",
+    "Κουράστηκα πλέον να ζω",
+    "Βαρέθηκα πια να ζω",
+    "Βαρέθηκα πλέον να ζω",
+    "den thelo pia na zo",
+    "den thelw pia na zw",
+    "den thelo pleon na zo",
+    "den thelw pleon na zw",
+    "den thelo allo na zo",
+    "den thelw allo na zw",
+    "kourastika pia na zo",
+    "kourastika pia na zw",
+    "vare8ika pia na zo",
+    "barethika pia na zo",
+]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("text", CONTINUATION_HIGH)
+async def test_a_continuation_inside_the_core_reaches_the_high_band(text):
+    result = await safety_service.check_input(text, "u")
+    assert result.level == "high", f"{text!r} -> {result.level} ({result.trigger})"
+
+
+@pytest.mark.asyncio
+async def test_a_locative_after_the_core_is_still_high_today():
+    """NOT A BUG. Today the lexicon has no notion of a locative: "…to live in this
+    city" is still the phrase "I don't want to live", so it is HIGH. SAFETY-002
+    will DEMOTE it to Tier B (default HIGH, judged) — never to none. Until the
+    judge ships, there is no demotion, and HIGH is the correct answer."""
+    result = await safety_service.check_input("Δεν θέλω πια να ζω σε αυτή την πόλη", "u")
+    assert result.level == "high", f"-> {result.level} ({result.trigger})"
+
+
 NOT_INSIDE_WORDS = [
     "Epictetus says to rehearse the disappearance of everything you love. How?",
     "I retired last year and miss the work.",
