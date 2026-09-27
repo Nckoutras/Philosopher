@@ -81,21 +81,39 @@ RISK_HIGH_EN = [
     "not worth living", "better off dead", "can't keep living",
     "planning to end", "goodbye forever", "end it all", "ending it all",
     "no reason to live", "ready to die", "want it to be over",
+    # ── Added 2026-09-25 (founder ruling) ────────────────────────────────────
+    # Crisis forms the substring match never reached: "suicide" is not a prefix of
+    # "suicidal", "kill myself" is not inside "killing myself". Measured before this
+    # change: all of these returned level NONE.
+    "suicidal", "killing myself", "want to kill myself",
+    "don't want to live", "dont want to live", "do not want to live",
+    "thinking about ending it", "wish i were dead", "take my own life",
+    "taking my own life", "harming myself", "hurting myself", "self-harm",
+    "self harming", "self-harming", "overdosed", "overdosing",
 ]
 
 RISK_MEDIUM_EN = [
-    "can't go on", "no point anymore", "no point to anything", "hopeless",
+    "can't go on", "cant go on", "hopelessness",  # 2026-09-25: see RISK_HIGH_EN
+    "no point anymore", "no point to anything", "hopeless",
     "disappear", "nothing matters", "can't take it anymore", "want to disappear",
     "everyone would be better without me", "so done with everything",
     "exhausted with living", "tired of existing", "don't see the point",
     "feel invisible", "world would be better without me",
 ]
 
+# Method-seeking phrases only, matched as WHOLE phrases (text_utils.phrase_pattern,
+# via safety_service.check_output), never as substrings. Ruled 2026-09-25: the list used to hold
+# ordinary reflective English — "least painful", "most effective way to", "best
+# method", "method would be", "where to buy", and a bare "way to end" that matched
+# "way to endure" — and flagged six of six sentences about mortality, the product's
+# subject. Two of those survive NARROWED to their method-seeking form. Plurals are
+# listed explicitly: strict boundaries no longer let "dose" match "doses".
 OUTPUT_RISK_EN = [
-    "lethal dose", "how to jump", "best method", "painless way",
-    "painless method", "want to jump", "where to buy",
-    "most effective way to", "easiest way to die", "least painful",
-    "method would be", "way to end", "how to end your life",
+    "lethal dose", "lethal doses",
+    "how to jump", "want to jump",
+    "painless way", "painless ways", "painless method", "painless methods",
+    "easiest way to die", "most effective way to die", "least painful way to die",
+    "way to end it", "way to end your life", "how to end your life",
 ]
 
 # Promoted from an inline list inside check_input. It was the only one of the
@@ -146,6 +164,40 @@ RISK_HIGH_GR = [
     "ειμαι ετοιμη να πεθανω",      # I am ready to die (f.)
     "θελω να τελειωσουν ολα",      # I want it all to be over
     # "αντιο για παντα" moved to LOW_SIGNALS_GR 2026-09-09 — as often a breakup.
+    # ── Added 2026-09-25 (founder ruling; founder reads the Greek before merge) ──
+    # Equivalents of the English crisis forms added the same day, plus the
+    # inflections whole-phrase matching no longer reaches by accident.
+    "αυτοκτονικοσ",                # suicidal (m.)
+    "αυτοκτονικη",                 # suicidal (f.)
+    "αυτοκτονικο",                 # suicidal (n.)
+    "αυτοκτονικεσ",                # suicidal (pl., e.g. αυτοκτονικές σκέψεις)
+    "αυτοκτονιασ",                 # of suicide (genitive)
+    "αυτοκτονιεσ",                 # suicides (plural)
+    "δεν θελω πια να ζω",          # I don't want to live anymore
+    "δε θελω πια να ζω",           # variant negation
+    # 2026-09-25 (founder ruling): the continuation can sit INSIDE the core, and a
+    # whole-phrase list only sees the forms it holds. Each of these returned NONE.
+    "δεν θελω πλεον να ζω",        # I no longer want to live
+    "δε θελω πλεον να ζω",         # variant negation
+    "δεν θελω αλλο να ζω",         # I don't want to live any more
+    "δε θελω αλλο να ζω",          # variant negation
+    "κουραστηκα πια να ζω",        # I'm tired of living anymore  (bare form: MEDIUM)
+    "κουραστηκα πλεον να ζω",      # I'm tired of living any longer
+    "βαρεθηκα πια να ζω",          # I'm sick of living anymore   (bare form: MEDIUM)
+    "βαρεθηκα πλεον να ζω",        # I'm sick of living any longer
+    "να σκοτωσω τον εαυτο μου",    # to kill myself (literal)
+    "να τα τελειωσω ολα",          # to end it all
+    "μακαρι να ημουν νεκροσ",      # I wish I were dead (m.)
+    "μακαρι να ημουν νεκρη",       # I wish I were dead (f.)
+    "να αφαιρεσω τη ζωη μου",      # to take my own life
+    # NOT "να παρω τη ζωη μου": native review 2026-09-25 — in everyday Greek it
+    # reads "to get my life back", the opposite meaning, and fired HIGH on it.
+    "βλαπτω τον εαυτο μου",        # I harm myself
+    "αυτοτραυματιζομαι",           # I self-harm
+    "αυτοτραυματισμο",             # self-harm (accusative)
+    "αυτοτραυματισμου",            # of self-harm (genitive)
+    "υπερβολικησ δοσησ",           # of an overdose (genitive)
+    "υπερβολικεσ δοσεισ",          # overdoses (plural)
 ]
 
 RISK_MEDIUM_GR = [
@@ -172,7 +224,12 @@ RISK_MEDIUM_GR = [
 
 OUTPUT_RISK_GR = [
     "θανατηφορα δοση",             # lethal dose
+    "θανατηφορασ δοσησ",           # of a lethal dose  (genitive, added 2026-09-25)
+    "θανατηφορεσ δοσεισ",          # lethal doses      (plural,   added 2026-09-25)
     "θανατηφορο χαπι",             # lethal pill
+    "θανατηφορα χαπια",            # lethal pills      (plural,   added 2026-09-25)
+    # 2026-09-25: output entries are matched as WHOLE phrases now, so the inflected
+    # forms a substring used to reach by accident are listed explicitly.
     "ευκολοτεροσ τροποσ να πεθανεισ",  # easiest way to die
     "πωσ να τελειωσεισ τη ζωη σου",# how to end your life
     "πωσ να αυτοκτονησεισ",        # how to kill yourself       (added 2026-09-09)
@@ -224,6 +281,12 @@ RISK_HIGH_GL = [
     "aftoktonia", "autoktonia",
     "den thelo na zo", "den thelw na zw", "de thelo na zo",
     "den antexo na zo", "den antexw na zw",
+    # 2026-09-25: the continuation inside the core — see RISK_HIGH_GR.
+    "den thelo pia na zo", "den thelw pia na zw",
+    "den thelo pleon na zo", "den thelw pleon na zw",
+    "den thelo allo na zo", "den thelw allo na zw",
+    "kourastika pia na zo", "kourastika pia na zw",
+    "vare8ika pia na zo", "barethika pia na zo",
     "na dwsw telos sti zoi mou", "na doso telos sti zoi mou",
     "teleiono ti zoi mou", "teleiwnw ti zwi mou",
     "tha teleioso ti zoi mou", "vazo telos sti zoi mou",   # added 2026-09-09
@@ -256,6 +319,7 @@ RISK_MEDIUM_GL = [
 
 OUTPUT_RISK_GL = [
     "thanatifora dosi",
+    "thanatiforas dosis", "thanatifores doseis",    # added 2026-09-25 (whole-phrase)
     "eukoloteros tropos na pethaneis", "pos na teleioseis ti zoi sou",
     "pos na autoktoniseis",                         # added 2026-09-09
     # REMOVED 2026-09-09: anodynos tropos · anwdynos tropos · anodyni methodos ·
