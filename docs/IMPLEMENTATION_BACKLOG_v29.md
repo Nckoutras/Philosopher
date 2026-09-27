@@ -3267,6 +3267,78 @@ the profile and ignores a value it should hold.
 
 ---
 
+### OPS-016 — #743 merged (YvY window gate); NEGATIVE-path smoke OWED 2026-09-27 — **OPEN**
+**Status: OPEN. The smoke has NOT run. DO NOT record it as passed until someone has
+actually clicked.**
+
+**What landed.** The You-vs-You crisis gate now refuses only on a RECENT flag (a
+high/critical message in the last 14 days, `RECENT_CRISIS_DAYS = 14`). Older flags no
+longer refuse: that conversation's memory rows and quotes are left out of the
+comparison instead. Merged as **#743**, squash commit **`2311de74`**, on 2026-09-27.
+Branch head at merge was **`c4afc897`**, a merge of main `bb1af50d` into the gate
+commit `8ec15152`. Main's tree is identical to `c4afc897`'s. CI on `2311de74`: all four
+required checks green.
+
+**Why this smoke, today.** The founder's own account carries **2 high flags from
+2026-09-16 08:32 UTC** (founder-recorded; not re-queried in the session that wrote this
+entry). They are inside the 14-day window until **2026-09-30 08:32 UTC**, so today
+this account can only exercise the refusal. The positive path is OPS-017.
+
+**Method.** Production, after the deploy of `2311de74` is live (Render for the API,
+Netlify for `you-vs-you/page.tsx`; confirm both on the dashboards first).
+0. Confirm the logged-in account is the founder's (OPS-014 step zero, inverted: this
+   smoke needs THIS account's flags).
+1. Open **You vs You** (`/app/you-vs-you`).
+2. Type: *"How have I changed in terms of accepting death as inevitable?"* The input
+   check scores it `none` (measured on `2311de74`), so the gate is what answers.
+3. Click **Ask both selves**.
+
+**Expected.** The page shows **"Let's leave this comparison for another day."** and
+nothing is generated: no streamed selves, no closing. The gate refuses before a
+`self_comparisons` row is created, so the smoke writes nothing to the account.
+
+**Fail if** either self starts streaming, or the old generic safety message appears
+instead of the "another day" line. The second means the web deploy is stale.
+
+---
+
+### OPS-017 — #743 POSITIVE-path smoke OWED on/after 2026-09-30 08:33 UTC — **OPEN, scheduled**
+**Status: OPEN. Cannot run before 2026-09-30 08:33 UTC. That is when the founder
+account's 2026-09-16 flags leave the 14-day window. DO NOT record as passed until it
+has run.**
+
+**What it proves.** This is the regression #743 exists to fix. An account whose only
+flags are OLD must get an answer from both selves, not a refusal. Before #743, one
+flag anywhere in the comparison span closed the ritual for months.
+
+**Method.** Same account, same steps and prompt as OPS-016, on or after 2026-09-30
+08:33 UTC.
+- **Before clicking:** run this read-only pre-check for the account. It uses the same
+  conditions as the gate's code. It must show `recent_flags = 0` and
+  `flagged_conversations ≥ 1`:
+  ```sql
+  SELECT
+    (SELECT count(*) FROM messages m WHERE m.user_id = u.id
+       AND m.safety_level IN ('high','critical')
+       AND m.created_at >= now() - interval '14 days')           AS recent_flags,
+    (SELECT count(DISTINCT m.conversation_id) FROM messages m WHERE m.user_id = u.id
+       AND m.safety_level IN ('high','critical')
+       AND m.conversation_id IS NOT NULL)                        AS flagged_conversations
+  FROM users u WHERE u.email = 'nckoutras@gmail.com';
+  ```
+- **If any new high/critical message has landed since 2026-09-16:** this is a
+  negative-path run again, and the date moves.
+
+**Expected.** Both selves stream, followed by the closing observation and question.
+The "another day" line does NOT appear.
+
+**Known side effect.** Unlike OPS-016, this run generates, so it writes one
+`self_comparisons` row to the founder's account.
+
+**Past end of day on 2026-09-30, this is a FINDING (amended P-04), not a footnote.**
+
+---
+
 ### OPS-015 — P-04 smoke of the persona guards: 5/6 on behaviour; invented crisis numbers — **RECORDED**
 **Status: RECORDED. The number defect is fixed in the same PR as this entry (no-numbers
 clause in all seven guards + HARD RULE 9); a re-smoke of the three leaking personas
