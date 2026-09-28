@@ -1827,6 +1827,104 @@ surfaces never render empty either. Raw diff before push.
 
 ---
 
+### SAFETY-004 — crisis events on Council and You-vs-You are never saved — **OPEN, investigated**
+**Status: OPEN. Investigated 2026-09-28 (main `adc028c0`); nothing changed. Found by the OPS-020
+smoke: a crisis phrase on Council and on You-vs-You showed the crisis text and wrote ZERO
+`safety_events` rows.**
+
+**What is lost.** Exactly two paths: the INPUT crisis check on Council and on You-vs-You,
+whenever it suppresses (medium / high / critical).
+- **Council:** `council_service.py:228-240`. `log_safety_event(... STAGE_COUNCIL_INPUT)` at
+  `:230`, then the stream yields the crisis text and RETURNS.
+- **You-vs-You:** `self_comparison_service.py:263-275`. `log_safety_event(... STAGE_SELF_COMPARISON_INPUT)`
+  at `:265`, then the same.
+- **Neither path commits.**
+- **Since when: always.** Both writes arrived in **#548 (2026-08-18)**, and FastAPI has been
+  pinned at 0.115.0 since the initial commit. On these two paths a crisis event has never
+  been saved.
+
+**Why (MEASURED, not inferred).**
+- `log_safety_event` (`safety_event_log.py:57-82`) only does `db.add()` + `flush()`. It leaves
+  the commit to the caller.
+- On these two surfaces the caller's session is the request's `get_db`
+  (`routers/council.py:153`, `routers/self_comparison.py`). `get_db` commits in its TEARDOWN,
+  after `yield` (`db/session.py:47-56`).
+- **With FastAPI 0.115.0, that teardown runs BEFORE a `StreamingResponse` body is sent.** So
+  `get_db` commits and closes an empty session. The stream then flushes the row into a new
+  transaction, and nothing ever commits it.
+- **Reproduced with the pinned FastAPI 0.115.0** and a session shaped exactly like `get_db`.
+  The order was: `get_db teardown: commit -> close -> stream body: start -> flushed -> end`.
+  - A row only flushed in the body: **NOT persisted**.
+  - A row committed explicitly in the body: **persisted**.
+  - This matches production.
+
+**Why the tests passed.** `tests/services/test_safety_event_log.py` and the ritual safety tests
+use a recording fake session (`_Recorder`), which records `db.add()`. They prove a row was
+ADDED, never that it was COMMITTED. C-06's lesson (a stand-in answers every question it is
+asked) applies to sessions too. No test drove these two paths through the real router
+against a real database.
+
+**What is NOT affected (checked, file:line).**
+- **Chat, every path.** `send` runs on its own session (`session_factory=AsyncSessionLocal`,
+  `routers/conversations.py:496`) and commits explicitly (pre-generation: `:765` → commit
+  `:775`). Another-mind and go-deeper stream on `get_db`, but each post-generation log is
+  followed by an explicit commit on the same path (`:1571` → `:1614`, `:1889` → `:1943`).
+  Send's post-generation log: `:1228` → `:1298`.
+- **The Council and You-vs-You OUTPUT paths.** Both commit explicitly after the override
+  (`council_service.py:395`, `self_comparison_service.py:376`).
+- **Every `log_safety_event` call in a JSON endpoint:** mirrors (`routers/mirrors.py:115`),
+  scheduled emails (`routers/scheduled_emails.py:68, 198`), the You-vs-You ring-true route
+  (`routers/self_comparison.py:291`), and counterview (`counterview_service.py:161, 762`,
+  reached from JSON routes). `get_db`'s teardown commits those, because there is no
+  streamed body.
+- **The #739 output gate in workers and JSON routes** (`output_gate.py:67`, callers in
+  `workers/arq_worker.py`, `memory_service.py`, `insight_mirror_service.py`,
+  `self_portrait_summary.py`). These withhold content, show no crisis response, and run on
+  sessions that commit.
+- **So the only paths that SHOW a crisis response without saving a `safety_events` row are
+  the two above.**
+
+**The wider hazard, and it is structural.** Every streaming endpoint that takes `db` from
+`get_db` is running on a session its own teardown has ALREADY committed and closed. Every
+write in such a stream is lost unless the stream commits it itself. Today the streams do
+commit on every other path; the two crisis early-returns are the ones that do not. The next
+early `return` added to a stream will have the same defect unless something enforces this.
+
+**Fix options, in the order CLAUDE.md asks for.**
+1. **Production-grade (recommended).**
+   - Add an explicit `await db.commit()` after `log_safety_event` on both crisis
+     early-returns, before the first `yield`. That is 2 lines, in `council_service.py` and
+     `self_comparison_service.py`.
+   - **PLUS a `db_live` regression test** that drives both routes through the REAL app (httpx
+     + ASGI, as the reproduction did) against real Postgres, and asserts the row EXISTS
+     afterwards. That is a measurement, not a mock: it fails on today's code and passes on
+     the fix.
+   - **PLUS a static guard** (a unit test): in every streamed generator that takes `db` from
+     `get_db`, each `return` must be preceded by a commit.
+   - **Size:** 2 service files (about 2 lines each), 1 new `db_live` test file (about 60
+     lines), 1 guard test. A small standalone PR.
+2. **Structural, larger, later.** Give Council and You-vs-You streams their own session
+   (chat's `session_factory` pattern), so no stream ever runs on a torn-down `get_db`.
+   This touches both routers and both services, and it is its own PR if chosen.
+3. **Not recommended:** making `log_safety_event` commit itself. In JSON routes it runs
+   mid-transaction, so it would commit the caller's partial work early.
+
+**Measure the history in production (read-only).** It should show the two input stages at 0
+rows ever, which confirms "never saved":
+```sql
+SELECT trigger_stage, count(*) AS n, min(created_at) AS first, max(created_at) AS last
+FROM safety_events
+WHERE trigger_stage IN ('council_input', 'self_comparison_input',
+                        'council_member_output', 'self_comparison_output')
+GROUP BY trigger_stage ORDER BY trigger_stage;
+```
+
+**Consequence to state plainly.** Crisis disclosures on Council and You-vs-You were answered
+correctly on screen, but the audit trail recorded none of them, and the SAFETY-002 / TD work
+that counts crisis events has been counting without these two surfaces.
+
+---
+
 ### TD-113 — a saved crisis message reopens as an ordinary message — **OPEN, logged (SAFETY-003 ruling 5)**
 **Status: OPEN. LOG only, not now (founder, 2026-09-28).**
 
@@ -3471,8 +3569,31 @@ WINDOW instead, so it handles new and resumed conversations alike.
 
 ---
 
-### OPS-020 — SAFETY-003 Part 2 (#746) merged; P-04 smoke OWED 2026-09-28 — **OPEN**
-**Status: OPEN. The smoke has NOT run. DO NOT record it as passed until someone has clicked.**
+### OPS-020 — SAFETY-003 Part 2 (#746) P-04 smoke: UX PASSED; FINDING → SAFETY-004 — **CLOSED**
+**Status: CLOSED. UX PASSED (founder account, on a phone, 2026-09-28 ~12:42–12:44 UTC).
+FINDING: the crisis path wrote ZERO `safety_events` rows. Opened as SAFETY-004.**
+
+**Result (founder).**
+- **Council**, "I want to kill myself": the English crisis text, with the numbers tappable.
+- **You-vs-You**, "Θέλω να πεθάνω": the Greek crisis text. It fired BEFORE the 14-day gate,
+  as designed.
+- **On both:** none of the removed lines or buttons, no "Ask another", and Back / Home
+  visible.
+- **No cleanup was needed.**
+
+**The finding.** A SELECT over `safety_events` since 12:30 UTC returned **0 rows, for any
+user**. This entry said a crisis phrase "writes exactly one conversation-less
+`safety_events` row". That was INFERRED from the code, NOT MEASURED, and production
+contradicted it. The chat path does write its rows (2 from the Part 1 smoke the same day).
+The cause is in SAFETY-004.
+
+**Lesson: a statement about what a path WRITES is measured in the smoke, not inferred from
+the code.** The same rule as the 2026-09-15 failure-log entry ("a query is not verified
+until a driver has executed it"), applied to a write path. Reading `db.add()` is not reading
+a commit.
+
+*Original text below, kept as written; the statement about writes is WRONG, see above.*
+
 
 **What landed, and how.** **#746** (`fix/safety-003-part2-surfaces` → main) was squash-merged
 at 2026-09-28 11:31:44 UTC as `1173fb65`. Main's tree is identical to the branch tip
@@ -3514,6 +3635,7 @@ server's crisis text ALONE, in the app-voice bubble, with its resources tappable
   And a crisis phrase on either surface writes **no `messages` row**, so the smoke does not
   start a new 14-day window.
 - **What a crisis phrase writes, on each surface: exactly one `safety_events` row.**
+  **[WRONG: inferred, not measured. Production wrote ZERO rows. See SAFETY-004.]**
   - Its `conversation_id` is NULL; `trigger_stage` is `council_input` or
     `self_comparison_input`.
   - **No** `council_cases` row: the case is created after the check (`council_service.py:257`).
