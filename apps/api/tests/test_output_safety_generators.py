@@ -158,7 +158,7 @@ async def test_the_gate_without_a_session_still_says_no():
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-async def _council(member_text):
+async def _council(member_text, matter="Should I leave my job this year?"):
     import services.council_service as cvs
 
     async def fake_stream(*a, **kw):
@@ -175,7 +175,7 @@ async def _council(member_text):
     ):
         events = []
         async for ev in cvs.council_service.stream_council(
-            db=db, user_id=USER_ID, matter="Should I leave my job this year?",
+            db=db, user_id=USER_ID, matter=matter,
         ):
             events.append(json.loads(ev[len("data: "):]))
     return events, db
@@ -221,7 +221,8 @@ def _window():
     }
 
 
-async def _yvy(monkeypatch, self_answer):
+async def _yvy(monkeypatch, self_answer,
+               prompt="What am I actually afraid of when I put off this decision?"):
     async def fake_stream(system=None, messages=None, model=None, **kw):
         yield self_answer
 
@@ -236,9 +237,7 @@ async def _yvy(monkeypatch, self_answer):
     }))
     db = _Recorder()
     events = []
-    async for ev in scs.self_comparison_service.stream(
-        db, USER_ID, "What am I actually afraid of when I put off this decision?"
-    ):
+    async for ev in scs.self_comparison_service.stream(db, USER_ID, prompt):
         events.append(json.loads(ev[len("data: "):]))
     return events, db
 
@@ -614,3 +613,56 @@ def test_every_forming_reflection_caller_hands_over_its_session():
     for call in calls:
         kwargs = {k.arg: ast.unparse(k.value) for k in call.keywords}
         assert kwargs.get("db") == "db" and "user_id" in kwargs
+
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# SAFETY-003 · the safety event carries the whole crisis text (Council, YvY)
+# ═══════════════════════════════════════════════════════════════════════════
+# Real prompt_builder and real gates: the text on the event is the rendered
+# crisis template, and the chunks that follow repeat it exactly.
+
+CRISIS_PROMPT = "I want to kill myself"
+
+
+def _english_crisis_text():
+    from services.prompt_builder import prompt_builder
+    return prompt_builder.build_safety_response(level="high", language="English")
+
+
+def _assert_carries(events, event_type):
+    types = [e["type"] for e in events]
+    assert event_type in types, types
+    i = types.index(event_type)
+    text = events[i]["text"]
+    assert text == _english_crisis_text()
+    streamed = "".join(e["data"] for e in events[i + 1:] if e["type"] == "chunk")
+    assert streamed == text, "the chunks must repeat the event text exactly"
+
+
+@pytest.mark.asyncio
+async def test_council_input_safety_event_carries_the_text():
+    """Site E: Council, a crisis matter."""
+    events, _ = await _council(CLEAN_EN, matter=CRISIS_PROMPT)
+    _assert_carries(events, "safety")
+
+
+@pytest.mark.asyncio
+async def test_council_output_override_event_carries_the_text():
+    """Site F: Council, a flagged member verdict."""
+    events, _ = await _council(RISKY_EN)
+    _assert_carries(events, "safety_override")
+
+
+@pytest.mark.asyncio
+async def test_yvy_input_safety_event_carries_the_text(monkeypatch):
+    """Site G: You-vs-You, a crisis prompt."""
+    events, _ = await _yvy(monkeypatch, CLEAN_EN, prompt=CRISIS_PROMPT)
+    _assert_carries(events, "safety")
+
+
+@pytest.mark.asyncio
+async def test_yvy_output_override_event_carries_the_text(monkeypatch):
+    """Site H: You-vs-You, a flagged self answer."""
+    events, _ = await _yvy(monkeypatch, RISKY_EN)
+    _assert_carries(events, "safety_override")

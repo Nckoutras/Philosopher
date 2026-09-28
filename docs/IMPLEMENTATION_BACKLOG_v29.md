@@ -1773,14 +1773,28 @@ local, not the site's.
 - **Tests.** The greeklish pins and the "no 988 / no findahelpline" pin are flipped
   deliberately, each citing this ruling.
 
-**Named consequence of one source of truth (Part 1).** The bubble renders nothing
-until the first chunk of server text arrives. There is no longer a hardcoded fallback.
-If the stream dies between the `safety` event and its first chunk, the person sees the
-"continue when you're ready" card and no crisis text, until they reopen the
-conversation, which shows the saved text. **Proposed fix, NOT built:** the server puts
-the full text inside the `safety` event itself, so the event and the text arrive
-together. That changes the payload of every stream that emits a `safety` event. Its
-own PR, for the founder to rule on.
+**The empty-bubble regression, and its fix in the same PR (founder ruling
+2026-09-28).** Removing the hardcoded English fallback made one failure possible that
+was not before. If the stream died between the `safety` event and its first chunk, the
+bubble rendered EMPTY. The founder ruled the fix belongs in this PR:
+- **Every crisis `safety` / `safety_override` event now carries the whole text**, as
+  `{type, level, text}`. That covers all 8 emit sites: send (pre- and post-generation),
+  another-mind, go-deeper, and Council and You-vs-You (input and output).
+- **The web renders it the moment the event lands.** `useStream` sets `safetyText` from
+  `event.text`.
+- **The chunks still follow,** for older clients, and are skipped when the event already
+  carried the text, so it never doubles. An event without `text` (an older server) still
+  fills from the chunks, so it does not matter which of the API and web deploys first.
+- **No try/except.** The text is built BEFORE the event is sent, and nothing catches a
+  render failure. It propagates out of the stream, through the router (which has no
+  handler either), to the ASGI layer, where Sentry's default integrations are enabled.
+  That capture was reasoned from the code, not exercised by a test.
+- **Trade-off, stated rather than hidden.** At the post-generation sites the reply has
+  already streamed, and the override event is what hides it. The event now goes out
+  AFTER the render. So if the render ever failed there, the reply would stay on screen
+  and the stream would error, where before the reply was hidden and then the stream
+  errored. Both crisis templates render in full, verbatim, in the required backend job
+  (copy locks for English and Greek). So a render failure is a CI failure first.
 
 ---
 

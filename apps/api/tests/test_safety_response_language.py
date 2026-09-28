@@ -274,3 +274,23 @@ def test_every_crisis_call_site_uses_crisis_language():
             calls += 1
             assert "language=crisis_language(" in m.group(1), f"{path.name}: {m.group(0)[:120]!r}"
     assert calls == 9, f"expected the 9 known crisis call sites, found {calls}"
+
+
+# ── Both crisis texts render IN FULL in the required backend job (SAFETY-003) ──
+
+def test_the_greek_crisis_text_is_the_approved_copy_verbatim():
+    """COPY LOCK for the Greek text, the twin of the English one above.
+
+    Founder condition, 2026-09-28: both crisis templates must render in full in
+    the required backend job, so a broken template fails CI and never the crisis
+    moment. The English one is pinned verbatim above; this pins the Greek one the
+    same way, against the body of the file itself (everything after the jinja
+    comment), so the check is "renders, and renders exactly what is written".
+    """
+    path = Path(__file__).resolve().parents[1] / "prompts" / "safety_response_el.jinja2"
+    source = path.read_text(encoding="utf-8")
+    body = source[source.index("#}") + 2:].strip()
+    rendered = PromptBuilder().build_safety_response(level="high", language="Greek")
+    assert rendered == body
+    assert rendered.startswith("Αυτή η συζήτηση αγγίζει κάτι σοβαρό")
+    assert rendered.endswith("(24 ώρες, δωρεάν).")

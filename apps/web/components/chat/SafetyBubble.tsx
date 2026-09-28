@@ -38,10 +38,11 @@ const GREEK = /[\u0370-\u03FF\u1F00-\u1FFF]/
  * Every approved resource in the text (988, 116 123, findahelpline.com, 112, 1018,
  * 10306) is a tappable link — see lib/crisisLinks.
  *
- * NOTHING UNTIL THE TEXT ARRIVES. The 'safety' event lands a moment before its
- * first chunk. An empty bubble in that moment would be worse than no bubble, and
- * there is no longer a hardcoded fallback to show instead (named in the SAFETY-003
- * PR as a consequence of one source of truth).
+ * THE TEXT ARRIVES WITH THE EVENT. The server puts the whole crisis text inside
+ * the 'safety' / 'safety_override' event, and useStream renders it the moment the
+ * event lands, so a connection dropped before the chunks cannot leave this empty.
+ * If safetyText is somehow still empty (an older server whose chunks never came),
+ * this renders nothing rather than an empty bubble: there is no hardcoded fallback.
  */
 export default function SafetyBubble() {
   const safetyText = useStore((s) => s.safetyText)

@@ -774,7 +774,10 @@ class ConversationService:
                 await self._save_message(db, conv, user_id, "assistant", safe_text, safety_level=safety_in.level, persona_override=True)
                 await db.commit()
                 analytics_service.track("safety_event_pre", user_id, {"risk_level": safety_in.level, "category": safety_in.category})
-                yield f"data: {json.dumps({'type': 'safety', 'level': safety_in.level})}\n\n"
+                # The event carries the whole text (SAFETY-003): the bubble renders it
+                # at once, and a connection dropped before the chunks cannot leave it
+                # empty. The chunks still follow, for clients that predate this.
+                yield f"data: {json.dumps({'type': 'safety', 'level': safety_in.level, 'text': safe_text})}\n\n"
                 for chunk in self._chunk_text(safe_text):
                     yield f"data: {json.dumps({'type': 'chunk', 'data': chunk})}\n\n"
                 yield f"data: {json.dumps({'type': 'done'})}\n\n"
@@ -1089,10 +1092,12 @@ class ConversationService:
                     "exposed_content_first_100": full_response[:100],
                 },
             )
-            yield f"data: {json.dumps({'type': 'safety_override', 'level': safety_out.level})}\n\n"
+            # Built BEFORE the event, which carries it whole (SAFETY-003). No
+            # try/except: a render failure must surface, not become an empty event.
             safe_text = prompt_builder.build_safety_response(
                 level=safety_out.level, language=crisis_language([user_text]),
             )
+            yield f"data: {json.dumps({'type': 'safety_override', 'level': safety_out.level, 'text': safe_text})}\n\n"
             for chunk in self._chunk_text(safe_text):
                 yield f"data: {json.dumps({'type': 'chunk', 'data': chunk})}\n\n"
             full_response = safe_text
@@ -1555,10 +1560,12 @@ class ConversationService:
                     "exposed_content_first_100": full_response[:100],
                 },
             )
-            yield f"data: {json.dumps({'type': 'safety_override', 'level': safety_out.level})}\n\n"
+            # Built BEFORE the event, which carries it whole (SAFETY-003). No
+            # try/except: a render failure must surface, not become an empty event.
             full_response = prompt_builder.build_safety_response(
                 level=safety_out.level, language=crisis_language([last_user_text]),
             )
+            yield f"data: {json.dumps({'type': 'safety_override', 'level': safety_out.level, 'text': full_response})}\n\n"
             for chunk in self._chunk_text(full_response):
                 yield f"data: {json.dumps({'type': 'chunk', 'data': chunk})}\n\n"
             await self._log_safety_event(db, user_id, conv.id, None, safety_out, "post_generation")
@@ -1871,10 +1878,12 @@ class ConversationService:
                     "exposed_content_first_100": full_response[:100],
                 },
             )
-            yield f"data: {json.dumps({'type': 'safety_override', 'level': safety_out.level})}\n\n"
+            # Built BEFORE the event, which carries it whole (SAFETY-003). No
+            # try/except: a render failure must surface, not become an empty event.
             full_response = prompt_builder.build_safety_response(
                 level=safety_out.level, language=crisis_language([last_user_text]),
             )
+            yield f"data: {json.dumps({'type': 'safety_override', 'level': safety_out.level, 'text': full_response})}\n\n"
             for chunk in self._chunk_text(full_response):
                 yield f"data: {json.dumps({'type': 'chunk', 'data': chunk})}\n\n"
             await self._log_safety_event(db, user_id, conv.id, None, safety_out, "post_generation")

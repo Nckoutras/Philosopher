@@ -9,8 +9,10 @@ export type SSEEventStart = { type: 'start'; brought_in?: boolean; persona_slug?
 export type SSEEventChunk = { type: 'chunk'; data: string }
 // message_id is absent in pre-generation safety path (Pattern B)
 export type SSEEventDone = { type: 'done'; message_id?: string; case_id?: string; session_id?: string }
-export type SSEEventSafety = { type: 'safety'; level: string }
-export type SSEEventSafetyOverride = { type: 'safety_override'; level: string }
+// text: the whole app-voice crisis response (SAFETY-003). Optional, because an
+// older server sends it only as the chunks that follow.
+export type SSEEventSafety = { type: 'safety'; level: string; text?: string }
+export type SSEEventSafetyOverride = { type: 'safety_override'; level: string; text?: string }
 export type SSEEventError = { type: 'error'; error_code: 'llm_unavailable'; persona_voice: string }
 export type SSEEventCorrection = { type: 'correction' }
 export type SSEEventLimit = { type: 'limit'; scope: 'turn' | 'thread'; tier: 'free' | 'pro' | 'premium' }
