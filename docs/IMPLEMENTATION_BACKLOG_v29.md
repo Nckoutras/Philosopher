@@ -1925,6 +1925,32 @@ that counts crisis events has been counting without these two surfaces.
 
 ---
 
+### TD-114 — Council and You-vs-You stream on a session `get_db` has already committed and closed — **OPEN, logged (SAFETY-004 ruling 2)**
+**Status: OPEN. LOG only, not now (founder, 2026-09-28).**
+
+**The fact this rests on (measured, SAFETY-004).** With the pinned FastAPI 0.115.0, `get_db`'s
+teardown (commit, then close; `db/session.py:47-56`) runs BEFORE any `StreamingResponse` body
+runs. So **every write inside a stream that uses `get_db` depends on an explicit commit inside
+that stream.** Without one, the write is silently lost: no error, no rollback message, nothing
+on screen.
+- **Affected streams:** Council (`routers/council.py`), You-vs-You (`routers/self_comparison.py`),
+  another-mind and go-deeper (`routers/conversations.py`).
+- **Not affected:** chat `send`, which runs on its own `session_factory` session.
+
+**Structural fix (the TD).** Give each of those streams its own session, opened and committed
+by the stream itself, the way `send` already does. Then no stream runs on a torn-down request
+session, and a forgotten commit cannot lose a write silently. It touches both routers and
+their services, and it is its own PR.
+
+**Until then:** the SAFETY-004 PR adds explicit commits on the two crisis early-returns, plus a
+static guard test that every early `return` in a `get_db` stream follows a commit. That guard
+is what stops the next early return from repeating SAFETY-004.
+
+**Revisit when:** a new streamed endpoint is added, or the next FastAPI upgrade (the teardown
+timing is version-dependent; re-measure it).
+
+---
+
 ### TD-113 — a saved crisis message reopens as an ordinary message — **OPEN, logged (SAFETY-003 ruling 5)**
 **Status: OPEN. LOG only, not now (founder, 2026-09-28).**
 
