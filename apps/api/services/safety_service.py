@@ -52,11 +52,12 @@ from typing import Optional
 import logging
 
 from constants import RISK_LEVELS
-from text_utils import normalize, phrase_pattern
+from text_utils import dominant_language, normalize, phrase_pattern
 from config import config
 from services.safety_lexicons import (
     ALL_BANDS,
     GREEK_BANDS,
+    GREEKLISH_BANDS,
     LOW_SIGNALS,
     OUTPUT_RISK_PHRASES,
     RISK_HIGH,
@@ -117,6 +118,38 @@ _APOSTROPHES = str.maketrans({"’": "'", "‘": "'", "ʼ": "'", "′": "'"})
 
 def _prepare(text: str) -> str:
     return _normalize(text.translate(_APOSTROPHES))
+
+
+# ── Crisis-response language (SAFETY-003, founder ruling 2026-09-28) ──────────
+# Every greeklish entry in every band, matched exactly as the gates match them.
+_GREEKLISH_PATTERNS = [phrase_pattern(p) for band in GREEKLISH_BANDS.values() for p in band]
+
+
+def crisis_language(texts: list[str]) -> str:
+    """The language the crisis response answers in: 'Greek' or 'English'.
+
+    Greek when the person's own text is mostly Greek script (dominant_language),
+    OR when it matches any greeklish lexicon entry. The second clause is the
+    SAFETY-003 change: a greeklish typist in crisis used to get the English
+    response, because dominant_language counts codepoints and greeklish is latin.
+    A greeklish crisis message reaches this path by matching a greeklish entry,
+    so the match that tripped the gate also picks the language.
+
+    dominant_language itself is deliberately unchanged: it also decides the
+    language of letters and memory, where "which script" is the right question.
+    English prose cannot land here by accident — no greeklish entry fires on this
+    repo's English prose (test_safety_greek enforces that).
+
+    KNOWN LIMIT: an output-stage flag on a greeklish conversation whose user text
+    holds no lexicon entry still answers in English. The signal is the lexicon.
+    """
+    if dominant_language(texts) == "Greek":
+        return "Greek"
+    for text in texts:
+        prepared = _prepare(text or "")
+        if any(pattern.search(prepared) for pattern in _GREEKLISH_PATTERNS):
+            return "Greek"
+    return "English"
 
 
 # ── Result dataclass ──────────────────────────────────────────────────────────

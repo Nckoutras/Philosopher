@@ -1,6 +1,30 @@
-{# safety_response.jinja2 — App-voice crisis response.
-   Persona is dropped. No user_name, no memories, no persona context.
-   Country-neutral copy. Single English version for v1 launch.
-   Future: country detection routing in v1.5. #}
+{# safety_response.jinja2 — App-voice crisis response, ENGLISH.
+   Founder-approved copy, SAFETY-003 ruling 2026-09-28. Applied verbatim.
 
-This conversation involves something serious that needs human support right now. The right next step is to contact a local crisis service in your country, reach out to a trusted person near you, or speak with a qualified mental health professional. The companion will pause this conversation here to keep that the priority.
+   Persona is dropped. No user_name, no memories, no persona context.
+
+   THE ONE ENGLISH CRISIS TEXT. Before SAFETY-003 there were two: this file
+   (country-neutral, no resource of any kind) and four hardcoded paragraphs in
+   the web's SafetyBubble, which is what an English speaker actually saw live.
+   The bubble now renders this text, so this is the only place it is written.
+
+   RESOURCES (SAFETY-003, verified 2026-09-28 on findahelpline.com, each listing
+   marked "Information verified by this helpline"):
+     988        — 988 Suicide & Crisis Lifeline, US; call or text.
+     116 123    — Samaritans, UK and Ireland; free, 24/7.
+     findahelpline.com — directory by ThroughLine, "verified helplines in 175+
+                  countries".
+   These, and the Greek template's numbers, are on the ROTATION RE-CHECK LIST in
+   the SAFETY-003 backlog entry. A dead entry is launch-blocking. The web renders
+   each of them as a tappable link (tel: or https) — see crisisLinks in the web.
+
+   Rendered as PLAIN TEXT (whitespace-pre-wrap, no markdown), so no markup here.
+   Routed to by PromptBuilder.build_safety_response(language="English"). #}
+
+Some of what you've shared sounds heavy, and your safety matters more than this conversation.
+
+If you are in immediate danger, call your local emergency number now.
+
+In the US, call or text 988. In the UK and Ireland, call Samaritans on 116 123. Anywhere else, find a free, confidential helpline at findahelpline.com. You can also reach out to a trusted person near you, or a qualified mental health professional.
+
+The Wise Room can offer reflection, but it cannot provide crisis support, diagnosis or medical treatment. This conversation will pause here so that comes first.

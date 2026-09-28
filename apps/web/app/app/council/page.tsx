@@ -7,6 +7,7 @@ import { Bookmark, Share2 } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import { useAuthGate } from '@/lib/useAuthGate'
 import { api, RateLimitError } from '@/lib/api'
+import CrisisBubble from '@/components/chat/CrisisBubble'
 import type { SSEEvent, SSEEventMember, SSEEventSynthesis } from '@/lib/api'
 import styles from './council.module.css'
 import SharePreviewModal from '@/components/share/SharePreviewModal'
@@ -115,6 +116,9 @@ export default function CouncilPage() {
   const [insightId, setInsightId] = useState<string | null>(null)
   const [conversationId, setConversationId] = useState<string | null>(null)
   const [phase, setPhase] = useState<VisualPhase>({ kind: 'idle' })
+  // The server's crisis text (SAFETY-003 part 2). Shown alone, in the app-voice
+  // bubble, when a safety event ends the council; never written in the web.
+  const [crisisText, setCrisisText] = useState('')
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
   const [shareModalOpen, setShareModalOpen] = useState(false)
@@ -458,6 +462,7 @@ export default function CouncilPage() {
     if (!matter.trim() || phase.kind !== 'idle') return
 
     resetSession()
+    setCrisisText('')
     anim.current.phase = 'intro'
     anim.current.phaseStart = performance.now()
     setPhase({ kind: 'intro' })
@@ -478,6 +483,11 @@ export default function CouncilPage() {
       const decoder = new TextDecoder()
       let sseBuf = ''
       let activeSlug: string | null = null
+      // SAFETY-003: after a safety event every chunk is the crisis response, never a
+      // member's verdict. When the event carried the whole text, the chunks that
+      // follow (kept for older clients) repeat it and are skipped.
+      let inCrisis = false
+      let crisisFromEvent = false
 
       while (true) {
         const { done, value } = await reader.read()
@@ -509,6 +519,10 @@ export default function CouncilPage() {
               break
             }
             case 'chunk': {
+              if (inCrisis) {
+                if (!crisisFromEvent) setCrisisText((t) => t + event.data)
+                break
+              }
               if (synStartedRef.current) {
                 synBuf.current.text += event.data
               } else if (activeSlug) {
@@ -548,6 +562,9 @@ export default function CouncilPage() {
             }
             case 'safety':
             case 'safety_override': {
+              inCrisis = true
+              setCrisisText(event.text ?? '')
+              crisisFromEvent = !!event.text
               netErrRef.current = { kind: 'safety', message: '' }
               break
             }
@@ -768,19 +785,13 @@ export default function CouncilPage() {
           </>
         )}
 
-        {/* ── Safety ── */}
+        {/* ── Safety ── SAFETY-003 part 2 (founder ruling 2026-09-28, Option A): the
+            crisis response ALONE, in the app-voice bubble, with its resources
+            tappable. It replaced "The council cannot meet on this matter." and the
+            "Try a different matter" button, which named no help at all. */}
         {phase.kind === 'safety' && (
-          <div className="bg-paper/90 border-[0.5px] border-edge rounded-[14px] px-[20px] py-[24px] text-center mt-[40px]">
-            <p className="font-lora text-[14px] text-charcoal leading-relaxed">
-              The council cannot meet on this matter.
-            </p>
-            <button
-              type="button"
-              onClick={handleReset}
-              className="mt-[16px] font-lora text-[13px] text-sepia underline underline-offset-2"
-            >
-              Try a different matter
-            </button>
+          <div className="mt-[40px]">
+            <CrisisBubble text={crisisText} />
           </div>
         )}
 

@@ -1671,6 +1671,179 @@ binds. Add third-person non-bind test: "Κουράστηκε να ζει στη�
 and the file says so. Both pins go red in the SAFETY-002 judge PR when R9's entries
 land, and are flipped to `high` there, deliberately.
 
+**Finding for the judge design (logged 2026-09-28, SAFETY-003 ruling 6): a MEDIUM
+hit gets the HIGH crisis text.** Neither crisis template reads `level`. The copy
+is one text by design ("one copy, no level-differentiated crisis text", pinned in
+`test_prompts.py` and `test_safety_response_language.py`). And
+`should_suppress_persona` is true from MEDIUM up. So "I can't go on" shows the same
+full crisis response as "I want to kill myself". This feeds the SAFETY-002 transition
+table, where MEDIUM already maps to its own response; it is not a SAFETY-003 change.
+
+---
+
+### SAFETY-003 — the English crisis text named no resource; Council and You-vs-You named none in any language — **PARTS 1 AND 2 IN PR**
+**Status: Part 1 in PR (`fix/safety-003-crisis-text`). Part 2 in its own PR
+(`fix/safety-003-part2-surfaces`), on top of Part 1. Part 3 is logged as TD-113. Found in
+the #740 smoke (OPS-018), 2026-09-27.**
+
+**What was wrong (investigated 2026-09-28, main `cd8d1e7f`).**
+- **English, live in chat.** The bubble rendered four hardcoded paragraphs. They
+  mentioned "local emergency services or a crisis support line", but gave no number
+  and no directory.
+- **English, the saved text.** The server template was country-neutral and named no
+  resource at all. So there were two English crisis texts, and they said different
+  things.
+- **Greeklish.** A greeklish typist in crisis got the English text: `dominant_language`
+  counts codepoints, and greeklish is latin.
+- **Council and You-vs-You.** Both build the crisis text server-side and stream it.
+  Both pages DISCARD it. Council shows "The council cannot meet on this matter." with
+  a "Try a different matter" button; You-vs-You shows "Let's set this one aside for
+  now." That is no resource in any language, Greek included.
+
+**RULINGS (founder, 2026-09-28, verbatim):**
+
+1. B2: ONE English crisis text, served by the server; SafetyBubble renders the
+   server text for English too (no hardcoded English copy left in the web).
+   Approved English text, verbatim:
+
+   Some of what you've shared sounds heavy, and your safety matters more than this conversation.
+
+   If you are in immediate danger, call your local emergency number now.
+
+   In the US, call or text 988. In the UK and Ireland, call Samaritans on 116 123. Anywhere else, find a free, confidential helpline at findahelpline.com. You can also reach out to a trusted person near you, or a qualified mental health professional.
+
+   The Wise Room can offer reflection, but it cannot provide crisis support, diagnosis or medical treatment. This conversation will pause here so that comes first.
+
+   Before building: re-verify 988 (call/text, US) and 116 123 (Samaritans,
+   UK & Ireland) on findahelpline.com and report.
+
+2. Tappable: findahelpline.com as a real link; every phone number (988,
+   116 123, 112, 1018, 10306) as a tel: link, both languages. The URL and
+   all numbers go on the rotation re-check list; a dead entry is
+   launch-blocking.
+
+3. Greeklish → Greek crisis text, via the separate crisis-language helper
+   (greeklish lexicon match OR dominant_language Greek). dominant_language
+   itself unchanged. Flip the greeklish pins deliberately, with the ruling
+   cited in the test.
+
+4. Part 2 IN SCOPE NOW, as its own PR right after Part 1: Council and
+   You-vs-You render the streamed crisis text instead of discarding it.
+   Council's "Try a different matter" button is removed on the crisis state.
+   Any new surrounding copy comes to me as text before the diff.
+
+5. Part 3 (saved crisis message renders as persona voice, can be saved as a
+   line): LOG only, not now.
+
+6. Side finding (MEDIUM gets the HIGH crisis text): LOG under SAFETY-002; it
+   feeds the judge design, not this PR.
+
+**ROTATION RE-CHECK LIST — crisis resources (ruling 2; a dead entry is
+launch-blocking).** Re-verify every entry on every doc rotation, against the source
+named, and write the date. The set is pinned in code:
+`test_crisis_resources_are_linked_and_listed` fails if the templates, the web's
+tappable links (`apps/web/lib/crisisLinks.tsx`) or this set disagree.
+
+| Resource | What it is | Tapped as | Last verified | Source |
+|---|---|---|---|---|
+| 988 | 988 Suicide & Crisis Lifeline, US; call or text | `tel:988` | 2026-09-28 | findahelpline.com/countries/us ("Information verified by this helpline"; the page itself links `tel:988` and `sms:988`) |
+| 116 123 | Samaritans, UK and Ireland; free, 24/7 | `tel:116123` | 2026-09-28 | findahelpline.com/countries/gb and /ie (both "verified by this helpline"; the site dials `tel:116 123`) |
+| findahelpline.com | Directory by ThroughLine, "verified helplines in 175+ countries" | `https://findahelpline.com` | 2026-09-28 | the site itself, HTTP 200 |
+| 112 | EU emergency number | `tel:112` | 2026-09-16 | #667 (template header) |
+| 1018 | Γραμμή Παρέμβασης για την Αυτοκτονία (ΚΛΙΜΑΚΑ), 24/7 | `tel:1018` | 2026-09-16; also listed on findahelpline.com/countries/gr, 2026-09-28 | #667 |
+| 10306 | Γραμμή Ψυχοκοινωνικής Υποστήριξης, 24/7, free | `tel:10306` | 2026-09-16 | #667; moh.gov.gr |
+
+All of these were verified from published sources, **not by dialling**. The list can
+prove a number is published; it cannot prove it rings.
+
+**How findahelpline.com was checked from this machine.** Plain `curl` fails here with
+`CRYPT_E_REVOCATION_OFFLINE`: Windows schannel cannot reach the certificate-revocation
+server. `curl --ssl-no-revoke` still validates the chain and got 200. The failure is
+local, not the site's.
+
+**PART 1 (this PR).**
+- **English.** One text, in `prompts/safety_response.jinja2`, verbatim as approved and
+  pinned by a copy-lock test.
+- **The bubble.** `SafetyBubble` renders the server's text in every language, and no
+  crisis copy remains in the web.
+- **Links.** Every approved resource is tappable, via a whitelist in `lib/crisisLinks`,
+  so stray digits never become a call button.
+- **Greeklish.** `safety_service.crisis_language` (Greek script OR any greeklish
+  lexicon entry) now picks the language at all 9 crisis call sites.
+  `dominant_language` is unchanged.
+- **Tests.** The greeklish pins and the "no 988 / no findahelpline" pin are flipped
+  deliberately, each citing this ruling.
+
+**The empty-bubble regression, and its fix in the same PR (founder ruling
+2026-09-28).** Removing the hardcoded English fallback made one failure possible that
+was not before. If the stream died between the `safety` event and its first chunk, the
+bubble rendered EMPTY. The founder ruled the fix belongs in this PR:
+- **Every crisis `safety` / `safety_override` event now carries the whole text**, as
+  `{type, level, text}`. That covers all 8 emit sites: send (pre- and post-generation),
+  another-mind, go-deeper, and Council and You-vs-You (input and output).
+- **The web renders it the moment the event lands.** `useStream` sets `safetyText` from
+  `event.text`.
+- **The chunks still follow,** for older clients, and are skipped when the event already
+  carried the text, so it never doubles. An event without `text` (an older server) still
+  fills from the chunks, so it does not matter which of the API and web deploys first.
+- **No try/except.** The text is built BEFORE the event is sent, and nothing catches a
+  render failure. It propagates out of the stream, through the router (which has no
+  handler either), to the ASGI layer, where Sentry's default integrations are enabled.
+  That capture was reasoned from the code, not exercised by a test.
+- **Trade-off, stated rather than hidden.** At the post-generation sites the reply has
+  already streamed, and the override event is what hides it. The event now goes out
+  AFTER the render. So if the render ever failed there, the reply would stay on screen
+  and the stream would error, where before the reply was hidden and then the stream
+  errored. Both crisis templates render in full, verbatim, in the required backend job
+  (copy locks for English and Greek). So a render failure is a CI failure first.
+
+**PART 2 RULING (founder, 2026-09-28, verbatim):**
+
+Part 2 ruling: OPTION A on both surfaces. You-vs-You and Council show the
+crisis text alone (same app-voice bubble, same linkify). Remove
+"Let's set this one aside for now." and "The council cannot meet on this
+matter." and the "Try a different matter" button on the crisis state.
+The 14-day gate line "Let's leave this comparison for another day." is
+unchanged. Part 2 builds on top of Part 1's event-carries-text, so the new
+surfaces never render empty either. Raw diff before push.
+
+**PART 2 (its own PR, on top of Part 1).**
+- **One bubble on every surface.** The app-voice bubble is now the shared
+  `CrisisBubble`. Chat's `SafetyBubble` renders it from the store; Council and
+  You-vs-You render it from the stream.
+- **Both pages take the text from the safety event itself.** They fall back to the
+  chunks only when the event carries none (an older server), and never double it.
+- **Council:** after a safety event, every chunk is the crisis response. Before, the
+  crisis chunks were appended to the active member's verdict buffer, which was
+  harmless only because the view unmounted.
+- **Removed on the crisis state:** "Let's set this one aside for now."; "The council
+  cannot meet on this matter."; and the "Try a different matter" button.
+- **Unchanged:** the 14-day gate line.
+- **One call made by Claude, not ruled; flagged for the founder:** You-vs-You's
+  "Ask another" link is also hidden on the crisis state. That reads "the crisis text
+  alone" the way Council's button removal was ruled. The question the person typed
+  stays above the bubble, as their own message does in chat.
+
+---
+
+### TD-113 — a saved crisis message reopens as an ordinary message — **OPEN, logged (SAFETY-003 ruling 5)**
+**Status: OPEN. LOG only, not now (founder, 2026-09-28).**
+
+**What happens.** Live, the crisis response shows in the app-voice bubble.
+Reopen the conversation and `safetyActive` is false (`chat/conv/[id]/page.tsx:226`),
+so the SAVED crisis message renders through `MessageList` / `MessageBubble` like any
+assistant reply. Neither reads `persona_override`, so the crisis text:
+- loses its app-voice styling;
+- sits in the persona's thread;
+- can be saved as a line.
+
+**Why it is not trivial.** The fix is to render `persona_override` rows as the
+app-voice bubble in the message list. That touches every chat surface that lists
+messages, and the saved-lines flow.
+
+**Revisit when:** SAFETY-003 Part 2 has shipped, or when a saved line is found that
+holds crisis text.
+
 ---
 
 ### TD-112 — greeklish spellings are enumerated, not folded — **OPEN, deferred**

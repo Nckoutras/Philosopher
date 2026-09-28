@@ -22,7 +22,7 @@ from services.council_prompts import (
 from services.llm_client import llm_client
 from services.memory_service import memory_service
 from services.prompt_builder import MEMORY_USE_DIRECTIVE, prompt_builder
-from services.safety_service import safety_service
+from services.safety_service import crisis_language, safety_service
 from text_utils import (
     dominant_language,
     language_directive,
@@ -229,10 +229,11 @@ class CouncilService:
         if safety_in.should_log:
             await log_safety_event(db, user_id, safety_in, STAGE_COUNCIL_INPUT)
         if safety_in.should_suppress_persona:
-            yield f"data: {json.dumps({'type': 'safety', 'level': safety_in.level})}\n\n"
+            # Built BEFORE the event, which carries it whole (SAFETY-003).
             safe = prompt_builder.build_safety_response(
-                level=safety_in.level, language=dominant_language([matter]),
+                level=safety_in.level, language=crisis_language([matter]),
             )
+            yield f"data: {json.dumps({'type': 'safety', 'level': safety_in.level, 'text': safe})}\n\n"
             for chunk in _chunk_text(safe):
                 yield f"data: {json.dumps({'type': 'chunk', 'data': chunk})}\n\n"
             yield f"data: {json.dumps({'type': 'done'})}\n\n"
@@ -383,10 +384,11 @@ class CouncilService:
                 db, verdict_text, user_id=user_id, stage=STAGE_COUNCIL_MEMBER_OUTPUT,
             )
             if flagged:
-                yield f"data: {json.dumps({'type': 'safety_override', 'level': flagged.level})}\n\n"
+                # Built BEFORE the event, which carries it whole (SAFETY-003).
                 safe = prompt_builder.build_safety_response(
-                    level=flagged.level, language=dominant_language([matter]),
+                    level=flagged.level, language=crisis_language([matter]),
                 )
+                yield f"data: {json.dumps({'type': 'safety_override', 'level': flagged.level, 'text': safe})}\n\n"
                 for chunk in _chunk_text(safe):
                     yield f"data: {json.dumps({'type': 'chunk', 'data': chunk})}\n\n"
                 await db.execute(delete(CouncilCase).where(CouncilCase.id == case.id))

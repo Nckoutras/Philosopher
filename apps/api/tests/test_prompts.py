@@ -188,11 +188,17 @@ def test_safety_response_single_copy_for_all_suppression_levels(builder):
     assert builder.build_safety_response(level="critical") == builder.build_safety_response(level="high")
 
 
-def test_safety_response_no_country_specific_numbers(builder):
+def test_safety_response_names_the_approved_resources(builder):
+    """FLIPPED DELIBERATELY — SAFETY-003 ruling 2026-09-28. This test used to
+    assert the opposite ("988" and "findahelpline" absent): the English crisis
+    text was country-neutral and named no resource at all. The ruling added US
+    988, UK/Ireland Samaritans 116 123, and findahelpline.com for everywhere else.
+    741741 (Crisis Text Line) was never approved and stays out."""
     response = builder.build_safety_response()
-    assert "988" not in response
+    assert "988" in response
+    assert "116 123" in response
+    assert "findahelpline.com" in response
     assert "741741" not in response
-    assert "findahelpline" not in response.lower()
 
 
 def test_safety_response_no_first_person_voice(builder):
@@ -212,7 +218,7 @@ def test_safety_response_no_persona_name(builder):
 
 
 def test_safety_response_neutral_crisis_language(builder):
-    """Must reference crisis support without naming any country's services."""
+    """Must reference crisis support and professional help."""
     response = builder.build_safety_response()
     assert "crisis" in response.lower()
     assert "mental health" in response.lower()

@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from models import SelfComparison, Message, UserPreference, MemoryEntry
 from services.llm_client import llm_client
 from services.prompt_builder import prompt_builder
-from services.safety_service import safety_service
+from services.safety_service import crisis_language, safety_service
 from text_utils import dominant_language, language_directive, language_matches
 from services.output_gate import output_is_unsafe
 from services.safety_event_log import (
@@ -264,10 +264,11 @@ class SelfComparisonService:
         if safety_in.should_log:
             await log_safety_event(db, user_id, safety_in, STAGE_SELF_COMPARISON_INPUT)
         if safety_in.should_suppress_persona:
-            yield f"data: {json.dumps({'type': 'safety', 'level': safety_in.level})}\n\n"
+            # Built BEFORE the event, which carries it whole (SAFETY-003).
             safe = prompt_builder.build_safety_response(
-                level=safety_in.level, language=dominant_language([prompt]),
+                level=safety_in.level, language=crisis_language([prompt]),
             )
+            yield f"data: {json.dumps({'type': 'safety', 'level': safety_in.level, 'text': safe})}\n\n"
             yield f"data: {json.dumps({'type': 'chunk', 'which': 'safety', 'data': safe})}\n\n"
             yield f"data: {json.dumps({'type': 'done'})}\n\n"
             return
@@ -367,8 +368,9 @@ class SelfComparisonService:
                 db, answers[which], user_id=user_id, stage=STAGE_SELF_COMPARISON_OUTPUT,
             )
             if flagged:
-                yield f"data: {json.dumps({'type': 'safety_override', 'level': flagged.level})}\n\n"
-                safe = prompt_builder.build_safety_response(level=flagged.level, language=language)
+                # Built BEFORE the event, which carries it whole (SAFETY-003).
+                safe = prompt_builder.build_safety_response(level=flagged.level, language=crisis_language([prompt]))
+                yield f"data: {json.dumps({'type': 'safety_override', 'level': flagged.level, 'text': safe})}\n\n"
                 yield f"data: {json.dumps({'type': 'chunk', 'which': 'safety', 'data': safe})}\n\n"
                 await db.delete(row)
                 await db.commit()

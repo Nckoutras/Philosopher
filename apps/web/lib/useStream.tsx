@@ -76,6 +76,9 @@ export function useStream() {
       // lands, which would leak the opening of a crisis response into the normal
       // streaming bubble.
       let isSafety = false
+      // SAFETY-003: the safety event carries the whole crisis text. When it did,
+      // the chunks that follow repeat it (kept for older clients) and are skipped.
+      let safetyFromEvent = false
       let contentBeforeCorrection = ''
       // RF-01: capture error event data instead of discarding persona_voice
       let pendingStreamError: { error_code: string; persona_voice: string } | null = null
@@ -114,7 +117,7 @@ export function useStream() {
             }
             case 'chunk':
               if (isSafety) {
-                appendSafetyText(event.data)
+                if (!safetyFromEvent) appendSafetyText(event.data)
                 break
               }
               fullContent += event.data
@@ -140,7 +143,11 @@ export function useStream() {
               // the moment safetyActive flips, so anything sent there is lost.
               isSafety = true
               setSafetyActive(true)
-              setSafetyText('')
+              // Render the crisis text the moment the event lands (SAFETY-003), so
+              // a connection dropped before the chunks cannot leave the bubble empty.
+              // An event without text (an older server) falls back to the chunks.
+              setSafetyText(event.text ?? '')
+              safetyFromEvent = !!event.text
               fullContent = ''
               useStore.getState().setStreamingContent('')
               break
@@ -237,6 +244,9 @@ export function useStream() {
       let buffer = ''
       let fullContent = ''
       let isSafety = false
+      // SAFETY-003: the safety event carries the whole crisis text. When it did,
+      // the chunks that follow repeat it (kept for older clients) and are skipped.
+      let safetyFromEvent = false
       let broughtInSlug: string | undefined
       let broughtInName: string | undefined
       let pendingStreamError: { error_code: string; persona_voice: string } | null = null
@@ -271,7 +281,7 @@ export function useStream() {
             }
             case 'chunk':
               if (isSafety) {
-                appendSafetyText(event.data)
+                if (!safetyFromEvent) appendSafetyText(event.data)
                 break
               }
               fullContent += event.data
@@ -284,7 +294,11 @@ export function useStream() {
               // send's handler does, so the replaced reply leaves the screen.
               isSafety = true
               setSafetyActive(true)
-              setSafetyText('')
+              // Render the crisis text the moment the event lands (SAFETY-003), so
+              // a connection dropped before the chunks cannot leave the bubble empty.
+              // An event without text (an older server) falls back to the chunks.
+              setSafetyText(event.text ?? '')
+              safetyFromEvent = !!event.text
               fullContent = ''
               useStore.getState().setStreamingContent('')
               break
@@ -376,6 +390,9 @@ export function useStream() {
       let buffer = ''
       let fullContent = ''
       let isSafety = false
+      // SAFETY-003: the safety event carries the whole crisis text. When it did,
+      // the chunks that follow repeat it (kept for older clients) and are skipped.
+      let safetyFromEvent = false
       let pendingStreamError: { error_code: string; persona_voice: string } | null = null
 
       while (true) {
@@ -404,7 +421,7 @@ export function useStream() {
             }
             case 'chunk':
               if (isSafety) {
-                appendSafetyText(event.data)
+                if (!safetyFromEvent) appendSafetyText(event.data)
                 break
               }
               fullContent += event.data
@@ -417,7 +434,11 @@ export function useStream() {
               // send's handler does, so the replaced reply leaves the screen.
               isSafety = true
               setSafetyActive(true)
-              setSafetyText('')
+              // Render the crisis text the moment the event lands (SAFETY-003), so
+              // a connection dropped before the chunks cannot leave the bubble empty.
+              // An event without text (an older server) falls back to the chunks.
+              setSafetyText(event.text ?? '')
+              safetyFromEvent = !!event.text
               fullContent = ''
               useStore.getState().setStreamingContent('')
               break

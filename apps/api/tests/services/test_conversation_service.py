@@ -1301,7 +1301,7 @@ async def _run_stream_for_memory(db, arq_queue=None, safety_out_suppressed=False
         service._save_message = AsyncMock(return_value=saved)
         service._log_safety_event = AsyncMock()
 
-        await _drain(service.stream_response(
+        return await _drain(service.stream_response(
             session_factory=_factory(db),
             conversation_id=CONV_ID,
             user_id=USER_ID,
@@ -2930,3 +2930,93 @@ async def test_a_clean_guest_reply_is_untouched_and_counted(which):
     assert run["saved"].kwargs["safety_level"] == "none"
     run["logged"].assert_not_awaited()
     assert _usage_writes(run) != []   # the harness can see a count when one happens
+
+
+
+# ── SAFETY-003: the safety event carries the whole crisis text ──────────────
+# The bubble renders event.text the moment the event lands, so a connection
+# dropped before the chunks cannot leave it empty. The text on the event must be
+# EXACTLY what the chunks then stream and what is saved.
+
+
+def _parsed(raw_events):
+    return [json.loads(e[len("data: "):]) for e in raw_events if e.startswith("data: ")]
+
+
+def _assert_event_carries_the_streamed_text(events, event_type, expected):
+    types = [e["type"] for e in events]
+    assert event_type in types, types
+    i = types.index(event_type)
+    assert events[i]["text"] == expected
+    streamed = "".join(e["data"] for e in events[i + 1:] if e["type"] == "chunk")
+    assert streamed == expected, "the chunks must repeat the event text exactly"
+
+
+@pytest.mark.asyncio
+async def test_the_pre_generation_safety_event_carries_the_saved_text():
+    """Site A: send, pre-generation. The text on the event is the one saved."""
+    db = AsyncMock()
+    conv = MagicMock()
+    conv.id = CONV_ID
+    conv.persona_id = PERSONA_ID
+    conv.active_persona_id = None
+    conv.deep_mode = False
+    conv_result = MagicMock()
+    conv_result.scalar_one_or_none.return_value = conv
+    persona_result = MagicMock()
+    persona_result.scalar_one.return_value = _mock_persona_db()
+    db.execute = AsyncMock(side_effect=[conv_result, persona_result])
+    db.add = MagicMock()
+    db.flush = AsyncMock()
+    db.commit = AsyncMock()
+    db.rollback = AsyncMock()
+    service = ConversationService()
+
+    with (
+        patch("services.conversation_service.safety_service") as mock_safety,
+        patch("services.conversation_service.memory_service"),
+        patch("services.conversation_service.retrieval_service"),
+        patch("services.conversation_service.llm_client"),
+        patch("services.conversation_service.prompt_builder") as mock_prompt,
+        patch("services.conversation_service.analytics_service"),
+        patch("services.conversation_service.POSTPROCESSING_ENABLED", False),
+        patch("services.conversation_service.PHENOMENOLOGY_BRIDGE_ENABLED", False),
+        patch("services.conversation_service.get_persona") as mock_get_persona,
+    ):
+        safety_in = MagicMock()
+        safety_in.should_log = False
+        safety_in.should_suppress_persona = True
+        safety_in.level = "high"
+        mock_safety.check_input = AsyncMock(return_value=safety_in)
+        mock_prompt.build_safety_response.return_value = SAFE_TEXT
+        persona_config = MagicMock()
+        persona_config.slug = "marcus_aurelius"
+        mock_get_persona.return_value = persona_config
+        service._save_message = AsyncMock(return_value=_saved_msg())
+        service._log_safety_event = AsyncMock()
+
+        events = _parsed(await _drain(service.stream_response(
+            session_factory=_factory(db), conversation_id=CONV_ID, user_id=USER_ID,
+            user_text="I want to die", user_plan="free", is_admin=False, arq_queue=None,
+        )))
+
+    _assert_event_carries_the_streamed_text(events, "safety", SAFE_TEXT)
+    saved_texts = [c.args[4] for c in service._save_message.call_args_list]
+    assert SAFE_TEXT in saved_texts
+
+
+@pytest.mark.asyncio
+async def test_the_post_generation_override_event_on_send_carries_the_text():
+    """Site B: send, post-generation."""
+    db, _ = _make_db_for_memory(message_count=0, safety_out_suppressed=True)
+    events = _parsed(await _run_stream_for_memory(db, safety_out_suppressed=True))
+    _assert_event_carries_the_streamed_text(events, "safety_override", "safe text")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("which", ["another_mind", "go_deeper"])
+async def test_the_guest_override_event_carries_the_saved_text(which):
+    """Sites C and D: another-mind and go-deeper, post-generation."""
+    run = await _run_guest_safety(which, HARMFUL_REPLY)
+    _assert_event_carries_the_streamed_text(run["events"], "safety_override", SAFE_TEXT)
+    assert run["saved"].args[4] == SAFE_TEXT
