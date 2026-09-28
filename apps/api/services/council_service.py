@@ -22,7 +22,7 @@ from services.council_prompts import (
 from services.llm_client import llm_client
 from services.memory_service import memory_service
 from services.prompt_builder import MEMORY_USE_DIRECTIVE, prompt_builder
-from services.safety_service import safety_service
+from services.safety_service import crisis_language, safety_service
 from text_utils import (
     dominant_language,
     language_directive,
@@ -231,7 +231,7 @@ class CouncilService:
         if safety_in.should_suppress_persona:
             yield f"data: {json.dumps({'type': 'safety', 'level': safety_in.level})}\n\n"
             safe = prompt_builder.build_safety_response(
-                level=safety_in.level, language=dominant_language([matter]),
+                level=safety_in.level, language=crisis_language([matter]),
             )
             for chunk in _chunk_text(safe):
                 yield f"data: {json.dumps({'type': 'chunk', 'data': chunk})}\n\n"
@@ -385,7 +385,7 @@ class CouncilService:
             if flagged:
                 yield f"data: {json.dumps({'type': 'safety_override', 'level': flagged.level})}\n\n"
                 safe = prompt_builder.build_safety_response(
-                    level=flagged.level, language=dominant_language([matter]),
+                    level=flagged.level, language=crisis_language([matter]),
                 )
                 for chunk in _chunk_text(safe):
                     yield f"data: {json.dumps({'type': 'chunk', 'data': chunk})}\n\n"

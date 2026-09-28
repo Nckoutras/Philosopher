@@ -14,10 +14,13 @@ founder-approved Greek copy. It is a gate, not a chore: crisis copy is the last
 thing between a person in crisis and no help at all, and a placeholder reaching
 production there is not a cosmetic defect.
 
-Greeklish routes to English deliberately — dominant_language counts codepoints,
-so latin-script Greek reads as English, and a greeklish typist is reading an
-English UI already. That is asserted rather than left implicit, so the
-behaviour is a decision on the record instead of an accident of the detector.
+Greeklish routes to GREEK since SAFETY-003 (founder ruling 2026-09-28). It used
+to route to English, deliberately and on the record: dominant_language counts
+codepoints, so latin-script Greek reads as English. The ruling reversed that for
+the crisis response only, through safety_service.crisis_language (Greek script OR
+any greeklish lexicon entry). dominant_language itself is unchanged, and the
+tests below pin both halves: the detector still says English, the crisis
+response now answers in Greek.
 """
 import inspect
 from pathlib import Path
@@ -25,6 +28,7 @@ from pathlib import Path
 import pytest
 
 from services.prompt_builder import PromptBuilder
+from services.safety_service import crisis_language
 from text_utils import dominant_language
 
 PENDING = "PENDING_COPY"
@@ -74,19 +78,35 @@ def test_an_unknown_language_falls_back_to_english(builder):
     ("θέλω να αυτοκτονήσω", "Greek"),
     ("δεν αντέχω άλλο", "Greek"),
     ("i want to kill myself", "English"),
-    ("den antexo allo", "English"),          # greeklish -> English, by design
+    ("den antexo allo", "English"),          # the DETECTOR still says English (unchanged)
     ("", "English"),                          # empty -> English, never a crash
 ])
 def test_language_routing_of_real_crisis_inputs(text, expected):
     assert dominant_language([text]) == expected
 
 
-def test_greeklish_routing_is_a_decision_not_an_accident():
-    """Documented so a future reader does not 'fix' it into a transliterator.
+@pytest.mark.parametrize("text,expected", [
+    ("θέλω να αυτοκτονήσω", "Greek"),
+    ("i want to kill myself", "English"),
+    # FLIPPED DELIBERATELY — SAFETY-003 ruling 2026-09-28: greeklish -> the Greek
+    # crisis text (112 / 1018 / 10306). It was "English, by design" until then.
+    ("den antexo allo", "Greek"),
+    ("thelo na pethano", "Greek"),
+    ("8elw na pe8anw", "Greek"),
+    ("den thelo pia na zo", "Greek"),
+    ("", "English"),
+])
+def test_the_crisis_response_language(text, expected):
+    assert crisis_language([text]) == expected
 
-    dominant_language counts Greek vs latin codepoints. Greeklish is latin, so
-    it reads as English. The SAFETY GATES still catch it — that is what the
-    greeklish lexicons are for — only the response language falls back.
+
+def test_greeklish_routing_is_a_decision_not_an_accident():
+    """SAFETY-003 ruling 2026-09-28 — FLIPPED from "greeklish answers in English".
+
+    dominant_language still counts Greek vs latin codepoints and still calls
+    greeklish English; that is asserted, because letters and memory rely on it.
+    The crisis response no longer uses it alone: the greeklish entry that trips
+    the gate also routes the answer to the Greek template.
     """
     from services.safety_service import SafetyService
     import asyncio
@@ -96,6 +116,16 @@ def test_greeklish_routing_is_a_decision_not_an_accident():
     )
     assert result.level == "high", "greeklish must still trip the gate"
     assert dominant_language(["den antexo allo thelo na pethano"]) == "English"
+    assert crisis_language(["den antexo allo thelo na pethano"]) == "Greek"
+
+
+def test_english_prose_about_greek_topics_stays_english():
+    """The greeklish clause must not capture English. These mention Greece and
+    Greek words in English and match no greeklish entry."""
+    for text in ("I want to kill myself after reading Plato in Athens",
+                 "Is eudaimonia the same as happiness?",
+                 "My father died on Saturday. I keep going to call him."):
+        assert crisis_language([text]) == "English", text
 
 
 # ── Constraints the Greek template inherits from the English one ──────────────
@@ -162,11 +192,85 @@ def test_the_greek_template_carries_the_approved_helplines():
         assert number in rendered, f"helpline {number} never reaches the rendered response"
 
 
-def test_the_english_template_stays_country_neutral():
-    """The reversal is Greek-only, and deliberately so: the Greek template can
-    name numbers because the language tells us the country. English cannot — an
-    English speaker may be anywhere — so it keeps the country-neutral guidance.
-    """
+# ── The English crisis text (SAFETY-003, founder ruling 2026-09-28) ──────────
+
+APPROVED_ENGLISH = (
+    "Some of what you've shared sounds heavy, and your safety matters more than this conversation.\n"
+    "\n"
+    "If you are in immediate danger, call your local emergency number now.\n"
+    "\n"
+    "In the US, call or text 988. In the UK and Ireland, call Samaritans on 116 123. "
+    "Anywhere else, find a free, confidential helpline at findahelpline.com. You can "
+    "also reach out to a trusted person near you, or a qualified mental health professional.\n"
+    "\n"
+    "The Wise Room can offer reflection, but it cannot provide crisis support, "
+    "diagnosis or medical treatment. This conversation will pause here so that comes first."
+)
+
+
+def test_the_english_crisis_text_is_the_approved_copy_verbatim():
+    """COPY LOCK. Approved verbatim by the founder, 2026-09-28. It replaced the
+    country-neutral text this file used to pin ("The reversal is Greek-only"):
+    the ruling gave English speakers resources too — US 988, UK/Ireland 116 123,
+    and findahelpline.com for everywhere else. A reword goes through the founder."""
     rendered = PromptBuilder().build_safety_response(level="high", language="English")
-    for number in GREEK_HELPLINES:
-        assert number not in rendered, f"{number} leaked into the country-neutral English copy"
+    assert rendered == APPROVED_ENGLISH
+
+
+def test_the_english_template_carries_no_greek_numbers():
+    """What survives from the old country-neutral test: an English speaker is
+    never handed the Greek helplines."""
+    rendered = PromptBuilder().build_safety_response(level="high", language="English")
+    for number in ("1018", "10306"):
+        assert number not in rendered, f"Greek helpline {number} in the English copy"
+
+
+# ── SAFETY-003: the resources, the links, and the rotation list stay one set ──
+
+# THE ROTATION RE-CHECK LIST (SAFETY-003, founder ruling 2026-09-28). Every entry
+# is re-verified on every doc rotation; a dead entry is launch-blocking. The same
+# list, with sources and verification dates, is in the SAFETY-003 backlog entry.
+CRISIS_RESOURCES = {"988", "116 123", "findahelpline.com", "112", "1018", "10306"}
+
+_WEB = Path(__file__).resolve().parents[3] / "apps" / "web" / "lib" / "crisisLinks.tsx"
+
+
+def _rendered_crisis_texts() -> str:
+    b = PromptBuilder()
+    return b.build_safety_response(language="English") + "\n" + b.build_safety_response(language="Greek")
+
+
+def test_crisis_resources_are_linked_and_listed():
+    """One set, three places: the copy, the web links, the rotation list.
+
+    A number added to the copy without a link would be untappable; a link for a
+    number the copy dropped would be dead code nobody re-checks; a resource off
+    the rotation list would never be re-verified. Checked here, in the backend
+    job, because the web tests run under continue-on-error (TD-86)."""
+    import re
+    rendered = _rendered_crisis_texts()
+    for resource in CRISIS_RESOURCES:
+        assert resource in rendered, f"{resource} is on the list but in neither template"
+
+    # No OTHER phone-like number (3+ digits, optionally one space group) may appear.
+    numbers = set(re.findall(r"(?<!\d)\d{3}(?: \d{3})?(?!\d)|(?<!\d)\d{4,}(?!\d)", rendered))
+    assert numbers <= CRISIS_RESOURCES, f"unlisted numbers in the crisis copy: {numbers - CRISIS_RESOURCES}"
+
+    web_keys = set(re.findall(r"^\s*'([^']+)':\s*'(?:tel:|https://)", _WEB.read_text(encoding="utf-8"), re.M))
+    assert web_keys == CRISIS_RESOURCES, f"web links {web_keys} != rotation list {CRISIS_RESOURCES}"
+
+
+def test_every_crisis_call_site_uses_crisis_language():
+    """SAFETY-003 wiring. A build_safety_response call that picks its language with
+    dominant_language alone would send greeklish back to English."""
+    import re
+    services = Path(__file__).resolve().parents[1] / "services"
+    calls = 0
+    for path in services.glob("*.py"):
+        src = path.read_text(encoding="utf-8")
+        for m in re.finditer(r"build_safety_response\((.*?)\)\s*$", src, re.S | re.M):
+            if path.name == "prompt_builder.py":
+                continue
+            calls += 1
+            assert "language=crisis_language(" in m.group(1), f"{path.name}: {m.group(0)[:120]!r}"
+    assert calls == 9, f"expected the 9 known crisis call sites, found {calls}"

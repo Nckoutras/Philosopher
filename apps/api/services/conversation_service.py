@@ -16,7 +16,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from models import Conversation, DailyUsage, Message, Persona, Ritual, SafetyEvent, SavedLine, User, WeeklyLetter
 from personas import get_persona, is_persona_accessible
 from constants import TIER_ORDER
-from services.safety_service import safety_service
+from services.safety_service import crisis_language, safety_service
 from services.memory_service import memory_service
 from services.retrieval_service import retrieval_service
 from services.embedding_client import embedding_client
@@ -29,7 +29,6 @@ from services.analytics_service import analytics_service
 from services.persona_voice import get_error_voice
 import services.rate_limit_service as rate_limit_service
 from services.rate_limit_service import utc_today
-from text_utils import dominant_language
 from services.postprocessing_service import (
     POSTPROCESSING_ENABLED,
     check_universal_forbidden,
@@ -709,7 +708,7 @@ class ConversationService:
             )
             await self._log_safety_event(db, user_id, conv.id, None, safety_out, "post_generation")
             text = prompt_builder.build_safety_response(
-                level=safety_out.level, language=dominant_language([user_text]),
+                level=safety_out.level, language=crisis_language([user_text]),
             )
 
         await self._save_message(
@@ -770,7 +769,7 @@ class ConversationService:
                 # The user just wrote this; answer the crisis response in the
                 # language they wrote it in.
                 safe_text = prompt_builder.build_safety_response(
-                    level=safety_in.level, language=dominant_language([user_text]),
+                    level=safety_in.level, language=crisis_language([user_text]),
                 )
                 await self._save_message(db, conv, user_id, "assistant", safe_text, safety_level=safety_in.level, persona_override=True)
                 await db.commit()
@@ -1092,7 +1091,7 @@ class ConversationService:
             )
             yield f"data: {json.dumps({'type': 'safety_override', 'level': safety_out.level})}\n\n"
             safe_text = prompt_builder.build_safety_response(
-                level=safety_out.level, language=dominant_language([user_text]),
+                level=safety_out.level, language=crisis_language([user_text]),
             )
             for chunk in self._chunk_text(safe_text):
                 yield f"data: {json.dumps({'type': 'chunk', 'data': chunk})}\n\n"
@@ -1558,7 +1557,7 @@ class ConversationService:
             )
             yield f"data: {json.dumps({'type': 'safety_override', 'level': safety_out.level})}\n\n"
             full_response = prompt_builder.build_safety_response(
-                level=safety_out.level, language=dominant_language([last_user_text]),
+                level=safety_out.level, language=crisis_language([last_user_text]),
             )
             for chunk in self._chunk_text(full_response):
                 yield f"data: {json.dumps({'type': 'chunk', 'data': chunk})}\n\n"
@@ -1874,7 +1873,7 @@ class ConversationService:
             )
             yield f"data: {json.dumps({'type': 'safety_override', 'level': safety_out.level})}\n\n"
             full_response = prompt_builder.build_safety_response(
-                level=safety_out.level, language=dominant_language([last_user_text]),
+                level=safety_out.level, language=crisis_language([last_user_text]),
             )
             for chunk in self._chunk_text(full_response):
                 yield f"data: {json.dumps({'type': 'chunk', 'data': chunk})}\n\n"
