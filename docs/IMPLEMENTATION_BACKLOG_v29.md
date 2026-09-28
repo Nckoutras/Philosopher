@@ -3531,6 +3531,19 @@ server's crisis text ALONE, in the app-voice bubble, with its resources tappable
     `safety_events` row per surface, which the cleanup deletes. No memory, no messages.
   - **Founder's call.**
 
+**DECISIONS (founder, 2026-09-28):**
+- **#745 is closed without merging.** Its content is already on main via #746.
+- **The Part 2 smoke runs on the FOUNDER account, today.** This is a RECORDED DEPARTURE from
+  OPS-014 (smokes run on the QA account). The founder's justification:
+  - on Council and You-vs-You the crisis path writes one conversation-less `safety_events`
+    row and nothing else: no messages, no memory;
+  - it does not extend the 14-day crisis window, which is read from `messages.safety_level`;
+  - so OPS-017, the positive-path You-vs-You smoke due on or after 2026-09-30 08:33 UTC on
+    this same account, is unaffected.
+- **Lesson (founder): merge only the PR whose link was handed over.**
+
+For this run, `<ACCOUNT_EMAIL>` = `nckoutras@gmail.com` in the SQL below.
+
 **Pre-check (read-only):**
 ```sql
 -- Who can reach Council / You-vs-You today. READ-ONLY. One row per account (per subscription row).
