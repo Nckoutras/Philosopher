@@ -1681,10 +1681,11 @@ table, where MEDIUM already maps to its own response; it is not a SAFETY-003 cha
 
 ---
 
-### SAFETY-003 — the English crisis text named no resource; Council and You-vs-You named none in any language — **PARTS 1 AND 2 IN PR**
-**Status: Part 1 in PR (`fix/safety-003-crisis-text`). Part 2 in its own PR
-(`fix/safety-003-part2-surfaces`), on top of Part 1. Part 3 is logged as TD-113. Found in
-the #740 smoke (OPS-018), 2026-09-27.**
+### SAFETY-003 — the English crisis text named no resource; Council and You-vs-You named none in any language — **PARTS 1 AND 2 SHIPPED (#746)**
+**Status: Parts 1 and 2 SHIPPED together in #746 (squash of the stacked Part 2 branch,
+2026-09-28 11:31 UTC, `1173fb65`). Part 1's own PR #745 was left open. Part 1 smoke PASSED
+(OPS-019); Part 2 smoke OWED (OPS-020). Part 3 is logged as TD-113. Found in the #740
+smoke (OPS-018), 2026-09-27.**
 
 **What was wrong (investigated 2026-09-28, main `cd8d1e7f`).**
 - **English, live in chat.** The bubble rendered four hardcoded paragraphs. They
@@ -3437,6 +3438,281 @@ measure it is the Listening judge's criterion **(e)**, which does not exist yet.
 if this ships on wording alone, the honest position is that it is unmeasured in both
 directions — including the regression risk, which is that a persona now under-uses
 the profile and ignores a value it should hold.
+
+---
+
+### OPS-019 — SAFETY-003 Part 1 P-04 smoke: PASSED — **CLOSED**
+**Status: CLOSED. PASSED (founder, on a phone, 2026-09-28 ~11:35 UTC, Free QA account `nkoutr@telekom.gr`).**
+
+**What ran.** Production. The merge that shipped Part 1 was **#746** (see OPS-020), which
+squash-merged the Part 2 branch at 11:31:44 UTC and carried Part 1 with it. The smoke ran
+four minutes later, against Part 1 + Part 2.
+
+**Results, as the founder recorded them:**
+- **English**, "I want to kill myself": the NEW English crisis text, `high`. **988** and
+  **116 123** open the dialer; **findahelpline.com** opens.
+- **Greeklish**, "Thelo na pethano": the **GREEK** crisis text (this is the fix; greeklish
+  used to get English), `high`. The numbers open the dialer.
+
+**Cleanup.** 4 messages and 2 `safety_events` were removed from **2 RESUMED conversations**.
+The 18 messages of history in those threads were kept. Afterwards the QA account shows
+`recent_flags = 0` and `yvy_signals = 23`.
+- **Why the resumed threads needed no counter repair:** crisis exchanges never reach a
+  thread's counters. The pre-generation crisis path returns before `message_count` /
+  `last_message_at` are updated (`conversation_service.py`, the success path's
+  `message_count + 2`).
+
+**Lesson for every smoke brief: note `SMOKE_START_UTC` BEFORE opening any persona or
+surface.** Opening a persona can resume an earlier conversation. The Part 1 brief scoped
+its cleanup to conversations created after the start. The resumed threads here were older
+than that, so that block could not reach the smoke messages, and its guard (messages outside
+the smoke conversations) would have aborted it. The OPS-020 cleanup is scoped to the smoke
+WINDOW instead, so it handles new and resumed conversations alike.
+
+---
+
+### OPS-020 — SAFETY-003 Part 2 (#746) merged; P-04 smoke OWED 2026-09-28 — **OPEN**
+**Status: OPEN. The smoke has NOT run. DO NOT record it as passed until someone has clicked.**
+
+**What landed, and how.** **#746** (`fix/safety-003-part2-surfaces` → main) was squash-merged
+at 2026-09-28 11:31:44 UTC as `1173fb65`. Main's tree is identical to the branch tip
+`4281d925`.
+- **Both parts are in it.** The Part 2 branch was stacked on Part 1, so this one squash
+  carried Part 1 **and** Part 2.
+- **Part 1's own PR, #745, was still OPEN** when this entry was written. Its content is
+  already on main; what to do with it is the founder's call.
+- **CI green** on the PR head `4281d925` and on main `1173fb65`: all four required checks.
+
+**What Part 2 changes on screen.** On the crisis state, Council and You-vs-You now show the
+server's crisis text ALONE, in the app-voice bubble, with its resources tappable.
+- **Removed:** "The council cannot meet on this matter.", "Try a different matter",
+  "Let's set this one aside for now.", and You-vs-You's "Ask another" on that state.
+- **Navigation stays.** `SubPageNav` (Back and Home) renders on the crisis state of both
+  pages: `you-vs-you/page.tsx:268`; `council/page.tsx:666`, which sits in the tree every
+  non-idle phase renders (idle is the only early return, at `:594`).
+
+**WHO CAN REACH EACH SURFACE (read from the code, 2026-09-28).**
+- **Both surfaces are Pro-only.**
+  - Council: `routers/council.py:42`. Admins do not skip this plan check; they only skip
+    the weekly limit (`:59`).
+  - You-vs-You: `routers/self_comparison.py:234`. Pro OR admin.
+  - `BETA_GRANT_PRO_TO_ALL` makes everyone Pro. It defaults to False (`config.py:80`), and
+    its production value is a Render environment setting, NOT verified here.
+- **Council weekly limit:** 1 per source per ISO week (`council_service.weekly_remaining`,
+  counting `council_cases`). Admins skip it.
+- **You-vs-You weekly limit:** 5 for Pro (`self_comparisons` this week). Admins skip it.
+- **You-vs-You unlock.**
+  - The page shows the question box only when `/status` says unlocked. That takes ≥ 20
+    signals and a ≥ 14-day span; admins skip it (`routers/self_comparison.py:68`).
+  - **Server order:** the input crisis check is STEP 1 (`self_comparison_service.py:262-263`),
+    BEFORE the 14-day crisis gate (step 2, `:276-281`) and the unlock check (step 3,
+    `:287-289`).
+  - **Via the UI, though, the unlock gate comes first,** because a locked account is never
+    shown the box.
+- **The 14-day crisis gate does not get in the way of this smoke.** The input check runs
+  before it, so even an account inside its 14 days gets the crisis text, not "another day".
+  And a crisis phrase on either surface writes **no `messages` row**, so the smoke does not
+  start a new 14-day window.
+- **What a crisis phrase writes, on each surface: exactly one `safety_events` row.**
+  - Its `conversation_id` is NULL; `trigger_stage` is `council_input` or
+    `self_comparison_input`.
+  - **No** `council_cases` row: the case is created after the check (`council_service.py:257`).
+  - **No** `self_comparisons` row: it is created at step 4 (`:299`).
+  - So **no weekly allowance is spent**, and no memory is extracted.
+
+**Which account, and when.** Run the pre-check below first.
+- **Free QA account (`nkoutr@telekom.gr`):** it reaches NEITHER surface unless it resolves to
+  Pro, either through an active Pro subscription or through the beta flag.
+  - **If it is Pro:** Council today, if `council_direct_this_week` = 0. You-vs-You once
+    `yvy_span` ≥ 14 days (founder estimate ~2026-09-30) with `yvy_signals` ≥ 20.
+- **Founder account (`nckoutras@gmail.com`):** if Pro or admin, both surfaces are reachable
+  today, within the weekly limits above (admins skip them).
+  - That departs from OPS-014 (smokes run on the QA account). The residue is one
+    `safety_events` row per surface, which the cleanup deletes. No memory, no messages.
+  - **Founder's call.**
+
+**DECISIONS (founder, 2026-09-28):**
+- **#745 is closed without merging.** Its content is already on main via #746.
+- **The Part 2 smoke runs on the FOUNDER account, today.** This is a RECORDED DEPARTURE from
+  OPS-014 (smokes run on the QA account). The founder's justification:
+  - on Council and You-vs-You the crisis path writes one conversation-less `safety_events`
+    row and nothing else: no messages, no memory;
+  - it does not extend the 14-day crisis window, which is read from `messages.safety_level`;
+  - so OPS-017, the positive-path You-vs-You smoke due on or after 2026-09-30 08:33 UTC on
+    this same account, is unaffected.
+- **Lesson (founder): merge only the PR whose link was handed over.**
+
+For this run, `<ACCOUNT_EMAIL>` = `nckoutras@gmail.com` in the SQL below.
+
+**Pre-check (read-only):**
+```sql
+-- Who can reach Council / You-vs-You today. READ-ONLY. One row per account (per subscription row).
+WITH acct AS (
+  SELECT id, email, is_admin FROM users
+  WHERE email IN ('nkoutr@telekom.gr', 'nckoutras@gmail.com')
+),
+wk AS (SELECT date_trunc('week', now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC' AS monday)  -- Monday 00:00 UTC
+SELECT
+  a.email,
+  a.is_admin,                                   -- admin: skips YvY plan + unlock gates and both weekly limits
+  s.plan, s.status, s.current_period_end,       -- Pro = plan pro/premium AND status active/trialing/past_due
+  (SELECT count(*) FROM council_cases c, wk
+     WHERE c.user_id = a.id AND c.source = 'direct' AND c.created_at >= wk.monday)   AS council_direct_this_week,  -- limit 1
+  (SELECT count(*) FROM self_comparisons x, wk
+     WHERE x.user_id = a.id AND x.created_at >= wk.monday)                           AS yvy_this_week,             -- Pro limit 5
+  (SELECT count(*) FROM memory_entries e
+     WHERE e.user_id = a.id AND e.is_active
+       AND e.entry_type NOT IN ('counterview_belief','self_portrait','self_portrait_shift'))  AS yvy_signals,      -- need >= 20
+  (SELECT max(e.created_at) - min(e.created_at) FROM memory_entries e
+     WHERE e.user_id = a.id AND e.is_active
+       AND e.entry_type NOT IN ('counterview_belief','self_portrait','self_portrait_shift'))  AS yvy_span          -- need >= 14 days
+FROM acct a
+LEFT JOIN subscriptions s ON s.user_id = a.id;
+```
+
+**Method.**
+0. Confirm the logged-in account, then **note `SMOKE_START_UTC` BEFORE opening Council or
+   You-vs-You** (OPS-019 lesson).
+1. **Council.** Type the matter `I want to kill myself` and tap **Convene the council**.
+   - After the short intro, expect **The Wise Room** bubble with the ENGLISH crisis text.
+   - **988** and **116 123** open the dialer (cancel the call); **findahelpline.com** opens.
+   - **NOT shown:** "The council cannot meet on this matter.", "Try a different matter",
+     and any council member.
+   - **Back** (top left) and **Home** (top right) are visible and work.
+2. **You-vs-You.** Type `Θέλω να πεθάνω` and tap **Ask both selves**.
+   - Your question shows in italics; below it, **The Wise Room** bubble with the GREEK crisis
+     text.
+   - **112**, **1018** and **10306** open the dialer (cancel).
+   - **NOT shown:** "Let's set this one aside for now.", "Ask another", "Let's leave this
+     comparison for another day.", and either self.
+   - **Back** and **Home** are visible and work.
+
+**Fail if** any of these happen:
+- the area under the question is empty;
+- an old line or button appears;
+- a council member or a self starts streaming;
+- a number is not tappable;
+- Back or Home is missing.
+
+**Verify (read-only, before the cleanup).** Expect exactly 2 rows, both `safety_event` and
+`high`: `council_input` and `self_comparison_input`, each with a NULL `conversation_id`. No
+`council_case`, no `self_comparison`, no `message` rows.
+```sql
+-- What the smoke wrote. READ-ONLY. Run BEFORE the cleanup (it deletes this evidence).
+SELECT 'safety_event' AS kind, s.created_at, s.trigger_stage AS detail, s.risk_level AS level,
+       s.conversation_id::text AS conversation_id
+FROM safety_events s JOIN users u ON u.id = s.user_id
+WHERE u.email = '<ACCOUNT_EMAIL>' AND s.created_at >= '<SMOKE_START_UTC>'::timestamptz
+UNION ALL
+SELECT 'council_case', c.created_at, c.source, NULL, NULL
+FROM council_cases c JOIN users u ON u.id = c.user_id
+WHERE u.email = '<ACCOUNT_EMAIL>' AND c.created_at >= '<SMOKE_START_UTC>'::timestamptz
+UNION ALL
+SELECT 'self_comparison', x.created_at, x.status, NULL, NULL
+FROM self_comparisons x JOIN users u ON u.id = x.user_id
+WHERE u.email = '<ACCOUNT_EMAIL>' AND x.created_at >= '<SMOKE_START_UTC>'::timestamptz
+UNION ALL
+SELECT 'message', m.created_at, m.role, m.safety_level, m.conversation_id::text
+FROM messages m JOIN users u ON u.id = m.user_id
+WHERE u.email = '<ACCOUNT_EMAIL>' AND m.created_at >= '<SMOKE_START_UTC>'::timestamptz
+ORDER BY 2;
+```
+
+**Cleanup: scoped to the smoke WINDOW for one account.**
+- **It handles new AND resumed conversations** and keeps every row from before
+  `SMOKE_START_UTC`, so the account's 23 signals survive.
+- **For this smoke, expect:** 0 messages, 0 new conversations, 0 memory, 0 insights, 2
+  `safety_events`, 0 `council_cases`, 0 `self_comparisons`.
+- **The same block works for a chat smoke,** and adds a history guard for that case: only
+  crisis exchanges may leave a resumed thread, because those never touched its counters.
+
+**Step A (read-only):**
+```sql
+-- Smoke cleanup, STEP A — counts. READ-ONLY. Scoped to the smoke WINDOW for one account,
+-- so it covers new AND resumed conversations and keeps every row from before the smoke.
+WITH u    AS (SELECT id FROM users WHERE email = '<ACCOUNT_EMAIL>'),
+     t    AS (SELECT '<SMOKE_START_UTC>'::timestamptz AS t0),
+     sm   AS (SELECT m.* FROM messages m, u, t WHERE m.user_id = u.id AND m.created_at >= t.t0),
+     newc AS (SELECT c.id FROM conversations c, u, t WHERE c.user_id = u.id AND c.created_at >= t.t0),
+     resc AS (SELECT DISTINCT sm.conversation_id AS id FROM sm
+              WHERE sm.conversation_id IS NOT NULL AND sm.conversation_id NOT IN (SELECT id FROM newc))
+SELECT
+  (SELECT count(*) FROM sm)                                                        AS smoke_messages,
+  (SELECT count(*) FROM newc)                                                      AS new_conversations,
+  (SELECT count(*) FROM resc)                                                      AS resumed_conversations,
+  -- MUST be 0: only crisis exchanges may leave a resumed thread (they were never
+  -- added to its message_count; a normal exchange was, and would leave it stale).
+  (SELECT count(*) FROM sm WHERE sm.conversation_id IN (SELECT id FROM resc)
+     AND sm.safety_level NOT IN ('medium', 'high', 'critical'))                    AS resumed_noncrisis_messages,
+  (SELECT count(*) FROM messages m WHERE m.conversation_id IN (SELECT id FROM resc))
+    - (SELECT count(*) FROM sm WHERE sm.conversation_id IN (SELECT id FROM resc)) AS history_messages_kept,
+  (SELECT count(*) FROM memory_entries e, u, t WHERE e.user_id = u.id AND e.created_at >= t.t0) AS memory_entries_smoke,
+  (SELECT count(*) FROM insights i, u, t       WHERE i.user_id = u.id AND i.created_at >= t.t0) AS insights_smoke,
+  (SELECT count(*) FROM safety_events s, u, t  WHERE s.user_id = u.id AND s.created_at >= t.t0) AS safety_events_smoke,
+  -- MUST be 0 for a crisis smoke: a row here means a council / comparison RAN.
+  (SELECT count(*) FROM council_cases c, u, t    WHERE c.user_id = u.id AND c.created_at >= t.t0) AS council_cases_smoke,
+  (SELECT count(*) FROM self_comparisons x, u, t WHERE x.user_id = u.id AND x.created_at >= t.t0) AS self_comparisons_smoke,
+  (SELECT count(*) FROM memory_entries e, u, t
+     WHERE e.user_id = u.id AND e.created_at < t.t0 AND e.is_active
+       AND e.entry_type NOT IN ('counterview_belief','self_portrait','self_portrait_shift'))       AS yvy_signals_kept;
+```
+
+**Step B, only after the founder confirms step A.** Fill every placeholder from step A.
+For this smoke: `<NEW_CONV>` 0, `<MEM_SMOKE>` 0, `<INS_SMOKE>` 0, `<SE_SMOKE>` 2,
+`<MSG_SMOKE>` 0.
+```sql
+-- Smoke cleanup, STEP B — delete, only after the founder confirms STEP A. One DO block =
+-- one transaction: any guard that fails raises and NOTHING is deleted. Fill every
+-- placeholder from STEP A.
+DO $$
+DECLARE
+  t0   timestamptz := '<SMOKE_START_UTC>';
+  uid  uuid;
+  newc uuid[];
+  n    int;
+BEGIN
+  SELECT id INTO STRICT uid FROM users WHERE email = '<ACCOUNT_EMAIL>';
+  SELECT coalesce(array_agg(id), '{}') INTO newc
+    FROM conversations WHERE user_id = uid AND created_at >= t0;
+  IF cardinality(newc) <> <NEW_CONV> THEN
+    RAISE EXCEPTION 'abort: % new conversations, expected <NEW_CONV>', cardinality(newc);
+  END IF;
+
+  -- A crisis smoke must not have started a council or a comparison.
+  SELECT count(*) INTO n FROM council_cases WHERE user_id = uid AND created_at >= t0;
+  IF n > 0 THEN RAISE EXCEPTION 'abort: % council_cases since the smoke: a council ran past the crisis check. Stop and report.', n; END IF;
+  SELECT count(*) INTO n FROM self_comparisons WHERE user_id = uid AND created_at >= t0;
+  IF n > 0 THEN RAISE EXCEPTION 'abort: % self_comparisons since the smoke: a comparison ran past the crisis check. Stop and report.', n; END IF;
+
+  -- History-preserving: only crisis exchanges may leave a RESUMED thread.
+  SELECT count(*) INTO n FROM messages
+    WHERE user_id = uid AND created_at >= t0
+      AND (conversation_id IS NULL OR NOT (conversation_id = ANY (newc)))
+      AND safety_level NOT IN ('medium', 'high', 'critical');
+  IF n > 0 THEN RAISE EXCEPTION 'abort: % non-crisis smoke messages in a resumed thread would leave its message_count stale. Stop and report.', n; END IF;
+
+  -- C-07 order: derived rows first, then messages, then the new conversations.
+  DELETE FROM memory_entries WHERE user_id = uid AND created_at >= t0;  GET DIAGNOSTICS n = ROW_COUNT;
+  IF n <> <MEM_SMOKE> THEN RAISE EXCEPTION 'memory_entries: deleted %, expected <MEM_SMOKE>', n; END IF;
+  DELETE FROM insights       WHERE user_id = uid AND created_at >= t0;  GET DIAGNOSTICS n = ROW_COUNT;
+  IF n <> <INS_SMOKE> THEN RAISE EXCEPTION 'insights: deleted %, expected <INS_SMOKE>', n; END IF;
+  DELETE FROM safety_events  WHERE user_id = uid AND created_at >= t0;  GET DIAGNOSTICS n = ROW_COUNT;
+  IF n <> <SE_SMOKE> THEN RAISE EXCEPTION 'safety_events: deleted %, expected <SE_SMOKE>', n; END IF;
+  DELETE FROM messages       WHERE user_id = uid AND created_at >= t0;  GET DIAGNOSTICS n = ROW_COUNT;
+  IF n <> <MSG_SMOKE> THEN RAISE EXCEPTION 'messages: deleted %, expected <MSG_SMOKE>', n; END IF;
+  DELETE FROM conversations  WHERE id = ANY (newc);                     GET DIAGNOSTICS n = ROW_COUNT;
+  IF n <> <NEW_CONV> THEN RAISE EXCEPTION 'conversations: deleted %, expected <NEW_CONV>', n; END IF;
+
+  RAISE NOTICE 'cleanup committed: % new conversations removed; resumed threads kept with their history', cardinality(newc);
+END $$;
+```
+
+**Verification status of this SQL: PARSED, NOT EXECUTED.** It passes Postgres's own parser
+(pglast), and every table and column it names exists in the models. No database was
+reachable when this was written.
+
+**Past end of day on 2026-09-28 — or on the first day an account can reach both surfaces,
+if none can today — this is a FINDING (amended P-04), not a footnote.**
 
 ---
 
