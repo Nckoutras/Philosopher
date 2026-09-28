@@ -185,6 +185,35 @@ RISK_HIGH_GR = [
     "κουραστηκα πλεον να ζω",      # I'm tired of living any longer
     "βαρεθηκα πια να ζω",          # I'm sick of living anymore   (bare form: MEDIUM)
     "βαρεθηκα πλεον να ζω",        # I'm sick of living any longer
+    # 2026-09-28 (SAFETY-002 B5, founder ruling): the same continuation sweep over
+    # EVERY '<verb> να ζω' / '<verb> να υπαρχω' core, not only θελω / κουραστηκα /
+    # βαρεθηκα. Each returned NONE (the αλλο forms of αντεχω only MEDIUM, through
+    # 'δεν αντεχω αλλο'), measured with check_input on main 03e0d2c9.
+    # core 'δεν αντεχω να ζω' — I can't bear to live
+    "δεν αντεχω πια να ζω",
+    "δεν αντεχω πλεον να ζω",
+    "δεν αντεχω αλλο να ζω",
+    "δε αντεχω πια να ζω",
+    "δε αντεχω πλεον να ζω",
+    "δε αντεχω αλλο να ζω",
+    # core 'δεν αξιζει να ζω' — it's not worth living
+    "δεν αξιζει πια να ζω",
+    "δεν αξιζει πλεον να ζω",
+    "δεν αξιζει αλλο να ζω",
+    "δε αξιζει πια να ζω",
+    "δε αξιζει πλεον να ζω",
+    "δε αξιζει αλλο να ζω",
+    # core 'δεν θελω να υπαρχω' — I don't want to exist
+    "δεν θελω πια να υπαρχω",
+    "δεν θελω πλεον να υπαρχω",
+    "δεν θελω αλλο να υπαρχω",
+    "δε θελω πια να υπαρχω",
+    "δε θελω πλεον να υπαρχω",
+    "δε θελω αλλο να υπαρχω",
+    # core 'κουραστηκα να ζω' — I'm tired of living
+    "κουραστηκα αλλο να ζω",
+    # core 'βαρεθηκα να ζω' — I'm sick of living
+    "βαρεθηκα αλλο να ζω",
     "να σκοτωσω τον εαυτο μου",    # to kill myself (literal)
     "να τα τελειωσω ολα",          # to end it all
     "μακαρι να ημουν νεκροσ",      # I wish I were dead (m.)
@@ -287,6 +316,31 @@ RISK_HIGH_GL = [
     "den thelo allo na zo", "den thelw allo na zw",
     "kourastika pia na zo", "kourastika pia na zw",
     "vare8ika pia na zo", "barethika pia na zo",
+    # 2026-09-28 (B5): the same sweep — see RISK_HIGH_GR.
+    # core 'den thelo na zo'
+    "de thelo pia na zo", "de thelo pleon na zo", "de thelo allo na zo",
+    # core 'den thelw na zw'
+    "de thelw pia na zw", "de thelw pleon na zw", "de thelw allo na zw",
+    # core 'den antexo na zo'
+    "den antexo pia na zo", "den antexo pleon na zo", "den antexo allo na zo",
+    "de antexo pia na zo", "de antexo pleon na zo", "de antexo allo na zo",
+    # core 'den antexw na zw'
+    "den antexw pia na zw", "den antexw pleon na zw", "den antexw allo na zw",
+    "de antexw pia na zw", "de antexw pleon na zw", "de antexw allo na zw",
+    # core 'den axizei na zo'
+    "den axizei pia na zo", "den axizei pleon na zo", "den axizei allo na zo",
+    "de axizei pia na zo", "de axizei pleon na zo", "de axizei allo na zo",
+    # core 'den axizei na zw'
+    "den axizei pia na zw", "den axizei pleon na zw", "den axizei allo na zw",
+    "de axizei pia na zw", "de axizei pleon na zw", "de axizei allo na zw",
+    # core 'kourastika na zo'
+    "kourastika pleon na zo", "kourastika allo na zo",
+    # core 'kourastika na zw'
+    "kourastika pleon na zw", "kourastika allo na zw",
+    # core 'vare8ika na zo'
+    "vare8ika pleon na zo", "vare8ika allo na zo",
+    # core 'barethika na zo'
+    "barethika pleon na zo", "barethika allo na zo",
     "na dwsw telos sti zoi mou", "na doso telos sti zoi mou",
     "teleiono ti zoi mou", "teleiwnw ti zwi mou",
     "tha teleioso ti zoi mou", "vazo telos sti zoi mou",   # added 2026-09-09

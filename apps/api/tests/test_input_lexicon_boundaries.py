@@ -118,6 +118,93 @@ async def test_a_locative_after_the_core_is_still_high_today():
     assert result.level == "high", f"-> {result.level} ({result.trigger})"
 
 
+# 2026-09-28 (SAFETY-002 B5, founder ruling): the continuation sweep over EVERY
+# '<verb> να ζω' / '<verb> να υπαρχω' core. Found by the second reader: "Δεν αντέχω
+# πια να ζω." and "Δεν θέλω πια να υπάρχω." landed nowhere. Each form below returned
+# NONE before (the άλλο forms of αντέχω only MEDIUM, via "δεν αντεχω αλλο").
+CONTINUATION_SWEEP_HIGH = [
+    # δεν αντεχω να ζω
+    'Δεν αντέχω πια να ζω',
+    'Δεν αντέχω πλέον να ζω',
+    'Δεν αντέχω άλλο να ζω',
+    'Δε αντέχω πια να ζω',
+    'Δε αντέχω πλέον να ζω',
+    'Δε αντέχω άλλο να ζω',
+    # δεν αξιζει να ζω
+    'Δεν αξίζει πια να ζω',
+    'Δεν αξίζει πλέον να ζω',
+    'Δεν αξίζει άλλο να ζω',
+    'Δε αξίζει πια να ζω',
+    'Δε αξίζει πλέον να ζω',
+    'Δε αξίζει άλλο να ζω',
+    # δεν θελω να υπαρχω
+    'Δεν θέλω πια να υπάρχω',
+    'Δεν θέλω πλέον να υπάρχω',
+    'Δεν θέλω άλλο να υπάρχω',
+    'Δε θέλω πια να υπάρχω',
+    'Δε θέλω πλέον να υπάρχω',
+    'Δε θέλω άλλο να υπάρχω',
+    # κουραστηκα να ζω
+    'Κουράστηκα άλλο να ζω',
+    # βαρεθηκα να ζω
+    'Βαρέθηκα άλλο να ζω',
+    # den thelo na zo
+    'de thelo pia na zo',
+    'de thelo pleon na zo',
+    'de thelo allo na zo',
+    # den thelw na zw
+    'de thelw pia na zw',
+    'de thelw pleon na zw',
+    'de thelw allo na zw',
+    # den antexo na zo
+    'den antexo pia na zo',
+    'den antexo pleon na zo',
+    'den antexo allo na zo',
+    'de antexo pia na zo',
+    'de antexo pleon na zo',
+    'de antexo allo na zo',
+    # den antexw na zw
+    'den antexw pia na zw',
+    'den antexw pleon na zw',
+    'den antexw allo na zw',
+    'de antexw pia na zw',
+    'de antexw pleon na zw',
+    'de antexw allo na zw',
+    # den axizei na zo
+    'den axizei pia na zo',
+    'den axizei pleon na zo',
+    'den axizei allo na zo',
+    'de axizei pia na zo',
+    'de axizei pleon na zo',
+    'de axizei allo na zo',
+    # den axizei na zw
+    'den axizei pia na zw',
+    'den axizei pleon na zw',
+    'den axizei allo na zw',
+    'de axizei pia na zw',
+    'de axizei pleon na zw',
+    'de axizei allo na zw',
+    # kourastika na zo
+    'kourastika pleon na zo',
+    'kourastika allo na zo',
+    # kourastika na zw
+    'kourastika pleon na zw',
+    'kourastika allo na zw',
+    # vare8ika na zo
+    'vare8ika pleon na zo',
+    'vare8ika allo na zo',
+    # barethika na zo
+    'barethika pleon na zo',
+    'barethika allo na zo',
+]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("text", CONTINUATION_SWEEP_HIGH)
+async def test_the_continuation_sweep_reaches_the_high_band(text):
+    result = await safety_service.check_input(text, "u")
+    assert result.level == "high", f"{text!r} -> {result.level} ({result.trigger})"
+
 NOT_INSIDE_WORDS = [
     "Epictetus says to rehearse the disappearance of everything you love. How?",
     "I retired last year and miss the work.",
