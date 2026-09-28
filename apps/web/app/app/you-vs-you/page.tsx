@@ -10,6 +10,7 @@ import { api, RateLimitError } from '@/lib/api'
 import type { SelfComparisonStatus, SavedLineRead, SelfComparisonListItem } from '@/lib/api'
 import Image from 'next/image'
 import WiseMark from '@/components/ui/WiseMark'
+import CrisisBubble from '@/components/chat/CrisisBubble'
 
 type Quote = { text: string; date: string }
 type ClosingData = {
@@ -22,8 +23,10 @@ type ClosingData = {
 }
 type YvYEvent = {
   type: string
-  which?: 'then' | 'now'
+  which?: 'then' | 'now' | 'safety'
   data?: string
+  // SAFETY-003: the whole crisis text, carried on the safety event itself.
+  text?: string
   start?: string
   end?: string
   error_code?: string
@@ -74,6 +77,9 @@ export default function YouVsYouPage() {
   const [thenDates, setThenDates] = useState<{ start: string; end: string } | null>(null)
   const [nowDates, setNowDates] = useState<{ start: string; end: string } | null>(null)
   const [streamError, setStreamError] = useState<string | null>(null)
+  // The server's crisis text (SAFETY-003 part 2). Shown alone, in the app-voice
+  // bubble, when a safety event ends the run; never written in the web.
+  const [crisisText, setCrisisText] = useState('')
   const [remaining, setRemaining] = useState<number | null>(null)
   const [closing, setClosing] = useState<ClosingData | null>(null)
   const [comparisonId, setComparisonId] = useState<string | null>(null)
@@ -108,13 +114,17 @@ export default function YouVsYouPage() {
     setSubmitting(true)
     setMode('streaming')
     setThenText(''); setNowText(''); setThenDates(null); setNowDates(null); setStreamError(null)
+    setCrisisText('')
     setClosing(null); setComparisonId(null); setRingTrue(null); setSentenceSaved(false)
     try {
       const res = await api.streamSelfComparison({ prompt: p })
       const reader = res.body!.getReader()
       const decoder = new TextDecoder()
       let buf = ''
-      let active: 'then' | 'now' | null = null
+      let active: YvYEvent['which'] | null = null
+      // SAFETY-003: set when the safety event carried the whole text; the
+      // `which: 'safety'` chunk that follows (kept for older clients) is skipped.
+      let crisisFromEvent = false
       while (true) {
         const { done, value } = await reader.read()
         if (done) break
@@ -133,7 +143,9 @@ export default function YouVsYouPage() {
             else if (ev.which === 'now' && ev.start && ev.end) setNowDates({ start: ev.start, end: ev.end })
           } else if (ev.type === 'chunk') {
             const w = ev.which ?? active
-            if (w === 'then') setThenText((t) => t + (ev.data ?? ''))
+            if (w === 'safety') {
+              if (!crisisFromEvent) setCrisisText((t) => t + (ev.data ?? ''))
+            } else if (w === 'then') setThenText((t) => t + (ev.data ?? ''))
             else if (w === 'now') setNowText((t) => t + (ev.data ?? ''))
           } else if (ev.type === 'safety' || ev.type === 'safety_override') {
             // safety_override: an answer that already streamed was withheld
@@ -142,6 +154,12 @@ export default function YouVsYouPage() {
             // level 'recent': the crisis gate (a high/critical message in the
             // last 14 days) closed the comparison before anything generated.
             setStreamError(ev.level === 'recent' ? 'recent' : 'safety')
+            // The crisis response itself, not a line about it (SAFETY-003 part 2,
+            // Option A). 'recent' carries no crisis text and keeps its own line.
+            if (ev.level !== 'recent') {
+              setCrisisText(ev.text ?? '')
+              crisisFromEvent = !!ev.text
+            }
           } else if (ev.type === 'error') {
             setStreamError(ev.error_code ?? 'error')
           } else if (ev.type === 'closing') {
@@ -194,6 +212,7 @@ export default function YouVsYouPage() {
       setRingTrueConfirmed(run.ring_true !== null)
       setSentenceSaved(run.saved)
       setStreamError(null)
+      setCrisisText('')
       setMode('reading')
     } catch {
       // Leave the person on the input screen rather than opening an empty run.
@@ -372,10 +391,13 @@ export default function YouVsYouPage() {
       {!loading && status && status.unlocked && mode !== 'input' && (
         <div className="flex flex-col gap-[20px]">
           <p className="font-cormorant italic text-[18px] text-charcoal text-center leading-snug">{prompt}</p>
-          {streamError && (
+          {/* SAFETY-003 part 2 (founder ruling 2026-09-28, Option A): the crisis
+              response ALONE, in the app-voice bubble, with its resources tappable.
+              It replaced "Let's set this one aside for now.", which named none. */}
+          {streamError === 'safety' && <CrisisBubble text={crisisText} />}
+          {streamError && streamError !== 'safety' && (
             <p className="font-lora text-[14px] text-charcoal text-center">
               {streamError === 'rate_limit' ? 'You\u2019ve reached this week\u2019s limit. Try again next week.'
-                : streamError === 'safety' ? 'Let\u2019s set this one aside for now.'
                 // Approved 2026-09-25. Names no reason, deliberately: saying why on
                 // this screen would read as surveillance.
                 : streamError === 'recent' ? 'Let\u2019s leave this comparison for another day.'
@@ -480,8 +502,12 @@ export default function YouVsYouPage() {
               )}
             </>
           )}
-          <button type="button" onClick={() => { setMode('input'); setPrompt('') }}
-            className="self-center font-lora text-[13px] text-sepia underline underline-offset-2">Ask another</button>
+          {/* Not on the crisis state: the crisis text stands alone (Option A), as
+              Council's "Try a different matter" was removed there. */}
+          {streamError !== 'safety' && (
+            <button type="button" onClick={() => { setMode('input'); setPrompt('') }}
+              className="self-center font-lora text-[13px] text-sepia underline underline-offset-2">Ask another</button>
+          )}
         </div>
       )}
 

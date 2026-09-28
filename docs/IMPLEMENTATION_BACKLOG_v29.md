@@ -1681,9 +1681,10 @@ table, where MEDIUM already maps to its own response; it is not a SAFETY-003 cha
 
 ---
 
-### SAFETY-003 — the English crisis text named no resource; Council and You-vs-You named none in any language — **PART 1 IN PR**
-**Status: Part 1 in PR (`fix/safety-003-crisis-text`). Part 2 is its own PR, right
-after. Part 3 is logged as TD-113. Found in the #740 smoke (OPS-018), 2026-09-27.**
+### SAFETY-003 — the English crisis text named no resource; Council and You-vs-You named none in any language — **PARTS 1 AND 2 IN PR**
+**Status: Part 1 in PR (`fix/safety-003-crisis-text`). Part 2 in its own PR
+(`fix/safety-003-part2-surfaces`), on top of Part 1. Part 3 is logged as TD-113. Found in
+the #740 smoke (OPS-018), 2026-09-27.**
 
 **What was wrong (investigated 2026-09-28, main `cd8d1e7f`).**
 - **English, live in chat.** The bubble rendered four hardcoded paragraphs. They
@@ -1795,6 +1796,33 @@ bubble rendered EMPTY. The founder ruled the fix belongs in this PR:
   and the stream would error, where before the reply was hidden and then the stream
   errored. Both crisis templates render in full, verbatim, in the required backend job
   (copy locks for English and Greek). So a render failure is a CI failure first.
+
+**PART 2 RULING (founder, 2026-09-28, verbatim):**
+
+Part 2 ruling: OPTION A on both surfaces. You-vs-You and Council show the
+crisis text alone (same app-voice bubble, same linkify). Remove
+"Let's set this one aside for now." and "The council cannot meet on this
+matter." and the "Try a different matter" button on the crisis state.
+The 14-day gate line "Let's leave this comparison for another day." is
+unchanged. Part 2 builds on top of Part 1's event-carries-text, so the new
+surfaces never render empty either. Raw diff before push.
+
+**PART 2 (its own PR, on top of Part 1).**
+- **One bubble on every surface.** The app-voice bubble is now the shared
+  `CrisisBubble`. Chat's `SafetyBubble` renders it from the store; Council and
+  You-vs-You render it from the stream.
+- **Both pages take the text from the safety event itself.** They fall back to the
+  chunks only when the event carries none (an older server), and never double it.
+- **Council:** after a safety event, every chunk is the crisis response. Before, the
+  crisis chunks were appended to the active member's verdict buffer, which was
+  harmless only because the view unmounted.
+- **Removed on the crisis state:** "Let's set this one aside for now."; "The council
+  cannot meet on this matter."; and the "Try a different matter" button.
+- **Unchanged:** the 14-day gate line.
+- **One call made by Claude, not ruled; flagged for the founder:** You-vs-You's
+  "Ask another" link is also hidden on the crisis state. That reads "the crisis text
+  alone" the way Council's button removal was ruled. The question the person typed
+  stays above the bubble, as their own message does in chat.
 
 ---
 
