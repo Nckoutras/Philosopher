@@ -64,8 +64,10 @@ async def get_user_plan_streaming(
     """No-pin auth for SSE streaming endpoints (§5 pool-leak fix).
 
     Unlike get_current_user_plan — which depends on get_db, a yield-dependency
-    whose session is released only AFTER the StreamingResponse body is fully
-    sent, pinning a pooled session for the entire multi-second token stream —
+    whose teardown (commit, then close) runs BEFORE the StreamingResponse body on
+    FastAPI 0.115 (measured, SAFETY-004): a stream that keeps using that session
+    re-opens a connection for the whole token stream and loses any write it does
+    not commit itself —
     this opens and CLOSES its own short-lived session before the stream begins.
     The returned User is detached but its loaded scalar attributes (id,
     full_name, is_admin) stay readable. Scoped to streaming routes only; do NOT
