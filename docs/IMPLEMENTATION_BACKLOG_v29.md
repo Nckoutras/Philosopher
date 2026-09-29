@@ -1068,9 +1068,14 @@ Enforcing before (1) and (2) does not close the gap — it moves the blockage in
 every web PR, including the ones that have nothing to do with the 13.
 
 
-### TD-87 — The Account page dereferences a nullable `user` behind a guard on something else — **NEW**
-**Status: OPEN. HELD OUT of the TD-86 CI branch deliberately — it is the one item in
-that set needing a product decision rather than an edit.**
+### TD-87 — The Account page dereferences a nullable `user` behind a guard on something else — **CLOSED (#736)**
+**Status: CLOSED by #736 (2026-09-24). The guard is now `if (!authed || !user)`
+(`account/page.tsx`), pinned by `account/__tests__/nullUserGuard.test.tsx`. This entry said
+OPEN / NEW until 2026-09-29, five days after the fix merged: the stale-status pattern of the
+2026-08-18 failure-log entry. Found by the 2026-09-28 re-score status check.**
+
+*Original status line, kept as written:* **Status: OPEN. HELD OUT of the TD-86 CI branch
+deliberately — it is the one item in that set needing a product decision rather than an edit.**
 
 **Verified at `74f576d5`** by reading the file, not by trusting the type error.
 
@@ -1681,6 +1686,68 @@ table, where MEDIUM already maps to its own response; it is not a SAFETY-003 cha
 
 ---
 
+**SAFETY-002 v0.6.0 — founder rulings (2026-09-28, verbatim):**
+
+B4 RULED (founder native reading, 2026-09-28): "να τα τελειώσω όλα" STAYS
+Tier A. It reads first as suicidal/self-destructive to a native speaker.
+Accepted cost: the task reading ("…όλα σήμερα") gets the crisis response.
+No time-word exception: "…όλα απόψε" is MORE alarming (timing = plan), so
+time words must never demote. Record the second reader's counterexample as
+a known accepted false positive, not a checker failure.
+
+B5: APPROVED. Keep the marginal forms (δε+vowel, "κουράστηκα/βαρέθηκα άλλο
+να ζω"): harmless, systematic. ADD on the same branch, same pattern
+(pins + revert-verify): bare "δε θελω να υπαρχω" at HIGH, and the whole
+greeklish "exist" core ("den/de thelo/thelw na yparxo/yparxw/iparxo/
+iparxw" + pia/pleon/allo continuations) at HIGH, mirrored as Tier A +
+bare Tier B backstop in the lists. Then raw diff of the delta, then push.
+
+B2: allow-list = the list + "feeling", "so", "not"; DROP "'m" and "'ve"
+(unmatchable entries are the class we removed in UAT2-004); DROP the
+3-word window: the allow-list alone decides the bind. "not" keeps every
+negation at Tier A, as ruling B requires. Apply.
+
+The 7 second-reader counterexamples:
+1. "This divorce could take my life savings." → B:HIGH (B1)
+2. "I think soldiers want to die for glory." → B:HIGH (B2)
+3. "I wrote a suicidal character." → B:HIGH (B2)
+4. "I'm thinking about ending it with him." → B:HIGH (B3)
+5. "Έχω δέκα πράγματα να κάνω και θέλω να τα τελειώσω όλα σήμερα." → A,
+   known accepted false positive (B4 ruling)
+6. "Δεν αντέχω πια να ζω." → A (B5)
+7. "Δεν θέλω πια να υπάρχω." → A (B5)
+Apply B1–B4, the here/there pin, these 7 cases; deliver the v0.6.0 delta.
+
+Re-score rulings 1–4: queue after SAFETY-002 v0.6.0, in this order:
+1(β) spec note (docs-only), 3(α+β), 2(α), 4(α). No work until then.
+
+**Where these landed (2026-09-29).**
+- **Lists v0.6.0-draft:** every item above applied. The checker passes 200 checks and 151
+  backstop cores, and each rule was broken once to prove its cases fail.
+- **Production:** the B5 forms (58 + 33) are **merged as #750** (2026-09-29, `cc714aae`),
+  revert-verified. P-04 smoke PASSED (OPS-023).
+- **Re-score status (2026-09-28, checked on main):** 5(α) DONE (#736); 4(α) PARTIAL (only the
+  letter dispatch moved; six APScheduler jobs remain); 1(β), 2(α) and 3(α+β) NOT STARTED.
+
+**THE LEXICON IS FROZEN AT v0.6.x (founder rule, 2026-09-29, verbatim):**
+
+NEW RULE (founder, 2026-09-29): the lexicon FREEZES at v0.6.x. Enumeration
+cannot reach completeness ("πια", "πλέον", "δεν πάει άλλο", misspellings…).
+From now on, any newly found gap is NOT added to the lists; it goes into
+the SAFETY-005 semantic-recall test set, to be caught by that layer. Record
+this in SAFETY-002 and SAFETY-005. Order: lexicon freeze → judge →
+SAFETY-005.
+
+**What the freeze means in practice:**
+- **A newly found gap is NOT added to the lists or to the production lexicon.** It is
+  recorded as a case in the SAFETY-005 test set, to be caught by the semantic-recall layer.
+- **Order of work:** lexicon freeze → the SAFETY-002 judge → SAFETY-005.
+- **Why:** B5 was the proof. One second reader found two living cores missing a continuation;
+  the sweep they led to found 91 missing forms; and the space still is not closed
+  (misspellings, "δεν πάει άλλο"). Enumeration asymptotes. It does not complete.
+
+---
+
 ### SAFETY-003 — the English crisis text named no resource; Council and You-vs-You named none in any language — **PARTS 1 AND 2 SHIPPED (#746)**
 **Status: Parts 1 and 2 SHIPPED together in #746 (squash of the stacked Part 2 branch,
 2026-09-28 11:31 UTC, `1173fb65`). Part 1's own PR #745 was left open. Part 1 smoke PASSED
@@ -1827,7 +1894,11 @@ surfaces never render empty either. Raw diff before push.
 
 ---
 
-### SAFETY-004 — crisis events on Council and You-vs-You are never saved — **OPEN, investigated**
+### SAFETY-004 — crisis events on Council and You-vs-You are never saved — **CLOSED (#749)**
+**Status: CLOSED. Fixed by #749 (merged 2026-09-29 07:39 UTC, `faa1eeb6`). P-04 smoke PASSED:
+the first `council_input` and `self_comparison_input` rows ever recorded (OPS-022). The
+original investigation record follows.**
+
 **Status: OPEN. Investigated 2026-09-28 (main `adc028c0`); nothing changed. Found by the OPS-020
 smoke: a crisis phrase on Council and on You-vs-You showed the crisis text and wrote ZERO
 `safety_events` rows.**
@@ -1922,6 +1993,44 @@ GROUP BY trigger_stage ORDER BY trigger_stage;
 **Consequence to state plainly.** Crisis disclosures on Council and You-vs-You were answered
 correctly on screen, but the audit trail recorded none of them, and the SAFETY-002 / TD work
 that counts crisis events has been counting without these two surfaces.
+
+---
+
+### SAFETY-005 — semantic recall layer, feeding the judge — **LOGGED, not now**
+**Status: LOGGED (founder, 2026-09-28). Not before the SAFETY-002 judge ships.**
+
+**The ruling, verbatim:**
+
+Log SAFETY-005 (not now, after the SAFETY-002 judge ships): semantic
+recall layer. Embed each user message and compare to a curated set of
+first-person ideation/intent exemplars (EN + EL); above a threshold, ROUTE
+TO THE JUDGE, never straight to the crisis response. Purpose: recall on
+paraphrased disclosures the lexicon cannot enumerate (SAFETY-001's ten
+level=none prompts are the test set). Known risk, recorded: embeddings
+encode topic, not speaker or stance ("Camus on suicide" sits near a
+disclosure), so this layer may only feed the judge. Threshold must be
+calibrated on measured distributions; RETRIEVAL-001 showed this embedding
+space compresses scores (0.30–0.46) with no relevance gap.
+
+**The lexicon freeze makes this layer the home of every new gap (founder rule,
+2026-09-29, verbatim):**
+
+NEW RULE (founder, 2026-09-29): the lexicon FREEZES at v0.6.x. Enumeration
+cannot reach completeness ("πια", "πλέον", "δεν πάει άλλο", misspellings…).
+From now on, any newly found gap is NOT added to the lists; it goes into
+the SAFETY-005 semantic-recall test set, to be caught by that layer. Record
+this in SAFETY-002 and SAFETY-005. Order: lexicon freeze → judge →
+SAFETY-005.
+
+**THE TEST SET.** It starts as SAFETY-001's ten `level=none` prompts, per the ruling above.
+From 2026-09-29, every lexicon gap found after the freeze is added HERE as a case, never to
+the lists. Each case records:
+- the text;
+- where it was found;
+- today's measured lexicon result;
+- the expected routing (to the judge).
+
+**Order:** lexicon freeze → judge → SAFETY-005.
 
 ---
 
@@ -3562,6 +3671,193 @@ measure it is the Listening judge's criterion **(e)**, which does not exist yet.
 if this ships on wording alone, the honest position is that it is unmeasured in both
 directions — including the regression risk, which is that a persona now under-uses
 the profile and ignores a value it should hold.
+
+---
+
+### OPS-022 — SAFETY-004 (#749) P-04 smoke: PASSED — **CLOSED**
+**Status: CLOSED. PASSED (founder, 2026-09-29 ~07:58–07:59 UTC).**
+
+**Logged at close, not at merge.** Amended P-04 asks for an owed entry the moment a merge
+lands. #749 merged at 07:39 UTC and the smoke ran about twenty minutes later, the same
+morning, before one was written. Recorded here rather than back-dated.
+
+**What landed.** #749 squash-merged as `faa1eeb6`: the two explicit commits, the
+real-Postgres regression test (8 paths), the static guard, and the `auth.py` comment
+correction. Main's copies of all five files are byte-identical to the pushed `52d0abd1`.
+
+**Result (founder).**
+- **Council** and **You-vs-You** crisis inputs each showed the crisis text AND wrote a
+  `safety_events` row: `council_input` at 07:58:47 and `self_comparison_input` at 07:59:11
+  UTC. **These are the first such rows ever recorded.** The history query had shown zero
+  for either stage since #548 (2026-08-18).
+- Both rows were deleted after verification.
+
+---
+
+### OPS-023 — SAFETY-002 B5 (#750) P-04 smoke: PASSED — **CLOSED**
+**Status: CLOSED. PASSED (founder, 2026-09-29, by ~08:06 UTC).**
+
+**Logged at close, not at merge.** Same as OPS-022: #750 merged at 07:44 UTC and was smoked
+the same morning.
+
+**What landed.** #750 squash-merged as `cc714aae`: 91 forms at HIGH (58 continuation forms,
+plus the bare δε- "exist" core and the 32-form greeklish "exist" core), each pinned. Main's
+copies are byte-identical to the pushed `0fa37b71`.
+
+**Result (founder).** "den thelo na yparxo", a B5 form that scored `none` before, → `high`,
+with the **Greek** crisis text. One form suffices to prove the deploy; every form is pinned
+by its own test. The smoke rows were deleted and history kept.
+
+---
+
+### OPS-021 — the 2026-09-30 monthly-letter run: read it on 2026-10-01 — **OWED 2026-10-01**
+**Status: OWED. Run the SQL below on 2026-10-01, in the morning (Athens), and record the
+numbers here.**
+
+**Why.** A skipped monthly run alerts no one today:
+- `monthly_letter` is deliberately OUT of `JOB_EXPECTATIONS` (`constants.py`: "Revisit after
+  the 2026-09-30 monthly run").
+- A generation failure only logs an error. That notifies someone only if a Sentry alert rule
+  routes it, and the repository cannot show whether one exists.
+
+This read makes a silent skip visible by comparing the run's own record against eligibility
+**recomputed independently** from source data.
+
+**What the schedule does.** `dispatch_monthly_letters` fires at 17:00 UTC on days 28–31 and
+acts only on the real last day. It records itself in `job_run` (`job_name = 'monthly_letter'`,
+`run_key = '2026-09'`). Letters are rows in `weekly_letters` with `kind = 'monthly'` and
+`period_start = 2026-09-01`; `status` is one of `generated / empty / suppressed / failed`.
+Eligibility is ≥ 15 acts in the month: user chat messages, plus council sessions, generated
+counterview turns, annotated mirrors and You-vs-You runs.
+
+**Read it three ways. Each one alone exposes a silent skip:**
+- `job_status` is NULL: the dispatch never opened a run.
+- `letters_total` is 0 while `eligible_users` > 0.
+- `eligible_without_letter` > 0: an eligible person got no letter row at all. The detail query
+  names them.
+
+**Summary (read-only, ONE row):**
+```sql
+-- OPS-021 — the 2026-09-30 monthly-letter run, read on 2026-10-01. READ-ONLY. ONE row.
+-- A silent skip is visible three ways: job_status NULL (the dispatch never opened a
+-- run), letters_total 0 with eligible_users > 0, or eligible_without_letter > 0.
+WITH params AS (
+  SELECT '2026-09'::text                     AS run_key,
+         '2026-09-01 00:00:00+00'::timestamptz AS period_start
+),
+run AS (
+  SELECT j.* FROM job_run j, params p
+  WHERE j.job_name = 'monthly_letter' AND j.run_key = p.run_key
+  ORDER BY j.started_at DESC LIMIT 1
+),
+-- The dispatch windows the month from period_start to the moment it ran (period_end =
+-- now). If it never ran, use the scheduled time, 17:00 UTC on the last day.
+win AS (
+  SELECT p.period_start,
+         coalesce((SELECT started_at FROM run), '2026-09-30 17:00:00+00'::timestamptz) AS period_end
+  FROM params p
+),
+-- Eligibility, recomputed from source data exactly as dispatch_monthly_letters does:
+-- user chat messages + ritual acts (council sessions, generated counterview turns,
+-- annotated mirrors, you-vs-you runs) in the window, total >= MONTHLY_MIN_MESSAGES (15).
+acts AS (
+  SELECT c.user_id FROM messages m JOIN conversations c ON c.id = m.conversation_id, win
+    WHERE m.role = 'user' AND m.created_at >= win.period_start AND m.created_at <= win.period_end
+  UNION ALL
+  SELECT cc.user_id FROM council_sessions cs JOIN council_cases cc ON cc.id = cs.case_id, win
+    WHERE cs.created_at >= win.period_start AND cs.created_at <= win.period_end
+  UNION ALL
+  SELECT cv.user_id FROM counterview_turns t JOIN counterviews cv ON cv.id = t.counterview_id, win
+    WHERE t.status = 'generated' AND t.created_at >= win.period_start AND t.created_at <= win.period_end
+  UNION ALL
+  SELECT mi.user_id FROM mirrors mi, win
+    WHERE mi.ring_true_note IS NOT NULL AND mi.ring_true_at >= win.period_start AND mi.ring_true_at <= win.period_end
+  UNION ALL
+  SELECT x.user_id FROM self_comparisons x, win
+    WHERE x.created_at >= win.period_start AND x.created_at <= win.period_end
+),
+eligible AS (
+  SELECT user_id FROM acts GROUP BY user_id HAVING count(*) >= 15
+),
+letters AS (
+  SELECT w.* FROM weekly_letters w, params p
+  WHERE w.kind = 'monthly' AND w.period_start = p.period_start
+)
+SELECT
+  (SELECT status          FROM run) AS job_status,          -- NULL = never ran; running / succeeded / failed
+  (SELECT started_at      FROM run) AS job_started_at,
+  (SELECT finished_at     FROM run) AS job_finished_at,
+  (SELECT candidate_count FROM run) AS job_candidates,
+  (SELECT selected_count  FROM run) AS job_selected,
+  (SELECT enqueued_count  FROM run) AS job_enqueued,
+  (SELECT error           FROM run) AS job_error,
+  (SELECT count(*) FROM eligible)                                             AS eligible_users,
+  (SELECT count(*) FROM letters)                                              AS letters_total,
+  (SELECT count(*) FROM letters WHERE status = 'generated')                   AS generated,
+  (SELECT count(*) FROM letters WHERE status = 'empty')                       AS skipped_empty,
+  (SELECT count(*) FROM letters WHERE status = 'suppressed')                  AS suppressed,
+  (SELECT count(*) FROM letters WHERE status = 'failed')                      AS failed,
+  (SELECT count(*) FROM letters WHERE email_sent_at IS NOT NULL)              AS emailed,
+  (SELECT string_agg(r || ': ' || n, ', ' ORDER BY r) FROM (
+     SELECT email_suppressed_reason AS r, count(*) AS n FROM letters
+     WHERE email_suppressed_reason IS NOT NULL GROUP BY 1) s)                 AS email_not_sent_reasons,
+  (SELECT count(*) FROM eligible e
+     WHERE NOT EXISTS (SELECT 1 FROM letters l WHERE l.user_id = e.user_id))  AS eligible_without_letter;
+```
+
+**Detail (read-only). Zero rows is the passing answer:**
+```sql
+-- OPS-021 detail — every ELIGIBLE user with NO 2026-09 monthly letter row: the silent
+-- skips, by name. READ-ONLY. Zero rows is the passing answer.
+WITH win AS (
+  SELECT '2026-09-01 00:00:00+00'::timestamptz AS period_start,
+         coalesce((SELECT started_at FROM job_run
+                   WHERE job_name = 'monthly_letter' AND run_key = '2026-09'
+                   ORDER BY started_at DESC LIMIT 1),
+                  '2026-09-30 17:00:00+00'::timestamptz) AS period_end
+),
+acts AS (
+  SELECT c.user_id, 'chat' AS kind FROM messages m JOIN conversations c ON c.id = m.conversation_id, win
+    WHERE m.role = 'user' AND m.created_at >= win.period_start AND m.created_at <= win.period_end
+  UNION ALL
+  SELECT cc.user_id, 'ritual' FROM council_sessions cs JOIN council_cases cc ON cc.id = cs.case_id, win
+    WHERE cs.created_at >= win.period_start AND cs.created_at <= win.period_end
+  UNION ALL
+  SELECT cv.user_id, 'ritual' FROM counterview_turns t JOIN counterviews cv ON cv.id = t.counterview_id, win
+    WHERE t.status = 'generated' AND t.created_at >= win.period_start AND t.created_at <= win.period_end
+  UNION ALL
+  SELECT mi.user_id, 'ritual' FROM mirrors mi, win
+    WHERE mi.ring_true_note IS NOT NULL AND mi.ring_true_at >= win.period_start AND mi.ring_true_at <= win.period_end
+  UNION ALL
+  SELECT x.user_id, 'ritual' FROM self_comparisons x, win
+    WHERE x.created_at >= win.period_start AND x.created_at <= win.period_end
+)
+SELECT u.email,
+       count(*) FILTER (WHERE a.kind = 'chat')   AS chat_messages,
+       count(*) FILTER (WHERE a.kind = 'ritual') AS ritual_acts,
+       count(*)                                  AS total_acts
+FROM acts a JOIN users u ON u.id = a.user_id
+WHERE NOT EXISTS (
+  SELECT 1 FROM weekly_letters w
+  WHERE w.user_id = a.user_id AND w.kind = 'monthly' AND w.period_start = '2026-09-01 00:00:00+00'::timestamptz
+)
+GROUP BY u.email
+HAVING count(*) >= 15
+ORDER BY total_acts DESC;
+```
+
+**Verification status: EXECUTED through asyncpg** on a Postgres 16 database built by the real
+migrations (2026-09-29), per the 2026-09-15 lesson:
+- **An empty month returned exactly ONE summary row, with every job field NULL.** So "never
+  ran" is visible, instead of coming back as zero rows.
+- **A known fixture returned every expected value.** The fixture: one generated and emailed
+  letter; one silent skip (15 messages, no row); one not eligible (5 messages); one failed
+  letter; one October-only user; one succeeded `job_run`. The results: `eligible 3`,
+  `letters 2`, `generated 1`, `failed 1`, `emailed 1`, `eligible_without_letter 1`. The
+  detail query named exactly the silent skip, and the October user was excluded.
+
+**Record here on 2026-10-01:** the summary row, the detail rows, and a one-line verdict. If
+anything is off, that is a FINDING.
 
 ---
 

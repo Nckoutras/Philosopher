@@ -246,7 +246,9 @@ def test_crisis_resources_are_linked_and_listed():
     A number added to the copy without a link would be untappable; a link for a
     number the copy dropped would be dead code nobody re-checks; a resource off
     the rotation list would never be re-verified. Checked here, in the backend
-    job, because the web tests run under continue-on-error (TD-86)."""
+    job. (An earlier version of this docstring said the web tests run under
+    continue-on-error, per TD-86; that stopped being true on 2026-09-18, and the
+    web build is a required check too.)"""
     import re
     rendered = _rendered_crisis_texts()
     for resource in CRISIS_RESOURCES:
