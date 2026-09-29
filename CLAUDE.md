@@ -380,10 +380,15 @@ appearance rather than logic.
 1. **Diff approved.**
 2. **Tarball verified** — the codeload tarball for the pushed branch, diffed against
    the stated base, each file byte-exact against its stored blob.
-3. **CI green**, read from the runs the PR actually triggered — **with TD-86's caveat**:
-   on a web PR, `Web build` is not a required check, its tests and typecheck run under
-   `continue-on-error: true`, and `next.config.js` ignores type and lint errors, so a
-   green `Web build` means *the app compiled* and nothing more.
+3. **CI green**, read from the runs the PR actually triggered. **Updated 2026-09-29;
+   this replaces TD-86's caveat, which described the state before 2026-09-18.**
+   - `build` (the web job) is now a **required check** on `main`, alongside the three
+     backend checks (read from branch protection, 2026-09-28).
+   - Its **tests gate since 2026-09-18** and its **typecheck since 2026-09-24** (#736):
+     `continue-on-error` was removed from both.
+   - `next.config.js` no longer ignores type errors (`ignoreBuildErrors: false`). Lint is
+     still ignored during builds, because ESLint is not installed (ruling 2026-09-24).
+   - So a green `build` means the app **compiled, typechecked and passed its tests**.
 
 **The smoke is not among them.** A PR no longer waits on it.
 
