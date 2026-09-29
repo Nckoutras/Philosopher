@@ -1724,10 +1724,27 @@ Re-score rulings 1–4: queue after SAFETY-002 v0.6.0, in this order:
 **Where these landed (2026-09-29).**
 - **Lists v0.6.0-draft:** every item above applied. The checker passes 200 checks and 151
   backstop cores, and each rule was broken once to prove its cases fail.
-- **Production:** the B5 forms (58 + 33) are on `fix/input-lexicon-continuation-sweep`,
-  pushed at `0fa37b71`, revert-verified.
+- **Production:** the B5 forms (58 + 33) are **merged as #750** (2026-09-29, `cc714aae`),
+  revert-verified. P-04 smoke PASSED (OPS-023).
 - **Re-score status (2026-09-28, checked on main):** 5(α) DONE (#736); 4(α) PARTIAL (only the
   letter dispatch moved; six APScheduler jobs remain); 1(β), 2(α) and 3(α+β) NOT STARTED.
+
+**THE LEXICON IS FROZEN AT v0.6.x (founder rule, 2026-09-29, verbatim):**
+
+NEW RULE (founder, 2026-09-29): the lexicon FREEZES at v0.6.x. Enumeration
+cannot reach completeness ("πια", "πλέον", "δεν πάει άλλο", misspellings…).
+From now on, any newly found gap is NOT added to the lists; it goes into
+the SAFETY-005 semantic-recall test set, to be caught by that layer. Record
+this in SAFETY-002 and SAFETY-005. Order: lexicon freeze → judge →
+SAFETY-005.
+
+**What the freeze means in practice:**
+- **A newly found gap is NOT added to the lists or to the production lexicon.** It is
+  recorded as a case in the SAFETY-005 test set, to be caught by the semantic-recall layer.
+- **Order of work:** lexicon freeze → the SAFETY-002 judge → SAFETY-005.
+- **Why:** B5 was the proof. One second reader found two living cores missing a continuation;
+  the sweep they led to found 91 missing forms; and the space still is not closed
+  (misspellings, "δεν πάει άλλο"). Enumeration asymptotes. It does not complete.
 
 ---
 
@@ -1877,7 +1894,11 @@ surfaces never render empty either. Raw diff before push.
 
 ---
 
-### SAFETY-004 — crisis events on Council and You-vs-You are never saved — **OPEN, investigated**
+### SAFETY-004 — crisis events on Council and You-vs-You are never saved — **CLOSED (#749)**
+**Status: CLOSED. Fixed by #749 (merged 2026-09-29 07:39 UTC, `faa1eeb6`). P-04 smoke PASSED:
+the first `council_input` and `self_comparison_input` rows ever recorded (OPS-022). The
+original investigation record follows.**
+
 **Status: OPEN. Investigated 2026-09-28 (main `adc028c0`); nothing changed. Found by the OPS-020
 smoke: a crisis phrase on Council and on You-vs-You showed the crisis text and wrote ZERO
 `safety_events` rows.**
@@ -1990,6 +2011,26 @@ encode topic, not speaker or stance ("Camus on suicide" sits near a
 disclosure), so this layer may only feed the judge. Threshold must be
 calibrated on measured distributions; RETRIEVAL-001 showed this embedding
 space compresses scores (0.30–0.46) with no relevance gap.
+
+**The lexicon freeze makes this layer the home of every new gap (founder rule,
+2026-09-29, verbatim):**
+
+NEW RULE (founder, 2026-09-29): the lexicon FREEZES at v0.6.x. Enumeration
+cannot reach completeness ("πια", "πλέον", "δεν πάει άλλο", misspellings…).
+From now on, any newly found gap is NOT added to the lists; it goes into
+the SAFETY-005 semantic-recall test set, to be caught by that layer. Record
+this in SAFETY-002 and SAFETY-005. Order: lexicon freeze → judge →
+SAFETY-005.
+
+**THE TEST SET.** It starts as SAFETY-001's ten `level=none` prompts, per the ruling above.
+From 2026-09-29, every lexicon gap found after the freeze is added HERE as a case, never to
+the lists. Each case records:
+- the text;
+- where it was found;
+- today's measured lexicon result;
+- the expected routing (to the judge).
+
+**Order:** lexicon freeze → judge → SAFETY-005.
 
 ---
 
@@ -3630,6 +3671,42 @@ measure it is the Listening judge's criterion **(e)**, which does not exist yet.
 if this ships on wording alone, the honest position is that it is unmeasured in both
 directions — including the regression risk, which is that a persona now under-uses
 the profile and ignores a value it should hold.
+
+---
+
+### OPS-022 — SAFETY-004 (#749) P-04 smoke: PASSED — **CLOSED**
+**Status: CLOSED. PASSED (founder, 2026-09-29 ~07:58–07:59 UTC).**
+
+**Logged at close, not at merge.** Amended P-04 asks for an owed entry the moment a merge
+lands. #749 merged at 07:39 UTC and the smoke ran about twenty minutes later, the same
+morning, before one was written. Recorded here rather than back-dated.
+
+**What landed.** #749 squash-merged as `faa1eeb6`: the two explicit commits, the
+real-Postgres regression test (8 paths), the static guard, and the `auth.py` comment
+correction. Main's copies of all five files are byte-identical to the pushed `52d0abd1`.
+
+**Result (founder).**
+- **Council** and **You-vs-You** crisis inputs each showed the crisis text AND wrote a
+  `safety_events` row: `council_input` at 07:58:47 and `self_comparison_input` at 07:59:11
+  UTC. **These are the first such rows ever recorded.** The history query had shown zero
+  for either stage since #548 (2026-08-18).
+- Both rows were deleted after verification.
+
+---
+
+### OPS-023 — SAFETY-002 B5 (#750) P-04 smoke: PASSED — **CLOSED**
+**Status: CLOSED. PASSED (founder, 2026-09-29, by ~08:06 UTC).**
+
+**Logged at close, not at merge.** Same as OPS-022: #750 merged at 07:44 UTC and was smoked
+the same morning.
+
+**What landed.** #750 squash-merged as `cc714aae`: 91 forms at HIGH (58 continuation forms,
+plus the bare δε- "exist" core and the 32-form greeklish "exist" core), each pinned. Main's
+copies are byte-identical to the pushed `0fa37b71`.
+
+**Result (founder).** "den thelo na yparxo", a B5 form that scored `none` before, → `high`,
+with the **Greek** crisis text. One form suffices to prove the deploy; every form is pinned
+by its own test. The smoke rows were deleted and history kept.
 
 ---
 
