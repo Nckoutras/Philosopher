@@ -263,6 +263,12 @@ class SelfComparisonService:
         safety_in = await safety_service.check_input(prompt, user_id)
         if safety_in.should_log:
             await log_safety_event(db, user_id, safety_in, STAGE_SELF_COMPARISON_INPUT)
+            # SAFETY-004: committed HERE, before anything streams. This stream runs on
+            # the request's get_db session, whose teardown (commit, then close) has
+            # ALREADY run by now (FastAPI 0.115, measured) — a flushed row that is not
+            # committed by the stream itself is silently lost. From #548 until this fix
+            # every crisis disclosure here was answered and never recorded.
+            await db.commit()
         if safety_in.should_suppress_persona:
             # Built BEFORE the event, which carries it whole (SAFETY-003).
             safe = prompt_builder.build_safety_response(
