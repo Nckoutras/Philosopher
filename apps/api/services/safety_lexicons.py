@@ -214,6 +214,9 @@ RISK_HIGH_GR = [
     "κουραστηκα αλλο να ζω",
     # core 'βαρεθηκα να ζω' — I'm sick of living
     "βαρεθηκα αλλο να ζω",
+    # 2026-09-28 (B5 addition, founder ruling): the bare δε- form of the 'exist' core,
+    # which the lexicon held only as 'δεν θελω να υπαρχω'. Returned NONE.
+    "δε θελω να υπαρχω",
     "να σκοτωσω τον εαυτο μου",    # to kill myself (literal)
     "να τα τελειωσω ολα",          # to end it all
     "μακαρι να ημουν νεκροσ",      # I wish I were dead (m.)
@@ -341,6 +344,19 @@ RISK_HIGH_GL = [
     "vare8ika pleon na zo", "vare8ika allo na zo",
     # core 'barethika na zo'
     "barethika pleon na zo", "barethika allo na zo",
+    # 2026-09-28 (B5 addition): the whole greeklish 'exist' core, absent until now —
+    # den/de x thelo/thelw, spellings paired by family (o with o, w with w), plus the
+    # pia/pleon/allo continuations. Every form returned NONE.
+    "den thelo na yparxo", "den thelo na iparxo", "den thelw na yparxw", "den thelw na iparxw",
+    "de thelo na yparxo", "de thelo na iparxo", "de thelw na yparxw", "de thelw na iparxw",
+    "den thelo pia na yparxo", "den thelo pleon na yparxo", "den thelo allo na yparxo",
+    "den thelo pia na iparxo", "den thelo pleon na iparxo", "den thelo allo na iparxo",
+    "den thelw pia na yparxw", "den thelw pleon na yparxw", "den thelw allo na yparxw",
+    "den thelw pia na iparxw", "den thelw pleon na iparxw", "den thelw allo na iparxw",
+    "de thelo pia na yparxo", "de thelo pleon na yparxo", "de thelo allo na yparxo",
+    "de thelo pia na iparxo", "de thelo pleon na iparxo", "de thelo allo na iparxo",
+    "de thelw pia na yparxw", "de thelw pleon na yparxw", "de thelw allo na yparxw",
+    "de thelw pia na iparxw", "de thelw pleon na iparxw", "de thelw allo na iparxw",
     "na dwsw telos sti zoi mou", "na doso telos sti zoi mou",
     "teleiono ti zoi mou", "teleiwnw ti zwi mou",
     "tha teleioso ti zoi mou", "vazo telos sti zoi mou",   # added 2026-09-09
