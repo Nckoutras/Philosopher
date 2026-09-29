@@ -1,0 +1,2078 @@
+{
+  "_meta": {
+    "version": "0.6.1",
+    "status": "FROZEN at v0.6.1 (founder, 2026-09-29). No further list changes. A newly found gap goes into the SAFETY-005 semantic-recall test set, never into these lists. Order: judge -> SAFETY-005. The production lexicon is unchanged by v0.6.x demotions: demotion exists only once the judge ships.",
+    "purpose": "SAFETY-002 Tier A / Tier B split of the INPUT lexicon (founder ruling 2026-09-25). Source: RISK_HIGH / RISK_MEDIUM in services/safety_lexicons.py as they stand on fix/input-lexicon-boundaries (85cdae6f), English + Greek + greeklish. The OUTPUT list is out of scope (it is not judged). LOW_SIGNALS are out of scope (they only log).",
+    "tier_a_rule": "Tier A = first-person subject + ideation / intent / method. Defined by PERSON, not vocabulary. NEVER judged: always the crisis response, no negation or hyperbole exceptions in v1. Every Tier A hit is logged so the false-positive rate can be measured.",
+    "tier_b_rule": "Tier B = topic words and distress wording without a first-person ideation subject. Default verdict = the entry's CURRENT lexicon level (HIGH stays HIGH, MEDIUM stays MEDIUM) — ruling Q1, which amends ruling C. The judge may only RELEASE downward from that level (to DISCUSSING or DISTRESS WITHOUT INTENT), never raise it. Timeout, error or unparseable reply: the current lexicon level stands. AMENDED by R8: an affirmative INTENT verdict maps ANY starting level to the crisis response. Timeout, error or an unparseable reply NEVER escalates: the lexicon level stands (Q1).",
+    "english_subject_rule": "B2 (founder, 2026-09-28), REPLACING the R2 break-token list. An English Tier A term marked [subject] binds only when a first-person subject token (tokens.subject) is followed, up to the core, ONLY by tokens on the ALLOW-LIST (tokens.subject_allow_B2). Any other token breaks the bind, and the bare Tier B backstop (R3) answers. There is no word window: the allow-list alone decides. 'not' is on the list so every negation stays Tier A, as ruling B requires ('I'm not suicidal, just tired' -> A). \"'m\" and \"'ve\" were dropped: contractions are single tokens here (\"i'm\" and \"i've\" are subject tokens), so those entries could never match (the unmatchable-entry class removed in UAT2-004). Tokens are words with surrounding quote marks stripped; R10 still holds (the demotion scan keeps the apostrophe of σ').",
+    "greek_person_rule": "Greek marks the person on the verb (θέλω, αυτοκτονήσω, κουράστηκα) or with μου / εμένα / τον εαυτό μου, so Greek Tier A entries are fixed phrases; no subject rule is needed. Greeklish follows the Greek classification entry for entry.",
+    "boundary_rule": "Every term is matched with (?<!\\w) ... (?!\\w) on the normalised text (casefold, accents stripped, final sigma folded, curly apostrophes folded to '), as the input PR does.",
+    "judge_timeout_proposal": "APPROVED 2026-09-25: 2.5 s as a starting number; measure the real p95 during the build and adjust in the same PR if needed. On timeout or error the entry's current lexicon level stands (Q1).",
+    "fields": {
+      "tier": "A or B",
+      "current_level": "the band the entry has today on the input PR: HIGH or MEDIUM",
+      "status": "existing | input_pr (added by fix/input-lexicon-boundaries) | ruling (named in the 2026-09-25 ruling) | proposed (NEW, needs your ruling) | reclassified (changes band, flagged)",
+      "hit": "text the entry matches",
+      "miss": "text the entry must NOT match",
+      "demotable_terms": "Tier A terms subject to R1 demotion (a subset of terms).",
+      "backstop_for": "Tier B only: the Tier A entries whose bare cores this entry carries (R3).",
+      "cases": "{text, expected}; expected is the FINAL classification of the whole message: 'A', 'B:HIGH', 'B:MEDIUM' or 'none'. Annotations after the level are notes for the judge prompt. judge_expected (optional): the verdict the judge is expected to return; for the judge's own test set, not checked by the lexicon checker."
+    },
+    "rulings_applied_2026_09_25": [
+      "Subject rule APPROVED.",
+      "Timeout 2.5 s APPROVED as a starting number.",
+      "Q1: Tier B default = current lexicon level; judge releases downward only; fail-closed = no worse than today.",
+      "Q2: hurt myself / hurting myself / κόβομαι -> Tier B (B_EN_03, B_GR_02). harming myself, cutting myself, χαράζομαι -> Tier A (A_EN_12, A_GR_07).",
+      "Q3: tired of existing / exhausted with living / tired of living / κουράστηκα να ζω / βαρέθηκα να ζω -> Tier A (A_EN_13, A_GR_09, A_GL_02). Upgrade from MEDIUM intended.",
+      "Q4: καλύτερα νεκρός / νεκρή -> Tier B (B_GR_03). better off dead stays Tier A (A_EN_08).",
+      "Q5: ADDED as Tier A: να βάλω / θα βάλω τέλος στη ζωή μου (A_GR_03), καλύτερα να μην υπήρχα (A_GR_05). Status 'ruling_q5'.",
+      "Q6: bare planning to end / goodbye forever / can't keep living / no reason to live -> Tier B with default HIGH (B_EN_05).",
+      "Level changes APPROVED: better off without me family -> Tier A (A_EN_08, A_GR_06, A_GL_02).",
+      "Greeklish parallels of Q5 ADDED to A_GL_01 (founder, 2026-09-25): na valo / na valw / tha valo / tha valw telos sti zoi mou; kalytera na min ypirxa, kalitera na min ipirxa, kalytera na mhn yphrxa. Same normalisation as the existing greeklish entries (lowercase ASCII, o/w and y/i/h spelling variants).",
+      "Review-pack rulings R1-R5 applied (v0.4.0): demotion not exemption; subject-rule break tokens; bare-form backstop invariant; JSON-generated tests as the freeze gate; transition table.",
+      "v0.4.0 flags 1-5 APPROVED (founder, 2026-09-25): living-core demotion scope; bare tired-of-living backstop at HIGH; σ' as a Greek locative; MEDIUM+intent stays MEDIUM with the full verdict always logged; past tense out of scope and pinned as known gaps. Greeklish spelling fold REJECTED for now (TD-112).",
+      "Second-reader rulings R6-R10 applied (v0.5.0): continuation-then-locative demotion; εδω/εκει as locatives (αλλου, με logged as candidates); INTENT escalates from any level, a missing verdict never does; minimal first-person past-tense set at Tier B HIGH; the demotion scan keeps Greek contraction apostrophes.",
+      "v0.5.x rulings (founder, 2026-09-25): flag 1 APPROVED (the 18 mid-core continuation forms stay Tier A, and go into the input lexicon at HIGH now); English locatives gain here/there, live/living cores only; punctuation rule APPROVED.",
+      "SAFETY-002 B5 (founder, 2026-09-28): the mid-core continuation sweep over every living core — 58 forms (20 Greek, 38 greeklish) added as Tier A (demotable, R3 backstops) and, separately, to the production input lexicon at HIGH on fix/input-lexicon-continuation-sweep.",
+      "v0.6.0 (founder, 2026-09-28): B1 bare 'take/taking my life' -> Tier B HIGH ('take my own life' stays A); B2 allow-list replaces the break list, no window, 'not' keeps negation at A, \"'m\"/\"'ve\" dropped; B3 'ending it' demotes on 'with' only ('ending it all' stays A); B4 'να τα τελειώσω όλα' stays A, accepted false positive recorded, time words never demote; B5 continuation sweep + bare δε- exist core + greeklish exist core; here/there pinned to living cores; the 7 second-reader counterexamples as cases.",
+      "v0.6.1 (native Greek review, founder 2026-09-29): 8 hyperbole items pinned at A as accepted false alarms (no list change, ruling B); 'με'/'me' demote the living/existing cores, 'χωρίς' does not; 'θέλω να τελειώσουν όλα' + article (τα/τις/οι/τους/των) demotes to B:HIGH, with its R3 backstop added.",
+      "v0.6.1 final (founder 2026-09-29): the fifth 'με' case; B1 first-person — 7 intent terms + bare [subject] take my life, demoting on savings/back/in, \"i'll\" as a subject token. Then FROZEN."
+    ],
+    "open_items": [
+      "None. FROZEN."
+    ],
+    "demotion_rule_R1": "R1 as amended by R6, R7 and R10. A demotable Tier A term, then OPTIONAL continuation tokens (tokens.continuation_R6), then a locative (tokens.locative_R1_R7) -> the match DEMOTES to Tier B at default HIGH, never to none. A core with or without continuations and NO locative stays Tier A. A continuation between the parts of a core is covered by enumerated demotable terms ('δεν θελω πια να ζω'); a continuation after the core is skipped by the scan. The scan reads whitespace-separated tokens after the match and strips trailing . , ; : ! ? \" from each; a token that carried such punctuation ends the scan, so 'Δεν θέλω να ζω, στο...' stays Tier A. R10: the scan must NOT strip an apostrophe; after the apostrophe fold, 'σ' αυτόν' and 'σ’ αυτόν' both yield the locative σ'. Quote stripping belongs to the English subject-rule tokenizer only. English locatives gain here and there (founder, 2026-09-25), for the demotable live/living cores only (the Call 1 scope): 'I don't want to be here anymore' is a different core and is never demoted. The punctuation rule above is APPROVED as written.",
+    "judge_prompt_invariant_R1": "First-person existential ideation with a locative object (\"να ζω σ' αυτόν τον κόσμο\", \"live in this world/this life\") is NEVER released. This covers existential 'εδώ' (R7).",
+    "backstop_invariant_R3": "Every Tier A term governed by the subject rule (R2) or by demotion (R1) also exists BARE in Tier B at default HIGH, so a failed bind or a demotion degrades to today's behaviour, never to no match. Checked mechanically for every such term in v0.4.0. Tier B entries that carry it are marked backstop_for.",
+    "test_requirements_R4": "BUILD REQUIREMENT. Every hit, miss and cases item in this file becomes a parametrised test GENERATED FROM THIS JSON, plus adversarial variants: subject switching, locatives, quotation, tense, greeklish spellings. The lexicon does not freeze until they pass 100%. hit = the entry matches (for Tier A: binds and is not demoted). miss = the entry does not match; another entry or the backstop may still catch the text. cases = the FINAL classification of the whole message.",
+    "transition_table_R5": {
+      "_note": "R5, amended by R8. Code and tests read this table. The starting level comes from the lexicon. The judge may RELEASE downward, and may ESCALATE only on an affirmative INTENT verdict. A missing verdict (timeout, error, unparseable) never escalates and never releases: the starting level stands. Every verdict is logged.",
+      "responses": {
+        "CRISIS": "today's HIGH response: persona suppressed, app-voice crisis response in the person's language",
+        "MEDIUM": "today's MEDIUM response: persona suppressed, support signpost",
+        "DISTRESS": "NEW: the persona answers gently, under its guards, and support is mentioned",
+        "DISCUSSING": "the persona answers normally, under its guards; no crisis or support response"
+      },
+      "rows": [
+        {
+          "start": "no lexicon hit",
+          "judge": "not called",
+          "response": "normal persona reply"
+        },
+        {
+          "start": "Tier A",
+          "judge": "not called, never judged",
+          "response": "CRISIS; every hit is logged as tier_a"
+        },
+        {
+          "start": "Tier B at HIGH (incl. R1 demotions, R3 backstop and R9 past-tense matches)",
+          "judge": "called, 2.5 s hard timeout",
+          "response_by_verdict": {
+            "INTENT": "CRISIS",
+            "DISTRESS_WITHOUT_INTENT": "DISTRESS",
+            "DISCUSSING": "DISCUSSING",
+            "timeout / error / unparseable": "CRISIS (level stands)"
+          },
+          "constraint": "judge_prompt_invariant_R1: first-person existential ideation with a locative object is never released"
+        },
+        {
+          "start": "Tier B at MEDIUM",
+          "judge": "called, 2.5 s hard timeout",
+          "response_by_verdict": {
+            "INTENT": "CRISIS (R8 escalation)",
+            "DISTRESS_WITHOUT_INTENT": "DISTRESS",
+            "DISCUSSING": "DISCUSSING",
+            "timeout / error / unparseable": "MEDIUM (level stands; never escalates)"
+          }
+        }
+      ]
+    },
+    "judge_verdict_logging": "The judge's FULL verdict is ALWAYS logged, whatever response it maps to (founder, 2026-09-25). Since R8, an INTENT verdict on a MEDIUM start escalates to CRISIS; the logging makes those escalations countable.",
+    "known_gaps": {
+      "_note": "Past tense beyond R9's minimal set stays OUT of scope (founder, 2026-09-25). Pinned as known-gap tests next to the SAFETY-001 ten in tests/test_safety_detection_gaps.py, asserting today's no-match behaviour. When one goes red, flip it deliberately.",
+      "past_tense_covered_by_R9": [
+        "I wanted to die",
+        "ήθελα να πεθάνω"
+      ],
+      "past_tense_still_gaps": [
+        {
+          "text": "I didn't want to live anymore",
+          "today": "none"
+        },
+        {
+          "text": "I wished I were dead",
+          "today": "none"
+        },
+        {
+          "text": "δεν ήθελα πια να ζω",
+          "today": "none"
+        }
+      ],
+      "accepted_false_positives": [
+        {
+          "text": "Έχω δέκα πράγματα να κάνω και θέλω να τα τελειώσω όλα σήμερα.",
+          "tier": "A",
+          "ruling": "B4 (founder native reading, 2026-09-28): 'να τα τελειώσω όλα' reads first as suicidal/self-destructive; the task reading is an accepted cost. Time words never demote ('…όλα απόψε' is MORE alarming: timing = plan)."
+        },
+        {
+          "kind": "hyperbole / idiom (8 of the review's 9; the ninth was not in the brief)",
+          "ruling": "Native Greek review (14 items), founder 2026-09-29: NO CHANGE, per ruling B — Tier A is never judged and has no hyperbole exception in v1. Each is pinned at A as an accepted false alarm.",
+          "texts": [
+            "Θέλω να πεθάνω από τη ντροπή.",
+            "Είμαι έτοιμος να πεθάνω από την πείνα.",
+            "Αν έχω άλλη μία σύσκεψη σήμερα, θα αυτοκτονήσω.",
+            "Παραλίγο να σκοτώσω τον εαυτό μου στις σκάλες.",
+            "Η σύσκεψη θα ήταν καλύτερα χωρίς εμένα.",
+            "Δεν θέλω να κάνω κακό στον εαυτό μου τρώγοντας τόση ζάχαρη.",
+            "Δουλεύοντας 14 ώρες τη μέρα, βλάπτω τον εαυτό μου.",
+            "thelo na pethano apo ti ntropi"
+          ]
+        }
+      ]
+    },
+    "greeklish_spelling": "Enumerated spellings remain the approach. A greeklish spelling fold (8->th, w->o, ...) is REJECTED for now: it needs its own matching pass to avoid corrupting English text. Logged as TD-112.",
+    "tokens": {
+      "_note": "All normalised (casefold, accents stripped, final sigma folded). Multi-word entries match as word sequences.",
+      "subject": [
+        "i",
+        "i'm",
+        "im",
+        "i am",
+        "i've",
+        "ive",
+        "i have",
+        "i keep",
+        "i just",
+        "i'll"
+      ],
+      "continuation_R6": {
+        "el": [
+          "πια",
+          "αλλο",
+          "πλεον"
+        ],
+        "greeklish": [
+          "pia",
+          "allo",
+          "pleon"
+        ],
+        "en": [
+          "anymore",
+          "any longer"
+        ]
+      },
+      "locative_R1_R7": {
+        "el": [
+          "σε",
+          "σ'",
+          "στο",
+          "στη",
+          "στην",
+          "στον",
+          "στισ",
+          "στα",
+          "στουσ",
+          "εδω",
+          "εκει",
+          "με"
+        ],
+        "greeklish": [
+          "se",
+          "s'",
+          "sto",
+          "sti",
+          "stin",
+          "ston",
+          "stis",
+          "sta",
+          "stous",
+          "edo",
+          "edw",
+          "ekei",
+          "me"
+        ],
+        "en": [
+          "in",
+          "at",
+          "near",
+          "with",
+          "here",
+          "there"
+        ]
+      },
+      "locative_candidates_not_added": {
+        "el": {
+          "terms": [
+            "αλλου",
+            "με"
+          ],
+          "by": "founder, R7: logged as candidates, NOT added"
+        }
+      },
+      "subject_allow_B2": [
+        "really",
+        "just",
+        "honestly",
+        "actually",
+        "genuinely",
+        "seriously",
+        "literally",
+        "sometimes",
+        "still",
+        "kind of",
+        "sort of",
+        "am",
+        "do",
+        "don't",
+        "have",
+        "been",
+        "feel",
+        "felt",
+        "keep",
+        "get",
+        "getting",
+        "feeling",
+        "so",
+        "not"
+      ],
+      "_note_me": "v0.6.1 (native review, founder 2026-09-29): 'με' / 'me' added to the demotion tokens. They act ONLY on demotable_terms, which are exactly the living/existing cores (ζω, υπάρχω and every core built on them, continuation forms included). 'χωρίς' is deliberately NOT a demotion token: 'Δεν θέλω να ζω χωρίς αυτήν' stays A.",
+      "_note_ill": "v0.6.1 (B1, founder 2026-09-29): \"i'll\" added as a subject token. It is GLOBAL: every subject-rule core now binds after \"I'll\" (e.g. \"I'll want to die if this happens\" -> A, consistent with ruling B's no-hypothetical-exception rule)."
+    },
+    "judge_verdicts_R8": {
+      "INTENT": "says they intend to act, are planning, or asks for a method; now or imminently",
+      "DISTRESS_WITHOUT_INTENT": "suffering and saying so, with no plan and no intent to act",
+      "DISCUSSING": "thinking about death, meaning, loss or futility, their own or in the abstract, incl. recovery narratives"
+    },
+    "freeze_rule_2026_09_29": "NEW RULE (founder, 2026-09-29): the lexicon FREEZES at v0.6.x. Enumeration cannot reach completeness (\"πια\", \"πλέον\", \"δεν πάει άλλο\", misspellings…). From now on, any newly found gap is NOT added to the lists; it goes into the SAFETY-005 semantic-recall test set, to be caught by that layer. Order: lexicon freeze → judge → SAFETY-005."
+  },
+  "tier_a": {
+    "en": [
+      {
+        "id": "A_EN_01_kill_myself",
+        "status": "existing",
+        "current_level": "HIGH",
+        "terms": [
+          "kill myself",
+          "killing myself",
+          "want to kill myself"
+        ],
+        "hit": "I keep thinking about killing myself.",
+        "miss": "Cato chose to kill himself rather than live under Caesar.",
+        "cases": [
+          {
+            "text": "When I was fifteen I wanted to kill myself.",
+            "expected": "A"
+          },
+          {
+            "text": "He said, 'I will kill myself.'",
+            "expected": "A"
+          },
+          {
+            "text": "I didn't want to live anymore",
+            "expected": "none",
+            "note": "known gap (past tense), pinned"
+          },
+          {
+            "text": "I wished I were dead",
+            "expected": "none",
+            "note": "known gap (past tense), pinned"
+          },
+          {
+            "text": "δεν ήθελα πια να ζω",
+            "expected": "none",
+            "note": "known gap (past tense), pinned"
+          },
+          {
+            "text": "I want to kill myself there.",
+            "expected": "A",
+            "note": "here/there demote ONLY live/living cores"
+          }
+        ]
+      },
+      {
+        "id": "A_EN_02_end_my_life",
+        "status": "existing + input_pr; B1 (2026-09-28): bare 'take/taking my life' moved to Tier B (B_EN_12); B1 first-person (2026-09-29): 7 intent terms + bare [subject] take my life, each demoting on savings / back / in (B3 mechanism); unlisted continuations stay A",
+        "current_level": "HIGH",
+        "terms": [
+          "end my life",
+          "ending my life",
+          "take my own life",
+          "taking my own life",
+          "[subject] going to take my life",
+          "[subject] gonna take my life",
+          "[subject] want to take my life",
+          "[subject] wanna take my life",
+          "[subject] will take my life",
+          "[subject] thinking about taking my life",
+          "[subject] planning to take my life",
+          "[subject] take my life"
+        ],
+        "hit": "I want to take my own life.",
+        "miss": "Seneca took his own life when ordered to.",
+        "cases": [
+          {
+            "text": "I want to take my own life.",
+            "expected": "A",
+            "note": "B1: 'take my own life' stays Tier A"
+          },
+          {
+            "text": "I'll take my life",
+            "expected": "A",
+            "note": "B1"
+          },
+          {
+            "text": "I'll take my life back",
+            "expected": "B:HIGH",
+            "note": "B1: 'back' demotes"
+          },
+          {
+            "text": "I'm going to take my life tonight",
+            "expected": "A",
+            "note": "B1"
+          },
+          {
+            "text": "I'm going to take my life savings to Vegas",
+            "expected": "B:HIGH",
+            "note": "B1: 'savings' demotes"
+          },
+          {
+            "text": "I want to take my life in a new direction",
+            "expected": "B:HIGH",
+            "note": "B1: 'in' demotes"
+          },
+          {
+            "text": "I'm going to take my life apart",
+            "expected": "A",
+            "note": "B1: unlisted continuation stays A (accepted)"
+          },
+          {
+            "text": "I take my life seriously.",
+            "expected": "A",
+            "note": "B1 consequence: unlisted continuation stays A (accepted, same class)"
+          }
+        ],
+        "demote_on": {
+          "[subject] going to take my life": [
+            "savings",
+            "back",
+            "in"
+          ],
+          "[subject] gonna take my life": [
+            "savings",
+            "back",
+            "in"
+          ],
+          "[subject] want to take my life": [
+            "savings",
+            "back",
+            "in"
+          ],
+          "[subject] wanna take my life": [
+            "savings",
+            "back",
+            "in"
+          ],
+          "[subject] will take my life": [
+            "savings",
+            "back",
+            "in"
+          ],
+          "[subject] thinking about taking my life": [
+            "savings",
+            "back",
+            "in"
+          ],
+          "[subject] planning to take my life": [
+            "savings",
+            "back",
+            "in"
+          ],
+          "[subject] take my life": [
+            "savings",
+            "back",
+            "in"
+          ]
+        }
+      },
+      {
+        "id": "A_EN_03_want_to_die",
+        "status": "ruling (subject rule)",
+        "current_level": "HIGH",
+        "terms": [
+          "[subject] want to die",
+          "[subject] wanna die"
+        ],
+        "hit": "I really want to die.",
+        "miss": "Nobody in the play wants to die, which is the joke.",
+        "cases": [
+          {
+            "text": "I really want to die.",
+            "expected": "A"
+          },
+          {
+            "text": "I know you want to die.",
+            "expected": "B:HIGH"
+          },
+          {
+            "text": "I think they want to die for the cause.",
+            "expected": "B:HIGH"
+          },
+          {
+            "text": "I told him no one wants to die alone.",
+            "expected": "none"
+          },
+          {
+            "text": "Achilles said, 'I want to die with glory.'",
+            "expected": "A"
+          },
+          {
+            "text": "I wanna die.",
+            "expected": "A"
+          },
+          {
+            "text": "You wanna die on that hill?",
+            "expected": "B:HIGH"
+          },
+          {
+            "text": "'I want to die'",
+            "expected": "A"
+          },
+          {
+            "text": "I think soldiers want to die for glory.",
+            "expected": "B:HIGH",
+            "note": "second-reader counterexample 2 (B2)"
+          },
+          {
+            "text": "I do not want to die.",
+            "expected": "A",
+            "note": "B2: 'not' keeps negation at A (ruling B)"
+          },
+          {
+            "text": "I don't want to die.",
+            "expected": "A",
+            "note": "B2: negation stays A (ruling B)"
+          },
+          {
+            "text": "I want to die here.",
+            "expected": "A",
+            "note": "here/there demote ONLY live/living cores"
+          },
+          {
+            "text": "I'll want to die if this happens",
+            "expected": "A",
+            "note": "B1 consequence: \"i'll\" is a global subject token (ruling B: no hypothetical exception)"
+          }
+        ]
+      },
+      {
+        "id": "A_EN_04_ready_to_die",
+        "status": "ruling",
+        "current_level": "HIGH",
+        "terms": [
+          "i'm ready to die",
+          "im ready to die",
+          "i am ready to die"
+        ],
+        "hit": "I'm ready to die.",
+        "miss": "A warrior must be ready to die."
+      },
+      {
+        "id": "A_EN_05_not_want_to_live",
+        "status": "existing + input_pr (subject rule)",
+        "current_level": "HIGH",
+        "terms": [
+          "[subject] don't want to live",
+          "[subject] dont want to live",
+          "[subject] do not want to live",
+          "[subject] don't want to be alive",
+          "[subject] no reason to live",
+          "[subject] can't keep living"
+        ],
+        "hit": "I honestly don't want to live anymore.",
+        "miss": "They don't want to live in the provinces.",
+        "demotable_terms": [
+          "[subject] don't want to live",
+          "[subject] dont want to live",
+          "[subject] do not want to live",
+          "[subject] don't want to be alive",
+          "[subject] no reason to live",
+          "[subject] can't keep living"
+        ],
+        "cases": [
+          {
+            "text": "I honestly don't want to live anymore.",
+            "expected": "A"
+          },
+          {
+            "text": "I don't want to live any longer.",
+            "expected": "A"
+          },
+          {
+            "text": "I don't want to live.",
+            "expected": "A"
+          },
+          {
+            "text": "I don't want to live in this city.",
+            "expected": "B:HIGH"
+          },
+          {
+            "text": "I don't want to live with this pain.",
+            "expected": "B:HIGH"
+          },
+          {
+            "text": "I don't want to live in this world.",
+            "expected": "B:HIGH (judge_prompt_invariant_R1: never released)"
+          },
+          {
+            "text": "They don't want to live in the provinces.",
+            "expected": "B:HIGH"
+          },
+          {
+            "text": "I know you don't want to live like this.",
+            "expected": "B:HIGH"
+          },
+          {
+            "text": "I don't want to live anymore in this city.",
+            "expected": "B:HIGH"
+          },
+          {
+            "text": "I don't want to live any longer in this house.",
+            "expected": "B:HIGH"
+          },
+          {
+            "text": "I don't want to live here anymore.",
+            "expected": "B:HIGH"
+          },
+          {
+            "text": "I don't want to live there.",
+            "expected": "B:HIGH"
+          },
+          {
+            "text": "I don't want to live here.",
+            "expected": "B:HIGH",
+            "note": "here/there on a living core: demotes"
+          }
+        ]
+      },
+      {
+        "id": "A_EN_06_not_be_here",
+        "status": "ruling",
+        "current_level": "(none today)",
+        "terms": [
+          "i don't want to be here anymore",
+          "i dont want to be here anymore",
+          "i do not want to be here anymore"
+        ],
+        "hit": "I don't want to be here anymore.",
+        "miss": "I don't want to be here when the builders arrive.",
+        "cases": [
+          {
+            "text": "I don't want to be here anymore.",
+            "expected": "A",
+            "note": "different core; never demoted"
+          }
+        ]
+      },
+      {
+        "id": "A_EN_07_wish_dead",
+        "status": "existing + input_pr + ruling",
+        "current_level": "HIGH",
+        "terms": [
+          "wish i was dead",
+          "wish i were dead",
+          "wish i wasn't alive",
+          "wish i wasnt alive",
+          "wish i weren't alive"
+        ],
+        "hit": "Some days I wish I wasn't alive.",
+        "miss": "I wish I was there when she died."
+      },
+      {
+        "id": "A_EN_08_better_off",
+        "status": "existing + ruling; RECLASSIFIED 'without me' forms MEDIUM -> Tier A — APPROVED",
+        "current_level": "HIGH / MEDIUM",
+        "terms": [
+          "better off dead",
+          "better off without me",
+          "everyone would be better without me",
+          "world would be better without me"
+        ],
+        "hit": "Everyone would be better off without me.",
+        "miss": "She's better off without him."
+      },
+      {
+        "id": "A_EN_09_suicidal",
+        "status": "input_pr, narrowed to first person",
+        "current_level": "HIGH",
+        "terms": [
+          "[subject] suicidal",
+          "i feel suicidal",
+          "i'm suicidal",
+          "im suicidal",
+          "i am suicidal",
+          "[subject] having suicidal thoughts",
+          "my suicidal thoughts",
+          "[subject] thinking about suicide",
+          "[subject] thinking of suicide",
+          "[subject] considering suicide"
+        ],
+        "hit": "I've been thinking about suicide.",
+        "miss": "Hamlet's soliloquy is often read as suicidal.",
+        "cases": [
+          {
+            "text": "I feel suicidal.",
+            "expected": "A"
+          },
+          {
+            "text": "I've been thinking about suicide.",
+            "expected": "A"
+          },
+          {
+            "text": "Hamlet's soliloquy is often read as suicidal.",
+            "expected": "B:HIGH"
+          },
+          {
+            "text": "What did Seneca think about suicide?",
+            "expected": "B:HIGH"
+          },
+          {
+            "text": "I wrote a suicidal character.",
+            "expected": "B:HIGH",
+            "note": "second-reader counterexample 3 (B2)"
+          },
+          {
+            "text": "I've been feeling suicidal.",
+            "expected": "A",
+            "note": "B2 required case"
+          },
+          {
+            "text": "I'm not suicidal, just tired.",
+            "expected": "A",
+            "note": "B2: 'not' keeps negation at A (ruling B)"
+          }
+        ]
+      },
+      {
+        "id": "A_EN_10_ending_it",
+        "status": "input_pr (subject rule)",
+        "current_level": "HIGH",
+        "terms": [
+          "[subject] thinking about ending it",
+          "[subject] want to end it all",
+          "[subject] going to end it all"
+        ],
+        "hit": "I keep thinking about ending it.",
+        "miss": "Is it cowardly to end it all, as the Stoics sometimes argued?",
+        "demote_on": {
+          "[subject] thinking about ending it": [
+            "with"
+          ]
+        },
+        "cases": [
+          {
+            "text": "I'm thinking about ending it with him.",
+            "expected": "B:HIGH",
+            "note": "second-reader counterexample 4 (B3)"
+          },
+          {
+            "text": "I'm thinking about ending it all.",
+            "expected": "A",
+            "note": "B3: 'ending it all' stays A"
+          },
+          {
+            "text": "I'm thinking about ending it all with pills.",
+            "expected": "A",
+            "note": "B3: 'all' first, so no demotion"
+          },
+          {
+            "text": "I'm thinking about ending it here.",
+            "expected": "A",
+            "note": "B3 demotes on 'with' ONLY, never on a locative"
+          }
+        ]
+      },
+      {
+        "id": "A_EN_11_overdose_first_person",
+        "status": "ruling",
+        "current_level": "(none today, or HIGH via bare 'overdose')",
+        "terms": [
+          "[subject] going to overdose",
+          "i took too many pills",
+          "i've taken too many pills",
+          "i overdosed",
+          "i've overdosed",
+          "i'm overdosing"
+        ],
+        "hit": "I took too many pills.",
+        "miss": "My father's overdose still shapes how I see addiction."
+      },
+      {
+        "id": "A_EN_12_self_harm_first_person",
+        "status": "existing + input_pr",
+        "current_level": "HIGH",
+        "terms": [
+          "cutting myself",
+          "harming myself",
+          "i self harm",
+          "i self-harm",
+          "[subject] self harming",
+          "[subject] self-harming"
+        ],
+        "hit": "I've been harming myself again.",
+        "miss": "Is self-harm ever discussed by the Stoics?"
+      },
+      {
+        "id": "A_EN_13_tired_of_living",
+        "status": "RECLASSIFIED to Tier A (MEDIUM today) — ruling Q3",
+        "current_level": "MEDIUM",
+        "terms": [
+          "[subject] tired of existing",
+          "[subject] exhausted with living",
+          "[subject] tired of living"
+        ],
+        "hit": "I'm so tired of existing.",
+        "miss": "Rome was tired of existing under Nero's whims.",
+        "demotable_terms": [
+          "[subject] tired of existing",
+          "[subject] exhausted with living",
+          "[subject] tired of living"
+        ],
+        "cases": [
+          {
+            "text": "I'm so tired of existing.",
+            "expected": "A"
+          },
+          {
+            "text": "I'm tired of living in London.",
+            "expected": "B:HIGH"
+          },
+          {
+            "text": "I'm tired of living in this life.",
+            "expected": "B:HIGH (judge_prompt_invariant_R1: never released)"
+          },
+          {
+            "text": "Rome was tired of existing under Nero's whims.",
+            "expected": "B:HIGH"
+          },
+          {
+            "text": "I'm tired of living here.",
+            "expected": "B:HIGH"
+          }
+        ]
+      }
+    ],
+    "gr": [
+      {
+        "id": "A_GR_01_want_to_die",
+        "status": "existing",
+        "current_level": "HIGH",
+        "terms": [
+          "θελω να πεθανω",
+          "καλυτερα να πεθανω",
+          "ειμαι ετοιμοσ να πεθανω",
+          "ειμαι ετοιμη να πεθανω"
+        ],
+        "hit": "Θέλω να πεθάνω.",
+        "miss": "Ο ήρωας δεν θέλει να πεθάνει ακόμα.",
+        "cases": [
+          {
+            "text": "Θέλω να πεθάνω από τη ντροπή.",
+            "expected": "A",
+            "note": "accepted false alarm (hyperbole/idiom) — native Greek review, founder ruling 2026-09-29, per ruling B"
+          },
+          {
+            "text": "Είμαι έτοιμος να πεθάνω από την πείνα.",
+            "expected": "A",
+            "note": "accepted false alarm (hyperbole/idiom) — native Greek review, founder ruling 2026-09-29, per ruling B"
+          }
+        ]
+      },
+      {
+        "id": "A_GR_02_kill_myself",
+        "status": "existing + input_pr",
+        "current_level": "HIGH",
+        "terms": [
+          "θελω να αυτοκτονησω",
+          "θα αυτοκτονησω",
+          "να αυτοκτονησω",
+          "σκεφτομαι να αυτοκτονησω",
+          "αυτοκτονω",
+          "να σκοτωσω τον εαυτο μου"
+        ],
+        "hit": "Σκέφτομαι να αυτοκτονήσω.",
+        "miss": "Ο Κάτων αυτοκτόνησε για την ελευθερία.",
+        "cases": [
+          {
+            "text": "Αν έχω άλλη μία σύσκεψη σήμερα, θα αυτοκτονήσω.",
+            "expected": "A",
+            "note": "accepted false alarm (hyperbole/idiom) — native Greek review, founder ruling 2026-09-29, per ruling B (sentence reconstructed from the review's fragment)"
+          },
+          {
+            "text": "Παραλίγο να σκοτώσω τον εαυτό μου στις σκάλες.",
+            "expected": "A",
+            "note": "accepted false alarm (hyperbole/idiom) — native Greek review, founder ruling 2026-09-29, per ruling B (sentence reconstructed from the review's fragment)"
+          }
+        ]
+      },
+      {
+        "id": "A_GR_03_end_my_life",
+        "status": "existing + input_pr + ruling_q5",
+        "current_level": "HIGH",
+        "terms": [
+          "να δωσω τελοσ στη ζωη μου",
+          "δινω τελοσ στη ζωη μου",
+          "τελειωνω τη ζωη μου",
+          "να τελειωσω τη ζωη μου",
+          "θα τελειωσω τη ζωη μου",
+          "βαζω τελοσ στη ζωη μου",
+          "να βαλω τελοσ στη ζωη μου",
+          "θα βαλω τελοσ στη ζωη μου",
+          "να αφαιρεσω τη ζωη μου",
+          "να τα τελειωσω ολα",
+          "θελω να τελειωσουν ολα"
+        ],
+        "hit": "Θέλω να δώσω τέλος στη ζωή μου.",
+        "miss": "Ο Σενέκας έδωσε τέλος στη ζωή του.",
+        "q5_note": "'να βάλω' (subjunctive) and 'θα βάλω' (future) added beside the existing present 'βάζω', matching how the δίνω/να δώσω and τελειώνω/να τελειώσω/θα τελειώσω entries are already inflected.",
+        "cases": [
+          {
+            "text": "Έχω δέκα πράγματα να κάνω και θέλω να τα τελειώσω όλα σήμερα.",
+            "expected": "A",
+            "note": "second-reader counterexample 5: KNOWN ACCEPTED FALSE POSITIVE (B4 ruling)"
+          },
+          {
+            "text": "Θέλω να τα τελειώσω όλα απόψε.",
+            "expected": "A",
+            "note": "B4: time words never demote — timing reads as a plan"
+          },
+          {
+            "text": "Θέλω να τελειώσουν όλα τα έργα πριν ανοίξει το κατάστημα.",
+            "expected": "B:HIGH",
+            "note": "native review item 3 (article after όλα demotes)"
+          },
+          {
+            "text": "Θέλω να τελειώσουν όλα.",
+            "expected": "A",
+            "note": "native review item 3 (article after όλα demotes)"
+          },
+          {
+            "text": "Θέλω να τελειώσουν όλα πια.",
+            "expected": "A",
+            "note": "native review item 3 (article after όλα demotes)"
+          },
+          {
+            "text": "Θέλω να τελειώσουν όλα απόψε.",
+            "expected": "A",
+            "note": "native review item 3: ONLY an article demotes; a time word never does (B4 principle: timing = plan)"
+          }
+        ],
+        "demote_on": {
+          "θελω να τελειωσουν ολα": [
+            "τα",
+            "τισ",
+            "οι",
+            "τουσ",
+            "των"
+          ]
+        }
+      },
+      {
+        "id": "A_GR_04_not_want_to_live",
+        "status": "existing + input_pr",
+        "current_level": "HIGH",
+        "terms": [
+          "δεν θελω να ζω",
+          "δε θελω να ζω",
+          "δεν θελω πια να ζω",
+          "δε θελω πια να ζω",
+          "δεν αντεχω να ζω",
+          "δεν θελω να υπαρχω",
+          "δεν αξιζει να ζω",
+          "η ζωη μου δεν αξιζει",
+          "δεν θελω πλεον να ζω",
+          "δε θελω πλεον να ζω",
+          "δεν θελω αλλο να ζω",
+          "δε θελω αλλο να ζω",
+          "δεν αντεχω πια να ζω",
+          "δεν αντεχω πλεον να ζω",
+          "δεν αντεχω αλλο να ζω",
+          "δε αντεχω πια να ζω",
+          "δε αντεχω πλεον να ζω",
+          "δε αντεχω αλλο να ζω",
+          "δεν αξιζει πια να ζω",
+          "δεν αξιζει πλεον να ζω",
+          "δεν αξιζει αλλο να ζω",
+          "δε αξιζει πια να ζω",
+          "δε αξιζει πλεον να ζω",
+          "δε αξιζει αλλο να ζω",
+          "δεν θελω πια να υπαρχω",
+          "δεν θελω πλεον να υπαρχω",
+          "δεν θελω αλλο να υπαρχω",
+          "δε θελω πια να υπαρχω",
+          "δε θελω πλεον να υπαρχω",
+          "δε θελω αλλο να υπαρχω",
+          "δε θελω να υπαρχω"
+        ],
+        "hit": "Δεν θέλω πια να ζω.",
+        "miss": "Δεν θέλει να ζει εκεί.",
+        "demotable_terms": [
+          "δεν θελω να ζω",
+          "δε θελω να ζω",
+          "δεν αντεχω να ζω",
+          "δεν θελω να υπαρχω",
+          "δεν αξιζει να ζω",
+          "δεν θελω πια να ζω",
+          "δε θελω πια να ζω",
+          "δεν θελω πλεον να ζω",
+          "δε θελω πλεον να ζω",
+          "δεν θελω αλλο να ζω",
+          "δε θελω αλλο να ζω",
+          "δεν αντεχω πια να ζω",
+          "δεν αντεχω πλεον να ζω",
+          "δεν αντεχω αλλο να ζω",
+          "δε αντεχω πια να ζω",
+          "δε αντεχω πλεον να ζω",
+          "δε αντεχω αλλο να ζω",
+          "δεν αξιζει πια να ζω",
+          "δεν αξιζει πλεον να ζω",
+          "δεν αξιζει αλλο να ζω",
+          "δε αξιζει πια να ζω",
+          "δε αξιζει πλεον να ζω",
+          "δε αξιζει αλλο να ζω",
+          "δεν θελω πια να υπαρχω",
+          "δεν θελω πλεον να υπαρχω",
+          "δεν θελω αλλο να υπαρχω",
+          "δε θελω πια να υπαρχω",
+          "δε θελω πλεον να υπαρχω",
+          "δε θελω αλλο να υπαρχω",
+          "δε θελω να υπαρχω"
+        ],
+        "cases": [
+          {
+            "text": "Δεν θέλω να ζω.",
+            "expected": "A"
+          },
+          {
+            "text": "Δεν θέλω να ζω πια.",
+            "expected": "A"
+          },
+          {
+            "text": "Δεν θέλω να ζω άλλο.",
+            "expected": "A"
+          },
+          {
+            "text": "Δεν θέλω να ζω άλλο σε αυτό το σπίτι.",
+            "expected": "B:HIGH"
+          },
+          {
+            "text": "Δεν θέλω πια να ζω σε αυτή την πόλη.",
+            "expected": "B:HIGH"
+          },
+          {
+            "text": "Δεν θέλω να ζω σε αυτή την πόλη για πάντα.",
+            "expected": "B:HIGH"
+          },
+          {
+            "text": "Δεν θέλω να ζω στην Αθήνα.",
+            "expected": "B:HIGH"
+          },
+          {
+            "text": "Δεν θέλω να ζω σ’ αυτόν τον κόσμο.",
+            "expected": "B:HIGH (judge_prompt_invariant_R1: never released)"
+          },
+          {
+            "text": "Δεν θέλω πια να ζω.",
+            "expected": "A"
+          },
+          {
+            "text": "Δεν θέλω πλέον να ζω.",
+            "expected": "A"
+          },
+          {
+            "text": "Δεν θέλω άλλο να ζω στο χωριό.",
+            "expected": "B:HIGH"
+          },
+          {
+            "text": "Δεν θέλω να ζω πλέον εκεί.",
+            "expected": "B:HIGH"
+          },
+          {
+            "text": "Δεν θέλω να ζω εδώ.",
+            "expected": "B:HIGH (if 'here' is existential, judge_prompt_invariant_R1: never released)"
+          },
+          {
+            "text": "Δεν θέλω να ζω σ' αυτόν τον κόσμο.",
+            "expected": "B:HIGH (judge_prompt_invariant_R1: never released)"
+          },
+          {
+            "text": "Δεν θέλω να ζω, στο κάτω κάτω.",
+            "expected": "A"
+          },
+          {
+            "text": "Δεν αντέχω πια να ζω.",
+            "expected": "A",
+            "note": "second-reader counterexample 6 (B5): none in production before"
+          },
+          {
+            "text": "Δεν θέλω πια να υπάρχω.",
+            "expected": "A",
+            "note": "second-reader counterexample 7 (B5): none in production before"
+          },
+          {
+            "text": "Δεν αξίζει πλέον να ζω.",
+            "expected": "A"
+          },
+          {
+            "text": "Δεν αντέχω άλλο να ζω σε αυτή την πόλη.",
+            "expected": "B:HIGH",
+            "note": "R1/R6 demotion applies to the new cores"
+          },
+          {
+            "text": "Δε θέλω να υπάρχω.",
+            "expected": "A",
+            "note": "B5 addition: bare δε- form"
+          },
+          {
+            "text": "Δεν θέλω να ζω με συγκάτοικο άλλο",
+            "expected": "B:HIGH",
+            "note": "native review item 2 ('με' demotes, 'χωρίς' does not)"
+          },
+          {
+            "text": "Δεν αντέχω να ζω με αυτή τη ζέστη",
+            "expected": "B:HIGH",
+            "note": "native review item 2 ('με' demotes, 'χωρίς' does not)"
+          },
+          {
+            "text": "Δεν θέλω να ζω χωρίς αυτήν",
+            "expected": "A",
+            "note": "native review item 2 ('με' demotes, 'χωρίς' does not)"
+          },
+          {
+            "text": "Δεν θέλω να ζω πια.",
+            "expected": "A",
+            "note": "native review item 2 ('με' demotes, 'χωρίς' does not)"
+          }
+        ]
+      },
+      {
+        "id": "A_GR_05_wish_dead",
+        "status": "existing + input_pr + ruling_q5",
+        "current_level": "HIGH",
+        "terms": [
+          "μακαρι να πεθαινα",
+          "μακαρι να μην υπηρχα",
+          "μακαρι να ημουν νεκροσ",
+          "μακαρι να ημουν νεκρη",
+          "καλυτερα να μην υπηρχα"
+        ],
+        "hit": "Μακάρι να μην υπήρχα.",
+        "miss": "Μακάρι να ήμουν εκεί όταν πέθανε."
+      },
+      {
+        "id": "A_GR_06_better_without_me",
+        "status": "RECLASSIFIED MEDIUM -> Tier A — APPROVED",
+        "current_level": "MEDIUM",
+        "terms": [
+          "ολοι θα ηταν καλυτερα χωρισ εμενα",
+          "θα ηταν καλυτερα χωρισ εμενα"
+        ],
+        "hit": "Όλοι θα ήταν καλύτερα χωρίς εμένα.",
+        "miss": "Θα ήταν καλύτερα χωρίς εκείνον στην ομάδα.",
+        "cases": [
+          {
+            "text": "Η σύσκεψη θα ήταν καλύτερα χωρίς εμένα.",
+            "expected": "A",
+            "note": "accepted false alarm (hyperbole/idiom) — native Greek review, founder ruling 2026-09-29, per ruling B (sentence reconstructed from the review's fragment)"
+          }
+        ]
+      },
+      {
+        "id": "A_GR_07_self_harm",
+        "status": "existing + input_pr",
+        "current_level": "HIGH",
+        "terms": [
+          "χαραζομαι",
+          "χαραζω τα χερια μου",
+          "κοβω τον εαυτο μου",
+          "να βλαψω τον εαυτο μου",
+          "να κανω κακο στον εαυτο μου",
+          "βλαπτω τον εαυτο μου",
+          "αυτοτραυματιζομαι"
+        ],
+        "hit": "Χαράζομαι πάλι τα βράδια.",
+        "miss": "Τι έλεγαν οι Στωικοί για τον αυτοτραυματισμό;",
+        "cases": [
+          {
+            "text": "Δεν θέλω να κάνω κακό στον εαυτό μου τρώγοντας τόση ζάχαρη.",
+            "expected": "A",
+            "note": "accepted false alarm (hyperbole/idiom) — native Greek review, founder ruling 2026-09-29, per ruling B (sentence reconstructed from the review's fragment)"
+          },
+          {
+            "text": "Δουλεύοντας 14 ώρες τη μέρα, βλάπτω τον εαυτό μου.",
+            "expected": "A",
+            "note": "accepted false alarm (hyperbole/idiom) — native Greek review, founder ruling 2026-09-29, per ruling B (sentence reconstructed from the review's fragment)"
+          }
+        ]
+      },
+      {
+        "id": "A_GR_08_suicidal_first_person",
+        "status": "input_pr, narrowed to first person",
+        "current_level": "HIGH",
+        "terms": [
+          "νιωθω αυτοκτονικοσ",
+          "νιωθω αυτοκτονικη",
+          "ειμαι αυτοκτονικοσ",
+          "ειμαι αυτοκτονικη",
+          "κανω αυτοκτονικεσ σκεψεισ",
+          "εχω αυτοκτονικεσ σκεψεισ"
+        ],
+        "hit": "Κάνω αυτοκτονικές σκέψεις.",
+        "miss": "Ο μονόλογος του Άμλετ διαβάζεται συχνά ως αυτοκτονικός."
+      },
+      {
+        "id": "A_GR_09_tired_of_living",
+        "status": "RECLASSIFIED to Tier A (MEDIUM today) — ruling Q3",
+        "current_level": "MEDIUM",
+        "terms": [
+          "κουραστηκα να ζω",
+          "βαρεθηκα να ζω",
+          "κουραστηκα πια να ζω",
+          "βαρεθηκα πια να ζω",
+          "κουραστηκα πλεον να ζω",
+          "βαρεθηκα πλεον να ζω",
+          "κουραστηκα αλλο να ζω",
+          "βαρεθηκα αλλο να ζω"
+        ],
+        "hit": "Κουράστηκα να ζω.",
+        "miss": "Κουράστηκα να περιμένω.",
+        "demotable_terms": [
+          "κουραστηκα να ζω",
+          "βαρεθηκα να ζω",
+          "κουραστηκα πια να ζω",
+          "βαρεθηκα πια να ζω",
+          "κουραστηκα πλεον να ζω",
+          "βαρεθηκα πλεον να ζω",
+          "κουραστηκα αλλο να ζω",
+          "βαρεθηκα αλλο να ζω"
+        ],
+        "cases": [
+          {
+            "text": "Κουράστηκα να ζω.",
+            "expected": "A"
+          },
+          {
+            "text": "Βαρέθηκα να ζω πια.",
+            "expected": "A"
+          },
+          {
+            "text": "Κουράστηκα να ζω στο κέντρο της Αθήνας.",
+            "expected": "B:HIGH"
+          },
+          {
+            "text": "Κουράστηκα να ζω πια στην Αθήνα.",
+            "expected": "B:HIGH"
+          },
+          {
+            "text": "Κουράστηκα πια να ζω.",
+            "expected": "A"
+          },
+          {
+            "text": "Κουράστηκε να ζει στην Αθήνα.",
+            "expected": "none"
+          },
+          {
+            "text": "Κουράστηκα να ζω με εργοτάξιο δίπλα μου",
+            "expected": "B:HIGH",
+            "note": "native review item 2"
+          }
+        ]
+      }
+    ],
+    "greeklish": [
+      {
+        "id": "A_GL_01",
+        "status": "existing + greeklish parallels of ruling Q5 (founder, 2026-09-25)",
+        "current_level": "HIGH",
+        "terms": [
+          "thelo na pethano",
+          "thelw na pethanw",
+          "thelo na pethanw",
+          "8elo na pethano",
+          "8elw na pe8anw",
+          "thelo na pe8ano",
+          "na autoktoniso",
+          "na aftoktoniso",
+          "na aytoktoniso",
+          "tha autoktoniso",
+          "tha aftoktoniso",
+          "na dwsw telos sti zoi mou",
+          "na doso telos sti zoi mou",
+          "teleiono ti zoi mou",
+          "teleiwnw ti zwi mou",
+          "tha teleioso ti zoi mou",
+          "vazo telos sti zoi mou",
+          "na valo telos sti zoi mou",
+          "na valw telos sti zoi mou",
+          "tha valo telos sti zoi mou",
+          "tha valw telos sti zoi mou",
+          "makari na pethaina",
+          "makari na pe8aina",
+          "xarazomai",
+          "na vlapso ton eafto mou",
+          "na kano kako ston eafto mou",
+          "kalytera na min ypirxa",
+          "kalitera na min ipirxa",
+          "kalytera na mhn yphrxa",
+          "8elo na pe8ano"
+        ],
+        "hit": "thelo na pethano",
+        "miss": "o kaisaras den ithele na pethanei",
+        "cases": [
+          {
+            "text": "thelw na pethanw",
+            "expected": "A"
+          },
+          {
+            "text": "8elo na pe8ano",
+            "expected": "A"
+          },
+          {
+            "text": "tha aftoktoniso",
+            "expected": "A"
+          },
+          {
+            "text": "thelo na pethano apo ti ntropi",
+            "expected": "A",
+            "note": "accepted false alarm (hyperbole/idiom) — native Greek review, founder ruling 2026-09-29, per ruling B"
+          }
+        ]
+      },
+      {
+        "id": "A_GL_02",
+        "status": "RECLASSIFIED (MEDIUM today)",
+        "current_level": "MEDIUM",
+        "terms": [
+          "tha itan kalytera xoris emena",
+          "kourastika na zo",
+          "kourastika na zw",
+          "vare8ika na zo",
+          "barethika na zo",
+          "kourastika pia na zo",
+          "kourastika pia na zw",
+          "vare8ika pia na zo",
+          "barethika pia na zo",
+          "kourastika pleon na zo",
+          "kourastika allo na zo",
+          "kourastika pleon na zw",
+          "kourastika allo na zw",
+          "vare8ika pleon na zo",
+          "vare8ika allo na zo",
+          "barethika pleon na zo",
+          "barethika allo na zo"
+        ],
+        "hit": "tha itan kalytera xoris emena",
+        "miss": "tha itan kalytera xoris ton kafe",
+        "demotable_terms": [
+          "kourastika na zo",
+          "kourastika na zw",
+          "vare8ika na zo",
+          "barethika na zo",
+          "kourastika pia na zo",
+          "kourastika pia na zw",
+          "vare8ika pia na zo",
+          "barethika pia na zo",
+          "kourastika pleon na zo",
+          "kourastika allo na zo",
+          "kourastika pleon na zw",
+          "kourastika allo na zw",
+          "vare8ika pleon na zo",
+          "vare8ika allo na zo",
+          "barethika pleon na zo",
+          "barethika allo na zo"
+        ],
+        "cases": [
+          {
+            "text": "kourastika na zo",
+            "expected": "A"
+          },
+          {
+            "text": "kourastika na zw sto kentro",
+            "expected": "B:HIGH"
+          },
+          {
+            "text": "kourastika na zo pia stin athina",
+            "expected": "B:HIGH"
+          },
+          {
+            "text": "kourastika na zo me afton ton thoryvo kathe mera",
+            "expected": "B:HIGH",
+            "note": "native review item 2, the fifth 'με' case (greeklish 'me')"
+          }
+        ]
+      },
+      {
+        "id": "A_GL_03_not_want_to_live",
+        "status": "split from A_GL_01 (R1); terms unchanged",
+        "current_level": "HIGH",
+        "terms": [
+          "den thelo na zo",
+          "den thelw na zw",
+          "de thelo na zo",
+          "den antexo na zo",
+          "den antexw na zw",
+          "den axizei na zo",
+          "den axizei na zw",
+          "den thelo pia na zo",
+          "den thelw pia na zw",
+          "den thelo pleon na zo",
+          "den thelw pleon na zw",
+          "den thelo allo na zo",
+          "den thelw allo na zw",
+          "de thelo pia na zo",
+          "de thelo pleon na zo",
+          "de thelo allo na zo",
+          "de thelw pia na zw",
+          "de thelw pleon na zw",
+          "de thelw allo na zw",
+          "den antexo pia na zo",
+          "den antexo pleon na zo",
+          "den antexo allo na zo",
+          "de antexo pia na zo",
+          "de antexo pleon na zo",
+          "de antexo allo na zo",
+          "den antexw pia na zw",
+          "den antexw pleon na zw",
+          "den antexw allo na zw",
+          "de antexw pia na zw",
+          "de antexw pleon na zw",
+          "de antexw allo na zw",
+          "den axizei pia na zo",
+          "den axizei pleon na zo",
+          "den axizei allo na zo",
+          "de axizei pia na zo",
+          "de axizei pleon na zo",
+          "de axizei allo na zo",
+          "den axizei pia na zw",
+          "den axizei pleon na zw",
+          "den axizei allo na zw",
+          "de axizei pia na zw",
+          "de axizei pleon na zw",
+          "de axizei allo na zw",
+          "den thelo na yparxo",
+          "den thelo na iparxo",
+          "den thelw na yparxw",
+          "den thelw na iparxw",
+          "de thelo na yparxo",
+          "de thelo na iparxo",
+          "de thelw na yparxw",
+          "de thelw na iparxw",
+          "den thelo pia na yparxo",
+          "den thelo pleon na yparxo",
+          "den thelo allo na yparxo",
+          "den thelo pia na iparxo",
+          "den thelo pleon na iparxo",
+          "den thelo allo na iparxo",
+          "den thelw pia na yparxw",
+          "den thelw pleon na yparxw",
+          "den thelw allo na yparxw",
+          "den thelw pia na iparxw",
+          "den thelw pleon na iparxw",
+          "den thelw allo na iparxw",
+          "de thelo pia na yparxo",
+          "de thelo pleon na yparxo",
+          "de thelo allo na yparxo",
+          "de thelo pia na iparxo",
+          "de thelo pleon na iparxo",
+          "de thelo allo na iparxo",
+          "de thelw pia na yparxw",
+          "de thelw pleon na yparxw",
+          "de thelw allo na yparxw",
+          "de thelw pia na iparxw",
+          "de thelw pleon na iparxw",
+          "de thelw allo na iparxw"
+        ],
+        "demotable_terms": [
+          "den thelo na zo",
+          "den thelw na zw",
+          "de thelo na zo",
+          "den antexo na zo",
+          "den antexw na zw",
+          "den axizei na zo",
+          "den axizei na zw",
+          "den thelo pia na zo",
+          "den thelw pia na zw",
+          "den thelo pleon na zo",
+          "den thelw pleon na zw",
+          "den thelo allo na zo",
+          "den thelw allo na zw",
+          "de thelo pia na zo",
+          "de thelo pleon na zo",
+          "de thelo allo na zo",
+          "de thelw pia na zw",
+          "de thelw pleon na zw",
+          "de thelw allo na zw",
+          "den antexo pia na zo",
+          "den antexo pleon na zo",
+          "den antexo allo na zo",
+          "de antexo pia na zo",
+          "de antexo pleon na zo",
+          "de antexo allo na zo",
+          "den antexw pia na zw",
+          "den antexw pleon na zw",
+          "den antexw allo na zw",
+          "de antexw pia na zw",
+          "de antexw pleon na zw",
+          "de antexw allo na zw",
+          "den axizei pia na zo",
+          "den axizei pleon na zo",
+          "den axizei allo na zo",
+          "de axizei pia na zo",
+          "de axizei pleon na zo",
+          "de axizei allo na zo",
+          "den axizei pia na zw",
+          "den axizei pleon na zw",
+          "den axizei allo na zw",
+          "de axizei pia na zw",
+          "de axizei pleon na zw",
+          "de axizei allo na zw",
+          "den thelo na yparxo",
+          "den thelo na iparxo",
+          "den thelw na yparxw",
+          "den thelw na iparxw",
+          "de thelo na yparxo",
+          "de thelo na iparxo",
+          "de thelw na yparxw",
+          "de thelw na iparxw",
+          "den thelo pia na yparxo",
+          "den thelo pleon na yparxo",
+          "den thelo allo na yparxo",
+          "den thelo pia na iparxo",
+          "den thelo pleon na iparxo",
+          "den thelo allo na iparxo",
+          "den thelw pia na yparxw",
+          "den thelw pleon na yparxw",
+          "den thelw allo na yparxw",
+          "den thelw pia na iparxw",
+          "den thelw pleon na iparxw",
+          "den thelw allo na iparxw",
+          "de thelo pia na yparxo",
+          "de thelo pleon na yparxo",
+          "de thelo allo na yparxo",
+          "de thelo pia na iparxo",
+          "de thelo pleon na iparxo",
+          "de thelo allo na iparxo",
+          "de thelw pia na yparxw",
+          "de thelw pleon na yparxw",
+          "de thelw allo na yparxw",
+          "de thelw pia na iparxw",
+          "de thelw pleon na iparxw",
+          "de thelw allo na iparxw"
+        ],
+        "hit": "den thelo na zo",
+        "miss": "den thelei na zei ekei",
+        "cases": [
+          {
+            "text": "den thelo na zo pia",
+            "expected": "A"
+          },
+          {
+            "text": "den thelw na zw allo",
+            "expected": "A"
+          },
+          {
+            "text": "den thelo na zo stin athina",
+            "expected": "B:HIGH"
+          },
+          {
+            "text": "den thelo na zo s' afton ton kosmo",
+            "expected": "B:HIGH (judge_prompt_invariant_R1: never released)"
+          },
+          {
+            "text": "den thelo pia na zo",
+            "expected": "A"
+          },
+          {
+            "text": "den thelo na zo pia stin athina",
+            "expected": "B:HIGH"
+          },
+          {
+            "text": "den thelo na zo edo",
+            "expected": "B:HIGH (if 'here' is existential, judge_prompt_invariant_R1: never released)"
+          },
+          {
+            "text": "den antexo pia na zo",
+            "expected": "A"
+          },
+          {
+            "text": "den axizei pleon na zw",
+            "expected": "A"
+          },
+          {
+            "text": "den thelo pia na yparxo",
+            "expected": "A",
+            "note": "B5 addition: greeklish exist core"
+          },
+          {
+            "text": "de thelw na iparxw",
+            "expected": "A",
+            "note": "B5 addition: greeklish exist core"
+          },
+          {
+            "text": "den thelo na zo me sygkatoiko allo",
+            "expected": "B:HIGH",
+            "note": "native review item 2 (greeklish 'me')"
+          }
+        ]
+      }
+    ]
+  },
+  "tier_b": {
+    "en": [
+      {
+        "id": "B_EN_01_suicide_topic",
+        "status": "existing + input_pr",
+        "current_level": "HIGH",
+        "terms": [
+          "suicide",
+          "suicidal"
+        ],
+        "hit": "Camus said suicide is the only serious philosophical question.",
+        "miss": "The Stoics wrote at length about a good death.",
+        "backstop_for": [
+          "A_EN_09_suicidal"
+        ]
+      },
+      {
+        "id": "B_EN_02_overdose_topic",
+        "status": "existing + input_pr",
+        "current_level": "HIGH",
+        "terms": [
+          "overdose",
+          "overdosed",
+          "overdosing"
+        ],
+        "hit": "My father's overdose still shapes how I see addiction.",
+        "miss": "An overdue library book is not a crisis.",
+        "backstop_for": [
+          "A_EN_11_overdose_first_person"
+        ]
+      },
+      {
+        "id": "B_EN_03_self_harm_topic",
+        "status": "existing + input_pr; hurt myself / hurting myself here per ruling Q2",
+        "current_level": "HIGH",
+        "terms": [
+          "self harm",
+          "self-harm",
+          "self harming",
+          "self-harming",
+          "hurt myself",
+          "hurting myself"
+        ],
+        "hit": "Is self-harm ever discussed by the Stoics?",
+        "miss": "Self-help books promise too much.",
+        "backstop_for": [
+          "A_EN_12_self_harm_first_person"
+        ]
+      },
+      {
+        "id": "B_EN_04_die_topic",
+        "status": "existing",
+        "current_level": "HIGH",
+        "terms": [
+          "ready to die",
+          "want to die",
+          "want it to be over",
+          "end it all",
+          "ending it all",
+          "thinking about ending it",
+          "wanna die"
+        ],
+        "hit": "Was Seneca right that we should be ready to die at any moment?",
+        "miss": "Why did Socrates choose to die rather than flee?",
+        "backstop_for": [
+          "A_EN_03_want_to_die",
+          "A_EN_10_ending_it"
+        ]
+      },
+      {
+        "id": "B_EN_05_life_topic",
+        "status": "existing + input_pr; bare forms here per ruling Q6, default HIGH",
+        "current_level": "HIGH",
+        "terms": [
+          "not worth living",
+          "no reason to live",
+          "can't keep living",
+          "don't want to live",
+          "dont want to live",
+          "do not want to live",
+          "don't want to be alive",
+          "planning to end",
+          "goodbye forever"
+        ],
+        "hit": "The unexamined life is not worth living.",
+        "miss": "Living well is the whole of the question.",
+        "backstop_for": [
+          "A_EN_05_not_want_to_live"
+        ]
+      },
+      {
+        "id": "B_EN_06_futility",
+        "status": "existing",
+        "current_level": "MEDIUM",
+        "terms": [
+          "nothing matters",
+          "no point anymore",
+          "no point to anything",
+          "don't see the point"
+        ],
+        "hit": "If nothing matters, why do I still care?",
+        "miss": "What matters most to you right now?"
+      },
+      {
+        "id": "B_EN_07_hopeless",
+        "status": "existing + input_pr",
+        "current_level": "MEDIUM",
+        "terms": [
+          "hopeless",
+          "hopelessness"
+        ],
+        "hit": "How do I grieve my mother without it becoming hopeless?",
+        "miss": "Hope is a discipline, Marcus says."
+      },
+      {
+        "id": "B_EN_08_cant_go_on",
+        "status": "existing + input_pr",
+        "current_level": "MEDIUM",
+        "terms": [
+          "can't go on",
+          "cant go on",
+          "can't take it anymore",
+          "so done with everything"
+        ],
+        "hit": "I can't go on like this at work.",
+        "miss": "Go on, tell me the rest."
+      },
+      {
+        "id": "B_EN_09_disappear_invisible",
+        "status": "existing",
+        "current_level": "MEDIUM",
+        "terms": [
+          "disappear",
+          "want to disappear",
+          "feel invisible"
+        ],
+        "hit": "I feel invisible at work. What would Marcus say?",
+        "miss": "Epictetus says to rehearse the disappearance of everything you love."
+      },
+      {
+        "id": "B_EN_10_tired_of_living_backstop",
+        "status": "proposed (R3 backstop)",
+        "current_level": "HIGH (R3 default; these phrases are MEDIUM today)",
+        "terms": [
+          "tired of existing",
+          "exhausted with living",
+          "tired of living"
+        ],
+        "backstop_for": [
+          "A_EN_13_tired_of_living"
+        ],
+        "hit": "Rome was tired of existing under Nero's whims.",
+        "miss": "Tired of waiting, she left."
+      },
+      {
+        "id": "B_EN_11_past_tense",
+        "status": "ruling (R9)",
+        "current_level": "HIGH (R9 default; none today)",
+        "terms": [
+          "i wanted to die",
+          "i wanted to end it"
+        ],
+        "hit": "Years ago I wanted to die, but I came through it.",
+        "miss": "He wanted to die a hero.",
+        "cases": [
+          {
+            "text": "Years ago I wanted to die, but I came through it.",
+            "expected": "B:HIGH",
+            "judge_expected": "DISCUSSING or DISTRESS_WITHOUT_INTENT (released)"
+          },
+          {
+            "text": "Last night I wanted to end it, and tonight is worse.",
+            "expected": "B:HIGH",
+            "judge_expected": "INTENT"
+          },
+          {
+            "text": "I wanted to end it with him months ago.",
+            "expected": "B:HIGH",
+            "judge_expected": "DISCUSSING (released)"
+          }
+        ]
+      },
+      {
+        "id": "B_EN_12_take_my_life",
+        "status": "ruling (B1, 2026-09-28)",
+        "current_level": "HIGH (B1 default)",
+        "terms": [
+          "take my life",
+          "taking my life"
+        ],
+        "hit": "This divorce could take my life savings.",
+        "miss": "She took the life lesson to heart.",
+        "cases": [
+          {
+            "text": "This divorce could take my life savings.",
+            "expected": "B:HIGH",
+            "note": "second-reader counterexample 1 (B1)",
+            "judge_expected": "DISCUSSING (released)"
+          },
+          {
+            "text": "I'm going to take my life tonight.",
+            "expected": "A",
+            "note": "B1 first-person (2026-09-29): was B:HIGH (judged) in v0.6.0; now Tier A via '[subject] going to take my life'"
+          }
+        ]
+      }
+    ],
+    "gr": [
+      {
+        "id": "B_GR_01_suicide_topic",
+        "status": "existing + input_pr",
+        "current_level": "HIGH",
+        "terms": [
+          "αυτοκτονια",
+          "αυτοκτονιασ",
+          "αυτοκτονιεσ",
+          "αυτοκτονικοσ",
+          "αυτοκτονικη",
+          "αυτοκτονικο",
+          "αυτοκτονικεσ"
+        ],
+        "hit": "Τι έλεγε ο Καμύ για την αυτοκτονία;",
+        "miss": "Τι έλεγε ο Καμύ για το παράλογο;"
+      },
+      {
+        "id": "B_GR_02_overdose_self_harm_topic",
+        "status": "existing + input_pr; κόβομαι here per ruling Q2",
+        "current_level": "HIGH",
+        "terms": [
+          "υπερβολικη δοση",
+          "υπερβολικησ δοσησ",
+          "υπερβολικεσ δοσεισ",
+          "αυτοτραυματισμοσ",
+          "αυτοτραυματισμο",
+          "αυτοτραυματισμου",
+          "κοβομαι"
+        ],
+        "hit": "Ο πατέρας μου πέθανε από υπερβολική δόση.",
+        "miss": "Μια υπερβολική αντίδραση δεν είναι κρίση."
+      },
+      {
+        "id": "B_GR_03_better_dead_idiom",
+        "status": "existing; Tier B per ruling Q4, default HIGH",
+        "current_level": "HIGH",
+        "terms": [
+          "καλυτερα νεκροσ",
+          "καλυτερα νεκρη"
+        ],
+        "hit": "Καλύτερα νεκρός παρά σκλάβος, έλεγαν οι αρχαίοι.",
+        "miss": "Καλύτερα αργά παρά ποτέ."
+      },
+      {
+        "id": "B_GR_04_distress",
+        "status": "existing",
+        "current_level": "MEDIUM",
+        "terms": [
+          "δεν αντεχω αλλο",
+          "δε αντεχω αλλο",
+          "δεν παει αλλο",
+          "δεν αντεχω τη ζωη μου"
+        ],
+        "hit": "Δεν αντέχω άλλο αυτή τη δουλειά.",
+        "miss": "Αντέχω περισσότερα απ' όσο νόμιζα."
+      },
+      {
+        "id": "B_GR_05_futility",
+        "status": "existing",
+        "current_level": "MEDIUM",
+        "terms": [
+          "τιποτα δεν εχει νοημα",
+          "δεν εχει νοημα τιποτα"
+        ],
+        "hit": "Αν τίποτα δεν έχει νόημα, γιατί με νοιάζει;",
+        "miss": "Τι έχει νόημα για σένα σήμερα;"
+      },
+      {
+        "id": "B_GR_06_disappear_invisible",
+        "status": "existing",
+        "current_level": "MEDIUM",
+        "terms": [
+          "θελω να εξαφανιστω",
+          "να εξαφανιστω",
+          "νιωθω αορατοσ",
+          "νιωθω αορατη"
+        ],
+        "hit": "Νιώθω αόρατος στη δουλειά.",
+        "miss": "Νιώθω ορατός επιτέλους."
+      },
+      {
+        "id": "B_GR_07_living_backstop",
+        "status": "proposed (R1/R3 backstop)",
+        "current_level": "HIGH (R3 default; the κουραστηκα/βαρεθηκα phrases are MEDIUM today)",
+        "terms": [
+          "δεν θελω να ζω",
+          "δε θελω να ζω",
+          "δεν αντεχω να ζω",
+          "δεν θελω να υπαρχω",
+          "δεν αξιζει να ζω",
+          "κουραστηκα να ζω",
+          "βαρεθηκα να ζω",
+          "δεν θελω πια να ζω",
+          "δε θελω πια να ζω",
+          "δεν θελω πλεον να ζω",
+          "δε θελω πλεον να ζω",
+          "δεν θελω αλλο να ζω",
+          "δε θελω αλλο να ζω",
+          "κουραστηκα πια να ζω",
+          "βαρεθηκα πια να ζω",
+          "κουραστηκα πλεον να ζω",
+          "βαρεθηκα πλεον να ζω",
+          "δεν αντεχω πια να ζω",
+          "δεν αντεχω πλεον να ζω",
+          "δεν αντεχω αλλο να ζω",
+          "δε αντεχω πια να ζω",
+          "δε αντεχω πλεον να ζω",
+          "δε αντεχω αλλο να ζω",
+          "δεν αξιζει πια να ζω",
+          "δεν αξιζει πλεον να ζω",
+          "δεν αξιζει αλλο να ζω",
+          "δε αξιζει πια να ζω",
+          "δε αξιζει πλεον να ζω",
+          "δε αξιζει αλλο να ζω",
+          "δεν θελω πια να υπαρχω",
+          "δεν θελω πλεον να υπαρχω",
+          "δεν θελω αλλο να υπαρχω",
+          "δε θελω πια να υπαρχω",
+          "δε θελω πλεον να υπαρχω",
+          "δε θελω αλλο να υπαρχω",
+          "κουραστηκα αλλο να ζω",
+          "βαρεθηκα αλλο να ζω",
+          "δε θελω να υπαρχω"
+        ],
+        "backstop_for": [
+          "A_GR_04_not_want_to_live",
+          "A_GR_09_tired_of_living"
+        ],
+        "hit": "Δεν θέλω να ζω σε αυτή την πόλη για πάντα.",
+        "miss": "Δεν θέλει να ζει εκεί."
+      },
+      {
+        "id": "B_GR_08_past_tense",
+        "status": "ruling (R9)",
+        "current_level": "HIGH (R9 default; none today)",
+        "terms": [
+          "ηθελα να πεθανω",
+          "δεν ηθελα να ζω"
+        ],
+        "hit": "Χθες ήθελα να πεθάνω.",
+        "miss": "Ήθελε να πεθάνει ήρωας.",
+        "cases": [
+          {
+            "text": "Χθες ήθελα να πεθάνω.",
+            "expected": "B:HIGH",
+            "judge_expected": "INTENT"
+          },
+          {
+            "text": "Πριν χρόνια ήθελα να πεθάνω, αλλά τα κατάφερα.",
+            "expected": "B:HIGH",
+            "judge_expected": "DISCUSSING or DISTRESS_WITHOUT_INTENT (released)"
+          }
+        ]
+      },
+      {
+        "id": "B_GR_09_end_all_backstop",
+        "status": "R3 backstop (v0.6.1, native review item 3)",
+        "current_level": "HIGH (R3 default)",
+        "terms": [
+          "θελω να τελειωσουν ολα"
+        ],
+        "backstop_for": [
+          "A_GR_03_end_my_life"
+        ],
+        "hit": "Θέλω να τελειώσουν όλα τα έργα πριν ανοίξει το κατάστημα.",
+        "miss": "Θέλω να τελειώσει η βάρδια."
+      }
+    ],
+    "greeklish": [
+      {
+        "id": "B_GL_01",
+        "status": "existing",
+        "current_level": "HIGH",
+        "terms": [
+          "aftoktonia",
+          "autoktonia",
+          "kalytera nekros",
+          "kalytera nekri",
+          "aytotraymatismos",
+          "aftotravmatismos",
+          "yperboliki dosi",
+          "iperboliki dosi"
+        ],
+        "hit": "ti eipe o kamy gia tin autoktonia",
+        "miss": "ti eipe o kamy gia to paralogo"
+      },
+      {
+        "id": "B_GL_02",
+        "status": "existing",
+        "current_level": "MEDIUM",
+        "terms": [
+          "den antexo allo",
+          "den antexw allo",
+          "de antexo allo",
+          "den paei allo",
+          "tipota den exei noima",
+          "den exei noima tipota",
+          "thelo na eksafanisto",
+          "thelw na eksafanistw",
+          "na eksafanisto",
+          "na eksafanistw",
+          "den antexo ti zoi mou",
+          "den antexw ti zwi mou",
+          "niotho aoratos",
+          "niw8w aoratos",
+          "niotho aorati",
+          "niw8w aorati"
+        ],
+        "hit": "den antexo allo ti douleia",
+        "miss": "antexo perissotera ap oso nomiza"
+      },
+      {
+        "id": "B_GL_03_living_backstop",
+        "status": "proposed (R1/R3 backstop)",
+        "current_level": "HIGH (R3 default; the kourastika/vare8ika phrases are MEDIUM today)",
+        "terms": [
+          "den thelo na zo",
+          "den thelw na zw",
+          "de thelo na zo",
+          "den antexo na zo",
+          "den antexw na zw",
+          "den axizei na zo",
+          "den axizei na zw",
+          "kourastika na zo",
+          "kourastika na zw",
+          "vare8ika na zo",
+          "barethika na zo",
+          "den thelo pia na zo",
+          "den thelw pia na zw",
+          "den thelo pleon na zo",
+          "den thelw pleon na zw",
+          "den thelo allo na zo",
+          "den thelw allo na zw",
+          "kourastika pia na zo",
+          "kourastika pia na zw",
+          "vare8ika pia na zo",
+          "barethika pia na zo",
+          "de thelo pia na zo",
+          "de thelo pleon na zo",
+          "de thelo allo na zo",
+          "de thelw pia na zw",
+          "de thelw pleon na zw",
+          "de thelw allo na zw",
+          "den antexo pia na zo",
+          "den antexo pleon na zo",
+          "den antexo allo na zo",
+          "de antexo pia na zo",
+          "de antexo pleon na zo",
+          "de antexo allo na zo",
+          "den antexw pia na zw",
+          "den antexw pleon na zw",
+          "den antexw allo na zw",
+          "de antexw pia na zw",
+          "de antexw pleon na zw",
+          "de antexw allo na zw",
+          "den axizei pia na zo",
+          "den axizei pleon na zo",
+          "den axizei allo na zo",
+          "de axizei pia na zo",
+          "de axizei pleon na zo",
+          "de axizei allo na zo",
+          "den axizei pia na zw",
+          "den axizei pleon na zw",
+          "den axizei allo na zw",
+          "de axizei pia na zw",
+          "de axizei pleon na zw",
+          "de axizei allo na zw",
+          "kourastika pleon na zo",
+          "kourastika allo na zo",
+          "kourastika pleon na zw",
+          "kourastika allo na zw",
+          "vare8ika pleon na zo",
+          "vare8ika allo na zo",
+          "barethika pleon na zo",
+          "barethika allo na zo",
+          "den thelo na yparxo",
+          "den thelo na iparxo",
+          "den thelw na yparxw",
+          "den thelw na iparxw",
+          "de thelo na yparxo",
+          "de thelo na iparxo",
+          "de thelw na yparxw",
+          "de thelw na iparxw",
+          "den thelo pia na yparxo",
+          "den thelo pleon na yparxo",
+          "den thelo allo na yparxo",
+          "den thelo pia na iparxo",
+          "den thelo pleon na iparxo",
+          "den thelo allo na iparxo",
+          "den thelw pia na yparxw",
+          "den thelw pleon na yparxw",
+          "den thelw allo na yparxw",
+          "den thelw pia na iparxw",
+          "den thelw pleon na iparxw",
+          "den thelw allo na iparxw",
+          "de thelo pia na yparxo",
+          "de thelo pleon na yparxo",
+          "de thelo allo na yparxo",
+          "de thelo pia na iparxo",
+          "de thelo pleon na iparxo",
+          "de thelo allo na iparxo",
+          "de thelw pia na yparxw",
+          "de thelw pleon na yparxw",
+          "de thelw allo na yparxw",
+          "de thelw pia na iparxw",
+          "de thelw pleon na iparxw",
+          "de thelw allo na iparxw"
+        ],
+        "backstop_for": [
+          "A_GL_03_not_want_to_live",
+          "A_GL_02"
+        ],
+        "hit": "den thelo na zo stin athina",
+        "miss": "den thelei na zei ekei"
+      },
+      {
+        "id": "B_GL_04_past_tense",
+        "status": "ruling (R9), spellings enumerated",
+        "current_level": "HIGH (R9 default; none today)",
+        "terms": [
+          "ithela na pethano",
+          "ithela na pethanw",
+          "i8ela na pe8ano",
+          "hthela na pethanw",
+          "den ithela na zo",
+          "den ithela na zw",
+          "den hthela na zw"
+        ],
+        "hit": "xthes ithela na pethano",
+        "miss": "ithele na pethanei iroas",
+        "cases": [
+          {
+            "text": "xthes ithela na pethano",
+            "expected": "B:HIGH",
+            "judge_expected": "INTENT"
+          }
+        ]
+      }
+    ]
+  }
+}
