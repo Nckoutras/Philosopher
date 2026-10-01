@@ -5603,6 +5603,40 @@ finding.
 
 ## 5. UX
 
+### UX-04 — a Free user can type into Council and You-vs-You, submit, and get a generic error instead of an upgrade prompt — **LOGGED; priority: BEFORE Stripe live**
+**Status: LOGGED (founder, 2026-10-01). Priority: before Stripe goes live (monetization).
+Investigation later; nothing built.**
+
+**What happens today** (read 2026-10-01, main `ed5e185f`):
+- **Nothing stops a Free user reaching either text box.** `apps/web/middleware.ts:8`:
+  `PRO_PREFIXES: string[] = []`.
+  - Council: `app/app/council/page.tsx:612` shows the textarea to everyone. `canSubmit`
+    (`:591`) checks only length and phase.
+  - You-vs-You: the input shows when `status.unlocked` (`you-vs-you/page.tsx:302-307`), and
+    unlock depends on history (`self_model_service.py`, `MIN_TOTAL_ENTRIES` /
+    `MIN_SPAN_DAYS`), never on plan.
+- **On submit the API returns `403 {"error_code": "upgrade_required"}`.**
+- **Neither page reads it.** `lib/api.ts` treats only 429 specially and throws a plain
+  `Error` for any other status (`'Council stream failed'` at `:1217`,
+  `'Self-comparison stream failed'` for You-vs-You). The user sees a generic error:
+  - Council: **"Something went wrong. Please try again."** (`council/page.tsx:578-584`);
+  - You-vs-You: **"Something went wrong. Try again in a moment."** (`you-vs-you/page.tsx:404`).
+
+  So a Free user who wants a Pro feature is told it broke, not that it is Pro.
+
+**Not affected by this entry:** a crisis message. Since SAFETY-006 a suppressing input
+skips the Pro gate and gets the crisis response.
+
+**To investigate (later, not now):**
+1. What the 403 body carries, and whether the web should read `error_code` on these two
+   routes the way chat routes `upgrade_required` (`lib/useStream.tsx`).
+2. What the page should show instead. **New copy needs founder approval before it is
+   written into a diff.**
+3. Whether the box should show the Pro offer BEFORE the user types, rather than after a
+   refused submit.
+
+---
+
 ### UX-03 — the You-vs-You NOW self speaks as a system — **LOGGED, not now**
 **Status: LOGGED (founder, 2026-10-01). A persona-quality item; there is no separate
 persona-quality section in this file, so it lives here.**
