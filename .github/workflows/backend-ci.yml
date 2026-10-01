@@ -181,3 +181,32 @@ jobs:
 
       - name: Check revision id length and filename match
         run: python .github/scripts/check_migration_naming.py
+
+  # ── Undefined names (ruff F821) ─────────────────────────────────────────────
+  # F821 ONLY, deliberately — no style rules. Two undefined names shipped on
+  # 2026-09-02 and ran for 27 days: `user_text` in create_reading_revisit (#589,
+  # fixed #752) and `select` in send_payment_recovery_email_task (#584, which
+  # meant no dunning email ever sent). Both sat on branches no test executed, and
+  # the second was swallowed by its own try/except, so neither could go red.
+  # A static check does not need the branch to run.
+  #
+  # --isolated so no config file can widen or narrow the rule set: what this job
+  # checks is exactly what this line says. Version pinned so a ruff release
+  # cannot change the verdict on unchanged code.
+  undefined-names:
+    name: ruff F821 (undefined names)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+
+      - name: Install ruff
+        run: python -m pip install ruff==0.16.9
+
+      - name: ruff check --select F821
+        run: ruff check --isolated --select F821 --target-version py312 --output-format github apps/api
