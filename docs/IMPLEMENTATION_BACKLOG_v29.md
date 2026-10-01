@@ -3787,7 +3787,34 @@ by its own test. The smoke rows were deleted and history kept.
 
 ---
 
-### OPS-021 — the 2026-09-30 monthly-letter run: read it on 2026-10-01 — **OWED 2026-10-01**
+### OPS-021 — the 2026-09-30 monthly-letter run: READ 2026-10-01, no silent skip — **CLOSED**
+**Status: CLOSED. Both queries below were run read-only against production (Oregon,
+alembic `069_another_mind_count`) on 2026-10-01, by CC.**
+
+**Summary result:**
+- `job_status = succeeded`. Started 2026-09-30 17:00:01 UTC, finished 17:00:02, `job_error`
+  NULL.
+- `job_candidates = 7`, `job_selected = 1`, `job_enqueued = 1`.
+- `eligible_users = 1` (recomputed independently), so the run and the recomputation agree.
+- `letters_total = 1`: `generated 0`, `skipped_empty 0`, **`suppressed 1`**, `failed 0`.
+- `emailed = 0`, `email_not_sent_reasons` NULL.
+- **`eligible_without_letter = 0`.**
+
+**Detail result: zero rows** (the passing answer). Nobody eligible was skipped.
+
+**So no monthly letter was delivered for September, and that is by design.** The one letter
+is the founder's account. It was suppressed by the input-side rule (`arq_worker.py`: any
+high/critical message in the month → `suppressed`). The account had 2 high/critical chat
+messages in September, the founder's own crisis smokes. There was no
+`monthly_letter_output` event, so the output gate did not cause it. No beta user reached
+the 15-act threshold.
+
+**Known side effect of smoking on the founder account.** The founder's own September letter
+was suppressed by his own smoke-test flags. A smoke that writes high/critical flags also
+silences that account's letters for the period, and closes You-vs-You for 14 days. **OPS-014
+remains the rule:** a smoke that writes flags runs on the QA account, never the founder's.
+
+*Original status, kept as written:*
 **Status: OWED. Run the SQL below on 2026-10-01, in the morning (Athens), and record the
 numbers here.**
 
@@ -4272,7 +4299,22 @@ instead of the "another day" line. The second means the web deploy is stale.
 
 ---
 
-### OPS-017 — #743 POSITIVE-path smoke OWED on/after 2026-09-30 08:33 UTC — **OPEN, scheduled**
+### OPS-017 — #743 POSITIVE-path smoke: PASSED, one day late — **CLOSED**
+**Status: CLOSED. PASSED on 2026-10-01 at about 13:23 UTC (founder account, run by the
+founder).**
+- **Pre-check:** `recent_flags = 0`, with 3 older flagged conversations on the account.
+- **Prompt:** "How have I changed in terms of accepting death as inevitable?"
+- **Result:** both selves answered; the closing observation, the quotes and the sentence
+  were shown; "Let's leave this comparison for another day" did NOT appear. Older flags
+  excluded, they did not refuse: the #743 regression is fixed on production.
+
+**LATE, recorded as late.** This entry said a smoke not run by end of day 2026-09-30 is a
+FINDING (amended P-04). It ran on 2026-10-01, about one day after it became runnable.
+
+**Product note from this run, logged separately as UX-03:** the NOW self opened with "The
+signals I have don't speak to that.", which is the self speaking as a system.
+
+*Original text, kept as written:*
 **Status: OPEN. Cannot run before 2026-09-30 08:33 UTC. That is when the founder
 account's 2026-09-16 flags leave the 14-day window. DO NOT record as passed until it
 has run.**
@@ -5545,7 +5587,41 @@ finding.
 
 ---
 
+### OPS-024 — #753 dunning email fix: impact measured, ZERO users affected — **CLOSED**
+**Status: CLOSED (founder ran the read-only query, 2026-10-01).**
+- **The bug:** `send_payment_recovery_email_task` called `select` without importing it,
+  from #584 (2026-09-02) until #753 (merged 2026-10-01, `5a116cb8`). The task caught the
+  NameError itself, so no dunning email was ever sent on the queue path, which is the
+  production path.
+- **Impact:** entering-dunning transitions (`subscription_events`,
+  `invoice.payment_failed` → `past_due`, `from_status` not already `past_due`) since
+  2026-09-02: **`emails_owed = 0`, `still_past_due = 0`.** No user missed a recovery email.
+- **Prevention:** #754 adds ruff F821 (undefined names) as a backend CI job. It is a merge
+  gate once it is in `main`'s required checks.
+
+---
+
 ## 5. UX
+
+### UX-03 — the You-vs-You NOW self speaks as a system — **LOGGED, not now**
+**Status: LOGGED (founder, 2026-10-01). A persona-quality item; there is no separate
+persona-quality section in this file, so it lives here.**
+
+**Seen in the OPS-017 run (2026-10-01, founder account).** Prompt: "How have I changed in
+terms of accepting death as inevitable?" The NOW self opened with **"The signals I have
+don't speak to that."**
+- That is the self describing its own inputs, in system vocabulary. The voice of the ritual
+  breaks: a self does not have "signals".
+- Probable cause: the self-comparison prompt exposes how the self is built (the self-model's
+  signals), and the model narrates the gap instead of speaking from it. **Not verified**: the
+  prompt has not been read for this entry.
+
+**What fixing it involves (not started).** Read the NOW-self prompt in
+`self_comparison_service` and the self-model it is given. Find the wording that invites
+talk about "signals". Rewrite it with founder-approved copy (copy approval precedes the
+diff). Add a check over generated text for system vocabulary.
+
+---
 
 ### UX-01 — CLOSED (#485, 2026-07-12)
 Carried as a closed entry rather than deleted, as a standing example of the failure
