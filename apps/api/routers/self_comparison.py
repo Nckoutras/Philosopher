@@ -231,14 +231,28 @@ async def create_self_comparison(
     auth: tuple = Depends(get_current_user_plan),
 ):
     user, plan = auth
-    if plan not in ("pro", "premium") and not user.is_admin:
+    prompt = (body.prompt or "").strip()
+
+    # ── SAFETY BEFORE THE PRO GATE AND THE LIMIT (SAFETY-006) ────────────────
+    # The same ordering fix as routers/council.py and chat's #591. A crisis prompt
+    # refused here — 403 for a Free user (unlock depends on history, not plan, so
+    # the web shows a Free user the text box), 429 for one who had used this
+    # week's comparisons — never reached the service's safety gate: no crisis
+    # response, no row. On a suppressing input both refusals are skipped, not
+    # consumed — the service answers the crisis before it creates the
+    # self_comparisons row the limit counts. The service re-runs check_input and
+    # logs + commits (SAFETY-004); twice is deliberate, the router only decides
+    # whether to refuse. Non-crisis requests get exactly the responses they got
+    # before, in the same order.
+    crisis = await safety_service.check_input(prompt, str(user.id))
+
+    if plan not in ("pro", "premium") and not user.is_admin and not crisis.should_suppress_persona:
         return JSONResponse(status_code=403, content={"error_code": "upgrade_required"})
 
-    prompt = (body.prompt or "").strip()
     if not prompt:
         return JSONResponse(status_code=400, content={"error_code": "empty_prompt"})
 
-    if not user.is_admin:
+    if not user.is_admin and not crisis.should_suppress_persona:
         remaining = await self_comparison_service.weekly_remaining(db, user.id, plan)
         if remaining <= 0:
             # Reset is the start of the NEXT week — same Monday-00:00-UTC boundary the

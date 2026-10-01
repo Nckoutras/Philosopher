@@ -14,6 +14,7 @@ from models import CouncilCase, CouncilSave, CouncilSession, Insight
 from schemas import CouncilCreate
 from services.council_service import council_service, _iso_week_start
 from services.analytics_service import analytics_service
+from services.safety_service import safety_service
 from services.image_service import generate_council_share_image
 from routers.share import create_and_render
 
@@ -37,12 +38,28 @@ async def create_council(
     auth: tuple = Depends(get_current_user_plan),
 ):
     user, plan = auth
+    matter = (body.matter or "").strip()
+
+    # ── SAFETY BEFORE THE PRO GATE AND THE LIMIT (SAFETY-006) ────────────────
+    # A person in crisis who was refused here — 403 for a Free user (the web
+    # shows Council's text box to everyone), 429 for one who had used this
+    # week's council — never reached the service, so its safety gate never ran:
+    # no crisis response, no safety_events row. Chat had the same hole until
+    # #591, and there the crisis text never returns the paywall error code;
+    # neither does this. On a suppressing input both refusals are SKIPPED, not
+    # consumed: the service answers the crisis before it creates the case row
+    # that weekly_remaining counts. The service re-runs check_input and does the
+    # real work (logs, commits per SAFETY-004, streams the text). Running it twice
+    # is deliberate, as in routers/conversations.py: the router decides only
+    # whether to refuse, and the service must stay correct when called directly.
+    # Every NON-crisis request gets exactly the responses it got before, in the
+    # same order (an empty matter checks as "none").
+    crisis = await safety_service.check_input(matter, user.id)
 
     # Pro gate (council is Pro-only; BETA flag makes everyone "pro" for now)
-    if plan not in ("pro", "premium"):
+    if plan not in ("pro", "premium") and not crisis.should_suppress_persona:
         return JSONResponse(status_code=403, content={"error_code": "upgrade_required"})
 
-    matter = (body.matter or "").strip()
     if not matter:
         return JSONResponse(status_code=400, content={"error_code": "empty_matter"})
 
@@ -56,7 +73,7 @@ async def create_council(
     # limit itself counts from, reused from the service rather than recomputed here.
     reset_at = _iso_week_start() + timedelta(days=7)
     remaining = None
-    if not user.is_admin:
+    if not user.is_admin and not crisis.should_suppress_persona:
         remaining = await council_service.weekly_remaining(db, user.id, source)
         if remaining <= 0:
             # The sixth cap call site. cap_kind is "council", NOT "pro_fair_use":
@@ -114,7 +131,11 @@ async def create_council(
     # help the council, when the truth is that the council never asks.
     # used_memory returns with Memory v2 (P1), when the council actually
     # consults memory.
-    analytics_service.track("council_started", user.id, {"source": source})
+    # And NOT on a crisis (SAFETY-006). A suppressed matter never convenes the
+    # council, and council_started is the Γ-7 trigger metric: crisis inputs —
+    # which now also arrive past the Pro gate and the limit — would inflate it.
+    if not crisis.should_suppress_persona:
+        analytics_service.track("council_started", user.id, {"source": source})
 
     arq_queue = getattr(request.app.state, "arq_queue", None)
 
