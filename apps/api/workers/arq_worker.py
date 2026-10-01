@@ -2765,6 +2765,7 @@ async def send_payment_recovery_email_task(ctx, user_id: str):
     The link is the durable in-app account page, NOT a Stripe portal session —
     portal sessions expire in minutes and this email is read hours later.
     """
+    from sqlalchemy import select
     from db.session import AsyncSessionLocal
     from models import User
     from services.email_service import send_email
