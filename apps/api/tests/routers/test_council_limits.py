@@ -130,6 +130,111 @@ def test_self_comparison_weekly_limit_429_sets_reset_header(client):
     _assert_reset_header_is_sane(resp)
 
 
+# ── SAFETY-006 — safety before the weekly limit ──────────────────────────────
+#
+# A crisis message from someone at the weekly limit used to get the 429 above,
+# which never reaches the service, so its safety gate never ran. The router now
+# checks first and, on a suppressing input, skips the limit entirely. The two
+# tests above are the other half: an ordinary message at the limit still gets
+# the 429. The committed safety_events row is measured against real Postgres in
+# tests/db_live/test_safety_events_committed.py.
+
+CRISIS = "I want to kill myself"
+
+
+def test_a_crisis_matter_at_the_council_limit_reaches_the_service(client):
+    remaining = AsyncMock(return_value=0)
+    with patch("routers.council.council_service.weekly_remaining", remaining), \
+         patch("routers.council.council_service.stream_council", MagicMock(return_value=iter([]))) as stream, \
+         patch("routers.council.analytics_service") as analytics:
+        resp = client.post(COUNCIL_URL, json={"matter": CRISIS})
+
+    assert resp.status_code == 200, resp.text
+    assert stream.call_args.kwargs["matter"] == CRISIS
+    remaining.assert_not_awaited()        # skipped, not consulted
+    names = [c[0][0] for c in analytics.track.call_args_list]
+    assert "usage_cap_hit" not in names, names
+    # council_started is the Γ-7 trigger metric; a crisis never convenes a council.
+    assert "council_started" not in names, names
+    assert "X-RateLimit-Remaining" not in resp.headers
+
+
+def test_an_ordinary_matter_under_the_limit_still_emits_council_started(client):
+    """The other half of the crisis gate on the event: a non-admin, under the
+    limit, ordinary matter — the event fires exactly as before."""
+    with patch("routers.council.council_service.weekly_remaining", AsyncMock(return_value=1)), \
+         patch("routers.council.council_service.stream_council", MagicMock(return_value=iter([]))), \
+         patch("routers.council.analytics_service") as analytics:
+        resp = client.post(COUNCIL_URL, json={"matter": "Should I take the job?"})
+
+    assert resp.status_code == 200, resp.text
+    names = [c[0][0] for c in analytics.track.call_args_list]
+    assert names == ["council_started"], names
+
+
+# ── SAFETY-006 — safety before the Pro gate ──────────────────────────────────
+#
+# The web shows both text boxes to Free users (no route guard; Council's page
+# has no plan check, and You-vs-You unlocks on history, not plan). A crisis from
+# a Free user used to get 403 upgrade_required — a paywall code in answer to a
+# crisis. It now reaches the service; an ordinary input still gets the 403.
+
+def _as_free(client):
+    client._auth_holder[0] = (_make_user(), "free")
+
+
+def test_a_free_users_crisis_matter_reaches_the_council_service(client):
+    _as_free(client)
+    with patch("routers.council.council_service.stream_council", MagicMock(return_value=iter([]))) as stream, \
+         patch("routers.council.analytics_service") as analytics:
+        resp = client.post(COUNCIL_URL, json={"matter": CRISIS})
+
+    assert resp.status_code == 200, resp.text
+    assert stream.call_args.kwargs["matter"] == CRISIS
+    analytics.track.assert_not_called()
+
+
+def test_a_free_users_ordinary_matter_still_gets_upgrade_required(client):
+    _as_free(client)
+    with patch("routers.council.council_service.stream_council") as stream:
+        resp = client.post(COUNCIL_URL, json={"matter": "Should I take the job?"})
+
+    assert resp.status_code == 403
+    assert resp.json()["error_code"] == "upgrade_required"
+    stream.assert_not_called()
+
+
+def test_a_free_users_crisis_prompt_reaches_the_you_vs_you_service(client):
+    _as_free(client)
+    with patch("routers.self_comparison.self_comparison_service.stream",
+               MagicMock(return_value=iter([]))) as stream:
+        resp = client.post(SELF_COMPARISON_URL, json={"prompt": CRISIS})
+
+    assert resp.status_code == 200, resp.text
+    assert stream.call_args.kwargs["prompt"] == CRISIS
+
+
+def test_a_free_users_ordinary_prompt_still_gets_upgrade_required(client):
+    _as_free(client)
+    with patch("routers.self_comparison.self_comparison_service.stream") as stream:
+        resp = client.post(SELF_COMPARISON_URL, json={"prompt": "Am I steadier than I was?"})
+
+    assert resp.status_code == 403
+    assert resp.json()["error_code"] == "upgrade_required"
+    stream.assert_not_called()
+
+
+def test_a_crisis_prompt_at_the_you_vs_you_limit_reaches_the_service(client):
+    remaining = AsyncMock(return_value=0)
+    with patch("routers.self_comparison.self_comparison_service.weekly_remaining", remaining), \
+         patch("routers.self_comparison.self_comparison_service.stream", MagicMock(return_value=iter([]))) as stream:
+        resp = client.post(SELF_COMPARISON_URL, json={"prompt": CRISIS})
+
+    assert resp.status_code == 200, resp.text
+    assert stream.call_args.kwargs["prompt"] == CRISIS
+    remaining.assert_not_awaited()
+
+
 # ── Γ-1b — the funnel, and what a refusal does and does not emit ─────────────
 #
 # council_started used to fire BEFORE the 400 (matter_too_long) and this 429, so

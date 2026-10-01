@@ -2050,6 +2050,67 @@ the lists. Each case records:
 
 ---
 
+### SAFETY-006 — a crisis message on Council / You-vs-You got a 429 (weekly limit) or a 403 (Free), not the crisis response — **FIXED (this PR)**
+**Status: FIXED in the PR that adds this entry (PR-1b of the SAFETY-002 build; founder
+ruling A, 2026-10-01). Found during the SAFETY-002 PR-2 investigation, main `ed5e185f`.**
+
+**The gap.** Both routers checked the weekly limit BEFORE the stream, and the safety gate
+lives INSIDE the stream (`council_service.stream_council`, `self_comparison_service.stream`).
+So a user at the limit who wrote a crisis message got:
+- Council: `429 council_weekly_limit` (1 per source per ISO week);
+- You-vs-You: `429 weekly_limit` (5 per week on Pro);
+
+with **no crisis response and no `safety_events` row**: the service never ran. It was the
+same shape as the chat hole that #591 closed in the chat router.
+
+**Since when.** Since the routers were written: Council #179 (2026-06-01), You-vs-You
+#196 / #201 (2026-06-02). Admins skip both limits, so no admin test could have shown it.
+
+**The same gap at the Pro gate (founder ruling, 2026-10-01: check the web first).** Both
+routers also returned `403 upgrade_required` BEFORE the stream, so a Free user's crisis
+message got a paywall code and no crisis response. **The web lets a Free user reach and
+submit both text boxes** (read 2026-10-01, main `ed5e185f`):
+- `apps/web/middleware.ts:8`: `PRO_PREFIXES: string[] = []`. No route is plan-guarded.
+- Council: `app/app/council/page.tsx:612` renders the textarea for everyone. `canSubmit`
+  (`:591`) checks only length and phase. A 403 surfaces as a generic "Council stream failed"
+  (`lib/api.ts`, `streamCouncil`).
+- You-vs-You: the input renders when `status.unlocked` (`you-vs-you/page.tsx:302-307`), and
+  unlock depends on history (`self_model_service.py`: `MIN_TOTAL_ENTRIES`, `MIN_SPAN_DAYS`),
+  never on plan. `/self-comparison/status` has no plan gate.
+
+(The weekly-limit half is not reachable from the You-vs-You page: its Ask button is
+disabled at `remaining === 0` (`you-vs-you/page.tsx:328`). It is reachable from Council's,
+and from any direct API call. It is fixed on the server either way.)
+
+**The fix (ordering only, as #591).** Each router runs `safety_service.check_input` on the
+same string the service checks (`matter`, `prompt`) BEFORE the Pro gate and the limit. On
+`should_suppress_persona` it skips BOTH and streams the service, which answers the crisis,
+logs and commits the event (SAFETY-004), and returns before it creates the
+`council_cases` / `self_comparisons` row that the limit counts. So **no allowance is
+spent**, and **a crisis never gets the paywall error code** (as in chat). Every
+non-crisis request gets exactly the responses it got before, in the same order.
+
+**`council_started` does not fire on a crisis** (founder ruling, 2026-10-01). It is the Γ-7
+Council trigger metric; a suppressed matter never convenes a council. This also changes
+the under-limit Pro crisis, which used to count as started.
+
+**Tests.**
+- `tests/routers/test_council_limits.py`:
+  - a crisis at each limit reaches the service, and `weekly_remaining` is not consulted;
+  - a Free user's crisis reaches each service, and a Free user's ordinary input still gets
+    the 403;
+  - `council_started` is not emitted on a crisis, and is still emitted on an ordinary matter.
+- `tests/db_live/test_safety_events_committed.py`: against real Postgres, a non-admin at
+  each limit gets the crisis text and a committed row (`council_input` /
+  `self_comparison_input`), with zero case rows; and an ordinary message at each limit
+  gets the 429 and writes no row.
+
+**For SAFETY-002 PR-2 (ruled).** Once the judge exists, these two surfaces follow chat's
+over-limit rule: over the limit + Tier B → the judge runs in the router; INTENT or a
+failure → the crisis path; released → the normal 429.
+
+---
+
 ### TD-114 — Council and You-vs-You stream on a session `get_db` has already committed and closed — **OPEN, logged (SAFETY-004 ruling 2)**
 **Status: OPEN. LOG only, not now (founder, 2026-09-28).**
 

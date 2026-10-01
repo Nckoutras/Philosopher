@@ -76,7 +76,7 @@ async def live(schema, monkeypatch):
 
     client = httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test")
     try:
-        yield SimpleNamespace(client=client, Session=Session, user_id=user_id)
+        yield SimpleNamespace(client=client, Session=Session, user_id=user_id, user=user)
     finally:
         await client.aclose()
         app.dependency_overrides.clear()
@@ -274,3 +274,64 @@ async def test_you_vs_you_output_event_is_committed(live):
     assert r.status_code == 200, r.text
     assert "safety_override" in [e["type"] for e in _events(r)]
     assert await _stages(live) == ["self_comparison_output"]
+
+
+# ── SAFETY-006: at the weekly limit, a crisis is answered, not refused ─────────
+#
+# The live user is an admin, and admins skip both weekly limits. These run as a
+# NON-admin whose weekly_remaining is 0. A crisis message must get the crisis text
+# and a COMMITTED row, and must create no case row (so no allowance is spent). An
+# ordinary message at the same limit must still be refused with the 429.
+
+async def _count(live, table) -> int:
+    async with live.Session() as s:
+        return (await s.execute(text(f"SELECT count(*) FROM {table} WHERE user_id = :u"),
+                                {"u": live.user_id})).scalar_one()
+
+
+def _at_limit(target):
+    return patch(target, AsyncMock(return_value=0))
+
+
+@pytest.mark.asyncio
+async def test_council_crisis_at_the_weekly_limit_is_answered_and_committed(live):
+    live.user.is_admin = False
+    with _Patched(_no_network() + [_at_limit("routers.council.council_service.weekly_remaining")]):
+        r = await live.client.post("/api/v1/council", json={"matter": CRISIS, "source": "direct"})
+    assert r.status_code == 200, r.text
+    safety = [e for e in _events(r) if e["type"] == "safety"]
+    assert safety and safety[0]["text"], _events(r)
+    assert await _stages(live) == ["council_input"]
+    assert await _count(live, "council_cases") == 0
+
+
+@pytest.mark.asyncio
+async def test_council_ordinary_matter_at_the_weekly_limit_is_still_refused(live):
+    live.user.is_admin = False
+    with _Patched(_no_network() + [_at_limit("routers.council.council_service.weekly_remaining")]):
+        r = await live.client.post("/api/v1/council", json={"matter": QUESTION, "source": "direct"})
+    assert r.status_code == 429, r.text
+    assert r.json()["error_code"] == "council_weekly_limit"
+    assert await _stages(live) == []
+
+
+@pytest.mark.asyncio
+async def test_you_vs_you_crisis_at_the_weekly_limit_is_answered_and_committed(live):
+    live.user.is_admin = False
+    with _Patched(_no_network() + [_at_limit("routers.self_comparison.self_comparison_service.weekly_remaining")]):
+        r = await live.client.post("/api/v1/self-comparison", json={"prompt": CRISIS})
+    assert r.status_code == 200, r.text
+    safety = [e for e in _events(r) if e["type"] == "safety"]
+    assert safety and safety[0]["text"], _events(r)
+    assert await _stages(live) == ["self_comparison_input"]
+    assert await _count(live, "self_comparisons") == 0
+
+
+@pytest.mark.asyncio
+async def test_you_vs_you_ordinary_prompt_at_the_weekly_limit_is_still_refused(live):
+    live.user.is_admin = False
+    with _Patched(_no_network() + [_at_limit("routers.self_comparison.self_comparison_service.weekly_remaining")]):
+        r = await live.client.post("/api/v1/self-comparison", json={"prompt": QUESTION})
+    assert r.status_code == 429, r.text
+    assert r.json()["error_code"] == "weekly_limit"
+    assert await _stages(live) == []
