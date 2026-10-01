@@ -16,8 +16,8 @@ the limit check is skipped entirely — no 429, and no allowance consumed, since
 the daily_usage increment lives in a phase the service's crisis branch returns
 before reaching. The service then re-runs the gate and does the real work.
 
-WHY THE CHECK IS DUPLICATED. It runs in the router AND at
-conversation_service.py:623. Deliberate, ruled 2026-09-02: ~82 microseconds
+WHY THE CHECK IS DUPLICATED. It runs in the router AND in
+conversation_service.stream_response. Deliberate, ruled 2026-09-02: ~82 microseconds
 against a multi-second LLM call, and the service must stay correct when called
 directly. These tests pin the ORDER, so a future dedup that removes the router
 check fails here.
@@ -142,8 +142,21 @@ def test_crisis_text_at_an_exhausted_limit_is_not_rate_limited(text):
             f"{text!r} was rate-limited instead of reaching the safety gate"
         )
         assert res.status_code == 200, res.text
-        # The limit was never even consulted for a crisis message.
-        limit.assert_not_awaited()
+        # SAFETY-002 changed WHEN the limit is consulted, not the outcome. A Tier-A
+        # message still skips the limits without consulting them. A Tier-B message
+        # (here, production MEDIUM) now consults them first, because a RELEASED
+        # Tier-B message must meet them; over the limit it is judged in the router,
+        # and a judge failure (the kill switch is off in tests) is fail-closed, so the
+        # crisis path still runs and the 429 is never returned.
+        from services import safety_gate
+        from services.safety_service import safety_service as real_safety
+        import asyncio
+        level = safety_gate.lexicon_level(text, asyncio.run(real_safety.check_input(text)))
+        if level == "A":
+            limit.assert_not_awaited()
+        else:
+            limit.assert_awaited_once()
+            assert stream.call_args.kwargs["prejudged"].failed is True
         # The service — which owns the crisis response — was reached.
         stream.assert_called_once()
     finally:
@@ -295,3 +308,97 @@ def test_the_service_still_owns_the_crisis_response():
 def conversation_service_path():
     import services.conversation_service as m
     return m.__file__
+
+
+# ── SAFETY-002: the over-limit rule ──────────────────────────────────────────
+#
+# A Tier-B message is nominated, not convicted. Within the limits the service
+# judges it. OVER a limit the router judges it, because a released philosophy
+# question must meet the limit like any other message: otherwise the lexicon
+# would buy an over-limit user a persona reply.
+
+from services.safety_judge import JudgeVerdict
+
+RELEASABLE = "What did the Stoics think about suicide as a rational choice?"   # B:HIGH, no keys
+
+
+def _verdict(v):
+    return JudgeVerdict(verdict=v, failed=False, fail_kind=None,
+                        model="claude-haiku-4-5-20251001", latency_ms=900,
+                        input_tokens=1200, output_tokens=30)
+
+
+def _over_limit(user, verdict, *, limit_result):
+    session = _session_with(_conv(user.id), _persona())
+    db = session.__aenter__.return_value
+    patches = [
+        patch("routers.conversations.AsyncSessionLocal", return_value=session),
+        patch("routers.conversations.get_user_tier", new=AsyncMock(return_value="free")),
+        patch("routers.conversations.rate_limit_service.check_rate_limit",
+              new=AsyncMock(return_value=limit_result)),
+        patch("routers.conversations.rate_limit_service.check_fair_use_limit",
+              new=AsyncMock(return_value=RateLimitResult(allowed=True, remaining=99, limit=100,
+                                                         reset_at=datetime(2026, 9, 3, tzinfo=timezone.utc)))),
+        patch("routers.conversations.conversation_service.stream_response"),
+        patch("routers.conversations.log_safety_event", new=AsyncMock()),
+        patch("services.safety_judge.judge",
+              new=AsyncMock(return_value=verdict) if verdict
+              else AsyncMock(side_effect=AssertionError("must not be judged in the router"))),
+    ]
+    return db, patches
+
+
+def _post(user, patches, text):
+    client = _client(user)
+    started = [p.start() for p in patches]
+    try:
+        stream = started[4]
+        stream.return_value = iter([b"data: {}\n\n"])
+        res = client.post(URL, json={"content": text})
+        return res, stream, started[5], started[6]
+    finally:
+        for p in reversed(patches):
+            p.stop()
+        _reset()
+
+
+def test_over_the_limit_a_released_tier_b_message_gets_the_normal_429():
+    """The ruled test: no persona reply, no allowance consumed (the service never
+    runs), and the one enriched row is written and committed by the router."""
+    user = _user()
+    db, patches = _over_limit(user, _verdict("DISCUSSING"), limit_result=EXHAUSTED)
+    res, stream, log, judge = _post(user, patches, RELEASABLE)
+
+    assert res.status_code == 429, res.text
+    assert res.json()["error_code"] == "rate_limited"
+    stream.assert_not_called()
+    judge.assert_awaited_once()
+    log.assert_awaited_once()
+    assert log.await_args.kwargs["action_taken"] == "released"
+    assert log.await_args.kwargs["judge"]["outcome"] == "DISCUSSING"
+    assert log.await_args.args[2].level == "high"          # the lexicon level is recorded
+    db.commit.assert_awaited()
+
+
+def test_over_the_limit_intent_gets_the_crisis_path_with_the_verdict_handed_over():
+    user = _user()
+    _, patches = _over_limit(user, _verdict("INTENT"), limit_result=EXHAUSTED)
+    res, stream, log, judge = _post(user, patches, RELEASABLE)
+
+    assert res.status_code == 200, res.text
+    judge.assert_awaited_once()
+    stream.assert_called_once()
+    assert stream.call_args.kwargs["prejudged"].verdict == "INTENT"   # never judged twice
+    log.assert_not_awaited()                                            # the service writes the row
+
+
+def test_within_the_limit_a_tier_b_message_is_judged_by_the_service_not_the_router():
+    user = _user()
+    allowed = RateLimitResult(allowed=True, remaining=3, limit=5,
+                              reset_at=datetime(2026, 9, 3, tzinfo=timezone.utc))
+    _, patches = _over_limit(user, None, limit_result=allowed)
+    res, stream, log, _ = _post(user, patches, RELEASABLE)
+
+    assert res.status_code == 200, res.text
+    assert stream.call_args.kwargs["prejudged"] is None
+    log.assert_not_awaited()

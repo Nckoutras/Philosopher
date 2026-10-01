@@ -15,6 +15,8 @@ from schemas import CouncilCreate
 from services.council_service import council_service, _iso_week_start
 from services.analytics_service import analytics_service
 from services.safety_service import safety_service
+from services import safety_gate
+from services.safety_event_log import log_safety_event, STAGE_COUNCIL_INPUT
 from services.image_service import generate_council_share_image
 from routers.share import create_and_render
 
@@ -56,15 +58,34 @@ async def create_council(
     # same order (an empty matter checks as "none").
     crisis = await safety_service.check_input(matter, user.id)
 
+    # SAFETY-002: the lexicon now only nominates. Tier A is a crisis outright; a
+    # Tier-B matter is judged HERE, once, and the verdict is handed to the service
+    # (which never calls the judge twice). The router must know the outcome before
+    # it streams, because council_started — the Γ-7 trigger metric — fires here and
+    # must not count a crisis. A crisis (or a judge failure, which is fail-closed)
+    # skips both refusals below, as SAFETY-006 does; a RELEASED matter meets them
+    # like any other, and if refused its record is written and committed here,
+    # since the service will never run.
+    lexicon = safety_gate.lexicon_level(matter, crisis)
+    gate = await safety_gate.evaluate(matter, crisis) if lexicon.startswith("B") else None
+    is_crisis = lexicon == "A" or (gate is not None and gate.suppresses)
+
+    async def _refuse(response):
+        if gate is not None:
+            await log_safety_event(db, user.id, gate.record, STAGE_COUNCIL_INPUT,
+                                   judge=gate.judge, action_taken=gate.action_taken)
+            await db.commit()
+        return response
+
     # Pro gate (council is Pro-only; BETA flag makes everyone "pro" for now)
-    if plan not in ("pro", "premium") and not crisis.should_suppress_persona:
-        return JSONResponse(status_code=403, content={"error_code": "upgrade_required"})
+    if plan not in ("pro", "premium") and not is_crisis:
+        return await _refuse(JSONResponse(status_code=403, content={"error_code": "upgrade_required"}))
 
     if not matter:
         return JSONResponse(status_code=400, content={"error_code": "empty_matter"})
 
     if len(matter) > MATTER_MAX_CHARS:
-        return JSONResponse(status_code=400, content={"error_code": "matter_too_long"})
+        return await _refuse(JSONResponse(status_code=400, content={"error_code": "matter_too_long"}))
 
     source = body.source if body.source in ("direct", "mirror", "chat", "nudge") else "direct"
 
@@ -73,7 +94,7 @@ async def create_council(
     # limit itself counts from, reused from the service rather than recomputed here.
     reset_at = _iso_week_start() + timedelta(days=7)
     remaining = None
-    if not user.is_admin and not crisis.should_suppress_persona:
+    if not user.is_admin and not is_crisis:
         remaining = await council_service.weekly_remaining(db, user.id, source)
         if remaining <= 0:
             # The sixth cap call site. cap_kind is "council", NOT "pro_fair_use":
@@ -89,7 +110,7 @@ async def create_council(
                 "cap_kind": "council",
                 "path": "council",
             })
-            return JSONResponse(
+            return await _refuse(JSONResponse(
                 status_code=429,
                 content={"error_code": "council_weekly_limit"},
                 headers={
@@ -97,7 +118,7 @@ async def create_council(
                     "X-RateLimit-Remaining": "0",
                     "X-RateLimit-Reset": reset_at.isoformat(),
                 },
-            )
+            ))
 
     response_headers = {"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}
     if remaining is not None:
@@ -134,7 +155,7 @@ async def create_council(
     # And NOT on a crisis (SAFETY-006). A suppressed matter never convenes the
     # council, and council_started is the Γ-7 trigger metric: crisis inputs —
     # which now also arrive past the Pro gate and the limit — would inflate it.
-    if not crisis.should_suppress_persona:
+    if not is_crisis:
         analytics_service.track("council_started", user.id, {"source": source})
 
     arq_queue = getattr(request.app.state, "arq_queue", None)
@@ -180,6 +201,7 @@ async def create_council(
             conversation_id=body.conversation_id,
             matter_edited=body.matter_edited,
             arq_queue=arq_queue,
+            prejudged=gate.verdict if gate is not None else None,
         ),
         media_type="text/event-stream",
         headers=response_headers,

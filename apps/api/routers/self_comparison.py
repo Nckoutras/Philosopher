@@ -20,7 +20,8 @@ from services.self_model_service import self_model_service
 from services.self_comparison_service import self_comparison_service, weekly_limit, _week_start
 from services.self_portrait_summary import language_from_signals
 from services.safety_service import safety_service
-from services.safety_event_log import log_safety_event
+from services.safety_event_log import log_safety_event, STAGE_SELF_COMPARISON_INPUT
+from services import safety_gate
 from services.analytics_service import analytics_service
 
 router = APIRouter(prefix="/self-comparison", tags=["self-comparison"])
@@ -246,19 +247,34 @@ async def create_self_comparison(
     # before, in the same order.
     crisis = await safety_service.check_input(prompt, str(user.id))
 
-    if plan not in ("pro", "premium") and not user.is_admin and not crisis.should_suppress_persona:
-        return JSONResponse(status_code=403, content={"error_code": "upgrade_required"})
+    # SAFETY-002, the same shape as routers/council.py: Tier A is a crisis; a Tier-B
+    # prompt is judged HERE once and the verdict handed to the service. A crisis (or
+    # a judge failure) skips both refusals; a RELEASED prompt meets them, and if
+    # refused its record is written and committed here.
+    lexicon = safety_gate.lexicon_level(prompt, crisis)
+    gate = await safety_gate.evaluate(prompt, crisis) if lexicon.startswith("B") else None
+    is_crisis = lexicon == "A" or (gate is not None and gate.suppresses)
+
+    async def _refuse(response):
+        if gate is not None:
+            await log_safety_event(db, str(user.id), gate.record, STAGE_SELF_COMPARISON_INPUT,
+                                   judge=gate.judge, action_taken=gate.action_taken)
+            await db.commit()
+        return response
+
+    if plan not in ("pro", "premium") and not user.is_admin and not is_crisis:
+        return await _refuse(JSONResponse(status_code=403, content={"error_code": "upgrade_required"}))
 
     if not prompt:
         return JSONResponse(status_code=400, content={"error_code": "empty_prompt"})
 
-    if not user.is_admin and not crisis.should_suppress_persona:
+    if not user.is_admin and not is_crisis:
         remaining = await self_comparison_service.weekly_remaining(db, user.id, plan)
         if remaining <= 0:
             # Reset is the start of the NEXT week — same Monday-00:00-UTC boundary the
             # limit counts from, reused from the service rather than recomputed here.
             reset_at = _week_start() + timedelta(days=7)
-            return JSONResponse(
+            return await _refuse(JSONResponse(
                 status_code=429,
                 content={"error_code": "weekly_limit"},
                 headers={
@@ -266,10 +282,11 @@ async def create_self_comparison(
                     "X-RateLimit-Remaining": "0",
                     "X-RateLimit-Reset": reset_at.isoformat(),
                 },
-            )
+            ))
 
     return StreamingResponse(
-        self_comparison_service.stream(db=db, user_id=user.id, prompt=prompt, bypass_gate=user.is_admin),
+        self_comparison_service.stream(db=db, user_id=user.id, prompt=prompt, bypass_gate=user.is_admin,
+                                       prejudged=gate.verdict if gate is not None else None),
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
@@ -301,11 +318,18 @@ async def set_ring_true(
     note = (body.note or "").strip()
     if note:
         safety_result = await safety_service.check_input(note, str(user.id))
-        if safety_result.should_log:
+        # SAFETY-002: the fourth judged surface. No limit here, so the judge runs in
+        # place; a released note is persisted like any other. (Unreachable from the
+        # web today — neither client sends a note — and wired as ruled.)
+        gate = await safety_gate.evaluate(note, safety_result)
+        safety_result = gate.effective
+        if gate.record.should_log:
             await log_safety_event(
-                db, str(user.id), safety_result, "ring_true_input",
+                db, str(user.id), gate.record, "ring_true_input",
                 conversation_id=None,
                 message_id=None,
+                judge=gate.judge,
+                action_taken=gate.action_taken,
             )
         if safety_result.should_suppress_persona:
             # 200 with a body instead of this endpoint's usual 204. The decorator's

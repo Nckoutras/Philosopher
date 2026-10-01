@@ -17,6 +17,8 @@ from models import Conversation, DailyUsage, Message, Persona, Ritual, SafetyEve
 from personas import get_persona, is_persona_accessible
 from constants import TIER_ORDER
 from services.safety_service import crisis_language, safety_service
+from services import safety_gate
+from services.safety_gate import DISTRESS_ADDENDUM
 from services.memory_service import memory_service
 from services.retrieval_service import retrieval_service
 from services.embedding_client import embedding_client
@@ -734,6 +736,7 @@ class ConversationService:
         is_admin: bool = False,
         arq_queue=None,
         seeded_opening: bool = False,
+        prejudged=None,
     ) -> AsyncGenerator[str, None]:
         # §5 pool-leak fix: this generator takes a session FACTORY, not a
         # request-scoped session. DB work happens in short-lived sessions in
@@ -763,8 +766,19 @@ class ConversationService:
 
             # ── 1. PRE-GENERATION SAFETY ─────────────────────────────────────
             safety_in = await safety_service.check_input(user_text, user_id)
-            if safety_in.should_log:
-                await self._log_safety_event(db, user_id, conversation_id, None, safety_in, "pre_generation")
+            # SAFETY-002: the frozen lists + the context judge decide what the lexicon
+            # alone used to. `prejudged` is the router's verdict when it already had to
+            # judge this message (over a limit), so the judge is never called twice.
+            # From here on safety_in is the DECISION's result: a released message
+            # continues — and is stored — as "low".
+            gate = await safety_gate.evaluate(
+                user_text, safety_in, prejudged=prejudged,
+                context=lambda: self._judge_context(db, conversation_id),
+            )
+            if gate.record.should_log:
+                await self._log_safety_event(db, user_id, conversation_id, None, gate.record, "pre_generation",
+                                             judge=gate.judge, action_taken=gate.action_taken)
+            safety_in = gate.effective
             if safety_in.should_suppress_persona:
                 # Save user message first
                 user_msg = await self._save_message(db, conv, user_id, "user", user_text, safety_level=safety_in.level)
@@ -775,7 +789,8 @@ class ConversationService:
                 )
                 await self._save_message(db, conv, user_id, "assistant", safe_text, safety_level=safety_in.level, persona_override=True)
                 await db.commit()
-                analytics_service.track("safety_event_pre", user_id, {"risk_level": safety_in.level, "category": safety_in.category})
+                if gate.outcome == "CRISIS":   # SAFETY-002 ruling D: a MEDIUM that stands is no crisis event
+                    analytics_service.track("safety_event_pre", user_id, {"risk_level": safety_in.level, "category": safety_in.category})
                 # The event carries the whole text (SAFETY-003): the bubble renders it
                 # at once, and a connection dropped before the chunks cannot leave it
                 # empty. The chunks still follow, for clients that predate this.
@@ -851,6 +866,11 @@ class ConversationService:
                 profile=profile_view,
                 include_cache_sentinel=True,
             )
+            # SAFETY-002: a message the judge released as DISTRESS — painful, no
+            # intent — is answered by the persona with the founder-approved addendum,
+            # for this turn only. HARD RULE 9 still governs: kinds of help, no numbers.
+            if gate.outcome == "DISTRESS":
+                system_prompt = system_prompt + "\n\n" + DISTRESS_ADDENDUM
 
             # ── 5. BUILD MESSAGE HISTORY ─────────────────────────────────────
             # NEWEST-N WINDOW: DESC + limit selects the most RECENT N turns, then
@@ -1310,7 +1330,10 @@ class ConversationService:
                 "generate_conversation_title", str(conversation_id)
             )
 
-        if arq_queue is not None and not safety_out.should_suppress_persona:
+        # SAFETY-002 ruling C: a turn the judge released as DISTRESS writes NO memory
+        # entries, so nothing from it is recalled later. DISCUSSING and
+        # THIRD_PARTY_RISK releases extract as any "low" turn does today.
+        if arq_queue is not None and not safety_out.should_suppress_persona and gate.outcome != "DISTRESS":
             # Dilemma/belief signal insights are only promoted when the WHOLE exchange
             # was safety-clean; pass that as a trailing flag (the task defaults it False,
             # so a stale-queued job without the arg stays safe).
@@ -1998,18 +2021,34 @@ class ConversationService:
         await db.flush()
         return msg
 
-    async def _log_safety_event(self, db, user_id, conversation_id, message_id, safety_result, stage):
+    async def _judge_context(self, db, conversation_id) -> list[tuple[str, str]]:
+        """The earlier turns the SAFETY-002 judge sees: the last three messages of this
+        conversation, oldest first, as (role, text). Called only on a Tier-B message,
+        before the new user message is saved. Read-only on the caller's session."""
+        rows = (await db.execute(
+            select(Message.role, Message.content)
+            .where(Message.conversation_id == conversation_id)
+            .order_by(Message.created_at.desc())
+            .limit(3)
+        )).all()
+        return [(r, t) for r, t in reversed(rows)]
+
+    async def _log_safety_event(self, db, user_id, conversation_id, message_id, safety_result, stage,
+                                *, judge=None, action_taken=None):
         """Thin delegate to services.safety_event_log.log_safety_event (A18b).
 
-        The signature is unchanged so the three chat call sites need no edit — which is
-        the point: 'chat behaviour is byte-identical' is guaranteed by the diff not
-        touching them, not by anyone re-reading them. The body moved verbatim."""
+        The positional signature is unchanged so the three chat call sites need no edit —
+        which is the point: 'chat behaviour is byte-identical' is guaranteed by the diff not
+        touching them, not by anyone re-reading them. The body moved verbatim. The two
+        keyword-only additions carry the SAFETY-002 judge record and default to None."""
         from services.safety_event_log import log_safety_event
 
         await log_safety_event(
             db, user_id, safety_result, stage,
             conversation_id=conversation_id,
             message_id=message_id,
+            judge=judge,
+            action_taken=action_taken,
         )
 
     def _chunk_text(self, text: str, size: int = 20):

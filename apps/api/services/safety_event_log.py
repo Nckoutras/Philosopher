@@ -62,13 +62,23 @@ async def log_safety_event(
     *,
     conversation_id=None,
     message_id=None,
+    judge=None,
+    action_taken=None,
 ) -> None:
     """Record one safety check. Callers gate on `safety_result.should_log`.
 
     conversation_id and message_id default to None so a ritual surface — which has
     neither — writes a valid row without inventing anything. Both columns are nullable
     on the model and carry no CHECK constraint.
+
+    SAFETY-002 (founder ruling 2): a judged message still writes ONE row, enriched —
+    `judge` lands in raw_flags["judge"] (services/safety_gate.py builds it, and it never
+    holds the model's reason), and `action_taken` is "released" when the judge released
+    it. Both default to None, which leaves every existing call's row byte-identical.
     """
+    raw_flags = {"flags": safety_result.raw_flags, "trigger": safety_result.trigger}
+    if judge is not None:
+        raw_flags["judge"] = judge
     event = SafetyEvent(
         user_id=user_id,
         conversation_id=conversation_id,
@@ -76,8 +86,10 @@ async def log_safety_event(
         trigger_stage=stage,
         risk_level=safety_result.level,
         category=safety_result.category,
-        action_taken="suppressed" if safety_result.should_suppress_persona else "logged",
-        raw_flags={"flags": safety_result.raw_flags, "trigger": safety_result.trigger},
+        action_taken=action_taken or (
+            "suppressed" if safety_result.should_suppress_persona else "logged"
+        ),
+        raw_flags=raw_flags,
     )
     db.add(event)
     await db.flush()
