@@ -1,0 +1,4 @@
+# The SAFETY-002 frozen lists are pinned by the sha256 of their exact bytes
+# (test_safety_tiers.py). No line-ending conversion, so the hash is the same
+# on a Windows checkout, on CI and in the founder's frozen artefact.
+apps/api/data/safety_002_tiers_v0.6.1.json -text
