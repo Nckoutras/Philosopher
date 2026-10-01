@@ -707,8 +707,10 @@ class ConversationService:
                 },
             )
             await self._log_safety_event(db, user_id, conv.id, None, safety_out, "post_generation")
+            # No user turn exists here. The letter is the user's own language
+            # (the worker writes it in dominant_language of the week's words).
             text = prompt_builder.build_safety_response(
-                level=safety_out.level, language=crisis_language([user_text]),
+                level=safety_out.level, language=crisis_language([assembled_reading]),
             )
 
         await self._save_message(
