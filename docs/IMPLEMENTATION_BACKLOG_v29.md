@@ -5601,6 +5601,46 @@ finding.
 
 ---
 
+### OPS-025 — #759 (SAFETY-006) P-04 smoke: OWED TODAY, 2026-10-01 — **OPEN**
+**Status: OPEN. Owed the day #759 merged (2026-10-01 13:49 UTC, `96623013`). DO NOT record it
+as passed until someone has typed the phrases. Past end of day 2026-10-01 it is a FINDING
+(amended P-04).**
+
+**Already verified, by CI:** the 4 new db_live tests in #759 PASSED in the live-Postgres job
+(run `36871120349`, job log lines 159–162; read by the founder). They prove, against real
+Postgres, that a crisis at each weekly limit gets the crisis text with a COMMITTED row and
+no case row, and that an ordinary message at the limit still gets the 429. This smoke checks
+what CI cannot: the real web client, on production.
+
+**Account: the Free QA account (`nkoutr@telekom.gr`), NEVER the founder's.** This smoke
+writes high/critical flags. On the founder account they silence the month's letter and
+close You-vs-You for 14 days (OPS-014; OPS-021 measured the cost).
+
+**Method.**
+1. **Council, Free:** open `/app/council` as the QA user. Type a crisis phrase from the
+   lexicon (e.g. "I want to kill myself") and submit.
+2. **You-vs-You, Free:** if the QA account has unlocked You-vs-You, do the same at
+   `/app/you-vs-you`. If it has not, record "not reachable on this account", not a pass.
+3. **Control:** submit an ordinary matter on Council ("Should I take the job?").
+4. **Read back** (read-only):
+   ```sql
+   SELECT trigger_stage, risk_level, action_taken, created_at
+   FROM safety_events
+   WHERE user_id = (SELECT id FROM users WHERE email = 'nkoutr@telekom.gr')
+     AND created_at >= now() - interval '2 hours'
+   ORDER BY created_at;
+   ```
+
+**Expected.**
+- Steps 1 and 2: the crisis text, in the app-voice bubble with tappable resources. NOT
+  "Something went wrong" (that was the 403 before #759; see UX-04).
+- Step 3: "Something went wrong. Please try again." That is still the Free user's 403 for
+  an ordinary matter, unchanged by #759 and logged as UX-04.
+- Step 4: one `council_input` row (and one `self_comparison_input` row if step 2 ran), with
+  `risk_level = high` and `action_taken = suppressed`. No row for step 3.
+
+---
+
 ## 5. UX
 
 ### UX-04 — a Free user can type into Council and You-vs-You, submit, and get a generic error instead of an upgrade prompt — **LOGGED; priority: BEFORE Stripe live**
