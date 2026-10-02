@@ -42,8 +42,9 @@ default; after CC's "clear to merge" when the title starts with
   and four merges because (1) and (2) were enforced and (3) was assumed
   (2026-09-01).
 - "No run" is not "green". Neither CI workflow has a `paths:` filter any
-  more: both were removed on 2026-09-14 (#648), the day branch protection
-  arrived, because a required check that never reports leaves the PR at
+  more: `backend-ci.yml`'s was removed on 2026-09-14 (#648), the day
+  branch protection arrived, and `web-build.yml`'s on 2026-09-18 (#679),
+  because a required check that never reports leaves the PR at
   "Expected — waiting for status" forever. Every PR now triggers every
   run. A missing or cancelled run is still not a pass: an "update branch"
   push cancels the old head's runs (2026-10-02, #768). Check the runs the
