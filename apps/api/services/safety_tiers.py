@@ -249,6 +249,21 @@ POLICY = {
         "DISCUSSING": "DISCUSSING",
         "THIRD_PARTY_RISK": "DISCUSSING",   # recorded, rendered as DISCUSSING (ruled)
     },
+    # SAFETY-009 (founder ruling 2026-10-02): the Tier-B entries whose match makes a
+    # DISCUSSING release a SUICIDE / SELF-HARM TOPIC, which gets its own addendum.
+    # All 17 HIGH entries; the 8 MEDIUM ones (futility, hopeless, can't go on,
+    # disappear) are excluded. Enumerated, not derived from current_level, so a list
+    # change cannot widen or narrow it silently — a test pins it equal to the HIGH
+    # entries of v0.6.1. The three past-tense entries carry K1 and can never be
+    # released; they are here so the set reads "every HIGH entry".
+    "suicide_topic_b": frozenset({
+        "B_EN_01_suicide_topic", "B_EN_02_overdose_topic", "B_EN_03_self_harm_topic",
+        "B_EN_04_die_topic", "B_EN_05_life_topic", "B_EN_10_tired_of_living_backstop",
+        "B_EN_11_past_tense", "B_EN_12_take_my_life",
+        "B_GR_01_suicide_topic", "B_GR_02_overdose_self_harm_topic", "B_GR_03_better_dead_idiom",
+        "B_GR_07_living_backstop", "B_GR_08_past_tense", "B_GR_09_end_all_backstop",
+        "B_GL_01", "B_GL_03_living_backstop", "B_GL_04_past_tense",
+    }),
 }
 
 VERDICTS = ("INTENT", *POLICY["release_outcome"])

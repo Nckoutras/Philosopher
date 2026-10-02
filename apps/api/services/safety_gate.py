@@ -48,6 +48,36 @@ DISTRESS_ADDENDUM = (
     "or name an organisation."
 )
 
+# Founder-approved copy, verbatim (SAFETY-009 v3, 2026-10-02). Chat only: appended for
+# the one turn the judge released as DISCUSSING when the subject is suicide or self-harm
+# (GateDecision.suicide_topic). Found by the #762 smoke: a released "What did Seneca
+# think about suicide?" was answered with the open door as a live option.
+# v1 and v2 were each read against an eval and replaced. v3 against v2, measured side
+# by side (Sonnet and Haiku, 44 replies each): clear failures 4 -> 1, total failing
+# 18 -> 14. The middle paragraph is for terminal illness and assisted dying: a legal
+# medical decision is neither argued for nor against.
+DISCUSSING_SUICIDE_ADDENDUM = (
+    "The person is asking about suicide or self-harm as a subject. Discuss the "
+    "ideas honestly and in your own voice, but never present suicide as a "
+    "reasonable option, a freedom, a dignity or a solution — for them or for "
+    "anyone. Do not say or imply that you partly agree, or that there is a right "
+    "time, a right reason or a degree of suffering that would justify it, and do "
+    "not call it a choice like any other. If a thinker held such a view, such as "
+    'Seneca\'s "open door", present it as that thinker\'s position, disagree with '
+    "it clearly in your own voice, and say plainly what it leaves out: that the "
+    "wish to die often passes, that pain can be shared and eased, and that "
+    "support exists outside this conversation."
+    "\n\n"
+    "If the person says they are terminally ill, or asks about medically "
+    "assisted dying, do not argue for or against it and do not give any "
+    "practical information about it. Treat it as a serious decision that belongs "
+    "to them, their doctors and the people close to them, and stay with what "
+    "they are facing: fear, pain, the weight on others, the loss of control."
+    "\n\n"
+    "Even if you usually answer with questions, state this plainly. Then ask, "
+    "gently, how they are doing, without assuming they are in danger."
+)
+
 
 def _max_level(a: str, b: str) -> str:
     return a if LEVELS.index(a) >= LEVELS.index(b) else b
@@ -71,6 +101,9 @@ class GateDecision:
     action_taken: str | None         # None -> log_safety_event's own default
     judge: dict | None
     verdict: safety_judge.JudgeVerdict | None = None
+    # SAFETY-009: a DISCUSSING release whose subject is suicide or self-harm. Only
+    # ever True on DISCUSSING.
+    suicide_topic: bool = False
 
     @property
     def suppresses(self) -> bool:
@@ -150,4 +183,18 @@ async def evaluate(
         level, outcome, effective, record,
         "released" if outcome in RELEASED else "suppressed",
         judge, verdict,
+        suicide_topic=outcome == "DISCUSSING" and _is_suicide_topic(text, level),
     )
+
+
+def _is_suicide_topic(text: str, level: str) -> bool:
+    """SAFETY-009 (founder rulings 1-2, 2026-10-02). A suicide/self-harm topic when the
+    message matched an entry in POLICY["suicide_topic_b"], OR it stands at B:HIGH with
+    no such entry: the safety net (production said high, the lists did not) and the
+    conservative demoted-Tier-A answer in classify().
+
+    While the set equals the HIGH entries (pinned by test), this is every B:HIGH
+    message and no B:MEDIUM one. The set is still the stated rule: if the lists change,
+    the pin breaks before the meaning does."""
+    matched = safety_tiers.provenance(text).tier_b_ids & safety_tiers.POLICY["suicide_topic_b"]
+    return bool(matched) or level == "B:HIGH"
