@@ -5332,6 +5332,19 @@ That is why `messages.model_used` is now written at every LLM-backed assistant s
 forward, the model that produced a reply is recorded on the row itself, independent
 of the flag's history. Nothing before it is recovered.
 
+### PARKED — founder safety alerting — **PARKED (founder, 2026-10-02). No work.**
+**Revisit only when the founder raises it.** An idea, recorded so it is not lost and is
+not mistaken for planned work.
+
+- **(a) Per-message content alerts, plus a manual "panic button": NOT PURSUED without
+  legal advice.** Alerting a person to a user's message content processes special-category
+  data (GDPR art. 9). It would need a DPIA, a consent basis and a privacy-policy change
+  before any design.
+- **(b) An aggregate-only daily safety digest: a candidate for strategic ruling #3
+  (silent failures).** Counts only, no content. Not designed. That ruling has no written
+  record in `docs/` or `CLAUDE.md` as of 2026-10-02; it is cited here by the founder's
+  name for it.
+
 ---
 
 ## 4. Operations
