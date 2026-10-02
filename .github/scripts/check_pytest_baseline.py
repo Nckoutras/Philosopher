@@ -32,17 +32,51 @@ DEFAULT_BASELINE = DEFAULT_API_DIR / "tests" / "ci_baseline_failures.txt"
 # `FAILED path::test - message` and `ERROR path::test - message`. The message
 # suffix is optional and is discarded: it carries assertion text that changes
 # between runs, while the id is stable.
-_RESULT_LINE = re.compile(r"^(?:FAILED|ERROR)\s+(\S+?)(?:\s+-\s.*)?$")
+#
+# The id is `path::name`, then an optional `[params]` that MAY CONTAIN SPACES:
+# `test_x[I want to die]`. The pattern used to be `(\S+?)`, which cannot cross a
+# space, so a failing parametrized test whose id had one matched nothing at all
+# and was dropped from the failing set -- silently, and the run went green. On
+# 2026-10-02, 1,106 of the 3,853 collected ids had a space, most of them the
+# safety lexicon and tier tests. The bracket part is matched lazily, so it ends
+# at the first `]` after which only an optional ` - message` remains.
+_RESULT_LINE = re.compile(
+    r"^(?:FAILED|ERROR)\s+([^\s\[]+(?:\[.*?\])?)(?:\s+-\s.*)?$"
+)
+
+# pytest's final summary: `3 failed, 120 passed, 1 error in 4.20s`, with or
+# without the `=` rule around it.
+_SUMMARY_LINE = re.compile(r"^=*\s*(?:\d+ \w+(?:, )?)+ in [\d.]+s\b")
+_SUMMARY_COUNT = re.compile(r"(\d+) (failed|errors?)\b")
+
+
+def parse_result_lines(text):
+    """Every failed/errored test id in pytest's -rfE summary, one per line.
+
+    A list, not a set: a test that fails in its call AND errors in teardown is
+    reported twice and counted twice by pytest, and the count check below needs
+    the same arithmetic.
+    """
+    found = []
+    for line in text.splitlines():
+        m = _RESULT_LINE.match(line.strip())
+        if m:
+            found.append(m.group(1))
+    return found
 
 
 def parse_failures(text):
     """Extract the set of failed/errored test ids from pytest output."""
-    found = set()
-    for line in text.splitlines():
-        m = _RESULT_LINE.match(line.strip())
-        if m:
-            found.add(m.group(1))
-    return found
+    return set(parse_result_lines(text))
+
+
+def parse_summary_count(text):
+    """failed + errors from pytest's own final summary line; None if absent."""
+    for line in reversed(text.splitlines()):
+        line = line.strip()
+        if _SUMMARY_LINE.match(line):
+            return sum(int(n) for n, _ in _SUMMARY_COUNT.findall(line))
+    return None
 
 
 def load_baseline(path):
@@ -93,12 +127,23 @@ def main():
         output = run_pytest(args.api_dir)
         print(output)
 
-    failing = parse_failures(output)
+    lines = parse_result_lines(output)
+    failing = set(lines)
 
     # A run that collected nothing is not a pass. Without this, a collection
     # error or a bad path would produce zero failures and a green check.
-    if not failing and "passed" not in output:
+    reported = parse_summary_count(output)
+    if reported is None:
         print("::error::pytest produced no recognisable result summary - treating as failure")
+        return 1
+
+    # pytest's own count is the check on this script's parsing. If they differ,
+    # some FAILED/ERROR line was not understood, and the failure it describes
+    # would otherwise be dropped without a trace -- which is how a space in a
+    # parametrized id went unseen. A mismatch fails, whatever the baseline says.
+    if reported != len(lines):
+        print(f"::error::pytest reports {reported} failed+errors but {len(lines)} "
+              "FAILED/ERROR lines were parsed - a result line was not understood")
         return 1
 
     new_failures = sorted(failing - baseline)
