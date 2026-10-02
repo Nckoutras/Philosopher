@@ -150,6 +150,22 @@ async def test_the_synthesis_carries_the_approved_use_directive_verbatim():
 
 
 @pytest.mark.asyncio
+async def test_the_synthesis_and_every_member_carry_hard_rule_10():
+    """SAFETY-010. The members render system_base and carry it as rule 10; the
+    synthesis composes its own prompt, so it is appended there. One wording."""
+    from services.prompt_builder import HARD_RULE_10
+    systems, _turns, synthesis, _mem = await _run_council(recall_result=[])
+
+    assert synthesis["system"].count(HARD_RULE_10) == 1
+    assert synthesis["system"].index(HARD_RULE_10) < synthesis["system"].index("LANGUAGE:")
+    assert systems
+    for system in systems:
+        # Members send cache blocks; str() on the list would escape the apostrophes.
+        rendered = system if isinstance(system, str) else "".join(b["text"] for b in system)
+        assert rendered.count(HARD_RULE_10) == 1
+
+
+@pytest.mark.asyncio
 async def test_recall_is_the_shared_one_queried_with_the_matter():
     """Still the chat paths' recall, still queried with the matter — and now with
     NO top_k, so the shared default (RECALL_TOTAL_BUDGET) governs.
