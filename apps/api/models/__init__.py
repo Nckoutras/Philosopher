@@ -316,11 +316,14 @@ class MemoryEntry(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     # ── Epistemic core (070, MEM2-A) ──────────────────────────────────────────
-    # WHO AUTHORED THE STORED WORDING, not who supplied the raw input (founder
-    # ruling 2026-10-02). 'user_selected' only where the content IS the person's
-    # tap/answer; a self_portrait_shift is the system's sentence about two taps,
-    # so it is 'system_inferred'. A separate axis from the recall lanes, which
-    # still key on entry_type (STANDING_TYPES) and are unchanged by this column.
+    # WHOSE CLAIM THE ROW ASSERTS, not whose grammar it is in (founder rulings
+    # 2026-10-02). A third-person rewrite that preserves the person's own claim
+    # — every distilled `stated` row ("User ...") — stays 'user_stated'.
+    # 'user_selected' is a tap/answer the person chose. A claim the SYSTEM
+    # composed is 'system_inferred', including self_portrait_shift: two taps are
+    # the person's, but "they used to answer X and now answer Y" is the system's
+    # claim about them. A separate axis from the recall lanes, which still key
+    # on entry_type (STANDING_TYPES) and are unchanged by this column.
     provenance: Mapped[str | None] = mapped_column(String(20), nullable=True)
     # The surface that produced the row: 'chat', 'self_portrait', 'onboarding',
     # 'counterview_belief', or the distill task's source_label. NULL on the legacy

@@ -10,8 +10,8 @@ gate (RECALL_SQL, standing_memories, find_recurrences, the self-model, the
 portrait summary, You-vs-You, the trajectory snapshot and GET /memory all read
 it, and none of them read anything added here).
 
-  provenance           who authored the STORED WORDING (founder ruling
-                       2026-10-02): 'user_stated' | 'user_selected' |
+  provenance           WHOSE CLAIM the row asserts, not whose grammar (founder
+                       rulings 2026-10-02): 'user_stated' | 'user_selected' |
                        'system_inferred'. A separate axis from the recall lanes.
   source_surface       the surface that wrote the row. Free text, no CHECK: the
                        distill task's source_label vocabulary is open-ended.

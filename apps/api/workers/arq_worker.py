@@ -1151,8 +1151,9 @@ async def seed_self_portrait_memory_task(ctx, user_id: str, question_id: str, pr
                         embedding=shift_emb,
                         confidence=0.8,
                         source_turn=qkey,
-                        # The system's sentence about two taps, not a tap: provenance
-                        # records who authored the stored wording (ruling 2026-10-02).
+                        # A claim the system composed about two taps, not a tap:
+                        # provenance records whose claim the row asserts (ruling
+                        # 2026-10-02).
                         provenance="system_inferred",
                         source_surface="self_portrait",
                         supersedes_memory_id=replaced_shift_id,

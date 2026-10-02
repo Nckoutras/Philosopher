@@ -24,8 +24,10 @@ THE MAPPING, from entry_type, which is the only evidence these rows carry:
   'goal', 'concern' and 'grief' rows that no prompt ever asked for. Every such row
   came from the chat extractor, so it is system-inferred by construction; an
   allow-list would leave them NULL. self_portrait_shift is in the catch-all by
-  founder ruling: provenance records who authored the stored wording, and a shift
-  is the system's sentence about two taps.
+  founder ruling: provenance records whose claim the row asserts, not whose
+  grammar, and a shift is a claim the system composed about two taps. `stated`
+  rows are third-person rewrites that preserve the person's own claim, so they
+  stay user_stated.
 
   source_surface
     self_portrait, self_portrait_shift -> 'self_portrait'
