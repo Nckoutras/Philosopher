@@ -390,6 +390,37 @@ appearance rather than logic.
      still ignored during builds, because ESLint is not installed (ruling 2026-09-24).
    - So a green `build` means the app **compiled, typechecked and passed its tests**.
 
+**MERGE PROTOCOL — founder ruling, 2026-10-02. This replaces "open as a draft, merge
+after CC's report" (which lasted one day).**
+- **Default: the founder merges on GREEN CI.** CC still shows the raw diff and pushes
+  only what the founder approved (gate 1 is unchanged), and still verifies the pushed
+  tarball and reports. But for a default PR, **gate 2 (tarball verified) is no longer
+  checked before the merge**: the merge does not wait for CC's report.
+- **Exception: a PR whose title starts with `⛔ WAIT FOR REPORT`.** The founder merges
+  it only after CC's explicit "clear to merge", which means all three gates were read on
+  the PR's actual head. CC decides which PRs get the prefix, and says so when handing
+  over the PR link (CC cannot open PRs; the founder does). It is for any PR where green
+  may not mean what it seems, including:
+  - DB migrations;
+  - billing (Stripe, tiers, limits that gate payment);
+  - the first run of new live tests (a test reaching its assertion for the first time
+    is unverified text: TD-45's corollary);
+  - CI or gate changes themselves (the PR-2a baseline checker went green while hiding
+    failures);
+  - process-rule text, where CI checks nothing about the words.
+- **What "green" means here:** the required checks on the PR's current head, read from
+  the runs that head triggered. An "update branch" merge creates a new head and new runs;
+  the old head's runs are superseded and are not evidence.
+
+**Why it changed:** two PRs on 2026-10-02 (#767, #768) merged on green CI before CC's
+report arrived. The gates were met on both after the fact, but the rule as written was
+not followed. **This is the third rule in this file rewritten to match practice** (see
+the note at the end of P-04: the first is undocumented, the second was P-04 itself). That
+note's question applies: the rule was not wrong. The capacity to keep it was missing,
+because the founder and CC work concurrently, and a report that arrives after a green
+build is a wait nobody enforces. The prefix keeps the wait only where green is known to
+be insufficient.
+
 **The smoke is not among them.** A PR no longer waits on it.
 
 **What replaces the gate:**
