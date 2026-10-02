@@ -16,6 +16,7 @@ from services.council_prompts import (
     COUNCIL_VERDICT_INSTRUCTION,
     COUNCIL_ROLE_DIRECTIVE,
     COUNCIL_SYNTHESIS_PROMPT,
+    COUNCIL_SYNTHESIS_SUICIDE_RULE,
     COUNCIL_DISTILL_PROMPT,
     COUNCIL_DISPLAY_BRIEF_PROMPT,
 )
@@ -474,6 +475,7 @@ class CouncilService:
                 system=(
                     COUNCIL_SYNTHESIS_PROMPT
                     + "\n\nSTANDING RULE: " + HARD_RULE_10
+                    + "\n\n" + COUNCIL_SYNTHESIS_SUICIDE_RULE   # SAFETY-012
                     + language_directive(synthesis_language)
                 ),
                 user=synthesis_user_content,
