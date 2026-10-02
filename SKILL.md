@@ -41,10 +41,14 @@ default; after CC's "clear to merge" when the title starts with
   build — it is not evidence of (3). Backend CI ran red for eight days
   and four merges because (1) and (2) were enforced and (3) was assumed
   (2026-09-01).
-- "No run" is not "green". `backend-ci.yml` has a `paths:` filter, so a
-  web-only PR produces no backend run at all; a PR showing no backend
-  check looks identical to one that passed. Check the runs the PR
-  actually triggered, and if a run you expected is absent, establish why
+- "No run" is not "green". Neither CI workflow has a `paths:` filter any
+  more: both were removed on 2026-09-14 (#648), the day branch protection
+  arrived, because a required check that never reports leaves the PR at
+  "Expected — waiting for status" forever. Every PR now triggers every
+  run. A missing or cancelled run is still not a pass: an "update branch"
+  push cancels the old head's runs (2026-10-02, #768). Check the runs the
+  PR's current head actually triggered, and if a run you expected is
+  absent, establish why
   before merging.
 
 ## 2. Investigation discipline
