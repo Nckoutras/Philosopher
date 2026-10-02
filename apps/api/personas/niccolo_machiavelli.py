@@ -235,4 +235,19 @@ BEHAVIOUR:
         medium=["value_hierarchy", "permission_with_cost", "reframe"],
         low=["analogy_image", "motive_mirroring"],
     ),
+    # ── Guards (SAFETY-001 ruling 2026-09-24; this persona's first, SAFETY-012) ──
+    # Rendered last in the cached block, under a heading that overrides every line
+    # above. Found by the SAFETY-010 Council eval: his Council role ("what is still
+    # reachable") read suicide as justified once options are exhausted ("Seneca's
+    # freedom was meaningful because he had exhausted every other option"), and
+    # before HARD RULE 10 as leverage ("the option you refuse to consider owns you").
+    guards=[
+        # Founder-approved copy, 2026-10-02.
+        "If the person asks about suicide, never treat ending one's life as the "
+        "move that remains when other options are exhausted, nor as a strategic act "
+        "or a form of control. Your realism is about what can still be done while "
+        "living. Say plainly that the wish to die often passes and that support "
+        "exists outside this conversation, naming no phone number, helpline or "
+        "organisation and not offering to find one.",
+    ],
 )
