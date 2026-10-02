@@ -428,3 +428,108 @@ def test_an_unrecognised_insight_id_does_not_refuse_the_council(client):
     })
 
     assert resp.status_code == 200
+
+
+# ── SAFETY-002: Council and You-vs-You judge a Tier-B input in the router ─────
+#
+# The router must know the outcome before it streams (council_started is the Γ-7
+# trigger metric), so a Tier-B input is judged HERE, once, and the verdict is handed
+# to the service. A crisis skips the Pro gate and the limit (SAFETY-006); a RELEASED
+# input meets them like any other, and if refused its row is written and committed
+# here, because the service never runs.
+
+from services.safety_judge import JudgeVerdict
+
+RELEASABLE = "What did the Stoics think about suicide as a rational choice?"   # B:HIGH, no keys
+
+
+def _verdict(v):
+    return JudgeVerdict(verdict=v, failed=False, fail_kind=None,
+                        model="claude-haiku-4-5-20251001", latency_ms=900,
+                        input_tokens=1200, output_tokens=30)
+
+
+def _judge(v):
+    return patch("services.safety_judge.judge", new=AsyncMock(return_value=_verdict(v)))
+
+
+def test_council_at_the_limit_a_released_matter_gets_the_429_and_its_row(client):
+    with _judge("DISCUSSING"), \
+         patch("routers.council.council_service.weekly_remaining", AsyncMock(return_value=0)), \
+         patch("routers.council.council_service.stream_council") as stream, \
+         patch("routers.council.log_safety_event", new=AsyncMock()) as log, \
+         patch("routers.council.analytics_service") as analytics:
+        resp = client.post(COUNCIL_URL, json={"matter": RELEASABLE})
+
+    assert resp.status_code == 429
+    assert resp.json()["error_code"] == "council_weekly_limit"
+    stream.assert_not_called()
+    assert log.await_args.kwargs["action_taken"] == "released"
+    client._db[0].commit.assert_awaited()
+    assert [c[0][0] for c in analytics.track.call_args_list] == ["usage_cap_hit"]
+
+
+def test_council_at_the_limit_intent_streams_the_crisis_and_never_counts_a_start(client):
+    remaining = AsyncMock(return_value=0)
+    with _judge("INTENT"), \
+         patch("routers.council.council_service.weekly_remaining", remaining), \
+         patch("routers.council.council_service.stream_council", MagicMock(return_value=iter([]))) as stream, \
+         patch("routers.council.log_safety_event", new=AsyncMock()) as log, \
+         patch("routers.council.analytics_service") as analytics:
+        resp = client.post(COUNCIL_URL, json={"matter": RELEASABLE})
+
+    assert resp.status_code == 200, resp.text
+    remaining.assert_not_awaited()
+    assert stream.call_args.kwargs["prejudged"].verdict == "INTENT"
+    log.assert_not_awaited()                     # the service writes the row
+    analytics.track.assert_not_called()
+
+
+def test_council_within_the_limit_a_released_matter_convenes_and_counts(client):
+    with _judge("DISCUSSING"), \
+         patch("routers.council.council_service.weekly_remaining", AsyncMock(return_value=1)), \
+         patch("routers.council.council_service.stream_council", MagicMock(return_value=iter([]))) as stream, \
+         patch("routers.council.analytics_service") as analytics:
+        resp = client.post(COUNCIL_URL, json={"matter": RELEASABLE})
+
+    assert resp.status_code == 200, resp.text
+    assert stream.call_args.kwargs["prejudged"].verdict == "DISCUSSING"
+    assert [c[0][0] for c in analytics.track.call_args_list] == ["council_started"]
+
+
+def test_council_a_free_users_released_matter_gets_the_403_and_its_row(client):
+    _as_free(client)
+    with _judge("DISCUSSING"), \
+         patch("routers.council.council_service.stream_council") as stream, \
+         patch("routers.council.log_safety_event", new=AsyncMock()) as log:
+        resp = client.post(COUNCIL_URL, json={"matter": RELEASABLE})
+
+    assert resp.status_code == 403
+    stream.assert_not_called()
+    assert log.await_args.kwargs["action_taken"] == "released"
+
+
+def test_you_vs_you_at_the_limit_a_released_prompt_gets_the_429_and_its_row(client):
+    with _judge("DISCUSSING"), \
+         patch("routers.self_comparison.self_comparison_service.weekly_remaining", AsyncMock(return_value=0)), \
+         patch("routers.self_comparison.self_comparison_service.stream") as stream, \
+         patch("routers.self_comparison.log_safety_event", new=AsyncMock()) as log:
+        resp = client.post(SELF_COMPARISON_URL, json={"prompt": RELEASABLE})
+
+    assert resp.status_code == 429
+    stream.assert_not_called()
+    assert log.await_args.kwargs["action_taken"] == "released"
+    client._db[0].commit.assert_awaited()
+
+
+def test_you_vs_you_at_the_limit_intent_streams_with_the_verdict(client):
+    remaining = AsyncMock(return_value=0)
+    with _judge("INTENT"), \
+         patch("routers.self_comparison.self_comparison_service.weekly_remaining", remaining), \
+         patch("routers.self_comparison.self_comparison_service.stream",
+               MagicMock(return_value=iter([]))) as stream:
+        resp = client.post(SELF_COMPARISON_URL, json={"prompt": RELEASABLE})
+
+    assert resp.status_code == 200, resp.text
+    remaining.assert_not_awaited()
+    assert stream.call_args.kwargs["prejudged"].verdict == "INTENT"

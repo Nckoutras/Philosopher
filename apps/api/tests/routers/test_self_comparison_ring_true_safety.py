@@ -237,3 +237,47 @@ def test_the_event_fires_after_the_commit():
     assert order[:2] == ["commit", "track"], (
         f"expected the commit to precede the event, got {order}"
     )
+
+
+# ── SAFETY-002: the ring-true note is the fourth judged surface ──────────────
+#
+# No limit here, so the judge runs in place. A released Tier-B note is persisted
+# like any other, with its one enriched row; INTENT still withholds it. Neither web
+# client sends a note today (ruled: wired anyway, tested at the API).
+
+from unittest.mock import patch as _patch
+
+from services.safety_judge import JudgeVerdict
+
+RELEASABLE_NOTE = "It made me think of what the Stoics said about suicide."   # B:HIGH
+
+
+def _judge(v):
+    verdict = JudgeVerdict(verdict=v, failed=False, fail_kind=None,
+                           model="claude-haiku-4-5-20251001", latency_ms=900,
+                           input_tokens=1200, output_tokens=30)
+    return _patch("services.safety_judge.judge", new=AsyncMock(return_value=verdict))
+
+
+def test_a_released_note_is_persisted_with_one_released_row():
+    row = FakeComparison()
+    with _judge("DISCUSSING"), _client(row) as (client, db):
+        resp = client.patch(ENDPOINT, json={"ring_true": "yes", "note": RELEASABLE_NOTE})
+
+    assert resp.status_code == 204
+    assert row.ring_true_note == RELEASABLE_NOTE
+    assert db.add.call_count == 1
+    event = db.add.call_args.args[0]
+    assert (event.trigger_stage, event.risk_level, event.action_taken) == ("ring_true_input", "high", "released")
+    assert "reason" not in event.raw_flags["judge"]
+
+
+def test_an_intent_note_is_withheld():
+    row = FakeComparison()
+    with _judge("INTENT"), _client(row) as (client, db):
+        resp = client.patch(ENDPOINT, json={"ring_true": "yes", "note": RELEASABLE_NOTE})
+
+    assert resp.status_code == 200
+    assert resp.json()["safety"] is True
+    assert row.ring_true_note is None
+    assert db.add.call_args.args[0].action_taken == "suppressed"

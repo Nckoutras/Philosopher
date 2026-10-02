@@ -256,6 +256,11 @@ def test_no_greek_or_greeklish_entry_fires_on_this_repos_english_prose():
         "safety_lexicons.py",
         "safety_service.py",
         "safety_response_el.jinja2",
+        # SAFETY-002: the judge's prompt v2 quotes Greek examples ON PURPOSE, and it is
+        # the measured prompt, pinned by hash — it cannot be reworded to dodge this
+        # scan. It is an instruction to a classifier, not prose a gate could mistake
+        # for a disclosure.
+        "safety_judge.py",
     }
     root = pathlib.Path(__file__).resolve().parents[1]
 

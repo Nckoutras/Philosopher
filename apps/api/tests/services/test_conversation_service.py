@@ -3020,3 +3020,155 @@ async def test_the_guest_override_event_carries_the_saved_text(which):
     run = await _run_guest_safety(which, HARMFUL_REPLY)
     _assert_event_carries_the_streamed_text(run["events"], "safety_override", SAFE_TEXT)
     assert run["saved"].args[4] == SAFE_TEXT
+
+
+# ── SAFETY-002: the judged chat path ─────────────────────────────────────────
+#
+# check_input and the gate are REAL here; only the judge's verdict is supplied, via
+# `prejudged` (exactly what the router hands over). So these exercise the frozen
+# lists, the transition table and the never-release policy, not a mocked decision.
+
+from types import SimpleNamespace
+
+from services.safety_judge import JudgeVerdict
+from services.safety_gate import DISTRESS_ADDENDUM
+
+RELEASABLE_HIGH = "What did the Stoics think about suicide as a rational choice?"   # B:HIGH, no keys
+TIER_B_MEDIUM = "i can't take it anymore"                                         # B:MEDIUM
+
+
+def _verdict(v=None, failed=False):
+    return JudgeVerdict(verdict=v, failed=failed, fail_kind="timeout" if failed else None,
+                        model="claude-haiku-4-5-20251001", latency_ms=900,
+                        input_tokens=1200, output_tokens=30)
+
+
+async def _run_judged(text, prejudged, arq_queue=None):
+    service = ConversationService()
+    db, _ = _make_db_for_memory(message_count=0)
+    mock_llm = MagicMock()
+
+    async def fake_stream(*args, **kwargs):
+        yield "Hello"
+
+    mock_llm.stream = fake_stream
+    clean = MagicMock()
+    clean.should_suppress_persona = False
+    clean.level = "none"
+
+    with (
+        patch("services.conversation_service.safety_service.check_output", AsyncMock(return_value=clean)),
+        patch("services.conversation_service.memory_service") as mock_memory,
+        patch("services.conversation_service.retrieval_service") as mock_retrieval,
+        patch("services.conversation_service.llm_client", mock_llm),
+        patch("services.conversation_service.prompt_builder") as mock_prompt,
+        patch("services.conversation_service.analytics_service") as analytics,
+        patch("services.conversation_service.POSTPROCESSING_ENABLED", False),
+        patch("services.conversation_service.PHENOMENOLOGY_BRIDGE_ENABLED", False),
+        patch("services.conversation_service.get_persona") as mock_get_persona,
+        patch("services.safety_judge.judge", AsyncMock(side_effect=AssertionError("judge called twice"))),
+    ):
+        mock_memory.recall = AsyncMock(return_value=[])
+        mock_retrieval.retrieve = AsyncMock(return_value=[])
+        mock_prompt.build_system.return_value = "system"
+        mock_prompt.build_safety_response.return_value = "safe text"
+        persona_config = MagicMock()
+        persona_config.slug = "marcus_aurelius"
+        mock_get_persona.return_value = persona_config
+        service._save_message = AsyncMock(return_value=_saved_msg())
+        service._log_safety_event = AsyncMock()
+
+        chunks = await _drain(service.stream_response(
+            session_factory=_factory(db),
+            conversation_id=CONV_ID,
+            user_id=USER_ID,
+            user_text=text,
+            user_plan="free",
+            arq_queue=arq_queue,
+            prejudged=prejudged,
+        ))
+    split = mock_prompt.split_system_for_cache.call_args
+    return SimpleNamespace(
+        chunks=chunks, service=service, analytics=analytics,
+        system_prompt=split.args[0] if split else None,
+    )
+
+
+def _user_save(run):
+    return next(c for c in run.service._save_message.call_args_list if c.args[3] == "user")
+
+
+def _memory_jobs(queue):
+    return [c for c in queue.enqueue_job.call_args_list if c.args[0] == "extract_memory_task"]
+
+
+@pytest.mark.asyncio
+async def test_a_released_discussing_message_is_answered_and_stored_low():
+    queue = AsyncMock()
+    run = await _run_judged(RELEASABLE_HIGH, _verdict("DISCUSSING"), arq_queue=queue)
+
+    assert _user_save(run).kwargs["safety_level"] == "low"
+    assert not any('"type": "safety"' in c for c in run.chunks)
+    assert DISTRESS_ADDENDUM not in run.system_prompt
+    assert len(_memory_jobs(queue)) == 1        # extracts like any "low" turn
+
+
+@pytest.mark.asyncio
+async def test_third_party_risk_renders_and_extracts_as_discussing():
+    queue = AsyncMock()
+    run = await _run_judged(RELEASABLE_HIGH, _verdict("THIRD_PARTY_RISK"), arq_queue=queue)
+
+    assert _user_save(run).kwargs["safety_level"] == "low"
+    assert DISTRESS_ADDENDUM not in run.system_prompt
+    assert len(_memory_jobs(queue)) == 1
+
+
+@pytest.mark.asyncio
+async def test_distress_gets_the_addendum_and_writes_no_memory():
+    """Ruling C: a DISTRESS release is answered with the approved addendum, and no
+    extract_memory_task is enqueued — nothing from the turn is recalled later."""
+    queue = AsyncMock()
+    run = await _run_judged(RELEASABLE_HIGH, _verdict("DISTRESS_WITHOUT_INTENT"), arq_queue=queue)
+
+    assert _user_save(run).kwargs["safety_level"] == "low"
+    assert run.system_prompt.endswith("\n\n" + DISTRESS_ADDENDUM)
+    assert _memory_jobs(queue) == []
+
+
+@pytest.mark.asyncio
+async def test_intent_gets_the_crisis_response_and_the_crisis_event():
+    run = await _run_judged(RELEASABLE_HIGH, _verdict("INTENT"))
+
+    assert any('"type": "safety"' in c for c in run.chunks)
+    assert _user_save(run).kwargs["safety_level"] == "high"
+    names = [c.args[0] for c in run.analytics.track.call_args_list]
+    assert names.count("safety_event_pre") == 1
+
+
+@pytest.mark.asyncio
+async def test_a_judge_failure_on_medium_stands_and_emits_no_crisis_event():
+    """Fail-closed: MEDIUM stands (suppressed). Ruling D: safety_event_pre is for a
+    final CRISIS only, so a MEDIUM that stands does not emit it."""
+    run = await _run_judged(TIER_B_MEDIUM, _verdict(failed=True))
+
+    assert any('"type": "safety"' in c for c in run.chunks)
+    assert _user_save(run).kwargs["safety_level"] == "medium"
+    names = [c.args[0] for c in run.analytics.track.call_args_list]
+    assert "safety_event_pre" not in names
+
+
+@pytest.mark.asyncio
+async def test_the_judged_row_is_one_enriched_row_without_the_reason():
+    run = await _run_judged(RELEASABLE_HIGH, _verdict("DISCUSSING"))
+
+    calls = run.service._log_safety_event.call_args_list
+    assert len(calls) == 1
+    record, stage = calls[0].args[4], calls[0].args[5]
+    assert (stage, record.level) == ("pre_generation", "high")     # the lexicon level
+    kw = calls[0].kwargs
+    assert kw["action_taken"] == "released"
+    assert set(kw["judge"]) == {"tier", "policy_keys", "verdict", "outcome", "model",
+                                "latency_ms", "input_tokens", "output_tokens",
+                                "failed", "fail_kind"}
+    assert "reason" not in kw["judge"]
+    assert kw["judge"]["outcome"] == "DISCUSSING"

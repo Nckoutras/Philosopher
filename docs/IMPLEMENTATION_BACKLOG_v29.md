@@ -1409,7 +1409,55 @@ keep these phrases out.
 
 ---
 
-### SAFETY-002 — a context judge on top of the lexicon — **OPEN, design logged**
+### SAFETY-002 — a context judge on top of the lexicon — **BUILT (PR-2); P-04 smoke owed on merge**
+**Status: BUILT in the PR that adds this block (PR-2), on the frozen lists (#755) and the
+BUILD rulings 1–5 and investigation rulings A–D (founder, 2026-09-29 / 2026-10-01). The
+history below is kept as written.**
+
+**What runs.** On the four judged surfaces — chat send, Council, You-vs-You prompt, the
+You-vs-You ring-true note — `check_input` is unchanged and still called where it was;
+`services/safety_gate.py` combines its result with the frozen lists:
+- **Tier A** → crisis, no judge call.
+- **Tier B** (or production medium/high when the lists say none: the safety net) → one
+  Haiku call (`services/safety_judge.py`: prompt v2 verbatim and hash-pinned, the dated
+  model, temperature 0, 200 tokens, a hard 2.5 s bound, no retries). Fail-closed: any
+  failure leaves the lexicon level standing.
+- **Released** (DISTRESS / DISCUSSING; THIRD_PARTY_RISK renders as DISCUSSING) → the
+  message continues and is stored as **`low`**. DISTRESS adds the approved addendum to the
+  chat persona's prompt for that turn and writes **no memory entries**.
+- **One `safety_events` row**, enriched: the lexicon level, `action_taken = 'released'`
+  on a release, and `raw_flags.judge` = tier, K-codes, verdict, outcome, model, latency,
+  tokens, failure. **The model's reason is never stored.**
+- **Over a limit** (chat's daily limit and Pro fair-use cap; Council / You-vs-You's Pro
+  gate and weekly limit): a crisis skips the refusal; a released message gets the normal
+  403 / 429 and its row is written by the router. On Council and You-vs-You the router
+  judges every Tier-B input (it must know the outcome before `council_started` fires); on
+  chat it judges only when over a limit, and the service judges otherwise. Either way the
+  verdict is handed on and the judge is called at most once per message.
+- The other ten `check_input` call sites never reach the gate.
+
+**Kill switch: `SAFETY_JUDGE_ENABLED` (default true, ruling 4).** To flip it in an incident
+(e.g. an Anthropic outage adding 2.5 s to every Tier-B message): Render → the API service →
+Environment → set `SAFETY_JUDGE_ENABLED=false` → save, which redeploys. Off, every Tier-B
+message behaves as a judge failure: the lexicon level stands, with no added latency. The
+rows say so (`raw_flags.judge.fail_kind = 'disabled'`). Flip back the same way.
+
+**Ops rule (ruling 2).** Any hit-rate or crisis count over `safety_events` must split or
+filter on `action_taken`: since this PR, `risk_level = 'high'` includes RELEASED messages.
+The canonical hit-rate query is owed with the ops-docs PR and must be executed through a
+driver before it is written down (2026-09-15). `/admin/analytics/summary` does not filter
+yet: TD-115.
+
+**Known gaps (recorded, ruled):**
+- Past-tense detection runs on the four judged surfaces only; the other ten `check_input`
+  callers still miss it (TD-117).
+- The ring-true note is unreachable from the web (neither client sends one); wired and
+  tested at the API.
+- The ring-true crisis reply is a fixed English message (TD-116, SAFETY-003 residue).
+
+**P-04 smoke owed on merge** (same day, QA account only — it writes flags).
+
+*Original status, kept as written:*
 **Status: OPEN. Logged 2026-09-25 (founder ruling), description only. Build after the
 two lexicon PRs (output list; input bands). Open design questions below must be ruled
 before the build.**
@@ -2110,6 +2158,27 @@ over-limit rule: over the limit + Tier B → the judge runs in the router; INTEN
 failure → the crisis path; released → the normal 429.
 
 ---
+
+### TD-117 — past tense is caught on the four judged surfaces only — **OPEN, logged (SAFETY-002)**
+**Status: OPEN, logged with the SAFETY-002 build.** The frozen lists put past-tense
+wishes in Tier B (K1, never released), but the lists run only on chat, Council and
+You-vs-You. The other ten `check_input` callers — counterview (×3), memory, mirrors,
+scheduled emails (×2) and the three worker re-checks — still use the production lexicon,
+which misses past tense. The R9 pins in `test_safety_detection_gaps.py` stay green
+because they describe `check_input`, which is unchanged and still true there.
+
+### TD-116 — the ring-true crisis reply is a fixed English message — **OPEN, logged (SAFETY-003 residue)**
+**Status: OPEN, logged (BUILD ruling 5).** `routers/self_comparison.py` answers a
+suppressed ring-true note with `RING_TRUE_SAFETY_MESSAGE`, one English string, not the
+language-aware crisis response SAFETY-003 gave the other surfaces. Unreachable from the
+web today (no client sends a note).
+
+### TD-115 — `/admin/analytics/summary` counts released judge hits as high-risk — **OPEN, logged (SAFETY-002 ruling 2)**
+**Status: OPEN, logged.** `routers/admin.py` counts `safety_events` with
+`risk_level == 'high'`. Since SAFETY-002 a judged message keeps its lexicon level in
+`risk_level` even when it is RELEASED (`action_taken = 'released'`), so the summary's
+high count includes philosophy questions the judge let through. Fix: count
+`action_taken = 'suppressed'` for crisis numbers, and report releases separately.
 
 ### TD-114 — Council and You-vs-You stream on a session `get_db` has already committed and closed — **OPEN, logged (SAFETY-004 ruling 2)**
 **Status: OPEN. LOG only, not now (founder, 2026-09-28).**

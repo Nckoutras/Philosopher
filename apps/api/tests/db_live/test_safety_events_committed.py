@@ -335,3 +335,101 @@ async def test_you_vs_you_ordinary_prompt_at_the_weekly_limit_is_still_refused(l
     assert r.status_code == 429, r.text
     assert r.json()["error_code"] == "weekly_limit"
     assert await _stages(live) == []
+
+
+# ── SAFETY-002: a RELEASED message is committed, and it costs what it should ───
+#
+# The judge is supplied (patched); everything else is real. A released message
+# writes ONE row — the lexicon level, action_taken 'released', the judge record and
+# no reason — and that row must be COMMITTED on the get_db streams (SAFETY-004). A
+# released chat message is an ordinary turn: it is answered, stored as 'low', and
+# consumes the daily allowance.
+
+RELEASABLE = "What did the Stoics think about suicide as a rational choice?"   # B:HIGH, no keys
+CLEAN_REPLY = "Consider what is in your power, and what is not."
+
+
+def _released():
+    from services.safety_judge import JudgeVerdict
+    return patch("services.safety_judge.judge", AsyncMock(return_value=JudgeVerdict(
+        verdict="DISCUSSING", failed=False, fail_kind=None,
+        model="claude-haiku-4-5-20251001", latency_ms=900, input_tokens=1200, output_tokens=30)))
+
+
+async def _rows(live):
+    async with live.Session() as s:
+        rows = await s.execute(
+            text("SELECT trigger_stage, risk_level, action_taken, raw_flags FROM safety_events "
+                 "WHERE user_id = :u ORDER BY created_at"),
+            {"u": live.user_id},
+        )
+        return [tuple(r) for r in rows]
+
+
+def _assert_one_released_row(rows, stage):
+    assert [(r[0], r[1], r[2]) for r in rows] == [(stage, "high", "released")], rows
+    judge = rows[0][3]["judge"]
+    assert judge["outcome"] == "DISCUSSING" and "reason" not in judge
+
+
+@pytest.mark.asyncio
+async def test_a_released_council_matter_is_committed_and_convenes(live):
+    with _Patched(_no_network() + [
+        _released(),
+        patch("services.council_service.llm_client.stream", _fake_llm(CLEAN_REPLY)),
+        patch("services.council_service.llm_client.complete", AsyncMock(return_value="")),
+    ]):
+        r = await live.client.post("/api/v1/council", json={"matter": RELEASABLE, "source": "direct"})
+    assert r.status_code == 200, r.text
+    assert "safety" not in [e["type"] for e in _events(r)]
+    _assert_one_released_row(await _rows(live), "council_input")
+    assert await _count(live, "council_cases") == 1
+
+
+@pytest.mark.asyncio
+async def test_a_released_you_vs_you_prompt_is_committed_and_runs(live):
+    from datetime import datetime, timezone
+
+    window = {"start": datetime(2026, 6, 1, tzinfo=timezone.utc), "end": datetime(2026, 7, 1, tzinfo=timezone.utc),
+              "by_type": {"struggle": ["keeps postponing one decision"]}}
+    closing = json.dumps({"observation": "Then… now…", "question": "Fair?", "then_quote_id": None,
+                          "now_quote_id": None, "hidden_continuity": None, "sentence_owed": None})
+    with _Patched(_no_network() + [
+        _released(),
+        patch("services.self_comparison_service.llm_client.stream", _fake_llm(CLEAN_REPLY)),
+        patch("services.self_comparison_service.llm_client.complete", AsyncMock(return_value=closing)),
+        patch("services.self_comparison_service.self_model_service.build", AsyncMock(return_value={
+            "unlocked": True, "total_signals": 30, "reason": None, "forming_preview": [],
+            "then": window, "now": window,
+        })),
+    ]):
+        r = await live.client.post("/api/v1/self-comparison", json={"prompt": RELEASABLE})
+    assert r.status_code == 200, r.text
+    assert "safety" not in [e["type"] for e in _events(r)]
+    _assert_one_released_row(await _rows(live), "self_comparison_input")
+    assert await _count(live, "self_comparisons") == 1
+
+
+@pytest.mark.asyncio
+async def test_a_released_chat_message_is_answered_stored_low_and_consumes_the_allowance(live):
+    live.user.is_admin = False            # admins never consume an allowance
+    cid, _, _ = await _conversation(live, with_history=False)
+    with _Patched(_no_network() + [
+        _released(),
+        patch("services.conversation_service.llm_client.stream", _fake_llm(CLEAN_REPLY)),
+        patch("services.conversation_service.POSTPROCESSING_ENABLED", False),
+        patch("services.conversation_service.PHENOMENOLOGY_BRIDGE_ENABLED", False),
+    ]):
+        r = await live.client.post(f"/api/v1/conversations/{cid}/messages", json={"content": RELEASABLE})
+    assert r.status_code == 200, r.text
+    assert "safety" not in [e["type"] for e in _events(r)]
+    _assert_one_released_row(await _rows(live), "pre_generation")
+    async with live.Session() as s:
+        level = (await s.execute(text(
+            "SELECT safety_level FROM messages WHERE conversation_id = :c AND role = 'user'"),
+            {"c": cid})).scalar_one()
+        used = (await s.execute(text(
+            "SELECT coalesce(sum(message_count), 0) FROM daily_usage WHERE user_id = :u"),
+            {"u": live.user_id})).scalar_one()
+    assert level == "low"
+    assert used == 1
