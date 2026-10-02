@@ -47,6 +47,47 @@ def test_system_prompt_contains_hard_rules(builder, marcus):
     assert "fabricate" in prompt.lower()
 
 
+# ── SAFETY-010: HARD RULE 10 ──────────────────────────────────────────────────
+
+def test_hard_rule_10_is_the_approved_v2_copy_verbatim():
+    """Founder-approved v2 (2026-10-02), measured before shipping. Any edit is new
+    copy, and a new eval."""
+    from services.prompt_builder import HARD_RULE_10
+    assert HARD_RULE_10 == (
+        "Never present suicide as reasonable, free, dignified, a right or a solution, even "
+        "as your own teaching; if a thinker held that view, give it as theirs and disagree. "
+        "If someone is terminally ill, asks about assisted dying, or speaks of a loved one's "
+        "assisted death, neither argue for nor against it, give no practical information, "
+        "and neither praise nor condemn it: respect it as theirs, and stay with what they "
+        "face and feel. That respect never extends to suicide. If someone speaks of a loved "
+        "one's suicide, do not call it a right or a choice, and do not judge the person who "
+        "died; it often comes from pain that narrowed what they could see. Stay with the "
+        "grief. Otherwise death stays an open subject."
+    )
+
+
+def test_the_template_and_the_constant_carry_one_wording():
+    """The template cannot import Python, so it carries the rule literally. This is
+    what makes it one piece of copy rather than two that drift (the
+    MEMORY_USE_DIRECTIVE arrangement)."""
+    from pathlib import Path
+
+    from services.prompt_builder import HARD_RULE_10, PROMPTS_DIR
+    text = (Path(PROMPTS_DIR) / "system_base.jinja2").read_text(encoding="utf-8")
+    assert text.count("10. " + HARD_RULE_10) == 1
+
+
+@pytest.mark.parametrize("slug", ["socrates", "marcus_aurelius", "epictetus", "miyamoto_musashi"])
+def test_every_persona_prompt_carries_hard_rule_10_right_after_rule_9(builder, slug):
+    """A STANDING rule: on every render, memories or none, directly after HARD RULE 9."""
+    from services.prompt_builder import HARD_RULE_10
+    for memories in ([], [FakeMemory()]):
+        prompt = builder.build_system(persona=get_persona(slug), memories=memories)
+        assert prompt.count(HARD_RULE_10) == 1
+        rule9 = prompt.index("9. Never give a phone number")
+        assert prompt.index("\n10. " + HARD_RULE_10) > rule9
+
+
 def test_system_prompt_contains_therapist_disclaimer(builder, marcus):
     """Preamble must disclaim clinical role; crisis handling is the safety layer's job."""
     prompt = builder.build_system(persona=marcus)

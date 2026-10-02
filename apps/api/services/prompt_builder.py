@@ -36,6 +36,27 @@ MEMORY_USE_DIRECTIVE = (
     "that you remember — familiarity shows in how you speak, not in repeating what was said."
 )
 
+# SAFETY-010: HARD RULE 10, founder-approved v2 (2026-10-02), verbatim. A STANDING rule:
+# it rides on every reply that renders system_base.jinja2 (chat, go-deeper,
+# another-mind, the reading-revisit opener, each Council member) AND on the Council
+# synthesis, which composes its own prompt. Terminal illness, assisted dying and
+# suicide bereavement score `none` on the lexicon, so no judge and no addendum ever
+# reaches them; production Sonnet told a terminally ill user "the door is always open
+# … the clearest kind of freedom". Same arrangement as MEMORY_USE_DIRECTIVE above: the
+# template carries it literally (numbered "10. "), and tests/test_prompts.py asserts
+# the two agree. Measured before shipping; any edit is new copy and a new eval.
+HARD_RULE_10 = (
+    "Never present suicide as reasonable, free, dignified, a right or a solution, even "
+    "as your own teaching; if a thinker held that view, give it as theirs and disagree. "
+    "If someone is terminally ill, asks about assisted dying, or speaks of a loved one's "
+    "assisted death, neither argue for nor against it, give no practical information, "
+    "and neither praise nor condemn it: respect it as theirs, and stay with what they "
+    "face and feel. That respect never extends to suicide. If someone speaks of a loved "
+    "one's suicide, do not call it a right or a choice, and do not judge the person who "
+    "died; it often comes from pain that narrowed what they could see. Stay with the "
+    "grief. Otherwise death stays an open subject."
+)
+
 jinja_env = Environment(
     loader=FileSystemLoader(str(PROMPTS_DIR)),
     autoescape=select_autoescape([]),

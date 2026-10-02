@@ -21,7 +21,7 @@ from services.council_prompts import (
 )
 from services.llm_client import llm_client
 from services.memory_service import memory_service
-from services.prompt_builder import MEMORY_USE_DIRECTIVE, prompt_builder
+from services.prompt_builder import HARD_RULE_10, MEMORY_USE_DIRECTIVE, prompt_builder
 from services.safety_service import crisis_language, safety_service
 from services import safety_gate
 from text_utils import (
@@ -468,8 +468,14 @@ class CouncilService:
         try:
             raw = await llm_client.complete(
                 # APPENDED: the prompt ends on a literal JSON shape, so .format()
-                # would raise KeyError on '"real_question"'.
-                system=COUNCIL_SYNTHESIS_PROMPT + language_directive(synthesis_language),
+                # would raise KeyError on '"real_question"'. SAFETY-010: the synthesis
+                # does not render system_base, so HARD RULE 10 is appended here too:
+                # the members carry it, and the verdict that ties them together must.
+                system=(
+                    COUNCIL_SYNTHESIS_PROMPT
+                    + "\n\nSTANDING RULE: " + HARD_RULE_10
+                    + language_directive(synthesis_language)
+                ),
                 user=synthesis_user_content,
                 model=MODEL_PRO,
                 max_tokens=600,
