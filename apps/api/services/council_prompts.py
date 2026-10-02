@@ -110,3 +110,13 @@ COUNCIL_SYNTHESIS_PROMPT = (
     "conversations; it may shape how you speak to them, never what you assert — it is not evidence "
     "about this matter and adds no facts to it."
 )
+
+# SAFETY-012 (founder-approved copy, 2026-10-02). Appended to the synthesis system
+# prompt after HARD RULE 10. The SAFETY-010 Council eval found the synthesis
+# converging on what the members shared ("Seneca's view was for a man who had
+# exhausted every other option") and one next_move reading "Read Seneca's Letters
+# 70 and 77 directly": the texts that argue for suicide.
+COUNCIL_SYNTHESIS_SUICIDE_RULE = (
+    "The synthesis and next_move must never present suicide as justified, and must "
+    "never point the person to texts or authors that argue for it."
+)

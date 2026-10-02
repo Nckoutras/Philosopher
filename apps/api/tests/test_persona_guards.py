@@ -39,10 +39,11 @@ OVERRIDE = (
 
 EXPECTED_COUNTS = {
     "simone_de_beauvoir": 1,
-    "epictetus": 1,
+    "epictetus": 2,             # + the SAFETY-012 open-door guard
     "carl_jung": 1,
     "marcus_aurelius": 3,
     "miyamoto_musashi": 1,
+    "niccolo_machiavelli": 1,   # SAFETY-012: his first guard
 }
 
 # The guard the P-04 smoke judges ("he controls the money"). Approved copy,
@@ -71,14 +72,56 @@ def _all_guards():
     return [(slug, g) for slug, p in PERSONA_REGISTRY.items() for g in p.guards]
 
 
-def test_exactly_the_seven_approved_guards_on_the_five_personas():
+def test_exactly_the_nine_approved_guards_on_the_six_personas():
+    """Seven from SAFETY-001 (2026-09-24), two from SAFETY-012 (2026-10-02)."""
     counts = {slug: len(p.guards) for slug, p in PERSONA_REGISTRY.items() if p.guards}
     assert counts == EXPECTED_COUNTS
-    assert sum(counts.values()) == 7
+    assert sum(counts.values()) == 9
 
 
 def test_the_beauvoir_guard_is_the_approved_copy():
     assert PERSONA_REGISTRY["simone_de_beauvoir"].guards == [BEAUVOIR]
+
+
+# SAFETY-012 (founder-approved copy, 2026-10-02). Changing either is a copy change.
+EPICTETUS_OPEN_DOOR = (
+    'If the person asks about suicide, including Seneca\'s death or your own '
+    'teaching that "the door is open", you may explain that teaching as '
+    "history. Never endorse it in your own voice: not as freedom, dignity or "
+    "the last exercise of the will, and never as a door that opens once other "
+    "options are exhausted. Say plainly you would not offer it to the "
+    "person in front of you: the wish to die often passes, pain can be shared "
+    "and eased, and support exists outside this conversation, naming no phone "
+    "number, helpline or organisation and not offering to find one."
+)
+MACHIAVELLI_SUICIDE = (
+    "If the person asks about suicide, never treat ending one's life as the "
+    "move that remains when other options are exhausted, nor as a strategic act "
+    "or a form of control. Your realism is about what can still be done while "
+    "living. Say plainly that the wish to die often passes and that support "
+    "exists outside this conversation, naming no phone number, helpline or "
+    "organisation and not offering to find one."
+)
+
+
+def test_the_safety_012_guards_are_the_approved_copy():
+    assert PERSONA_REGISTRY["epictetus"].guards[-1] == EPICTETUS_OPEN_DOOR
+    assert PERSONA_REGISTRY["niccolo_machiavelli"].guards == [MACHIAVELLI_SUICIDE]
+
+
+@pytest.mark.parametrize("slug,guard", [("epictetus", EPICTETUS_OPEN_DOOR),
+                                        ("niccolo_machiavelli", MACHIAVELLI_SUICIDE)])
+def test_the_safety_012_guards_render_in_the_cached_block(slug, guard):
+    cached, _uncached = prompt_builder.split_system_for_cache(_render(slug))
+    assert HEADING in cached["text"] and guard in cached["text"]
+
+
+def test_the_council_synthesis_rule_is_the_approved_copy():
+    from services.council_prompts import COUNCIL_SYNTHESIS_SUICIDE_RULE
+    assert COUNCIL_SYNTHESIS_SUICIDE_RULE == (
+        "The synthesis and next_move must never present suicide as justified, and must "
+        "never point the person to texts or authors that argue for it."
+    )
 
 
 def test_the_self_harm_guard_names_a_category_not_a_number():
@@ -116,7 +159,13 @@ def test_guards_say_what_to_do_not_which_line_they_cancel():
         # "call a crisis line"), so every guard gained a no-numbers clause of
         # ~15 words. The clause is load-bearing; trimming it to fit a test
         # number would be backwards. The limit guards against bloat, not length.
-        assert len(guard.split()) <= 90, f"{slug}: {len(guard.split())} words"
+        # ONE exception, at 100 (founder ruling 2026-10-02): the SAFETY-012 Epictetus
+        # open-door guard. It needs both the "never as a door that opens once other
+        # options are exhausted" clause (the framing its first version's eval
+        # surfaced) and the load-bearing no-numbers clause. It was trimmed by one
+        # word ("Say plainly you…") to land exactly on 100; it was not cut further.
+        limit = 100 if guard == EPICTETUS_OPEN_DOOR else 90
+        assert len(guard.split()) <= limit, f"{slug}: {len(guard.split())} words"
 
 
 def test_every_guard_forbids_naming_a_number_helpline_or_organisation():
@@ -164,8 +213,9 @@ def test_the_section_is_last_in_the_cached_block(slug):
 
 @pytest.mark.parametrize("slug", sorted(set(PERSONA_REGISTRY) - set(EXPECTED_COUNTS)))
 def test_personas_without_guards_render_no_section(slug):
-    """Lao Tzu, Wilde and Machiavelli have no authored promises (TD-106); Socrates,
-    Freud and Orwell have no critical one. No heading, no empty section."""
+    """Lao Tzu and Wilde have no authored promises (TD-106); Socrates, Freud and
+    Orwell have no critical one. No heading, no empty section. (Machiavelli left this
+    list with SAFETY-012.)"""
     assert PERSONA_REGISTRY[slug].guards == []
     assert HEADING not in _render(slug)
     assert HEADING not in _render(slug, sentinel=False)

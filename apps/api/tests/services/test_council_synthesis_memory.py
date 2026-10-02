@@ -158,6 +158,11 @@ async def test_the_synthesis_and_every_member_carry_hard_rule_10():
 
     assert synthesis["system"].count(HARD_RULE_10) == 1
     assert synthesis["system"].index(HARD_RULE_10) < synthesis["system"].index("LANGUAGE:")
+    # SAFETY-012: the synthesis-only rule follows HARD RULE 10, before the language line.
+    from services.council_prompts import COUNCIL_SYNTHESIS_SUICIDE_RULE
+    s = synthesis["system"]
+    assert s.count(COUNCIL_SYNTHESIS_SUICIDE_RULE) == 1
+    assert s.index(HARD_RULE_10) < s.index(COUNCIL_SYNTHESIS_SUICIDE_RULE) < s.index("LANGUAGE:")
     assert systems
     for system in systems:
         # Members send cache blocks; str() on the list would escape the apostrophes.

@@ -133,9 +133,18 @@ def test_persona_config_hash_is_untouched_by_this_change():
     exactly once). No stored eval result is comparable to a run before this value,
     which is the cost HARD RULE 9 set the precedent for. The SAFETY-010 eval runs
     measured the rule spliced into this same position (chat prompts only).
+
+    MOVED A FIFTH TIME, DELIBERATELY — 6ca3e8f00b017bf8 -> 2771c2ffa7b1286b,
+    2026-10-02, SAFETY-012 persona guards. **Two personas changed: epictetus (a
+    second guard) and niccolo_machiavelli (his first guard, so the guard section now
+    renders for him).** Structural argument, as for the first move: the change
+    touched `personas/epictetus.py` and `personas/niccolo_machiavelli.py` and no
+    other persona file, and not the template, so no other persona's prompt can have
+    moved. Stored results for those two are not comparable to runs before this value;
+    the other nine are.
     """
     from evals.run import persona_config_hash
-    assert persona_config_hash() == "6ca3e8f00b017bf8"
+    assert persona_config_hash() == "2771c2ffa7b1286b"
 
 
 @pytest.mark.parametrize("slug", sorted(PERSONA_REGISTRY))
