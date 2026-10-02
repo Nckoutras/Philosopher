@@ -124,9 +124,18 @@ def test_persona_config_hash_is_untouched_by_this_change():
     personas changed**: HARD RULES render for every persona. No stored eval result
     is comparable to a run before this value. Accepted by founder ruling as the
     cost of a universal safety rule.
+
+    MOVED A FOURTH TIME, DELIBERATELY — 2c79e563e33f3eed -> 6ca3e8f00b017bf8,
+    2026-10-02, HARD RULE 10 (SAFETY-010: suicide, terminal illness, assisted dying,
+    suicide bereavement). **ALL ELEVEN personas changed**, for the same reason as
+    rule 9: the template gained one line after HARD RULE 9 and nothing else moved
+    (the template diff is that single added line; every persona renders the rule
+    exactly once). No stored eval result is comparable to a run before this value,
+    which is the cost HARD RULE 9 set the precedent for. The SAFETY-010 eval runs
+    measured the rule spliced into this same position (chat prompts only).
     """
     from evals.run import persona_config_hash
-    assert persona_config_hash() == "2c79e563e33f3eed"
+    assert persona_config_hash() == "6ca3e8f00b017bf8"
 
 
 @pytest.mark.parametrize("slug", sorted(PERSONA_REGISTRY))
