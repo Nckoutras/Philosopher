@@ -18,7 +18,7 @@ from personas import get_persona, is_persona_accessible
 from constants import TIER_ORDER
 from services.safety_service import crisis_language, safety_service
 from services import safety_gate
-from services.safety_gate import DISTRESS_ADDENDUM
+from services.safety_gate import DISCUSSING_SUICIDE_ADDENDUM, DISTRESS_ADDENDUM
 from services.memory_service import memory_service
 from services.retrieval_service import retrieval_service
 from services.embedding_client import embedding_client
@@ -871,6 +871,12 @@ class ConversationService:
             # for this turn only. HARD RULE 9 still governs: kinds of help, no numbers.
             if gate.outcome == "DISTRESS":
                 system_prompt = system_prompt + "\n\n" + DISTRESS_ADDENDUM
+            # SAFETY-009: released as DISCUSSING, and the subject is suicide or
+            # self-harm — the ideas are discussed, never offered as an option.
+            # Placed here, BEFORE the reply directive, on measurement (2026-10-02):
+            # after the directive was no better on Haiku and worse on Sonnet.
+            elif gate.suicide_topic:
+                system_prompt = system_prompt + "\n\n" + DISCUSSING_SUICIDE_ADDENDUM
 
             # ── 5. BUILD MESSAGE HISTORY ─────────────────────────────────────
             # NEWEST-N WINDOW: DESC + limit selects the most RECENT N turns, then
