@@ -234,6 +234,20 @@ async def build_export(db: AsyncSession, user: User) -> dict[str, Any]:
             "is_active": me.is_active,
             "conversation_id": me.conversation_id,
             "created_at": _iso(me.created_at),
+            # 070 (MEM2-A). Personal data the moment they are stored, so the
+            # export does not lag the schema: whose claim the row asserts, where
+            # it came from, and why it is no longer used. The two id fields are
+            # JOIN ids in the sense the module docstring allows — message ids
+            # resolve against `messages` below, supersedes_memory_id against this
+            # list. A list copy, so a driver's array type never reaches json.
+            "provenance": me.provenance,
+            "source_surface": me.source_surface,
+            "source_message_ids": (
+                [str(x) for x in me.source_message_ids]
+                if me.source_message_ids is not None else None
+            ),
+            "supersedes_memory_id": me.supersedes_memory_id,
+            "inactive_reason": me.inactive_reason,
         }
         for me in await _scalars(
             db, select(MemoryEntry).where(MemoryEntry.user_id == user_id)

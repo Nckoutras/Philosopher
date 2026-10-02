@@ -19,6 +19,8 @@ from services.conversation_service import MEMORY_MAX_ROWS_PRO, HISTORY_TOKEN_BUD
 USER_ID = "user-uuid-1"
 CONV_ID = "conv-uuid-1"
 PERSONA_ID = "persona-uuid-1"
+USER_MSG_ID = "user-msg-uuid-1"
+ASSISTANT_MSG_ID = "assistant-msg-uuid-1"
 
 
 def _mock_conv():
@@ -1258,7 +1260,13 @@ def _make_db_for_memory(message_count=0, ritual_id=None, safety_out_suppressed=F
 async def _run_stream_for_memory(db, arq_queue=None, safety_out_suppressed=False, is_admin=False):
     """Run stream_response for memory extraction testing."""
     service = ConversationService()
-    saved = _saved_msg()
+    saved = _saved_msg(role="assistant", msg_id=ASSISTANT_MSG_ID)
+    # Distinct ids per role (MEM2-A): the enqueue carries [user id, assistant id],
+    # and one shared mock for both would let a swapped pair pass the assertion.
+    user_saved = _saved_msg(role="user", msg_id=USER_MSG_ID)
+
+    async def _save_by_role(db, conv, user_id, role, *args, **kwargs):
+        return user_saved if role == "user" else saved
 
     mock_llm = MagicMock()
 
@@ -1298,7 +1306,7 @@ async def _run_stream_for_memory(db, arq_queue=None, safety_out_suppressed=False
         persona_config.slug = "marcus_aurelius"
         mock_get_persona.return_value = persona_config
 
-        service._save_message = AsyncMock(return_value=saved)
+        service._save_message = AsyncMock(side_effect=_save_by_role)
         service._log_safety_event = AsyncMock()
 
         return await _drain(service.stream_response(
@@ -1329,6 +1337,7 @@ async def test_memory_extraction_enqueued_on_success():
         "Hello",
         0,
         True,
+        [USER_MSG_ID, ASSISTANT_MSG_ID],  # 070: user first, then assistant
     )
 
 

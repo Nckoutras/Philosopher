@@ -176,6 +176,9 @@ async def test_embeddings_never_reach_the_export():
         embedding=[marker] * 1536,
         created_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
         updated_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
+        # 070's columns: the builder reads them, so the fixture sets them (C-06).
+        provenance="system_inferred", source_surface="chat", source_message_ids=None,
+        supersedes_memory_id=None, inactive_reason=None,
     )
     payload = await build_export(_fake_db({"MemoryEntry": [memory]}), _user())
 
@@ -281,6 +284,37 @@ async def test_daily_usage_exports_every_counter_including_another_mind():
     assert row["go_deeper_count"] == 7002
     assert row["deep_mode_count"] == 7003
     assert row["another_mind_count"] == 7004
+
+
+async def test_memories_export_every_epistemic_column():
+    """070 (MEM2-A) added five memory_entries columns. They are personal data —
+    whose claim a row asserts, where it came from, why it stopped being used — so
+    the export must not lag the schema (founder ruling 2026-10-02). Same shape as
+    the 069 test above: each column is planted with a distinct value and read back
+    by name, because the builder lists memory columns explicitly."""
+    import uuid as _uuid
+
+    m1, m2 = str(_uuid.uuid4()), str(_uuid.uuid4())
+    # A driver-native uuid inside the array: the export must hand json a str.
+    message_ids = [_uuid.UUID(m1), m2]
+    memory = _Row(
+        id="mem-2", user_id="u1", entry_type="self_portrait", content="an answer",
+        confidence=0.8, is_active=False, conversation_id=None,
+        persona_id=None, source_turn=42, embedding=None,
+        created_at=datetime(2026, 10, 2, tzinfo=timezone.utc),
+        updated_at=datetime(2026, 10, 2, tzinfo=timezone.utc),
+        provenance="user_selected", source_surface="PLANTED_SURFACE",
+        source_message_ids=message_ids, supersedes_memory_id="mem-1",
+        inactive_reason="user_rejected",
+    )
+    payload = await build_export(_fake_db({"MemoryEntry": [memory]}), _user())
+    row = payload["memories"][0]
+    assert row["provenance"] == "user_selected"
+    assert row["source_surface"] == "PLANTED_SURFACE"
+    assert row["source_message_ids"] == [m1, m2]
+    assert row["supersedes_memory_id"] == "mem-1"
+    assert row["inactive_reason"] == "user_rejected"
+    json.dumps(payload)  # a uuid.UUID left in the array would raise here
 
 
 # ── Soft-deleted rows are included, per the ruling ────────────────────────────

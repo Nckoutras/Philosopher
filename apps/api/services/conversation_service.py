@@ -1021,6 +1021,7 @@ class ConversationService:
             # lazy load. Re-loading conv in Phase C is intentionally avoided so
             # the DB execute sequence stays identical to the prior behaviour.
             user_msg_created_at = user_msg.created_at
+            user_msg_id = user_msg.id  # memory provenance (070): the pair's ids
             retrieval_ids = [str(p.id) for p in passages]
             retrieval_hit = len(passages) > 0
             # Count, not a boolean: the Blueprint asked for memory_reference_rendered
@@ -1353,6 +1354,7 @@ class ConversationService:
                 full_response,
                 prior_pairs,
                 safety_ok,
+                [str(user_msg_id), str(assistant_msg_id)],
             )
 
         # Gravity-gated conclusion: assess (and maybe distill) only at cadence,

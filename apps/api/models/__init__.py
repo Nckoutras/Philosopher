@@ -315,7 +315,46 @@ class MemoryEntry(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
+    # ── Epistemic core (070, MEM2-A) ──────────────────────────────────────────
+    # WHOSE CLAIM THE ROW ASSERTS, not whose grammar it is in (founder rulings
+    # 2026-10-02). A third-person rewrite that preserves the person's own claim
+    # — every distilled `stated` row ("User ...") — stays 'user_stated'.
+    # 'user_selected' is a tap/answer the person chose. A claim the SYSTEM
+    # composed is 'system_inferred', including self_portrait_shift: two taps are
+    # the person's, but "they used to answer X and now answer Y" is the system's
+    # claim about them. A separate axis from the recall lanes, which still key
+    # on entry_type (STANDING_TYPES) and are unchanged by this column.
+    provenance: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    # The surface that produced the row: 'chat', 'self_portrait', 'onboarding',
+    # 'counterview_belief', or the distill task's source_label. NULL on the legacy
+    # `stated` rows, whose surface was logged and never stored (071).
+    source_surface: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    # [user message id, assistant message id] for chat rows written after 070.
+    # NO FK: messages cascade on a thread delete and memories are kept (#7c).
+    source_message_ids: Mapped[list[str] | None] = mapped_column(ARRAY(UUID(as_uuid=False)), nullable=True)
+    # The row this one replaced, for one-for-one supersession (a re-answered
+    # portrait question). NULL for onboarding re-seeds: set replaces set.
+    supersedes_memory_id: Mapped[str | None] = mapped_column(
+        UUID(as_uuid=False), ForeignKey("memory_entries.id", ondelete="SET NULL"), nullable=True,
+    )
+    # WHY is_active went false. is_active stays the single recall gate; this only
+    # records the reason, so no reader of is_active had to change.
+    inactive_reason: Mapped[str | None] = mapped_column(String(20), nullable=True)
+
     user: Mapped["User"] = relationship("User", back_populates="memory_entries")
+
+    __table_args__ = (
+        # Kept in step with 070; a db_live test compares these literals against
+        # pg_get_constraintdef (the ck_insights_ring_true precedent).
+        CheckConstraint(
+            "provenance IN ('user_stated', 'user_selected', 'system_inferred')",
+            name="ck_memory_entries_provenance",
+        ),
+        CheckConstraint(
+            "inactive_reason IN ('superseded', 'user_removed', 'user_rejected')",
+            name="ck_memory_entries_inactive_reason",
+        ),
+    )
 
 
 # ── Insights ─────────────────────────────────────────────────────────────────
