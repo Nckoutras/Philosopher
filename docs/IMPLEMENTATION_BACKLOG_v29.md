@@ -2111,6 +2111,43 @@ failure → the crisis path; released → the normal 429.
 
 ---
 
+### SAFETY-008 — during a crisis in chat, "Ask the Council" stays on screen and carries the crisis message into Council — **LOGGED; small web PR, after SAFETY-002 PR-2**
+**Status: LOGGED (founder, 2026-10-02). Found during the OPS-025 investigation, main
+`94ad04fd`. Nothing built.**
+
+**What happens today.** In chat, a crisis reply is NOT added as an assistant message: it
+goes to `safetyText` and the SafetyBubble (`lib/useStream.tsx:164-166`). The crisis
+message the user typed IS added, as a user message. So:
+- the "Ask the Council" chip stays on the *previous* assistant message, the last one in the
+  list (`components/chat/MessageList.tsx:94-95`, `showCouncilChip={msg.id === lastAssistantId}`).
+  Nothing in `QuickActionsRow` or `MessageList` reads `safetyActive`;
+- `handleTakeToCouncil` pre-fills `lastUserMessage`, which is now the crisis message, as the
+  Council matter (`app/app/chat/[slug]/page.tsx:80-95`, `app/app/chat/conv/[id]/page.tsx:160-175`),
+  and seeds `council_conversation_id`, so the matter brief (`/council/brief/{id}`) is
+  distilled from a conversation whose last turn is the crisis.
+
+**Who it reaches.**
+- **Pro:** one tap moves the crisis message into Council as the matter. Since #759 the
+  Council router answers it with the crisis response, so the person is not left without
+  help. But the app has *offered* to take a crisis to a panel of philosophers, which is
+  the wrong offer to make at that moment.
+- **Free:** the chip redirects to `/app/upgrade` before navigating (`:82-84`). So a Free
+  user in crisis gets a paywall offer one tap away from the crisis bubble.
+
+**Scope of the fix (ruled).** While a crisis reply is active in chat, hide the "Ask the
+Council" chip, and any other door that pre-fills the last user message into another
+surface. Of the doors in the web at `94ad04fd`, only the two `handleTakeToCouncil`
+functions above read `lastUserMessage`. Other prefill doors carry other text: the Mirror's
+thread (`mirror/page.tsx:651`), an insight's content (`lib/useInsightDoors.ts:39`), quote
+and topic openings. **The PR investigation should still check the insight door chip,
+which renders on the same last assistant message** (`insightType`), in case its content
+was extracted from the crisis turn.
+
+**Not covered by this entry:** what `safetyActive` hides elsewhere (the composer already
+reads it, `chat/[slug]/page.tsx:264`), and UX-04.
+
+---
+
 ### TD-114 — Council and You-vs-You stream on a session `get_db` has already committed and closed — **OPEN, logged (SAFETY-004 ruling 2)**
 **Status: OPEN. LOG only, not now (founder, 2026-09-28).**
 
@@ -5601,10 +5638,55 @@ finding.
 
 ---
 
-### OPS-025 — #759 (SAFETY-006) P-04 smoke: OWED TODAY, 2026-10-01 — **OPEN**
-**Status: OPEN. Owed the day #759 merged (2026-10-01 13:49 UTC, `96623013`). DO NOT record it
-as passed until someone has typed the phrases. Past end of day 2026-10-01 it is a FINDING
-(amended P-04).**
+### OPS-025 — #759 (SAFETY-006) P-04 smoke: Council step PASSED via typed URL (2026-10-02) — **CLOSED**
+**Status: CLOSED. Step 1 (Council, Free) PASSED on the second attempt, by typed URL,
+2026-10-02 08:10 UTC (founder). The first attempt never reached the Council page (below).
+Ran late: past end of day 2026-10-01, so it was a FINDING under amended P-04 until this
+run.**
+
+**The passing run (founder, 2026-10-02).** On the Free QA account (`nkoutr@telekom.gr`)
+the founder opened `/app/council` by typed URL and submitted "I want to kill myself".
+- **Seen:** the English crisis text, with 988 shown. Not a paywall, not "Something went
+  wrong".
+- **Step 4 query:** 1 row, `trigger_stage = council_input`, `risk_level = high`,
+  `conversation_id` NULL, created 08:10:21 UTC. `action_taken` was not reported.
+- **Cleanup:** the row was deleted afterwards (1 row).
+- **Not reported in this run:** step 2 (You-vs-You) and step 3 (the ordinary-matter
+  control). Neither is recorded as passed.
+
+This is the first time a Free user's crisis has gone past the 403 on production against
+real Postgres. Before it, only the mocked router tests covered that path (below).
+
+**The first attempt.** On the Free QA account the founder opened Council from the **Rituals
+tab card** and saw the upgrade page. At first this read as "a paywall after submitting a
+crisis phrase". Reading the web (main `94ad04fd`, 2026-10-02) shows it is not:
+- the Rituals card redirects a Free user to `/app/upgrade` **before navigating** to
+  `/app/council` (`app/app/(tabs)/rituals/page.tsx:46-49`). The Council page never loaded,
+  and the API was never called;
+- the Council and You-vs-You pages contain no plan check and no paywall render, in any
+  state, and never have. A 403 there renders the generic error (UX-04), and a safety event
+  renders `CrisisBubble`.
+
+So the paywall was the expected behaviour for a Free user (Council is Pro), not a #759
+regression.
+
+**Where Free users are gated before Council** (each a pre-navigation redirect to
+`/app/upgrade`): the Rituals card; the chat "Ask the Council" chip, in
+`chat/[slug]/page.tsx:81-95` and `chat/conv/[id]/page.tsx:165-175`; and the insight
+dilemma door (`lib/useInsightDoors.ts:34-37`). **Not gated:** the Mirror's Council button
+(`mirror/page.tsx:649-655`), the letter's ritual door (`letters/[id]/page.tsx:44`), the
+share link, and a typed URL. Method step 1 ("open `/app/council`") is the typed-URL route,
+which is why the method expected the Free user to reach the box.
+
+**What covers the Free crisis path past the 403.** The founder's ruling cited #759's
+db_live tests, but those run as a user who passes the Pro gate: their ordinary-input twin
+asserts a **429**, not a 403. They cover the **weekly-limit** half. The **Free** half is
+covered by #759's **router tests with a mocked service**:
+`tests/routers/test_council_limits.py:186-222` (a Free crisis reaches each service; an
+ordinary Free input still gets the 403). No TEST runs a Free user's crisis against real
+Postgres; the typed-URL smoke above is the only run that has.
+
+**Found during this investigation:** SAFETY-008.
 
 **Already verified, by CI:** the 4 new db_live tests in #759 PASSED in the live-Postgres job
 (run `36871120349`, job log lines 159–162; read by the founder). They prove, against real
