@@ -821,11 +821,16 @@ async def extract_memory_task(
     assistant_text: str,
     turn: int = 0,
     safety_ok: bool = False,
+    source_message_ids: list[str] | None = None,
 ):
     """Extracts and stores memory entries after each message pair.
 
     `safety_ok` defaults False so a stale-queued job enqueued before this arg
-    existed can never promote a dilemma/belief signal insight."""
+    existed can never promote a dilemma/belief signal insight.
+
+    `source_message_ids` is trailing and defaults to None for the same reason: a
+    job queued before 070 deployed still runs, and its rows store NULL rather
+    than ids it never carried."""
     from db.session import AsyncSessionLocal
     from services.memory_service import memory_service
 
@@ -840,6 +845,7 @@ async def extract_memory_task(
                 assistant_text=assistant_text,
                 source_turn=turn,
                 safety_ok=safety_ok,
+                source_message_ids=source_message_ids,
             )
             await db.commit()
             logger.info(f"Memory task: stored {len(entries)} entries for user={user_id}")
@@ -885,6 +891,8 @@ async def counterview_belief_task(ctx, user_id: str, belief: str):
                 embedding=emb,
                 confidence=0.7,  # same default extract_and_store uses
                 source_turn=0,
+                provenance="user_stated",  # the typed belief, stored verbatim
+                source_surface="counterview_belief",
             )
             db.add(entry)
             await db.flush()  # flush so entry.id exists for the NULL-conversation exclusion
@@ -967,6 +975,10 @@ async def distill_user_text_to_memory_task(
                 confidence=1.0,  # explicit self-stated; auto-protected from stale-cron
                 source_turn=0,
                 is_active=True,
+                provenance="user_stated",
+                # Stored, not only logged (070): before MEM2-A this label reached
+                # the log line and nowhere else, so 3 legacy rows have no surface.
+                source_surface=source_label,
             ))
             await db.commit()
             logger.info(
@@ -1013,7 +1025,9 @@ async def seed_profile_memory_task(ctx, user_id: str):
                     MemoryEntry.entry_type == "onboarding_profile",
                     MemoryEntry.is_active == True,
                 )
-                .values(is_active=False)
+                # No supersedes_memory_id on the new rows: a re-seed replaces a SET
+                # with a set, so there is no one-for-one pairing to record (070).
+                .values(is_active=False, inactive_reason="superseded")
             )
             for content in statements:
                 emb = await embedding_client.embed(content)
@@ -1026,12 +1040,43 @@ async def seed_profile_memory_task(ctx, user_id: str):
                     embedding=emb,
                     confidence=0.8,  # self-reported; held a notch below explicit-stated 1.0
                     source_turn=0,
+                    provenance="user_selected",
+                    source_surface="onboarding",
                 ))
             await db.commit()
             logger.info("Profile memory seeded for user=%s (%d statements)", user_id, len(statements))
         except Exception as e:
             await db.rollback()
             logger.error(f"Profile memory seed failed: {e}", exc_info=True)
+
+
+async def _supersede_portrait_row(db, user_id: str, entry_type: str, qkey: int) -> str | None:
+    """Deactivate this question's active row of `entry_type` as 'superseded', and
+    return its id so the replacement can record `supersedes_memory_id` (070).
+
+    Same predicate the task always used; only the reason and the RETURNING are new.
+    More than one active row per key should not exist, but nothing enforces it, so
+    if it ever does every one is retired and the link points at the NEWEST — the
+    row the person last saw — rather than at whichever the driver returned first.
+    """
+    from models import MemoryEntry
+    from sqlalchemy import update
+
+    rows = (await db.execute(
+        update(MemoryEntry)
+        .where(
+            MemoryEntry.user_id == user_id,
+            MemoryEntry.entry_type == entry_type,
+            MemoryEntry.source_turn == qkey,
+            MemoryEntry.is_active == True,
+        )
+        .values(is_active=False, inactive_reason="superseded")
+        .returning(MemoryEntry.id, MemoryEntry.created_at)
+    )).all()
+    if not rows:
+        return None
+    newest = max(rows, key=lambda r: (r.created_at, str(r.id)))
+    return str(newest.id)
 
 
 async def seed_self_portrait_memory_task(ctx, user_id: str, question_id: str, previous_index: int | None = None):
@@ -1053,7 +1098,7 @@ async def seed_self_portrait_memory_task(ctx, user_id: str, question_id: str, pr
     signal. Standing row + shift row share one commit."""
     from db.session import AsyncSessionLocal
     from models import MemoryEntry, UserPreference
-    from sqlalchemy import select, update
+    from sqlalchemy import select
     from services.embedding_client import embedding_client
     from services.self_portrait import answer_statement, question_key, shift_statement
 
@@ -1070,16 +1115,7 @@ async def seed_self_portrait_memory_task(ctx, user_id: str, question_id: str, pr
                 return  # unknown question or out-of-range pill; seed nothing
 
             qkey = question_key(question_id)
-            await db.execute(
-                update(MemoryEntry)
-                .where(
-                    MemoryEntry.user_id == user_id,
-                    MemoryEntry.entry_type == "self_portrait",
-                    MemoryEntry.source_turn == qkey,
-                    MemoryEntry.is_active == True,
-                )
-                .values(is_active=False)
-            )
+            replaced_id = await _supersede_portrait_row(db, user_id, "self_portrait", qkey)
             emb = await embedding_client.embed(statement)
             db.add(MemoryEntry(
                 user_id=user_id,
@@ -1090,6 +1126,9 @@ async def seed_self_portrait_memory_task(ctx, user_id: str, question_id: str, pr
                 embedding=emb,
                 confidence=0.8,  # self-reported; same notch below stated-1.0 as onboarding
                 source_turn=qkey,  # per-question dedup key (overload — see question_key)
+                provenance="user_selected",  # the chosen pill, verbatim in a fixed template
+                source_surface="self_portrait",
+                supersedes_memory_id=replaced_id,
             ))
 
             # Edit-as-change: if this was a re-answer, seed/refresh the latest movement.
@@ -1099,15 +1138,8 @@ async def seed_self_portrait_memory_task(ctx, user_id: str, question_id: str, pr
                 if shift:
                     # Latest movement per question only (bounded); full history still
                     # lives in the deactivated self_portrait rows above.
-                    await db.execute(
-                        update(MemoryEntry)
-                        .where(
-                            MemoryEntry.user_id == user_id,
-                            MemoryEntry.entry_type == "self_portrait_shift",
-                            MemoryEntry.source_turn == qkey,
-                            MemoryEntry.is_active == True,
-                        )
-                        .values(is_active=False)
+                    replaced_shift_id = await _supersede_portrait_row(
+                        db, user_id, "self_portrait_shift", qkey,
                     )
                     shift_emb = await embedding_client.embed(shift)
                     db.add(MemoryEntry(
@@ -1119,6 +1151,11 @@ async def seed_self_portrait_memory_task(ctx, user_id: str, question_id: str, pr
                         embedding=shift_emb,
                         confidence=0.8,
                         source_turn=qkey,
+                        # The system's sentence about two taps, not a tap: provenance
+                        # records who authored the stored wording (ruling 2026-10-02).
+                        provenance="system_inferred",
+                        source_surface="self_portrait",
+                        supersedes_memory_id=replaced_shift_id,
                     ))
 
             await db.commit()  # one commit covers standing + shift

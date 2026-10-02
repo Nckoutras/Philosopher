@@ -1,9 +1,10 @@
 import json
 import logging
+import uuid
 from collections import Counter
 from datetime import datetime, timedelta, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, text
+from sqlalchemy import select, text, update
 from models import MemoryEntry, Insight
 from schemas import THEME_VALUES
 from services.llm_client import llm_client
@@ -631,6 +632,71 @@ async def find_recurrences(
     return matches, evidence
 
 
+def cited_memory_ids(evidence) -> list[str]:
+    """The memory rows a recurrence insight's evidence cites, in the order written.
+
+    PURE. Reads the shape `find_recurrences` writes above: `recurring_entry` plus
+    every `prior_matches` row. Anything else yields nothing rather than raising —
+    NULL evidence (a signal insight, or one written before 060), an empty dict, a
+    non-dict, a missing or malformed id. The caller is a person saying "that is not
+    true of me", and a malformed citation must never turn that into a 500.
+
+    Ids are kept only if they parse as UUIDs: they are bound into a uuid column
+    comparison, and a string Postgres cannot cast would fail the whole statement.
+    """
+    if not isinstance(evidence, dict):
+        return []
+    cited = []
+    recurring = evidence.get("recurring_entry")
+    if isinstance(recurring, dict):
+        cited.append(recurring.get("memory_entry_id"))
+    matches = evidence.get("prior_matches")
+    if isinstance(matches, list):
+        cited.extend(m.get("memory_entry_id") for m in matches if isinstance(m, dict))
+
+    out: list[str] = []
+    for raw in cited:
+        try:
+            mid = str(uuid.UUID(str(raw)))
+        except (ValueError, TypeError, AttributeError):
+            continue
+        if mid not in out:
+            out.append(mid)
+    return out
+
+
+async def reject_cited_memories(db: AsyncSession, user_id: str, evidence) -> int:
+    """MEM2 ruling R3: a 'no' on a recurrence insight retires the rows it cites.
+
+    Exclusion, not down-weighting (R5): is_active goes false, which every recall
+    path already honours, and inactive_reason records why. Nothing in recall
+    changes. Runs inside the CALLER's transaction and does not commit — the
+    verdict and the rows it retires land together or not at all.
+
+    Scoped to `user_id` as well as to the cited ids: evidence is a stored payload,
+    and a citation must never reach another person's row. Only ACTIVE rows are
+    touched, so a row already retired for another reason ('superseded',
+    'user_removed') keeps that reason.
+
+    Returns how many rows were retired. NULL or empty evidence is a no-op, by
+    design: a signal insight has no citations yet (Phase B, R4).
+    """
+    ids = cited_memory_ids(evidence)
+    if not ids:
+        return 0
+    result = await db.execute(
+        update(MemoryEntry)
+        .where(
+            MemoryEntry.id.in_(ids),
+            MemoryEntry.user_id == user_id,
+            MemoryEntry.is_active == True,  # noqa: E712 — SQL, not Python truth
+        )
+        .values(is_active=False, inactive_reason="user_rejected")
+        .execution_options(synchronize_session=False)
+    )
+    return result.rowcount or 0
+
+
 def _iso_z(value: datetime | None) -> str | None:
     """UTC ISO-8601 with an explicit Z, matching the export's convention.
 
@@ -657,11 +723,16 @@ class MemoryService:
         assistant_text: str,
         source_turn: int = 0,
         safety_ok: bool = False,
+        source_message_ids: list[str] | None = None,
     ) -> list[MemoryEntry]:
         """Extract memory signals from a message pair and persist them.
 
         `safety_ok` (input+output both level 'none') gates ONLY the dilemma/belief
         signal-insight write below; memory-row persistence is unchanged by it.
+
+        `source_message_ids` is [user message id, assistant message id] (070). None
+        when the caller had none to give — a job queued before 070 — and stored as
+        NULL then, never guessed (MEM2 ruling R9).
         """
         # The USER's turn only. The assistant's reply is in the user block below as
         # context, but it is not evidence of what language the PERSON writes in —
@@ -722,6 +793,9 @@ class MemoryService:
                 embedding=embedding,
                 confidence=entry.get("confidence", 0.7),
                 source_turn=source_turn,
+                provenance="system_inferred",
+                source_surface="chat",
+                source_message_ids=source_message_ids,
             )
             db.add(memory)
             saved.append(memory)

@@ -63,6 +63,9 @@ def _make_insight(insight_type="pattern", ring_true=None, is_dismissed=False):
     i.ring_true = ring_true
     i.ring_true_at = None
     i.created_at = datetime.now(timezone.utc)
+    # MEM2-A: the router reads evidence on a 'no'. A real None, not an absorbed
+    # Mock attribute (C-06), so a 'no' here takes the no-evidence path on purpose.
+    i.evidence = None
     return i
 
 
@@ -316,3 +319,45 @@ def test_the_insight_throttle_ignores_the_verdict():
         "still occupies its window, or disagreeing with the room would let the room "
         "speak sooner"
     )
+
+
+# ── MEM2-A R3: a 'no' retires the cited memory rows ──────────────────────────
+# The UPDATE itself, its scoping and its atomicity are proven against Postgres in
+# tests/db_live/test_memory_epistemic_core.py. These pin the router's half: which
+# verdicts reach it, with what, and that it runs BEFORE the commit.
+
+def test_a_no_hands_the_evidence_to_the_rejection_before_the_commit(client):
+    evidence = {"recurring_entry": {"memory_entry_id": "dddddddd-0000-0000-0000-000000000004"}}
+    insight = _make_insight()
+    insight.evidence = evidence
+    _patch_db_for(client, insight)
+
+    order = []
+    reject = AsyncMock(side_effect=lambda *a, **k: order.append("reject") or 1)
+    client._db[0].commit = AsyncMock(side_effect=lambda: order.append("commit"))
+
+    with patch("routers.memory.analytics_service"), \
+         patch("routers.memory.reject_cited_memories", reject):
+        resp = client.patch(URL, json={"ring_true": "no"})
+
+    assert resp.status_code == 200
+    reject.assert_awaited_once()
+    _db, user_id, passed = reject.await_args.args
+    assert (user_id, passed) == (USER_ID, evidence)
+    assert order == ["reject", "commit"], "the retirement must be inside the verdict's transaction"
+
+
+@pytest.mark.parametrize("verdict", ["yes", "partly"])
+def test_yes_and_partly_never_reach_the_rejection(client, verdict):
+    """R6: 'partly' does nothing. 'yes' records agreement and promotes nothing."""
+    insight = _make_insight()
+    insight.evidence = {"recurring_entry": {"memory_entry_id": "dddddddd-0000-0000-0000-000000000004"}}
+    _patch_db_for(client, insight)
+
+    reject = AsyncMock()
+    with patch("routers.memory.analytics_service"), \
+         patch("routers.memory.reject_cited_memories", reject):
+        resp = client.patch(URL, json={"ring_true": verdict})
+
+    assert resp.status_code == 200
+    reject.assert_not_awaited()

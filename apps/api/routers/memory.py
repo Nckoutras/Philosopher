@@ -14,6 +14,7 @@ from auth import get_current_user
 from services.safety_service import safety_service
 from services.analytics_service import analytics_service
 from services.insight_mirror_service import generate_insight_mirror
+from services.memory_service import reject_cited_memories
 from services.counterview_service import (
     generate_counterview,
     find_counterview_for_insight,
@@ -65,6 +66,10 @@ async def update_memory(
         entry.content = body.content
     if body.is_active is not None:
         entry.is_active = body.is_active
+        # inactive_reason follows is_active (070) so the two cannot disagree: a
+        # row switched off here is the person's removal, and a row switched back
+        # on carries no reason for being off.
+        entry.inactive_reason = None if body.is_active else "user_removed"
     await db.flush()
     return MemoryEntryOut.model_validate(entry)
 
@@ -82,6 +87,7 @@ async def delete_memory(
     if not entry:
         raise HTTPException(status_code=404)
     entry.is_active = False
+    entry.inactive_reason = "user_removed"
 
 
 # ── Insights ──────────────────────────────────────────────────────────────────
@@ -153,6 +159,16 @@ async def set_insight_ring_true(
 
     insight.ring_true = body.ring_true
     insight.ring_true_at = datetime.now(timezone.utc)
+
+    # MEM2 R3: a 'no' retires the memory rows the insight was derived from, so a
+    # claim the person rejected stops being recalled into what the room says to
+    # them. BEFORE the commit below, in the same transaction as the verdict. Only
+    # 'no' writes memory: 'partly' does nothing (R6), and 'yes' records agreement
+    # without promoting anything. A no-op when evidence is NULL — signal insights
+    # carry none yet (R4, Phase B). Changing the verdict back later does NOT
+    # reactivate the rows; no ruling covers that and it is not guessed here.
+    if body.ring_true == "no":
+        await reject_cited_memories(db, user.id, insight.evidence)
 
     # EXPLICIT commit, so the event below genuinely fires after one. get_db
     # commits in its teardown (db/session.py), AFTER the handler returns — so a
