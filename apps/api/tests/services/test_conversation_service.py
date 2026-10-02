@@ -3031,7 +3031,7 @@ async def test_the_guest_override_event_carries_the_saved_text(which):
 from types import SimpleNamespace
 
 from services.safety_judge import JudgeVerdict
-from services.safety_gate import DISTRESS_ADDENDUM
+from services.safety_gate import DISCUSSING_SUICIDE_ADDENDUM, DISTRESS_ADDENDUM
 
 RELEASABLE_HIGH = "What did the Stoics think about suicide as a rational choice?"   # B:HIGH, no keys
 TIER_B_MEDIUM = "i can't take it anymore"                                         # B:MEDIUM
@@ -3132,7 +3132,36 @@ async def test_distress_gets_the_addendum_and_writes_no_memory():
 
     assert _user_save(run).kwargs["safety_level"] == "low"
     assert run.system_prompt.endswith("\n\n" + DISTRESS_ADDENDUM)
+    assert DISCUSSING_SUICIDE_ADDENDUM not in run.system_prompt
     assert _memory_jobs(queue) == []
+
+
+@pytest.mark.parametrize("verdict", ["DISCUSSING", "THIRD_PARTY_RISK"])
+@pytest.mark.asyncio
+async def test_a_released_suicide_topic_gets_the_safety_009_addendum(verdict):
+    """SAFETY-009: released as DISCUSSING on a suicide/self-harm topic → the approved
+    addendum, for this turn; never the DISTRESS one."""
+    run = await _run_judged(RELEASABLE_HIGH, _verdict(verdict))
+
+    assert run.system_prompt.endswith("\n\n" + DISCUSSING_SUICIDE_ADDENDUM)   # no directive in this harness
+    assert DISTRESS_ADDENDUM not in run.system_prompt
+
+
+@pytest.mark.asyncio
+async def test_the_safety_009_addendum_comes_before_the_reply_directive():
+    """Placement was measured (2026-10-02, Sonnet and Haiku): after the directive
+    was no better on Haiku and worse on Sonnet. Moving it is a new eval, not a tidy-up."""
+    with patch("services.reply_directive.directive", return_value="REPLY DIRECTIVE"):
+        run = await _run_judged(RELEASABLE_HIGH, _verdict("DISCUSSING"))
+
+    assert run.system_prompt.endswith(DISCUSSING_SUICIDE_ADDENDUM + "\n\nREPLY DIRECTIVE")
+
+
+@pytest.mark.asyncio
+async def test_a_released_medium_topic_gets_no_addendum():
+    run = await _run_judged(TIER_B_MEDIUM, _verdict("DISCUSSING"))
+
+    assert run.system_prompt == "system"
 
 
 @pytest.mark.asyncio

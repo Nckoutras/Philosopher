@@ -69,6 +69,77 @@ def test_the_distress_addendum_is_the_approved_copy_verbatim():
     )
 
 
+def test_the_discussing_suicide_addendum_is_the_approved_copy_verbatim():
+    """SAFETY-009 v2 (founder, 2026-10-02). Any edit is new copy and needs approval."""
+    assert sg.DISCUSSING_SUICIDE_ADDENDUM == (
+        "The person is asking about suicide or self-harm as a subject. Discuss the "
+        "ideas honestly and in your own voice, but never present ending one's life "
+        "as a reasonable option, a freedom or a solution — for them or for anyone — "
+        "and never suggest that some circumstances would justify it. If a thinker "
+        'held such a view, such as Seneca\'s "open door", present it only as that '
+        "thinker's position, do not adopt or endorse it, and say plainly what it "
+        "leaves out: that the wish to die often passes, that pain can be shared and "
+        "eased, and that support exists outside this conversation. Even if you "
+        "usually answer with questions, state this plainly. Then ask, gently, how "
+        "they are doing, without assuming they are in danger."
+    )
+
+
+# ── SAFETY-009: which releases are a suicide / self-harm topic ────────────────
+
+BATTERY = json.loads((API / "tests" / "fixtures" / "philosophy_battery.json").read_text(encoding="utf-8"))["questions"]
+
+
+def test_the_suicide_topic_set_is_exactly_the_high_entries_of_v0_6_1():
+    """Ruling 1: all 17 Tier-B HIGH entries, none of the 8 MEDIUM. The set is
+    enumerated in POLICY; this pin breaks if the lists or the set move apart."""
+    from services import safety_tiers as st
+    assert st._LISTS_PATH.name == "safety_002_tiers_v0.6.1.json"
+    high = {e["id"] for e in st.TIER_B if st.b_level(e) == "HIGH"}
+    medium = {e["id"] for e in st.TIER_B if st.b_level(e) == "MEDIUM"}
+    assert st.POLICY["suicide_topic_b"] == high
+    assert len(high) == 17 and len(medium) == 8
+    assert not st.POLICY["suicide_topic_b"] & medium
+
+
+@pytest.mark.parametrize("verdict", ["DISCUSSING", "THIRD_PARTY_RISK"])
+@pytest.mark.asyncio
+async def test_a_released_high_topic_is_a_suicide_topic(verdict):
+    d = await _eval(RELEASABLE_HIGH, _v(verdict))
+    assert d.outcome == "DISCUSSING" and d.suicide_topic
+
+
+@pytest.mark.asyncio
+async def test_a_released_medium_is_not_a_suicide_topic():
+    d = await _eval(TIER_B_MEDIUM, _v("DISCUSSING"))
+    assert d.outcome == "DISCUSSING" and not d.suicide_topic
+
+
+@pytest.mark.parametrize("text", [CLEAN, TIER_B_MEDIUM])
+@pytest.mark.asyncio
+async def test_the_safety_net_at_high_is_a_suicide_topic(text):
+    """Ruling 2: B:HIGH because production said high, with no topic entry matched
+    (CLEAN matches nothing; TIER_B_MEDIUM matches only a MEDIUM entry)."""
+    d = await _eval(text, _v("DISCUSSING"), prod=SafetyResult(level="high"))
+    assert d.level == "B:HIGH" and d.outcome == "DISCUSSING" and d.suicide_topic
+
+
+@pytest.mark.parametrize("verdict,failed", [("DISTRESS_WITHOUT_INTENT", False), ("INTENT", False), (None, True)])
+@pytest.mark.asyncio
+async def test_only_a_discussing_release_carries_the_flag(verdict, failed):
+    d = await _eval(RELEASABLE_HIGH, _v(verdict, failed=failed))
+    assert d.outcome != "DISCUSSING" and not d.suicide_topic
+
+
+@pytest.mark.parametrize("q", BATTERY, ids=[f"q{q['n']}" for q in BATTERY])
+@pytest.mark.asyncio
+async def test_the_battery_released_as_discussing(q):
+    """Which battery questions get the addendum if the judge releases them: exactly
+    the five that hit a HIGH entry (A1 of the SAFETY-002 eval, plus #16)."""
+    d = await _eval(q["text"], _v("DISCUSSING"))
+    assert d.suicide_topic == (q["n"] in {1, 11, 13, 14, 16})
+
+
 # ── Lexicon level (lists + the production safety net) ─────────────────────────
 
 @pytest.mark.parametrize("text,prod_level,want", [
