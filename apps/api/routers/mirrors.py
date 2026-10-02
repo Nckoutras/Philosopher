@@ -15,6 +15,7 @@ from services.image_service import generate_mirror_share_image
 from routers.share import create_and_render
 from services.safety_service import safety_service
 from services.safety_event_log import log_safety_event
+from services.enqueue import safe_enqueue
 
 logger = logging.getLogger(__name__)
 
@@ -162,18 +163,15 @@ async def set_ring_true(
     # only when a non-empty note was written. Fire-and-forget; never break the response.
     # `note` was computed by the safety gate above; reaching here means it passed.
     if note:
-        arq_queue = getattr(request.app.state, "arq_queue", None)
-        if arq_queue is not None:
-            try:
-                await arq_queue.enqueue_job(
-                    "distill_user_text_to_memory_task",
-                    str(user.id),
-                    None,
-                    note,
-                    "mirror_ring_true",
-                )
-            except Exception as exc:
-                logger.error("Mirror ring-true note enqueue failed user=%s: %s", user.id, exc)
+        await safe_enqueue(
+            getattr(request.app.state, "arq_queue", None),
+            "distill_user_text_to_memory_task",
+            str(user.id),
+            None,
+            note,
+            "mirror_ring_true",
+            context=f"user={user.id} source=mirror_ring_true",
+        )
 
     persona = await _load_persona(db, mirror.host_persona_id)
     return _mirror_out(mirror, persona)

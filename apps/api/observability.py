@@ -34,24 +34,28 @@ mechanisms below enforce it because `send_default_pii=False` alone does NOT:
 
   4. before_send + before_breadcrumb, below. The net, not the fix.
 
-WHY LOGGING IS THE MECHANISM. Every ARQ task (12) and cron job (9 — five
-APScheduler, four ARQ since the letter dispatch and its catch-up moved) catches its
-own Exception and logs rather than re-raising, so ArqIntegration — which only
-sees exceptions that ESCAPE a task — would report nothing at all. What does
-report them is the default LoggingIntegration: event_level=ERROR turns every
-logger.error(..., exc_info=True) into an event carrying its stack trace. Those
-22 sites are therefore covered with no code change, and test_observability.py
-pins that reliance so an SDK upgrade cannot quietly remove it.
+WHY LOGGING IS THE MECHANISM. Every ARQ task (13) and cron job (13 — six
+APScheduler, seven ARQ) catches its own Exception and logs rather than
+re-raising, so ArqIntegration — which only sees exceptions that ESCAPE a task —
+would report nothing at all. What does report them is the default
+LoggingIntegration: event_level=ERROR turns every logger.error(...) into an
+event, and exc_info=True makes that event carry its stack trace. Those sites
+are therefore covered with no code change, and test_observability.py pins that
+reliance so an SDK upgrade cannot quietly remove it.
 
 THE COUNT IS THE OUTPUT OF THIS COMMAND, run from apps/api/:
 
     grep -h "exc_info=True" workers/{arq_worker,cron,letter_dispatch}.py | grep -vc "^[[:space:]]*#"
 
-22 at #587, 22 at #611, 22 today. The second grep matters: two COMMENTS mention
-exc_info=True while describing this mechanism, and counting them turns 22 into 24.
-This is NOT the task-plus-cron-job figure above (12 + 9 = 21) — a different
-quantity, since one handler can carry more than one logged branch. Re-measure with
-the command, not with a plausible reading of this sentence.
+22 at #587, 22 at #611, 24 on 2026-10-02 (OBS-001 re-measured it; the text had
+said "22 today" for weeks after it stopped being true, which is the 2026-08-18
+failure-log lesson about carried claims). The second grep matters: comments
+that mention exc_info=True while describing this mechanism would otherwise be
+counted. This is NOT the task-plus-cron-job figure above — a different
+quantity, since one handler can carry more than one logged branch, and two
+worker modules (heartbeat, trajectory_snapshot) are outside the command's file
+list. Re-measure with the command, not with a plausible reading of this
+sentence.
 
 NO TRACING. traces_sample_rate=0 — this is error monitoring, not the
 performance product. It also means no spans exist for an LLM integration to

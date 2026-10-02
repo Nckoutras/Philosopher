@@ -290,8 +290,9 @@ RISK_LEVELS = ["none", "low", "medium", "high", "critical"]
 # PLAIN DATA, NO CRON PARSER. Each entry carries a cadence the checker evaluates
 # with arithmetic. 'weekly' fires at a fixed ISO weekday + hour UTC and is keyed
 # by ISO week; 'interval' fires every N minutes and is keyed by an N-minute
-# bucket. A dependency that parses five-field cron strings would buy nothing
-# these two shapes do not already cover.
+# bucket; 'monthly' fires on the last calendar day at a fixed hour UTC and is
+# keyed by that month. A dependency that parses five-field cron strings would
+# buy nothing these three shapes do not already cover.
 #
 # `job_name` IS THE LOOKUP KEY and must equal job_run.job_name EXACTLY. The
 # literals are retyped here rather than imported because this module is
@@ -306,9 +307,14 @@ RISK_LEVELS = ["none", "low", "medium", "high", "critical"]
 # it reports that job missing on every tick, forever, starting the hour it
 # deploys, filling the channel this exists to create with one false positive.
 #
-# v1 IS THESE THREE AND NOTHING ELSE.
-#   - monthly_letter is deliberately out: month-end edge cases, and it already
-#     has a catch-up pass. Revisit after the 2026-09-30 monthly run.
+# v1 WAS THREE; OBS-001 (2026-10-02) MADE IT FOUR. 'monthly' fires on the last
+# calendar day of the month at a fixed hour UTC and is keyed by that month,
+# which is exactly how letter_dispatch keys the monthly run.
+#   - monthly_letter was held out until its first ARQ-cron run had happened;
+#     2026-09-30 17:00 succeeded (OPS-021), so it is in. Its first period is
+#     invisible to the checker by construction -- the history floor is the
+#     first row's started_at, a second after the fire -- and that is fine: the
+#     row that sets the floor IS the evidence it ran.
 #   - preview_mirror is out because it writes no job_run row to check. It runs in
 #     the API process under APScheduler and leaves only log lines (TD logged).
 #   - purge_expired_otp_codes is out by its own design: a purge is
@@ -338,7 +344,16 @@ JOB_EXPECTATIONS: tuple[dict, ...] = (
         "hour":          17,
         "grace_minutes": 60,
     },
-    # The heartbeat, and the reason the other two are checkable at all. Every
+    # Last calendar day of the month, 17:00 UTC, keyed by the month that is
+    # ending. workers/letter_dispatch.py JOB_MONTHLY + arq_worker.py cron_jobs
+    # (day={28,29,30,31} filtered by is_last_day_of_month).
+    {
+        "job_name":      "monthly_letter",
+        "cadence":       "monthly",
+        "hour":          17,
+        "grace_minutes": 60,
+    },
+    # The heartbeat, and the reason the others are checkable at all. Every
     # other job_run writer is WEEKLY, so without a signal at this cadence the
     # mean time to detect a dead worker is about three and a half days and the
     # worst case is seven. workers/heartbeat.py.

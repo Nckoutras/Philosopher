@@ -31,6 +31,12 @@ def _mock_conv():
     c.active_persona_id = None
     # No sticky deep mode ⇒ normal (non-deep) length path.
     c.deep_mode = False
+    # Read by the side-effect gates after Phase C2 (new_message_count). Before
+    # OBS-001 those gates short-circuited on `arq_queue is not None`, so a
+    # queue-less test never evaluated them and a Mock here went unnoticed;
+    # safe_enqueue evaluates the gate first and reports the absent queue, so
+    # the count must be an int (C-06).
+    c.message_count = 0
     return c
 
 
@@ -649,6 +655,7 @@ def _make_db_for_usage(existing_usage=None, ritual_id=None):
     conv.active_persona_id = None
     conv.deep_mode = False
     conv.ritual_id = ritual_id
+    conv.message_count = 0  # see _mock_conv: read by the side-effect gates (OBS-001)
 
     return _shape_dispatch_db(conv=conv, existing_usage=existing_usage), conv
 
@@ -898,7 +905,8 @@ async def test_auto_title_not_enqueued_when_title_exists():
 
 @pytest.mark.asyncio
 async def test_auto_title_skipped_when_no_queue():
-    """arq_queue=None → enqueue silently skipped, no AttributeError."""
+    """arq_queue=None → enqueue skipped with an ERROR line (safe_enqueue,
+    OBS-001), no AttributeError, and the stream still completes."""
     db, conv = _make_db_for_auto_title(message_count=1, title=None)
 
     await _run_stream_for_auto_title(db, arq_queue=None)

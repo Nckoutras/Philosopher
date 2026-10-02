@@ -38,6 +38,7 @@ from services.self_portrait import (
     total_question_count,
     visible_questions,
 )
+from services.enqueue import safe_enqueue
 
 logger = logging.getLogger(__name__)
 
@@ -91,12 +92,11 @@ async def update_profile(
         )
 
     # Seed embedded memory_entries off the request path (fire-and-forget).
-    q = getattr(request.app.state, "arq_queue", None)
-    if q is not None:
-        try:
-            await q.enqueue_job("seed_profile_memory_task", str(user.id))
-        except Exception as e:
-            logger.warning(f"Failed to enqueue profile memory seed: {e}")
+    await safe_enqueue(
+        getattr(request.app.state, "arq_queue", None),
+        "seed_profile_memory_task", str(user.id),
+        context=f"user={user.id}",
+    )
 
     return record
 
@@ -377,12 +377,11 @@ async def update_self_portrait(
         )
 
     # Incremental seed off the request path (fire-and-forget); one embed per tap.
-    q = getattr(request.app.state, "arq_queue", None)
-    if q is not None:
-        try:
-            await q.enqueue_job("seed_self_portrait_memory_task", str(user.id), body.question_id, old_index)
-        except Exception as e:
-            logger.warning(f"Failed to enqueue self-portrait memory seed: {e}")
+    await safe_enqueue(
+        getattr(request.app.state, "arq_queue", None),
+        "seed_self_portrait_memory_task", str(user.id), body.question_id, old_index,
+        context=f"user={user.id} question={body.question_id}",
+    )
 
     return record
 

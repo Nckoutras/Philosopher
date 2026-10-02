@@ -29,6 +29,12 @@ def _mock_conv():
     c.persona_id = PERSONA_ID
     c.active_persona_id = None
     c.deep_mode = False
+    # Read by the side-effect gates after Phase C2 (new_message_count). Before
+    # OBS-001 those gates short-circuited on `arq_queue is not None`, so a
+    # queue-less test never evaluated them and a Mock here went unnoticed;
+    # safe_enqueue evaluates the gate first and reports the absent queue, so
+    # the count must be an int (C-06).
+    c.message_count = 0
     return c
 
 

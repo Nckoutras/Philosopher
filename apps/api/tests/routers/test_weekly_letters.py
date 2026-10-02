@@ -148,7 +148,9 @@ def test_enqueue_failure_does_not_break_the_write_back(client, caplog):
 
     with patch("routers.weekly_letters.select", side_effect=lambda *a, **kw: MagicMock()):
         _patch_db_for(client, letter)
-        with caplog.at_level("ERROR", logger="routers.weekly_letters"):
+        # The log line now comes from services.enqueue (OBS-001): one helper,
+        # one template, the letter id carried in its context.
+        with caplog.at_level("ERROR", logger="services.enqueue"):
             resp = client.patch(WRITE_BACK_URL, json={"text": TEXT})
 
     # The endpoint survived the raise.
@@ -166,7 +168,8 @@ def test_enqueue_failure_does_not_break_the_write_back(client, caplog):
 
     # The failure was logged rather than swallowed silently.
     assert any(
-        "Letter write-back enqueue failed" in r.message and LETTER_ID in r.message
+        "Enqueue failed: job=distill_user_text_to_memory_task" in r.getMessage()
+        and f"letter={LETTER_ID}" in r.getMessage()
         for r in caplog.records
     )
 

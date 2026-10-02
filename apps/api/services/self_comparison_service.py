@@ -346,6 +346,7 @@ class SelfComparisonService:
             buf: list[str] = []
             chunks_yielded = False
             success = False
+            last_err = None
             for attempt in range(3):
                 buf = []
                 chunks_yielded = False
@@ -358,15 +359,25 @@ class SelfComparisonService:
                         yield f"data: {json.dumps({'type': 'chunk', 'which': which, 'data': chunk})}\n\n"
                     success = True
                     break
-                except anthropic.RateLimitError:
+                except anthropic.RateLimitError as exc:
+                    last_err = exc
                     if chunks_yielded: break
                     await asyncio.sleep(2 ** attempt)
                 except anthropic.APIStatusError as exc:
+                    last_err = exc
                     if chunks_yielded or exc.status_code < 500: break
                     await asyncio.sleep(2 ** attempt)
-                except (anthropic.APIConnectionError, anthropic.APITimeoutError):
+                except (anthropic.APIConnectionError, anthropic.APITimeoutError) as exc:
+                    last_err = exc
                     if chunks_yielded: break
                     await asyncio.sleep(2 ** attempt)
+            if not success:
+                # Was silent before OBS-001: a mid-stream failure persisted the
+                # partial answer and no log line said so.
+                logger.error(
+                    "Self-comparison stream failed which=%s chunks_yielded=%s: %s",
+                    which, chunks_yielded, last_err, exc_info=last_err,
+                )
             if not success and not chunks_yielded:
                 yield f"data: {json.dumps({'type': 'error', 'error_code': 'self_unavailable', 'which': which})}\n\n"
             answers[which] = "".join(buf)

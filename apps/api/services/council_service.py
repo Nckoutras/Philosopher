@@ -35,6 +35,7 @@ from services.output_gate import output_is_unsafe
 from services.safety_event_log import (
     log_safety_event, STAGE_COUNCIL_INPUT, STAGE_COUNCIL_MEMBER_OUTPUT,
 )
+from services.enqueue import safe_enqueue
 
 logger = logging.getLogger(__name__)
 
@@ -382,7 +383,9 @@ class CouncilService:
                     await asyncio.sleep(2 ** attempt)
 
             if not _llm_success:
-                logger.error(f"Council LLM failed for member={slug}: {_last_err}")
+                logger.error(
+                    "Council LLM failed for member=%s: %s", slug, _last_err, exc_info=_last_err,
+                )
                 yield f"data: {json.dumps({'type': 'error', 'error_code': 'member_unavailable', 'slug': slug})}\n\n"
                 continue
 
@@ -536,17 +539,16 @@ class CouncilService:
         # call. `matter` is the edited text here (re-distillation was skipped in 1b
         # for matter_edited). Only in this exact case — never for non-edited or
         # direct councils. Fire-and-forget; enqueue failure never breaks the stream.
-        if arq_queue is not None and source == "chat" and matter_edited:
-            try:
-                await arq_queue.enqueue_job(
-                    "distill_user_text_to_memory_task",
-                    str(user_id),
-                    str(conversation_id) if conversation_id else None,
-                    matter,
-                    "council_edit",
-                )
-            except Exception as exc:
-                logger.error(f"Council edit-to-memory enqueue failed for user={user_id}: {exc}")
+        if source == "chat" and matter_edited:
+            await safe_enqueue(
+                arq_queue,
+                "distill_user_text_to_memory_task",
+                str(user_id),
+                str(conversation_id) if conversation_id else None,
+                matter,
+                "council_edit",
+                context=f"user={user_id} source=council_edit",
+            )
 
         # Fired where the stream actually completes, not where it starts: a
         # council that dies mid-synthesis produces council_started with no

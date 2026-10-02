@@ -42,7 +42,7 @@ from workers.job_expectations import (
     interval_run_key,
     missed_expectations,
 )
-from workers.letter_dispatch import JOB_WEEKLY, weekly_run_key
+from workers.letter_dispatch import JOB_MONTHLY, JOB_WEEKLY, monthly_run_key, weekly_run_key
 from workers.trajectory_snapshot import JOB_WEEKLY_TRAJECTORY
 
 
@@ -65,7 +65,7 @@ def test_every_expectation_names_the_job_its_writer_writes():
     strings: an assertion that restated the names would agree with itself while
     both drifted away from the code.
     """
-    expected = {JOB_WEEKLY, JOB_WEEKLY_TRAJECTORY, JOB_HEARTBEAT}
+    expected = {JOB_WEEKLY, JOB_MONTHLY, JOB_WEEKLY_TRAJECTORY, JOB_HEARTBEAT}
     assert {e["job_name"] for e in JOB_EXPECTATIONS} == expected
 
 
@@ -79,12 +79,13 @@ def test_the_trajectory_job_is_named_with_its_suffix():
     assert _by_name("weekly_trajectory_snapshot")["cadence"] == "weekly"
 
 
-def test_v1_covers_exactly_three_jobs():
-    """Scope, pinned. monthly_letter, preview_mirror and the OTP purge are each
-    out for a different stated reason (see JOB_EXPECTATIONS). A fourth entry
-    arriving without a decision should fail here first.
+def test_the_table_covers_exactly_four_jobs():
+    """Scope, pinned. preview_mirror and the OTP purge are each out for a
+    stated reason (see JOB_EXPECTATIONS); monthly_letter came in with OBS-001
+    after its first ARQ-cron run succeeded. A fifth entry arriving without a
+    decision should fail here first.
     """
-    assert len(JOB_EXPECTATIONS) == 3
+    assert len(JOB_EXPECTATIONS) == 4
 
 
 def test_the_heartbeat_writer_and_its_expectation_share_one_cadence():
@@ -212,6 +213,51 @@ def test_an_interval_key_fits_the_column():
 
 
 # ===========================================================================
+# (3b) The monthly cadence -- OBS-001
+# ===========================================================================
+#
+# The dispatch fires on day={28,29,30,31} and keeps only the last day
+# (letter_dispatch.is_last_day_of_month), so the one fire per month is
+# month-end at 17:00 UTC and its key is the month that is ending. Every instant
+# below is fixed; the year boundary and February are the cases worth pinning.
+
+def test_a_monthly_run_is_not_due_until_its_grace_has_elapsed():
+    """2026-09-30 17:30 is inside September's grace, so the run owed is August's."""
+    key, start = due_run_key(_by_name(JOB_MONTHLY), _utc("2026-09-30T17:30:00"))
+    assert key == "2026-08"
+    assert start == _utc("2026-08-31T17:00:00")
+
+
+def test_a_monthly_run_becomes_due_once_grace_passes():
+    key, start = due_run_key(_by_name(JOB_MONTHLY), _utc("2026-09-30T18:00:00"))
+    assert key == "2026-09"
+    assert start == _utc("2026-09-30T17:00:00")
+
+
+def test_mid_month_the_run_owed_is_last_months():
+    key, _ = due_run_key(_by_name(JOB_MONTHLY), _utc("2026-10-15T12:00:00"))
+    assert key == "2026-09"
+
+
+def test_the_monthly_due_key_agrees_with_the_key_the_writer_uses():
+    """The fire moment, pushed through the dispatch's own key function."""
+    _, start = due_run_key(_by_name(JOB_MONTHLY), _utc("2026-10-31T19:00:00"))
+    assert monthly_run_key(start) == "2026-10"
+
+
+def test_the_year_boundary_does_not_break_the_monthly_key():
+    key, start = due_run_key(_by_name(JOB_MONTHLY), _utc("2027-01-10T00:00:00"))
+    assert key == "2026-12"
+    assert start == _utc("2026-12-31T17:00:00")
+
+
+def test_february_fires_on_its_own_last_day():
+    key, start = due_run_key(_by_name(JOB_MONTHLY), _utc("2028-03-01T00:00:00"))
+    assert key == "2028-02"
+    assert start == _utc("2028-02-29T17:00:00")  # leap year
+
+
+# ===========================================================================
 # (4) The miss rule, including the floor
 # ===========================================================================
 #
@@ -292,7 +338,7 @@ async def test_a_period_older_than_the_jobs_first_run_is_not_reported():
 @pytest.mark.asyncio
 async def test_a_dead_worker_reports_every_expectation_at_once():
     """The September shape: the worker holds a wrong DATABASE_URL, so nothing it
-    owns writes anything. All three expectations are missed together, and each
+    owns writes anything. All four expectations are missed together, and each
     is reported once.
     """
     async def succeeded(db, job_name, run_key):
@@ -302,7 +348,7 @@ async def test_a_dead_worker_reports_every_expectation_at_once():
     with p1, p2:
         missed = await missed_expectations(object(), NOW)
 
-    assert len(missed) == 3
+    assert len(missed) == 4
     assert {m["job_name"] for m in missed} == {
-        JOB_WEEKLY, JOB_WEEKLY_TRAJECTORY, JOB_HEARTBEAT,
+        JOB_WEEKLY, JOB_MONTHLY, JOB_WEEKLY_TRAJECTORY, JOB_HEARTBEAT,
     }

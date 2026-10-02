@@ -27,6 +27,7 @@ from services.counterview_service import (
     generate_deeper,
     respond_to_rebuttal,
 )
+from services.enqueue import safe_enqueue
 
 router = APIRouter(prefix="/counterview", tags=["counterview"])
 
@@ -192,9 +193,11 @@ async def create_counterview(
     # anchor, never a verdict. Fire-and-forget; the insight path never reaches here, so
     # source='insight' is never re-detected (avoids looping off an existing insight).
     if cv.status == "generated":
-        q = getattr(request.app.state, "arq_queue", None)
-        if q is not None:
-            await q.enqueue_job("counterview_belief_task", str(user.id), belief)
+        await safe_enqueue(
+            getattr(request.app.state, "arq_queue", None),
+            "counterview_belief_task", str(user.id), belief,
+            context=f"user={user.id}",
+        )
 
     return await _serialize_counterview(db, cv, user.id)
 

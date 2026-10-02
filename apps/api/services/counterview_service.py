@@ -20,6 +20,7 @@ from services.safety_event_log import (
     STAGE_COUNTERVIEW_INPUT,
     STAGE_COUNTERVIEW_REBUTTAL_INPUT,
 )
+from services.enqueue import safe_enqueue
 
 logger = logging.getLogger(__name__)
 
@@ -839,19 +840,14 @@ async def respond_to_rebuttal(
     cv_out = await _write_turn(
         db, counterview_id, persona_slug, user_text, response=line, status="generated"
     )
-    if arq_queue is not None:
-        post_count = await count_generated_rebuttals(db, counterview_id)
-        if post_count > pre_count:
-            try:
-                await arq_queue.enqueue_job(
-                    "distill_user_text_to_memory_task",
-                    str(user_id), None, user_text, "counterview_rebuttal",
-                )
-            except Exception as exc:
-                logger.error(
-                    "Counterview rebuttal enqueue failed cv=%s user=%s: %s",
-                    counterview_id, user_id, exc,
-                )
+    post_count = await count_generated_rebuttals(db, counterview_id)
+    if post_count > pre_count:
+        await safe_enqueue(
+            arq_queue,
+            "distill_user_text_to_memory_task",
+            str(user_id), None, user_text, "counterview_rebuttal",
+            context=f"cv={counterview_id} user={user_id}",
+        )
     return cv_out
 
 
