@@ -389,8 +389,12 @@ async def test_onboarding_reseed_supersedes_the_old_set_without_links(live):
         async with live.Session() as s:
             await s.execute(
                 text(
-                    "INSERT INTO user_preferences (user_id, need_most, profile)"
-                    " VALUES (:u, 'comfort', CAST(:p AS jsonb))"
+                    # `themes` is NOT optional: ck_user_preferences_some_input (004)
+                    # requires at least one theme or an other_text. 'work' is a
+                    # real THEME_VALUES slug. TD-76: the fixture is checked against
+                    # the table's constraints, not against the last error message.
+                    "INSERT INTO user_preferences (user_id, themes, need_most, profile)"
+                    " VALUES (:u, ARRAY['work'], 'comfort', CAST(:p AS jsonb))"
                     " ON CONFLICT (user_id) DO UPDATE SET profile = EXCLUDED.profile"
                 ),
                 {"u": uid, "p": json.dumps({"values": values})},
@@ -425,8 +429,12 @@ async def test_portrait_reanswer_links_the_new_row_to_the_one_it_replaced(live):
         async with live.Session() as s:
             await s.execute(
                 text(
-                    "INSERT INTO user_preferences (user_id, need_most, profile)"
-                    " VALUES (:u, 'comfort', CAST(:p AS jsonb))"
+                    # `themes` is NOT optional: ck_user_preferences_some_input (004)
+                    # requires at least one theme or an other_text. 'work' is a
+                    # real THEME_VALUES slug. TD-76: the fixture is checked against
+                    # the table's constraints, not against the last error message.
+                    "INSERT INTO user_preferences (user_id, themes, need_most, profile)"
+                    " VALUES (:u, ARRAY['work'], 'comfort', CAST(:p AS jsonb))"
                     " ON CONFLICT (user_id) DO UPDATE SET profile = EXCLUDED.profile"
                 ),
                 {"u": uid, "p": json.dumps({"answers": {qid: index}})},
