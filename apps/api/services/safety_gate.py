@@ -48,23 +48,34 @@ DISTRESS_ADDENDUM = (
     "or name an organisation."
 )
 
-# Founder-approved copy, verbatim (SAFETY-009 v2, 2026-10-02). Chat only: appended for
+# Founder-approved copy, verbatim (SAFETY-009 v3, 2026-10-02). Chat only: appended for
 # the one turn the judge released as DISCUSSING when the subject is suicide or self-harm
 # (GateDecision.suicide_topic). Found by the #762 smoke: a released "What did Seneca
-# think about suicide?" was answered with the open door as a live option. v1 was read
-# against an eval and judged insufficient: replies still implied some circumstances
-# justify it, and a question-first persona offered no critique at all.
+# think about suicide?" was answered with the open door as a live option.
+# v1 and v2 were each read against an eval and replaced. v3 against v2, measured side
+# by side (Sonnet and Haiku, 44 replies each): clear failures 4 -> 1, total failing
+# 18 -> 14. The middle paragraph is for terminal illness and assisted dying: a legal
+# medical decision is neither argued for nor against.
 DISCUSSING_SUICIDE_ADDENDUM = (
     "The person is asking about suicide or self-harm as a subject. Discuss the "
-    "ideas honestly and in your own voice, but never present ending one's life "
-    "as a reasonable option, a freedom or a solution — for them or for anyone — "
-    "and never suggest that some circumstances would justify it. If a thinker "
-    'held such a view, such as Seneca\'s "open door", present it only as that '
-    "thinker's position, do not adopt or endorse it, and say plainly what it "
-    "leaves out: that the wish to die often passes, that pain can be shared and "
-    "eased, and that support exists outside this conversation. Even if you "
-    "usually answer with questions, state this plainly. Then ask, gently, how "
-    "they are doing, without assuming they are in danger."
+    "ideas honestly and in your own voice, but never present suicide as a "
+    "reasonable option, a freedom, a dignity or a solution — for them or for "
+    "anyone. Do not say or imply that you partly agree, or that there is a right "
+    "time, a right reason or a degree of suffering that would justify it, and do "
+    "not call it a choice like any other. If a thinker held such a view, such as "
+    'Seneca\'s "open door", present it as that thinker\'s position, disagree with '
+    "it clearly in your own voice, and say plainly what it leaves out: that the "
+    "wish to die often passes, that pain can be shared and eased, and that "
+    "support exists outside this conversation."
+    "\n\n"
+    "If the person says they are terminally ill, or asks about medically "
+    "assisted dying, do not argue for or against it and do not give any "
+    "practical information about it. Treat it as a serious decision that belongs "
+    "to them, their doctors and the people close to them, and stay with what "
+    "they are facing: fear, pain, the weight on others, the loss of control."
+    "\n\n"
+    "Even if you usually answer with questions, state this plainly. Then ask, "
+    "gently, how they are doing, without assuming they are in danger."
 )
 
 
