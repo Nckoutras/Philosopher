@@ -19,6 +19,8 @@ from services.tier_service import get_user_tier
 from services.persona_voice import get_error_voice
 import services.rate_limit_service as rate_limit_service
 from services.safety_service import safety_service
+from services import safety_gate
+from services.safety_event_log import log_safety_event
 from personas import get_persona, is_persona_accessible
 
 router = APIRouter(prefix="/conversations", tags=["conversations"])
@@ -417,22 +419,42 @@ async def send_message(
         # re-runs check_input and does the real work: saves both messages, logs
         # the safety event, and answers in the user's own language (#589).
         #
-        # This check therefore runs TWICE on the happy path, here and at
-        # conversation_service.py:623. That duplication is DELIBERATE and ruled
+        # This check therefore runs TWICE on the happy path, here and in
+        # conversation_service.stream_response. That duplication is DELIBERATE and ruled
         # on 2026-09-02: check_input is ~82 microseconds against a multi-second
         # LLM call, and on the crisis path correctness beats elegance. Do not
         # refactor the service-side check away to remove it — dedup is future
         # work, and the service must stay correct when called directly.
         crisis = await safety_service.check_input(body.content, user.id)
 
+        # ── SAFETY-002: THE OVER-LIMIT RULE ───────────────────────────────
+        # Before the judge, "the input trips the gate" meant the lexicon alone, and
+        # every lexicon hit skipped the limits. The lexicon now only nominates: a
+        # Tier-B message (lists v0.6.1, or production's level as the safety net) is
+        # judged, and most such messages are philosophy, not crisis. So:
+        #   Tier A                       -> skip the limits, as before.
+        #   Tier B, within the limits    -> proceed; the service judges.
+        #   Tier B, OVER a limit         -> judge HERE, with the last 3 turns.
+        #     crisis or MEDIUM stands (incl. any judge failure) -> skip the limits
+        #       and hand the verdict to the service, which never calls twice;
+        #     released                                         -> the normal 429 /
+        #       fair_use_limit. The service never runs, so the row is written and
+        #       committed here, and no allowance is consumed.
+        # Without the last branch a released philosophy question would buy an
+        # over-limit user a persona reply: the hole this rule closes.
+        lexicon = safety_gate.lexicon_level(body.content, crisis)
+        prejudged = None
+
+        refusal = None
+        fair_use = None
         rate_limit_result = None
-        if not crisis.should_suppress_persona and not user.is_admin and conv.ritual_id is None:
+        if lexicon != "A" and not user.is_admin and conv.ritual_id is None:
             user_tier = await get_user_tier(db, user.id)
             rate_limit_result = await rate_limit_service.check_rate_limit(
                 db, UUID(user.id), user_tier=user_tier
             )
             if not rate_limit_result.allowed:
-                return JSONResponse(
+                refusal = JSONResponse(
                     status_code=429,
                     content=LLMErrorResponse(
                         error_code="rate_limited",
@@ -456,19 +478,12 @@ async def send_message(
         # error_code is fair_use_limit, NOT rate_limited: the web client turns
         # rate_limited into the PaywallModal, and a Pro subscriber has nothing
         # to be sold. The distinct code routes to a plain notice instead.
-        if not crisis.should_suppress_persona and not user.is_admin:
+        if refusal is None and lexicon != "A" and not user.is_admin:
             fair_use = await rate_limit_service.check_fair_use_limit(
                 db, user.id, user_tier=plan
             )
             if not fair_use.allowed:
-                analytics_service.track("usage_cap_hit", user.id, {
-                    "tier": plan,
-                    "cap_kind": (
-                        "pro_fair_use_monthly" if fair_use.period == "month" else "pro_fair_use"
-                    ),
-                    "path": "chat",
-                })
-                return JSONResponse(
+                refusal = JSONResponse(
                     status_code=429,
                     content={"error_code": "fair_use_limit", "period": fair_use.period},
                     headers={
@@ -477,6 +492,34 @@ async def send_message(
                         "X-RateLimit-Reset": fair_use.reset_at.isoformat(),
                     },
                 )
+
+        if refusal is not None and lexicon != "none":
+            gate = await safety_gate.evaluate(
+                body.content, crisis,
+                context=lambda: conversation_service._judge_context(db, conversation_id),
+            )
+            if gate.suppresses:
+                prejudged = gate.verdict
+                refusal = None
+                rate_limit_result = None     # an exhausted counter is not advertised
+            else:
+                await log_safety_event(
+                    db, user.id, gate.record, "pre_generation",
+                    conversation_id=conversation_id,
+                    judge=gate.judge, action_taken=gate.action_taken,
+                )
+                await db.commit()
+
+        if refusal is not None:
+            if fair_use is not None and not fair_use.allowed:
+                analytics_service.track("usage_cap_hit", user.id, {
+                    "tier": plan,
+                    "cap_kind": (
+                        "pro_fair_use_monthly" if fair_use.period == "month" else "pro_fair_use"
+                    ),
+                    "path": "chat",
+                })
+            return refusal
 
     response_headers = {
         "Cache-Control": "no-cache",
@@ -502,6 +545,7 @@ async def send_message(
             is_admin=user.is_admin,
             arq_queue=arq_queue,
             seeded_opening=body.seeded_opening,
+            prejudged=prejudged,
         ),
         media_type="text/event-stream",
         headers=response_headers,

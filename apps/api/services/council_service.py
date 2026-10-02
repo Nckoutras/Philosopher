@@ -23,6 +23,7 @@ from services.llm_client import llm_client
 from services.memory_service import memory_service
 from services.prompt_builder import MEMORY_USE_DIRECTIVE, prompt_builder
 from services.safety_service import crisis_language, safety_service
+from services import safety_gate
 from text_utils import (
     dominant_language,
     language_directive,
@@ -222,12 +223,19 @@ class CouncilService:
         conversation_id: str | None = None,
         matter_edited: bool = False,
         arq_queue=None,
+        prejudged=None,
     ) -> AsyncGenerator[str, None]:
 
         # ── 1. PRE-RITUAL SAFETY GATE ────────────────────────────────────
         safety_in = await safety_service.check_input(matter, user_id)
-        if safety_in.should_log:
-            await log_safety_event(db, user_id, safety_in, STAGE_COUNCIL_INPUT)
+        # SAFETY-002: the lists + the judge decide; `prejudged` is the router's verdict
+        # for this same text, so the judge is never called twice. Called directly (no
+        # verdict), this judges itself. One row, enriched; a released message goes on.
+        gate = await safety_gate.evaluate(matter, safety_in, prejudged=prejudged)
+        safety_in = gate.effective
+        if gate.record.should_log:
+            await log_safety_event(db, user_id, gate.record, STAGE_COUNCIL_INPUT,
+                                   judge=gate.judge, action_taken=gate.action_taken)
             # SAFETY-004: committed HERE, before anything streams. This stream runs on
             # the request's get_db session, whose teardown (commit, then close) has
             # ALREADY run by now (FastAPI 0.115, measured) — a flushed row that is not

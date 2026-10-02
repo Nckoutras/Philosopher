@@ -29,6 +29,15 @@ class Settings(BaseSettings):
     ANTHROPIC_MODEL: str = "claude-sonnet-4-20250514"
     ANTHROPIC_MEMORY_MODEL: str = "claude-haiku-4-5-20251001"
 
+    # SAFETY-002 context judge. The model is pinned to the dated id the round-3
+    # eval measured (it ran on the alias, which resolved to this). The kill switch
+    # is for incidents — an API outage would otherwise add the 2.5 s timeout to every
+    # Tier-B message. OFF behaves exactly like a judge failure: the lexicon level
+    # stands (fail-closed), with no added latency. Flip it on Render by setting
+    # SAFETY_JUDGE_ENABLED=false on the API service and redeploying.
+    SAFETY_JUDGE_ENABLED: bool = True
+    SAFETY_JUDGE_MODEL: str = "claude-haiku-4-5-20251001"
+
     # OpenAI (embeddings)
     OPENAI_API_KEY: str = ""
     EMBEDDING_MODEL: str = "text-embedding-3-small"

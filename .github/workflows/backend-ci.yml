@@ -82,6 +82,13 @@ jobs:
           print("freetype2       :", features.version("freetype2"))
           PY
 
+      # The gate's own tests, BEFORE the gate. Stdlib unittest, outside the pytest
+      # suite, so a broken parser cannot drop its own failing test. The parser
+      # once matched nothing for a parametrized id containing a space, and every
+      # such failure went green unseen (PR-2a, 2026-10-02).
+      - name: baseline checker self-test
+        run: python -m unittest discover -s .github/scripts -p "test_*.py" -v
+
       # Fails only on failures absent from apps/api/tests/ci_baseline_failures.txt.
       # The script runs pytest itself so it can be reproduced locally, verbatim.
       - name: pytest against committed baseline

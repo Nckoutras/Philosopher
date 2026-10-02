@@ -41,6 +41,23 @@ CAPPED = RateLimitResult(
 CRISIS_TEXTS = ["I want to kill myself", "θέλω να αυτοκτονήσω", "den antexo allo"]
 
 
+def _assert_cap_consulted_only_for_tier_b(text, cap, stream):
+    """SAFETY-002 changed WHEN the cap is consulted, not the outcome. Tier A still
+    skips it unconsulted. A Tier-B message consults it first, because a RELEASED
+    Tier-B message must meet it; at the cap it is judged in the router, and a judge
+    failure (the kill switch is off in tests) is fail-closed, so the crisis path
+    runs and fair_use_limit is never returned."""
+    import asyncio
+    from services import safety_gate
+    from services.safety_service import safety_service as real_safety
+    level = safety_gate.lexicon_level(text, asyncio.run(real_safety.check_input(text)))
+    if level == "A":
+        cap.assert_not_awaited()
+    else:
+        cap.assert_awaited_once()
+        assert stream.call_args.kwargs["prejudged"].failed is True
+
+
 def _conv(user_id):
     c = MagicMock()
     c.id = CONV_ID
@@ -121,8 +138,7 @@ def test_crisis_text_at_the_fair_use_cap_still_reaches_the_service(text):
 
         assert res.status_code == 200, res.text
         assert "fair_use_limit" not in res.text
-        # The cap was not even consulted for a crisis message.
-        cap.assert_not_awaited()
+        _assert_cap_consulted_only_for_tier_b(text, cap, stream)
         stream.assert_called_once()
     finally:
         _reset()
@@ -268,7 +284,7 @@ def test_crisis_text_at_the_monthly_cap_still_reaches_the_service(text):
         res, cap, stream = _post_at(CAPPED_MONTH, text, user)
         assert res.status_code == 200, res.text
         assert "fair_use_limit" not in res.text
-        cap.assert_not_awaited()
+        _assert_cap_consulted_only_for_tier_b(text, cap, stream)
         stream.assert_called_once()
     finally:
         _reset()
@@ -319,3 +335,60 @@ def test_the_monthly_refusal_has_its_own_cap_kind():
         assert props == {"tier": "pro", "cap_kind": "pro_fair_use_monthly", "path": "chat"}
     finally:
         _reset()
+
+
+# ── SAFETY-002: a Pro user at the fair-use cap, with a Tier-B message ─────────
+#
+# The over-limit rule, on the second limit. Released -> the normal fair_use_limit,
+# no persona reply, no allowance consumed, the row written by the router.
+# INTENT -> the crisis path, the verdict handed to the service.
+
+from services.safety_judge import JudgeVerdict
+
+RELEASABLE = "What did the Stoics think about suicide as a rational choice?"   # B:HIGH, no keys
+
+
+def _verdict(v):
+    return JudgeVerdict(verdict=v, failed=False, fail_kind=None,
+                        model="claude-haiku-4-5-20251001", latency_ms=900,
+                        input_tokens=1200, output_tokens=30)
+
+
+def _post_at_the_cap(verdict):
+    user = _user()
+    client = _client(user)
+    session = _session(_conv(user.id), _persona())
+    try:
+        with patch("routers.conversations.AsyncSessionLocal", return_value=session), \
+             patch("routers.conversations.rate_limit_service.check_rate_limit",
+                   new=AsyncMock(return_value=ALLOWED)), \
+             patch("routers.conversations.rate_limit_service.check_fair_use_limit",
+                   new=AsyncMock(return_value=CAPPED)), \
+             patch("routers.conversations.conversation_service.stream_response") as stream, \
+             patch("routers.conversations.log_safety_event", new=AsyncMock()) as log, \
+             patch("services.safety_judge.judge", new=AsyncMock(return_value=verdict)):
+            stream.return_value = iter([b"data: {}\n\n"])
+            res = client.post(URL, json={"content": RELEASABLE})
+        return res, stream, log, session.__aenter__.return_value
+    finally:
+        _reset()
+
+
+def test_a_released_tier_b_message_at_the_pro_cap_gets_fair_use_limit():
+    res, stream, log, db = _post_at_the_cap(_verdict("DISCUSSING"))
+
+    assert res.status_code == 429, res.text
+    assert res.json()["error_code"] == "fair_use_limit"
+    stream.assert_not_called()
+    log.assert_awaited_once()
+    assert log.await_args.kwargs["action_taken"] == "released"
+    db.commit.assert_awaited()
+
+
+def test_intent_at_the_pro_cap_gets_the_crisis_path():
+    res, stream, log, _ = _post_at_the_cap(_verdict("INTENT"))
+
+    assert res.status_code == 200, res.text
+    assert "fair_use_limit" not in res.text
+    assert stream.call_args.kwargs["prejudged"].verdict == "INTENT"
+    log.assert_not_awaited()

@@ -7,5 +7,11 @@ import os
 os.environ.setdefault('OPENAI_API_KEY', 'sk-test-dummy')
 os.environ.setdefault('ANTHROPIC_API_KEY', 'test-dummy')
 
+# SAFETY-002: no test may reach the judge's network call. With the kill switch off,
+# every Tier-B message behaves as a judge FAILURE — fail-closed, the lexicon level
+# stands — which is exactly the pre-judge behaviour, so existing tests keep their
+# meaning. The judge's own tests switch it on with a mocked client.
+os.environ.setdefault('SAFETY_JUDGE_ENABLED', 'false')
+
 # Ensure app modules are importable from tests
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
