@@ -5665,6 +5665,72 @@ That is why `messages.model_used` is now written at every LLM-backed assistant s
 forward, the model that produced a reply is recorded on the row itself, independent
 of the flag's history. Nothing before it is recovered.
 
+### MEM2-B — Phase B rulings record (founder, 2026-10-03) and B1 — **B1 BUILT; B2–B5 RULED, NOT STARTED**
+
+**Why this entry exists.** The MEM2 rulings R1–R10 that MEM2-A (#771) was built against
+exist in this repository only as citations — migration 070/071 docstrings and code
+comments name R1, R3, R4, R5, R9 and R10 — and their full text is nowhere in `docs/`
+(searched 2026-10-03). The Phase B investigation (MEM2-B-001) and the rulings below were
+made in conversation the same day. They are recorded here verbatim so the next reader is
+not reconstructing them from the code that implemented them. **R1–R10 themselves are
+NOT reproduced here because this session never held their text**; where a line below
+cites one, it cites the code's citation.
+
+**Investigation findings that the rulings answer (production, read 2026-10-03):**
+1,029 active memory rows (711 system_inferred, 306 user_selected, 12 user_stated), 22
+inactive, all `superseded`; 0 `user_rejected` — R3 has never fired. 32 insights: 28 signal
+(belief 18, aspiration 5, dilemma 5), 4 pattern, **0 with evidence** (the 4 patterns
+predate 060), so no recurrence card had been written since #642. 98 same-user active
+pairs at cosine ≥0.75 (87 same type, 41 within one conversation); 1,130 pairs in
+0.60–0.75. Thirty pairs hand-labelled across both bands: **zero contradictions**; the
+upper band is paraphrase (13/15), the lower band neighbouring thoughts (12/15), two
+pairs each are portrait rows that sit together by construction, one is ambivalence.
+
+**Rulings:**
+- **Reactivation.** A verdict change no→yes on an insight REACTIVATES the cited rows
+  AND is itself recorded as a shift of the person's opinion/belief/point of view — its
+  own memory entry, `system_inferred`, linked to both verdicts; material for You-vs-You
+  and letters. **Guard: the shift entry is written only when the two verdicts are ≥72h
+  (3 days) apart; anything sooner is plain reactivation with no shift record.** (The
+  guard was first stated as 24h and amended to 72h the same day.)
+- **R5 stands.** Rejection and exclusion via `is_active`; no recall-SQL ranking changes.
+  Lanes and recall composition unchanged.
+- **B5 reframed.** A write-time **dedup** judge, not a contradiction detector: a new
+  inferred row that restates an active one is superseded or merged; "contradiction"
+  stays a third label the judge may return with no expectation it fires; **ambivalence
+  is never resolved — both rows stay.** Similarity ≥0.75 gates the judge. A
+  `system_inferred` row never retires a `user_stated` or `user_selected` row.
+  Same-conversation redundancy (41 of the 98 pairs) is in scope; the extractor may be
+  tightened to not write near-identical rows in one pass if cheap.
+- **Signal citations (R4, B3).** A 'no' on a dilemma or aspiration insight retires
+  nothing — the verdict is recorded only. A **belief** insight cites the memory rows
+  written in the same extraction call.
+- **Throttle (B1).** Separate budgets per class (recurrence: pattern/shift; signal:
+  dilemma/belief/aspiration), recurrence evaluated first, and the one-per-conversation
+  rule per class.
+- **Reactivation scope.** Any active insight's citation reactivates `user_rejected`
+  rows; `superseded` and `user_removed` rows never return.
+- **Reactivation record.** `insights.verdict_history` (append-only JSONB) and
+  `memory_entries.source_insight_id` (nullable FK, SET NULL) — one migration, B2.
+- **Order.** B1 → B2 → B3 → B4 → B5.
+
+**B1 — what was built (this entry's PR).** `_insight_gate_blocked` takes `kind` and
+filters both of its queries by `INSIGHT_CLASSES[kind]`; types outside both classes
+(legacy `question`, `challenge`) count toward neither budget; the reader's verdict is
+still never consulted. The signal write moved out of `extract_and_store` into
+`promote_signal_insight`, and `extract_memory_task` now runs extract → `detect_recurrence`
+→ promote, so recurrence is never pre-empted. `extract_and_store` returns an
+`ExtractionResult` (a list, plus `.signals`, `.language`, `.safety_ok`) so every other
+caller is unchanged. Every gate decision logs on one template,
+`insight_gate kind=… decision=… user=… conv=…`, so Step 0b's "how often is each class
+blocked, and why" is answerable from Render logs. No schema. Live tests in
+`tests/db_live/test_insight_budgets_live.py` are the first run of new live checks.
+
+**Post-merge observable for B1.** The next recurrence card. Before B1 none had been
+written since #642; a `pattern` or `shift` insight with non-NULL evidence appearing in
+`insights` is the proof. Second observable: `insight_gate` log lines carrying
+`kind=recurrence decision=allowed`.
+
 ### PARKED — founder safety alerting — **PARKED (founder, 2026-10-02). No work.**
 **Revisit only when the founder raises it.** An idea, recorded so it is not lost and is
 not mistaken for planned work.
