@@ -95,6 +95,27 @@ at the start of every new work item.
 That protocol covers WHAT to investigate; SKILL.md (repo root) governs 
 HOW a unit of work runs, from brief to push.
 
+## Documentation rotation
+
+**Trigger (founder ruling, 2026-09-24): rotate at 30 merged PRs or at any
+migration, whichever comes first.** Count from the merge of the previous
+rotation PR on `main`. The rule lives here and not in a rotating document,
+because a rule that rotates with the docs is a rule nobody finds. Before it
+was written down, each brief set its own trigger, and "is a rotation owed?"
+had no answer: from v29's verification SHA to the B5 merge, `main` took
+147 merges (#633–#780) and 14 migrations (060–073), and only a handoff
+brief (#648) rotated in between.
+
+**The trigger decides WHEN, not HOW.** Every rotation re-verifies each
+load-bearing claim against code or the database, or marks it explicitly
+unverified (2026-08-18 entry below), and is not done until it is merged.
+
+**Rotated documents are written by hand.** There is no generator. The one
+that existed was retired in the v30 rotation: it wrote a file deleted in #31,
+and it ran a second Claude Code session against an open repository, which
+P-07 forbids by construction. A generator that violates P-07 has no safe
+repair.
+
 ## Failure Log
 
 Lessons that updated this protocol:
