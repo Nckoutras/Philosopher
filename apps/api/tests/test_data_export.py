@@ -178,7 +178,7 @@ async def test_embeddings_never_reach_the_export():
         updated_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
         # 070's columns: the builder reads them, so the fixture sets them (C-06).
         provenance="system_inferred", source_surface="chat", source_message_ids=None,
-        supersedes_memory_id=None, inactive_reason=None,
+        supersedes_memory_id=None, inactive_reason=None, source_insight_id=None,
     )
     payload = await build_export(_fake_db({"MemoryEntry": [memory]}), _user())
 
@@ -305,7 +305,7 @@ async def test_memories_export_every_epistemic_column():
         updated_at=datetime(2026, 10, 2, tzinfo=timezone.utc),
         provenance="user_selected", source_surface="PLANTED_SURFACE",
         source_message_ids=message_ids, supersedes_memory_id="mem-1",
-        inactive_reason="user_rejected",
+        inactive_reason="user_rejected", source_insight_id=None,
     )
     payload = await build_export(_fake_db({"MemoryEntry": [memory]}), _user())
     row = payload["memories"][0]
@@ -315,6 +315,34 @@ async def test_memories_export_every_epistemic_column():
     assert row["supersedes_memory_id"] == "mem-1"
     assert row["inactive_reason"] == "user_rejected"
     json.dumps(payload)  # a uuid.UUID left in the array would raise here
+
+
+async def test_the_072_columns_are_exported():
+    """072 (MEM2-B2): the insight a shift entry is about, and every verdict the
+    person has given an insight. Planted and read back by name, as above."""
+    memory = _Row(
+        id="mem-3", user_id="u1", entry_type="insight_verdict_shift", content="a shift",
+        confidence=0.8, is_active=True, conversation_id=None,
+        persona_id=None, source_turn=None, embedding=None,
+        created_at=datetime(2026, 10, 3, tzinfo=timezone.utc),
+        updated_at=datetime(2026, 10, 3, tzinfo=timezone.utc),
+        provenance="system_inferred", source_surface="insight", source_message_ids=None,
+        supersedes_memory_id=None, inactive_reason=None, source_insight_id="ins-1",
+    )
+    history = [{"verdict": "no", "at": "2026-09-01T09:00:00Z"},
+               {"verdict": "yes", "at": "2026-09-05T09:00:00Z"}]
+    insight = _Row(
+        id="ins-1", user_id="u1", content="an observation", insight_type="pattern",
+        theme=None, source_count=2, evidence=None, verdict_history=history,
+        is_dismissed=False, conversation_id=None,
+        created_at=datetime(2026, 8, 30, tzinfo=timezone.utc),
+    )
+    payload = await build_export(
+        _fake_db({"MemoryEntry": [memory], "Insight": [insight]}), _user(),
+    )
+    assert payload["memories"][0]["source_insight_id"] == "ins-1"
+    assert payload["insights"][0]["verdict_history"] == history
+    json.dumps(payload)
 
 
 # ── Soft-deleted rows are included, per the ruling ────────────────────────────

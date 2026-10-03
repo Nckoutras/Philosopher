@@ -1201,6 +1201,87 @@ async def seed_self_portrait_memory_task(ctx, user_id: str, question_id: str, pr
             logger.error(f"Self-portrait memory seed failed: {e}", exc_info=True)
 
 
+async def record_verdict_shift_task(ctx, user_id: str, insight_id: str, days: int):
+    """MEM2-B2: the person rejected an observation and, at least 72h later, accepted
+    it. Write that as a memory entry (founder rulings 2026-10-03).
+
+    The self_portrait_shift precedent: a claim the SYSTEM composed about two of the
+    person's own acts, so provenance='system_inferred', and Lane B by the recall
+    catch-all (insight_verdict_shift is not in STANDING_TYPES). A DETERMINISTIC
+    template, so no LLM call; only the embed. The ring-true handler computed `days`
+    from the two verdicts and enqueued this after its commit.
+
+    The verdict is RE-READ here. If the person said 'no' again before this ran,
+    the row would assert an acceptance they have withdrawn, so nothing is written.
+
+    Latest shift per insight only: the previous active row with the same
+    source_insight_id is retired as 'superseded' and linked from the new one, in
+    the same commit. A failed embed rolls both back. Never raises.
+
+    persona_id and conversation_id stay NULL. The row records something the person
+    did on the insight surface, not something said in a conversation.
+    source_insight_id is its link.
+    """
+    from db.session import AsyncSessionLocal
+    from models import Insight, MemoryEntry
+    from sqlalchemy import select, update
+    from services.embedding_client import embedding_client
+    from services.memory_service import VERDICT_SHIFT_TYPE, verdict_shift_statement
+
+    async with AsyncSessionLocal() as db:
+        try:
+            insight = (await db.execute(
+                select(Insight).where(Insight.id == insight_id, Insight.user_id == user_id)
+            )).scalar_one_or_none()
+            if insight is None or insight.ring_true != "yes":
+                logger.info(
+                    "Verdict shift skipped for user=%s insight=%s: verdict is no longer 'yes'",
+                    user_id, insight_id,
+                )
+                return
+            statement = verdict_shift_statement(insight.content, days)
+            if not statement:
+                return
+
+            replaced = (await db.execute(
+                update(MemoryEntry)
+                .where(
+                    MemoryEntry.user_id == user_id,
+                    MemoryEntry.entry_type == VERDICT_SHIFT_TYPE,
+                    MemoryEntry.source_insight_id == insight_id,
+                    MemoryEntry.is_active == True,  # noqa: E712
+                )
+                .values(is_active=False, inactive_reason="superseded")
+                .returning(MemoryEntry.id, MemoryEntry.created_at)
+            )).all()
+            replaced_id = (
+                str(max(replaced, key=lambda r: (r.created_at, str(r.id))).id)
+                if replaced else None
+            )
+
+            emb = await embedding_client.embed(statement)
+            db.add(MemoryEntry(
+                user_id=user_id,
+                persona_id=None,
+                conversation_id=None,
+                entry_type=VERDICT_SHIFT_TYPE,
+                content=statement,
+                embedding=emb,
+                confidence=0.8,  # the self_portrait_shift notch
+                provenance="system_inferred",
+                source_surface="insight",
+                source_insight_id=insight_id,
+                supersedes_memory_id=replaced_id,
+            ))
+            await db.commit()
+            logger.info(
+                "Verdict shift recorded for user=%s insight=%s days=%s", user_id, insight_id, days,
+            )
+        except Exception as e:
+            await db.rollback()
+            logger.error(f"Verdict shift record failed: {e}", exc_info=True)
+
+
 async def assess_conclusion_task(ctx, conversation_id: str, user_id: str):
     """Gravity-gated conclusion: assess whether the conversation has surfaced a
     save-worthy theme and, if so, distill it into a <=2-sentence conclusion in
@@ -2955,6 +3036,7 @@ class WorkerSettings:
         distill_user_text_to_memory_task,
         seed_profile_memory_task,
         seed_self_portrait_memory_task,
+        record_verdict_shift_task,
         assess_conclusion_task,
         generate_conversation_title,
         send_ritual_reminder_task,

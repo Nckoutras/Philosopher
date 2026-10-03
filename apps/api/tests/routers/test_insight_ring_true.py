@@ -66,6 +66,9 @@ def _make_insight(insight_type="pattern", ring_true=None, is_dismissed=False):
     # MEM2-A: the router reads evidence on a 'no'. A real None, not an absorbed
     # Mock attribute (C-06), so a 'no' here takes the no-evidence path on purpose.
     i.evidence = None
+    # MEM2-B2: the router reads and rewrites verdict_history on every verdict. A
+    # real None (no verdict since 072), not a Mock that iterates as empty (C-06).
+    i.verdict_history = None
     return i
 
 

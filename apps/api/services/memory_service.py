@@ -715,6 +715,142 @@ async def reject_cited_memories(db: AsyncSession, user_id: str, evidence) -> int
     return result.rowcount or 0
 
 
+# ── Verdict reversal (MEM2-B2, founder rulings 2026-10-03) ────────────────────
+#
+# A 'yes' gives back what an earlier 'no' took away, and a 'no' that was turned
+# into a 'yes' days later is itself something the person did: they came round to
+# an observation. The first is reactivation, the second is a shift entry. Both
+# rulings are narrow about what they reach:
+#   - Reactivation returns ONLY rows retired as 'user_rejected'. A 'superseded' or
+#     'user_removed' row never comes back — those reasons are not about a verdict.
+#   - Any 'yes' can reactivate, not only one that follows a 'no' on the same
+#     insight: a row that insight X retired returns when insight Y, which also
+#     cites it, is accepted (Q5).
+#   - The shift entry needs the no→yes pair on the SAME insight to be at least
+#     VERDICT_SHIFT_GUARD apart. Sooner is a corrected click, not a change of mind.
+
+VERDICT_SHIFT_TYPE = "insight_verdict_shift"
+VERDICT_SHIFT_GUARD = timedelta(hours=72)
+
+
+async def reactivate_cited_memories(db: AsyncSession, user_id: str, evidence) -> int:
+    """A 'yes' returns the cited rows that a 'no' retired. The mirror of
+    reject_cited_memories, with the same scoping and the same transaction rule:
+    runs inside the CALLER's transaction and does not commit.
+
+    Only rows whose reason is 'user_rejected' are touched — the predicate IS the
+    ruling that 'superseded' and 'user_removed' rows never return. Returns how
+    many rows came back.
+    """
+    ids = cited_memory_ids(evidence)
+    if not ids:
+        return 0
+    result = await db.execute(
+        update(MemoryEntry)
+        .where(
+            MemoryEntry.id.in_(ids),
+            MemoryEntry.user_id == user_id,
+            MemoryEntry.is_active == False,  # noqa: E712 — SQL, not Python truth
+            MemoryEntry.inactive_reason == "user_rejected",
+        )
+        .values(is_active=True, inactive_reason=None)
+        .execution_options(synchronize_session=False)
+    )
+    return result.rowcount or 0
+
+
+async def reject_verdict_shift(db: AsyncSession, user_id: str, insight_id: str) -> int:
+    """A later 'no' retires this insight's active shift row. That row says they
+    came to accept the observation, and they have just said they do not. Same
+    reason as R3 ('user_rejected'), same transaction rule: does not commit.
+
+    A 'yes' does not bring it back. Reactivation follows evidence citations, and a
+    shift row is linked by source_insight_id, not cited. A new pair ≥72h apart
+    writes a new shift row instead.
+    """
+    result = await db.execute(
+        update(MemoryEntry)
+        .where(
+            MemoryEntry.user_id == user_id,
+            MemoryEntry.entry_type == VERDICT_SHIFT_TYPE,
+            MemoryEntry.source_insight_id == insight_id,
+            MemoryEntry.is_active == True,  # noqa: E712 — SQL, not Python truth
+        )
+        .values(is_active=False, inactive_reason="user_rejected")
+        .execution_options(synchronize_session=False)
+    )
+    return result.rowcount or 0
+
+
+def verdict_entry(verdict: str, at: datetime) -> dict:
+    """One verdict_history element (072). `at` as UTC ISO-8601 with a Z."""
+    return {"verdict": verdict, "at": _iso_z(at)}
+
+
+def _parse_at(raw) -> datetime | None:
+    try:
+        parsed = datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
+    except (ValueError, TypeError):
+        return None
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+
+
+def shift_anchor(prior_history, previous_verdict: str | None,
+                 previous_at: datetime | None) -> datetime | None:
+    """When the 'no' half of a no→yes pair was given, or None if there is no pair.
+
+    PURE. `prior_history` is verdict_history as it stood BEFORE this 'yes'. It is
+    read newest first: 'partly' is passed over (in no→partly→yes the 'no' anchors),
+    and an earlier 'yes' ends the search, because a 'yes' after a 'yes' is not a
+    change of mind. A 'no' whose timestamp cannot be read also yields None: a
+    record that cannot be read never produces a shift entry.
+
+    LEGACY FALLBACK (ruling): history began at 072's deploy, so an insight answered
+    'no' before then has no 'no' in it. Only then, and only when the verdict loaded
+    in-request is 'no', ring_true_at is the anchor.
+    """
+    for item in reversed(prior_history or []):
+        verdict = item.get("verdict") if isinstance(item, dict) else None
+        if verdict == "yes":
+            return None
+        if verdict == "no":
+            return _parse_at(item.get("at"))
+    if previous_verdict == "no" and previous_at is not None:
+        return previous_at if previous_at.tzinfo else previous_at.replace(tzinfo=timezone.utc)
+    return None
+
+
+def verdict_shift_days(anchor: datetime | None, now: datetime) -> int | None:
+    """Whole days between the 'no' and the 'yes', or None when no shift entry is
+    owed: no anchor, or the pair is less than VERDICT_SHIFT_GUARD apart. Exactly
+    72h writes. PURE."""
+    if anchor is None:
+        return None
+    elapsed = now - anchor
+    if elapsed < VERDICT_SHIFT_GUARD:
+        return None
+    return int(elapsed.total_seconds() // 86400)
+
+
+def verdict_shift_statement(insight_content: str, days: int) -> str | None:
+    """The shift entry's text. A DETERMINISTIC template, approved by the founder
+    2026-10-03. English even when the insight is not: TD-121.
+
+    The insight is quoted verbatim, not paraphrased. Insight content is written
+    TO the reader in the second person; memory rows are written ABOUT them in the
+    third. A rewrite would put words in the room's mouth. Same curly quotes as
+    self_portrait.shift_statement. None for empty content, so the caller writes
+    nothing rather than a row that quotes nothing.
+    """
+    content = (insight_content or "").strip()
+    if not content:
+        return None
+    return (
+        f"They came to accept, after {days} days, an observation they had first "
+        f"rejected: “{content}”"
+    )
+
+
 def _iso_z(value: datetime | None) -> str | None:
     """UTC ISO-8601 with an explicit Z, matching the export's convention.
 

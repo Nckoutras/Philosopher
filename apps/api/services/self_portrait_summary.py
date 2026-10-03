@@ -166,14 +166,16 @@ def themes_from_answers(answers: dict, top_n: int = USER_THEMES_N) -> list[str]:
 async def _recent_signals(db: AsyncSession, user_id: str, limit: int = 8) -> list[str]:
     """Recent conversation/insight/ritual memory signals — quiet context so the
     summary isn't answers-only. Excludes self_portrait* (that IS the answer set)
-    and counterview beliefs, matching self_model_service's exclusions."""
+    and counterview beliefs, matching self_model_service's exclusions — including
+    insight_verdict_shift (MEM2-B2), a verdict flip rather than a signal."""
     rows = (await db.execute(
         select(MemoryEntry.content)
         .where(
             MemoryEntry.user_id == user_id,
             MemoryEntry.is_active == True,  # noqa: E712
             MemoryEntry.entry_type.notin_(
-                ("self_portrait", "self_portrait_shift", "counterview_belief")
+                ("self_portrait", "self_portrait_shift", "counterview_belief",
+                 "insight_verdict_shift")
             ),
         )
         .order_by(MemoryEntry.created_at.desc())

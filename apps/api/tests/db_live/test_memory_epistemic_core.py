@@ -507,6 +507,11 @@ def _evidence(recurring_id, *prior_ids):
     }
 
 
+# The handler takes the Request for its queue (MEM2-B2). None of these verdicts
+# owes a shift entry, so the queue is never read; an absent one is the honest stub.
+_NO_QUEUE = SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace(arq_queue=None)))
+
+
 async def _verdict(live, uid, iid, verdict):
     from routers.memory import set_insight_ring_true
     from schemas import InsightRingTrueRequest
@@ -514,7 +519,8 @@ async def _verdict(live, uid, iid, verdict):
     with patch("routers.memory.analytics_service"):
         async with live.Session() as s:
             return await set_insight_ring_true(
-                iid, InsightRingTrueRequest(ring_true=verdict), db=s, user=SimpleNamespace(id=uid),
+                iid, InsightRingTrueRequest(ring_true=verdict), request=_NO_QUEUE,
+                db=s, user=SimpleNamespace(id=uid),
             )
 
 
@@ -570,7 +576,8 @@ async def test_the_verdict_and_the_retirement_commit_together(live):
             s.commit = AsyncMock(side_effect=RuntimeError("commit failed"))
             with pytest.raises(RuntimeError):
                 await set_insight_ring_true(
-                    iid, InsightRingTrueRequest(ring_true="no"), db=s, user=SimpleNamespace(id=uid),
+                    iid, InsightRingTrueRequest(ring_true="no"), request=_NO_QUEUE,
+                    db=s, user=SimpleNamespace(id=uid),
                 )
             await s.rollback()
 

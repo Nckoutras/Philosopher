@@ -248,6 +248,9 @@ async def build_export(db: AsyncSession, user: User) -> dict[str, Any]:
             ),
             "supersedes_memory_id": me.supersedes_memory_id,
             "inactive_reason": me.inactive_reason,
+            # 072 (MEM2-B2): the insight a shift entry is about — a JOIN id
+            # against `insights` below.
+            "source_insight_id": me.source_insight_id,
         }
         for me in await _scalars(
             db, select(MemoryEntry).where(MemoryEntry.user_id == user_id)
@@ -270,6 +273,9 @@ async def build_export(db: AsyncSession, user: User) -> dict[str, Any]:
             # for insights written before it, and NULL forever for the signal
             # path, which has no match set.
             "evidence": i.evidence,
+            # 072 (MEM2-B2): every verdict the person has given this insight
+            # since 072 deployed, with when. NULL before the first.
+            "verdict_history": i.verdict_history,
             "is_dismissed": i.is_dismissed,
             "conversation_id": i.conversation_id,
             "created_at": _iso(i.created_at),
