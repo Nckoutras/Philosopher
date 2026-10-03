@@ -165,8 +165,10 @@ async def set_insight_ring_true(
     # them. BEFORE the commit below, in the same transaction as the verdict. Only
     # 'no' writes memory: 'partly' does nothing (R6), and 'yes' records agreement
     # without promoting anything. A no-op when evidence is NULL — signal insights
-    # carry none yet (R4, Phase B). Changing the verdict back later does NOT
-    # reactivate the rows; no ruling covers that and it is not guessed here.
+    # carry none yet (R4, Phase B). Reactivation on no→yes is RULED (founder
+    # 2026-10-03): cited user_rejected rows reactivate, plus a shift-of-opinion
+    # memory entry when the two verdicts are ≥72h apart. BEHAVIOR lands in
+    # MEM2-B2; until then this endpoint deliberately does not reactivate.
     if body.ring_true == "no":
         await reject_cited_memories(db, user.id, insight.evidence)
 
