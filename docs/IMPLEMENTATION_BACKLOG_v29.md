@@ -2539,6 +2539,18 @@ matters on suicide, read against SAFETY-009's classification rules.
 
 ---
 
+### TD-120 — `memory_language_mismatch` warnings reach the logs as a bare word — **OPEN, logged (MEM2-B1b)**
+**Status: OPEN, logged 2026-10-03.** The language guard in `services/memory_service.py`
+logs `logger.warning("memory_language_mismatch", extra={...})` at several sites, with the
+site, entry type, expected language and detected script carried only in `extra=`. Python's
+default formats render `%(message)s`, so in Render's log the line is the literal word
+`memory_language_mismatch` and nothing else; the fields exist only on the LogRecord, which
+Sentry's LoggingIntegration does read (as event extra) but the log file does not. Now that
+the worker has a root handler (B1b) these lines appear in both processes, equally bare.
+Fix is one of two: put the fields in the message template (the `insight_gate` precedent,
+one line per site), or a structured formatter on the root handler that renders `extra`.
+Not done in B1b because B1b's scope was the handler, not the lines.
+
 ### TD-119 — four SSE streams still borrow the request session — **OPEN, logged (OBS-002, #774)**
 **Status: OPEN, logged with #774.** another_mind, go_deeper, Council and You-vs-You take
 the `get_db` session into their generator after its teardown has closed it, so their first
@@ -5665,16 +5677,60 @@ That is why `messages.model_used` is now written at every LLM-backed assistant s
 forward, the model that produced a reply is recorded on the row itself, independent
 of the flag's history. Nothing before it is recovered.
 
-### MEM2-B — Phase B rulings record (founder, 2026-10-03) and B1 — **B1 BUILT; B2–B5 RULED, NOT STARTED**
+### MEM2-A — epistemic memory core (Phase A) — **MERGED (#771, `484d9a1c`, 2026-10-02)**
+**Logged 2026-10-03 (MEM2-B1b); the PR itself never had a backlog entry.** Migration
+`070_memory_epistemic_core` adds five nullable columns to `memory_entries` — `provenance`,
+`source_surface`, `source_message_ids`, `supersedes_memory_id`, `inactive_reason` — and
+`071_memory_provenance_backfill` fills the existing rows idempotently (22 inactive rows
+then: 17 onboarding_profile, 4 self_portrait, 1 self_portrait_shift, every one with an
+active successor). Every writer stamps provenance and surface; chat extraction records
+the user and assistant message ids; the portrait re-seed links the new row to the one it
+replaced; onboarding re-seeds and `DELETE /memory` record why a row went inactive. A
+'no' verdict on a recurrence insight retires the rows its evidence cites
+(`inactive_reason='user_rejected'`), in the verdict's transaction (R3); 'yes' and 'partly'
+write no memory (R6). `is_active` stays the single recall gate; RECALL_SQL, the lanes,
+the insight throttle and the frontend were unchanged. Two founder rulings of 2026-10-02
+rode with it: provenance records whose CLAIM a row asserts, not whose grammar; and the
+data export includes the five new columns. Deferred from it, now Phase B: evidence on
+signal insights (R4), the supersession chain (R1), verdict-reversal reactivation.
+
+### MEM2-B — Phase B rulings record (founder, 2026-10-03) and B1 — **B1 BUILT (#776); B1b BUILT; B2–B5 RULED, NOT STARTED**
 
 **Why this entry exists.** The MEM2 rulings R1–R10 that MEM2-A (#771) was built against
 exist in this repository only as citations — migration 070/071 docstrings and code
 comments name R1, R3, R4, R5, R9 and R10 — and their full text is nowhere in `docs/`
 (searched 2026-10-03). The Phase B investigation (MEM2-B-001) and the rulings below were
 made in conversation the same day. They are recorded here verbatim so the next reader is
-not reconstructing them from the code that implemented them. **R1–R10 themselves are
-NOT reproduced here because this session never held their text**; where a line below
-cites one, it cites the code's citation.
+not reconstructing them from the code that implemented them.
+
+**MEM2 rulings R1–R11, as this repository holds them (MEM2-B1b, 2026-10-03).** The
+texts of R2, R7, R8, R10 and R11 were supplied verbatim by the founder on 2026-10-03;
+the others are given as the code cites them, which is the only form the repository has.
+- **R1** (as cited, `070_memory_epistemic_core.py`): evolving_beliefs — walking the
+  supersession chain — stays deferred; no index on `supersedes_memory_id` until a
+  reader exists.
+- **R2:** provenance is a separate axis: user_stated | user_selected | system_inferred;
+  recall lanes unchanged.
+- **R3** (as cited, `routers/memory.py`, `reject_cited_memories`): a 'no' on a
+  recurrence insight retires the memory rows its evidence cites, in the same
+  transaction as the verdict.
+- **R4** (as cited): signal insights carry no evidence yet; Phase B.
+- **R5** (as cited, `reject_cited_memories`): exclusion, not down-weighting — `is_active`
+  goes false and `inactive_reason` records why; nothing in recall changes.
+- **R6** (as cited, `routers/memory.py`): 'partly' does nothing; 'yes' records agreement
+  without promoting anything.
+- **R7:** keep the shipped copy "Rings true / Partly / No"; no copy changes.
+- **R8:** mirror and You-vs-You verdicts are out of MEM2 scope (no memory rows behind
+  them).
+- **R9** (as cited, `071_memory_provenance_backfill.py`): `source_message_ids` is not
+  backfilled and never guessed — NULL when the caller had none to give.
+- **R10:** write-time contradiction detection deferred to Phase B; REFRAMED by founder
+  2026-10-03 after prod labelling (0 contradictions in 30 pairs): B5 is a write-time
+  dedup judge (restatement → supersede/merge), contradiction a third label with no
+  expectation it fires, ambivalence never resolved; ≥0.75 similarity gates the judge;
+  system_inferred never retires user_stated/user_selected.
+- **R11:** the two anomalies (10-02 no-row message; recurrence dead since 07-13) were
+  diagnosed before building on evidence.
 
 **Investigation findings that the rulings answer (production, read 2026-10-03):**
 1,029 active memory rows (711 system_inferred, 306 user_selected, 12 user_stated), 22
@@ -5730,6 +5786,19 @@ blocked, and why" is answerable from Render logs. No schema. Live tests in
 written since #642; a `pattern` or `shift` insight with non-NULL evidence appearing in
 `insights` is the proof. Second observable: `insight_gate` log lines carrying
 `kind=recurrence decision=allowed`.
+
+**B1b — the worker could not emit those lines.** A parallel investigation found that
+the ARQ worker's root logger had no handler and an effective level of WARNING: the
+`arq` CLI configures only the `arq` logger, after importing the settings module, and
+leaves the root as Python made it. Every INFO line the worker ever wrote through its own
+loggers was dropped before stdout; WARNING and above escaped through Python's
+last-resort stderr handler as bare messages. So B1's "Step 0b measurable from logs" was
+unmet on the day it merged. B1b adds `logging.basicConfig(level=INFO)` beside
+`init_sentry()` in `workers/arq_worker.py`, mirroring `main.py`, with `arq`'s own logger
+set not to propagate so its lines do not print twice. `tests/workers/test_worker_logging.py`
+pins that a `services.memory_service` INFO record reaches a root handler after the
+module import and after arq's own dictConfig. Observable: `insight_gate` lines, and
+"Memory task: stored N entries" lines, in the philosopher-worker log on Render.
 
 ### PARKED — founder safety alerting — **PARKED (founder, 2026-10-02). No work.**
 **Revisit only when the founder raises it.** An idea, recorded so it is not lost and is
