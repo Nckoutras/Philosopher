@@ -4,7 +4,7 @@ import uuid
 from collections import Counter
 from datetime import datetime, timedelta, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, text, update
+from sqlalchemy import func, select, text, update
 from models import MemoryEntry, Insight
 from schemas import THEME_VALUES
 from services.llm_client import llm_client
@@ -512,9 +512,14 @@ async def find_recurrences(
 
     Returns `(matches, evidence)` when at least RECURRENCE_MIN_PRIOR rows clear
     RECURRENCE_SIM_THRESHOLD, else None. The caller owns the loop over entries:
-    `detect_recurrence` stops at the first hit because it writes one card, and the
-    snapshot wants every hit, so a loop in here would force one of them to discard
-    work the other needs.
+    `detect_recurrence` searches every new row, counts the echoes and writes one
+    card from the first hit (MEM2-B4), and the snapshot keeps every hit and counts
+    nothing, so a loop in here would force one of them to do what the other does
+    not want.
+
+    NO WRITES, and that includes MEM2-B4's echo count: it is recorded by
+    detect_recurrence from what this returns. The snapshot re-searches past periods
+    every week, and a count taken in here would grow with every re-run.
 
     THE CORPUS BOUNDS ARE NAMED `corpus_*` ON PURPOSE. A period-scoped caller has
     TWO different date filters and conflating them is a silent wrong answer: which
@@ -651,26 +656,43 @@ async def find_recurrences(
 
 
 def cited_memory_ids(evidence) -> list[str]:
-    """The memory rows a recurrence insight's evidence cites, in the order written.
+    """The memory rows an insight's evidence cites, in the order written.
 
-    PURE. Reads the shape `find_recurrences` writes above: `recurring_entry` plus
-    every `prior_matches` row. Anything else yields nothing rather than raising —
-    NULL evidence (a signal insight, or one written before 060), an empty dict, a
-    non-dict, a missing or malformed id. The caller is a person saying "that is not
-    true of me", and a malformed citation must never turn that into a 500.
+    PURE. Two shapes, told apart by `kind` (MEM2-B3, founder ruling 2026-10-03):
+
+      "signal"      `memory_entry_ids`, a plain list. A belief insight cites its
+                    own row from the extraction call that produced it; a dilemma
+                    or aspiration writes no row and carries no list, so it cites
+                    nothing and a 'no' on it retires nothing.
+      "recurrence"  `recurring_entry` plus every `prior_matches` row, the shape
+                    `find_recurrences` builds. Evidence with NO `kind` is this
+                    shape: everything written between 060 and B3.
+
+    An unknown `kind` cites nothing; guessing at a shape this function does not
+    know could retire the wrong rows. Anything else malformed also yields nothing
+    rather than raising — NULL evidence (an insight written before 060, or a signal
+    written before B3), an empty dict, a non-dict, a missing or malformed id. The
+    caller is a person saying "that is not true of me", and a malformed citation
+    must never turn that into a 500.
 
     Ids are kept only if they parse as UUIDs: they are bound into a uuid column
     comparison, and a string Postgres cannot cast would fail the whole statement.
     """
     if not isinstance(evidence, dict):
         return []
+    kind = evidence.get("kind", "recurrence")
     cited = []
-    recurring = evidence.get("recurring_entry")
-    if isinstance(recurring, dict):
-        cited.append(recurring.get("memory_entry_id"))
-    matches = evidence.get("prior_matches")
-    if isinstance(matches, list):
-        cited.extend(m.get("memory_entry_id") for m in matches if isinstance(m, dict))
+    if kind == "signal":
+        ids = evidence.get("memory_entry_ids")
+        if isinstance(ids, list):
+            cited.extend(ids)
+    elif kind == "recurrence":
+        recurring = evidence.get("recurring_entry")
+        if isinstance(recurring, dict):
+            cited.append(recurring.get("memory_entry_id"))
+        matches = evidence.get("prior_matches")
+        if isinstance(matches, list):
+            cited.extend(m.get("memory_entry_id") for m in matches if isinstance(m, dict))
 
     out: list[str] = []
     for raw in cited:
@@ -696,8 +718,9 @@ async def reject_cited_memories(db: AsyncSession, user_id: str, evidence) -> int
     touched, so a row already retired for another reason ('superseded',
     'user_removed') keeps that reason.
 
-    Returns how many rows were retired. NULL or empty evidence is a no-op, by
-    design: a signal insight has no citations yet (Phase B, R4).
+    Returns how many rows were retired. Evidence that cites nothing is a no-op,
+    by design: a dilemma or aspiration insight writes no memory row, so it has
+    none to cite (MEM2-B3), and evidence written before 060 or B3 may be NULL.
     """
     ids = cited_memory_ids(evidence)
     if not ids:
@@ -865,6 +888,30 @@ def _iso_z(value: datetime | None) -> str | None:
     return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
+def signal_evidence(signal_type: str | None, content: str, saved_rows,
+                    source_message_ids) -> dict:
+    """A signal insight's evidence (MEM2-B3). PURE; see promote_signal_insight.
+
+    The belief's own row is found by type AND content among the rows this
+    extraction call saved: extract_and_store stores a belief item's stripped
+    content verbatim, and the signal is the same item, so they are equal. If no
+    row matches (no rows were passed, or the row was not saved), the list is
+    empty and a 'no' retires nothing, rather than a guess at a neighbour.
+    """
+    evidence: dict = {
+        "kind": "signal",
+        "source_message_ids": (
+            [str(m) for m in source_message_ids] if source_message_ids is not None else None
+        ),
+    }
+    if signal_type == "belief":
+        evidence["memory_entry_ids"] = [
+            str(r.id) for r in (saved_rows or [])
+            if r.entry_type == "belief" and r.content == content and r.id is not None
+        ]
+    return evidence
+
+
 class ExtractionResult(list):
     """The saved MemoryEntry rows, plus what a deferred signal promotion needs.
 
@@ -986,6 +1033,7 @@ class MemoryService:
         if safety_ok and promote_signal:
             await self.promote_signal_insight(
                 db, user_id, conversation_id, persona_id, entries_data, language,
+                saved_rows=saved, source_message_ids=source_message_ids,
             )
 
         logger.info(f"Stored {len(saved)} memory entries for user={user_id}")
@@ -999,6 +1047,9 @@ class MemoryService:
         persona_id: str,
         entries_data: list,
         language: str,
+        *,
+        saved_rows: list | None = None,
+        source_message_ids: list[str] | None = None,
     ) -> bool:
         """Dilemma/belief/aspiration → Insight (Slice 2). Returns whether one was written.
 
@@ -1013,8 +1064,16 @@ class MemoryService:
         Self-contained — a failure here must never break memory persistence.
 
         SPLIT OUT OF extract_and_store BY MEM2-B1 so the memory task can run it
-        AFTER detect_recurrence. The body is the pre-B1 block, unchanged except
-        for the gate's `kind`.
+        AFTER detect_recurrence.
+
+        EVIDENCE (MEM2-B3, R4, founder rulings 2026-10-03): `{"kind": "signal",
+        "source_message_ids": [...]}` on every signal insight, and on a BELIEF also
+        `memory_entry_ids` — the id of its OWN row from this extraction call: the
+        rows in `saved_rows` of type 'belief' whose content is the insight's
+        content. Only its own row: a 'no' on a belief must not retire the unrelated
+        rows written beside it. A dilemma or aspiration writes no memory row, so it
+        cites none, and a 'no' on it retires nothing. `source_message_ids` is
+        stored as given, NULL included (R9: never guessed).
         """
         try:
             _SIGNAL_MIN_CONF = {"dilemma": 0.8, "belief": 0.8, "aspiration": 0.7}
@@ -1080,14 +1139,18 @@ class MemoryService:
                 if blocked is None:
                     raw_theme = (signal.get("theme") or "").strip().lower()
                     theme = raw_theme if raw_theme in THEME_VALUES else None
+                    content = (signal.get("content") or "").strip()
                     db.add(Insight(
                         user_id=user_id,
                         conversation_id=conversation_id,
                         persona_id=persona_id,
-                        content=(signal.get("content") or "").strip(),
+                        content=content,
                         insight_type=signal.get("type"),
                         source_count=None,
                         theme=theme,
+                        evidence=signal_evidence(
+                            signal.get("type"), content, saved_rows, source_message_ids,
+                        ),
                     ))
                     await db.flush()
                     logger.info(
@@ -1249,6 +1312,56 @@ class MemoryService:
         )
         return decision
 
+    async def _record_echoes(self, db: AsyncSession, user_id: str, hits: list) -> int:
+        """MEM2-B4: +1 echo_count and a fresh last_echo_at on every ANCHOR — an
+        earlier row that a new row in this call matched at >= the recurrence
+        threshold. Once per anchor per call, however many new rows matched it.
+        Returns how many rows were stamped.
+
+        No vector query of its own: the anchors are the matches detect_recurrence's
+        search already returned. Which rows can match is the search's rule, not
+        this one's: a chat row is compared only with OTHER conversations; a row
+        with no conversation (a counterview belief) with every row but itself.
+
+        COMMITTED HERE, before the gate, so strength accrues even when no card is
+        written and the task commits nothing else. In a SAVEPOINT: a failed UPDATE
+        rolls back only itself, never the caller's pending work (the counterview
+        task's new belief row is flushed, not yet committed, when this runs).
+
+        Not idempotent across a retried ARQ job: a retry re-extracts, writes new
+        rows and counts again, the same at-least-once behaviour as the rows
+        themselves (ruling 2026-10-03: noted, not guarded).
+        """
+        anchor_ids = sorted({str(m.id) for _, matches, _ in hits for m in matches})
+        if not anchor_ids:
+            return 0
+        # The awaited form of the savepoint rather than `async with`: identical on a
+        # real AsyncSession, and a mocked session walks the same path instead of
+        # failing into the except below and passing for the wrong reason (C-06).
+        try:
+            savepoint = await db.begin_nested()
+        except Exception as e:  # noqa: BLE001 — strength is never worth a lost card
+            logger.error("Echo count failed user=%s: %s", user_id, e, exc_info=True)
+            return 0
+        try:
+            result = await db.execute(
+                update(MemoryEntry)
+                .where(MemoryEntry.id.in_(anchor_ids), MemoryEntry.user_id == user_id)
+                .values(
+                    echo_count=func.coalesce(MemoryEntry.echo_count, 0) + 1,
+                    last_echo_at=func.now(),
+                )
+                .execution_options(synchronize_session=False)
+            )
+            await savepoint.commit()
+        except Exception as e:  # noqa: BLE001 — strength is never worth a lost card
+            await savepoint.rollback()
+            logger.error("Echo count failed user=%s: %s", user_id, e, exc_info=True)
+            return 0
+        await db.commit()
+        logger.info("Echo count user=%s anchors=%d", user_id, len(anchor_ids))
+        return result.rowcount or 0
+
     async def detect_recurrence(
         self,
         db: AsyncSession,
@@ -1286,11 +1399,39 @@ class MemoryService:
             if not new_entries:
                 return
 
+            # ── DETECTION, FOR EVERY NEW ROW, BEFORE THE GATE (MEM2-B4) ───────
+            # For each freshly-stored entry, cosine-search prior memories from
+            # OTHER conversations (mirrors recall(): same str(vector) + CAST AS
+            # vector serialization so the param format cannot silently mismatch).
+            #
+            # Until B4 the gate ran first and this loop stopped at the first hit,
+            # so a blocked exchange searched nothing and a later row in the same
+            # call was never searched. Recurrence STRENGTH must accrue whether or
+            # not a card is written (founder ruling 2026-10-03), so every new row
+            # is searched now and the gate below decides only the card. The cost
+            # is up to one HNSW query (LIMIT 20) per new row, at most 3 per
+            # exchange, worker-side; the ruling accepted it explicitly.
+            #
+            # The loop lives HERE, not in find_recurrences, which stays free of
+            # side effects (its other caller, the weekly snapshot, re-searches
+            # past periods and must not count anything).
+            hits: list[tuple] = []
+            for entry in new_entries:
+                found = await find_recurrences(
+                    db, user_id, entry, exclude_conversation=conversation_id,
+                )
+                if found is not None:
+                    hits.append((entry, *found))
+
+            await self._record_echoes(db, user_id, hits)
+
             # ── DEDUP / THROTTLE (shared gate, recurrence budget) ─────────────
             # The SAME gate the signal write uses (see _insight_gate_blocked), so
             # the two rules keep one shape — but each class spends its own budget
             # (MEM2-B1): a belief card written minutes ago no longer closes this
             # window, which is what had starved recurrence cards since #642.
+            # Asked on every call, hit or not, as before B4, so the insight_gate
+            # log keeps counting what it counted.
             blocked = await self._insight_gate_blocked(
                 db, user_id, conversation_id, kind="recurrence",
             )
@@ -1301,28 +1442,15 @@ class MemoryService:
                 logger.info("Recurrence skipped (one per conversation) conv=%s", conversation_id)
                 return
 
-            # ── DETECTION ─────────────────────────────────────────────────────
-            # For each freshly-stored entry, cosine-search prior memories from
-            # OTHER conversations (mirrors recall(): same str(vector) + CAST AS
-            # vector serialization so the param format cannot silently mismatch).
-            recurring_entry = None
-            prior_matches: list = []
-            evidence: dict | None = None
-            for entry in new_entries:
-                # The loop lives HERE, not in find_recurrences: this caller writes
-                # ONE card, so it stops at the first entry that clears the bar.
-                # The snapshot caller wants every hit and keeps looping.
-                found = await find_recurrences(
-                    db, user_id, entry, exclude_conversation=conversation_id,
-                )
-                if found is not None:
-                    prior_matches, evidence = found
-                    recurring_entry = entry
-                    break
-
-            if recurring_entry is None:
+            if not hits:
                 logger.info("Recurrence: none above threshold for conv=%s", conversation_id)
                 return
+            # ONE card: the first new row that cleared the bar, as before B4.
+            recurring_entry, prior_matches, evidence = hits[0]
+            # MEM2-B3: the kind key, so cited_memory_ids can tell this shape from
+            # a signal's. Added at the WRITE, not in find_recurrences, so the
+            # snapshot's payloads are unchanged.
+            evidence = {"kind": "recurrence", **evidence}
 
             # Distinct conversations the theme was noticed across: the distinct
             # prior conversations that cleared the similarity bar, plus this one.

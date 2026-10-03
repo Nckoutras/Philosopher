@@ -179,6 +179,7 @@ async def test_embeddings_never_reach_the_export():
         # 070's columns: the builder reads them, so the fixture sets them (C-06).
         provenance="system_inferred", source_surface="chat", source_message_ids=None,
         supersedes_memory_id=None, inactive_reason=None, source_insight_id=None,
+        echo_count=None, last_echo_at=None,
     )
     payload = await build_export(_fake_db({"MemoryEntry": [memory]}), _user())
 
@@ -306,6 +307,7 @@ async def test_memories_export_every_epistemic_column():
         provenance="user_selected", source_surface="PLANTED_SURFACE",
         source_message_ids=message_ids, supersedes_memory_id="mem-1",
         inactive_reason="user_rejected", source_insight_id=None,
+        echo_count=None, last_echo_at=None,
     )
     payload = await build_export(_fake_db({"MemoryEntry": [memory]}), _user())
     row = payload["memories"][0]
@@ -328,6 +330,7 @@ async def test_the_072_columns_are_exported():
         updated_at=datetime(2026, 10, 3, tzinfo=timezone.utc),
         provenance="system_inferred", source_surface="insight", source_message_ids=None,
         supersedes_memory_id=None, inactive_reason=None, source_insight_id="ins-1",
+        echo_count=None, last_echo_at=None,
     )
     history = [{"verdict": "no", "at": "2026-09-01T09:00:00Z"},
                {"verdict": "yes", "at": "2026-09-05T09:00:00Z"}]
@@ -342,6 +345,39 @@ async def test_the_072_columns_are_exported():
     )
     assert payload["memories"][0]["source_insight_id"] == "ins-1"
     assert payload["insights"][0]["verdict_history"] == history
+    json.dumps(payload)
+
+
+async def test_the_073_columns_and_the_evidence_kind_are_exported():
+    """073 (MEM2-B4): recurrence strength on a memory row. And MEM2-B3's evidence
+    `kind`, which needs no builder change because evidence is exported whole —
+    pinned here so that stays true if the builder ever starts picking keys."""
+    echoed_at = datetime(2026, 10, 3, 9, 30, tzinfo=timezone.utc)
+    memory = _Row(
+        id="mem-4", user_id="u1", entry_type="belief", content="a belief",
+        confidence=0.9, is_active=True, conversation_id="c1",
+        persona_id=None, source_turn=1, embedding=None,
+        created_at=datetime(2026, 10, 1, tzinfo=timezone.utc),
+        updated_at=datetime(2026, 10, 1, tzinfo=timezone.utc),
+        provenance="system_inferred", source_surface="chat", source_message_ids=None,
+        supersedes_memory_id=None, inactive_reason=None, source_insight_id=None,
+        echo_count=4, last_echo_at=echoed_at,
+    )
+    evidence = {"kind": "signal", "source_message_ids": ["m1", "m2"],
+                "memory_entry_ids": ["mem-4"]}
+    insight = _Row(
+        id="ins-2", user_id="u1", content="a belief", insight_type="belief",
+        theme=None, source_count=None, evidence=evidence, verdict_history=None,
+        is_dismissed=False, conversation_id="c1",
+        created_at=datetime(2026, 10, 1, tzinfo=timezone.utc),
+    )
+    payload = await build_export(
+        _fake_db({"MemoryEntry": [memory], "Insight": [insight]}), _user(),
+    )
+    row = payload["memories"][0]
+    assert row["echo_count"] == 4
+    assert row["last_echo_at"] == "2026-10-03T09:30:00Z"
+    assert payload["insights"][0]["evidence"]["kind"] == "signal"
     json.dumps(payload)
 
 

@@ -73,6 +73,12 @@ class _Recorder:
     def add(self, row):
         self.added.append(row)
 
+    async def begin_nested(self):
+        # MEM2-B4: detect_recurrence records echoes inside a savepoint. Without
+        # this the recurrence tests below would reach their card through the
+        # echo code's error path rather than the one production takes (C-06).
+        return SimpleNamespace(commit=AsyncMock(), rollback=AsyncMock())
+
     async def delete(self, row):
         self.deleted.append(row)
 

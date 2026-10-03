@@ -171,7 +171,12 @@ async def test_promotion_spends_the_signal_budget_and_reports_the_write():
         written = await memory_service.promote_signal_insight(db, USER, CONV, "p1", signals, "English")
     assert written is True
     assert [type(o).__name__ for o in added] == ["Insight"]
-    assert added[0].insight_type == "belief" and added[0].evidence is None
+    assert added[0].insight_type == "belief"
+    # MEM2-B3: a signal card carries evidence. No saved rows were passed here, so
+    # the belief cites none, and no message ids were passed, so they are NULL.
+    assert added[0].evidence == {
+        "kind": "signal", "source_message_ids": None, "memory_entry_ids": [],
+    }
     assert gate.await_args.kwargs == {"kind": "signal"}
 
 
@@ -205,9 +210,13 @@ async def test_the_task_runs_recurrence_before_the_signal_promotion():
     async def recurrence(**kw):
         order.append(("recurrence", None))
 
-    async def promote(db, user_id, conversation_id, persona_id, signals, language):
+    async def promote(db, user_id, conversation_id, persona_id, signals, language,
+                      *, saved_rows=None, source_message_ids=None):
         order.append(("signal", signals))
+        handed.update(saved_rows=saved_rows, source_message_ids=source_message_ids)
         return True
+
+    handed = {}
 
     session = AsyncMock()
     session.__aenter__ = AsyncMock(return_value=session)
@@ -216,11 +225,13 @@ async def test_the_task_runs_recurrence_before_the_signal_promotion():
          patch.object(ms.memory_service, "extract_and_store", new=extract), \
          patch.object(ms.memory_service, "detect_recurrence", new=recurrence), \
          patch.object(ms.memory_service, "promote_signal_insight", new=promote):
-        await aw.extract_memory_task({}, USER, CONV, "p1", "text", "reply", 1, True, None)
+        await aw.extract_memory_task({}, USER, CONV, "p1", "text", "reply", 1, True, ["m1", "m2"])
 
     assert [o[0] for o in order] == ["extract", "recurrence", "signal"]
     assert order[0][1] is False, "the task defers the signal write to itself"
     assert order[2][1] == result.signals
+    # MEM2-B3: the promotion is handed what its evidence needs.
+    assert handed == {"saved_rows": list(result), "source_message_ids": ["m1", "m2"]}
 
 
 @pytest.mark.asyncio
