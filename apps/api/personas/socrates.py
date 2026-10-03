@@ -63,7 +63,6 @@ SOCRATES = PersonaConfig(
     challenge_style="pure elenchus — accept the user's premise fully, then draw out its internal contradiction through questioning until it either holds or unravels",
     uses_personal_anecdote=True,
 
-
     opening_invocation="Tell me — what is it you believe you already know about this?",
 
     voice_calibration_examples=[
