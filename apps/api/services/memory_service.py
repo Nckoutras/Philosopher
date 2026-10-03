@@ -896,7 +896,7 @@ class MemoryService:
 
                 The language test applies ONLY to the types that reach an
                 input field (VERBATIM_INPUT_SIGNAL_TYPES). Everything else is
-                log-only, handled in the memory-row loop above.
+                log-only, handled in extract_and_store's memory-row loop.
                 """
                 if e.get("type") != want:
                     return False
