@@ -38,6 +38,11 @@ class Settings(BaseSettings):
     SAFETY_JUDGE_ENABLED: bool = True
     SAFETY_JUDGE_MODEL: str = "claude-haiku-4-5-20251001"
 
+    # MEM2-B5 write-time dedup (services/dedup_judge.py). OFF restores the pre-B5
+    # write path exactly: no within-call drop, no judge call, nothing retired.
+    # Worker-only; flip it on Render's worker by setting MEMORY_DEDUP_ENABLED=false.
+    MEMORY_DEDUP_ENABLED: bool = True
+
     # OpenAI (embeddings)
     OPENAI_API_KEY: str = ""
     EMBEDDING_MODEL: str = "text-embedding-3-small"

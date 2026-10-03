@@ -5712,7 +5712,7 @@ rode with it: provenance records whose CLAIM a row asserts, not whose grammar; a
 data export includes the five new columns. Deferred from it, now Phase B: evidence on
 signal insights (R4), the supersession chain (R1), verdict-reversal reactivation.
 
-### MEM2-B — Phase B rulings record (founder, 2026-10-03) and B1 — **B1 BUILT (#776); B1b MERGED (#777); B2 MERGED (#778); B3+B4 BUILT; B5 RULED, NOT STARTED**
+### MEM2-B — Phase B rulings record (founder, 2026-10-03) and B1 — **B1 BUILT (#776); B1b MERGED (#777); B2 MERGED (#778); B3+B4 MERGED (#779); B5 BUILT — PHASE B CLOSED**
 
 **Why this entry exists.** The MEM2 rulings R1–R10 that MEM2-A (#771) was built against
 exist in this repository only as citations — migration 070/071 docstrings and code
@@ -5955,6 +5955,136 @@ live checks. Pure tests: `tests/services/test_signal_evidence.py`.
 - **B4:** `memory_entries` rows with `echo_count IS NOT NULL`, and
   `Echo count user=… anchors=N` lines in the worker log. These should appear even on
   exchanges whose `insight_gate kind=recurrence` line says `decision=throttle`.
+
+**B5 — write-time dedup judge (founder rulings 2026-10-03; Phase B, PR 5 of 5).**
+
+*Step 1, measured before anything was built.* The judge prompt was run, with real
+Haiku 4.5 calls at temperature 0, over the 30 hand-labelled pairs:
+- both orders, three runs each;
+- **the pairs file holds no per-pair labels.** They were reconstructed (13 paraphrase,
+  #5 portrait, #7 neighbouring in the ≥0.75 band) and match the 13/15 count above;
+- the stored texts are cut off at about 160 characters.
+
+The approved prompt, with its `more_specific` field, gives in the ≥0.75 band 13/13
+paraphrases RESTATEMENT in both orders and the neighbouring pair DISTINCT. The
+portrait pair #5 returns CONTRADICTION/RESTATEMENT, but it cannot reach the judge (its
+`user_selected` side is not a candidate).
+
+**Below 0.75 the judge is too eager.** Three of the thirteen neighbouring thoughts came
+back RESTATEMENT in both orders, and two more depended on the order. So **the 0.75 gate
+is load-bearing**, and it says so at `DUPLICATE_SIM_THRESHOLD`.
+
+Adding `more_specific` moved two verdicts (#10 to the correct RESTATEMENT, #5 as
+above), stably across three runs. The founder accepted that on 2026-10-03, and the
+prompt is **frozen as calibrated**: its sha256 is pinned in
+`tests/services/test_dedup_judge.py`, and any wording change re-runs the 30 pairs.
+
+*Rulings (2026-10-03), as built:*
+- **Survivor = the more specific row** per the judge's `more_specific`; on "same", the
+  newer row. This supersedes "new always supersedes old".
+  - The loser gets `inactive_reason='superseded'`.
+  - The SURVIVOR carries `supersedes_memory_id = loser`, whichever row survived (070's
+    meaning: "the row this one replaced").
+  - When the old row survives, the new row is stored, then retired and linked from it.
+- **Candidates: `system_inferred` AND `source_surface='chat'` only.** User rows, portrait
+  rows and `self_portrait_shift` (its own B2 lifecycle) are never judged.
+- **At most 3 candidates per new row, one call per pair,** so at most 9 calls per
+  exchange.
+- **CONTRADICTION keeps both rows** and logs at WARNING. Ambivalence is never resolved.
+- **Fail-open.** A judge failure retires nothing and logs ERROR with the trace.
+- **The hook:** `extract_memory_task`, after the rows commit and before
+  `detect_recurrence`. Never gated by the insight budgets; worker only.
+- **Kill switch:** `MEMORY_DEDUP_ENABLED`. Off is the pre-B5 path exactly; it is off in
+  the test suite by default (`tests/conftest.py`).
+
+*Amendments after red-team review (2026-10-03):*
+1. **Ratchet guard.** RESTATEMENT + `more_specific="earlier"` on a stored row that
+   already carries `supersedes_memory_id` keeps BOTH rows, before any write, and logs
+   `note=dedup_ratchet_guard`. The measured order bias (below) favours the stored row,
+   and without the guard one row could absorb restatement after restatement on that
+   bias alone.
+2. **`chain_depth=N` on every retirement**, so the wrong-retirement rate is measurable.
+3. Superseded rows are **recoverable by construction**: an `is_active` flip, with the
+   link intact.
+
+*What was built.*
+- **Mechanism 1, within one extraction call:** a row at ≥0.90 cosine to a row already
+  kept from the same call is dropped before it is stored. The earlier one is kept.
+  Rows of one call between 0.75 and 0.90 are neither judged nor dropped (ruling: tighten
+  same-pass redundancy cheaply rather than judge it).
+- **Mechanism 2, `MemoryService.dedup_new_entries`:** per new row, inside its own
+  SAVEPOINT, the nearest 3 eligible stored rows. Those ≥0.75 go to
+  `services/dedup_judge.judge_pair`, and `dedup_outcome` maps the verdict to the row it
+  retires.
+- **Writes are core UPDATEs guarded by `is_active`.** A row retired meanwhile is never
+  overwritten (`note=race`).
+- **A database error rolls back that row's savepoint, never the session.** A session
+  rollback would expire the in-memory rows that recurrence and the signal promotion read
+  next.
+- **Every decision logs on one template:** `dedup_judge verdict=… kept=… retired=…
+  user=… new=… candidate=… score=… more_specific=… chain_depth=… note=…`. Ids and scores
+  only, never content; the judge's `reason` is discarded.
+
+*Design decisions taken in the build, for the record:*
+- **One retirement per new row, and never over an existing link.** 070's link is
+  one-for-one, so a survivor can record exactly one replaced row. Where a second link
+  would be needed, the duplicate is KEPT (the pre-B5 state) rather than retired without
+  a trace. The ratchet guard is the old-row half of this rule.
+- **Echo inheritance.** The survivor's `echo_count` is the sum and `last_echo_at` the
+  later of the two; NULL stays NULL when neither row was echoed.
+  - When the NEW row survives an old row from ANOTHER conversation, it also gets the +1
+    that B4 would have stamped on that old row as an anchor. Retired first, the old row
+    is out of the corpus.
+  - When the OLD row survives, B4 stamps it itself, because the retired new row still
+    searches as a query.
+  - Both outcomes therefore end at the same total, which the live tests pin.
+- **`more_specific` is weaker than the verdict, and is accepted as calibrated.** Over the
+  13 paraphrases it swapped correctly with the order on 10. On #4 and #15 it answered
+  "earlier" both ways, i.e. it favours the note shown first, which in production is the
+  stored row. Documented at `dedup_judge.parse_reply`.
+
+*Findings, not changed by B5:*
+- **A 'no' (R3) does not follow supersession.** If a cited row has since been superseded,
+  the 'no' retires nothing, and the survivor (which says the same thing) stays active.
+  - This is recall-neutral against pre-B5. Today a 'no' on one of two duplicates
+    already leaves the uncited one active.
+  - The fix, if wanted, is `reject_cited_memories` following `supersedes_memory_id`
+    forward. That is a change to R3 and belongs in its own PR.
+- A recurrence card can cite a new row that B5 has just retired (old-survivor case).
+  The card still cites the active survivor too.
+
+Tests:
+- `tests/services/test_dedup_judge.py`: the request is pinned to the measured one, plus
+  parsing and fail-open.
+- `tests/services/test_memory_dedup.py`: candidate gating, the ratchet guard, the log
+  template, savepoint fail-open, the within-call drop, and the hook order.
+- `tests/db_live/test_dedup_judge_live.py`: supersession both ways, echo inheritance,
+  the provenance guard, fail-open including a partial write rolled back, the ratchet
+  guard, and chain depth from a real chain. These are the first run of new live checks.
+
+**Post-merge observables for B5.**
+- `dedup_judge` lines in the worker log.
+- `memory_entries` rows with `inactive_reason='superseded'` and `source_surface='chat'`.
+- The `chain_depth` distribution.
+- Any `verdict=CONTRADICTION` line, which the calibration says should be rare.
+
+**PHASE B — CLOSED with B5.**
+
+| Item | Delivered |
+|---|---|
+| B1 | Per-class insight budgets, recurrence first |
+| B1b | The worker logs at INFO |
+| B2 | Verdict reactivation and the ≥72h opinion-shift entry |
+| B3 | Signal evidence: a belief cites its own row |
+| B4 | Recurrence strength, counted before the gate |
+| B5 | Write-time dedup |
+
+Still deferred:
+- **R1:** walking the supersession chain (evolving_beliefs). B5 now writes chat
+  supersession links, so the chain has data. It still has no reader, and still no index
+  on `supersedes_memory_id`.
+- **TD-121, TD-122.**
+- The R3-through-supersession finding above.
 
 ### PARKED — founder safety alerting — **PARKED (founder, 2026-10-02). No work.**
 **Revisit only when the founder raises it.** An idea, recorded so it is not lost and is

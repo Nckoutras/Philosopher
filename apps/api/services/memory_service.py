@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import func, select, text, update
 from models import MemoryEntry, Insight
 from schemas import THEME_VALUES
+from services import dedup_judge
 from services.llm_client import llm_client
 from services.embedding_client import embedding_client
 from services.output_gate import output_is_unsafe
@@ -83,6 +84,16 @@ INFERRED_SCORE_FLOOR = 0.75
 # NOT the same axis as INFERRED_SCORE_FLOOR above, which compares a row to the
 # QUERY. This compares a row to ANOTHER ROW. Both happen to read 0.75 today and
 # they are unrelated; changing one must not drag the other.
+#
+# Reader 3 — MEM2-B5's dedup judge: no judge call below this line, and THAT GATE
+# IS LOAD-BEARING. The dry run (2026-10-03, 30 hand-labelled production pairs)
+# put the judge on both sides of it. At >= 0.75 it matched the labels: 13/13
+# paraphrases RESTATEMENT, the neighbouring pair DISTINCT. In 0.60-0.75 it was
+# too eager — three of thirteen neighbouring thoughts came back RESTATEMENT in
+# both orders and two more depended on the order — and a RESTATEMENT there would
+# retire a row that says something different. So this value is part of the
+# judge's calibration: lowering it puts the judge in a band where it is measured
+# to be wrong, and needs a new dry run first, not a constant change.
 DUPLICATE_SIM_THRESHOLD = 0.75
 RECURRENCE_SIM_THRESHOLD = DUPLICATE_SIM_THRESHOLD  # first reader's historical name
 
@@ -912,6 +923,122 @@ def signal_evidence(signal_type: str | None, content: str, saved_rows,
     return evidence
 
 
+# ── Write-time dedup (MEM2-B5, founder rulings 2026-10-03) ────────────────────
+#
+# Calibration (production, 2026-10-03): ZERO contradictions in 30 hand-labelled
+# near-duplicate pairs; the >= 0.75 band is paraphrase. So this is a DEDUP judge,
+# not a contradiction hunter. Two mechanisms, cheapest first:
+#
+#   1. WITHIN ONE EXTRACTION CALL, a row >= WITHIN_CALL_DUP_THRESHOLD to a row
+#      already kept from the same call is dropped before it is stored. No LLM:
+#      one pass writing the same thought twice is redundancy, not a judgement.
+#      Rows of one call between 0.75 and 0.90 are NOT judged against each other
+#      either (ruling: tighten same-pass redundancy cheaply rather than judge it).
+#   2. AGAINST STORED ROWS, each new row's nearest DEDUP_CANDIDATE_LIMIT stored
+#      rows at >= DUPLICATE_SIM_THRESHOLD go to dedup_judge, one call per pair.
+#
+# ONLY system_inferred CHAT rows are ever candidates (ruling). A model's inference
+# never retires the person's own words (user_stated) or their own choices
+# (user_selected), and never a row with its own lifecycle on another surface —
+# self_portrait_shift rows supersede each other through the portrait flow (B2).
+
+WITHIN_CALL_DUP_THRESHOLD = 0.90
+DEDUP_CANDIDATE_LIMIT = 3      # judge calls per new row; <= 3 rows per call, so <= 9
+
+# `id <> ALL(:exclude_ids)` keeps this call's own rows out (mechanism 1 covers
+# them). The threshold is applied in Python after the LIMIT, as in
+# find_recurrences, so the HNSW scan returns the nearest eligible rows.
+DEDUP_CANDIDATE_SQL = f"""
+    SELECT id::text AS id, content,
+           conversation_id::text AS conversation_id,
+           supersedes_memory_id::text AS supersedes_memory_id,
+           echo_count, last_echo_at,
+           1 - (embedding <=> CAST(:query_vec AS vector)) AS score
+    FROM memory_entries
+    WHERE user_id = :user_id
+      AND is_active = TRUE
+      AND embedding IS NOT NULL
+      AND provenance = 'system_inferred'
+      AND source_surface = 'chat'
+      AND id <> ALL(:exclude_ids)
+    ORDER BY embedding <=> CAST(:query_vec AS vector)
+    LIMIT {DEDUP_CANDIDATE_LIMIT}
+"""
+
+
+# The survivor's supersession chain length, walking supersedes_memory_id back.
+# An aggregate with no GROUP BY returns ONE row even over zero input rows, so the
+# COALESCE turns "no chain" into 0 rather than NULL. The depth cap only bounds a
+# cycle, which no writer creates.
+CHAIN_DEPTH_SQL = """
+    WITH RECURSIVE chain(next_id, depth) AS (
+        SELECT supersedes_memory_id, 1
+        FROM memory_entries
+        WHERE id = :survivor_id AND supersedes_memory_id IS NOT NULL
+      UNION ALL
+        SELECT m.supersedes_memory_id, c.depth + 1
+        FROM memory_entries m
+        JOIN chain c ON m.id = c.next_id
+        WHERE m.supersedes_memory_id IS NOT NULL AND c.depth < 100
+    )
+    SELECT COALESCE(MAX(depth), 0) AS depth FROM chain
+"""
+
+
+def _cosine(u, v) -> float:
+    """Cosine similarity of two embeddings. PURE. 0.0 for a zero vector."""
+    dot = sum(a * b for a, b in zip(u, v))
+    nu = sum(a * a for a in u) ** 0.5
+    nv = sum(b * b for b in v) ** 0.5
+    return dot / (nu * nv) if nu and nv else 0.0
+
+
+def inherited_echo(survivor_count: int | None, survivor_last: datetime | None,
+                   loser_count: int | None, loser_last: datetime | None,
+                   echo_now: datetime | None = None) -> tuple[int | None, datetime | None]:
+    """The survivor's (echo_count, last_echo_at) after absorbing the loser. PURE.
+
+    Strength must survive supersession (ruling): the counts add, the later
+    timestamp wins. NULL stays NULL when neither row was ever echoed — NULL means
+    "never echoed since 073", and a merge of two unechoed rows has not been.
+
+    `echo_now` is the ECHO B4 WOULD HAVE COUNTED, passed by the caller only when
+    the NEW row survives a row from ANOTHER conversation. The order is ruled:
+    dedup runs before detect_recurrence. B4 would have stamped that old row +1 as
+    an anchor; retired first, it is no longer in the corpus and nothing is
+    stamped. Adding the echo here keeps the count B4 would have produced. When
+    the OLD row survives it stays active and B4 stamps it itself, so the caller
+    passes nothing — the two outcomes give the same total.
+    """
+    stamps = [t for t in (survivor_last, loser_last, echo_now) if t is not None]
+    if survivor_count is None and loser_count is None and echo_now is None:
+        return None, max(stamps) if stamps else None
+    count = (survivor_count or 0) + (loser_count or 0) + (1 if echo_now is not None else 0)
+    return count, max(stamps) if stamps else None
+
+
+def _log_dedup(verdict: str, *, kept: str, retired: str, user_id, new_id=None,
+               candidate_id=None, score: float | None = None,
+               more_specific: str | None = None, note: str | None = None,
+               chain_depth: int | None = None) -> None:
+    """Every B5 decision on ONE template, so "how often does it retire, keep both,
+    flag, fail" is a log query. Ids and scores only — never row content.
+    A CONTRADICTION is the flag the ruling asks for, so it logs at WARNING.
+
+    `chain_depth` is set on every RETIREMENT (amendment 2, 2026-10-03): the
+    survivor's supersession chain length after the write. A wrong retirement is
+    found by reading back down a chain, so its length is what makes the
+    wrong-retirement rate measurable from the logs."""
+    logger.log(
+        logging.WARNING if verdict == "CONTRADICTION" else logging.INFO,
+        "dedup_judge verdict=%s kept=%s retired=%s user=%s new=%s candidate=%s"
+        " score=%s more_specific=%s chain_depth=%s note=%s",
+        verdict, kept, retired, user_id, new_id or "-", candidate_id or "-",
+        f"{score:.3f}" if score is not None else "-", more_specific or "-",
+        chain_depth if chain_depth is not None else "-", note or "-",
+    )
+
+
 class ExtractionResult(list):
     """The saved MemoryEntry rows, plus what a deferred signal promotion needs.
 
@@ -1006,6 +1133,19 @@ class MemoryService:
                 )
 
             embedding = await embedding_client.embed(content)
+
+            # MEM2-B5 mechanism 1: the same thought twice in ONE call is dropped
+            # here, before it is stored. The earlier item is kept — the model's
+            # own order — and the drop costs only the embed already spent.
+            if dedup_judge.enabled() and embedding is not None:
+                twin_score = max(
+                    (_cosine(r.embedding, embedding) for r in saved if r.embedding is not None),
+                    default=0.0,
+                )
+                if twin_score >= WITHIN_CALL_DUP_THRESHOLD:
+                    _log_dedup("within_call", kept="earlier", retired="dropped",
+                               user_id=user_id, score=twin_score)
+                    continue
 
             memory = MemoryEntry(
                 user_id=user_id,
@@ -1311,6 +1451,200 @@ class MemoryService:
             kind, decision or "allowed", user_id, conversation_id,
         )
         return decision
+
+    async def dedup_new_entries(self, db: AsyncSession, user_id: str,
+                                new_entries: list[MemoryEntry]) -> int:
+        """MEM2-B5 mechanism 2: judge each new row against its nearest stored
+        duplicates and retire the loser of a RESTATEMENT. Returns rows retired.
+
+        WHERE IT RUNS (ruling): extract_memory_task, after the rows are committed
+        and before detect_recurrence. Worker only, never a request path, and never
+        gated by the insight budgets — a duplicate is a duplicate whether or not a
+        card may be written.
+
+        THE SURVIVOR (ruling 2026-10-03): the more specific row by the judge's
+        `more_specific`; on "same", the new one. The loser gets is_active=false,
+        inactive_reason='superseded'. The link is always on the SURVIVOR, read the
+        way 070 defines it — "the row this one replaced": survivor.
+        supersedes_memory_id = loser.id, whichever of the two survived. When the
+        old row survives, the new row is stored, retired, and reachable from it, so
+        history is intact either way. Echo strength flows to the survivor
+        (inherited_echo).
+
+        ONE RETIREMENT PER NEW ROW, AND NEVER OVER AN EXISTING LINK. 070's link is
+        one-for-one, so a survivor can record exactly one replaced row. Two cases
+        would need a second link, and in both the duplicate is KEPT rather than
+        retired without a trace: a new row stops after its first retirement (any
+        further restatement among its candidates stays active), and an old row
+        that already carries a link cannot absorb another.
+        A kept duplicate is the pre-B5 state; an unlinked retirement would be a
+        hole in the history the ruling says must stay intact.
+
+        THE RATCHET GUARD (amendment 1, 2026-10-03) is that second case, checked
+        before any write: RESTATEMENT + more_specific="earlier" on an old row that
+        already superseded something keeps BOTH (note=dedup_ratchet_guard). The
+        measured order bias (dedup_judge.parse_reply) favours the note shown
+        first, i.e. the stored row; without the guard one row could absorb restatement
+        after restatement and grow a chain on that bias alone.
+
+        FAIL-OPEN (ruling). A judge failure retires nothing for that row. Any
+        other error rolls back that row's SAVEPOINT — never the session, whose
+        rollback would expire the new rows that detect_recurrence and the signal
+        promotion read next — logs at ERROR with the trace, and stops. The rows
+        themselves were committed before this ran, so nothing here can lose one.
+
+        Writes are core UPDATEs, each guarded by is_active, so a row retired
+        concurrently by another task or by the person is never overwritten.
+        """
+        if not dedup_judge.enabled() or not new_entries:
+            return 0
+        own_ids = [uuid.UUID(str(e.id)) for e in new_entries if e.id is not None]
+        retired = 0
+        for entry in new_entries:
+            if (entry.id is None or entry.embedding is None
+                    or entry.provenance != "system_inferred"
+                    or entry.source_surface != "chat"):
+                continue
+            try:
+                savepoint = await db.begin_nested()
+            except Exception as e:  # noqa: BLE001 — fail-open
+                logger.error("dedup_new_entries failed user=%s: %s", user_id, e, exc_info=True)
+                break
+            try:
+                retired += await self._dedup_one(db, user_id, entry, own_ids)
+                await savepoint.commit()
+            except Exception as e:  # noqa: BLE001 — fail-open
+                await savepoint.rollback()
+                _log_dedup("error", kept="both", retired="none", user_id=user_id,
+                           new_id=str(entry.id), note=type(e).__name__)
+                logger.error("dedup_new_entries failed user=%s: %s", user_id, e, exc_info=True)
+                break
+        try:
+            await db.commit()
+        except Exception as e:  # noqa: BLE001 — fail-open
+            logger.error("dedup_new_entries commit failed user=%s: %s", user_id, e, exc_info=True)
+            return 0
+        return retired
+
+    async def _dedup_one(self, db: AsyncSession, user_id: str, entry: MemoryEntry,
+                         own_ids: list) -> int:
+        """One new row: candidates, judge calls, at most one retirement. Raises on
+        a database error (the caller's savepoint handles it)."""
+        # Same explicit literal as find_recurrences, for the reason given there.
+        vec_literal = "[" + ",".join(repr(float(x)) for x in entry.embedding) + "]"
+        rows = (await db.execute(
+            text(DEDUP_CANDIDATE_SQL),
+            {"query_vec": vec_literal, "user_id": user_id, "exclude_ids": own_ids},
+        )).fetchall()
+
+        new_id = str(entry.id)
+        for cand in rows:
+            if cand.score < DUPLICATE_SIM_THRESHOLD:
+                break  # ordered by distance: everything after is further away
+            log = dict(user_id=user_id, new_id=new_id, candidate_id=cand.id,
+                       score=float(cand.score))
+            verdict = await dedup_judge.judge_pair(cand.content, entry.content)
+            if verdict.failed:
+                _log_dedup("error", kept="both", retired="none",
+                           note=verdict.fail_kind, **log)
+                return 0  # fail-open: nothing retired for this row
+            loser = dedup_judge.dedup_outcome(verdict)
+            if loser == "new" and cand.supersedes_memory_id is not None:
+                # Ratchet guard (amendment 1): treated as DISTINCT, before any write.
+                _log_dedup(verdict.verdict, kept="both", retired="none",
+                           more_specific=verdict.more_specific,
+                           note="dedup_ratchet_guard", **log)
+                continue
+            if loser is None:
+                _log_dedup(verdict.verdict, kept="both", retired="none",
+                           more_specific=verdict.more_specific, **log)
+                continue
+            note = await self._supersede(db, user_id, entry, cand, loser)
+            if note is not None:
+                _log_dedup(verdict.verdict, kept="both", retired="none",
+                           more_specific=verdict.more_specific, note=note, **log)
+                continue
+            survivor_id = new_id if loser == "old" else cand.id
+            depth = (await db.execute(
+                text(CHAIN_DEPTH_SQL), {"survivor_id": survivor_id},
+            )).scalar_one()
+            _log_dedup(verdict.verdict, kept="new" if loser == "old" else "old",
+                       retired=loser, more_specific=verdict.more_specific,
+                       chain_depth=int(depth), **log)
+            return 1
+        return 0
+
+    async def _supersede(self, db: AsyncSession, user_id: str, entry: MemoryEntry,
+                         cand, loser: str) -> str | None:
+        """Retire `loser` ("old" = cand, "new" = entry) and link the survivor to
+        it. Returns None when written, or a note when NOTHING was written. The
+        guarded statement goes first, so a lost guard leaves no partial write; a
+        second statement that matches nothing raises, and the savepoint undoes
+        the first."""
+        new_id = str(entry.id)
+
+        def _one(result, what: str) -> None:
+            if (result.rowcount or 0) != 1:
+                raise RuntimeError(f"dedup supersession matched no row: {what}")
+
+        if loser == "old":
+            # The new row survives. If the old row sat in ANOTHER conversation,
+            # B4 would have stamped it as an anchor; it is retired before
+            # detect_recurrence runs, so that echo is carried here instead
+            # (inherited_echo). A same-conversation or orphaned (NULL) old row was
+            # never an anchor, so nothing extra is carried.
+            now = datetime.now(timezone.utc)
+            cross = (cand.conversation_id is not None
+                     and cand.conversation_id != str(entry.conversation_id))
+            count, last = inherited_echo(
+                None, None,  # a row written by THIS call: never echoed (B4 runs after)
+                cand.echo_count, cand.last_echo_at,
+                echo_now=now if cross else None,
+            )
+            retired = await db.execute(
+                update(MemoryEntry)
+                .where(MemoryEntry.id == cand.id, MemoryEntry.user_id == user_id,
+                       MemoryEntry.is_active == True)  # noqa: E712 — SQL
+                .values(is_active=False, inactive_reason="superseded")
+                .execution_options(synchronize_session=False)
+            )
+            if (retired.rowcount or 0) != 1:
+                return "race"
+            _one(await db.execute(
+                update(MemoryEntry)
+                .where(MemoryEntry.id == new_id, MemoryEntry.user_id == user_id,
+                       MemoryEntry.is_active == True,  # noqa: E712 — SQL
+                       MemoryEntry.supersedes_memory_id.is_(None))
+                .values(supersedes_memory_id=cand.id, echo_count=count, last_echo_at=last)
+                .execution_options(synchronize_session=False)
+            ), "survivor (new)")
+            return None
+
+        # The old row survives and absorbs the new one. B4 will stamp it itself
+        # (it stays active). The new row was written by THIS call and has never
+        # been echoed, so it brings nothing — passed as None rather than read off
+        # the ORM object, whose unloaded attribute would lazy-load in async.
+        count, last = inherited_echo(cand.echo_count, cand.last_echo_at, None, None)
+        linked = await db.execute(
+            update(MemoryEntry)
+            .where(MemoryEntry.id == cand.id, MemoryEntry.user_id == user_id,
+                   MemoryEntry.is_active == True,  # noqa: E712 — SQL
+                   MemoryEntry.supersedes_memory_id.is_(None))
+            .values(supersedes_memory_id=new_id, echo_count=count, last_echo_at=last)
+            .execution_options(synchronize_session=False)
+        )
+        if (linked.rowcount or 0) != 1:
+            # Retired, or linked, by someone else since the candidate SELECT (an
+            # existing link is the ratchet guard's case, caught before this).
+            return "race"
+        _one(await db.execute(
+            update(MemoryEntry)
+            .where(MemoryEntry.id == new_id, MemoryEntry.user_id == user_id,
+                   MemoryEntry.is_active == True)  # noqa: E712 — SQL
+            .values(is_active=False, inactive_reason="superseded")
+            .execution_options(synchronize_session=False)
+        ), "loser (new)")
+        return None
 
     async def _record_echoes(self, db: AsyncSession, user_id: str, hits: list) -> int:
         """MEM2-B4: +1 echo_count and a fresh last_echo_at on every ANCHOR — an

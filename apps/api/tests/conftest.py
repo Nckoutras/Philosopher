@@ -13,5 +13,11 @@ os.environ.setdefault('ANTHROPIC_API_KEY', 'test-dummy')
 # meaning. The judge's own tests switch it on with a mocked client.
 os.environ.setdefault('SAFETY_JUDGE_ENABLED', 'false')
 
+# MEM2-B5: the same rule for the dedup judge. OFF is exactly the pre-B5 write
+# path, so every existing memory test keeps its meaning — several of them give
+# every row one shared fake embedding, which B5 would read as duplicates. The
+# B5 tests switch it on and stub the judge.
+os.environ.setdefault('MEMORY_DEDUP_ENABLED', 'false')
+
 # Ensure app modules are importable from tests
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
