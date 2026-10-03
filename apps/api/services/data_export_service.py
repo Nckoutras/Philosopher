@@ -251,6 +251,10 @@ async def build_export(db: AsyncSession, user: User) -> dict[str, Any]:
             # 072 (MEM2-B2): the insight a shift entry is about — a JOIN id
             # against `insights` below.
             "source_insight_id": me.source_insight_id,
+            # 073 (MEM2-B4): how often this row has been echoed by a later one,
+            # and when last. NULL = never, since 073 deployed.
+            "echo_count": me.echo_count,
+            "last_echo_at": _iso(me.last_echo_at),
         }
         for me in await _scalars(
             db, select(MemoryEntry).where(MemoryEntry.user_id == user_id)

@@ -5712,7 +5712,7 @@ rode with it: provenance records whose CLAIM a row asserts, not whose grammar; a
 data export includes the five new columns. Deferred from it, now Phase B: evidence on
 signal insights (R4), the supersession chain (R1), verdict-reversal reactivation.
 
-### MEM2-B — Phase B rulings record (founder, 2026-10-03) and B1 — **B1 BUILT (#776); B1b MERGED (#777); B2 BUILT; B3–B5 RULED, NOT STARTED**
+### MEM2-B — Phase B rulings record (founder, 2026-10-03) and B1 — **B1 BUILT (#776); B1b MERGED (#777); B2 MERGED (#778); B3+B4 BUILT; B5 RULED, NOT STARTED**
 
 **Why this entry exists.** The MEM2 rulings R1–R10 that MEM2-A (#771) was built against
 exist in this repository only as citations — migration 070/071 docstrings and code
@@ -5867,6 +5867,94 @@ recorded.
 **Post-merge observable for B2.** None will come soon: production had 0 `user_rejected`
 rows on 2026-10-03, and a shift entry needs a 'no' and a 'yes' three days apart.
 `verdict_history` going non-NULL on the next verdict is the first proof.
+
+**B2's merge gate, recorded because a step was skipped.** #778 was merged before CC's
+"clear to merge" report, although its title carried `⛔ WAIT FOR REPORT`. The founder
+recorded on 2026-10-03 that the step must not be skipped again. CI was read
+afterwards: on the PR head `e65cd0cf` and on the merge `2d39daf7`, all four backend
+jobs are green, including `pytest (live Postgres)` with `DATABASE_URL_TEST` set, so the
+new live tests ran rather than skipped. The job logs need authentication, so
+per-test counts were not read.
+
+**B3 + B4 — signal evidence and recurrence strength (one PR; founder rulings
+2026-10-03).**
+
+*B3 (R4).* `insights.evidence` stays JSONB and gains a `kind` key.
+- **Belief cards** carry `{"kind": "signal", "memory_entry_ids": [...],
+  "source_message_ids": [user, assistant]}`. The ids are the belief's OWN row from the
+  same extraction call: same type and content. Ruling Q1: a 'no' on a belief must not
+  retire the unrelated rows written beside it.
+- **Dilemma and aspiration cards** carry `kind` and `source_message_ids` only. They
+  write no memory row, so a 'no' retires nothing.
+- **Recurrence cards** keep their shape and gain `"kind": "recurrence"`, added where
+  `detect_recurrence` writes the card. `find_recurrences` and the trajectory snapshot's
+  payloads are unchanged.
+
+`cited_memory_ids` reads both shapes:
+- Evidence with no `kind` is the recurrence shape (everything written 060–B3).
+- An unknown `kind` cites nothing.
+- R3's 'no' and B2's reactivation reach belief rows with no change of their own.
+
+`promote_signal_insight` now takes `saved_rows` and `source_message_ids`. The memory
+task hands over both.
+
+*B4.* Migration `073_memory_echo_strength` adds `memory_entries.echo_count` (INT) and
+`last_echo_at` (timestamptz). Both are nullable, with no index (no reader yet), no
+backfill and no RLS statement (C-05: columns only).
+
+`detect_recurrence` now runs in this order:
+1. Search EVERY new row (ruling Q2a).
+2. Stamp the anchors: +1 per anchor per call, however many new rows matched it. This
+   commits in its own savepoint.
+3. Ask the recurrence gate.
+4. Build the one card from the first hit.
+
+**What changed in that order, and why.** Before B4 the gate ran first and the loop
+stopped at the first hit. A blocked exchange searched nothing, so strength could not
+accrue while the gate was closed, which is the ruling's point. The cost is up to one
+HNSW query (LIMIT 20) per new row, at most 3 per exchange, worker-side. The founder
+accepted it explicitly: the brief's "no extra query" assumption was wrong.
+
+The gate is still asked on every call, hit or not, so B1's `insight_gate` log keeps
+counting what it counted. B1's budgets and the recurrence→signal task order are
+unchanged.
+
+**Which matches count is the search's existing exclusion, not a new rule:**
+- a chat row: other conversations only;
+- a conversation-less row (a counterview belief): every row but itself.
+
+**What the count does not do:**
+- `find_recurrences` stays free of writes. The weekly snapshot re-searches past
+  periods and must not count.
+- A retried ARQ job counts again (noted, not guarded): the same at-least-once
+  behaviour as the rows themselves.
+
+The data export carries `echo_count` and `last_echo_at`; `evidence`, and with it the
+`kind` key, was already exported whole.
+
+**Four tests pinned pre-B3/B4 behaviour that the rulings changed. Each was read before
+it was repaired:**
+- the belief card's `evidence is None`;
+- the source pin "the signal path writes no evidence", whose own docstring said B3
+  would invert it;
+- the pin on `detect_recurrence`'s `break`;
+- a fake `promote_signal_insight` signature.
+
+**One harness finding.** Mocked sessions had been reaching the card through the echo
+code's error path, because `async with db.begin_nested()` fails on an AsyncMock.
+- The savepoint is now the awaited form, which a real AsyncSession treats
+  identically.
+- The plain `_Recorder` fake gained `begin_nested`.
+- No test reaches "Echo count failed" any more.
+
+Live tests: `tests/db_live/test_signal_evidence_echo_live.py`, the first run of new
+live checks. Pure tests: `tests/services/test_signal_evidence.py`.
+
+**Post-merge observables.**
+- **B3:** the next signal card has non-NULL evidence with `kind = 'signal'`.
+- **B4:** `memory_entries` rows with `echo_count IS NOT NULL`, and
+  `Echo count user=… anchors=N` lines in the worker log. These should appear even on
+  exchanges whose `insight_gate kind=recurrence` line says `decision=throttle`.
 
 ### PARKED — founder safety alerting — **PARKED (founder, 2026-10-02). No work.**
 **Revisit only when the founder raises it.** An idea, recorded so it is not lost and is

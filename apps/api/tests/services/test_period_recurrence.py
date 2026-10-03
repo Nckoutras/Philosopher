@@ -198,15 +198,18 @@ def test_the_extracted_function_writes_nothing_and_calls_no_model():
     assert "db.commit" not in src, "find_recurrences must not commit"
 
 
-def test_the_lifetime_caller_still_owns_its_loop_and_stops_at_the_first_hit():
-    """detect_recurrence writes ONE card, so it breaks. The snapshot wants every
-    hit. A loop inside the extracted function would force one caller to discard
-    work the other needs — which is why query_entry is singular."""
+def test_the_lifetime_caller_still_owns_its_loop_and_searches_every_new_row():
+    """The loop stays in the caller — which is why query_entry is singular. Since
+    MEM2-B4 (founder ruling 2026-10-03, Q2a) it no longer stops at the first hit:
+    every new row is searched so recurrence strength accrues for all of them, and
+    the ONE card is built from the first hit afterwards. Before B4 this test
+    pinned the `break`; the ruling removed it on purpose."""
     src = inspect.getsource(ms.MemoryService.detect_recurrence)
 
     assert "for entry in new_entries:" in src
-    assert "break" in src
+    assert "break" not in src
     assert "await find_recurrences(" in src
+    assert "= hits[0]" in src
 
 
 def test_the_limit_is_named_rather_than_a_literal():

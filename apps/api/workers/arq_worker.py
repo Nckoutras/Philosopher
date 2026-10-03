@@ -894,9 +894,12 @@ async def extract_memory_task(
             # order only guarantees recurrence is never pre-empted. Same safety
             # gate as before: safety_ok was the caller's verdict on the exchange.
             if entries.safety_ok:
+                # The saved rows and the message pair are the evidence a signal
+                # card now carries (MEM2-B3): a belief cites its own row.
                 written = await memory_service.promote_signal_insight(
                     db, user_id, conversation_id, persona_id,
                     entries.signals, entries.language,
+                    saved_rows=list(entries), source_message_ids=source_message_ids,
                 )
                 if written:
                     await db.commit()

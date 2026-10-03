@@ -214,17 +214,17 @@ def test_the_column_is_nullable_because_null_means_two_things():
     assert Insight.__table__.columns["evidence"].nullable is True
 
 
-def test_the_signal_path_writes_no_evidence():
-    """Source-level. The signal write lives in promote_signal_insight since MEM2-B1
-    (it was inline in extract_and_store before, so the task could run it after the
-    recurrence check). It sets source_count=None and passes no evidence; if it ever
-    starts passing one, the two NULL meanings collapse and the docstrings go stale.
-    Phase B3 (R4) is the ruling that will change this, and this pin with it."""
+def test_the_signal_path_writes_signal_evidence():
+    """Source-level. INVERTED BY MEM2-B3 (R4, founder ruling 2026-10-03), as this
+    pin's earlier docstring said it would be: the signal write now records
+    evidence of kind "signal" (signal_evidence). source_count stays None — a
+    signal is still not a cross-conversation recurrence. NULL evidence now means
+    only "written before 060, or a signal written before B3"."""
     import inspect
 
     src = inspect.getsource(ms.MemoryService.promote_signal_insight)
     assert "source_count=None," in src
-    assert "evidence=" not in src
+    assert "evidence=signal_evidence(" in src
     # And extract_and_store itself no longer writes any Insight at all.
     assert "Insight(" not in inspect.getsource(ms.MemoryService.extract_and_store)
 

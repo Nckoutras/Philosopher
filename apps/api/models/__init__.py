@@ -345,6 +345,12 @@ class MemoryEntry(Base):
     source_insight_id: Mapped[str | None] = mapped_column(
         UUID(as_uuid=False), ForeignKey("insights.id", ondelete="SET NULL"), nullable=True,
     )
+    # Recurrence strength (073, MEM2-B4): how many extraction calls have echoed
+    # this row at >= the recurrence threshold (from another conversation, for a
+    # chat row), and when the last one did. Counted before the insight gate, so it accrues whether or
+    # not a card is written. NULL = never echoed since 073 (no backfill).
+    echo_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    last_echo_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     user: Mapped["User"] = relationship("User", back_populates="memory_entries")
 
