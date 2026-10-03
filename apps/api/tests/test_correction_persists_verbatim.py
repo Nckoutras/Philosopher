@@ -161,7 +161,6 @@ def correction_harness(monkeypatch):
     monkeypatch.setattr(cs, "safety_service", _StubSafety())
     monkeypatch.setattr(cs, "embedding_client", _StubEmbed())
     monkeypatch.setattr(cs, "memory_service", _StubMemory())
-    monkeypatch.setattr(cs, "retrieval_service", _StubRetrieval())
     monkeypatch.setattr(cs, "phenomenology_bridge_service", _StubBridge())
     monkeypatch.setattr(cs, "analytics_service", _StubAnalytics())
     monkeypatch.setattr(cs, "get_user_preferences", _stub_prefs)
@@ -218,11 +217,6 @@ class _StubEmbed:
 
 class _StubMemory:
     async def recall(self, *a, **kw):
-        return []
-
-
-class _StubRetrieval:
-    async def retrieve(self, *a, **kw):
         return []
 
 

@@ -95,8 +95,11 @@ ANALYTICS_EVENTS = {
     # message_sent has carried this same id since it shipped, so this adds no
     # privacy surface, only the join.
     "conversation_resumed":   ["persona_slug", "conversation_id", "gap_bucket"],
+    # retrieval_hit left with RET-001 (ruling 1β): corpus retrieval is out of the
+    # reply path, so the property had nothing to report. It was false on every
+    # event ever sent.
     "message_sent":           ["persona_slug", "conversation_id", "safety_level",
-                               "retrieval_hit", "memory_count", "latency_ms"],
+                               "memory_count", "latency_ms"],
     # No `used_memory` on either: council_service passes memories=[]
     # unconditionally (council_service.py), so the property would be a hardcoded
     # False on every event. A constant is not a measurement — and a dashboard

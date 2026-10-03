@@ -162,7 +162,7 @@ def persona_config_hash() -> str:
     for slug in sorted(PERSONA_REGISTRY):
         p = PERSONA_REGISTRY[slug]
         rendered = prompt_builder.build_system(
-            persona=p, memories=[], passages=[], phenomenology_bridge=None,
+            persona=p, memories=[], phenomenology_bridge=None,
             profile=None, include_cache_sentinel=False,
         )
         rendered = _re.sub(r"^Current date: .*$", "", rendered, flags=_re.M)

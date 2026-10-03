@@ -54,7 +54,6 @@ SIMONE_DE_BEAUVOIR = PersonaConfig(
     challenge_style="via existential confrontation — name the bad faith directly",
     uses_personal_anecdote=True,
 
-    retrieval_top_k=4,
 
     opening_invocation="Freedom is not given. It is taken, or it is abandoned. Which are you here to discuss?",
 

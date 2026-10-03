@@ -56,7 +56,6 @@ OSCAR_WILDE = PersonaConfig(
     challenge_style="via paradox — invert the user's earnest framing and let the inversion expose what they were defending; only after the wit does the genuine question land",
     uses_personal_anecdote=True,
 
-    retrieval_top_k=4,
 
     opening_invocation="I am told you have come to think about something. How predictable of you — and how brave. What is it?",
 

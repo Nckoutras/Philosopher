@@ -2539,6 +2539,24 @@ matters on suicide, read against SAFETY-009's classification rules.
 
 ---
 
+### TD-119 — four SSE streams still borrow the request session — **OPEN, logged (OBS-002, #774)**
+**Status: OPEN, logged with #774.** another_mind, go_deeper, Council and You-vs-You take
+the `get_db` session into their generator after its teardown has closed it, so their first
+query checks a fresh connection out on a closed session and holds it across the LLM call.
+#774 made that safe with `db.session.release_on_exit` (a shielded `close()` on every exit).
+The structural fix is the one `send_message` already has — `get_user_plan_streaming` for
+auth and per-phase sessions opened inside the generator, nothing borrowed from the request.
+Larger than a hotfix; do it as one PR across the four, and retire `release_on_exit` with it.
+
+### TD-118 — ARQ job-timeout cancellation inside an open worker session — **OPEN, logged (OBS-002, #774)**
+**Status: OPEN, logged with #774.** Every ARQ task runs under `job_timeout` (90 s; 300 s for
+the two letters) and arq cancels the task at the limit. A `CancelledError` inside
+`async with AsyncSessionLocal() as db:` closes through an unshielded `__aexit__`. arq is
+plain asyncio, not anyio, so a single cancellation normally lets the close finish — this is
+the same class as OBS-002, not the same certainty. Evidence to look for before acting: the
+"garbage collector is trying to clean up non-checked-in connection" line in the WORKER's
+Sentry project, which has not been seen. If it appears, shield the close as #774 did.
+
 ### TD-117 — past tense is caught on the four judged surfaces only — **OPEN, logged (SAFETY-002)**
 **Status: OPEN, logged with the SAFETY-002 build.** The frozen lists put past-tense
 wishes in Tier B (K1, never released), but the lists run only on chat, Council and

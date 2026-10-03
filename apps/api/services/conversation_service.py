@@ -20,7 +20,6 @@ from services.safety_service import crisis_language, safety_service
 from services import safety_gate
 from services.safety_gate import DISCUSSING_SUICIDE_ADDENDUM, DISTRESS_ADDENDUM
 from services.memory_service import memory_service
-from services.retrieval_service import retrieval_service
 from services.embedding_client import embedding_client
 from services.llm_client import llm_client
 from services.prompt_builder import prompt_builder
@@ -665,7 +664,7 @@ class ConversationService:
         # build_system FIRST (its safety/HARD-RULES layer must stay) — APPEND only.
         # build_system takes the PersonaConfig, never the DB row.
         system_prompt = prompt_builder.build_system(
-            persona=persona_config, memories=[], passages=[]
+            persona=persona_config, memories=[]
         ) + "\n\n" + REVISIT_OPENING
 
         # One non-stream completion. The user turn carrying the reading is NOT persisted.
@@ -801,11 +800,11 @@ class ConversationService:
                 yield f"data: {json.dumps({'type': 'done'})}\n\n"
                 return
 
-            # Embed the user text ONCE and reuse the vector for both recall and
-            # retrieval (was two identical embeds per turn). On embed failure
-            # query_vec stays None and each consumer falls back to its own internal
-            # embed — preserving today's per-consumer fail-open (empty results +
-            # rollback in the except blocks below).
+            # Embed the user text once, for memory recall. On embed failure
+            # query_vec stays None and recall falls back to its own internal embed
+            # — fail-open (empty results + rollback in the except block below).
+            # Corpus retrieval, the other consumer of this vector, was retired by
+            # ruling 1β (see the RETIRED block below).
             query_vec = None
             try:
                 query_vec = await embedding_client.embed(user_text)
@@ -820,13 +819,13 @@ class ConversationService:
                 logger.warning(f"Memory recall failed: {e}")
                 await db.rollback()
 
-            # ── 3. RETRIEVE PASSAGES ─────────────────────────────────────────
-            passages = []
-            try:
-                passages = await retrieval_service.retrieve(db, user_text, persona, query_embedding=query_vec)
-            except Exception as e:
-                logger.warning(f"Retrieval failed: {e}")
-                await db.rollback()
+            # ── 3. (RETIRED) CORPUS RETRIEVAL ────────────────────────────────
+            # Ruling 1β (RET-001, 2026-10-03): philosopher-corpus retrieval is OUT
+            # of the runtime reply path. One pgvector query ran here on every turn
+            # and returned zero passages in 858 production turns — the 0.72
+            # threshold was never met. The corpus, its embeddings and
+            # retrieval_service.retrieve() stay as an offline resource. Do not
+            # restore a call here without a new ruling.
 
             # ── 3.5. PHENOMENOLOGY BRIDGE LOOKUP (Phase 4) ───────────────────
             # If a modern term in the user's message maps to a phenomenological
@@ -862,7 +861,6 @@ class ConversationService:
             system_prompt = prompt_builder.build_system(
                 persona=persona,
                 memories=memories,
-                passages=passages,
                 phenomenology_bridge=phenomenology_bridge,
                 profile=profile_view,
                 include_cache_sentinel=True,
@@ -1023,8 +1021,6 @@ class ConversationService:
             # the DB execute sequence stays identical to the prior behaviour.
             user_msg_created_at = user_msg.created_at
             user_msg_id = user_msg.id  # memory provenance (070): the pair's ids
-            retrieval_ids = [str(p.id) for p in passages]
-            retrieval_hit = len(passages) > 0
             # Count, not a boolean: the Blueprint asked for memory_reference_rendered
             # with a memory_ids_count. Nothing RENDERS a memory reference (the SSE
             # stream carries no memory event and "brought in" is another persona), so
@@ -1263,7 +1259,7 @@ class ConversationService:
             # only conv.id (a loaded PK scalar — safe, no lazy load).
             assistant_msg = await self._save_message(
                 db, conv, user_id, "assistant", full_response,
-                retrieval_ids=retrieval_ids,
+                retrieval_ids=None,  # RET-001: the column stays; nothing fills it
                 safety_level=max(safety_in.level, safety_out.level, key=lambda l: ["none","low","medium","high","critical"].index(l)),
                 persona_override=safety_out.should_suppress_persona,
                 latency_ms=latency_ms,
@@ -1379,7 +1375,6 @@ class ConversationService:
             "persona_slug": persona.slug,
             "conversation_id": conversation_id,
             "safety_level": safety_in.level,
-            "retrieval_hit": retrieval_hit,
             "memory_count": memory_count,
             "latency_ms": latency_ms,
         })
@@ -1421,10 +1416,9 @@ class ConversationService:
         )
         last_user_text: str = last_user_result.scalar_one_or_none() or ""
 
-        # Embed the last user text ONCE and reuse for both recall and retrieval
-        # (was two identical embeds). On embed failure query_vec stays None and each
-        # consumer falls back to its own internal embed — preserving today's
-        # per-consumer fail-open.
+        # Embed the last user text once, for memory recall. On embed failure
+        # query_vec stays None and recall falls back to its own internal embed —
+        # fail-open. Corpus retrieval was retired by ruling 1β (RET-001).
         query_vec = None
         try:
             query_vec = await embedding_client.embed(last_user_text)
@@ -1439,19 +1433,12 @@ class ConversationService:
             logger.warning(f"Memory recall failed (another_mind): {e}")
             await db.rollback()
 
-        # ── 2. RETRIEVE PASSAGES (target persona) ────────────────────────────
-        passages = []
-        try:
-            passages = await retrieval_service.retrieve(db, last_user_text, persona, query_embedding=query_vec)
-        except Exception as e:
-            logger.warning(f"Retrieval failed (another_mind): {e}")
-            await db.rollback()
+        # ── 2. (RETIRED) CORPUS RETRIEVAL — ruling 1β (RET-001), see stream_response.
 
         # ── 3. BUILD SYSTEM PROMPT (target persona) ──────────────────────────
         system_prompt = prompt_builder.build_system(
             persona=persona,
             memories=memories,
-            passages=passages,
             include_cache_sentinel=True,
         )
         system_prompt = system_prompt + "\n\n" + GUEST_ENTRANCE
@@ -1612,7 +1599,7 @@ class ConversationService:
         # ── 6. PERSIST ASSISTANT MESSAGE WITH TARGET PERSONA ID ───────────────
         assistant_msg = await self._save_message(
             db, conv, user_id, "assistant", full_response,
-            retrieval_ids=[str(p.id) for p in passages],
+            retrieval_ids=None,  # RET-001: the column stays; nothing fills it
             persona_id=target_db.id,
             safety_level=safety_out.level,
             persona_override=safety_out.should_suppress_persona,
@@ -1742,10 +1729,9 @@ class ConversationService:
         )
         last_user_text: str = last_user_result.scalar_one_or_none() or ""
 
-        # Embed the last user text ONCE and reuse for both recall and retrieval
-        # (was two identical embeds). On embed failure query_vec stays None and each
-        # consumer falls back to its own internal embed — preserving today's
-        # per-consumer fail-open.
+        # Embed the last user text once, for memory recall. On embed failure
+        # query_vec stays None and recall falls back to its own internal embed —
+        # fail-open. Corpus retrieval was retired by ruling 1β (RET-001).
         query_vec = None
         try:
             query_vec = await embedding_client.embed(last_user_text)
@@ -1760,19 +1746,12 @@ class ConversationService:
             logger.warning(f"Memory recall failed (go_deeper): {e}")
             await db.rollback()
 
-        # ── 2. RETRIEVE PASSAGES (target persona) ────────────────────────────
-        passages = []
-        try:
-            passages = await retrieval_service.retrieve(db, last_user_text, persona, query_embedding=query_vec)
-        except Exception as e:
-            logger.warning(f"Retrieval failed (go_deeper): {e}")
-            await db.rollback()
+        # ── 2. (RETIRED) CORPUS RETRIEVAL — ruling 1β (RET-001), see stream_response.
 
         # ── 3. BUILD SYSTEM PROMPT (target persona) ──────────────────────────
         system_prompt = prompt_builder.build_system(
             persona=persona,
             memories=memories,
-            passages=passages,
             include_cache_sentinel=True,
         )
         system_prompt = system_prompt + "\n\n" + _deepen_directive(persona) + DEEPEN_ESCALATION.get(level, "")
@@ -1933,7 +1912,7 @@ class ConversationService:
         # ── 6. PERSIST ASSISTANT MESSAGE WITH TARGET PERSONA ID ───────────────
         assistant_msg = await self._save_message(
             db, conv, user_id, "assistant", full_response,
-            retrieval_ids=[str(p.id) for p in passages],
+            retrieval_ids=None,  # RET-001: the column stays; nothing fills it
             persona_id=target_db.id,
             message_kind='go_deeper',
             safety_level=safety_out.level,

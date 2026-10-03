@@ -23,19 +23,12 @@ class FakeMemory:
     content = "User struggles with procrastination"
 
 
-class FakePassage:
-    source_title = "Meditations"
-    source_type = "primary_text"
-    page_ref = "Book IV.3"
-    content = "Men seek retreats for themselves in the country, by the sea, in the hills."
-
-
 # ── (a) THE non-negotiable guardrail: same bytes reach the model ──────────────
 
 @pytest.mark.parametrize("slug", ["marcus_aurelius", "socrates"])
 def test_split_reconstructs_sentinel_free_render_byte_for_byte(builder, slug):
     persona = get_persona(slug)
-    kwargs = dict(persona=persona, memories=[FakeMemory()], passages=[FakePassage()])
+    kwargs = dict(persona=persona, memories=[FakeMemory()])
 
     with_sentinel = builder.build_system(include_cache_sentinel=True, **kwargs)
     without_sentinel = builder.build_system(include_cache_sentinel=False, **kwargs)

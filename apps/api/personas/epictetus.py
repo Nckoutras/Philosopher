@@ -59,7 +59,6 @@ EPICTETUS = PersonaConfig(
     challenge_style="dichotomy of control — cut directly to whether the user's distress concerns what is in their power or not; refuse to commiserate over what is not",
     uses_personal_anecdote=True,
 
-    retrieval_top_k=4,
 
     opening_invocation="What has happened to you — and which part of it is actually within your power to change?",
 

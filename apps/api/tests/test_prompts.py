@@ -24,13 +24,6 @@ class FakeMemory:
     content = "User struggles with procrastination"
 
 
-class FakePassage:
-    source_title = "Meditations"
-    source_type = "primary_text"
-    page_ref = "Book IV.3"
-    content = "Men seek retreats for themselves..."
-
-
 def test_system_prompt_renders_without_error(builder, marcus):
     prompt = builder.build_system(persona=marcus)
     assert len(prompt) > 100
@@ -174,7 +167,7 @@ def test_the_directive_does_not_leak_into_councils_memory_free_prompt(builder, m
     """Council passes memories=[] unconditionally (council_service.py:245); its
     memory is a separate ruling and a separate PR. Pinned here so this change is
     provably inert for that path."""
-    prompt = builder.build_system(persona=marcus, memories=[], passages=[])
+    prompt = builder.build_system(persona=marcus, memories=[])
     assert "WHAT YOU KNOW" not in prompt
     assert APPROVED_MEMORY_DIRECTIVE not in prompt
 
@@ -186,16 +179,22 @@ def test_the_memory_block_still_renders_the_memories_themselves(builder, marcus)
     assert "[STRUGGLE]" in prompt
 
 
-def test_system_prompt_with_passages(builder, marcus):
-    passages = [FakePassage()]
-    prompt = builder.build_system(persona=marcus, passages=passages)
-    assert "Meditations" in prompt
-    assert "GROUNDING PASSAGES" in prompt
+def test_the_grounding_passages_slot_is_gone(builder, marcus):
+    """RET-001 (ruling 1β): corpus retrieval left the reply path, and the slot it
+    filled left with it — a slot nobody can fill is what a later session would
+    "restore". The template has no passages block and build_system takes no
+    passages argument. The render for passages=[] was byte-identical before and
+    after the removal (22 persona × sentinel renders hashed, see the PR)."""
+    import inspect
 
+    from services.prompt_builder import PROMPTS_DIR
 
-def test_system_prompt_without_passages_has_no_grounding_section(builder, marcus):
-    prompt = builder.build_system(persona=marcus, passages=[])
-    assert "GROUNDING PASSAGES" not in prompt
+    template = (PROMPTS_DIR / "system_base.jinja2").read_text(encoding="utf-8")
+    assert "GROUNDING PASSAGES" not in template
+    assert "passages" not in template
+    assert "passages" not in inspect.signature(builder.build_system).parameters
+    with pytest.raises(TypeError):
+        builder.build_system(persona=marcus, passages=[])
 
 
 def test_system_prompt_includes_forbidden_phrases(builder, marcus):

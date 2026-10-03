@@ -102,7 +102,6 @@ async def _run(total=42):
     with (
         patch("services.conversation_service.safety_service") as mock_safety,
         patch("services.conversation_service.memory_service") as mock_memory,
-        patch("services.conversation_service.retrieval_service") as mock_retrieval,
         patch("services.conversation_service.llm_client", mock_llm),
         patch("services.conversation_service.prompt_builder") as mock_prompt,
         patch("services.conversation_service.analytics_service"),
@@ -118,7 +117,6 @@ async def _run(total=42):
         mock_safety.check_output = AsyncMock(return_value=safety_result)
 
         mock_memory.recall = AsyncMock(return_value=[])
-        mock_retrieval.retrieve = AsyncMock(return_value=[])
         mock_prompt.build_system.return_value = "system"
         mock_prompt.build_safety_response.return_value = "safe"
 

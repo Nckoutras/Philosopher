@@ -59,7 +59,6 @@ LAO_TZU = PersonaConfig(
     challenge_style="via paradox and reversal — return the user's complaint to its opposite; show what their effort itself is producing",
     uses_personal_anecdote=False,
 
-    retrieval_top_k=4,
 
     opening_invocation="You have come with words. Sit a moment first — then say what is moving in you, and what you have been trying to make happen.",
 

@@ -172,19 +172,6 @@ These are things you know of this person from earlier conversations. Let them in
 {% endfor %}
 {% endif %}
 
-{% if passages %}
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-GROUNDING PASSAGES
-Only use a passage if it is directly relevant. Paraphrase — never reproduce verbatim.
-Attribute loosely: "As I once wrote..." or "In [source title]..."
-If none is relevant, ignore this section entirely.
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-{% for p in passages %}
-[{{ p.source_title }} — {{ p.source_type }}{% if p.page_ref %}, {{ p.page_ref }}{% endif %}]
-{{ p.content }}
-{% endfor %}
-{% endif %}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 HARD RULES (non-negotiable)

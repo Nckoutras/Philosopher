@@ -60,7 +60,6 @@ MIYAMOTO_MUSASHI = PersonaConfig(
     challenge_style="via the cut — strip the elaboration to the single essential, name the hesitation hiding inside it, and hold the user to a clean choice: act, or stop pretending a choice has been made",
     uses_personal_anecdote=False,
 
-    retrieval_top_k=4,
 
     opening_invocation="Tell me the situation, plainly. Then we will find the one thing that matters in it, and the next move you can actually make.",
 

@@ -34,7 +34,6 @@ class PersonaConfig:
 
         slug, name, era, tradition, tier, tagline, avatar_emoji,
         opening_invocation                  -- identity, routing, UI
-        retrieval_top_k                     -- services/retrieval_service.py
         response_length_words               -- evals/run.py (arm bands)
         forbidden_lexicon_persona_specific  -- services/postprocessing_service.py
 
@@ -100,9 +99,6 @@ class PersonaConfig:
     challenge_level: int = 3          # 1=gentle 5=relentless
     challenge_style: str = ""
     uses_personal_anecdote: bool = True
-
-    # Retrieval
-    retrieval_top_k: int = 4
 
     # UX
     opening_invocation: str = ""

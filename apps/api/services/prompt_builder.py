@@ -4,7 +4,7 @@ from typing import Optional
 
 from personas._base import PersonaConfig
 from personas._models import PhenomenologyBridge
-from models import MemoryEntry, SourceChunk
+from models import MemoryEntry
 from datetime import date
 
 PROMPTS_DIR = Path(__file__).parent.parent / "prompts"
@@ -70,7 +70,6 @@ class PromptBuilder:
         self,
         persona: PersonaConfig,
         memories: list[MemoryEntry] = None,
-        passages: list[SourceChunk] = None,
         phenomenology_bridge: Optional[PhenomenologyBridge] = None,
         profile: Optional[dict] = None,
         include_cache_sentinel: bool = False,
@@ -85,7 +84,6 @@ class PromptBuilder:
         return template.render(
             persona=persona,
             memories=memories or [],
-            passages=passages or [],
             phenomenology_bridge=phenomenology_bridge,
             profile=profile,
             current_date=date.today().strftime("%B %d, %Y"),

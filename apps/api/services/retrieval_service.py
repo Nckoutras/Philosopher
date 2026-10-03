@@ -8,6 +8,17 @@ from services.embedding_client import embedding_client
 logger = logging.getLogger(__name__)
 
 
+# No runtime caller since RET-001 (ruling 1β, 2026-10-03). Production retrieval
+# returned zero passages in 858 turns against the 0.72 threshold, so the reply
+# path no longer calls retrieve(); the corpus, its embeddings and this module
+# stay as an OFFLINE resource (scripts/ingest_corpus.py, evals/retrieval_arm).
+# Do not wire retrieve() back into a request path without a new ruling.
+
+# Was PersonaConfig.retrieval_top_k, removed with the runtime call: ten personas
+# carried 4, Socrates 3, and nothing but the deleted call read it.
+DEFAULT_TOP_K = 4
+
+
 class RetrievalService:
 
     async def retrieve(
@@ -19,11 +30,10 @@ class RetrievalService:
         score_threshold: float = 0.72,
         query_embedding: list[float] | None = None,
     ) -> list[SourceChunk]:
-        # query_embedding: an optional precomputed embedding of ``query``. When the
-        # caller already embedded the same text (the chat turn reuses one vector for
-        # both recall and retrieval), pass it here to skip a redundant embed. When
-        # None, embed internally exactly as before.
-        top_k = top_k or persona.retrieval_top_k
+        # query_embedding: an optional precomputed embedding of ``query``, so an
+        # offline caller that already embedded the text can skip a second embed.
+        # When None, embed internally.
+        top_k = top_k or DEFAULT_TOP_K
         query_vec = query_embedding if query_embedding is not None else await embedding_client.embed(query)
 
         result = await db.execute(

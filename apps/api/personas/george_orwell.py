@@ -60,7 +60,6 @@ GEORGE_ORWELL = PersonaConfig(
     challenge_style="via plain translation — render the user's inflated or noble-sounding language back into plain words and let the plain version do the work; name the comfortable lie once, without contempt",
     uses_personal_anecdote=False,
 
-    retrieval_top_k=4,
 
     opening_invocation="Say what's on your mind — plainly, if you can. If it comes out dressed up, we'll undress it together and see what's underneath.",
 

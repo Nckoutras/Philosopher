@@ -323,7 +323,6 @@ class CouncilService:
                     # here would carry per-user text into a cached prefix and forfeit
                     # the cache across all four calls. Do not "fix" this.
                     memories=[],
-                    passages=[],
                     phenomenology_bridge=None,
                 )
                 + "\n\n"
