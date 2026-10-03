@@ -5,7 +5,7 @@ from typing import Literal, Optional
 from datetime import datetime, timedelta, timezone
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from db.session import get_db
+from db.session import get_db, release_on_exit
 from models import User, SelfComparison, SelfComparisonSave
 from schemas import (
     SelfComparisonClosingOut,
@@ -284,9 +284,13 @@ async def create_self_comparison(
                 },
             ))
 
+    # release_on_exit: the stream borrows the request session after get_db has
+    # closed it; a mid-stream disconnect must still return its connection (OBS-002).
     return StreamingResponse(
-        self_comparison_service.stream(db=db, user_id=user.id, prompt=prompt, bypass_gate=user.is_admin,
-                                       prejudged=gate.verdict if gate is not None else None),
+        release_on_exit(self_comparison_service.stream(
+            db=db, user_id=user.id, prompt=prompt, bypass_gate=user.is_admin,
+            prejudged=gate.verdict if gate is not None else None,
+        ), db),
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )

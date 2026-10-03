@@ -9,7 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from auth import get_current_user_plan
-from db.session import get_db
+from db.session import get_db, release_on_exit
 from models import CouncilCase, CouncilSave, CouncilSession, Insight
 from schemas import CouncilCreate
 from services.council_service import council_service, _iso_week_start
@@ -190,8 +190,10 @@ async def create_council(
                 "(user=%s insight=%s)", user.id, body.insight_id,
             )
 
+    # release_on_exit: the stream borrows the request session after get_db has
+    # closed it; a mid-stream disconnect must still return its connection (OBS-002).
     return StreamingResponse(
-        council_service.stream_council(
+        release_on_exit(council_service.stream_council(
             db=db,
             user_id=user.id,
             matter=matter,
@@ -202,7 +204,7 @@ async def create_council(
             matter_edited=body.matter_edited,
             arq_queue=arq_queue,
             prejudged=gate.verdict if gate is not None else None,
-        ),
+        ), db),
         media_type="text/event-stream",
         headers=response_headers,
     )
