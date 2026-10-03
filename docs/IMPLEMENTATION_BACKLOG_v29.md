@@ -6269,6 +6269,68 @@ what this smoke tests.
 
 ---
 
+### OPS-030 — OBS-001 (#772) post-merge checks: /health/deep PASSED; liveness step 3 OWED — **OPEN**
+**Status: OPEN on one item. #772 merged 2026-10-03 09:34:33 UTC as `c0c1f7c3` (squash).
+Three post-merge obligations; two are closed, one is owed.**
+
+**(a) `GET /health/deep` on production — CLOSED, 2026-10-03 09:35:38 UTC.** The merge was
+one minute old. Read with `curl -s -w '%{http_code}' https://philosopher-api-z9l9.onrender.com/health/deep`:
+HTTP 200, `status: ok`, `db / migrations_at_head / worker_alive / queue_reachable /
+scheduler_running` all `true`, `heartbeat_age_minutes: 5`, `heartbeat_stale_after_minutes: 40`,
+`db_revision` and `code_head` both `071_memory_provenance_backfill`. Exactly the eleven
+keys `tests/routers/test_health_deep.py` allows, nothing else. One 404 was read first, from
+the instance the deploy was replacing; the next poll 30 s later was the 200.
+
+**(b) Worker liveness step 3 ("GET /health/deep answers 200") green on a run AFTER the
+merge — OWED.** At the time of writing the newest run is #91, 05:34 UTC, on the pre-merge
+SHA `484d9a1c`; no run has yet executed the new step. The cron says every 30 minutes and
+the measured cadence is a median gap of 248 minutes (p90 369, max 520; the workflow
+header carries the numbers), so the next scheduled run is four to nine hours out.
+**Method:** Actions → Worker liveness → Run workflow with the default threshold, or wait
+for the schedule. **Expected:** step 2 "worker alive", step 3 prints the body above and
+"deep health: ok", run green. **Not closed until a run on or after `c0c1f7c3` shows it.**
+A red step 3 with a green step 2 is the one shape to read carefully: it means the API
+answered something other than 200, and the printed body names the check.
+
+**(c) Ruling 5 (alert delivery address) — RESOLVED 2026-10-03, founder.** `SENTRY_DSN` is
+confirmed set on BOTH Render services (API and worker), which closes the "founder-reported,
+not verified" line carried since PROJECT_STATE_v27. An event from the **API process**
+exists in Sentry, so the wiring is now proven on both processes (the only prior proof was
+the worker's accidental OTP-purge event of 2026-09-14). An **issue alert rule emailing the
+founder** was created 2026-10-03 on the API project; the worker project's rule and the
+member-email action are being finalised by the founder. GitHub's workflow-failure email
+for Layer C goes to the last editor of the cron line (Nckoutras, `f9e8b938`).
+
+**Standing item this entry creates: pre-beta checklist.** OBS-001 ruling 3 accepted
+GitHub's cron drift as the detection floor for Layer C — four to nine hours — with no new
+service. **Before users are let in, revisit with an external pinger pointed at
+`/health/deep`.** The endpoint is public by ruling 2 for exactly that reason.
+
+**Reference.** The #669 layers (A: `workers/cron.py:check_job_expectations`; B:
+`workers/heartbeat.py`; C: `worker-liveness.yml`) are described in #772's description,
+since no document on `main` described them before (OBS-001 ruling 7 deferred the rotation).
+
+---
+
+### OBS-002 — Sentry: "garbage collector / non-checked-in connection" on `/api/v1/insights` — **LOGGED, backlog, not urgent**
+**Found 2026-10-03 by the founder, reading Sentry for the first time with a confirmed
+API-process DSN (OPS-030 (c)).** One issue, **6 events over 4 weeks**, on the insights
+path (`routers/memory.py`, `insights_router`). The SQLAlchemy message means a pooled
+connection was reclaimed by the garbage collector without having been returned to the
+pool: a **session leak** somewhere on that path, where a session or result is created
+outside `get_db`'s lifecycle (or a generator/stream holds one past the request) and is
+dropped rather than closed.
+
+**Why not urgent.** Six events in four weeks against a pool with `pool_pre_ping=True` and
+`pool_recycle=300` (`db/session.py`) is a slow drip the pool absorbs; nothing user-facing
+has been traced to it. **Why logged anyway.** It is the first thing the alerting built
+under OBS-001 has surfaced, and a leak that is harmless at this traffic is the kind that
+becomes pool exhaustion with real subscribers. Investigate with the Sentry event's stack
+frames first (they name the request handler), then read every session acquisition on the
+insights path against `get_db`. No code change until the frame is read (P-06).
+
+---
+
 ## 5. UX
 
 ### UX-04 — a Free user can type into Council and You-vs-You, submit, and get a generic error instead of an upgrade prompt — **LOGGED; priority: BEFORE Stripe live**
