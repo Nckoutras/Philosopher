@@ -258,8 +258,9 @@ async def recurring_questions(db, user_id: str, period_start: datetime,
     boundary, which is what makes "this keeps coming back" mean anything.
 
     THE LOOP LIVES HERE, not in find_recurrences, and it does not break early —
-    detect_recurrence stops at the first hit because it writes one card; a
-    snapshot wants every hit. That difference is the reason the seam exists.
+    detect_recurrence also searches every new row (MEM2-B4), but it counts echoes
+    and builds one card from the first hit; a snapshot keeps every hit and counts
+    nothing. That difference is the reason the seam exists.
     """
     from sqlalchemy import select
 
