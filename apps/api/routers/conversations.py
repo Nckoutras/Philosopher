@@ -5,7 +5,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
-from db.session import get_db, AsyncSessionLocal
+from db.session import get_db, AsyncSessionLocal, release_on_exit
 from models import User, Conversation, Message, Persona, SavedLine
 from schemas import (
     ConversationCreate, ConversationOut, CrossPersonaRequest,
@@ -648,8 +648,11 @@ async def another_mind(
 
     arq_queue = getattr(request.app.state, "arq_queue", None)
 
+    # release_on_exit: this generator borrows the request session after get_db
+    # has closed it, and a reader who disconnects mid-stream would otherwise leave
+    # its connection checked out until the garbage collector found it (OBS-002).
     return StreamingResponse(
-        conversation_service.stream_another_mind(
+        release_on_exit(conversation_service.stream_another_mind(
             db=db,
             conversation_id=conversation_id,
             user_id=user.id,
@@ -658,7 +661,7 @@ async def another_mind(
             user_name=user.full_name,
             is_admin=user.is_admin,
             arq_queue=arq_queue,
-        ),
+        ), db),
         media_type="text/event-stream",
         headers=response_headers,
     )
@@ -854,8 +857,9 @@ async def go_deeper(
 
     arq_queue = getattr(request.app.state, "arq_queue", None)
 
+    # release_on_exit: see another_mind above (OBS-002).
     return StreamingResponse(
-        conversation_service.stream_go_deeper(
+        release_on_exit(conversation_service.stream_go_deeper(
             db=db,
             conversation_id=conversation_id,
             user_id=user.id,
@@ -863,7 +867,7 @@ async def go_deeper(
             user_name=user.full_name,
             is_admin=user.is_admin,
             arq_queue=arq_queue,
-        ),
+        ), db),
         media_type="text/event-stream",
         headers=response_headers,
     )
