@@ -873,6 +873,14 @@ async def extract_memory_task(
             await db.commit()
             logger.info(f"Memory task: stored {len(entries)} entries for user={user_id}")
 
+            # MEM2-B5 write-time dedup: after the rows are committed, before
+            # recurrence, never gated by the insight budgets (ruling). Self-
+            # contained — fails open and never raises into this task. A new row
+            # it retires still goes to detect_recurrence below: as a QUERY it can
+            # still find the row that absorbed it in another conversation, which
+            # is how that row gets its B4 echo (see inherited_echo).
+            await memory_service.dedup_new_entries(db, user_id, list(entries))
+
             # Recurrence detection (Insight Slice 1): same session, after commit.
             # Self-contained try/except inside — never raises into this task.
             # The language from the PERSON'S OWN MESSAGE, not from the entries
