@@ -6269,9 +6269,9 @@ what this smoke tests.
 
 ---
 
-### OPS-030 — OBS-001 (#772) post-merge checks: /health/deep PASSED; liveness step 3 OWED — **OPEN**
-**Status: OPEN on one item. #772 merged 2026-10-03 09:34:33 UTC as `c0c1f7c3` (squash).
-Three post-merge obligations; two are closed, one is owed.**
+### OPS-030 — OBS-001 (#772) post-merge checks: /health/deep PASSED; liveness step 3 PASSED — **CLOSED**
+**Status: CLOSED 2026-10-03. #772 merged 2026-10-03 09:34:33 UTC as `c0c1f7c3` (squash).
+Three post-merge obligations; all three are closed.**
 
 **(a) `GET /health/deep` on production — CLOSED, 2026-10-03 09:35:38 UTC.** The merge was
 one minute old. Read with `curl -s -w '%{http_code}' https://philosopher-api-z9l9.onrender.com/health/deep`:
@@ -6282,13 +6282,16 @@ keys `tests/routers/test_health_deep.py` allows, nothing else. One 404 was read 
 the instance the deploy was replacing; the next poll 30 s later was the 200.
 
 **(b) Worker liveness step 3 ("GET /health/deep answers 200") green on a run AFTER the
-merge — OWED.** At the time of writing the newest run is #91, 05:34 UTC, on the pre-merge
+merge — CLOSED.** Run #92, `workflow_dispatch` by the founder at 09:48:04 UTC on `bdf632f7`
+(two commits after the merge): steps 2, 3 and 4 all `success`, step 4 being the new
+deep-health curl. Read from the Actions API, not inferred. (Written before that run existed:
+ at the time the newest run was #91, 05:34 UTC, on the pre-merge
 SHA `484d9a1c`; no run has yet executed the new step. The cron says every 30 minutes and
 the measured cadence is a median gap of 248 minutes (p90 369, max 520; the workflow
 header carries the numbers), so the next scheduled run is four to nine hours out.
 **Method:** Actions → Worker liveness → Run workflow with the default threshold, or wait
 for the schedule. **Expected:** step 2 "worker alive", step 3 prints the body above and
-"deep health: ok", run green. **Not closed until a run on or after `c0c1f7c3` shows it.**
+"deep health: ok", run green. **Closed by run #92, above.**
 A red step 3 with a green step 2 is the one shape to read carefully: it means the API
 answered something other than 200, and the printed body names the check.
 
