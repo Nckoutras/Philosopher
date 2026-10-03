@@ -272,6 +272,29 @@ async def test_a_dismissed_insight_reactivates_nothing(live):
 
 
 @pytest.mark.asyncio
+async def test_a_dismissed_insight_owes_no_shift_entry(live):
+    """A dismissed card is silent everywhere (founder ruling 2026-10-03): a no→yes
+    pair well past 72h enqueues nothing and writes no row. The verdict and its
+    history are still recorded."""
+    uid = await live.make_user()
+    async with live.Session() as s:
+        iid = await _insight(s, uid, None)
+        await s.commit()
+
+    queue = _queue()
+    await _verdict(live, uid, iid, "no", at=T0, queue=queue)
+    async with live.Session() as s:
+        await s.execute(text("UPDATE insights SET is_dismissed = true WHERE id = :i"), {"i": iid})
+        await s.commit()
+    await _verdict(live, uid, iid, "yes", at=T0 + timedelta(days=10), queue=queue)
+
+    assert _shift_calls(queue) == []
+    assert await _shift_rows(live, uid) == []
+    history = await _scalar(live, "SELECT verdict_history FROM insights WHERE id = :i", i=iid)
+    assert [h["verdict"] for h in history] == ["no", "yes"]
+
+
+@pytest.mark.asyncio
 async def test_partly_reactivates_nothing(live):
     uid = await live.make_user()
     async with live.Session() as s:
@@ -442,6 +465,22 @@ async def test_the_task_writes_nothing_once_the_verdict_has_gone_back_to_no(live
     await _verdict(live, uid, iid, "no", at=T0)
     await _verdict(live, uid, iid, "yes", at=T0 + timedelta(days=5))
     await _verdict(live, uid, iid, "no", at=T0 + timedelta(days=5, minutes=1))
+
+    await _run_task(uid, iid, 5)
+    assert await _shift_rows(live, uid) == []
+
+
+@pytest.mark.asyncio
+async def test_the_task_writes_nothing_once_the_card_is_dismissed(live):
+    """Dismissed between the enqueue and the run: still silent."""
+    uid = await live.make_user()
+    async with live.Session() as s:
+        iid = await _insight(s, uid, None)
+        await s.execute(
+            text("UPDATE insights SET ring_true = 'yes', is_dismissed = true WHERE id = :i"),
+            {"i": iid},
+        )
+        await s.commit()
 
     await _run_task(uid, iid, 5)
     assert await _shift_rows(live, uid) == []

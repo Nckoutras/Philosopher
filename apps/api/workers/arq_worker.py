@@ -1213,6 +1213,8 @@ async def record_verdict_shift_task(ctx, user_id: str, insight_id: str, days: in
 
     The verdict is RE-READ here. If the person said 'no' again before this ran,
     the row would assert an acceptance they have withdrawn, so nothing is written.
+    The same applies if the card was dismissed in between: a dismissed card is
+    silent everywhere (founder ruling 2026-10-03).
 
     Latest shift per insight only: the previous active row with the same
     source_insight_id is retired as 'superseded' and linked from the new one, in
@@ -1233,9 +1235,10 @@ async def record_verdict_shift_task(ctx, user_id: str, insight_id: str, days: in
             insight = (await db.execute(
                 select(Insight).where(Insight.id == insight_id, Insight.user_id == user_id)
             )).scalar_one_or_none()
-            if insight is None or insight.ring_true != "yes":
+            if insight is None or insight.ring_true != "yes" or insight.is_dismissed:
                 logger.info(
-                    "Verdict shift skipped for user=%s insight=%s: verdict is no longer 'yes'",
+                    "Verdict shift skipped for user=%s insight=%s: verdict is no longer "
+                    "'yes', or the card was dismissed",
                     user_id, insight_id,
                 )
                 return

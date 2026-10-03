@@ -5829,7 +5829,7 @@ verdict's transaction, in addition to R3:
 - **A 'yes'** reactivates the cited rows whose reason is `user_rejected`
   (`reactivate_cited_memories`). It does this on EVERY 'yes', not only after a 'no',
   so insight Y can return a row that insight X retired (Q5). `superseded` and
-  `user_removed` rows never return, and a dismissed insight reactivates nothing.
+  `user_removed` rows never return.
 - **A 'no'** also retires that insight's active shift row as `user_rejected`
   (`reject_verdict_shift`).
 
@@ -5859,9 +5859,10 @@ columns.
 Live tests: `tests/db_live/test_verdict_shift_live.py`, the first run of new live
 checks. Pure boundaries: `tests/services/test_verdict_shift.py`.
 
-**One reading taken without a ruling:** a shift entry is owed on a dismissed insight
-too. Ruling 4 says a dismissed insight *reactivates* nothing and does not mention the
-shift entry, so the shift ruling was applied as written.
+**Dismissed insights are silent everywhere** (founder amendment 2026-10-03, on the
+diff): a 'yes' on a dismissed insight neither reactivates nor owes a shift entry, and
+the task re-checks dismissal before writing. The verdict and its history are still
+recorded.
 
 **Post-merge observable for B2.** None will come soon: production had 0 `user_rejected`
 rows on 2026-10-03, and a shift entry needs a 'no' and a 'yes' three days apart.

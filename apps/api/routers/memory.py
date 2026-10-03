@@ -192,9 +192,11 @@ async def set_insight_ring_true(
     #
     # MEM2-B2: a 'yes' REACTIVATES the cited rows retired as 'user_rejected' —
     # on every 'yes', not only one that follows a 'no', because another insight
-    # may have retired them (Q5). A DISMISSED insight reactivates nothing. When
-    # this 'yes' answers a 'no' on the same insight at least 72h earlier, a shift
-    # entry is owed too, written by its own task after the commit below.
+    # may have retired them (Q5). When this 'yes' answers a 'no' on the same
+    # insight at least 72h earlier, a shift entry is owed too, written by its own
+    # task after the commit below. A DISMISSED insight does neither: a dismissed
+    # card is silent everywhere (founder ruling 2026-10-03). Its verdict and
+    # history are still recorded.
     #
     # All of these run BEFORE the commit, in the verdict's transaction. 'partly'
     # does nothing (R6).
@@ -202,9 +204,8 @@ async def set_insight_ring_true(
     if body.ring_true == "no":
         await reject_cited_memories(db, user.id, insight.evidence)
         await reject_verdict_shift(db, user.id, insight.id)
-    elif body.ring_true == "yes":
-        if not insight.is_dismissed:
-            await reactivate_cited_memories(db, user.id, insight.evidence)
+    elif body.ring_true == "yes" and not insight.is_dismissed:
+        await reactivate_cited_memories(db, user.id, insight.evidence)
         shift_days = verdict_shift_days(
             shift_anchor(prior_history, previous_verdict, previous_at), now,
         )
