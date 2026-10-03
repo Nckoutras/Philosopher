@@ -836,6 +836,10 @@ async def extract_memory_task(
 
     async with AsyncSessionLocal() as db:
         try:
+            # promote_signal=False: the signal card is written BELOW, after the
+            # recurrence check (MEM2-B1, founder ruling 2026-10-03: recurrence
+            # first). Before B1 the signal card went in here and occupied the one
+            # shared window that detect_recurrence then found closed.
             entries = await memory_service.extract_and_store(
                 db=db,
                 user_id=user_id,
@@ -846,6 +850,7 @@ async def extract_memory_task(
                 source_turn=turn,
                 safety_ok=safety_ok,
                 source_message_ids=source_message_ids,
+                promote_signal=False,
             )
             await db.commit()
             logger.info(f"Memory task: stored {len(entries)} entries for user={user_id}")
@@ -865,6 +870,18 @@ async def extract_memory_task(
                 new_entries=entries,
                 language=_dominant_language([user_text]),
             )
+
+            # Signal promotion LAST (MEM2-B1). Its own budget (kind="signal"), so
+            # whether a recurrence card was just written changes nothing here; the
+            # order only guarantees recurrence is never pre-empted. Same safety
+            # gate as before: safety_ok was the caller's verdict on the exchange.
+            if entries.safety_ok:
+                written = await memory_service.promote_signal_insight(
+                    db, user_id, conversation_id, persona_id,
+                    entries.signals, entries.language,
+                )
+                if written:
+                    await db.commit()
         except Exception as e:
             logger.error(f"Memory task failed: {e}", exc_info=True)
 

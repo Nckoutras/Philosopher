@@ -318,7 +318,25 @@ def compose_recall(
 # module — it gained a second reader (the D3 diversity guard) and one definition
 # of "these two rows say the same thing" serves both. Its value is unchanged.
 RECURRENCE_MIN_PRIOR = 1          # how many prior-conversation matches → recurrence
-RECURRENCE_THROTTLE_HOURS = 6     # min spacing between 'pattern' insights per user
+RECURRENCE_THROTTLE_HOURS = 6     # min spacing between insights OF ONE CLASS per user
+
+# ── Insight classes: two budgets, not one (MEM2-B1, founder ruling 2026-10-03) ──
+#
+# Until B1 the throttle counted EVERY non-dismissed insight, whatever its type, and
+# the task wrote the signal card before it looked for a recurrence. So a belief
+# card written seconds earlier occupied the 6h window that the recurrence check
+# then found closed. Production, read 2026-10-03: 32 insights, 28 of them signals,
+# 4 patterns — and all 4 predate evidence (060), so no recurrence card had been
+# written since #642. The window and the one-per-conversation rule are now PER
+# CLASS: a signal card and a recurrence card may both exist for one conversation,
+# and each class waits only on its own kind. Types outside both classes (legacy
+# 'question', 'challenge') count toward neither budget.
+RECURRENCE_INSIGHT_TYPES = ("pattern", "shift")
+SIGNAL_INSIGHT_TYPES = ("dilemma", "belief", "aspiration")
+INSIGHT_CLASSES = {
+    "recurrence": RECURRENCE_INSIGHT_TYPES,
+    "signal": SIGNAL_INSIGHT_TYPES,
+}
 
 RECURRENCE_PROMPT = """You name a recurring thread in someone's reflections — factually, not therapeutically.
 
@@ -711,6 +729,20 @@ def _iso_z(value: datetime | None) -> str | None:
     return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
+class ExtractionResult(list):
+    """The saved MemoryEntry rows, plus what a deferred signal promotion needs.
+
+    A list, so every existing caller and test that iterates, measures or compares
+    the return of extract_and_store is unchanged. The three attributes exist for
+    extract_memory_task, which promotes the signal AFTER detect_recurrence
+    (MEM2-B1, recurrence-first) and therefore needs the extraction's raw output
+    and language decision after the fact.
+    """
+    signals: list
+    language: str
+    safety_ok: bool
+
+
 class MemoryService:
 
     async def extract_and_store(
@@ -724,11 +756,19 @@ class MemoryService:
         source_turn: int = 0,
         safety_ok: bool = False,
         source_message_ids: list[str] | None = None,
-    ) -> list[MemoryEntry]:
+        promote_signal: bool = True,
+    ) -> "ExtractionResult":
         """Extract memory signals from a message pair and persist them.
 
         `safety_ok` (input+output both level 'none') gates ONLY the dilemma/belief
         signal-insight write below; memory-row persistence is unchanged by it.
+
+        `promote_signal` (MEM2-B1): True keeps the historical shape — the signal
+        card is written here, after the rows. extract_memory_task passes False and
+        calls promote_signal_insight ITSELF, after detect_recurrence, so recurrence
+        is evaluated first (founder ruling 2026-10-03: recurrence-first). The
+        return value is a list of the saved rows that also carries what the
+        deferred promotion needs (.signals, .language, .safety_ok).
 
         `source_message_ids` is [user message id, assistant message id] (070). None
         when the caller had none to give — a job queued before 070 — and stored as
@@ -802,100 +842,128 @@ class MemoryService:
 
         await db.flush()
 
-        # ── Dilemma/belief/aspiration → Insight (Slice 2) ─────────────────────
-        # Explicitly-stated, chip-worthy signals promoted to an Insight — ONLY when
-        # the exchange was safety-clean (safety_ok, level 'none' both ways) and the
-        # SAME throttle/dedup gate detect_recurrence uses allows it. At most one write
-        # per call; priority order dilemma > belief > aspiration when several qualify.
-        # Per-type confidence bar (_SIGNAL_MIN_CONF): dilemma/belief 0.8, aspiration
-        # 0.7. content is used verbatim downstream (Council prefill for a dilemma,
-        # Counterview anchor for a belief, Future Self door for an aspiration);
-        # source_count=None (not a cross-conversation recurrence).
-        # Self-contained — a failure here must never break memory persistence.
-        if safety_ok:
-            try:
-                _SIGNAL_MIN_CONF = {"dilemma": 0.8, "belief": 0.8, "aspiration": 0.7}
+        result = ExtractionResult(saved)
+        result.signals = entries_data
+        result.language = language
+        result.safety_ok = safety_ok
 
-                def _eligible(e: dict, want: str, thr: float) -> bool:
-                    """Candidate test, INSIDE the selection rather than after it.
-
-                    Filtering a chosen signal afterwards would collapse the whole
-                    promotion when the top-priority candidate fails: a mismatching
-                    dilemma would take the slot and then be discarded, and the
-                    Greek belief behind it would never be reached. Rejecting here
-                    lets `next()` fall through to the next candidate and the loop
-                    advance to the next type, which is the behaviour the priority
-                    order already promises.
-
-                    The language test applies ONLY to the types that reach an
-                    input field (VERBATIM_INPUT_SIGNAL_TYPES). Everything else is
-                    log-only, handled in the memory-row loop above.
-                    """
-                    if e.get("type") != want:
-                        return False
-                    if e.get("confidence", 0) < thr:
-                        return False
-                    content = (e.get("content") or "").strip()
-                    if not content:
-                        return False
-                    if want in VERBATIM_INPUT_SIGNAL_TYPES and not language_matches(
-                        content, language
-                    ):
-                        logger.warning(
-                            "memory_language_mismatch",
-                            extra={"site": "extract_and_store",
-                                   "entry_type": want,
-                                   "expected_language": language,
-                                   "got_script": dominant_language([content]),
-                                   "dropped": True},
-                        )
-                        return False
-                    return True
-
-                signal = None
-                for want in ("dilemma", "belief", "aspiration"):
-                    thr = _SIGNAL_MIN_CONF[want]
-                    signal = next(
-                        (e for e in entries_data if _eligible(e, want, thr)),
-                        None,
-                    )
-                    if signal is not None:
-                        break
-                if signal is not None and await output_is_unsafe(
-                    db, signal.get("content"), user_id=user_id,
-                    stage=STAGE_INSIGHT_OUTPUT, conversation_id=conversation_id,
-                ):
-                    # Post-generation safety (founder ruling 2026-09-24): the
-                    # insight reaches Today and the letter, so it is not written.
-                    # Checked BEFORE the throttle, so a withheld insight never
-                    # starts the 6h window.
-                    signal = None
-                if signal is not None:
-                    blocked = await self._insight_gate_blocked(db, user_id, conversation_id)
-                    if blocked is None:
-                        raw_theme = (signal.get("theme") or "").strip().lower()
-                        theme = raw_theme if raw_theme in THEME_VALUES else None
-                        db.add(Insight(
-                            user_id=user_id,
-                            conversation_id=conversation_id,
-                            persona_id=persona_id,
-                            content=(signal.get("content") or "").strip(),
-                            insight_type=signal.get("type"),
-                            source_count=None,
-                            theme=theme,
-                        ))
-                        await db.flush()
-                        logger.info(
-                            "Signal insight written type=%s user=%s conv=%s",
-                            signal.get("type"), user_id, conversation_id,
-                        )
-                    else:
-                        logger.info("Signal insight skipped (%s) conv=%s", blocked, conversation_id)
-            except Exception as e:
-                logger.error("Signal insight write failed conv=%s: %s", conversation_id, e, exc_info=True)
+        if safety_ok and promote_signal:
+            await self.promote_signal_insight(
+                db, user_id, conversation_id, persona_id, entries_data, language,
+            )
 
         logger.info(f"Stored {len(saved)} memory entries for user={user_id}")
-        return saved
+        return result
+
+    async def promote_signal_insight(
+        self,
+        db: AsyncSession,
+        user_id: str,
+        conversation_id: str,
+        persona_id: str,
+        entries_data: list,
+        language: str,
+    ) -> bool:
+        """Dilemma/belief/aspiration → Insight (Slice 2). Returns whether one was written.
+
+        Explicitly-stated, chip-worthy signals promoted to an Insight — ONLY when
+        the exchange was safety-clean (the caller checked safety_ok) and the SIGNAL
+        budget of the shared gate allows it (_insight_gate_blocked, kind="signal").
+        At most one write per call; priority order dilemma > belief > aspiration when
+        several qualify. Per-type confidence bar (_SIGNAL_MIN_CONF): dilemma/belief
+        0.8, aspiration 0.7. content is used verbatim downstream (Council prefill for
+        a dilemma, Counterview anchor for a belief, Future Self door for an
+        aspiration); source_count=None (not a cross-conversation recurrence).
+        Self-contained — a failure here must never break memory persistence.
+
+        SPLIT OUT OF extract_and_store BY MEM2-B1 so the memory task can run it
+        AFTER detect_recurrence. The body is the pre-B1 block, unchanged except
+        for the gate's `kind`.
+        """
+        try:
+            _SIGNAL_MIN_CONF = {"dilemma": 0.8, "belief": 0.8, "aspiration": 0.7}
+
+            def _eligible(e: dict, want: str, thr: float) -> bool:
+                """Candidate test, INSIDE the selection rather than after it.
+
+                Filtering a chosen signal afterwards would collapse the whole
+                promotion when the top-priority candidate fails: a mismatching
+                dilemma would take the slot and then be discarded, and the
+                Greek belief behind it would never be reached. Rejecting here
+                lets `next()` fall through to the next candidate and the loop
+                advance to the next type, which is the behaviour the priority
+                order already promises.
+
+                The language test applies ONLY to the types that reach an
+                input field (VERBATIM_INPUT_SIGNAL_TYPES). Everything else is
+                log-only, handled in the memory-row loop above.
+                """
+                if e.get("type") != want:
+                    return False
+                if e.get("confidence", 0) < thr:
+                    return False
+                content = (e.get("content") or "").strip()
+                if not content:
+                    return False
+                if want in VERBATIM_INPUT_SIGNAL_TYPES and not language_matches(
+                    content, language
+                ):
+                    logger.warning(
+                        "memory_language_mismatch",
+                        extra={"site": "extract_and_store",
+                               "entry_type": want,
+                               "expected_language": language,
+                               "got_script": dominant_language([content]),
+                               "dropped": True},
+                    )
+                    return False
+                return True
+
+            signal = None
+            for want in ("dilemma", "belief", "aspiration"):
+                thr = _SIGNAL_MIN_CONF[want]
+                signal = next(
+                    (e for e in entries_data if _eligible(e, want, thr)),
+                    None,
+                )
+                if signal is not None:
+                    break
+            if signal is not None and await output_is_unsafe(
+                db, signal.get("content"), user_id=user_id,
+                stage=STAGE_INSIGHT_OUTPUT, conversation_id=conversation_id,
+            ):
+                # Post-generation safety (founder ruling 2026-09-24): the
+                # insight reaches Today and the letter, so it is not written.
+                # Checked BEFORE the throttle, so a withheld insight never
+                # starts the 6h window.
+                signal = None
+            if signal is not None:
+                blocked = await self._insight_gate_blocked(
+                    db, user_id, conversation_id, kind="signal",
+                )
+                if blocked is None:
+                    raw_theme = (signal.get("theme") or "").strip().lower()
+                    theme = raw_theme if raw_theme in THEME_VALUES else None
+                    db.add(Insight(
+                        user_id=user_id,
+                        conversation_id=conversation_id,
+                        persona_id=persona_id,
+                        content=(signal.get("content") or "").strip(),
+                        insight_type=signal.get("type"),
+                        source_count=None,
+                        theme=theme,
+                    ))
+                    await db.flush()
+                    logger.info(
+                        "Signal insight written type=%s user=%s conv=%s",
+                        signal.get("type"), user_id, conversation_id,
+                    )
+                    return True
+                else:
+                    logger.info("Signal insight skipped (%s) conv=%s", blocked, conversation_id)
+        except Exception as e:
+            logger.error("Signal insight write failed conv=%s: %s", conversation_id, e, exc_info=True)
+        return False
 
     async def recall(
         self,
@@ -988,42 +1056,62 @@ class MemoryService:
         db: AsyncSession,
         user_id: str,
         conversation_id: str | None,
+        *,
+        kind: str,
     ) -> str | None:
         """Shared throttle/dedup gate for ALL insight writes (recurrence AND the
-        dilemma/belief signal write) so the guards can never diverge. Returns a block
-        reason ("throttle" | "per_conversation") when a write must be skipped, or None
-        when it may proceed.
+        dilemma/belief signal write) so the guards can never diverge in SHAPE — one
+        function, one pair of rules — while each CLASS keeps its own budget
+        (MEM2-B1). `kind` is "recurrence" or "signal" (INSIGHT_CLASSES). Returns a
+        block reason ("throttle" | "per_conversation") when a write must be skipped,
+        or None when it may proceed.
 
-        - "throttle": any non-dismissed insight for this user within the last
-          RECURRENCE_THROTTLE_HOURS → skip. Spacing + idempotency vs ARQ's
-          at-least-once delivery; max one insight of any type per window.
-        - "per_conversation": for a real source conversation, any existing insight in
-          it → skip (max one per conversation). A NULL-conversation source (e.g. a
-          voluntary counterview belief) is a no-op here (== NULL never matches), so it
-          skips this check and leans on the throttle.
+        - "throttle": any non-dismissed insight OF THIS CLASS for this user within
+          the last RECURRENCE_THROTTLE_HOURS → skip. Spacing + idempotency vs ARQ's
+          at-least-once delivery; max one insight per class per window.
+        - "per_conversation": for a real source conversation, any existing insight
+          OF THIS CLASS in it → skip (max one per class per conversation). A
+          NULL-conversation source (e.g. a voluntary counterview belief) is a no-op
+          here (== NULL never matches), so it skips this check and leans on the
+          throttle.
+
+        The reader's verdict is NEVER consulted: a rejected insight still occupies
+        its window, or disagreeing with the room would let the room speak sooner.
+        Only is_dismissed widens the window, as it always has.
+
+        Every decision is logged on ONE template so the Step 0b question — how
+        often does each class get blocked, and why — can be answered from the logs
+        rather than re-derived from guesses.
         """
+        types = INSIGHT_CLASSES[kind]
         cutoff = datetime.now(timezone.utc) - timedelta(hours=RECURRENCE_THROTTLE_HOURS)
         recent = await db.execute(
             select(Insight.id).where(
                 Insight.user_id == user_id,
                 Insight.is_dismissed == False,
+                Insight.insight_type.in_(types),
                 Insight.created_at >= cutoff,
             ).limit(1)
         )
+        decision = None
         if recent.scalar_one_or_none() is not None:
-            return "throttle"
-
-        if conversation_id is not None:
+            decision = "throttle"
+        elif conversation_id is not None:
             per_conv = await db.execute(
                 select(Insight.id).where(
                     Insight.user_id == user_id,
                     Insight.conversation_id == conversation_id,
+                    Insight.insight_type.in_(types),
                 ).limit(1)
             )
             if per_conv.scalar_one_or_none() is not None:
-                return "per_conversation"
+                decision = "per_conversation"
 
-        return None
+        logger.info(
+            "insight_gate kind=%s decision=%s user=%s conv=%s",
+            kind, decision or "allowed", user_id, conversation_id,
+        )
+        return decision
 
     async def detect_recurrence(
         self,
@@ -1062,11 +1150,14 @@ class MemoryService:
             if not new_entries:
                 return
 
-            # ── DEDUP / THROTTLE (shared gate) ────────────────────────────────
-            # The SAME gate the dilemma/belief signal write uses (see
-            # _insight_gate_blocked), so a pattern, a shift, and a signal insight can
-            # never diverge on spacing or the one-per-conversation rule.
-            blocked = await self._insight_gate_blocked(db, user_id, conversation_id)
+            # ── DEDUP / THROTTLE (shared gate, recurrence budget) ─────────────
+            # The SAME gate the signal write uses (see _insight_gate_blocked), so
+            # the two rules keep one shape — but each class spends its own budget
+            # (MEM2-B1): a belief card written minutes ago no longer closes this
+            # window, which is what had starved recurrence cards since #642.
+            blocked = await self._insight_gate_blocked(
+                db, user_id, conversation_id, kind="recurrence",
+            )
             if blocked == "throttle":
                 logger.info("Recurrence skipped (throttle) user=%s", user_id)
                 return
