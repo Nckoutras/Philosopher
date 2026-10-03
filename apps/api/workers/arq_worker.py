@@ -47,6 +47,24 @@ from observability import init_sentry
 # every letter, mirror and memory job — report nothing.
 init_sentry()
 
+# THE WORKER'S LOG OUTPUT (MEM2-B1b, 2026-10-03). The `arq` CLI configures
+# logging AFTER it imports this module (arq/cli.py: import_string, then
+# dictConfig), and what it configures is the `arq` logger only — a handler and
+# an INFO level for arq's own lines. The ROOT logger is left as Python made it:
+# no handler, effective level WARNING. So every INFO line this process writes
+# through its own loggers (`workers.*`, `services.memory_service`, ...) was
+# dropped before reaching stdout; only WARNING and above escaped, via Python's
+# last-resort stderr handler, as bare messages. The `insight_gate` lines B1
+# added so the throttle could be measured from logs never reached them.
+#
+# This mirrors main.py's basicConfig so the two processes log alike. arq's
+# dictConfig has disable_existing_loggers=False and does not touch the root, so
+# this survives it. `arq` keeps its own handler, so propagation is switched off
+# for that one logger or every arq line would print twice. dictConfig leaves
+# `propagate` alone when the config does not name it, so this setting holds.
+logging.basicConfig(level=logging.INFO if not config.DEBUG else logging.DEBUG)
+logging.getLogger("arq").propagate = False
+
 logger = logging.getLogger(__name__)
 
 # ── Prompts ───────────────────────────────────────────────────────────────────
