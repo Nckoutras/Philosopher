@@ -36,6 +36,7 @@ from routers.self_comparison import router as self_comparison_router
 from routers.weekly_letters import router as weekly_letters_router
 from routers.unsubscribe import router as unsubscribe_router
 from routers.quotes import router as quotes_router
+from routers.health import router as health_router
 
 logging.basicConfig(level=logging.INFO if not config.DEBUG else logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -159,4 +160,11 @@ app.include_router(quotes_router,              prefix=PREFIX)
 
 @app.get("/health")
 async def health():
+    # The cheap liveness probe, and it stays one (OBS-001 ruling 1): Render may
+    # point its health check here, and a check that can say "no" would turn a
+    # database blip into an API restart. The one that checks things is
+    # GET /health/deep (routers/health.py).
     return {"status": "ok", "env": config.ENV}
+
+
+app.include_router(health_router)

@@ -11,6 +11,7 @@ from models import User, Subscription, StripeEvent, SubscriptionEvent
 from schemas import CheckoutRequest, CheckoutResponse, PortalResponse, SubscriptionOut
 from auth import get_current_user
 from services.analytics_service import analytics_service
+from services.enqueue import safe_enqueue
 from constants import PLAN_FEATURES, TIER_ORDER
 from config import config
 
@@ -384,17 +385,21 @@ async def _send_recovery_email(request, db, user_id) -> None:
     must not quietly eat a revenue-recovery email. Both paths log ERROR on
     failure and return normally — this function never raises, because the
     webhook has already applied a billing state change by the time it runs.
+
+    The enqueue goes through safe_enqueue (OBS-001, ruling 6): an absent queue
+    used to fall through to the synchronous send with NO line saying the queue
+    was missing, which is the right outcome for this one email and the wrong
+    outcome for diagnosing why every other enqueue in the process was being
+    dropped. Now the absence is an ERROR once per boot, and a rejected enqueue
+    is an ERROR with its trace, and in both cases the send still happens here.
     """
-    queue = getattr(request.app.state, "arq_queue", None)
-    if queue is not None:
-        try:
-            await queue.enqueue_job("send_payment_recovery_email_task", str(user_id))
-            return
-        except Exception as e:
-            logger.error(
-                "Payment recovery email: enqueue failed for user=%s, falling back "
-                "to a synchronous send: %s", user_id, e, exc_info=True,
-            )
+    enqueued = await safe_enqueue(
+        getattr(request.app.state, "arq_queue", None),
+        "send_payment_recovery_email_task", str(user_id),
+        context=f"user={user_id} fallback=synchronous_send",
+    )
+    if enqueued:
+        return
 
     try:
         from models import User

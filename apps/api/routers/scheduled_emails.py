@@ -22,6 +22,7 @@ from auth import get_current_user
 from services.tier_service import get_user_tier
 from services.safety_service import safety_service
 from services.safety_event_log import log_safety_event, STAGE_SCHEDULED_EMAIL_INPUT
+from services.enqueue import safe_enqueue
 
 logger = logging.getLogger(__name__)
 
@@ -90,18 +91,15 @@ async def create_scheduled_email(
     # enqueue failure must never break letter creation.
     note = (body.note or "").strip()
     if note:
-        arq_queue = getattr(request.app.state, "arq_queue", None)
-        if arq_queue is not None:
-            try:
-                await arq_queue.enqueue_job(
-                    "distill_user_text_to_memory_task",
-                    str(user.id),
-                    None,
-                    note,
-                    "future_self_note",
-                )
-            except Exception as exc:
-                logger.error("Future-self note enqueue failed user=%s: %s", user.id, exc)
+        await safe_enqueue(
+            getattr(request.app.state, "arq_queue", None),
+            "distill_user_text_to_memory_task",
+            str(user.id),
+            None,
+            note,
+            "future_self_note",
+            context=f"user={user.id} source=future_self_note",
+        )
 
     return ScheduledEmailOut.model_validate(row)
 

@@ -53,6 +53,15 @@ JOB_HEARTBEAT = "worker_heartbeat"
 # would report a healthy worker as permanently dead.
 HEARTBEAT_EVERY_MINUTES = 10
 
+# How old the newest successful heartbeat may be before the worker is called
+# dead: four beats. Enough that a worker restart, a slow deploy or one dropped
+# connection never trips it; short enough that a dead worker is caught inside
+# one check interval plus one window. ONE number, read by GET /health/deep
+# (routers/health.py); .github/workflows/worker-liveness.yml carries the same
+# 40 as its default threshold_minutes, and tests/routers/test_health_deep.py
+# pins that the two agree.
+HEARTBEAT_STALE_AFTER_MINUTES = 4 * HEARTBEAT_EVERY_MINUTES
+
 
 def heartbeat_run_key(moment: datetime) -> str:
     """The 10-minute bucket a moment falls in, e.g. '2026-09-17T09:10Z'."""

@@ -579,10 +579,17 @@ async def test_the_sender_prefers_the_queue_and_never_raises():
 
 
 @pytest.mark.asyncio
-async def test_no_queue_falls_back_to_a_synchronous_send_not_to_silence():
-    """A misconfigured queue must not quietly eat a revenue-recovery email."""
-    from routers.billing import _send_recovery_email
+async def test_no_queue_falls_back_to_a_synchronous_send_not_to_silence(caplog):
+    """A misconfigured queue must not quietly eat a revenue-recovery email —
+    AND must not be quiet about the queue being missing (OBS-001 ruling 6):
+    the send is the right outcome for this email, the ERROR line is how the
+    operator learns every other enqueue in the process is being dropped."""
+    import logging
 
+    from routers.billing import _send_recovery_email
+    from services.enqueue import reset_absent_reports
+
+    reset_absent_reports()  # a fresh boot: the first skip of this job is an ERROR
     request = MagicMock()
     request.app.state.arq_queue = None
     db = FakeDb(FakeSub())
@@ -592,11 +599,17 @@ async def test_no_queue_falls_back_to_a_synchronous_send_not_to_silence():
     result.scalar_one_or_none.return_value = user
     db.execute = AsyncMock(return_value=result)
 
-    with patch("services.email_service.send_email") as send:
+    with patch("services.email_service.send_email") as send, \
+         caplog.at_level(logging.ERROR, logger="services.enqueue"):
         await _send_recovery_email(request, db, USER_ID)
 
     send.assert_called_once()
     assert send.call_args.kwargs["to"] == "reader@example.test"
+    assert any(
+        r.levelno == logging.ERROR
+        and "Enqueue skipped, no queue: job=send_payment_recovery_email_task" in r.getMessage()
+        for r in caplog.records
+    )
 
 
 @pytest.mark.asyncio

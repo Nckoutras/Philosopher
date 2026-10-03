@@ -330,13 +330,13 @@ def setup_cron(arq_queue):
     # it lives in the memory of a process that restarts, so it would go quiet
     # exactly when a crash-looping API most needed to be heard.
     #
-    # ONE SENTRY ISSUE COVERS ALL THREE JOBS, and that is worth knowing before
+    # ONE SENTRY ISSUE COVERS ALL FOUR JOBS, and that is worth knowing before
     # you open it. Sentry's LoggingIntegration groups on the log record's
     # TEMPLATE, not on the rendered message -- which is why the call below is
-    # parameterised (%s) rather than an f-string. All three findings share that
-    # one template, so weekly_letter, weekly_trajectory_snapshot and
-    # worker_heartbeat collapse into a single issue whose events name the job in
-    # their body. Accepted for v1: the three fail together far more often than
+    # parameterised (%s) rather than an f-string. All four findings share that
+    # one template, so weekly_letter, monthly_letter, weekly_trajectory_snapshot
+    # and worker_heartbeat collapse into a single issue whose events name the job
+    # in their body. Accepted for v1: the four fail together far more often than
     # separately, because the usual cause is one dead worker. If they ever need
     # to alert separately, the fix is a per-job template, not a second channel.
     @scheduler.scheduled_job(IntervalTrigger(minutes=10), id="job_expectations")

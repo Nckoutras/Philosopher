@@ -45,6 +45,7 @@ minutes" -- against a database neither process owns, and which therefore cannot
 be talked out of an answer by the absence of history. The two layers fail in
 opposite directions on purpose.
 """
+import calendar
 from datetime import datetime, timedelta, timezone
 
 # The run_key format for an interval cadence: the START of the bucket, in UTC,
@@ -81,6 +82,8 @@ def due_run_key(expectation: dict, now: datetime) -> tuple[str, datetime]:
         return _weekly_due(expectation, now)
     if cadence == "interval":
         return _interval_due(expectation, now)
+    if cadence == "monthly":
+        return _monthly_due(expectation, now)
     raise ValueError(f"unknown cadence {cadence!r} for {expectation['job_name']}")
 
 
@@ -100,6 +103,29 @@ def _weekly_due(expectation: dict, now: datetime) -> tuple[str, datetime]:
     if now < fire + timedelta(minutes=expectation["grace_minutes"]):
         fire -= timedelta(days=7)
     return fire.strftime("%G-W%V"), fire
+
+
+def _month_end_fire(year: int, month: int, hour: int) -> datetime:
+    """The last calendar day of (year, month) at `hour` UTC."""
+    last_day = calendar.monthrange(year, month)[1]
+    return datetime(year, month, last_day, hour, tzinfo=timezone.utc)
+
+
+def _monthly_due(expectation: dict, now: datetime) -> tuple[str, datetime]:
+    """Last calendar day of the month at a fixed hour UTC, keyed by that month.
+
+    Mirrors the dispatch: the ARQ schedule fires on day={28,29,30,31} and
+    is_last_day_of_month discards every wakeup but the last one, so the ONE fire
+    per month is month-end at `hour`, and monthly_run_key names the month that
+    is ending (letter_dispatch.py). Same shape as _weekly_due: the key comes
+    from the fire moment, and before this month's deadline the run already owed
+    is last month's.
+    """
+    fire = _month_end_fire(now.year, now.month, expectation["hour"])
+    if now < fire + timedelta(minutes=expectation["grace_minutes"]):
+        prev_year, prev_month = (now.year - 1, 12) if now.month == 1 else (now.year, now.month - 1)
+        fire = _month_end_fire(prev_year, prev_month, expectation["hour"])
+    return fire.strftime("%Y-%m"), fire
 
 
 def _interval_due(expectation: dict, now: datetime) -> tuple[str, datetime]:

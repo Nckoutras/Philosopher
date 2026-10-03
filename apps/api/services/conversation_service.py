@@ -41,6 +41,7 @@ from services.postprocessing_service import (
     _build_regen_directive,
 )
 from services.phenomenology_bridge_service import phenomenology_bridge_service
+from services.enqueue import safe_enqueue
 
 MODEL_FREE = "claude-haiku-4-5-20251001"
 MODEL_PRO = "claude-sonnet-4-6"
@@ -1098,7 +1099,8 @@ class ConversationService:
                 "persona_voice": persona_voice_text,
             }
             logger.error(
-                f"LLM stream failed for persona={persona.slug}: {_last_llm_error}"
+                "LLM stream failed for persona=%s: %s", persona.slug, _last_llm_error,
+                exc_info=_last_llm_error,
             )
             yield f"data: {json.dumps(error_event)}\n\n"
             return
@@ -1328,24 +1330,24 @@ class ConversationService:
             assistant_msg_id = assistant_msg.id
         # ── Phase C2 session closed — fire side-effects with no session held ─
 
-        if (
-            arq_queue is not None
-            and new_message_count >= 2
-            and conv_title is None
-        ):
-            await arq_queue.enqueue_job(
-                "generate_conversation_title", str(conversation_id)
+        # Side-effects go through safe_enqueue (OBS-001): a lost enqueue is an
+        # ERROR line and a dropped job, never the end of this stream.
+        if new_message_count >= 2 and conv_title is None:
+            await safe_enqueue(
+                arq_queue, "generate_conversation_title", str(conversation_id),
+                context=f"conv={conversation_id}",
             )
 
         # SAFETY-002 ruling C: a turn the judge released as DISTRESS writes NO memory
         # entries, so nothing from it is recalled later. DISCUSSING and
         # THIRD_PARTY_RISK releases extract as any "low" turn does today.
-        if arq_queue is not None and not safety_out.should_suppress_persona and gate.outcome != "DISTRESS":
+        if not safety_out.should_suppress_persona and gate.outcome != "DISTRESS":
             # Dilemma/belief signal insights are only promoted when the WHOLE exchange
             # was safety-clean; pass that as a trailing flag (the task defaults it False,
             # so a stale-queued job without the arg stays safe).
             safety_ok = safety_in.level == "none" and safety_out.level == "none"
-            await arq_queue.enqueue_job(
+            await safe_enqueue(
+                arq_queue,
                 "extract_memory_task",
                 str(user_id),
                 str(conversation_id),
@@ -1355,6 +1357,7 @@ class ConversationService:
                 prior_pairs,
                 safety_ok,
                 [str(user_msg_id), str(assistant_msg_id)],
+                context=f"conv={conversation_id}",
             )
 
         # Gravity-gated conclusion: assess (and maybe distill) only at cadence,
@@ -1362,13 +1365,13 @@ class ConversationService:
         # (same gate as memory extraction above). The task itself decides whether
         # the conversation is save-worthy yet — it may emit nothing.
         if (
-            arq_queue is not None
-            and not safety_out.should_suppress_persona
+            not safety_out.should_suppress_persona
             and new_message_count >= CONCLUSION_MIN_DEPTH
             and (new_message_count - CONCLUSION_MIN_DEPTH) % CONCLUSION_CADENCE == 0
         ):
-            await arq_queue.enqueue_job(
-                "assess_conclusion_task", str(conversation_id), str(user_id)
+            await safe_enqueue(
+                arq_queue, "assess_conclusion_task", str(conversation_id), str(user_id),
+                context=f"conv={conversation_id}",
             )
 
         # ── ANALYTICS ────────────────────────────────────────────────────────
@@ -1563,7 +1566,10 @@ class ConversationService:
                 "error_code": "llm_unavailable",
                 "persona_voice": persona_voice_text,
             }
-            logger.error(f"LLM stream failed (another_mind) for persona={persona.slug}: {_last_llm_error}")
+            logger.error(
+                "LLM stream failed (another_mind) for persona=%s: %s", persona.slug, _last_llm_error,
+                exc_info=_last_llm_error,
+            )
             yield f"data: {json.dumps(error_event)}\n\n"
             await db.commit()
             return
@@ -1881,7 +1887,10 @@ class ConversationService:
                 "error_code": "llm_unavailable",
                 "persona_voice": persona_voice_text,
             }
-            logger.error(f"LLM stream failed (go_deeper) for persona={persona.slug}: {_last_llm_error}")
+            logger.error(
+                "LLM stream failed (go_deeper) for persona=%s: %s", persona.slug, _last_llm_error,
+                exc_info=_last_llm_error,
+            )
             yield f"data: {json.dumps(error_event)}\n\n"
             await db.commit()
             return

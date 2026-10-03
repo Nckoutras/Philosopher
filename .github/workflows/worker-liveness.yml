@@ -1,7 +1,15 @@
 name: Worker liveness
 
-# Is the ARQ worker still writing heartbeats? Asked from OUTSIDE both processes,
-# every 30 minutes, straight against the database.
+# Is the ARQ worker still writing heartbeats, and does the API's own deep check
+# agree that the system works? Asked from OUTSIDE both processes, on a schedule,
+# straight against the database and then against GET /health/deep.
+#
+# "EVERY 30 MINUTES" IS WHAT THE CRON LINE SAYS, NOT WHAT HAPPENS. Measured
+# 2026-10-02 over the first 88 runs: median gap 248 minutes, p90 369, max 520.
+# GitHub's scheduler runs this when it gets round to it, so the detection floor
+# is four to nine hours. Accepted by OBS-001 ruling 3 (no new service); logged
+# as a pre-beta checklist item to revisit with an external pinger before users
+# are let in. Nothing here can tighten it.
 #
 # WHY THIS EXISTS SEPARATELY FROM THE IN-APP CHECKER. Mon 14 -> Wed 16 September
 # 2026 the worker ran with a wrong DATABASE_URL and every job in it stopped.
@@ -113,7 +121,9 @@ jobs:
           # either pooler.
           echo "secret present; connection string shape OK"
 
-      # ── 2. The question ───────────────────────────────────────────────────
+      # ── 2. The question, asked of the database ────────────────────────────
+      # FIRST, and independent of the API: a worker check that needed the API
+      # to be up would go quiet in exactly the outage where both are down.
       - name: Check for a recent worker heartbeat
         env:
           PROD_DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
@@ -162,3 +172,46 @@ jobs:
           fi
 
           echo "worker alive: last heartbeat ${age_minutes} minute(s) ago"
+
+      # ── 3. The question, asked of the API ─────────────────────────────────
+      # GET /health/deep (routers/health.py) is the API's own verdict: database
+      # reachable, migrations at head, heartbeat fresh, Redis answering, the
+      # in-process scheduler running. It is PUBLIC by ruling (OBS-001, 2), so
+      # this step needs no secret and a rotated token cannot make the monitor
+      # itself go dark. 200 is the only pass; the body is printed either way so
+      # a red run names the check that failed.
+      #
+      # Runs even when step 2 failed? No -- a failed step stops the job, and
+      # that is fine: step 2 red already means an email, and the body of this
+      # step would only say "worker_alive: false" again.
+      - name: GET /health/deep answers 200
+        env:
+          # apps/web/lib/api.ts carries the same host as its default API_BASE.
+          API_BASE_URL: https://philosopher-api-z9l9.onrender.com
+        run: |
+          set -euo pipefail
+          body="$(mktemp)"
+          # -m 30: the endpoint time-boxes every check at 5s and runs them in
+          # parallel, so a healthy answer takes well under that; a cold Render
+          # instance is the only reason to wait longer. "000" is curl's own
+          # failure (DNS, TLS, connection refused), reported as its own line.
+          code="$(curl -sS -m 30 -o "$body" -w '%{http_code}' "$API_BASE_URL/health/deep" || echo 000)"
+          echo "status: ${code}"
+          cat "$body"; echo
+
+          if [ "$code" = "000" ]; then
+            echo "::error::THE API DID NOT ANSWER /health/deep AT ALL."
+            echo "curl could not complete a request to ${API_BASE_URL}. Check the"
+            echo "philosopher-api service on Render: is it up, is it deploying?"
+            exit 1
+          fi
+          if [ "$code" != "200" ]; then
+            echo "::error::/health/deep RETURNED ${code}."
+            echo "The body above names the check that failed: db, migrations_at_head,"
+            echo "worker_alive, queue_reachable or scheduler_running. A false"
+            echo "queue_reachable or scheduler_running with a live heartbeat means the"
+            echo "API booted without its queue (main.py lifespan) -- every request-path"
+            echo "enqueue is being dropped; restart the philosopher-api service."
+            exit 1
+          fi
+          echo "deep health: ok"
