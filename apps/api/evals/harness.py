@@ -26,7 +26,10 @@ a fresh conversation belonging to a user with no onboarding profile, they are:
     memories  = []     memory_service.recall returns nothing on turn 1
     passages  = []     RETRIEVAL-001: zero non-empty retrieval_ids in 166
                        messages; the score ceiling is ~0.46 against a 0.72
-                       threshold, so production retrieves nothing for anyone
+                       threshold, so production retrieved nothing for anyone —
+                       and since RET-001 (ruling 1β) production does not
+                       retrieve at all. The slot left the template with it;
+                       arm F renders its own block below (_grounding_block).
     profile   = None   no onboarding pills
     history   = []     first message
 
@@ -122,6 +125,27 @@ class Completion:
     error: str | None = None
 
 
+def _grounding_block(passages) -> str:
+    """The GROUNDING PASSAGES block as system_base.jinja2 rendered it until
+    RET-001 removed the slot — same words, kept here because only the eval arm
+    still has a reason to put a passage in front of a persona."""
+    lines = [
+        "",
+        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+        "GROUNDING PASSAGES",
+        "Only use a passage if it is directly relevant. Paraphrase — never reproduce verbatim.",
+        "Attribute loosely: \"As I once wrote...\" or \"In [source title]...\"",
+        "If none is relevant, ignore this section entirely.",
+        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+        "",
+    ]
+    for p in passages:
+        ref = f", {p.page_ref}" if getattr(p, "page_ref", None) else ""
+        lines.append(f"[{p.source_title} — {p.source_type}{ref}]")
+        lines.append(p.content)
+    return "\n".join(lines) + "\n"
+
+
 def assemble_system(
     persona: PersonaConfig,
     user_message: str,
@@ -158,11 +182,17 @@ def assemble_system(
     system = prompt_builder.build_system(
         persona=persona,
         memories=[],
-        passages=list(passages),
         phenomenology_bridge=bridge,
         profile=None,
         include_cache_sentinel=include_cache_sentinel,
     )
+    # ARM F ONLY. Since RET-001 the production template has no passages slot, so
+    # the forced-injection arm carries the block itself. Empty passages append
+    # nothing, which keeps every other arm byte-identical to production (the
+    # parity test). POSITION DIFFERS from the pre-RET-001 runs: the template
+    # block sat before HARD RULES; this one follows the whole system prompt.
+    if passages:
+        system = system + _grounding_block(passages)
     if deep:
         system = system + "\n\n" + _deepen_directive(persona)
 

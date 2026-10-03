@@ -55,7 +55,6 @@ MARCUS_AURELIUS = PersonaConfig(
     challenge_style="via Stoic inversion — reframe the complaint as a disguised choice",
     uses_personal_anecdote=True,
 
-    retrieval_top_k=4,
 
     opening_invocation="You have come to think. That is already more than most days ask of a person.",
 

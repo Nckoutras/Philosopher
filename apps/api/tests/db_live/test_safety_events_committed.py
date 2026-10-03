@@ -118,7 +118,6 @@ def _no_network():
     """Memory recall, retrieval and embeddings reach the network; nothing here needs them."""
     return [
         patch("services.memory_service.memory_service.recall", AsyncMock(return_value=[])),
-        patch("services.retrieval_service.retrieval_service.retrieve", AsyncMock(return_value=[])),
         patch("services.embedding_client.embedding_client.embed", AsyncMock(side_effect=RuntimeError("no network"))),
         patch("services.analytics_service.analytics_service.track", lambda *a, **kw: None),
     ]

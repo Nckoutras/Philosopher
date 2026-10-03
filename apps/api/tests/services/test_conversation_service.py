@@ -139,7 +139,6 @@ async def _run_stream(user_plan: str):
     with (
         patch("services.conversation_service.safety_service") as mock_safety,
         patch("services.conversation_service.memory_service") as mock_memory,
-        patch("services.conversation_service.retrieval_service") as mock_retrieval,
         patch("services.conversation_service.llm_client", mock_llm),
         patch("services.conversation_service.prompt_builder") as mock_prompt,
         patch("services.conversation_service.analytics_service"),
@@ -156,7 +155,6 @@ async def _run_stream(user_plan: str):
         mock_safety.check_output = AsyncMock(return_value=safety_result)
 
         mock_memory.recall = AsyncMock(return_value=[])
-        mock_retrieval.retrieve = AsyncMock(return_value=[])
         mock_prompt.build_system.return_value = "system"
         mock_prompt.build_safety_response.return_value = "safe"
 
@@ -201,7 +199,6 @@ async def test_free_user_uses_haiku():
     with (
         patch("services.conversation_service.safety_service") as mock_safety,
         patch("services.conversation_service.memory_service") as mock_memory,
-        patch("services.conversation_service.retrieval_service") as mock_retrieval,
         patch("services.conversation_service.llm_client", mock_llm),
         patch("services.conversation_service.prompt_builder") as mock_prompt,
         patch("services.conversation_service.analytics_service"),
@@ -216,7 +213,6 @@ async def test_free_user_uses_haiku():
         mock_safety.check_input = AsyncMock(return_value=safety_result)
         mock_safety.check_output = AsyncMock(return_value=safety_result)
         mock_memory.recall = AsyncMock(return_value=[])
-        mock_retrieval.retrieve = AsyncMock(return_value=[])
         mock_prompt.build_system.return_value = "system"
         persona_config = MagicMock()
         persona_config.slug = "marcus_aurelius"
@@ -257,7 +253,6 @@ async def test_pro_user_uses_sonnet():
     with (
         patch("services.conversation_service.safety_service") as mock_safety,
         patch("services.conversation_service.memory_service") as mock_memory,
-        patch("services.conversation_service.retrieval_service") as mock_retrieval,
         patch("services.conversation_service.llm_client", mock_llm),
         patch("services.conversation_service.prompt_builder") as mock_prompt,
         patch("services.conversation_service.analytics_service"),
@@ -272,7 +267,6 @@ async def test_pro_user_uses_sonnet():
         mock_safety.check_input = AsyncMock(return_value=safety_result)
         mock_safety.check_output = AsyncMock(return_value=safety_result)
         mock_memory.recall = AsyncMock(return_value=[])
-        mock_retrieval.retrieve = AsyncMock(return_value=[])
         mock_prompt.build_system.return_value = "system"
         persona_config = MagicMock()
         persona_config.slug = "marcus_aurelius"
@@ -313,7 +307,6 @@ async def test_premium_user_uses_sonnet():
     with (
         patch("services.conversation_service.safety_service") as mock_safety,
         patch("services.conversation_service.memory_service") as mock_memory,
-        patch("services.conversation_service.retrieval_service") as mock_retrieval,
         patch("services.conversation_service.llm_client", mock_llm),
         patch("services.conversation_service.prompt_builder") as mock_prompt,
         patch("services.conversation_service.analytics_service"),
@@ -328,7 +321,6 @@ async def test_premium_user_uses_sonnet():
         mock_safety.check_input = AsyncMock(return_value=safety_result)
         mock_safety.check_output = AsyncMock(return_value=safety_result)
         mock_memory.recall = AsyncMock(return_value=[])
-        mock_retrieval.retrieve = AsyncMock(return_value=[])
         mock_prompt.build_system.return_value = "system"
         persona_config = MagicMock()
         persona_config.slug = "marcus_aurelius"
@@ -530,7 +522,6 @@ async def _run_stream_capture_limit(user_plan: str) -> dict:
     with (
         patch("services.conversation_service.safety_service") as mock_safety,
         patch("services.conversation_service.memory_service") as mock_memory,
-        patch("services.conversation_service.retrieval_service") as mock_retrieval,
         patch("services.conversation_service.llm_client", mock_llm),
         patch("services.conversation_service.prompt_builder") as mock_prompt,
         patch("services.conversation_service.analytics_service"),
@@ -545,7 +536,6 @@ async def _run_stream_capture_limit(user_plan: str) -> dict:
         mock_safety.check_input = AsyncMock(return_value=safety_result)
         mock_safety.check_output = AsyncMock(return_value=safety_result)
         mock_memory.recall = AsyncMock(return_value=[])
-        mock_retrieval.retrieve = AsyncMock(return_value=[])
         mock_prompt.build_system.return_value = "system"
         persona_config = MagicMock()
         persona_config.slug = "marcus_aurelius"
@@ -675,7 +665,6 @@ async def _run_stream_for_usage(db, conv, is_admin: bool = False):
     with (
         patch("services.conversation_service.safety_service") as mock_safety,
         patch("services.conversation_service.memory_service") as mock_memory,
-        patch("services.conversation_service.retrieval_service") as mock_retrieval,
         patch("services.conversation_service.llm_client", mock_llm),
         patch("services.conversation_service.prompt_builder") as mock_prompt,
         patch("services.conversation_service.analytics_service"),
@@ -690,7 +679,6 @@ async def _run_stream_for_usage(db, conv, is_admin: bool = False):
         mock_safety.check_input = AsyncMock(return_value=safety_result)
         mock_safety.check_output = AsyncMock(return_value=safety_result)
         mock_memory.recall = AsyncMock(return_value=[])
-        mock_retrieval.retrieve = AsyncMock(return_value=[])
         mock_prompt.build_system.return_value = "system"
         persona_config = MagicMock()
         persona_config.slug = "marcus_aurelius"
@@ -793,7 +781,6 @@ async def _run_stream_for_auto_title(db, arq_queue=None):
     with (
         patch("services.conversation_service.safety_service") as mock_safety,
         patch("services.conversation_service.memory_service") as mock_memory,
-        patch("services.conversation_service.retrieval_service") as mock_retrieval,
         patch("services.conversation_service.llm_client", mock_llm),
         patch("services.conversation_service.prompt_builder") as mock_prompt,
         patch("services.conversation_service.analytics_service"),
@@ -808,7 +795,6 @@ async def _run_stream_for_auto_title(db, arq_queue=None):
         mock_safety.check_input = AsyncMock(return_value=safety_result)
         mock_safety.check_output = AsyncMock(return_value=safety_result)
         mock_memory.recall = AsyncMock(return_value=[])
-        mock_retrieval.retrieve = AsyncMock(return_value=[])
         mock_prompt.build_system.return_value = "system"
         persona_config = MagicMock()
         persona_config.slug = "marcus_aurelius"
@@ -1011,7 +997,6 @@ async def _run_retry(behaviors: list, *, persona_config=None, db=None, arq_queue
     with (
         patch("services.conversation_service.safety_service") as mock_safety,
         patch("services.conversation_service.memory_service") as mock_memory,
-        patch("services.conversation_service.retrieval_service") as mock_retrieval,
         patch("services.conversation_service.llm_client", mock_llm),
         patch("services.conversation_service.prompt_builder") as mock_prompt,
         patch("services.conversation_service.analytics_service"),
@@ -1027,7 +1012,6 @@ async def _run_retry(behaviors: list, *, persona_config=None, db=None, arq_queue
         mock_safety.check_input = AsyncMock(return_value=safety_result)
         mock_safety.check_output = AsyncMock(return_value=safety_result)
         mock_memory.recall = AsyncMock(return_value=[])
-        mock_retrieval.retrieve = AsyncMock(return_value=[])
         mock_prompt.build_system.return_value = "system"
         mock_prompt.build_safety_response.return_value = "safe"
 
@@ -1286,7 +1270,6 @@ async def _run_stream_for_memory(db, arq_queue=None, safety_out_suppressed=False
     with (
         patch("services.conversation_service.safety_service") as mock_safety,
         patch("services.conversation_service.memory_service") as mock_memory,
-        patch("services.conversation_service.retrieval_service") as mock_retrieval,
         patch("services.conversation_service.llm_client", mock_llm),
         patch("services.conversation_service.prompt_builder") as mock_prompt,
         patch("services.conversation_service.analytics_service"),
@@ -1306,7 +1289,6 @@ async def _run_stream_for_memory(db, arq_queue=None, safety_out_suppressed=False
         mock_safety.check_output = AsyncMock(return_value=safety_out)
 
         mock_memory.recall = AsyncMock(return_value=[])
-        mock_retrieval.retrieve = AsyncMock(return_value=[])
         mock_prompt.build_system.return_value = "system"
         mock_prompt.build_safety_response.return_value = "safe text"
 
@@ -1391,7 +1373,6 @@ async def test_memory_extraction_not_enqueued_when_pre_safety_suppressed():
     with (
         patch("services.conversation_service.safety_service") as mock_safety,
         patch("services.conversation_service.memory_service"),
-        patch("services.conversation_service.retrieval_service"),
         patch("services.conversation_service.llm_client"),
         patch("services.conversation_service.prompt_builder") as mock_prompt,
         patch("services.conversation_service.analytics_service"),
@@ -1689,7 +1670,6 @@ async def test_create_skip_opening_bypasses_dedup():
 #      user text exactly once and hands the SAME vector to both consumers.
 
 from services.memory_service import memory_service as _memory_singleton
-from services.retrieval_service import retrieval_service as _retrieval_singleton
 
 
 @pytest.fixture(autouse=True)
@@ -1741,49 +1721,17 @@ async def test_recall_falls_back_to_internal_embed_when_none():
     assert db.execute.call_args.args[1]["query_vec"] == str(internal)
 
 
-# ── retrieve(): precomputed embedding used verbatim; None falls back ──────────
+# ── One embed per turn, handed to recall — the 3 chat paths ──────────────────
 
-def _retrieve_persona():
-    p = MagicMock()
-    p.slug = "marcus_aurelius"
-    p.retrieval_top_k = 5
-    return p
-
-
-@pytest.mark.asyncio
-async def test_retrieve_uses_precomputed_embedding_verbatim():
-    """query_embedding provided → no internal embed; that exact vector is the SQL query_vec."""
-    db = _query_db()
-    vec = [1.0, 2.0, 3.0]
-    with patch("services.retrieval_service.embedding_client") as m:
-        m.embed = AsyncMock(return_value=[9.9])  # must NOT be used
-        await _retrieval_singleton.retrieve(db, "what is virtue?", _retrieve_persona(), query_embedding=vec)
-        m.embed.assert_not_called()
-    assert db.execute.call_args.args[1]["query_vec"] == str(vec)
-
-
-@pytest.mark.asyncio
-async def test_retrieve_falls_back_to_internal_embed_when_none():
-    """query_embedding=None → embeds internally once; that vector is the SQL query_vec."""
-    db = _query_db()
-    internal = [7.0, 8.0]
-    with patch("services.retrieval_service.embedding_client") as m:
-        m.embed = AsyncMock(return_value=internal)
-        await _retrieval_singleton.retrieve(db, "what is virtue?", _retrieve_persona())
-        m.embed.assert_called_once()
-    assert db.execute.call_args.args[1]["query_vec"] == str(internal)
-
-
-# ── One embed per turn, reused by both consumers — the 3 chat paths ───────────
-
-class _StopAfterRetrieval(Exception):
-    """Sentinel raised from build_system to abort a path right after recall+retrieve,
-    so the embed-dedup can be asserted without mocking the whole downstream flow."""
+class _StopAfterRecall(Exception):
+    """Sentinel raised from build_system to abort a path right after recall, so
+    the single embed can be asserted without mocking the whole downstream flow.
+    (Corpus retrieval, the second consumer, was retired by RET-001.)"""
 
 
 @pytest.mark.asyncio
 async def test_main_path_embeds_once_and_reuses_vector(_patch_conv_embedding_client):
-    """stream_response embeds user_text once; that vector goes to both recall & retrieve."""
+    """stream_response embeds user_text once; that vector goes to recall."""
     service = ConversationService()
 
     mock_llm = MagicMock()
@@ -1796,7 +1744,6 @@ async def test_main_path_embeds_once_and_reuses_vector(_patch_conv_embedding_cli
     with (
         patch("services.conversation_service.safety_service") as mock_safety,
         patch("services.conversation_service.memory_service") as mock_memory,
-        patch("services.conversation_service.retrieval_service") as mock_retrieval,
         patch("services.conversation_service.llm_client", mock_llm),
         patch("services.conversation_service.prompt_builder") as mock_prompt,
         patch("services.conversation_service.analytics_service"),
@@ -1811,7 +1758,6 @@ async def test_main_path_embeds_once_and_reuses_vector(_patch_conv_embedding_cli
         mock_safety.check_input = AsyncMock(return_value=safety_result)
         mock_safety.check_output = AsyncMock(return_value=safety_result)
         mock_memory.recall = AsyncMock(return_value=[])
-        mock_retrieval.retrieve = AsyncMock(return_value=[])
         mock_prompt.build_system.return_value = "system"
         persona_config = MagicMock()
         persona_config.slug = "marcus_aurelius"
@@ -1833,12 +1779,11 @@ async def test_main_path_embeds_once_and_reuses_vector(_patch_conv_embedding_cli
         embed_mock.assert_called_once_with("What is virtue?")
         expected_vec = embed_mock.return_value
         assert mock_memory.recall.call_args.kwargs["query_embedding"] == expected_vec
-        assert mock_retrieval.retrieve.call_args.kwargs["query_embedding"] == expected_vec
 
 
 @pytest.mark.asyncio
 async def test_another_mind_embeds_once_and_reuses_vector(_patch_conv_embedding_client):
-    """stream_another_mind embeds last_user_text once; that vector goes to both consumers."""
+    """stream_another_mind embeds last_user_text once; that vector goes to recall."""
     service = ConversationService()
 
     conv_result = MagicMock()
@@ -1854,19 +1799,17 @@ async def test_another_mind_embeds_once_and_reuses_vector(_patch_conv_embedding_
 
     with (
         patch("services.conversation_service.memory_service") as mock_memory,
-        patch("services.conversation_service.retrieval_service") as mock_retrieval,
         patch("services.conversation_service.prompt_builder") as mock_prompt,
         patch("services.conversation_service.get_persona") as mock_get_persona,
     ):
         mock_memory.recall = AsyncMock(return_value=[])
-        mock_retrieval.retrieve = AsyncMock(return_value=[])
         persona_config = MagicMock()
         persona_config.slug = "socrates"
         mock_get_persona.return_value = persona_config
-        # Abort right after retrieval — avoids mocking the entire downstream flow.
-        mock_prompt.build_system.side_effect = _StopAfterRetrieval()
+        # Abort right after recall — avoids mocking the entire downstream flow.
+        mock_prompt.build_system.side_effect = _StopAfterRecall()
 
-        with pytest.raises(_StopAfterRetrieval):
+        with pytest.raises(_StopAfterRecall):
             await _drain(service.stream_another_mind(
                 db=db,
                 conversation_id=CONV_ID,
@@ -1878,12 +1821,11 @@ async def test_another_mind_embeds_once_and_reuses_vector(_patch_conv_embedding_
         embed_mock.assert_called_once_with("What is courage?")
         expected_vec = embed_mock.return_value
         assert mock_memory.recall.call_args.kwargs["query_embedding"] == expected_vec
-        assert mock_retrieval.retrieve.call_args.kwargs["query_embedding"] == expected_vec
 
 
 @pytest.mark.asyncio
 async def test_go_deeper_embeds_once_and_reuses_vector(_patch_conv_embedding_client):
-    """stream_go_deeper embeds last_user_text once; that vector goes to both consumers."""
+    """stream_go_deeper embeds last_user_text once; that vector goes to recall."""
     service = ConversationService()
 
     conv_result = MagicMock()
@@ -1903,19 +1845,17 @@ async def test_go_deeper_embeds_once_and_reuses_vector(_patch_conv_embedding_cli
 
     with (
         patch("services.conversation_service.memory_service") as mock_memory,
-        patch("services.conversation_service.retrieval_service") as mock_retrieval,
         patch("services.conversation_service.prompt_builder") as mock_prompt,
         patch("services.conversation_service.get_persona") as mock_get_persona,
     ):
         mock_memory.recall = AsyncMock(return_value=[])
-        mock_retrieval.retrieve = AsyncMock(return_value=[])
         persona_config = MagicMock()
         persona_config.slug = "marcus_aurelius"
         mock_get_persona.return_value = persona_config
-        # is_admin=True skips the daily go-deeper gate; abort right after retrieval.
-        mock_prompt.build_system.side_effect = _StopAfterRetrieval()
+        # is_admin=True skips the daily go-deeper gate; abort right after recall.
+        mock_prompt.build_system.side_effect = _StopAfterRecall()
 
-        with pytest.raises(_StopAfterRetrieval):
+        with pytest.raises(_StopAfterRecall):
             await _drain(service.stream_go_deeper(
                 db=db,
                 conversation_id=CONV_ID,
@@ -1928,7 +1868,6 @@ async def test_go_deeper_embeds_once_and_reuses_vector(_patch_conv_embedding_cli
         embed_mock.assert_called_once_with("Say more about virtue.")
         expected_vec = embed_mock.return_value
         assert mock_memory.recall.call_args.kwargs["query_embedding"] == expected_vec
-        assert mock_retrieval.retrieve.call_args.kwargs["query_embedding"] == expected_vec
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -2024,12 +1963,10 @@ async def test_another_mind_history_query_orders_desc():
 
     with (
         patch("services.conversation_service.memory_service") as mock_memory,
-        patch("services.conversation_service.retrieval_service") as mock_retrieval,
         patch("services.conversation_service.prompt_builder") as mock_prompt,
         patch("services.conversation_service.get_persona") as mock_get_persona,
     ):
         mock_memory.recall = AsyncMock(return_value=[])
-        mock_retrieval.retrieve = AsyncMock(return_value=[])
         mock_prompt.build_system.return_value = "system"
         persona_config = MagicMock()
         persona_config.slug = "socrates"
@@ -2070,12 +2007,10 @@ async def test_go_deeper_history_query_orders_desc():
 
     with (
         patch("services.conversation_service.memory_service") as mock_memory,
-        patch("services.conversation_service.retrieval_service") as mock_retrieval,
         patch("services.conversation_service.prompt_builder") as mock_prompt,
         patch("services.conversation_service.get_persona") as mock_get_persona,
     ):
         mock_memory.recall = AsyncMock(return_value=[])
-        mock_retrieval.retrieve = AsyncMock(return_value=[])
         mock_prompt.build_system.return_value = "system"
         persona_config = MagicMock()
         persona_config.slug = "marcus_aurelius"
@@ -2179,7 +2114,6 @@ async def _run_main_path_seeded(n_messages: int, window: int) -> list[dict]:
     with (
         patch("services.conversation_service.safety_service") as mock_safety,
         patch("services.conversation_service.memory_service") as mock_memory,
-        patch("services.conversation_service.retrieval_service") as mock_retrieval,
         patch("services.conversation_service.llm_client", mock_llm),
         patch("services.conversation_service.prompt_builder") as mock_prompt,
         patch("services.conversation_service.analytics_service"),
@@ -2194,7 +2128,6 @@ async def _run_main_path_seeded(n_messages: int, window: int) -> list[dict]:
         mock_safety.check_input = AsyncMock(return_value=safety_result)
         mock_safety.check_output = AsyncMock(return_value=safety_result)
         mock_memory.recall = AsyncMock(return_value=[])
-        mock_retrieval.retrieve = AsyncMock(return_value=[])
         mock_prompt.build_system.return_value = "system"
         persona_config = MagicMock()
         persona_config.slug = "marcus_aurelius"
@@ -2340,7 +2273,6 @@ async def _run_main_path_capture(n_messages: int, window: int, user_plan: str,
     with (
         patch("services.conversation_service.safety_service") as mock_safety,
         patch("services.conversation_service.memory_service") as mock_memory,
-        patch("services.conversation_service.retrieval_service") as mock_retrieval,
         patch("services.conversation_service.llm_client", mock_llm),
         patch("services.conversation_service.prompt_builder") as mock_prompt,
         patch("services.conversation_service.analytics_service"),
@@ -2357,7 +2289,6 @@ async def _run_main_path_capture(n_messages: int, window: int, user_plan: str,
         mock_safety.check_input = AsyncMock(return_value=safety_result)
         mock_safety.check_output = AsyncMock(return_value=safety_result)
         mock_memory.recall = AsyncMock(return_value=[])
-        mock_retrieval.retrieve = AsyncMock(return_value=[])
         _use_real_cache_split(mock_prompt)
         persona_config = MagicMock()
         persona_config.slug = "marcus_aurelius"
@@ -2443,7 +2374,6 @@ async def _run_guest_path_capture(which: str, n_messages: int, window: int,
 
     with (
         patch("services.conversation_service.memory_service") as mock_memory,
-        patch("services.conversation_service.retrieval_service") as mock_retrieval,
         patch("services.conversation_service.llm_client", mock_llm),
         patch("services.conversation_service.prompt_builder") as mock_prompt,
         patch("services.conversation_service.get_persona") as mock_get_persona,
@@ -2451,7 +2381,6 @@ async def _run_guest_path_capture(which: str, n_messages: int, window: int,
               budget if budget is not None else HISTORY_TOKEN_BUDGET_PRO),
     ):
         mock_memory.recall = AsyncMock(return_value=[])
-        mock_retrieval.retrieve = AsyncMock(return_value=[])
         _use_real_cache_split(mock_prompt)
         persona_config = MagicMock()
         persona_config.slug = "marcus_aurelius"
@@ -2727,14 +2656,12 @@ async def _run_another_mind_for_counter(*, is_admin=False, ritual_id=None, llm_f
     with (
         patch.object(sys.modules[__name__], "_mock_conv", return_value=conv),
         patch("services.conversation_service.memory_service") as mock_memory,
-        patch("services.conversation_service.retrieval_service") as mock_retrieval,
         patch("services.conversation_service.llm_client", mock_llm),
         patch("services.conversation_service.prompt_builder") as mock_prompt,
         patch("services.conversation_service.get_persona") as mock_get_persona,
         patch("services.conversation_service.asyncio.sleep", new=AsyncMock()),
     ):
         mock_memory.recall = AsyncMock(return_value=[])
-        mock_retrieval.retrieve = AsyncMock(return_value=[])
         _use_real_cache_split(mock_prompt)
         persona_config = MagicMock()
         persona_config.slug = "socrates"
@@ -2834,7 +2761,6 @@ async def _run_guest_safety(which, reply, *, is_admin=False):
     with (
         patch.object(sys.modules[__name__], "_mock_conv", return_value=conv),
         patch("services.conversation_service.memory_service") as mock_memory,
-        patch("services.conversation_service.retrieval_service") as mock_retrieval,
         patch("services.conversation_service.llm_client", mock_llm),
         patch("services.conversation_service.prompt_builder") as mock_prompt,
         patch("services.conversation_service.get_persona") as mock_get_persona,
@@ -2842,7 +2768,6 @@ async def _run_guest_safety(which, reply, *, is_admin=False):
               new=AsyncMock(return_value=MagicMock(allowed=True))),
     ):
         mock_memory.recall = AsyncMock(return_value=[])
-        mock_retrieval.retrieve = AsyncMock(return_value=[])
         _use_real_cache_split(mock_prompt)
         mock_prompt.build_safety_response.return_value = SAFE_TEXT
         persona_config = MagicMock()
@@ -2992,7 +2917,6 @@ async def test_the_pre_generation_safety_event_carries_the_saved_text():
     with (
         patch("services.conversation_service.safety_service") as mock_safety,
         patch("services.conversation_service.memory_service"),
-        patch("services.conversation_service.retrieval_service"),
         patch("services.conversation_service.llm_client"),
         patch("services.conversation_service.prompt_builder") as mock_prompt,
         patch("services.conversation_service.analytics_service"),
@@ -3076,7 +3000,6 @@ async def _run_judged(text, prejudged, arq_queue=None):
     with (
         patch("services.conversation_service.safety_service.check_output", AsyncMock(return_value=clean)),
         patch("services.conversation_service.memory_service") as mock_memory,
-        patch("services.conversation_service.retrieval_service") as mock_retrieval,
         patch("services.conversation_service.llm_client", mock_llm),
         patch("services.conversation_service.prompt_builder") as mock_prompt,
         patch("services.conversation_service.analytics_service") as analytics,
@@ -3086,7 +3009,6 @@ async def _run_judged(text, prejudged, arq_queue=None):
         patch("services.safety_judge.judge", AsyncMock(side_effect=AssertionError("judge called twice"))),
     ):
         mock_memory.recall = AsyncMock(return_value=[])
-        mock_retrieval.retrieve = AsyncMock(return_value=[])
         mock_prompt.build_system.return_value = "system"
         mock_prompt.build_safety_response.return_value = "safe text"
         persona_config = MagicMock()

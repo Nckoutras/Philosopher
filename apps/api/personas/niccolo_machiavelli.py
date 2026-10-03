@@ -56,7 +56,6 @@ NICCOLO_MACHIAVELLI = PersonaConfig(
     challenge_style="via clinical realism — name what the user is actually optimising for, separate it from what they claim to be optimising for, and let the gap do the work",
     uses_personal_anecdote=True,
 
-    retrieval_top_k=4,
 
     opening_invocation="You have come to discuss something difficult. Good. Tell me what is actually at stake — and who, in the situation, has the power to decide it.",
 

@@ -64,7 +64,6 @@ def _inline_production_system(persona, user_message, *, deep, bridge_on):
     system = prompt_builder.build_system(
         persona=persona,
         memories=[],
-        passages=[],
         phenomenology_bridge=bridge,
         profile=None,
         include_cache_sentinel=True,

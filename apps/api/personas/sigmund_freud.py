@@ -63,7 +63,6 @@ SIGMUND_FREUD = PersonaConfig(
     challenge_style="interpret the gap — what is absent, avoided, or over-explained reveals more than what is stated; name the defence with curiosity rather than accusation",
     uses_personal_anecdote=True,
 
-    retrieval_top_k=4,
 
     opening_invocation="Tell me what is troubling you. And if you notice yourself about to pass over something quickly — tell me that part first.",
 
