@@ -61,6 +61,10 @@ class SelfModelService:
                 # never as windowed signals — keep them out of the then/now windows AND the
                 # unlock gate, same reasoning as self_portrait above.
                 MemoryEntry.entry_type != "self_portrait_shift",
+                # insight_verdict_shift (MEM2-B2) records a verdict flip, not
+                # something said: out of the windows AND the unlock gate, so a
+                # flip cannot count toward unlocking You-vs-You (ruling 2026-10-03).
+                MemoryEntry.entry_type != "insight_verdict_shift",
             )
             .order_by(MemoryEntry.created_at.asc())
         )

@@ -2539,6 +2539,24 @@ matters on suicide, read against SAFETY-009's classification rules.
 
 ---
 
+### TD-122 — the data export omits the insight verdict (`ring_true`, `ring_true_at`) — **OPEN, logged (MEM2-B2)**
+**Status: OPEN, logged 2026-10-03.** `services/data_export_service.py` exports each
+insight's content, type, theme, evidence and dismissal, and since B2 its
+`verdict_history`, but never `ring_true` or `ring_true_at`. Those columns have existed
+since 063. A verdict given before 072 deployed is therefore in no part of the export,
+which is an Art. 15 under-report of the same kind as the `source_count` omission fixed
+earlier (TD-74: the completeness guard checks classes, not columns). B2 did not fix it
+because its brief limited export changes to the two new columns. Mirrors already export
+`ring_true_at`; insights should match.
+
+### TD-121 — the opinion-shift memory entry is English around non-English content — **OPEN, deferred (MEM2-B2)**
+**Status: OPEN, deferred by founder ruling 2026-10-03.** `verdict_shift_statement`
+(`services/memory_service.py`) is a fixed English template that quotes the insight
+verbatim. Insights are stored in the person's language, so a Greek speaker's shift row
+reads "They came to accept, after N days, an observation they had first rejected:
+"<Greek>"". The founder ruled this acceptable for now, since the recall prompt is
+English-framed anyway. **Revisit with the Greek localization pass, not separately.**
+
 ### TD-120 — `memory_language_mismatch` warnings reach the logs as a bare word — **OPEN, logged (MEM2-B1b)**
 **Status: OPEN, logged 2026-10-03.** The language guard in `services/memory_service.py`
 logs `logger.warning("memory_language_mismatch", extra={...})` at several sites, with the
@@ -5694,7 +5712,7 @@ rode with it: provenance records whose CLAIM a row asserts, not whose grammar; a
 data export includes the five new columns. Deferred from it, now Phase B: evidence on
 signal insights (R4), the supersession chain (R1), verdict-reversal reactivation.
 
-### MEM2-B — Phase B rulings record (founder, 2026-10-03) and B1 — **B1 BUILT (#776); B1b BUILT; B2–B5 RULED, NOT STARTED**
+### MEM2-B — Phase B rulings record (founder, 2026-10-03) and B1 — **B1 BUILT (#776); B1b MERGED (#777); B2 BUILT; B3–B5 RULED, NOT STARTED**
 
 **Why this entry exists.** The MEM2 rulings R1–R10 that MEM2-A (#771) was built against
 exist in this repository only as citations — migration 070/071 docstrings and code
@@ -5799,6 +5817,56 @@ set not to propagate so its lines do not print twice. `tests/workers/test_worker
 pins that a `services.memory_service` INFO record reaches a root handler after the
 module import and after arq's own dictConfig. Observable: `insight_gate` lines, and
 "Memory task: stored N entries" lines, in the philosopher-worker log on Render.
+
+**B2 — reactivation and the opinion-shift entry (this entry's PR).** Migration
+`072_verdict_history_shift`: `insights.verdict_history` (JSONB, append-only
+`[{verdict, at}]`, no backfill, so history begins at deploy) and
+`memory_entries.source_insight_id` (FK to `insights`, ON DELETE SET NULL, with a
+partial index because it has readers from day one). Both are additive and nullable,
+with no RLS statement (C-05: columns only). The ring-true handler
+(`routers/memory.py`) appends to `verdict_history` on every verdict. Inside the
+verdict's transaction, in addition to R3:
+- **A 'yes'** reactivates the cited rows whose reason is `user_rejected`
+  (`reactivate_cited_memories`). It does this on EVERY 'yes', not only after a 'no',
+  so insight Y can return a row that insight X retired (Q5). `superseded` and
+  `user_removed` rows never return.
+- **A 'no'** also retires that insight's active shift row as `user_rejected`
+  (`reject_verdict_shift`).
+
+When a 'yes' answers a 'no' on the same insight ≥72h earlier, the handler enqueues
+`record_verdict_shift_task` through `safe_enqueue` after the commit. The anchor is the
+most recent 'no' in history: 'partly' is passed over, and an earlier 'yes' ends the
+search, so yes→yes owes nothing. It falls back to `ring_true_at` only when history has
+no 'no' and the loaded verdict is 'no'. Exactly 72h writes.
+
+The task re-reads the verdict and writes nothing if it is no longer 'yes'. The row it
+writes:
+- `entry_type='insight_verdict_shift'`, Lane B by the catch-all
+- `provenance='system_inferred'`, `source_surface='insight'`, `source_insight_id` set,
+  `confidence=0.8`
+- its own embed, and no LLM call
+- it supersedes the previous active shift row for the same insight
+
+The template, approved by the founder 2026-10-03: *They came to accept, after {days}
+days, an observation they had first rejected: "{insight_content}"*. The insight is
+quoted verbatim. English only (TD-121).
+
+`insight_verdict_shift` is excluded from the You-vs-You windows and unlock gate
+(`self_model_service`) and from the self-portrait summary's signals, matching
+`self_portrait_shift` (founder ruling 2026-10-03). The data export carries both new
+columns.
+
+Live tests: `tests/db_live/test_verdict_shift_live.py`, the first run of new live
+checks. Pure boundaries: `tests/services/test_verdict_shift.py`.
+
+**Dismissed insights are silent everywhere** (founder amendment 2026-10-03, on the
+diff): a 'yes' on a dismissed insight neither reactivates nor owes a shift entry, and
+the task re-checks dismissal before writing. The verdict and its history are still
+recorded.
+
+**Post-merge observable for B2.** None will come soon: production had 0 `user_rejected`
+rows on 2026-10-03, and a shift entry needs a 'no' and a 'yes' three days apart.
+`verdict_history` going non-NULL on the next verdict is the first proof.
 
 ### PARKED — founder safety alerting — **PARKED (founder, 2026-10-02). No work.**
 **Revisit only when the founder raises it.** An idea, recorded so it is not lost and is

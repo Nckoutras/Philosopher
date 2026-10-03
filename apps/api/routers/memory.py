@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -14,7 +14,15 @@ from auth import get_current_user
 from services.safety_service import safety_service
 from services.analytics_service import analytics_service
 from services.insight_mirror_service import generate_insight_mirror
-from services.memory_service import reject_cited_memories
+from services.memory_service import (
+    reactivate_cited_memories,
+    reject_cited_memories,
+    reject_verdict_shift,
+    shift_anchor,
+    verdict_entry,
+    verdict_shift_days,
+)
+from services.enqueue import safe_enqueue
 from services.counterview_service import (
     generate_counterview,
     find_counterview_for_insight,
@@ -124,10 +132,16 @@ async def dismiss_insight(
     insight.is_dismissed = True
 
 
+def _utcnow() -> datetime:
+    """The verdict's clock. A seam so the 72h guard's boundary can be tested exactly."""
+    return datetime.now(timezone.utc)
+
+
 @insights_router.patch("/{insight_id}/ring-true", response_model=InsightOut)
 async def set_insight_ring_true(
     insight_id: str,
     body: InsightRingTrueRequest,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
@@ -147,8 +161,9 @@ async def set_insight_ring_true(
     disagreeing with it.
 
     OVERWRITE IS ALLOWED — a person may change their mind, and the timestamp
-    moves with the answer. There is no history table; the row holds the current
-    verdict, which is what every reader of it wants.
+    moves with the answer. ring_true/ring_true_at hold the CURRENT verdict, which
+    is what every reader of them wants; verdict_history (072, MEM2-B2) keeps every
+    verdict written since 072 deployed, appended here on each write.
     """
     result = await db.execute(
         select(Insight).where(Insight.id == insight_id, Insight.user_id == user.id)
@@ -157,20 +172,43 @@ async def set_insight_ring_true(
     if not insight:
         raise HTTPException(status_code=404)
 
+    # The previous verdict, read BEFORE it is overwritten: the 72h guard needs the
+    # 'no' this 'yes' answers, and the legacy fallback needs ring_true_at.
+    prior_history = list(insight.verdict_history or [])
+    previous_verdict, previous_at = insight.ring_true, insight.ring_true_at
+
+    now = _utcnow()
     insight.ring_true = body.ring_true
-    insight.ring_true_at = datetime.now(timezone.utc)
+    insight.ring_true_at = now
+    # A NEW list, not an in-place append: a JSONB column is not mutation-tracked,
+    # and an appended list would be the same object and never be written.
+    insight.verdict_history = prior_history + [verdict_entry(body.ring_true, now)]
 
     # MEM2 R3: a 'no' retires the memory rows the insight was derived from, so a
     # claim the person rejected stops being recalled into what the room says to
-    # them. BEFORE the commit below, in the same transaction as the verdict. Only
-    # 'no' writes memory: 'partly' does nothing (R6), and 'yes' records agreement
-    # without promoting anything. A no-op when evidence is NULL — signal insights
-    # carry none yet (R4, Phase B). Reactivation on no→yes is RULED (founder
-    # 2026-10-03): cited user_rejected rows reactivate, plus a shift-of-opinion
-    # memory entry when the two verdicts are ≥72h apart. BEHAVIOR lands in
-    # MEM2-B2; until then this endpoint deliberately does not reactivate.
+    # them. It also retires this insight's active shift entry (B2): "they came to
+    # accept it" is no longer true. A no-op when evidence is NULL — signal insights
+    # carry none yet (R4, Phase B).
+    #
+    # MEM2-B2: a 'yes' REACTIVATES the cited rows retired as 'user_rejected' —
+    # on every 'yes', not only one that follows a 'no', because another insight
+    # may have retired them (Q5). When this 'yes' answers a 'no' on the same
+    # insight at least 72h earlier, a shift entry is owed too, written by its own
+    # task after the commit below. A DISMISSED insight does neither: a dismissed
+    # card is silent everywhere (founder ruling 2026-10-03). Its verdict and
+    # history are still recorded.
+    #
+    # All of these run BEFORE the commit, in the verdict's transaction. 'partly'
+    # does nothing (R6).
+    shift_days = None
     if body.ring_true == "no":
         await reject_cited_memories(db, user.id, insight.evidence)
+        await reject_verdict_shift(db, user.id, insight.id)
+    elif body.ring_true == "yes" and not insight.is_dismissed:
+        await reactivate_cited_memories(db, user.id, insight.evidence)
+        shift_days = verdict_shift_days(
+            shift_anchor(prior_history, previous_verdict, previous_at), now,
+        )
 
     # EXPLICIT commit, so the event below genuinely fires after one. get_db
     # commits in its teardown (db/session.py), AFTER the handler returns — so a
@@ -197,6 +235,19 @@ async def set_insight_ring_true(
         "verdict": insight.ring_true,
         "surface": "insight",
     })
+
+    # After the commit, so the task never reads a 'yes' that is not there yet. The
+    # task re-checks the verdict when it runs, because the person may have
+    # answered 'no' again in between.
+    if shift_days is not None:
+        await safe_enqueue(
+            getattr(request.app.state, "arq_queue", None),
+            "record_verdict_shift_task",
+            str(user.id),
+            str(insight.id),
+            shift_days,
+            context=f"user={user.id} insight={insight.id}",
+        )
 
     return InsightOut.model_validate(insight)
 

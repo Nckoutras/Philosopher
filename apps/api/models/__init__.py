@@ -340,6 +340,11 @@ class MemoryEntry(Base):
     # WHY is_active went false. is_active stays the single recall gate; this only
     # records the reason, so no reader of is_active had to change.
     inactive_reason: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    # The insight a system-composed row is ABOUT (072, MEM2-B2). Today only
+    # insight_verdict_shift rows set it. SET NULL: the row outlives the insight.
+    source_insight_id: Mapped[str | None] = mapped_column(
+        UUID(as_uuid=False), ForeignKey("insights.id", ondelete="SET NULL"), nullable=True,
+    )
 
     user: Mapped["User"] = relationship("User", back_populates="memory_entries")
 
@@ -387,6 +392,10 @@ class Insight(Base):
     # speech act, one contract, three surfaces. NULL = not answered.
     ring_true: Mapped[str | None] = mapped_column(String(10), nullable=True)
     ring_true_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Every verdict ever written, append-only: [{"verdict": ..., "at": ISO-8601 Z}]
+    # (072, MEM2-B2). ring_true/ring_true_at above stay CURRENT state. NULL on
+    # rows that have had no verdict since 072 deployed — there is no backfill.
+    verdict_history: Mapped[list | None] = mapped_column(JSONB, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     __table_args__ = (
