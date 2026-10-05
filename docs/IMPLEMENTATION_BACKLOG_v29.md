@@ -6194,6 +6194,18 @@ Backlog items, not C: Haiku recites self-portrait/onboarding taps as traits unde
 - **Sanity floor = 0.35 on `candidate_row_cosine`, flat across languages.** Reason: zero T (tangential) samples pass it pooled, with perfect EN separation; the Greek loss is accepted (non-target market, and the conservative direction). Ledger data in canary decides any tuning.
 - **Greek directive variant approved** with one edit: the 56–120-day bucket reads "πριν από ένα-δυο μήνες" (not "κάνα δυο" — register). The other four buckets are `when_el` as authored in C-1. The instruction prose stays English; only `{when}` and the two example phrasings ("Είπες {when} ότι…", "{When} έγραψες ότι…") are Greek. Re-run scope: callback arm, Greek samples, Sonnet only, one generation; the question is Sonnet EL use rate before vs after, fidelity out of scope.
 - **Open copy questions, decided:** Greek trait phrases (πάντα / ποτέ / …) are deferred to the STEP 2 production copy, with a separate approval. Straight double quotes are kept for the run. **Owed to C-3:** the fidelity/use detector must accept «…» as well as "…".
+- **STEP 0(b) result and ruling (founder, 2026-10-05): the Greek variant is ADOPTED for the C-2 production copy** (use rate up, T unchanged at 0). Run `evals/results/2026-10-05_mem2c2_el/` at `a22874d0` (clean tree): callback arm, EL samples, Sonnet only, one generation, judged with C-1 settings; same `sample_set_hash` (3266532357096fe8) and the same 55 offers as C-1, so the directive is the only difference. Cost $3.46. Sonnet EL use rate on offer, call-1 verdicts:
+
+  | Scenario | Before (C-1, EN bucket) | After (Greek variant) |
+  |---|---|---|
+  | R | 4/10 | 6/11 |
+  | R2 | 5/11 | 6/11 |
+  | T | 0/10 | 0/11 |
+  | B | 3/10 | 3/10 |
+  | L2 | 2/10 | 6/11 |
+  | **All offered** | **14/52 (26.9%)** | **21/54 (38.9%)** |
+
+  **Caveat: suggestive at n≈53, not established.** EN Sonnet for reference: 67.3% (37/55). **Watch item for the C-3 detector:** the L2 rise (2/10 → 6/11) — L2 is the post-affirmation scenario (Ruling 9); this run did not measure fidelity or escalation there.
 
 **Sequence.** C-1 (this entry's first PR): measure before speaking — evals and tests
 only, zero production change. The draft callback directive lives under `evals/`, not
