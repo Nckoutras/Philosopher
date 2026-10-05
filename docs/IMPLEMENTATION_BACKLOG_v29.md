@@ -6107,6 +6107,52 @@ log, and the v30 smoke had to be confirmed from the absence of an Anthropic requ
 *Post-merge observable:* `verdict=no_candidates` lines in the worker log, one per
 memory task with a dedup run and no candidate at the gate.
 
+### MEM2 Lane B floor — `INFERRED_SCORE_FLOOR` 0.75 → 0.45 (founder ruling, 2026-10-05) — **BEHAVIOUR CHANGE, smoke OWED on merge**
+
+**Why.** Found during MEM2-C-2 STEP 1: against C-1's stored scores, production recall
+would have kept the callback candidate in 0 of 66 R/R2/T samples (best related row
+0.538, floor 0.75). The question that raised — is Lane B recall reaching anything at
+all? — was measured against production with `apps/api/scripts/lane_b_reach.py`
+(read-only, aggregates only; added in this PR).
+
+**Measurement (founder-run, 2026-10-05, production Oregon), as reported:**
+max cosine per message to that user's active Lane B rows that existed BEFORE the
+message — 95 messages ("as of message"), 9 users: **median 0.419, max 0.709, 0
+exceed 0.75; non-admin 0 of 62.** **Lane B recall has never fired.** Ruling #5
+("never a wrong memory in, even if one goes missing") had bought its precision with
+all of its recall. The full script printout is the founder's; only these figures
+are recorded here.
+
+**Ruling, verbatim:** INFERRED_SCORE_FLOOR 0.75 → 0.45 (above the C-1 tangential
+ceiling of 0.34 with margin; admits the top row on ~45% of real messages).
+Dedup/recurrence thresholds unchanged.
+
+**What changes, stated because it is wider than the chat turn (CLAUDE.md Rule 4):**
+the floor is shared by every recall caller —
+`stream_response` (`conversation_service.py:817`), another_mind (`:1431`), go_deeper
+(`:1744`) and the Council synthesis (`council_service.py:451`). All four now admit
+Lane B rows at > 0.45. Lane A (`stated`, `self_portrait`) has no floor and is
+unchanged; caps (8 total, 5 Lane B, 2 per type) are unchanged.
+`DUPLICATE_SIM_THRESHOLD` and `RECURRENCE_SIM_THRESHOLD` stay 0.75 — they compare a
+row to another row, not to the query.
+
+**Tests.** Every unit test reads the constant symbolically. Two live tests encoded
+0.75 by VALUE and are updated: the distance-order test's excluded row moved 0.60 →
+0.40, and the both-sides test now derives its rows from the constant (floor ± 0.01),
+so it pins whatever the constant says. First executed by CI's live-Postgres job.
+
+**Post-merge smoke, OWED (P-04 as amended: post-merge, same day; not passed until
+someone has looked):** PostHog `message_sent.memory_count` on real turns, the days
+before the deploy vs after. *Expected:* the distribution shifts up — before, it
+counted Lane A rows only (Lane B never cleared 0.75), so a rise is Lane B appearing.
+A count that does not move means the deploy did not take or the measurement was
+wrong; either is a finding. `memory_count` is the total of both lanes, so the Lane B
+share is the change, not the value.
+
+**Interaction with MEM2-C-2:** C-2's gate has its own 0.35 floor and appends an
+offered row recall did not return (D1). With recall at 0.45 that append fires less
+often; nothing in C-2 depends on the recall floor's value. C-2 rebases onto this.
+
 ### MEM2-C — Phase C rulings record (founder, 2026-10-05) — **C-1 IN PROGRESS (evals only)**
 
 **Why this entry exists.** Phase C is a persona explicitly calling back something the

@@ -137,6 +137,27 @@ No I/O, no side effects. Safe to import and test without any credentials.
 
 ---
 
+## lane_b_reach.py
+
+Read-only measurement of how far Lane B memory recall reaches on real messages:
+for the last 100 user messages, the max cosine to that user's Lane B rows that
+existed before the message, and how many clear the floor. Reports both the
+reference 0.75 and the current `INFERRED_SCORE_FLOOR`. Aggregates only — never
+message text. Its first run (2026-10-05) is why the floor moved 0.75 → 0.45.
+
+**Run from `apps/api/`:**
+
+```bash
+DATABASE_URL_RO='postgresql://...' python scripts/lane_b_reach.py
+```
+
+| Variable | Description |
+|---|---|
+| `DATABASE_URL_RO` | Production (Oregon) connection string; the transaction is READ ONLY |
+| `OPENAI_API_KEY` | From `.env`; 100 embeddings, well under $0.01 |
+
+---
+
 ## Other scripts
 
 | Script | Purpose |

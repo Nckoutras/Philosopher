@@ -50,10 +50,20 @@ INFERRED_PER_TYPE = 2        # Lane B, any one type — stops one prolific type
 # Lane B's relevance floor, replacing the 0.70 literal that had stood unmeasured
 # since the initial commit. Ruling #5 buys precision with recall in as many words
 # ("never a wrong memory in, even if one goes missing"), so the floor rises.
-# 0.75 is a SHIP-AND-TUNE value (O-1): no measurement of either number against
-# real embeddings exists, and a synthetic-vector test can pin that the floor is
-# ENFORCED but not where it belongs. Named so it moves without touching the query.
-INFERRED_SCORE_FLOOR = 0.75
+# 0.75 was a SHIP-AND-TUNE value (O-1), and the tuning is now MEASURED.
+#
+# LOWERED 0.75 -> 0.45 (founder ruling 2026-10-05, MEM2 Lane B floor). Measured
+# against production (scripts/lane_b_reach.py, read-only): for the last user
+# messages, the max cosine to that user's Lane B rows that existed BEFORE the
+# message — 95 messages, 9 users — was median 0.419, max 0.709; 0 exceeded 0.75
+# (0 of 62 from non-admin accounts). Lane B recall had never fired: Ruling #5's
+# precision was bought with ALL of its recall, not some. 0.45 sits above the C-1
+# tangential ceiling (0.34 on candidate_row_cosine) with margin. Reaches every
+# recall caller: chat, another_mind, go_deeper, Council synthesis.
+#
+# NOT the duplicate or recurrence threshold (both still 0.75, below): those
+# compare a row to ANOTHER ROW; this compares a row to the QUERY.
+INFERRED_SCORE_FLOOR = 0.45
 
 # ── "These two rows say the same thing" — ONE definition, two readers ─────────
 #
