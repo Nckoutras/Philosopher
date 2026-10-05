@@ -6086,6 +6086,27 @@ Still deferred:
 - **TD-121, TD-122.**
 - The R3-through-supersession finding above.
 
+**B5.1 — dedup silent-path log line (approved ruling; closes PROJECT_STATE v30 §1a
+known gap 1).** Before this, a dedup run in which no new row had a candidate at ≥0.75
+wrote nothing. "B5 ran and found nothing" and "B5 did not run" looked the same in the
+log, and the v30 smoke had to be confirmed from the absence of an Anthropic request.
+
+*What was built.*
+- `dedup_new_entries` writes **one INFO line per run that made zero judge calls**:
+  `dedup_judge verdict=no_candidates kept=all retired=none user=… rows=N`.
+- `rows` is the count of new rows that were **searched**, i.e. eligible
+  system_inferred chat rows. A run whose rows were all ineligible logs `rows=0`.
+- A run with at least one judge call does not write it, because its per-pair lines
+  already cover it. That includes a failed call (`verdict=error`).
+- A run that fails before any judge call does not write it either: it did not "find
+  nothing", and its error line covers it.
+- The kill switch off still logs nothing.
+- `_dedup_one` now returns `(retired, judge calls)`. Nothing else changed: no judge,
+  prompt, threshold, write-path or hook-order change.
+
+*Post-merge observable:* `verdict=no_candidates` lines in the worker log, one per
+memory task with a dedup run and no candidate at the gate.
+
 ### PARKED — founder safety alerting — **PARKED (founder, 2026-10-02). No work.**
 **Revisit only when the founder raises it.** An idea, recorded so it is not lost and is
 not mistaken for planned work.

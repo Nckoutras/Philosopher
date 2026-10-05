@@ -379,3 +379,57 @@ def test_dedup_is_not_gated_by_the_insight_budgets():
     import inspect
     src = inspect.getsource(memory_service.dedup_new_entries) + inspect.getsource(memory_service._dedup_one)
     assert "_insight_gate_blocked" not in src
+
+
+# ── 6. The silent path (B5.1) ────────────────────────────────────────────────
+
+def _silent_lines(caplog):
+    return [r for r in caplog.records if "verdict=no_candidates" in r.getMessage()]
+
+
+@pytest.mark.asyncio
+async def test_a_run_with_no_judge_call_logs_exactly_one_summary_line(caplog):
+    """rows= counts the new rows that were searched: the user_stated row is not."""
+    db = FakeDB([_cand(DUPLICATE_SIM_THRESHOLD - 0.001)])
+    entries = [_entry(), _entry(), _entry(provenance="user_stated")]
+    with caplog.at_level(logging.INFO, logger="services.memory_service"):
+        n, judge = await _dedup(db, entries, [])
+    assert n == 0
+    judge.assert_not_awaited()
+    (rec,) = [r for r in caplog.records if r.getMessage().startswith("dedup_judge ")]
+    assert rec.levelno == logging.INFO
+    assert rec.getMessage() == (
+        f"dedup_judge verdict=no_candidates kept=all retired=none user={USER} rows=2"
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("verdict", [_v("DISTINCT"), _v(None, None, failed=True)])
+async def test_a_run_with_a_judge_call_does_not_log_the_summary_line(verdict, caplog):
+    db = FakeDB([_cand(0.90)])
+    with caplog.at_level(logging.INFO, logger="services.memory_service"):
+        _, judge = await _dedup(db, [_entry()], [verdict])
+    assert judge.await_count == 1
+    assert _silent_lines(caplog) == []
+
+
+@pytest.mark.asyncio
+async def test_the_kill_switch_logs_nothing(caplog):
+    db = FakeDB([_cand(0.10)])
+    with caplog.at_level(logging.DEBUG, logger="services.memory_service"):
+        await _dedup(db, [_entry()], [], enabled=False)
+    assert [r for r in caplog.records if r.name == "services.memory_service"] == []
+
+
+@pytest.mark.asyncio
+async def test_a_run_that_fails_before_any_judge_call_does_not_claim_no_candidates(caplog):
+    """A failed run is not "ran and found nothing": its error line covers it."""
+    class FailingSelect(FakeDB):
+        async def execute(self, stmt, params=None):
+            raise RuntimeError("select failed")
+
+    with caplog.at_level(logging.INFO, logger="services.memory_service"):
+        n, _ = await _dedup(FailingSelect(), [_entry()], [])
+    assert n == 0
+    assert _silent_lines(caplog) == []
+    assert any("verdict=error" in r.getMessage() for r in caplog.records)
