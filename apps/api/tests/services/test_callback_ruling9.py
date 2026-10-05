@@ -77,6 +77,53 @@ async def test_the_reply_pair_is_marked_and_promotes_no_signal():
     promote.assert_not_awaited()
 
 
+# ── A failed extraction runs the rest of the task (Sentry PHILOSOPHER-API-F) ──
+#
+# The harness above hands the task a ready-made ExtractionResult, so it could not
+# see that the REAL extract_and_store returned a bare list when the model's output
+# did not parse — and the task then crashed on `entries.safety_ok`. Here the real
+# extract_and_store runs, fed malformed JSON.
+
+@pytest.mark.parametrize("role", [(False, False), (False, True)], ids=["ordinary", "reply_turn"])
+async def test_a_failed_extraction_runs_the_rest_of_the_task(role, caplog):
+    from workers import arq_worker as aw
+
+    session = AsyncMock()
+    session.__aenter__ = AsyncMock(return_value=session)
+    session.__aexit__ = AsyncMock(return_value=False)
+    recur, promote = AsyncMock(), AsyncMock(return_value=False)
+    with (
+        patch("db.session.AsyncSessionLocal", return_value=session),
+        patch.object(cs, "callback_turn_role", AsyncMock(return_value=role)),
+        patch("services.memory_service.llm_client.complete",
+              new=AsyncMock(return_value="Sure! Here are the memories: [")),
+        patch.object(ms.memory_service, "dedup_new_entries", new=AsyncMock()),
+        patch.object(ms.memory_service, "detect_recurrence", new=recur),
+        patch.object(ms.memory_service, "promote_signal_insight", new=promote),
+        caplog.at_level("INFO"),
+    ):
+        await aw.extract_memory_task({}, USER, CONV, "p1", "text", "reply", 1, True, IDS)
+
+    assert "Memory extraction failed" in caplog.text
+    assert "Memory task failed" not in caplog.text      # the task's catch-all never fired
+    assert recur.await_args.kwargs["new_entries"] == []
+    if role[1]:
+        promote.assert_not_awaited()                     # Ruling 9: a reply turn promotes nothing
+    else:
+        promote.assert_awaited_once()
+        assert promote.await_args.args[4] == []          # nothing extracted, nothing to promote
+
+
+async def test_every_extract_and_store_return_is_an_extraction_result():
+    with patch("services.memory_service.llm_client.complete", new=AsyncMock(return_value="{not json")):
+        out = await memory_service.extract_and_store(
+            db=_db(), user_id=USER, conversation_id=CONV, persona_id="p1",
+            user_text="Δεν ξέρω.", assistant_text="reply", safety_ok=True, promote_signal=False,
+        )
+    assert isinstance(out, ExtractionResult) and list(out) == []
+    assert (out.signals, out.language, out.safety_ok) == ([], "Greek", True)
+
+
 # ── extract_and_store: D7's input, and the mark on every row ─────────────────
 
 def _db():

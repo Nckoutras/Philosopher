@@ -1067,6 +1067,14 @@ class ExtractionResult(list):
     language: str
     safety_ok: bool
 
+    @classmethod
+    def of(cls, saved: list, *, signals: list, language: str, safety_ok: bool) -> "ExtractionResult":
+        result = cls(saved)
+        result.signals = signals
+        result.language = language
+        result.safety_ok = safety_ok
+        return result
+
 
 class MemoryService:
 
@@ -1131,7 +1139,10 @@ class MemoryService:
             entries_data = json.loads(text)
         except (json.JSONDecodeError, Exception) as e:
             logger.warning(f"Memory extraction failed: {e}")
-            return []
+            # The same type as every other return: extract_memory_task reads
+            # .safety_ok / .signals / .language after this (Sentry
+            # PHILOSOPHER-API-F). Nothing was extracted, so nothing is promoted.
+            return ExtractionResult.of([], signals=[], language=language, safety_ok=safety_ok)
 
         saved = []
         for entry in entries_data:
@@ -1191,10 +1202,8 @@ class MemoryService:
 
         await db.flush()
 
-        result = ExtractionResult(saved)
-        result.signals = entries_data
-        result.language = language
-        result.safety_ok = safety_ok
+        result = ExtractionResult.of(saved, signals=entries_data, language=language,
+                                     safety_ok=safety_ok)
 
         if safety_ok and promote_signal:
             await self.promote_signal_insight(
