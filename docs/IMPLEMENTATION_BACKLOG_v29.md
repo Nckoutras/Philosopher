@@ -6207,6 +6207,28 @@ Backlog items, not C: Haiku recites self-portrait/onboarding taps as traits unde
 
   **Caveat: suggestive at n≈53, not established.** EN Sonnet for reference: 67.3% (37/55). **Watch item for the C-3 detector:** the L2 rise (2/10 → 6/11) — L2 is the post-affirmation scenario (Ruling 9); this run did not measure fidelity or escalation there.
 
+**C-2 STEP 1 decisions (founder, 2026-10-05), verbatim:**
+
+- D1 gate's own query + 0.35 floor, offered row appended to memories — approved (recall alone = 0/66 proves it).
+- D2 any non-'none' message flags the source conversation — approved, conservative per G.
+- D3 ledger in the data export — yes.
+- D4 insight 'yes' may reactivate a callback-rejected row per the B2 ruling; callback_blocked_at stays permanent — approved.
+- D5 deep mode excluded until measured — approved.
+- D6 prompts/callback_directive.txt + _el.txt, plain text, str.replace, byte parity tests against evals — approved.
+- D7 (offer pair): the user message predates the callback and is independent evidence; only the assistant text contaminates — extraction for that pair reads the user message alone. Built in C-2 (a contained change: `omit_assistant` on `extract_and_store`). The NEXT pair (the user's reply to the callback) stays marked.
+- Ruling 9 mechanism approved as a **named shortcut**: every row of the reply pair is marked `elicited_by_callback`; the "unless they contain an independently stated proposition" exception is NOT implemented. **First C-3 fix**, before C-3b.
+- Everything else as proposed: ledger on offer in the Phase C2 transaction, rejection endpoint not flag-gated, gate logging with per-rule counts and no content, v31 rotation owed on merge.
+
+**The finding behind D1 (recorded so it is not re-derived):** recall's Lane B floor is `INFERRED_SCORE_FLOOR = 0.75`. Against C-1's stored scores, production recall would have put the candidate in the block in **0 of 66** R/R2/T samples (best related candidate 0.538). C-1 measured forced presence. A production Lane B reach measurement (`lane_b_reach.py`, read-only) is with the founder; it does not block C-2.
+
+**C-2 built (flag `CALLBACKS_ENABLED`, default OFF), migration `074_memory_callbacks`.** Named items carried out of it:
+- **PROJECT_STATE v31 is OWED on merge** (CLAUDE.md trigger: any migration).
+- **Live tests first run in CI.** `tests/db_live/test_memory_callbacks_live.py` (14 tests: the gate SQL, chain CTEs both directions, Ruling 9 lookup, rejection, FKs, RLS) could not run on the authoring machine (no Postgres); its first execution is the PR's `pytest (live Postgres)` run — TD-45's corollary applies.
+- **`memory_count` counts an appended callback row.** The analytics count rides on `len(memories)`; with the flag on and an offer appended it is recall + 1. Cosmetic; flag-off unchanged.
+- **Stale doc claim, out of scope:** `account_deletion_service.py` says "21 tables CASCADE" (056). 061 and 067 added cascading tables since, and 074 adds `memory_callbacks`. Unverified count; not edited here.
+- **Owed to C-3:** the use detector (fills `memory_callbacks.used`) must accept «…» as well as "…"; the L2 watch item above; the Ruling 9 exception.
+- **First live smoke is owed when the flag first flips in canary,** not at merge: with the flag off there is no user-visible change to smoke.
+
 **Sequence.** C-1 (this entry's first PR): measure before speaking — evals and tests
 only, zero production change. The draft callback directive lives under `evals/`, not
 `prompts/`, and its copy is approved before anything uses it. No C-2 brief until the

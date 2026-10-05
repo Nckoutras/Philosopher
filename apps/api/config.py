@@ -43,6 +43,13 @@ class Settings(BaseSettings):
     # Worker-only; flip it on Render's worker by setting MEMORY_DEDUP_ENABLED=false.
     MEMORY_DEDUP_ENABLED: bool = True
 
+    # MEM2-C-2 callbacks (services/callback_service.py). DEFAULT OFF. Off, the chat
+    # send path is byte-identical to before C-2: no gate query, no block, no ledger
+    # row. API-side; flip it on Render's API service with CALLBACKS_ENABLED=true.
+    # The rejection endpoint and the worker's Ruling 9 marking are NOT gated: an
+    # offer made before the flag went off stays rejectable and stays marked.
+    CALLBACKS_ENABLED: bool = False
+
     # OpenAI (embeddings)
     OPENAI_API_KEY: str = ""
     EMBEDDING_MODEL: str = "text-embedding-3-small"

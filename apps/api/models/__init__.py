@@ -352,6 +352,15 @@ class MemoryEntry(Base):
     echo_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
     last_echo_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
+    # Callbacks (074, MEM2-C-2). elicited_by_callback: extracted from the user's
+    # reply to a callback, so never independent evidence of anything (Ruling 9).
+    # callback_blocked_at: permanently not a callback candidate (Ruling 5). NOT a
+    # recall gate — a blocked row may stay active; is_active is still the only one.
+    elicited_by_callback: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=text("false"),
+    )
+    callback_blocked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
     user: Mapped["User"] = relationship("User", back_populates="memory_entries")
 
     __table_args__ = (
@@ -365,6 +374,38 @@ class MemoryEntry(Base):
             "inactive_reason IN ('superseded', 'user_removed', 'user_rejected')",
             name="ck_memory_entries_inactive_reason",
         ),
+    )
+
+
+class MemoryCallback(Base):
+    """One row per callback OFFER (074, MEM2-C-2). Written when the gate offered a
+    memory and the reply carrying it was saved — whether or not the persona used
+    it. `used` is filled by C-3's detector; `reaction` by the rejection endpoint.
+
+    conversation_id / message_id are SET NULL so a thread delete does not reset
+    the cooldowns (C1-b) that read this table."""
+    __tablename__ = "memory_callbacks"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=gen_uuid)
+    user_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    memory_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=False), ForeignKey("memory_entries.id", ondelete="CASCADE"), nullable=False,
+    )
+    persona_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), ForeignKey("personas.id"))
+    conversation_id: Mapped[str | None] = mapped_column(
+        UUID(as_uuid=False), ForeignKey("conversations.id", ondelete="SET NULL"),
+    )
+    message_id: Mapped[str | None] = mapped_column(
+        UUID(as_uuid=False), ForeignKey("messages.id", ondelete="SET NULL"),
+    )
+    score: Mapped[float] = mapped_column(Float, nullable=False)
+    offered_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    used: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    reaction: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    reacted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        CheckConstraint("reaction IN ('rejected')", name="ck_memory_callbacks_reaction"),
     )
 
 

@@ -3140,3 +3140,136 @@ async def test_the_judged_row_is_one_enriched_row_without_the_reason():
                                 "failed", "fail_kind"}
     assert "reason" not in kw["judge"]
     assert kw["judge"]["outcome"] == "DISCUSSING"
+
+
+# ── MEM2-C-2: the callback gate on the send path ─────────────────────────────
+#
+# check_input and the gate are REAL (a neutral message is NORMAL/none); the
+# callback service is patched per test. Flag OFF must leave the send path exactly
+# as it was: no gate call, recall's own list into build_system, no block, no ledger.
+
+from services import callback_service as _cs
+
+NEUTRAL = "I keep thinking about whether to change jobs."
+_PROMPT_WITH_ANCHOR = "PREFIX\n\n\n" + _cs.HARD_RULES_ANCHOR + "\n1. a rule"
+
+
+def _offer(mid="mem-offered"):
+    return _cs.CallbackOffer(id=mid, entry_type="struggle", content="User doubts the job.",
+                             score=0.52, days=12, language="en", block="CALLBACK BLOCK")
+
+
+async def _run_callback(*, enabled, select=None, plan="pro", recalled=(), text=NEUTRAL):
+    service = ConversationService()
+    db, _ = _make_db_for_memory(message_count=0)
+    mock_llm = MagicMock()
+
+    async def fake_stream(*args, **kwargs):
+        yield "Hello"
+
+    mock_llm.stream = fake_stream
+    clean = MagicMock()
+    clean.should_suppress_persona = False
+    clean.level = "none"
+    recalled = list(recalled)
+    select = select or AsyncMock(side_effect=AssertionError("gate must not run"))
+    record = MagicMock()
+
+    with (
+        patch("services.conversation_service.safety_service.check_output", AsyncMock(return_value=clean)),
+        patch("services.conversation_service.memory_service") as mock_memory,
+        patch("services.conversation_service.llm_client", mock_llm),
+        patch("services.conversation_service.prompt_builder") as mock_prompt,
+        patch("services.conversation_service.analytics_service"),
+        patch("services.conversation_service.POSTPROCESSING_ENABLED", False),
+        patch("services.conversation_service.PHENOMENOLOGY_BRIDGE_ENABLED", False),
+        patch("services.conversation_service.get_persona") as mock_get_persona,
+        patch.object(_cs.config, "CALLBACKS_ENABLED", enabled),
+        patch.object(_cs, "select_callback", select),
+        patch.object(_cs, "record_offer", record),
+    ):
+        mock_memory.recall = AsyncMock(return_value=recalled)
+        mock_prompt.build_system.return_value = _PROMPT_WITH_ANCHOR
+        persona_config = MagicMock()
+        persona_config.slug = "marcus_aurelius"
+        mock_get_persona.return_value = persona_config
+        service._save_message = AsyncMock(return_value=_saved_msg())
+        service._log_safety_event = AsyncMock()
+
+        await _drain(service.stream_response(
+            session_factory=_factory(db), conversation_id=CONV_ID, user_id=USER_ID,
+            user_text=text, user_plan=plan,
+        ))
+    split = mock_prompt.split_system_for_cache.call_args
+    return SimpleNamespace(
+        system_prompt=split.args[0] if split else None,
+        memories=mock_prompt.build_system.call_args.kwargs["memories"],
+        recalled=recalled, select=select, record=record,
+    )
+
+
+@pytest.mark.asyncio
+async def test_flag_off_the_send_path_is_unchanged():
+    """THE PARITY TEST. Off: the gate never runs, build_system gets recall's own
+    list object, the prompt is build_system's output untouched by any block, and
+    no ledger row is written — on a Pro NORMAL/none turn, the one turn the gate
+    would otherwise consider."""
+    recalled = [SimpleNamespace(id="r1", entry_type="value", content="c")]
+    off = await _run_callback(enabled=False, recalled=recalled)
+    off.select.assert_not_awaited()
+    off.record.assert_not_called()
+    assert off.memories is off.recalled
+    assert "CALLBACK BLOCK" not in off.system_prompt
+    assert off.system_prompt.startswith(_PROMPT_WITH_ANCHOR)
+
+    # And identical to a flag-ON turn whose gate offers nothing: the gate's
+    # presence alone changes no byte of the prompt.
+    none = await _run_callback(enabled=True, select=AsyncMock(return_value=None),
+                               recalled=recalled)
+    assert none.system_prompt == off.system_prompt
+    assert none.memories == off.memories
+    none.record.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_flag_on_an_offer_is_inserted_before_hard_rules_and_ledgered():
+    run = await _run_callback(enabled=True, select=AsyncMock(return_value=_offer()))
+    sp = run.system_prompt
+    assert sp.index("CALLBACK BLOCK") < sp.index(_cs.HARD_RULES_ANCHOR)
+    assert sp.count("CALLBACK BLOCK") == 1
+    kw = run.select.await_args.kwargs
+    assert (kw["user_plan"], kw["gate_outcome"], kw["safety_level"], kw["deep_mode"]) == (
+        "pro", "NORMAL", "none", False)
+    assert kw["responder_persona_id"] == PERSONA_ID and kw["conversation_id"] == CONV_ID
+    rec = run.record.call_args.kwargs
+    assert rec["offer"].id == "mem-offered" and rec["message_id"] == "msg-uuid-1"
+    assert rec["persona_id"] == PERSONA_ID and rec["conversation_id"] == CONV_ID
+
+
+@pytest.mark.asyncio
+async def test_an_offered_row_recall_missed_is_appended_to_the_memory_block():
+    """D1: recall's 0.75 floor almost never admits the candidate, so it is added —
+    once, after recall's rows — and not duplicated when recall did return it."""
+    recalled = [SimpleNamespace(id="r1", entry_type="value", content="c")]
+    run = await _run_callback(enabled=True, select=AsyncMock(return_value=_offer()),
+                              recalled=recalled)
+    assert [m.id for m in run.memories] == ["r1", "mem-offered"]
+
+    already = [SimpleNamespace(id="mem-offered", entry_type="struggle", content="c")]
+    run = await _run_callback(enabled=True, select=AsyncMock(return_value=_offer()),
+                              recalled=already)
+    assert [m.id for m in run.memories] == ["mem-offered"]
+
+
+@pytest.mark.asyncio
+async def test_a_gate_failure_fails_open():
+    run = await _run_callback(enabled=True, select=AsyncMock(side_effect=RuntimeError("db")))
+    assert "CALLBACK BLOCK" not in run.system_prompt
+    run.record.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_the_gate_is_asked_with_the_turns_real_plan():
+    """The plan rule lives in the gate (tested there); the send path passes it through."""
+    run = await _run_callback(enabled=True, select=AsyncMock(return_value=None), plan="free")
+    assert run.select.await_args.kwargs["user_plan"] == "free"

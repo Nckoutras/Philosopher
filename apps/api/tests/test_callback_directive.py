@@ -93,14 +93,19 @@ def test_hash_moves_with_the_copy(monkeypatch):
 
 
 def test_no_production_module_imports_the_draft_directive():
-    """C-1 is evals-only. If services/, workers/, routers/ or prompts/ ever reads
-    this module, the draft has shipped without its own PR and parity test."""
+    """Production never IMPORTS the evals module. Since C-2 it carries its own copy
+    (prompts/callback_directive*.txt, read by services/callback_service.py), pinned
+    byte-for-byte against this one by tests/services/test_callback_service.py — so
+    the guard is on the import, not on the word, which the production loader now
+    names as a filename."""
     root = Path(__file__).resolve().parent.parent
     hits = []
     for sub in ("services", "workers", "routers", "prompts", "personas"):
         for p in (root / sub).rglob("*"):
-            if p.suffix in (".py", ".jinja2") and "callback_directive" in p.read_text(
-                    encoding="utf-8", errors="ignore"):
+            if p.suffix not in (".py", ".jinja2"):
+                continue
+            body = p.read_text(encoding="utf-8", errors="ignore")
+            if "evals.callback_directive" in body or "from evals" in body:
                 hits.append(str(p))
     assert hits == []
 

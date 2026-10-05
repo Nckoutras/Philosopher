@@ -140,7 +140,8 @@ async def test_an_empty_account_exports_every_section_as_an_empty_list():
     document missing the sections they have not used yet."""
     payload = await build_export(_fake_db({}), _user())
     for section in (
-        "conversations", "messages", "memories", "insights", "letters", "mirrors",
+        "conversations", "messages", "memories", "memory_callbacks", "insights",
+        "letters", "mirrors",
         "trajectory_snapshots",
         "self_comparisons", "counterviews", "council_cases", "saved_lines",
         "saved_quotes", "mirror_saves", "council_saves", "counterview_saves",
@@ -180,6 +181,8 @@ async def test_embeddings_never_reach_the_export():
         provenance="system_inferred", source_surface="chat", source_message_ids=None,
         supersedes_memory_id=None, inactive_reason=None, source_insight_id=None,
         echo_count=None, last_echo_at=None,
+        # 074's columns, read by the builder (C-06).
+        elicited_by_callback=False, callback_blocked_at=None,
     )
     payload = await build_export(_fake_db({"MemoryEntry": [memory]}), _user())
 
@@ -308,6 +311,8 @@ async def test_memories_export_every_epistemic_column():
         source_message_ids=message_ids, supersedes_memory_id="mem-1",
         inactive_reason="user_rejected", source_insight_id=None,
         echo_count=None, last_echo_at=None,
+        # 074's columns, read by the builder (C-06).
+        elicited_by_callback=False, callback_blocked_at=None,
     )
     payload = await build_export(_fake_db({"MemoryEntry": [memory]}), _user())
     row = payload["memories"][0]
@@ -331,6 +336,8 @@ async def test_the_072_columns_are_exported():
         provenance="system_inferred", source_surface="insight", source_message_ids=None,
         supersedes_memory_id=None, inactive_reason=None, source_insight_id="ins-1",
         echo_count=None, last_echo_at=None,
+        # 074's columns, read by the builder (C-06).
+        elicited_by_callback=False, callback_blocked_at=None,
     )
     history = [{"verdict": "no", "at": "2026-09-01T09:00:00Z"},
                {"verdict": "yes", "at": "2026-09-05T09:00:00Z"}]
@@ -362,6 +369,8 @@ async def test_the_073_columns_and_the_evidence_kind_are_exported():
         provenance="system_inferred", source_surface="chat", source_message_ids=None,
         supersedes_memory_id=None, inactive_reason=None, source_insight_id=None,
         echo_count=4, last_echo_at=echoed_at,
+        # 074's columns, read by the builder (C-06).
+        elicited_by_callback=False, callback_blocked_at=None,
     )
     evidence = {"kind": "signal", "source_message_ids": ["m1", "m2"],
                 "memory_entry_ids": ["mem-4"]}
@@ -379,6 +388,46 @@ async def test_the_073_columns_and_the_evidence_kind_are_exported():
     assert row["last_echo_at"] == "2026-10-03T09:30:00Z"
     assert payload["insights"][0]["evidence"]["kind"] == "signal"
     json.dumps(payload)
+
+
+async def test_the_074_callback_ledger_and_columns_are_exported():
+    """074 (MEM2-C-2, D3): the callback ledger is the person's data — what was said
+    back to them, when, and how they reacted. `score` is ranking telemetry and is
+    withheld, asserted at value level (the embeddings test's method)."""
+    blocked_at = datetime(2026, 10, 5, 10, 0, tzinfo=timezone.utc)
+    memory = _Row(
+        id="mem-5", user_id="u1", entry_type="struggle", content="a struggle",
+        confidence=0.9, is_active=True, conversation_id="c1",
+        persona_id=None, source_turn=1, embedding=None,
+        created_at=datetime(2026, 9, 1, tzinfo=timezone.utc),
+        updated_at=datetime(2026, 9, 1, tzinfo=timezone.utc),
+        provenance="system_inferred", source_surface="chat", source_message_ids=None,
+        supersedes_memory_id=None, inactive_reason=None, source_insight_id=None,
+        echo_count=None, last_echo_at=None,
+        elicited_by_callback=True, callback_blocked_at=blocked_at,
+    )
+    marker = 0.4242424242
+    callback = _Row(
+        id="cb-1", user_id="u1", memory_id="mem-5", persona_id="p-1",
+        conversation_id="c2", message_id="msg-9", score=marker,
+        offered_at=datetime(2026, 10, 4, 12, 0, tzinfo=timezone.utc),
+        used=None, reaction="rejected", reacted_at=blocked_at,
+    )
+    persona = _Row(id="p-1", slug="seneca")
+    payload = await build_export(
+        _fake_db({"MemoryEntry": [memory], "MemoryCallback": [callback],
+                  "Persona": [persona]}), _user(),
+    )
+    row = payload["memories"][0]
+    assert row["elicited_by_callback"] is True
+    assert row["callback_blocked_at"] == "2026-10-05T10:00:00Z"
+    assert payload["memory_callbacks"] == [{
+        "id": "cb-1", "memory_id": "mem-5", "persona_slug": "seneca",
+        "conversation_id": "c2", "message_id": "msg-9",
+        "offered_at": "2026-10-04T12:00:00Z", "used": None,
+        "reaction": "rejected", "reacted_at": "2026-10-05T10:00:00Z",
+    }]
+    assert str(marker) not in json.dumps(payload), "the offer score reached the export"
 
 
 # ── Soft-deleted rows are included, per the ruling ────────────────────────────

@@ -19,5 +19,9 @@ os.environ.setdefault('SAFETY_JUDGE_ENABLED', 'false')
 # B5 tests switch it on and stub the judge.
 os.environ.setdefault('MEMORY_DEDUP_ENABLED', 'false')
 
+# MEM2-C-2: callbacks default OFF in config too; pinned here so a developer's
+# .env cannot switch them on under the suite. The callback tests patch it on.
+os.environ.setdefault('CALLBACKS_ENABLED', 'false')
+
 # Ensure app modules are importable from tests
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
