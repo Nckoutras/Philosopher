@@ -1,0 +1,182 @@
+{
+  "groups": {
+    "callback|all|all": {
+      "completions": 66,
+      "judged": 65,
+      "callback_rate_on_offer": "38.9% (21/54)",
+      "any_callback_rate": "32.3% (21/65)",
+      "fidelity_among_callbacks": "95.2% (20/21)",
+      "sharpens_among_callbacks": "100.0% (21/21)",
+      "timing_conflict_among_callbacks": "0.0% (0/21)",
+      "where_or_to_whom_among_callbacks": "0.0% (0/21)",
+      "asks_confirmation_among_callbacks": "0.0% (0/21)",
+      "misuse_ineligible_rate": "0.0% (0/65)",
+      "misuse_by_kind": {},
+      "misuse_rate_in_B": "0.0% (0/10)",
+      "repetition_R_then_R2": "66.7% (4/6)",
+      "escalation_R2_control": "9.1% (1/11)",
+      "escalation_L2_after_affirmation": "0.0% (0/11)",
+      "escalation_L1_same_session": "0.0% (0/11)",
+      "listening_e_source_shown": "4.8% (3/63)",
+      "listening_d": "100.0% (63/63)",
+      "listening_a": "57.1% (36/63)",
+      "in_band": "48.5% (32/66)",
+      "mean_words": 54.3,
+      "mean_words_with_callback": 65.2,
+      "lao_tzu_in_band": "33.3% (2/6)",
+      "reply_language_matches": "100.0% (66/66)"
+    },
+    "callback|pro|all": {
+      "completions": 66,
+      "judged": 65,
+      "callback_rate_on_offer": "38.9% (21/54)",
+      "any_callback_rate": "32.3% (21/65)",
+      "fidelity_among_callbacks": "95.2% (20/21)",
+      "sharpens_among_callbacks": "100.0% (21/21)",
+      "timing_conflict_among_callbacks": "0.0% (0/21)",
+      "where_or_to_whom_among_callbacks": "0.0% (0/21)",
+      "asks_confirmation_among_callbacks": "0.0% (0/21)",
+      "misuse_ineligible_rate": "0.0% (0/65)",
+      "misuse_by_kind": {},
+      "misuse_rate_in_B": "0.0% (0/10)",
+      "repetition_R_then_R2": "66.7% (4/6)",
+      "escalation_R2_control": "9.1% (1/11)",
+      "escalation_L2_after_affirmation": "0.0% (0/11)",
+      "escalation_L1_same_session": "0.0% (0/11)",
+      "listening_e_source_shown": "4.8% (3/63)",
+      "listening_d": "100.0% (63/63)",
+      "listening_a": "57.1% (36/63)",
+      "in_band": "48.5% (32/66)",
+      "mean_words": 54.3,
+      "mean_words_with_callback": 65.2,
+      "lao_tzu_in_band": "33.3% (2/6)",
+      "reply_language_matches": "100.0% (66/66)"
+    },
+    "callback|pro|el": {
+      "completions": 66,
+      "judged": 65,
+      "callback_rate_on_offer": "38.9% (21/54)",
+      "any_callback_rate": "32.3% (21/65)",
+      "fidelity_among_callbacks": "95.2% (20/21)",
+      "sharpens_among_callbacks": "100.0% (21/21)",
+      "timing_conflict_among_callbacks": "0.0% (0/21)",
+      "where_or_to_whom_among_callbacks": "0.0% (0/21)",
+      "asks_confirmation_among_callbacks": "0.0% (0/21)",
+      "misuse_ineligible_rate": "0.0% (0/65)",
+      "misuse_by_kind": {},
+      "misuse_rate_in_B": "0.0% (0/10)",
+      "repetition_R_then_R2": "66.7% (4/6)",
+      "escalation_R2_control": "9.1% (1/11)",
+      "escalation_L2_after_affirmation": "0.0% (0/11)",
+      "escalation_L1_same_session": "0.0% (0/11)",
+      "listening_e_source_shown": "4.8% (3/63)",
+      "listening_d": "100.0% (63/63)",
+      "listening_a": "57.1% (36/63)",
+      "in_band": "48.5% (32/66)",
+      "mean_words": 54.3,
+      "mean_words_with_callback": 65.2,
+      "lao_tzu_in_band": "33.3% (2/6)",
+      "reply_language_matches": "100.0% (66/66)"
+    }
+  },
+  "callback_arm_by_candidate_cosine": {
+    "-1.00-0.30": {
+      "offered": 25,
+      "used": "32.0% (8/25)",
+      "sharpens_given_used": "100.0% (8/8)",
+      "production_recall_would_include_candidate": "0.0% (0/25)"
+    },
+    "0.30-0.40": {
+      "offered": 18,
+      "used": "27.8% (5/18)",
+      "sharpens_given_used": "100.0% (5/5)",
+      "production_recall_would_include_candidate": "0.0% (0/18)"
+    },
+    "0.40-0.50": {
+      "offered": 11,
+      "used": "72.7% (8/11)",
+      "sharpens_given_used": "100.0% (8/8)",
+      "production_recall_would_include_candidate": "0.0% (0/11)"
+    }
+  },
+  "callback_arm_by_age": {
+    "some months ago": {
+      "offered": 10,
+      "used": "40.0% (4/10)",
+      "faithful_given_used": "100.0% (4/4)",
+      "timing_conflict_given_used": "0.0% (0/4)"
+    },
+    "last week": {
+      "offered": 10,
+      "used": "40.0% (4/10)",
+      "faithful_given_used": "100.0% (4/4)",
+      "timing_conflict_given_used": "0.0% (0/4)"
+    },
+    "a few days ago": {
+      "offered": 15,
+      "used": "33.3% (5/15)",
+      "faithful_given_used": "100.0% (5/5)",
+      "timing_conflict_given_used": "0.0% (0/5)"
+    },
+    "a few weeks ago": {
+      "offered": 9,
+      "used": "22.2% (2/9)",
+      "faithful_given_used": "100.0% (2/2)",
+      "timing_conflict_given_used": "0.0% (0/2)"
+    },
+    "a couple of months ago": {
+      "offered": 10,
+      "used": "60.0% (6/10)",
+      "faithful_given_used": "83.3% (5/6)",
+      "timing_conflict_given_used": "0.0% (0/6)"
+    }
+  },
+  "judge_self_agreement": {
+    "cb": "98.5% (64/65)",
+    "ff": "96.9% (63/65)",
+    "es": "100.0% (65/65)",
+    "tm": "100.0% (65/65)",
+    "at": "100.0% (65/65)",
+    "cf": "100.0% (65/65)",
+    "sh": "98.5% (64/65)"
+  },
+  "judge_failures": {
+    "callback": 1,
+    "listening": 3
+  },
+  "in_band_by_persona": {
+    "carl_jung": {
+      "callback": "50.0% (3/6)"
+    },
+    "epictetus": {
+      "callback": "66.7% (4/6)"
+    },
+    "george_orwell": {
+      "callback": "0.0% (0/6)"
+    },
+    "lao_tzu": {
+      "callback": "33.3% (2/6)"
+    },
+    "marcus_aurelius": {
+      "callback": "66.7% (4/6)"
+    },
+    "miyamoto_musashi": {
+      "callback": "33.3% (2/6)"
+    },
+    "niccolo_machiavelli": {
+      "callback": "50.0% (3/6)"
+    },
+    "oscar_wilde": {
+      "callback": "50.0% (3/6)"
+    },
+    "sigmund_freud": {
+      "callback": "66.7% (4/6)"
+    },
+    "simone_de_beauvoir": {
+      "callback": "50.0% (3/6)"
+    },
+    "socrates": {
+      "callback": "66.7% (4/6)"
+    }
+  }
+}

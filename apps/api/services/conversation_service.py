@@ -24,6 +24,7 @@ from services.embedding_client import embedding_client
 from services.llm_client import llm_client
 from services.prompt_builder import prompt_builder
 from services import reply_directive
+from services import callback_service
 from services.preferences_service import get_user_preferences
 from services.profile_text import profile_to_display
 from services.analytics_service import analytics_service
@@ -857,6 +858,31 @@ class ConversationService:
                 logger.warning(f"Profile load failed: {e}")
                 await db.rollback()
 
+            # ── 3.9. CALLBACK GATE (MEM2-C-2, behind CALLBACKS_ENABLED) ──────
+            # Off, nothing here runs and the prompt is byte-identical to before
+            # C-2. On, the gate may offer ONE earlier-conversation row. Recall's
+            # Lane B floor (0.75) almost never admits it, so an offered row recall
+            # did not return is appended to the memory block — the shape C-1
+            # measured (D1, C1-f). Fail-open: the gate rolls back its own
+            # savepoint and the turn proceeds without a callback.
+            callback_offer = None
+            if callback_service.enabled():
+                try:
+                    callback_offer = await callback_service.select_callback(
+                        db, user_id=user_id, conversation_id=conversation_id,
+                        responder_persona_id=responder_persona_id,
+                        user_plan=user_plan, gate_outcome=gate.outcome,
+                        safety_level=safety_in.level, deep_mode=bool(conv.deep_mode),
+                        user_text=user_text, query_vec=query_vec,
+                    )
+                except Exception as e:
+                    logger.warning(f"Callback gate failed: {e}")
+                    callback_offer = None
+                if callback_offer is not None and all(
+                    str(getattr(m, "id", "")) != callback_offer.id for m in memories
+                ):
+                    memories = list(memories) + [callback_offer]
+
             # ── 4. BUILD SYSTEM PROMPT ───────────────────────────────────────
             system_prompt = prompt_builder.build_system(
                 persona=persona,
@@ -865,6 +891,15 @@ class ConversationService:
                 profile=profile_view,
                 include_cache_sentinel=True,
             )
+            # The callback block, directly after the memory block (before HARD
+            # RULES), where C-1 measured it. Only on an offered turn, which is
+            # always NORMAL/none — so no safety addendum ever follows it here.
+            if callback_offer is not None:
+                try:
+                    system_prompt = callback_service.insert_block(system_prompt, callback_offer.block)
+                except ValueError as e:
+                    logger.error(f"Callback block not inserted: {e}")
+                    callback_offer = None
             # SAFETY-002: a message the judge released as DISTRESS — painful, no
             # intent — is answered by the persona with the founder-approved addendum,
             # for this turn only. HARD RULE 9 still governs: kinds of help, no numbers.
@@ -1274,6 +1309,17 @@ class ConversationService:
                 cache_creation_tokens=_token_sink.get("cache_creation"),
                 cache_read_tokens=_token_sink.get("cache_read"),
             )
+
+            # ── CALLBACK LEDGER (MEM2-C-2) ───────────────────────────────────
+            # Written ON OFFER, in the transaction that saves the reply carrying
+            # it: an offer whose reply was never saved leaves no row. Whether the
+            # persona USED it is C-3's question; the cooldowns count the offer.
+            if callback_offer is not None:
+                callback_service.record_offer(
+                    db, user_id=user_id, offer=callback_offer,
+                    persona_id=conv_persona_id, conversation_id=conversation_id,
+                    message_id=assistant_msg.id,
+                )
 
             # ── UPDATE CONVERSATION METADATA ─────────────────────────────────
             new_message_count = (conv_message_count or 0) + 2

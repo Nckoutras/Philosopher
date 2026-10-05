@@ -1,3 +1,4 @@
+import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -8,7 +9,7 @@ from db.session import get_db
 from models import User, MemoryEntry, Insight
 from schemas import (
     MemoryEntryOut, MemoryEntryUpdate, InsightOut, InsightRingTrueRequest,
-    MirrorOut, CounterviewOut,
+    MirrorOut, CounterviewOut, CallbackRejectionOut,
 )
 from auth import get_current_user
 from services.safety_service import safety_service
@@ -23,6 +24,7 @@ from services.memory_service import (
     verdict_shift_days,
 )
 from services.enqueue import safe_enqueue
+from services import callback_service
 from services.counterview_service import (
     generate_counterview,
     find_counterview_for_insight,
@@ -96,6 +98,30 @@ async def delete_memory(
         raise HTTPException(status_code=404)
     entry.is_active = False
     entry.inactive_reason = "user_removed"
+
+
+@memory_router.post("/callbacks/{callback_id}/reject", response_model=CallbackRejectionOut)
+async def reject_callback(
+    callback_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """"That's not right" on a callback (MEM2-C-2, Ruling 5). Retires the row and
+    its supersession chain as user_rejected; active near-duplicates become
+    callback-ineligible, NOT inactive. Idempotent.
+
+    NOT flag-gated: an offer made before CALLBACKS_ENABLED went off must stay
+    rejectable. 404 for a callback that is not this user's, and for an id that is
+    not a UUID (it would otherwise reach the uuid column as a 500). The web
+    control is C-3a."""
+    try:
+        uuid.UUID(callback_id)
+    except ValueError:
+        raise HTTPException(status_code=404)
+    result = await callback_service.reject_callback(db, user_id=user.id, callback_id=callback_id)
+    if result is None:
+        raise HTTPException(status_code=404)
+    return CallbackRejectionOut(**vars(result))
 
 
 # ── Insights ──────────────────────────────────────────────────────────────────

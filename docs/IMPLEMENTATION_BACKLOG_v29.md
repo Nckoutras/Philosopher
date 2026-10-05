@@ -6153,7 +6153,7 @@ share is the change, not the value.
 offered row recall did not return (D1). With recall at 0.45 that append fires less
 often; nothing in C-2 depends on the recall floor's value. C-2 rebases onto this.
 
-### MEM2-C — Phase C rulings record (founder, 2026-10-05) — **C-1 IN PROGRESS (evals only)**
+### MEM2-C — Phase C rulings record (founder, 2026-10-05) — **C-1 MERGED (#783); C-2 IN PROGRESS**
 
 **Why this entry exists.** Phase C is a persona explicitly calling back something the
 user said in an earlier conversation, at the prompt level, behind a relevance gate. The
@@ -6177,6 +6177,57 @@ G. Governing principle for all memory UX: invisible memory may be broad; visible
 7. Rollout: C-3a canary (founder + designated testers) → C-3b only after predefined correctness, rejection-rate and longitudinal repetition thresholds pass.
 8. Greek samples from the first measurement.
 9. Anti-laundering: a callback cannot upgrade the epistemic status of the memory it references. User replies elicited by a callback do not count as independent recurrence, confirmation, echo or dedup-survivor evidence unless they contain an independently stated proposition.
+
+**RULINGS FROM C-1 (locked 2026-10-05, after the first C-1 run, #783), verbatim:**
+
+C1-a. Cosine is not the relevance gate. Usage was flat across cosine bins (31–37%) while the model itself separated related from tangential (44% vs 7%). The gate applies a low sanity floor only; the model decides use.
+C1-b. Ledger cooldowns: same row-or-chain never re-offered within 30 days; at most one offer per user per 7 days. Ship-and-tune in canary.
+C1-c. Minimum row age 2 days.
+C1-d. Greek directive variant ({when} buckets and example phrasings in Greek) for Greek conversations.
+C1-e. Callbacks on the Pro plan (Sonnet) only for C-3a. Haiku excluded until it passes fidelity on its own run.
+C1-f. The candidate row stays in the memory block when offered (same shape C-1 measured). "sharpens" is dropped as a measure.
+
+Backlog items, not C: Haiku recites self-portrait/onboarding taps as traits under Ruling #6 today; Haiku Greek grammar quality (known, parked — target audience is English).
+
+**C-2 STEP 0 rulings (founder, 2026-10-05):**
+
+- **Sanity floor = 0.35 on `candidate_row_cosine`, flat across languages.** Reason: zero T (tangential) samples pass it pooled, with perfect EN separation; the Greek loss is accepted (non-target market, and the conservative direction). Ledger data in canary decides any tuning.
+- **Greek directive variant approved** with one edit: the 56–120-day bucket reads "πριν από ένα-δυο μήνες" (not "κάνα δυο" — register). The other four buckets are `when_el` as authored in C-1. The instruction prose stays English; only `{when}` and the two example phrasings ("Είπες {when} ότι…", "{When} έγραψες ότι…") are Greek. Re-run scope: callback arm, Greek samples, Sonnet only, one generation; the question is Sonnet EL use rate before vs after, fidelity out of scope.
+- **Open copy questions, decided:** Greek trait phrases (πάντα / ποτέ / …) are deferred to the STEP 2 production copy, with a separate approval. Straight double quotes are kept for the run. **Owed to C-3:** the fidelity/use detector must accept «…» as well as "…".
+- **STEP 0(b) result and ruling (founder, 2026-10-05): the Greek variant is ADOPTED for the C-2 production copy** (use rate up, T unchanged at 0). Run `evals/results/2026-10-05_mem2c2_el/` at `a22874d0` (clean tree): callback arm, EL samples, Sonnet only, one generation, judged with C-1 settings; same `sample_set_hash` (3266532357096fe8) and the same 55 offers as C-1, so the directive is the only difference. Cost $3.46. Sonnet EL use rate on offer, call-1 verdicts:
+
+  | Scenario | Before (C-1, EN bucket) | After (Greek variant) |
+  |---|---|---|
+  | R | 4/10 | 6/11 |
+  | R2 | 5/11 | 6/11 |
+  | T | 0/10 | 0/11 |
+  | B | 3/10 | 3/10 |
+  | L2 | 2/10 | 6/11 |
+  | **All offered** | **14/52 (26.9%)** | **21/54 (38.9%)** |
+
+  **Caveat: suggestive at n≈53, not established.** EN Sonnet for reference: 67.3% (37/55). **Watch item for the C-3 detector:** the L2 rise (2/10 → 6/11) — L2 is the post-affirmation scenario (Ruling 9); this run did not measure fidelity or escalation there.
+
+**C-2 STEP 1 decisions (founder, 2026-10-05), verbatim:**
+
+- D1 gate's own query + 0.35 floor, offered row appended to memories — approved (recall alone = 0/66 proves it).
+- D2 any non-'none' message flags the source conversation — approved, conservative per G.
+- D3 ledger in the data export — yes.
+- D4 insight 'yes' may reactivate a callback-rejected row per the B2 ruling; callback_blocked_at stays permanent — approved.
+- D5 deep mode excluded until measured — approved.
+- D6 prompts/callback_directive.txt + _el.txt, plain text, str.replace, byte parity tests against evals — approved.
+- D7 (offer pair): the user message predates the callback and is independent evidence; only the assistant text contaminates — extraction for that pair reads the user message alone. Built in C-2 (a contained change: `omit_assistant` on `extract_and_store`). The NEXT pair (the user's reply to the callback) stays marked.
+- Ruling 9 mechanism approved as a **named shortcut**: every row of the reply pair is marked `elicited_by_callback`; the "unless they contain an independently stated proposition" exception is NOT implemented. **First C-3 fix**, before C-3b.
+- Everything else as proposed: ledger on offer in the Phase C2 transaction, rejection endpoint not flag-gated, gate logging with per-rule counts and no content, v31 rotation owed on merge.
+
+**The finding behind D1 (recorded so it is not re-derived):** recall's Lane B floor is `INFERRED_SCORE_FLOOR = 0.75`. Against C-1's stored scores, production recall would have put the candidate in the block in **0 of 66** R/R2/T samples (best related candidate 0.538). C-1 measured forced presence. A production Lane B reach measurement (`lane_b_reach.py`, read-only) is with the founder; it does not block C-2.
+
+**C-2 built (flag `CALLBACKS_ENABLED`, default OFF), migration `074_memory_callbacks`.** Named items carried out of it:
+- **PROJECT_STATE v31 is OWED on merge** (CLAUDE.md trigger: any migration).
+- **Live tests first run in CI.** `tests/db_live/test_memory_callbacks_live.py` (14 tests: the gate SQL, chain CTEs both directions, Ruling 9 lookup, rejection, FKs, RLS) could not run on the authoring machine (no Postgres); its first execution is the PR's `pytest (live Postgres)` run — TD-45's corollary applies.
+- **`memory_count` counts an appended callback row.** The analytics count rides on `len(memories)`; with the flag on and an offer appended it is recall + 1. Cosmetic; flag-off unchanged.
+- **Stale doc claim, out of scope:** `account_deletion_service.py` says "21 tables CASCADE" (056). 061 and 067 added cascading tables since, and 074 adds `memory_callbacks`. Unverified count; not edited here.
+- **Owed to C-3:** the use detector (fills `memory_callbacks.used`) must accept «…» as well as "…"; the L2 watch item above; the Ruling 9 exception.
+- **First live smoke is owed when the flag first flips in canary,** not at merge: with the flag off there is no user-visible change to smoke.
 
 **Sequence.** C-1 (this entry's first PR): measure before speaking — evals and tests
 only, zero production change. The draft callback directive lives under `evals/`, not

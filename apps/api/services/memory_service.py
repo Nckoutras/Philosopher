@@ -597,6 +597,10 @@ async def find_recurrences(
     else:
         filters = "AND id != :self_id"
         params = {"self_id": query_entry.id}
+    # MEM2-C-2, Ruling 9: a row elicited by a callback is never an anchor — a later
+    # row echoing it would count the callback's own echo as recurrence. Appended,
+    # like the corpus bounds, so the emitted SQL changes by exactly this clause.
+    filters += "\n                          AND elicited_by_callback = FALSE"
 
     # Appended to `filters`, never a slot of their own — see the byte-identical
     # note above. Indentation matches the surrounding clauses so the emitted SQL
@@ -970,6 +974,7 @@ DEDUP_CANDIDATE_SQL = f"""
       AND embedding IS NOT NULL
       AND provenance = 'system_inferred'
       AND source_surface = 'chat'
+      AND elicited_by_callback = FALSE
       AND id <> ALL(:exclude_ids)
     ORDER BY embedding <=> CAST(:query_vec AS vector)
     LIMIT {DEDUP_CANDIDATE_LIMIT}
@@ -1077,6 +1082,8 @@ class MemoryService:
         safety_ok: bool = False,
         source_message_ids: list[str] | None = None,
         promote_signal: bool = True,
+        elicited_by_callback: bool = False,
+        omit_assistant: bool = False,
     ) -> "ExtractionResult":
         """Extract memory signals from a message pair and persist them.
 
@@ -1093,6 +1100,13 @@ class MemoryService:
         `source_message_ids` is [user message id, assistant message id] (070). None
         when the caller had none to give — a job queued before 070 — and stored as
         NULL then, never guessed (MEM2 ruling R9).
+
+        MEM2-C-2, Ruling 9 (both default False, so every other caller is unchanged):
+        `elicited_by_callback` stamps every row from this call — the person's reply
+        to a callback, which is never independent evidence. `omit_assistant` is the
+        OFFER pair (D7): the user message predates the callback and stays evidence;
+        only the reply that carried the callback is contaminated, so the model is
+        shown the user turn alone.
         """
         # The USER's turn only. The assistant's reply is in the user block below as
         # context, but it is not evidence of what language the PERSON writes in —
@@ -1104,7 +1118,8 @@ class MemoryService:
         try:
             raw = await llm_client.complete(
                 system=MEMORY_EXTRACTION_PROMPT + language_directive(language),
-                user=f"USER: {user_text}\n\nASSISTANT: {assistant_text}",
+                user=(f"USER: {user_text}" if omit_assistant
+                      else f"USER: {user_text}\n\nASSISTANT: {assistant_text}"),
                 max_tokens=512,
             )
             # Strip markdown code fences if LLM wrapped the JSON
@@ -1169,6 +1184,7 @@ class MemoryService:
                 provenance="system_inferred",
                 source_surface="chat",
                 source_message_ids=source_message_ids,
+                elicited_by_callback=elicited_by_callback,
             )
             db.add(memory)
             saved.append(memory)
@@ -1512,9 +1528,14 @@ class MemoryService:
         retired = examined = judged = 0
         failed = False
         for entry in new_entries:
+            # Ruling 9: a reply elicited by a callback is never a dedup subject
+            # (nor a candidate — DEDUP_CANDIDATE_SQL), so it can neither absorb
+            # the row it echoes nor hand it an inherited echo. `is True`: a
+            # stand-in entry must not skip by accident (C-06).
             if (entry.id is None or entry.embedding is None
                     or entry.provenance != "system_inferred"
-                    or entry.source_surface != "chat"):
+                    or entry.source_surface != "chat"
+                    or getattr(entry, "elicited_by_callback", False) is True):
                 continue
             try:
                 savepoint = await db.begin_nested()
@@ -1777,6 +1798,10 @@ class MemoryService:
             # past periods and must not count anything).
             hits: list[tuple] = []
             for entry in new_entries:
+                # Ruling 9: an elicited row is not a query either — no echo
+                # stamp, no card. `is True` for the C-06 reason above.
+                if getattr(entry, "elicited_by_callback", False) is True:
+                    continue
                 found = await find_recurrences(
                     db, user_id, entry, exclude_conversation=conversation_id,
                 )

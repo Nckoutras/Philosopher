@@ -85,18 +85,29 @@ def _emitted(db):
 
 async def test_the_lifetime_sql_is_byte_identical_to_before_the_extraction():
     """THE ONE THAT MATTERS. With no corpus bounds the emitted SQL must equal, to
-    the byte, what this query was before find_recurrences existed.
+    the byte, what this query was before find_recurrences existed — PLUS exactly
+    one clause, MEM2-C-2's Ruling 9 exclusion, and nothing else.
 
     The clauses are appended to the exclusion filter rather than occupying a slot
     of their own, precisely so that an absent bound leaves no trace — an empty
     slot would leave an indented blank line, which is a different string and would
     fail here.
+
+    WHY THE FROZEN LITERAL WAS NOT REGENERATED. Ruling 9 narrows this corpus ON
+    PURPOSE: a row extracted from a reply to a callback is never an anchor. The
+    no-narrowing ruling this test enforces is about TIME (no window on "you raised
+    this in March"), not about which rows are evidence. So LIFETIME_SQL stays as
+    it was at #642 and the one permitted change is spelled out against it.
     """
     db = _db([_match("m1", "conv-a")])
     await find_recurrences(db, USER_ID, _entry(), exclude_conversation=CONV_ID)
 
     sql, _ = _emitted(db)
-    assert sql == LIFETIME_SQL
+    anchor = "AND conversation_id != :conversation_id"
+    assert LIFETIME_SQL.count(anchor) == 1
+    assert sql == LIFETIME_SQL.replace(
+        anchor, anchor + "\n                          AND elicited_by_callback = FALSE",
+    )
 
 
 async def test_the_lifetime_path_binds_no_period_parameters():

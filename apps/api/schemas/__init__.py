@@ -243,6 +243,16 @@ class MemoryEntryOut(BaseModel):
         from_attributes = True
 
 
+class CallbackRejectionOut(BaseModel):
+    """POST /memory/callbacks/{id}/reject (MEM2-C-2, Ruling 5). Counts only."""
+    callback_id: str
+    memory_id: str
+    already_rejected: bool
+    retired: int
+    blocked: int
+    blocked_near_duplicates: int
+
+
 class MemoryEntryUpdate(BaseModel):
     content: Optional[str] = None
     is_active: Optional[bool] = None

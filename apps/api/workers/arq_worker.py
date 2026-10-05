@@ -850,10 +850,22 @@ async def extract_memory_task(
     job queued before 070 deployed still runs, and its rows store NULL rather
     than ids it never carried."""
     from db.session import AsyncSessionLocal
+    from services import callback_service
     from services.memory_service import memory_service
 
     async with AsyncSessionLocal() as db:
         try:
+            # MEM2-C-2, Ruling 9 — is this pair part of a callback? NOT flag-gated:
+            # with no offers the ledger is empty and both are False.
+            #   offer_turn  the reply carried a callback, so the model sees the user
+            #               message alone (D7); its rows stay evidence.
+            #   reply_turn  the user is answering a callback, so every row is
+            #               elicited: never recurrence, echo, dedup or signal
+            #               evidence, never itself a callback.
+            offer_turn, reply_turn = await callback_service.callback_turn_role(
+                db, source_message_ids,
+            )
+
             # promote_signal=False: the signal card is written BELOW, after the
             # recurrence check (MEM2-B1, founder ruling 2026-10-03: recurrence
             # first). Before B1 the signal card went in here and occupied the one
@@ -869,6 +881,8 @@ async def extract_memory_task(
                 safety_ok=safety_ok,
                 source_message_ids=source_message_ids,
                 promote_signal=False,
+                elicited_by_callback=reply_turn,
+                omit_assistant=offer_turn,
             )
             await db.commit()
             logger.info(f"Memory task: stored {len(entries)} entries for user={user_id}")
@@ -901,7 +915,9 @@ async def extract_memory_task(
             # whether a recurrence card was just written changes nothing here; the
             # order only guarantees recurrence is never pre-empted. Same safety
             # gate as before: safety_ok was the caller's verdict on the exchange.
-            if entries.safety_ok:
+            # Ruling 9: a belief extracted from a reply to a callback would be
+            # the callback confirming itself, so a reply turn promotes nothing.
+            if entries.safety_ok and not reply_turn:
                 # The saved rows and the message pair are the evidence a signal
                 # card now carries (MEM2-B3): a belief cites its own row.
                 written = await memory_service.promote_signal_insight(

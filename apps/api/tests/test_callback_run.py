@@ -85,6 +85,28 @@ def test_callback_block_sits_between_the_memory_block_and_hard_rules():
     assert system.replace(block + "\n\n\n", "", 1) == plain
 
 
+def test_callback_arm_renders_the_variant_for_the_sample_language():
+    en = cr.callback_for(SAMPLES["R::lao_tzu::en"], "callback")
+    el = cr.callback_for(SAMPLES["R::lao_tzu::el"], "callback")
+    assert "You said" in en and "Είπες" not in en
+    assert "Είπες" in el and "You said" not in el
+
+
+def test_a_filtered_run_loads_only_its_own_samples(tmp_path):
+    """A --language el run writes scores.json for EL samples only. load_run must
+    not reach for an EN sample's scores (KeyError before judge pre-flight)."""
+    import json
+    el = [s for s in build_samples() if s.language == "el"]
+    stored = {s.sample_id: {"rows": {r.id: 0.5 for r in s.rows}} for s in el}
+    (tmp_path / "scores.json").write_text(json.dumps(stored), encoding="utf-8")
+    (tmp_path / "completions.jsonl").write_text("", encoding="utf-8")
+    rows, by_id = cr.load_run(tmp_path)
+    assert rows == []
+    assert set(by_id) == set(stored)
+    assert all(s.language == "el" for s in by_id.values())
+    assert all(r.score == 0.5 for s in by_id.values() for r in s.rows)
+
+
 def test_insert_refuses_without_a_unique_anchor():
     with pytest.raises(ValueError):
         harness._insert_callback("no anchor here", "x")

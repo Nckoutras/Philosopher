@@ -65,6 +65,7 @@ from models import (
     DisclaimerAcceptance,
     DisclaimerVersion,
     Insight,
+    MemoryCallback,
     MemoryEntry,
     Message,
     Mirror,
@@ -255,10 +256,37 @@ async def build_export(db: AsyncSession, user: User) -> dict[str, Any]:
             # and when last. NULL = never, since 073 deployed.
             "echo_count": me.echo_count,
             "last_echo_at": _iso(me.last_echo_at),
+            # 074 (MEM2-C-2): extracted from a reply to a callback (never counted
+            # as independent evidence), and when the row stopped being eligible
+            # to be called back.
+            "elicited_by_callback": me.elicited_by_callback,
+            "callback_blocked_at": _iso(me.callback_blocked_at),
         }
         for me in await _scalars(
             db, select(MemoryEntry).where(MemoryEntry.user_id == user_id)
                 .order_by(MemoryEntry.created_at)
+        )
+    ]
+
+    # 074 (MEM2-C-2, D3): every time a persona was offered one of these memories
+    # to say back, and the person's reaction. memory_id / conversation_id /
+    # message_id are JOIN ids into the sections above. `score` (the cosine at
+    # offer) is NOT exported: it is ranking telemetry, not the person's data.
+    memory_callbacks = [
+        {
+            "id": mc.id,
+            "memory_id": mc.memory_id,
+            "persona_slug": persona_slug.get(mc.persona_id),
+            "conversation_id": mc.conversation_id,
+            "message_id": mc.message_id,
+            "offered_at": _iso(mc.offered_at),
+            "used": mc.used,
+            "reaction": mc.reaction,
+            "reacted_at": _iso(mc.reacted_at),
+        }
+        for mc in await _scalars(
+            db, select(MemoryCallback).where(MemoryCallback.user_id == user_id)
+                .order_by(MemoryCallback.offered_at)
         )
     ]
 
@@ -655,6 +683,7 @@ async def build_export(db: AsyncSession, user: User) -> dict[str, Any]:
         "conversations": conversations,
         "messages": messages,
         "memories": memories,
+        "memory_callbacks": memory_callbacks,
         "insights": insights,
         "letters": letters,
         "mirrors": mirrors,
