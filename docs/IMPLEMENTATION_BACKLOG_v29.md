@@ -6169,7 +6169,7 @@ Undecided.
 offered row recall did not return (D1). With recall at 0.45 that append fires less
 often; nothing in C-2 depends on the recall floor's value. C-2 rebases onto this.
 
-### MEM2-C — Phase C rulings record (founder, 2026-10-05) — **C-1 MERGED (#783); C-2 MERGED (#785), flag OFF on both services**
+### MEM2-C — Phase C rulings record (founder, 2026-10-05) — **C-1 MERGED (#783); C-2 MERGED (#785), flag OFF on both services; C-3a BUILT (PR pending)**
 
 **Why this entry exists.** Phase C is a persona explicitly calling back something the
 user said in an earlier conversation, at the prompt level, behind a relevance gate. The
@@ -6244,6 +6244,46 @@ Backlog items, not C: Haiku recites self-portrait/onboarding taps as traits unde
 - **Stale doc claim, out of scope:** `account_deletion_service.py` says "21 tables CASCADE" (056). 061 and 067 added cascading tables since, and 074 adds `memory_callbacks`. Unverified count; not edited here.
 - **Owed to C-3:** the use detector (fills `memory_callbacks.used`) must accept «…» as well as "…"; the L2 watch item above; the Ruling 9 exception.
 - **First live smoke is owed when the flag first flips in canary,** not at merge: with the flag off there is no user-visible change to smoke.
+
+**C-3a decisions (founder, 2026-10-05), verbatim in substance:**
+
+- **1 = B.** "That's not right" shows only under a reply whose callback the detector
+  found USED (and not yet rejected); it appears after a reload, not on the live turn.
+  Reason: in C-1, Pro replies used the offer 67% (EN) / 38% (EL) of the time, and a
+  rejection under a reply that never mentioned the memory would retire a memory the
+  person was never shown. Options A (every offer) and C (B + a live re-fetch) not built.
+- **2 = deterministic detector**, as prototyped, pinned to the two eval runs as a test.
+  Signals: a quoted span ("…", “…”, «…», „…“) of ≥3 words found in the original; the
+  {when} phrase within 60 chars of a said/wrote verb; a 4-word run shared with the
+  original and absent from this turn's user message. Against the C-1 judge's call-1
+  verdict: EN Pro 36/37 caught, 0/18 flagged; EL Pro (Greek directive, STEP 0(b) run)
+  20/21 caught, 1/33 flagged (54 judged; one call-1 parse failure excluded). Haiku not used (~$0.001/offer; rejected for
+  non-determinism, not cost). Log-only, in the worker, never gates a reply.
+- **3 = copy approved verbatim.** EN "That's not right" / "Noted. It won't come up
+  again."; EL "Δεν ισχύει αυτό" / "Εντάξει. Δεν θα ξαναναφερθεί."
+- **`BETA_GRANT_PRO_TO_ALL`** read from Render by PROJECT_STATE v31 §2a on 2026-10-05:
+  false on both services.
+- **Canary population (founder ruling, 2026-10-05): ALL active Pro/Premium
+  subscriptions are eligible when the flag flips — no allowlist.** On 2026-10-05
+  Oregon had 13 active Pro/Premium subscriptions; four do not carry the founder's
+  address (komn@grind.gr, cleo@gmail, mari@yahoo, cleo@yahoo; all 0 messages in the
+  prior 30 days). They are included by this ruling. The flag may flip after merge,
+  per the flip procedure in the C-3a PR body.
+- **C-3b thresholds (approved as proposed). Offers on the UAT Pro test accounts count
+  toward the minimums.**
+  - Minimum before judging: ≥16 offers, ≥8 used, ≥3 used in each language, and not
+    before day 30 of the canary (so the 30-day chain cooldown can produce a repeat).
+  - Fidelity floor: the founder reads every used reply against its original; ≥90%
+    faithful AND zero trait-making ("you always…"). C-1 Pro baseline 97.3% EN, 95.2% EL.
+  - Rejection ceiling: ≤10% of used offers rejected; every rejection read individually.
+  - Repetition ceiling: ≤20% of offers are a memory offered before; any memory offered
+    3 times = hold.
+  - Used rate, diagnostic only: outside 20–85% = investigate detector or gate.
+- **Volume, so the minimums are read in offers, not days:** the 7-day per-user cooldown
+  caps the canary at about one offer per active account per week.
+
+**Still owed after C-3a:** the Ruling 9 "independent proposition" exception (before
+C-3b); the L2 watch item (read in the 24h check, no code); multi-turn recall (MEM3).
 
 **Sequence.** C-1 (this entry's first PR): measure before speaking — evals and tests
 only, zero production change. The draft callback directive lives under `evals/`, not

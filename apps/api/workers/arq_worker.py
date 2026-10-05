@@ -931,6 +931,23 @@ async def extract_memory_task(
             logger.error(f"Memory task failed: {e}", exc_info=True)
 
 
+async def detect_callback_use_task(ctx, message_id: str):
+    """MEM2-C-3a: did the reply on `message_id` use the callback it was offered?
+    Fills memory_callbacks.used. Log-only and deterministic (services/callback_use);
+    enqueued only for a reply that carried an offer. NOT flag-gated, like the
+    Ruling 9 lookup: a reply offered just before the flag went off is still marked.
+    A failure leaves `used` NULL and never retries into a wrong answer."""
+    from db.session import AsyncSessionLocal
+    from services import callback_use
+
+    async with AsyncSessionLocal() as db:
+        try:
+            await callback_use.mark_use(db, message_id)
+            await db.commit()
+        except Exception as e:  # noqa: BLE001 — log-only; never raise into the worker
+            logger.error("callback_use failed message=%s: %s", message_id, e, exc_info=True)
+
+
 async def counterview_belief_task(ctx, user_id: str, belief: str):
     """Feed a voluntary (typed) counterview belief into the self-model + recurrence
     detector (Insight Slice 1). Mirrors extract_memory_task: write ONE memory_entry
@@ -3062,6 +3079,7 @@ async def purge_expired_otp_codes(ctx):
 class WorkerSettings:
     functions = [
         extract_memory_task,
+        detect_callback_use_task,
         counterview_belief_task,
         distill_user_text_to_memory_task,
         seed_profile_memory_task,

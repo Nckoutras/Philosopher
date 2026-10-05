@@ -1402,6 +1402,14 @@ class ConversationService:
                 context=f"conv={conversation_id}",
             )
 
+        # MEM2-C-3a: did this reply use its callback? Log-only, in the worker, after
+        # the reply and its ledger row are committed; never on the reply path.
+        if callback_offer is not None:
+            await safe_enqueue(
+                arq_queue, "detect_callback_use_task", str(assistant_msg_id),
+                context=f"conv={conversation_id}",
+            )
+
         # Gravity-gated conclusion: assess (and maybe distill) only at cadence,
         # never before min-depth, and never when the persona is safety-suppressed
         # (same gate as memory extraction above). The task itself decides whether

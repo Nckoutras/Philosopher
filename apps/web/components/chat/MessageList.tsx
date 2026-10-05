@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { api, type Message } from '@/lib/api'
 import { useStore } from '@/lib/store'
 import MessageBubble from './MessageBubble'
+import CallbackRejectLine from './CallbackRejectLine'
 import QuickActionsRow from './QuickActionsRow'
 
 interface Props {
@@ -75,6 +76,9 @@ export default function MessageList({ messages, onSaveLine, onReturnToThis, onUp
               saved={savedMessageIds.has(msg.id)}
               broughtIn={broughtIn}
             />
+            {msg.role === 'assistant' && msg.callback_id && (
+              <CallbackRejectLine callbackId={msg.callback_id} replyText={msg.content} />
+            )}
             {msg.role === 'assistant' && (
               <QuickActionsRow
                 messageId={msg.id}

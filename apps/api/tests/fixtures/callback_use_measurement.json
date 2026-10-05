@@ -1,0 +1,996 @@
+{
+ "_source": "Offered Pro completions (plan=pro, offered, language as listed) from evals/results/<run>/completions.jsonl, which .gitignore excludes. Generated once for tests/services/test_callback_use.py; judge verdicts stay in the tracked callback_judge.csv. Rows whose call-1 judgement is a parse failure (raw_error) are excluded.",
+ "runs": {
+  "2026-10-05_mem2c1": {
+   "language": "en",
+   "rows": [
+    {
+     "key": "callback|pro|B::carl_jung::en",
+     "sample_id": "B::carl_jung::en",
+     "language": "en",
+     "plan": "pro",
+     "candidate_days": 30,
+     "user_message": "The care home called to say my father has been asking for me during the week. I told them I'd come on Wednesday too, and I already dread it.",
+     "reply": "The dread arrived before the decision did — that's worth sitting with. You said yes, and something in you immediately braced. That isn't ingratitude or coldness; it may be that the visits cost more than you've let yourself account for. You said a few weeks ago that you \"count the minutes until you can leave\" — and now you've added another visit. The yes came quickly. I wonder what it was answering to."
+    },
+    {
+     "key": "callback|pro|B::epictetus::en",
+     "sample_id": "B::epictetus::en",
+     "language": "en",
+     "plan": "pro",
+     "candidate_days": 200,
+     "user_message": "My friend posted photos from the launch party for her new team and I muted her. I feel petty and I can't stop checking anyway.",
+     "reply": "The pettiness you're naming — that's not the problem. The problem is you're doing two things at once: trying not to feel it, and feeding it anyway.\n\nMuting her changes nothing she has. It only changes what you see, and you're undoing even that. So the envy is still running the show, just with more effort on your part.\n\nWhat would you do differently if you simply admitted you wanted what she has?"
+    },
+    {
+     "key": "callback|pro|B::george_orwell::en",
+     "sample_id": "B::george_orwell::en",
+     "language": "en",
+     "plan": "pro",
+     "candidate_days": 200,
+     "user_message": "I booked a meeting with the bank about the loan for my shop, and last night I cancelled it because the logo still isn't right.",
+     "reply": "The logo isn't right, so you cancelled the bank meeting. That's the plain sequence.\n\nSome months ago you said \"every time I'm about to hand in my notice I find one more thing that needs to be perfect first.\" The logo is that thing this month.\n\nThe bank doesn't care what the logo looks like at this stage. You know that. So the logo is doing a different job — it's a reason that sounds like preparation but works like a door.\n\nWhat would actually be at stake if the meeting went well?"
+    },
+    {
+     "key": "callback|pro|B::lao_tzu::en",
+     "sample_id": "B::lao_tzu::en",
+     "language": "en",
+     "plan": "pro",
+     "candidate_days": 10,
+     "user_message": "This morning my manager asked me to take over another project and I agreed on the spot. Now I'm sitting at my desk furious, mostly at myself.",
+     "reply": "The fury at yourself — that's worth pausing on. You didn't hesitate, you said yes, and now the anger arrives right on schedule, like it always knew you would.\n\nLast week you said \"I said yes again\" to your colleague's shift, and resented it the whole time. The pattern isn't the yes. It's that the no never gets a chance to form before the yes is already out.\n\nWhat would it cost you to let the no exist, even silently, before you speak?"
+    },
+    {
+     "key": "callback|pro|B::marcus_aurelius::en",
+     "sample_id": "B::marcus_aurelius::en",
+     "language": "en",
+     "plan": "pro",
+     "candidate_days": 3,
+     "user_message": "This morning my manager asked me to take over another project and I agreed on the spot. Now I'm sitting at my desk furious, mostly at myself.",
+     "reply": "The fury at yourself is the more honest signal — it means you know what happened.\n\nA few days ago you said \"I said yes again\" to covering a shift and resented it the whole time. This morning the same thing, different shape. The agreement is instant; the anger arrives after. Which means somewhere in the gap between the ask and your answer, something is moving faster than your judgment.\n\nWhat is it that closes your mouth before the refusal can form?"
+    },
+    {
+     "key": "callback|pro|B::miyamoto_musashi::en",
+     "sample_id": "B::miyamoto_musashi::en",
+     "language": "en",
+     "plan": "pro",
+     "candidate_days": 3,
+     "user_message": "My friend posted photos from the launch party for her new team and I muted her. I feel petty and I can't stop checking anyway.",
+     "reply": "The mute and the checking cancel each other — you're doing both things at once, which means neither one is a decision.\n\nA few days ago you said you \"smiled and congratulated her, then went home and couldn't stop feeling bitter.\" The checking is the same move. You're managing the surface while the thing underneath stays untouched.\n\nWhat is it you actually want that she has?"
+    },
+    {
+     "key": "callback|pro|B::niccolo_machiavelli::en",
+     "sample_id": "B::niccolo_machiavelli::en",
+     "language": "en",
+     "plan": "pro",
+     "candidate_days": 30,
+     "user_message": "Someone I've been seeing for a month took two days to answer me, and I've already drafted four messages asking what I did wrong. I haven't sent any of them.",
+     "reply": "Four drafts in two days, none sent. That's not weakness — that's discipline holding against a strong pull.\n\nBut notice what all four drafts assume: that you did something wrong. Two days of silence has already been converted into evidence of your failure, before you know anything. The trial is running without a defendant.\n\nWhat did the silence actually tell you, before the story started?"
+    },
+    {
+     "key": "callback|pro|B::oscar_wilde::en",
+     "sample_id": "B::oscar_wilde::en",
+     "language": "en",
+     "plan": "pro",
+     "candidate_days": 90,
+     "user_message": "The care home called to say my father has been asking for me during the week. I told them I'd come on Wednesday too, and I already dread it.",
+     "reply": "The dread arrived before the decision did — which tells you something about which part of you actually made the promise.\n\nA couple of months ago you wrote that you count the minutes until you can leave. The guilt that follows a visit and the dread that precedes one are the same feeling, only dressed differently. Neither is telling you to stay away. But neither is evidence that you're a bad daughter.\n\nWhat would it mean to go on Wednesday without deciding in advance how you should feel about it?"
+    },
+    {
+     "key": "callback|pro|B::sigmund_freud::en",
+     "sample_id": "B::sigmund_freud::en",
+     "language": "en",
+     "plan": "pro",
+     "candidate_days": 3,
+     "user_message": "A colleague who's younger than me just published a book, and I spent the evening adding things to my list again.",
+     "reply": "That list seems to be doing two things at once: measuring what you haven't done, and measuring yourself against someone else's clock.\n\nA few days ago you wrote that \"the list gets longer every time I look at it.\" A book published by someone younger didn't shorten it — it lengthened it. Which suggests the list isn't really about the work at all.\n\nWhat goes on the list — is it things you want, or things you feel you should have by now?"
+    },
+    {
+     "key": "callback|pro|B::simone_de_beauvoir::en",
+     "sample_id": "B::simone_de_beauvoir::en",
+     "language": "en",
+     "plan": "pro",
+     "candidate_days": 10,
+     "user_message": "Someone I've been seeing for a month took two days to answer me, and I've already drafted four messages asking what I did wrong. I haven't sent any of them.",
+     "reply": "Four drafts, none sent — that's not nothing. It means some part of you already knows the question is wrong, even if you can't stop forming it.\n\nTwo days of silence, and your first move is to locate the fault in yourself. You said last week you were looking for \"the sentence where I ruined it.\" That pattern is still running — finding the evidence before the verdict is even in.\n\nWhat makes self-blame feel safer to you than uncertainty?"
+    },
+    {
+     "key": "callback|pro|B::socrates::en",
+     "sample_id": "B::socrates::en",
+     "language": "en",
+     "plan": "pro",
+     "candidate_days": 90,
+     "user_message": "I booked a meeting with the bank about the loan for my shop, and last night I cancelled it because the logo still isn't right.",
+     "reply": "The logo.\n\nA couple of months ago you said \"every time I'm about to hand in my notice I find one more thing that needs to be perfect first.\" Now it's the logo standing between you and the bank.\n\nHere is what that pattern suggests: the logo isn't the obstacle. The meeting is the obstacle, and the logo is doing its job — keeping you out of the room.\n\nWhat would happen in that room that you're not ready for?"
+    },
+    {
+     "key": "callback|pro|L2::carl_jung::en",
+     "sample_id": "L2::carl_jung::en",
+     "language": "en",
+     "plan": "pro",
+     "candidate_days": 30,
+     "user_message": "My brother says I'm the one who should decide about Dad's new medication because I visit the most. I don't want to be the one who decides.",
+     "reply": "That weight lands on the person who shows up — and you show up, every Sunday, three hours each way. Your brother may think he's honouring that. But there's something worth sitting with: not wanting the decision isn't the same as not caring. In fact, the person who cares most is often the one most afraid of getting it wrong.\n\nWhat does refusing this role cost you with your brother?"
+    },
+    {
+     "key": "callback|pro|L2::epictetus::en",
+     "sample_id": "L2::epictetus::en",
+     "language": "en",
+     "plan": "pro",
+     "candidate_days": 200,
+     "user_message": "My cousin is buying a house and the whole family is celebrating. I said all the right things at lunch and felt sick the entire time.",
+     "reply": "The pain is real. Sitting through a celebration you can't share is its own kind of work.\n\nSome months ago you wrote that you went home feeling bitter after congratulating your friend on her promotion. Now your cousin. The pattern isn't bad luck — it's the same engine running again.\n\nHere's what I want you to look at: you're holding the goal, you said so yourself. So what exactly is the goal?"
+    },
+    {
+     "key": "callback|pro|L2::george_orwell::en",
+     "sample_id": "L2::george_orwell::en",
+     "language": "en",
+     "plan": "pro",
+     "candidate_days": 200,
+     "user_message": "A friend offered to be my first client if I finally launch. I said I'd think about it, and I've been redoing my website instead.",
+     "reply": "The website is not the problem.\n\nYour friend handed you what you said you were waiting for — someone willing to go first — and you went back to the screen. That is not preparation. It is the same move with different furniture.\n\nSome months ago you said \"every time I'm about to hand in my notice I find one more thing that needs to be perfect first.\" The website is just the current version of that.\n\nThe question worth sitting with: what would actually be different if the site were finished?"
+    },
+    {
+     "key": "callback|pro|L2::lao_tzu::en",
+     "sample_id": "L2::lao_tzu::en",
+     "language": "en",
+     "plan": "pro",
+     "candidate_days": 10,
+     "user_message": "My sister wants me to host the whole family for the holidays again. I already know I'll say yes, and I already know how I'll feel about it afterwards.",
+     "reply": "You can see the whole arc before it begins — the yes, the effort, the resentment — and you're going to walk it anyway.\n\nThat's not weakness. But it's worth asking what the \"yes\" is actually protecting. Not your sister, maybe. Something older than this invitation."
+    },
+    {
+     "key": "callback|pro|L2::marcus_aurelius::en",
+     "sample_id": "L2::marcus_aurelius::en",
+     "language": "en",
+     "plan": "pro",
+     "candidate_days": 3,
+     "user_message": "My sister wants me to host the whole family for the holidays again. I already know I'll say yes, and I already know how I'll feel about it afterwards.",
+     "reply": "The weight is real — and you named it before it even arrives, which means part of you already knows what it's costing.\n\nA few days ago you said \"I can't just say no when I don't want to do something.\" What's changed? Nothing, probably. But here's what I notice in what you've just told me: you're not confused about what you want. You know. You're confused about why knowing doesn't help.\n\nThat's a different problem."
+    },
+    {
+     "key": "callback|pro|L2::miyamoto_musashi::en",
+     "sample_id": "L2::miyamoto_musashi::en",
+     "language": "en",
+     "plan": "pro",
+     "candidate_days": 3,
+     "user_message": "My cousin is buying a house and the whole family is celebrating. I said all the right things at lunch and felt sick the entire time.",
+     "reply": "That sickness is information. It tells you the gap between what you performed and what you actually feel.\n\nA few days ago you wrote that you \"smiled and congratulated\" your friend, then went home bitter. The pattern is the same: the correct surface, the corrosive interior.\n\nThe question is not whether you are a good person. It is what you are actually wanting — and whether you have ever said it plainly, even to yourself."
+    },
+    {
+     "key": "callback|pro|L2::niccolo_machiavelli::en",
+     "sample_id": "L2::niccolo_machiavelli::en",
+     "language": "en",
+     "plan": "pro",
+     "candidate_days": 30,
+     "user_message": "A friend cancelled our dinner with a one-line message and I've spent the whole evening going over our last conversation to find what I said.",
+     "reply": "That evening's work — combing the transcript for the fault — that's a familiar motion for you.\n\nHere is what it assumes: that his cancellation was a verdict on your last words. It may have been. It may also have been traffic, a bad day, a mood that had nothing to do with you. The search treats one hypothesis as already proven.\n\nWhat would change for you if you found nothing you said wrong?"
+    },
+    {
+     "key": "callback|pro|L2::oscar_wilde::en",
+     "sample_id": "L2::oscar_wilde::en",
+     "language": "en",
+     "plan": "pro",
+     "candidate_days": 90,
+     "user_message": "My brother says I'm the one who should decide about Dad's new medication because I visit the most. I don't want to be the one who decides.",
+     "reply": "The person who shows up most gets the least choice about what happens next. That is a peculiar reward for devotion.\n\nYour brother has made \"you visit the most\" sound like expertise, when really it is proximity — and proximity to suffering does not make anyone its rightful manager. You already carry the drive, the hours, the counting of minutes. Now he would like you to carry the consequence of being wrong, too.\n\nWhat does he stand to lose if he decides?"
+    },
+    {
+     "key": "callback|pro|L2::sigmund_freud::en",
+     "sample_id": "L2::sigmund_freud::en",
+     "language": "en",
+     "plan": "pro",
+     "candidate_days": 3,
+     "user_message": "My doctor told me my blood pressure is up and I should slow down. All I could think was that I don't have time to slow down.",
+     "reply": "That reaction - not worry about the blood pressure, but impatience at the prescription - tells you something worth examining.\n\nA few days ago you wrote about \"everything I haven't done yet,\" a list that keeps growing. And now your body has entered the conversation with its own kind of urgency, pulling in the opposite direction from the one you're running in.\n\nWhat is it, precisely, that you don't have time for?"
+    },
+    {
+     "key": "callback|pro|L2::simone_de_beauvoir::en",
+     "sample_id": "L2::simone_de_beauvoir::en",
+     "language": "en",
+     "plan": "pro",
+     "candidate_days": 10,
+     "user_message": "A friend cancelled our dinner with a one-line message and I've spent the whole evening going over our last conversation to find what I said.",
+     "reply": "That is a one-line cancellation from them, and an entire evening of prosecution from you — against yourself.\n\nYou said last week that you were looking for \"the sentence where I ruined it\" in someone else's messages. The instinct seems to travel: someone withdraws, and you immediately open an investigation with yourself as the prime suspect.\n\nWhat if the one-line message is simply what it is — a cancellation — and tells you nothing about what you said?"
+    },
+    {
+     "key": "callback|pro|L2::socrates::en",
+     "sample_id": "L2::socrates::en",
+     "language": "en",
+     "plan": "pro",
+     "candidate_days": 90,
+     "user_message": "A friend offered to be my first client if I finally launch. I said I'd think about it, and I've been redoing my website instead.",
+     "reply": "That's a real offer, from a real person, with no conditions attached — and you turned toward the website.\n\nA couple of months ago you said you had \"one more thing that needs to be perfect first.\" It sounds like the website just became that thing.\n\nSo the question isn't whether you're ready. It's what \"thinking about it\" is actually doing for you right now."
+    },
+    {
+     "key": "callback|pro|R2::carl_jung::en",
+     "sample_id": "R2::carl_jung::en",
+     "language": "en",
+     "plan": "pro",
+     "candidate_days": 30,
+     "user_message": "My brother says I'm the one who should decide about Dad's new medication because I visit the most. I don't want to be the one who decides.",
+     "reply": "That responsibility landing on you because you show up — there's something unfair in that logic, and you feel it.\n\nBut I'd sit with the refusal for a moment before acting on it. Not wanting to decide is different from not being the right person to decide. One is about burden; the other is about qualification. Which is really driving this for you?"
+    },
+    {
+     "key": "callback|pro|R2::epictetus::en",
+     "sample_id": "R2::epictetus::en",
+     "language": "en",
+     "plan": "pro",
+     "candidate_days": 200,
+     "user_message": "My cousin is buying a house and the whole family is celebrating. I said all the right things at lunch and felt sick the entire time.",
+     "reply": "The pain is real. Sitting through applause for someone else's gain while something clenches in your chest — that costs something.\n\nSome months ago you wrote that when your oldest friend got a promotion, you smiled and congratulated her, then went home bitter. Same move, different stage.\n\nThe sickness you felt at lunch — is it that your cousin has the house, or that you don't?"
+    },
+    {
+     "key": "callback|pro|R2::george_orwell::en",
+     "sample_id": "R2::george_orwell::en",
+     "language": "en",
+     "plan": "pro",
+     "candidate_days": 200,
+     "user_message": "A friend offered to be my first client if I finally launch. I said I'd think about it, and I've been redoing my website instead.",
+     "reply": "That's a concrete offer from a real person, and you turned back to the screen.\n\nSome months ago you said \"every time I'm about to hand in my notice I find one more thing that needs to be perfect first.\" The website sounds like the latest version of that thing.\n\nThe offer is still open, presumably. What would actually happen if you said yes to it?"
+    },
+    {
+     "key": "callback|pro|R2::lao_tzu::en",
+     "sample_id": "R2::lao_tzu::en",
+     "language": "en",
+     "plan": "pro",
+     "candidate_days": 10,
+     "user_message": "My sister wants me to host the whole family for the holidays again. I already know I'll say yes, and I already know how I'll feel about it afterwards.",
+     "reply": "You already know both ends of the story — and you're walking into it anyway.\n\nLast week you said \"yes again\" to covering a shift, and resented it the whole time. This sounds like the same road, same direction.\n\nWhat would actually change if, just once, the gathering happened somewhere else?"
+    },
+    {
+     "key": "callback|pro|R2::marcus_aurelius::en",
+     "sample_id": "R2::marcus_aurelius::en",
+     "language": "en",
+     "plan": "pro",
+     "candidate_days": 3,
+     "user_message": "My sister wants me to host the whole family for the holidays again. I already know I'll say yes, and I already know how I'll feel about it afterwards.",
+     "reply": "The weight is real — you've already lived the aftermath before the thing has begun.\n\nA few days ago you wrote that you \"said yes again\" to a colleague and \"resented it the whole time.\" Here the pattern holds, but the stakes are higher: this is family, not a shift swap. The resentment will be larger, and you already know it.\n\nWhat you're describing isn't a dilemma. You've already decided. The question is whether you'll own the decision or perform being trapped by it."
+    },
+    {
+     "key": "callback|pro|R2::miyamoto_musashi::en",
+     "sample_id": "R2::miyamoto_musashi::en",
+     "language": "en",
+     "plan": "pro",
+     "candidate_days": 3,
+     "user_message": "My cousin is buying a house and the whole family is celebrating. I said all the right things at lunch and felt sick the entire time.",
+     "reply": "That sickness is worth paying attention to. It isn't ingratitude or pettiness — it's the gap between what you performed and what you actually felt, and that gap costs something each time.\n\nA few days ago you wrote about congratulating your friend on her promotion and then going home bitter. The same move, a second time.\n\nWhat is it, exactly, that you wanted — and don't have yet?"
+    },
+    {
+     "key": "callback|pro|R2::niccolo_machiavelli::en",
+     "sample_id": "R2::niccolo_machiavelli::en",
+     "language": "en",
+     "plan": "pro",
+     "candidate_days": 30,
+     "user_message": "A friend cancelled our dinner with a one-line message and I've spent the whole evening going over our last conversation to find what I said.",
+     "reply": "That weight is real, and I won't gloss it.\n\nBut notice what you're doing: treating yourself as the most likely cause before you have any evidence. A one-line cancellation usually says more about the person sending it than the person receiving it — people in their own difficulties reach for the shortest exit.\n\nA few weeks ago you wrote that you were looking for \"the sentence where I ruined it.\" That search seems to start before you even have a reason to look."
+    },
+    {
+     "key": "callback|pro|R2::oscar_wilde::en",
+     "sample_id": "R2::oscar_wilde::en",
+     "language": "en",
+     "plan": "pro",
+     "candidate_days": 90,
+     "user_message": "My brother says I'm the one who should decide about Dad's new medication because I visit the most. I don't want to be the one who decides.",
+     "reply": "The person who shows up most gets made responsible for the hardest thing. That's not fairness — it's convenience dressed as tribute.\n\nYou said a couple of months ago that you count the minutes until you can leave those visits. Carrying the decision alone would mean the guilt follows you home in a different form.\n\nWhat does your brother imagine visiting actually gives you — information, or authority?"
+    },
+    {
+     "key": "callback|pro|R2::sigmund_freud::en",
+     "sample_id": "R2::sigmund_freud::en",
+     "language": "en",
+     "plan": "pro",
+     "candidate_days": 3,
+     "user_message": "My doctor told me my blood pressure is up and I should slow down. All I could think was that I don't have time to slow down.",
+     "reply": "Your body sent a message, and your first response was to argue with it.\n\nThat's not unusual — but it is worth sitting with. \"I don't have time\" is a reason, yes. It's also a way of saying that whatever is driving the pace matters more than the warning. The question is whether you chose that priority consciously, or whether the pace chose you a long time ago and you've simply been keeping up with it.\n\nWhat is it, exactly, that won't wait?"
+    },
+    {
+     "key": "callback|pro|R2::simone_de_beauvoir::en",
+     "sample_id": "R2::simone_de_beauvoir::en",
+     "language": "en",
+     "plan": "pro",
+     "candidate_days": 10,
+     "user_message": "A friend cancelled our dinner with a one-line message and I've spent the whole evening going over our last conversation to find what I said.",
+     "reply": "That search — for the sentence that broke something — I recognise it. You said last week you were looking for \"the exact moment\" someone lost interest, \"the sentence where I ruined it.\" The same motion, a different person.\n\nHere is what the search assumes: that you are the cause, which means you are also the variable that could have been adjusted. It's a form of control dressed as guilt.\n\nWhat if the one-line message is simply about them?"
+    },
+    {
+     "key": "callback|pro|R2::socrates::en",
+     "sample_id": "R2::socrates::en",
+     "language": "en",
+     "plan": "pro",
+     "candidate_days": 90,
+     "user_message": "A friend offered to be my first client if I finally launch. I said I'd think about it, and I've been redoing my website instead.",
+     "reply": "You said a couple of months ago that every time you were about to hand in your notice, you found \"one more thing that needs to be perfect first.\"\n\nNow a real client is standing at the door, and you walked to the other room to rearrange the furniture.\n\nWhat does the website need to do that your friend can't?"
+    },
+    {
+     "key": "callback|pro|R::carl_jung::en",
+     "sample_id": "R::carl_jung::en",
+     "language": "en",
+     "plan": "pro",
+     "candidate_days": 30,
+     "user_message": "The care home called to say my father has been asking for me during the week. I told them I'd come on Wednesday too, and I already dread it.",
+     "reply": "What you are carrying has weight because it touches something real in you.\n\nYou added a visit before anyone asked you twice — and the dread arrived at the same moment as the decision. Those two things traveling together tell you something. Not that you're a bad daughter, but that something in you knows the cost of this, even as another part of you couldn't say no.\n\nWhat is it you're actually afraid you'll find there on Wednesday?"
+    },
+    {
+     "key": "callback|pro|R::epictetus::en",
+     "sample_id": "R::epictetus::en",
+     "language": "en",
+     "plan": "pro",
+     "candidate_days": 200,
+     "user_message": "My friend posted photos from the launch party for her new team and I muted her. I feel petty and I can't stop checking anyway.",
+     "reply": "The muting and the checking — they're pulling in opposite directions, and you're doing both. That's not pettiness, that's a war between what you want to feel and what you actually feel.\n\nSome months ago you said you \"couldn't stop feeling bitter\" after congratulating her. The bitterness is still there. The mute didn't move it — it just changed where you look.\n\nWhat would it cost you to let yourself feel it plainly, without the management?"
+    },
+    {
+     "key": "callback|pro|R::george_orwell::en",
+     "sample_id": "R::george_orwell::en",
+     "language": "en",
+     "plan": "pro",
+     "candidate_days": 200,
+     "user_message": "I booked a meeting with the bank about the loan for my shop, and last night I cancelled it because the logo still isn't right.",
+     "reply": "The logo is the reason you wrote down. The meeting is the thing you cancelled.\n\nSome months ago you said \"every time I'm about to hand in my notice I find one more thing that needs to be perfect first.\" A logo that isn't right fits the pattern exactly — not because logos don't matter, but because there will always be something that isn't right yet.\n\nThe bank doesn't need a finished logo. They need numbers and a plan. So the logo is doing a different job here than the one you're naming.\n\nWhat would happen if you rebooked for next week, logo unchanged?"
+    },
+    {
+     "key": "callback|pro|R::lao_tzu::en",
+     "sample_id": "R::lao_tzu::en",
+     "language": "en",
+     "plan": "pro",
+     "candidate_days": 10,
+     "user_message": "This morning my manager asked me to take over another project and I agreed on the spot. Now I'm sitting at my desk furious, mostly at myself.",
+     "reply": "The fury landed on you, not on the person who asked. That's worth sitting with for a moment.\n\nLast week you said \"I said yes again\" — and now here is another yes, arriving the same way. The agreement comes first; the cost lands after. What is it that the yes protects you from, in the moment you say it?"
+    },
+    {
+     "key": "callback|pro|R::marcus_aurelius::en",
+     "sample_id": "R::marcus_aurelius::en",
+     "language": "en",
+     "plan": "pro",
+     "candidate_days": 3,
+     "user_message": "This morning my manager asked me to take over another project and I agreed on the spot. Now I'm sitting at my desk furious, mostly at myself.",
+     "reply": "The fury at yourself is the more honest response — it means you know something happened that you didn't want.\n\nA few days ago you said \"I said yes again\" about a colleague's shift, with the same aftertaste. So the pattern isn't the manager's doing.\n\nYou hold your goals when cravings pull. You swallow unfair treatment. Both are discipline — but somewhere that discipline learned it applies to your own wants too, and that's worth examining."
+    },
+    {
+     "key": "callback|pro|R::miyamoto_musashi::en",
+     "sample_id": "R::miyamoto_musashi::en",
+     "language": "en",
+     "plan": "pro",
+     "candidate_days": 3,
+     "user_message": "My friend posted photos from the launch party for her new team and I muted her. I feel petty and I can't stop checking anyway.",
+     "reply": "The muting and the checking are the same move — not distance, just friction added to wanting.\n\nA few days ago you wrote that when she told you about the promotion you \"couldn't stop feeling bitter.\" That hasn't shifted. What has shifted is it's now public, and public bitterness has a sharper edge.\n\nThe petty feeling is accurate information. What does it tell you about what you actually want?"
+    },
+    {
+     "key": "callback|pro|R::niccolo_machiavelli::en",
+     "sample_id": "R::niccolo_machiavelli::en",
+     "language": "en",
+     "plan": "pro",
+     "candidate_days": 30,
+     "user_message": "Someone I've been seeing for a month took two days to answer me, and I've already drafted four messages asking what I did wrong. I haven't sent any of them.",
+     "reply": "Four drafts in two days — that's a lot of interior noise for someone who swallowed it and held the line.\n\nHere's what the drafts are actually doing: they're offering you a story where his silence has a cause you supplied, which means a cause you can fix. That's more bearable than the alternative, which is that his silence may have nothing to do with you at all.\n\nWhat outcome would actually satisfy you right now — a reply, or an explanation?"
+    },
+    {
+     "key": "callback|pro|R::oscar_wilde::en",
+     "sample_id": "R::oscar_wilde::en",
+     "language": "en",
+     "plan": "pro",
+     "candidate_days": 90,
+     "user_message": "The care home called to say my father has been asking for me during the week. I told them I'd come on Wednesday too, and I already dread it.",
+     "reply": "The dread arrived before the decision did — which means some part of you knew the visit would cost something even as you said yes.\n\nYou said a couple of months ago that you count the minutes until you can leave, and then feel like a terrible daughter the whole drive back. Adding Wednesday doesn't seem to answer that. It seems to double it.\n\nWhat is it you're actually hoping Wednesday will give him — or give you?"
+    },
+    {
+     "key": "callback|pro|R::sigmund_freud::en",
+     "sample_id": "R::sigmund_freud::en",
+     "language": "en",
+     "plan": "pro",
+     "candidate_days": 3,
+     "user_message": "A colleague who's younger than me just published a book, and I spent the evening adding things to my list again.",
+     "reply": "The book arrives, and the list gets longer. That is a curious reflex — as if someone else's achievement opened a ledger you keep on yourself.\n\nA few days ago you wrote that \"the list gets longer every time I look at it.\" What I find worth examining is the mechanism: you don't look at the list and cross things off. You look at it and add. The list is not a plan. It may be something else entirely — a charge sheet, perhaps.\n\nWhat is the feeling underneath the adding?"
+    },
+    {
+     "key": "callback|pro|R::simone_de_beauvoir::en",
+     "sample_id": "R::simone_de_beauvoir::en",
+     "language": "en",
+     "plan": "pro",
+     "candidate_days": 10,
+     "user_message": "Someone I've been seeing for a month took two days to answer me, and I've already drafted four messages asking what I did wrong. I haven't sent any of them.",
+     "reply": "Four drafts, none sent. That restraint is real — and so is the architecture underneath it: before he has told you anything, you've already assigned yourself the cause.\n\nTwo days is not an answer. You've treated the silence as a verdict and then made yourself the defendant. What evidence, actually, do you have that anything went wrong on your side?"
+    },
+    {
+     "key": "callback|pro|R::socrates::en",
+     "sample_id": "R::socrates::en",
+     "language": "en",
+     "plan": "pro",
+     "candidate_days": 90,
+     "user_message": "I booked a meeting with the bank about the loan for my shop, and last night I cancelled it because the logo still isn't right.",
+     "reply": "The logo.\n\nA couple of months ago you said \"every time I'm about to hand in my notice I find one more thing that needs to be perfect first.\" The logo is the latest thing in that line.\n\nSo here is what seems to follow: the meeting wasn't cancelled because the logo is wrong. It was cancelled because the meeting was real, and a wrong logo is a reason to wait.\n\nWhat would \"right enough\" actually look like?"
+    },
+    {
+     "key": "callback|pro|T::carl_jung::en",
+     "sample_id": "T::carl_jung::en",
+     "language": "en",
+     "plan": "pro",
+     "candidate_days": 30,
+     "user_message": "I started learning the piano again after twenty years. My hands remember more than I expected.",
+     "reply": "There is something uncanny about that — the body holding what the mind let go. Twenty years of silence, and still the fingers find their way. That kind of memory doesn't live in the head; it lives somewhere older, closer to the bone.\n\nWhat made you come back to it now?"
+    },
+    {
+     "key": "callback|pro|T::epictetus::en",
+     "sample_id": "T::epictetus::en",
+     "language": "en",
+     "plan": "pro",
+     "candidate_days": 200,
+     "user_message": "I'm trying to decide between two holidays: one quiet week in the mountains or a city trip with friends.",
+     "reply": "Two choices, both yours to make — so the question isn't really mine to answer.\n\nBut I'll ask this: which one are you actually drawn to, and which one do you think you should want?\n\nThose two things often don't point the same direction. And the gap between them is usually where the real decision is hiding."
+    },
+    {
+     "key": "callback|pro|T::george_orwell::en",
+     "sample_id": "T::george_orwell::en",
+     "language": "en",
+     "plan": "pro",
+     "candidate_days": 200,
+     "user_message": "My neighbour's dog barks all night and I can't decide whether to say something or just buy earplugs.",
+     "reply": "Two options, and one of them solves the problem without requiring anything of you.\n\nThat's not a neutral choice — that's already a preference dressed up as a dilemma. The earplugs fix your sleep; they don't fix the situation. The dog probably isn't comfortable either.\n\nYou said some months ago that every time you're about to do something, you find one more thing that needs to be perfect first. A conversation with a neighbour isn't high stakes. But \"I can't decide\" might be doing the same work as \"not yet.\"\n\nWhat's the actual worry about knocking on the door?"
+    },
+    {
+     "key": "callback|pro|T::lao_tzu::en",
+     "sample_id": "T::lao_tzu::en",
+     "language": "en",
+     "plan": "pro",
+     "candidate_days": 10,
+     "user_message": "I've been wondering whether to go back to university. I'm 34 and I can't tell if it's a real wish or just restlessness.",
+     "reply": "That distinction — real wish versus restlessness — may be harder to make than it seems. Restlessness sometimes is the wish, before it knows its own name.\n\nYou've had this question long enough to wonder about it. What does the version of you that doesn't go back look like in five years?"
+    },
+    {
+     "key": "callback|pro|T::marcus_aurelius::en",
+     "sample_id": "T::marcus_aurelius::en",
+     "language": "en",
+     "plan": "pro",
+     "candidate_days": 3,
+     "user_message": "I've been wondering whether to go back to university. I'm 34 and I can't tell if it's a real wish or just restlessness.",
+     "reply": "I sit with a version of this most mornings — the difficulty of reading my own wanting clearly enough to trust it.\n\nRestlessness and real wish often feel identical from the inside. The question that separates them: what would you do with the thing you'd study? If the answer comes quickly and costs you something to say aloud, it's probably real. If it trails off into vague possibility, that's worth examining before you enroll anywhere."
+    },
+    {
+     "key": "callback|pro|T::miyamoto_musashi::en",
+     "sample_id": "T::miyamoto_musashi::en",
+     "language": "en",
+     "plan": "pro",
+     "candidate_days": 3,
+     "user_message": "I'm trying to decide between two holidays: one quiet week in the mountains or a city trip with friends.",
+     "reply": "A few days ago you said you \"couldn't stop feeling bitter\" after a moment you swallowed in silence. The quiet week and the city trip are not equal options right now — one puts you alone with that, and one puts you back in the room with it.\n\nWhich of those do you actually need to do?"
+    },
+    {
+     "key": "callback|pro|T::niccolo_machiavelli::en",
+     "sample_id": "T::niccolo_machiavelli::en",
+     "language": "en",
+     "plan": "pro",
+     "candidate_days": 30,
+     "user_message": "I'm thinking of moving to a smaller flat closer to the sea. It would mean a longer commute but more quiet.",
+     "reply": "A trade most people make in the wrong direction — they chase convenience and find they've optimised for the wrong thing entirely.\n\nThe question worth sitting with is what the quiet is actually for. Not as a luxury, but as a working condition. If you think more clearly near water, if the long walks produce something, then the commute is overhead on a productive enterprise. If the quiet is mostly relief from something you haven't yet named, the sea won't cure it — it'll just relocate it."
+    },
+    {
+     "key": "callback|pro|T::oscar_wilde::en",
+     "sample_id": "T::oscar_wilde::en",
+     "language": "en",
+     "plan": "pro",
+     "candidate_days": 90,
+     "user_message": "I started learning the piano again after twenty years. My hands remember more than I expected.",
+     "reply": "There is something almost unfair about the body's memory — it keeps faith with you even when you've abandoned it entirely.\n\nWhat interests me is the \"more than I expected.\" You went back with low expectations, which means you had already prepared yourself for disappointment. And the hands refused to cooperate with that narrative.\n\nWhat made you go back now, after twenty years?"
+    },
+    {
+     "key": "callback|pro|T::sigmund_freud::en",
+     "sample_id": "T::sigmund_freud::en",
+     "language": "en",
+     "plan": "pro",
+     "candidate_days": 3,
+     "user_message": "I've started cooking on Sundays for the week ahead. It's oddly calming.",
+     "reply": "Something about bringing the week to heel before it starts.\n\nCooking has that quality — it's one of the few places where the mind can work without knowing it's working. The hands are occupied, the outcome is visible, and there's no ambiguity about whether you've succeeded.\n\nWhat do you make?"
+    },
+    {
+     "key": "callback|pro|T::simone_de_beauvoir::en",
+     "sample_id": "T::simone_de_beauvoir::en",
+     "language": "en",
+     "plan": "pro",
+     "candidate_days": 10,
+     "user_message": "I'm thinking of moving to a smaller flat closer to the sea. It would mean a longer commute but more quiet.",
+     "reply": "A longer commute for more quiet — you're trading one kind of time for another, and the question is which time actually belongs to you.\n\nThe sea suggests something particular. Most people don't move toward water for practical reasons. What is it you're expecting to find there — or what are you expecting to leave behind?"
+    },
+    {
+     "key": "callback|pro|T::socrates::en",
+     "sample_id": "T::socrates::en",
+     "language": "en",
+     "plan": "pro",
+     "candidate_days": 90,
+     "user_message": "My neighbour's dog barks all night and I can't decide whether to say something or just buy earplugs.",
+     "reply": "A small decision that somehow feels large. That's usually a sign something else is at stake besides sleep.\n\nYou said a couple of months ago that every time you're about to hand in your notice, you find one more thing that needs to be perfect first. I'm not sure the dog is a different kind of problem.\n\nWhat's the actual cost you're weighing — the awkward conversation, or something about what it means to ask for what you want?"
+    }
+   ]
+  },
+  "2026-10-05_mem2c2_el": {
+   "language": "el",
+   "rows": [
+    {
+     "key": "callback|pro|B::epictetus::el",
+     "sample_id": "B::epictetus::el",
+     "language": "el",
+     "plan": "pro",
+     "candidate_days": 200,
+     "user_message": "Η φίλη μου ανέβασε φωτογραφίες από το πάρτι για τη νέα της ομάδα και της έκανα σίγαση. Νιώθω μικροπρεπής και παρ' όλα αυτά δεν σταματάω να κοιτάζω.",
+     "reply": "Η πικρία είναι εκεί. Δεν θα την ελαττώσω.\n\nΑυτό που με απασχολεί είναι το εξής: τη σίγασες για να μη βλέπεις, και μετά κοιτάς. Η κίνηση και η αντίθεση της. Σαν να προσπαθείς να κλείσεις μια πόρτα και να τη σπρώχνεις ανοιχτή ταυτόχρονα. Τι ακριβώς ψάχνεις όταν κοιτάς;"
+    },
+    {
+     "key": "callback|pro|B::george_orwell::el",
+     "sample_id": "B::george_orwell::el",
+     "language": "el",
+     "plan": "pro",
+     "candidate_days": 200,
+     "user_message": "Έκλεισα ραντεβού με την τράπεζα για το δάνειο του μαγαζιού και χθες το βράδυ το ακύρωσα, επειδή το λογότυπο ακόμα δεν είναι σωστό.",
+     "reply": "Το λογότυπο δεν ήταν η αιτία. Ήταν η πρόφαση.\n\nΠριν από αρκετούς μήνες έγραφες ότι κάθε φορά που είσαι έτοιμος να παραιτηθείς, βρίσκεις άλλο ένα πράγμα που πρέπει πρώτα να τελειοποιηθεί. Τώρα το ίδιο πράγμα, σε διαφορετικό στάδιο.\n\nΤο ερώτημα δεν είναι τι λείπει από το λογότυπο. Είναι τι ακριβώς φοβάσαι ότι θα συμβεί αν πας σε εκείνη τη συνάντηση."
+    },
+    {
+     "key": "callback|pro|B::lao_tzu::el",
+     "sample_id": "B::lao_tzu::el",
+     "language": "el",
+     "plan": "pro",
+     "candidate_days": 10,
+     "user_message": "Σήμερα το πρωί ο προϊστάμενός μου μού ζήτησε να αναλάβω άλλο ένα έργο και δέχτηκα επί τόπου. Τώρα κάθομαι στο γραφείο μου και βράζω, κυρίως με τον εαυτό μου.",
+     "reply": "Ο θυμός ήρθε μετά — όχι όταν σε ρώτησε, αλλά αφού είπες ναι. Αυτή η καθυστέρηση λέει κάτι.\n\nΤο στόμα σου απάντησε πριν προλάβεις να ρωτήσεις τον εαυτό σου τι θέλεις."
+    },
+    {
+     "key": "callback|pro|B::marcus_aurelius::el",
+     "sample_id": "B::marcus_aurelius::el",
+     "language": "el",
+     "plan": "pro",
+     "candidate_days": 3,
+     "user_message": "Σήμερα το πρωί ο προϊστάμενός μου μού ζήτησε να αναλάβω άλλο ένα έργο και δέχτηκα επί τόπου. Τώρα κάθομαι στο γραφείο μου και βράζω, κυρίως με τον εαυτό μου.",
+     "reply": "Κι εγώ πρέπει να αναμετρηθώ με αυτό το αντανακλαστικό κάθε φορά που κάποιος έχει εξουσία πάνω μου — η συγκατάθεση βγαίνει πριν ο νους έχει λόγο.\n\nΑλλά ο θυμός τώρα είναι ειλικρινής. Σου λέει κάτι που το στόμα σου δεν είπε εκείνη τη στιγμή. Το ερώτημα δεν είναι γιατί συμφώνησες — αυτό το ξέρεις ήδη. Το ερώτημα είναι τι σκοπεύεις να κάνεις με αυτό που σου λέει τώρα."
+    },
+    {
+     "key": "callback|pro|B::miyamoto_musashi::el",
+     "sample_id": "B::miyamoto_musashi::el",
+     "language": "el",
+     "plan": "pro",
+     "candidate_days": 3,
+     "user_message": "Η φίλη μου ανέβασε φωτογραφίες από το πάρτι για τη νέα της ομάδα και της έκανα σίγαση. Νιώθω μικροπρεπής και παρ' όλα αυτά δεν σταματάω να κοιτάζω.",
+     "reply": "Η σίγαση ήταν μια καθαρή κίνηση. Το να συνεχίζεις να κοιτάζεις — αυτό είναι ήδη η απάντηση: δεν ήθελες απόσταση, ήθελες να μην πονάς.\n\nΑυτά τα δύο είναι διαφορετικά πράγματα."
+    },
+    {
+     "key": "callback|pro|B::niccolo_machiavelli::el",
+     "sample_id": "B::niccolo_machiavelli::el",
+     "language": "el",
+     "plan": "pro",
+     "candidate_days": 30,
+     "user_message": "Κάποιος που βγαίνω εδώ και έναν μήνα άργησε δύο μέρες να μου απαντήσει, και έχω ήδη γράψει τέσσερα μηνύματα που ρωτάνε τι έκανα λάθος. Δεν έχω στείλει κανένα.",
+     "reply": "Τέσσερα μηνύματα που δεν στάλθηκαν — αυτό έχει βάρος.\n\nΑλλά πρόσεξε τι κάνεις: δύο μέρες σιωπής, και εσύ ήδη ψάχνεις την ενοχή. Δεν ξέρεις ακόμα αν υπάρχει κάτι που έκανες λάθος. Ξέρεις μόνο ότι σιώπησε, και ο νους σου έτρεξε κατευθείαν στην καταδίκη του εαυτού σου.\n\nΑυτό δεν είναι ανάλυση. Είναι αντανακλαστικό."
+    },
+    {
+     "key": "callback|pro|B::oscar_wilde::el",
+     "sample_id": "B::oscar_wilde::el",
+     "language": "el",
+     "plan": "pro",
+     "candidate_days": 90,
+     "user_message": "Από το γηροκομείο με πήραν να μου πουν ότι ο πατέρας μου ρωτάει για μένα μέσα στην εβδομάδα. Τους είπα ότι θα πάω και την Τετάρτη, και ήδη το τρέμω.",
+     "reply": "Το βάρος αυτής της Τετάρτης το νιώθω να ακούγεται ακόμα και μέσα από τα λόγια σου.\n\nΠριν από ένα-δυο μήνες έγραψες ότι κάθε Κυριακή μετράς τα λεπτά μέχρι να φύγεις — και μετά νιώθεις απαίσια για αυτό. Τώρα πας και μέσα στην εβδομάδα. Δεν είναι η απόσταση που σε τρομάζει. Είναι ότι πας ξανά χωρίς να έχεις λύσει αυτό που σε βαραίνει από την Κυριακή."
+    },
+    {
+     "key": "callback|pro|B::sigmund_freud::el",
+     "sample_id": "B::sigmund_freud::el",
+     "language": "el",
+     "plan": "pro",
+     "candidate_days": 3,
+     "user_message": "Ένας συνάδελφος, νεότερος από μένα, μόλις έβγαλε βιβλίο, και πέρασα το βράδυ προσθέτοντας ξανά πράγματα στη λίστα μου.",
+     "reply": "Αυτή η λίστα που μεγαλώνει κάθε φορά που την κοιτάς — και τώρα βρήκε αφορμή να μεγαλώσει ξανά.\n\nΤο βιβλίο του συναδέλφου δεν σε στενοχωρεί επειδή εκείνος πέτυχε κάτι. Σε στενοχωρεί επειδή έγινε καθρέφτης — και ο καθρέφτης έδειξε τη λίστα, όχι αυτόν.\n\nΑλλά παρατηρώ κάτι: πέρασες το βράδυ προσθέτοντας στη λίστα. Όχι γράφοντας."
+    },
+    {
+     "key": "callback|pro|B::simone_de_beauvoir::el",
+     "sample_id": "B::simone_de_beauvoir::el",
+     "language": "el",
+     "plan": "pro",
+     "candidate_days": 10,
+     "user_message": "Κάποιος που βγαίνω εδώ και έναν μήνα άργησε δύο μέρες να μου απαντήσει, και έχω ήδη γράψει τέσσερα μηνύματα που ρωτάνε τι έκανα λάθος. Δεν έχω στείλει κανένα.",
+     "reply": "Τέσσερα μηνύματα που δεν στάλθηκαν — αυτό έχει βάρος.\n\nΑλλά πρόσεξε τι κάνεις: δύο μέρες σιωπή, και εσύ ήδη ψάχνεις το λάθος σου. Δεν έχεις ακόμα καμία απόδειξη ότι έκανες κάτι. Έχεις μόνο την απουσία του — και την έχεις ήδη μετατρέψει σε ετυμηγορία εναντίον σου.\n\nΑυτό που με ενδιαφέρει δεν είναι τα μηνύματα. Είναι ότι ο δικαστής εμφανίστηκε πριν καν υπάρξει κατηγορία."
+    },
+    {
+     "key": "callback|pro|B::socrates::el",
+     "sample_id": "B::socrates::el",
+     "language": "el",
+     "plan": "pro",
+     "candidate_days": 90,
+     "user_message": "Έκλεισα ραντεβού με την τράπεζα για το δάνειο του μαγαζιού και χθες το βράδυ το ακύρωσα, επειδή το λογότυπο ακόμα δεν είναι σωστό.",
+     "reply": "Άρα το λογότυπο σου κόστισε μια ολόκληρη ευκαιρία να προχωρήσεις — για κάτι που η τράπεζα δεν πρόκειται να δει ποτέ στη συνάντηση.\n\nΚι όμως, πριν από ένα-δυο μήνες έγραφες ότι κάθε φορά που είσαι έτοιμος να κινηθείς, εμφανίζεται πάντα κάτι άλλο που πρέπει πρώτα να γίνει τέλειο. Το λογότυπο είναι το επόμενο αυτό \"κάτι\" — ή είναι κάτι άλλο που το λογότυπο απλώς το εκπροσωπεί;"
+    },
+    {
+     "key": "callback|pro|L2::carl_jung::el",
+     "sample_id": "L2::carl_jung::el",
+     "language": "el",
+     "plan": "pro",
+     "candidate_days": 30,
+     "user_message": "Ο αδερφός μου λέει ότι εγώ πρέπει να αποφασίσω για τα καινούργια φάρμακα του μπαμπά, επειδή τον επισκέπτομαι πιο συχνά. Δεν θέλω να είμαι εγώ αυτή που αποφασίζει.",
+     "reply": "Ο αδερφός σου σού δίνει κάτι που μοιάζει με τιμή — «εσύ ξέρεις καλύτερα» — αλλά στην πράξη σου αφήνει το βάρος μόνη. Κι εσύ το βλέπεις αυτό, γι' αυτό αντιστέκεσαι.\n\nΥπάρχει όμως και κάτι άλλο εδώ: εσύ που μετράς τα λεπτά μέχρι να φύγεις από το γηροκομείο, τώρα καλείσαι να είσαι η φύλακας της ζωής του πατέρα σου. Η άρνηση να αποφασίσεις — τι ακριβώς προστατεύει;"
+    },
+    {
+     "key": "callback|pro|L2::epictetus::el",
+     "sample_id": "L2::epictetus::el",
+     "language": "el",
+     "plan": "pro",
+     "candidate_days": 200,
+     "user_message": "Η ξαδέρφη μου αγοράζει σπίτι και όλη η οικογένεια το γιορτάζει. Στο τραπέζι είπα όλα τα σωστά και ένιωθα άσχημα όλη την ώρα.",
+     "reply": "Η πίκρα ήταν εκεί, κάτω από τα σωστά λόγια. Αυτό είναι αληθινό.\n\nΤώρα ρώτα το αναγκαίο: το σπίτι της ξαδέρφης σου — είναι κάτι που ήταν στα χέρια σου να αποκτήσεις, ή ζήλεψες κάτι που ποτέ δεν εξαρτιόταν μόνο από σένα; Γιατί αν είναι το δεύτερο, δεν αισθάνεσαι άσχημα επειδή έχασες κάτι. Αισθάνεσαι άσχημα επειδή συγκρίνεις."
+    },
+    {
+     "key": "callback|pro|L2::george_orwell::el",
+     "sample_id": "L2::george_orwell::el",
+     "language": "el",
+     "plan": "pro",
+     "candidate_days": 200,
+     "user_message": "Ένας φίλος προσφέρθηκε να γίνει ο πρώτος μου πελάτης αν επιτέλους ξεκινήσω. Του είπα ότι θα το σκεφτώ, και από τότε ξαναφτιάχνω την ιστοσελίδα μου.",
+     "reply": "Ο φίλος σου σου έδωσε ό,τι λες ότι χρειάζεσαι — έναν πραγματικό πελάτη. Κι εσύ γύρισες στην ιστοσελίδα.\n\nΠριν από αρκετούς μήνες έγραψες ότι κάθε φορά που είσαι έτοιμος να δώσεις την παραίτησή σου, βρίσκεις άλλο ένα πράγμα που πρέπει πρώτα να γίνει τέλειο. Η ιστοσελίδα είναι το καινούργιο αυτό πράγμα.\n\nΤο ερώτημα δεν είναι αν η ιστοσελίδα είναι έτοιμη. Είναι αν θα πεις ποτέ ναι σε κάποιον που σου ζητά να αρχίσεις."
+    },
+    {
+     "key": "callback|pro|L2::lao_tzu::el",
+     "sample_id": "L2::lao_tzu::el",
+     "language": "el",
+     "plan": "pro",
+     "candidate_days": 10,
+     "user_message": "Η αδερφή μου θέλει να φιλοξενήσω πάλι όλη την οικογένεια στις γιορτές. Ήδη ξέρω ότι θα πω ναι, και ήδη ξέρω πώς θα νιώσω μετά.",
+     "reply": "Ξέρεις και τις δύο πλευρές πριν ακόμα ανοίξεις το στόμα σου. Το ναι και η εξάντληση που το ακολουθεί.\n\nΑυτό που με απασχολεί: αν το αποτέλεσμα είναι ήδη γραμμένο, τι ακριβώς επιλέγεις τώρα;"
+    },
+    {
+     "key": "callback|pro|L2::marcus_aurelius::el",
+     "sample_id": "L2::marcus_aurelius::el",
+     "language": "el",
+     "plan": "pro",
+     "candidate_days": 3,
+     "user_message": "Η αδερφή μου θέλει να φιλοξενήσω πάλι όλη την οικογένεια στις γιορτές. Ήδη ξέρω ότι θα πω ναι, και ήδη ξέρω πώς θα νιώσω μετά.",
+     "reply": "Το ξέρεις και τα δύο εκ των προτέρων — και πάλι η κατεύθυνση είναι δεδομένη. Αυτό δεν είναι αδυναμία χαρακτήρα· είναι μια συνήθεια που έχει επαναληφθεί αρκετές φορές ώστε να μοιάζει με μοίρα.\n\nΑλλά αν ξέρεις ήδη και τη συμφωνία και τη μεταμέλεια, τότε δεν είσαι θύμα της κατάστασης. Είσαι ο συγγραφέας της.\n\nΤι θα χανόταν αν έλεγες όχι;"
+    },
+    {
+     "key": "callback|pro|L2::miyamoto_musashi::el",
+     "sample_id": "L2::miyamoto_musashi::el",
+     "language": "el",
+     "plan": "pro",
+     "candidate_days": 3,
+     "user_message": "Η ξαδέρφη μου αγοράζει σπίτι και όλη η οικογένεια το γιορτάζει. Στο τραπέζι είπα όλα τα σωστά και ένιωθα άσχημα όλη την ώρα.",
+     "reply": "Πριν από λίγες μέρες έγραψες για την πίκρα μετά τα συγχαρητήρια σε μια φίλη. Τώρα το ίδιο με την ξαδέρφη σου.\n\nΔεν είναι σύμπτωση. Αυτό που ονομάζεις \"άσχημα\" — τι ακριβώς είναι; Πίκρα πάλι, ή κάτι διαφορετικό αυτή τη φορά;"
+    },
+    {
+     "key": "callback|pro|L2::niccolo_machiavelli::el",
+     "sample_id": "L2::niccolo_machiavelli::el",
+     "language": "el",
+     "plan": "pro",
+     "candidate_days": 30,
+     "user_message": "Μια φίλη ακύρωσε το δείπνο μας με ένα μήνυμα μιας γραμμής και πέρασα όλο το βράδυ ξαναπερνώντας την τελευταία μας κουβέντα για να βρω τι είπα.",
+     "reply": "Μια γραμμή είναι λίγη για ακύρωση — και το ξέρεις, γι' αυτό σε πείραξε.\n\nΑλλά η εξέταση της κουβέντας θέλει να λύσει ένα πρόβλημα που δεν ξέρεις ακόμα αν υπάρχει. Η φίλη σου ίσως να ακύρωσε για δέκα λόγους που δεν έχουν σχέση με σένα. Ψάχνεις το φταίξιμό σου πριν κάποιος σου πει ότι έκανες κάτι λάθος.\n\nΤι σου είπε ακριβώς — ή τι δεν σου είπε;"
+    },
+    {
+     "key": "callback|pro|L2::oscar_wilde::el",
+     "sample_id": "L2::oscar_wilde::el",
+     "language": "el",
+     "plan": "pro",
+     "candidate_days": 90,
+     "user_message": "Ο αδερφός μου λέει ότι εγώ πρέπει να αποφασίσω για τα καινούργια φάρμακα του μπαμπά, επειδή τον επισκέπτομαι πιο συχνά. Δεν θέλω να είμαι εγώ αυτή που αποφασίζει.",
+     "reply": "Η ευθύνη σού δίνεται ως τιμή, αλλά μυρίζει πολύ σαν ανακούφιση — δική του.\n\nΟ αδερφός σου σε επιλέγει όχι επειδή σε εμπιστεύεται περισσότερο, αλλά επειδή η παρουσία σου του δίνει ένα επιχείρημα για να απουσιάζει. Η συχνότητα των επισκέψεών σου γίνεται ξαφνικά αρμοδιότητα.\n\nΤι ακριβώς δεν θέλεις — να αποφασίσεις μόνη σου, ή να αποφασίσεις καθόλου;"
+    },
+    {
+     "key": "callback|pro|L2::sigmund_freud::el",
+     "sample_id": "L2::sigmund_freud::el",
+     "language": "el",
+     "plan": "pro",
+     "candidate_days": 3,
+     "user_message": "Ο γιατρός μου είπε ότι η πίεσή μου ανέβηκε και πρέπει να κόψω ταχύτητα. Το μόνο που σκεφτόμουν ήταν ότι δεν έχω χρόνο να κόψω ταχύτητα.",
+     "reply": "Το σώμα σου στέλνει ένα μήνυμα και η πρώτη σου αντίδραση ήταν να αρνηθείς να το δεχτείς — όχι από αδιαφορία, αλλά γιατί κάτι στο πρόγραμμά σου φαίνεται να έχει μεγαλύτερη προτεραιότητα από την ίδια σου την υγεία.\n\nΠριν από λίγες μέρες έγραφες για λίστες που μεγαλώνουν. Αναρωτιέμαι αν αυτό που αποκαλείς \"δεν έχω χρόνο\" δεν είναι πρόβλημα χρόνου — αλλά κάτι που φοβάσαι να δεις αν σταματήσεις."
+    },
+    {
+     "key": "callback|pro|L2::simone_de_beauvoir::el",
+     "sample_id": "L2::simone_de_beauvoir::el",
+     "language": "el",
+     "plan": "pro",
+     "candidate_days": 10,
+     "user_message": "Μια φίλη ακύρωσε το δείπνο μας με ένα μήνυμα μιας γραμμής και πέρασα όλο το βράδυ ξαναπερνώντας την τελευταία μας κουβέντα για να βρω τι είπα.",
+     "reply": "Ένα βράδυ ψάχνοντας σε μια κουβέντα για κάτι που έκανες λάθος — αυτό είναι βαρύ να το κουβαλάς μόνος σου.\n\nΤην προηγούμενη εβδομάδα έγραφες ότι ψάχνεις \"την ακριβή στιγμή που έχασε το ενδιαφέρον του\" σε παλιά μηνύματα. Το ίδιο κίνημα εδώ: μια ακύρωση χωρίς εξήγηση, και αμέσως η αναζήτηση στρέφεται προς τα μέσα. Αλλά η φίλη σου δεν σου είπε ότι έφταιξες — το είπες εσύ, πριν καν σε ρωτήσει κανείς."
+    },
+    {
+     "key": "callback|pro|L2::socrates::el",
+     "sample_id": "L2::socrates::el",
+     "language": "el",
+     "plan": "pro",
+     "candidate_days": 90,
+     "user_message": "Ένας φίλος προσφέρθηκε να γίνει ο πρώτος μου πελάτης αν επιτέλους ξεκινήσω. Του είπα ότι θα το σκεφτώ, και από τότε ξαναφτιάχνω την ιστοσελίδα μου.",
+     "reply": "Ο φίλος σου σου έδωσε αυτό που λέγαμε ότι σου λείπει — έναν πραγματικό λόγο να ξεκινήσεις. Κι εσύ γύρισες στην ιστοσελίδα.\n\nΠριν από ένα-δυο μήνες έγραψες ότι κάθε φορά που είσαι έτοιμος, βρίσκεις άλλο ένα πράγμα που πρέπει να γίνει τέλειο. Η ιστοσελίδα είναι το επόμενο αυτό πράγμα — ή είναι κάτι άλλο που η ιστοσελίδα απλώς το καλύπτει;"
+    },
+    {
+     "key": "callback|pro|R2::carl_jung::el",
+     "sample_id": "R2::carl_jung::el",
+     "language": "el",
+     "plan": "pro",
+     "candidate_days": 30,
+     "user_message": "Ο αδερφός μου λέει ότι εγώ πρέπει να αποφασίσω για τα καινούργια φάρμακα του μπαμπά, επειδή τον επισκέπτομαι πιο συχνά. Δεν θέλω να είμαι εγώ αυτή που αποφασίζει.",
+     "reply": "Ο αδερφός σου σου δίνει την ευθύνη με τη λογική ότι η εγγύτητα σημαίνει εξουσία. Αλλά εγγύτητα και εξουσία δεν είναι το ίδιο πράγμα — και μερικές φορές αυτός που είναι πιο μακριά χρησιμοποιεί την απόσταση για να κρατήσει τα χέρια του καθαρά.\n\nΤι ακριβώς δεν θέλεις να κρατάς — την απόφαση, ή το βάρος αν πάει στραβά;"
+    },
+    {
+     "key": "callback|pro|R2::epictetus::el",
+     "sample_id": "R2::epictetus::el",
+     "language": "el",
+     "plan": "pro",
+     "candidate_days": 200,
+     "user_message": "Η ξαδέρφη μου αγοράζει σπίτι και όλη η οικογένεια το γιορτάζει. Στο τραπέζι είπα όλα τα σωστά και ένιωθα άσχημα όλη την ώρα.",
+     "reply": "Η πίκρα ήταν εκεί. Δεν χρειάζεται να την αρνηθείς.\n\nΤώρα ας δούμε τι ακριβώς σε πονάει. Δεν είναι το σπίτι της ξαδέρφης σου — αυτό δεν ήταν ποτέ δικό σου να πάρεις ή να χάσεις. Μοιάζει περισσότερο να πονάς επειδή συγκρίνεις που βρίσκεσαι εσύ τώρα με που βρίσκεται εκείνη. Αυτές είναι δύο διαφορετικές πηγές πόνου — και μόνο η μία έχει κάτι να σου πει."
+    },
+    {
+     "key": "callback|pro|R2::george_orwell::el",
+     "sample_id": "R2::george_orwell::el",
+     "language": "el",
+     "plan": "pro",
+     "candidate_days": 200,
+     "user_message": "Ένας φίλος προσφέρθηκε να γίνει ο πρώτος μου πελάτης αν επιτέλους ξεκινήσω. Του είπα ότι θα το σκεφτώ, και από τότε ξαναφτιάχνω την ιστοσελίδα μου.",
+     "reply": "Ένας φίλος σου έδωσε ένα συγκεκριμένο πράγμα — έναν πρώτο πελάτη. Εσύ του έδωσες \"θα το σκεφτώ\", και μετά γύρισες στην ιστοσελίδα.\n\nΠριν από αρκετούς μήνες έγραψες ότι κάθε φορά που ήσουν έτοιμος να παραιτηθείς, έβρισκες άλλο ένα πράγμα που έπρεπε να γίνει τέλειο πρώτα. Η ιστοσελίδα μοιάζει να είναι το επόμενο σε αυτή τη σειρά.\n\nΤο ερώτημα δεν είναι αν η ιστοσελίδα χρειάζεται δουλειά. Είναι αν ο φίλος σου χρειάζεται τέλεια ιστοσελίδα για να γίνει πελάτης σου."
+    },
+    {
+     "key": "callback|pro|R2::lao_tzu::el",
+     "sample_id": "R2::lao_tzu::el",
+     "language": "el",
+     "plan": "pro",
+     "candidate_days": 10,
+     "user_message": "Η αδερφή μου θέλει να φιλοξενήσω πάλι όλη την οικογένεια στις γιορτές. Ήδη ξέρω ότι θα πω ναι, και ήδη ξέρω πώς θα νιώσω μετά.",
+     "reply": "Ξέρεις και τα δύο — και λες ναι παρ' όλα αυτά. Αυτό δεν είναι αδυναμία· είναι κάτι που έχεις αποφασίσει ήδη, πριν ακόμα ρωτηθείς.\n\nΤην προηγούμενη εβδομάδα έγραψες ότι είπες ναι να καλύψεις τη βάρδια ενός συναδέλφου και το μετάνιωνες όλη την ώρα.\n\nΤι προστατεύει το \"ναι\" σου;"
+    },
+    {
+     "key": "callback|pro|R2::marcus_aurelius::el",
+     "sample_id": "R2::marcus_aurelius::el",
+     "language": "el",
+     "plan": "pro",
+     "candidate_days": 3,
+     "user_message": "Η αδερφή μου θέλει να φιλοξενήσω πάλι όλη την οικογένεια στις γιορτές. Ήδη ξέρω ότι θα πω ναι, και ήδη ξέρω πώς θα νιώσω μετά.",
+     "reply": "Αυτό που περιγράφεις δεν είναι παγίδα — είναι απόφαση που έχεις ήδη πάρει και την αποκαλείς αναπόφευκτη.\n\nΚι εγώ το κάνω αυτό. Βλέπω τι έρχεται, ξέρω το κόστος, και προχωρώ — μετά ψάχνω κάποιον άλλον να φταίει για το βάρος.\n\nΤο ερώτημα δεν είναι γιατί δεν μπορείς να πεις όχι. Το ερώτημα είναι: τι προστατεύεις λέγοντας ναι;"
+    },
+    {
+     "key": "callback|pro|R2::miyamoto_musashi::el",
+     "sample_id": "R2::miyamoto_musashi::el",
+     "language": "el",
+     "plan": "pro",
+     "candidate_days": 3,
+     "user_message": "Η ξαδέρφη μου αγοράζει σπίτι και όλη η οικογένεια το γιορτάζει. Στο τραπέζι είπα όλα τα σωστά και ένιωθα άσχημα όλη την ώρα.",
+     "reply": "Πριν από λίγες μέρες έγραψες κάτι παρόμοιο — χαμόγελο έξω, πίκρα μέσα, μετά σπίτι μόνος.\n\nΤο μοτίβο δεν είναι υποκρισία. Είναι κάτι που θέλεις πολύ και δεν το έχεις ακόμα.\n\nΗ ερώτηση δεν είναι γιατί νιώθεις έτσι. Είναι: το σπίτι — αυτό που αντιπροσωπεύει — το κυνηγάς ενεργά, ή μένει στο μυαλό σου ως κάτι που \"θα γίνει κάποτε\";"
+    },
+    {
+     "key": "callback|pro|R2::niccolo_machiavelli::el",
+     "sample_id": "R2::niccolo_machiavelli::el",
+     "language": "el",
+     "plan": "pro",
+     "candidate_days": 30,
+     "user_message": "Μια φίλη ακύρωσε το δείπνο μας με ένα μήνυμα μιας γραμμής και πέρασα όλο το βράδυ ξαναπερνώντας την τελευταία μας κουβέντα για να βρω τι είπα.",
+     "reply": "Το βράδυ πέρασε ψάχνοντας για αδικία που ίσως έκανες. Το αναγνωρίζω.\n\nΑλλά εδώ είναι αυτό που ξέρω για αυτό το είδος έρευνας: σπάνια βρίσκεις την \"λάθος πρόταση\" γιατί σπάνια υπάρχει. Μια ακύρωση μιας γραμμής συνήθως λέει κάτι για την κατάσταση του άλλου — όχι για ένα σφάλμα σου που έκρυβε όλο αυτό τον καιρό.\n\nΤι σε κάνει να είσαι τόσο σίγουρος ότι η αιτία βρίσκεται μέσα στη συνομιλία;"
+    },
+    {
+     "key": "callback|pro|R2::oscar_wilde::el",
+     "sample_id": "R2::oscar_wilde::el",
+     "language": "el",
+     "plan": "pro",
+     "candidate_days": 90,
+     "user_message": "Ο αδερφός μου λέει ότι εγώ πρέπει να αποφασίσω για τα καινούργια φάρμακα του μπαμπά, επειδή τον επισκέπτομαι πιο συχνά. Δεν θέλω να είμαι εγώ αυτή που αποφασίζει.",
+     "reply": "Η ευθύνη σου δίνεται ως τιμή — αλλά ακούγεται περισσότερο σαν βάρος που κάποιος άλλος δεν ήθελε να κρατήσει.\n\nΥπάρχει διαφορά ανάμεσα στο να είσαι αυτή που ξέρει περισσότερα και αυτή που αποφασίζει. Ο αδερφός σου τα έχει συγχωνεύσει αυτά τα δύο — γιατί του βολεύει."
+    },
+    {
+     "key": "callback|pro|R2::sigmund_freud::el",
+     "sample_id": "R2::sigmund_freud::el",
+     "language": "el",
+     "plan": "pro",
+     "candidate_days": 3,
+     "user_message": "Ο γιατρός μου είπε ότι η πίεσή μου ανέβηκε και πρέπει να κόψω ταχύτητα. Το μόνο που σκεφτόμουν ήταν ότι δεν έχω χρόνο να κόψω ταχύτητα.",
+     "reply": "Το σώμα έστειλε ένα μήνυμα και η πρώτη σου αντίδραση ήταν να αρνηθείς να το διαβάσεις.\n\nΠριν από λίγες μέρες έγραφες για μια λίστα που μεγαλώνει κάθε φορά που την κοιτάς. Αναρωτιέμαι αν ο ρυθμός που διατηρείς δεν εξυπηρετεί τόσο τη λίστα, όσο κάτι άλλο — ίσως την αίσθηση ότι αν σταματήσεις, θα πρέπει να κοιτάξεις τι μένει όταν αφαιρέσεις την κίνηση."
+    },
+    {
+     "key": "callback|pro|R2::simone_de_beauvoir::el",
+     "sample_id": "R2::simone_de_beauvoir::el",
+     "language": "el",
+     "plan": "pro",
+     "candidate_days": 10,
+     "user_message": "Μια φίλη ακύρωσε το δείπνο μας με ένα μήνυμα μιας γραμμής και πέρασα όλο το βράδυ ξαναπερνώντας την τελευταία μας κουβέντα για να βρω τι είπα.",
+     "reply": "Αυτό που περιγράφεις — το να ψάχνεις σε μια κουβέντα για την πρόταση που τα χάλασε — το ξέρω ήδη λίγο από αυτά που έγραψες παλιότερα. Το μοτίβο είναι το ίδιο: ένα κενό εμφανίζεται, και εσύ το γεμίζεις αμέσως με ενοχή δική σου.\n\nΜια ακύρωση χωρίς εξήγηση ανήκει στη φίλη σου. Δεν σου δόθηκε κανένα στοιχείο — κι εσύ κατασκεύασες ένα από το τίποτα, με κατηγορούμενο τον εαυτό σου."
+    },
+    {
+     "key": "callback|pro|R2::socrates::el",
+     "sample_id": "R2::socrates::el",
+     "language": "el",
+     "plan": "pro",
+     "candidate_days": 90,
+     "user_message": "Ένας φίλος προσφέρθηκε να γίνει ο πρώτος μου πελάτης αν επιτέλους ξεκινήσω. Του είπα ότι θα το σκεφτώ, και από τότε ξαναφτιάχνω την ιστοσελίδα μου.",
+     "reply": "Ξανάφτιαξες την ιστοσελίδα αντί να απαντήσεις στον φίλο σου.\n\nΑυτό είναι κάτι αξιοπρόσεκτο. Δεν είπες \"όχι\". Δεν είπες \"ναι\". Είπες \"θα το σκεφτώ\" — και μετά έστρεψες την προσοχή σου αλλού. Πριν από ένα-δυο μήνες έγραφες ότι κάθε φορά που είσαι έτοιμος να κάνεις το βήμα, βρίσκεις κάτι που πρέπει πρώτα να γίνει τέλειο. Η ιστοσελίδα είναι αυτό το κάτι, αυτή τη φορά.\n\nΤι ακριβώς φοβάσαι να ακούσεις από έναν πελάτη που σε γνωρίζει ήδη;"
+    },
+    {
+     "key": "callback|pro|R::carl_jung::el",
+     "sample_id": "R::carl_jung::el",
+     "language": "el",
+     "plan": "pro",
+     "candidate_days": 30,
+     "user_message": "Από το γηροκομείο με πήραν να μου πουν ότι ο πατέρας μου ρωτάει για μένα μέσα στην εβδομάδα. Τους είπα ότι θα πάω και την Τετάρτη, και ήδη το τρέμω.",
+     "reply": "Αυτό που λες έχει βάρος — όχι επειδή δεν αγαπάς τον πατέρα σου, αλλά ακριβώς επειδή το μέρος αυτό σε αγγίζει κάπου βαθιά που δεν έχεις ακόμα ονομάσει.\n\nΠριν από μερικές εβδομάδες είπες ότι μετράς τα λεπτά μέχρι να φύγεις και μετά νιώθεις απαίσια κόρη στον δρόμο της επιστροφής. Τώρα πας και δεύτερη φορά μέσα στην εβδομάδα — και τρέμεις και αυτό.\n\nΤι ακριβώς τρέμεις; Την επίσκεψη, ή αυτό που θα δεις εκεί;"
+    },
+    {
+     "key": "callback|pro|R::epictetus::el",
+     "sample_id": "R::epictetus::el",
+     "language": "el",
+     "plan": "pro",
+     "candidate_days": 200,
+     "user_message": "Η φίλη μου ανέβασε φωτογραφίες από το πάρτι για τη νέα της ομάδα και της έκανα σίγαση. Νιώθω μικροπρεπής και παρ' όλα αυτά δεν σταματάω να κοιτάζω.",
+     "reply": "Το να της κάνεις σίγαση δεν σε ανακούφισε — αυτό είναι ξεκάθαρο. Συνεχίζεις να κοιτάζεις, που σημαίνει ότι το πρόβλημα δεν ήταν οι φωτογραφίες.\n\nΗ πίκρα είναι εκεί. Δεν τη συζητώ. Αλλά το να κοιτάς και να κρύβεσαι ταυτόχρονα — αυτό σε εξαντλεί περισσότερο από την ίδια τη φθονιά.\n\nΤι ακριβώς κοιτάζεις όταν κοιτάζεις εκείνες τις φωτογραφίες;"
+    },
+    {
+     "key": "callback|pro|R::george_orwell::el",
+     "sample_id": "R::george_orwell::el",
+     "language": "el",
+     "plan": "pro",
+     "candidate_days": 200,
+     "user_message": "Έκλεισα ραντεβού με την τράπεζα για το δάνειο του μαγαζιού και χθες το βράδυ το ακύρωσα, επειδή το λογότυπο ακόμα δεν είναι σωστό.",
+     "reply": "Το λογότυπο είναι το πρόβλημα αυτή τη φορά. Πριν από αρκετούς μήνες έγραψες ότι κάθε φορά που είσαι έτοιμος να παραιτηθείς, βρίσκεις κάτι άλλο που πρέπει πρώτα να τελειοποιηθεί. Το μοτίβο δεν έχει αλλάξει — άλλαξε μόνο η δικαιολογία.\n\nΑυτό που έγινε χθες είναι απλό: ακύρωσες ένα ραντεβού με την τράπεζα. Το λογότυπο δεν το έκανε αυτό. Εσύ το έκανες.\n\nΠοιο είναι το επόμενο πράγμα που θα χρειαστεί να είναι τέλειο, αφού φτιάξεις το λογότυπο;"
+    },
+    {
+     "key": "callback|pro|R::lao_tzu::el",
+     "sample_id": "R::lao_tzu::el",
+     "language": "el",
+     "plan": "pro",
+     "candidate_days": 10,
+     "user_message": "Σήμερα το πρωί ο προϊστάμενός μου μού ζήτησε να αναλάβω άλλο ένα έργο και δέχτηκα επί τόπου. Τώρα κάθομαι στο γραφείο μου και βράζω, κυρίως με τον εαυτό μου.",
+     "reply": "Το «ναι» βγήκε πριν προλάβεις να σκεφτείς — και τώρα ο θυμός σου πληρώνει το λογαριασμό που δεν πλήρωσε η άρνηση.\n\nΑυτό το μοτίβο φαίνεται να σε κοστίζει κάθε φορά. Τι είναι αυτό που σε κάνει να πιστεύεις ότι το «όχι» θα ήταν χειρότερο από αυτό που νιώθεις τώρα;"
+    },
+    {
+     "key": "callback|pro|R::marcus_aurelius::el",
+     "sample_id": "R::marcus_aurelius::el",
+     "language": "el",
+     "plan": "pro",
+     "candidate_days": 3,
+     "user_message": "Σήμερα το πρωί ο προϊστάμενός μου μού ζήτησε να αναλάβω άλλο ένα έργο και δέχτηκα επί τόπου. Τώρα κάθομαι στο γραφείο μου και βράζω, κυρίως με τον εαυτό μου.",
+     "reply": "Κι εγώ έχω βγει από δωμάτια έχοντας συμφωνήσει σε πράγματα που δεν ήθελα — και ο θυμός που ακολουθεί είναι πάντα στραμμένος προς τα μέσα.\n\nΑλλά πρόσεξε τι έγινε: το στόμα σου είπε ναι ενώ κάτι μέσα σου ήξερε ήδη ότι δεν το θέλεις. Ο θυμός είναι αυτό το \"κάτι\" που μιλάει τώρα — με καθυστέρηση.\n\nΠοιο από τα δύο φοβάσαι περισσότερο: την αντίδρασή του, ή τι θα πει για σένα το να αρνηθείς;"
+    },
+    {
+     "key": "callback|pro|R::miyamoto_musashi::el",
+     "sample_id": "R::miyamoto_musashi::el",
+     "language": "el",
+     "plan": "pro",
+     "candidate_days": 3,
+     "user_message": "Η φίλη μου ανέβασε φωτογραφίες από το πάρτι για τη νέα της ομάδα και της έκανα σίγαση. Νιώθω μικροπρεπής και παρ' όλα αυτά δεν σταματάω να κοιτάζω.",
+     "reply": "Η σίγαση και το να κοιτάζεις συνεχώς — αυτά τα δύο μαζί είναι η εικόνα. Δεν μπορείς να δεις κάτι που δεν θέλεις να βλέπεις, αλλά δεν μπορείς και να το αφήσεις. Πριν από λίγες μέρες έγραψες ότι γύρισες σπίτι με πίκρα που δεν μπορούσες να σταματήσεις. Η πίκρα δεν έφυγε — άλλαξε μόνο μορφή.\n\nΤι ψάχνεις να δεις;"
+    },
+    {
+     "key": "callback|pro|R::niccolo_machiavelli::el",
+     "sample_id": "R::niccolo_machiavelli::el",
+     "language": "el",
+     "plan": "pro",
+     "candidate_days": 30,
+     "user_message": "Κάποιος που βγαίνω εδώ και έναν μήνα άργησε δύο μέρες να μου απαντήσει, και έχω ήδη γράψει τέσσερα μηνύματα που ρωτάνε τι έκανα λάθος. Δεν έχω στείλει κανένα.",
+     "reply": "Τέσσερα μηνύματα που δεν στάλθηκαν — αυτό είναι αυτοσυγκράτηση σε πλήρη ανάπτυξη.\n\nΑλλά παρατήρησε τι προϋποθέτουν εκείνα τα μηνύματα: ότι η σιωπή του είναι αναγκαστικά απόκριση σε κάτι που έκανες εσύ. Αυτό μπορεί να είναι αλήθεια. Μπορεί επίσης να μην έχει καμία σχέση με εσένα.\n\nΔύο μέρες καθυστέρηση — τι γνωρίζεις για τον χαρακτήρα αυτού του ανθρώπου που θα σε βοηθούσε να διαβάσεις αυτή τη σιωπή πιο ψύχραιμα;"
+    },
+    {
+     "key": "callback|pro|R::oscar_wilde::el",
+     "sample_id": "R::oscar_wilde::el",
+     "language": "el",
+     "plan": "pro",
+     "candidate_days": 90,
+     "user_message": "Από το γηροκομείο με πήραν να μου πουν ότι ο πατέρας μου ρωτάει για μένα μέσα στην εβδομάδα. Τους είπα ότι θα πάω και την Τετάρτη, και ήδη το τρέμω.",
+     "reply": "Η κούραση δεν είναι απουσία αγάπης — αυτά τα δύο ταξιδεύουν μαζί πολύ πιο συχνά απ' ό,τι μας άρεσε να παραδεχόμαστε.\n\nΠριν από ένα-δυο μήνες έγραφες ότι μετράς τα λεπτά μέχρι να φύγεις, και μετά νιώθεις απαίσια στη διαδρομή της επιστροφής. Τώρα τρέμεις πριν ακόμα πας. Το βάρος φαίνεται να μετακινείται — από την έξοδο, στην είσοδο.\n\nΤι ακριβώς φοβάσαι ότι θα βρεις εκεί μέσα;"
+    },
+    {
+     "key": "callback|pro|R::sigmund_freud::el",
+     "sample_id": "R::sigmund_freud::el",
+     "language": "el",
+     "plan": "pro",
+     "candidate_days": 3,
+     "user_message": "Ένας συνάδελφος, νεότερος από μένα, μόλις έβγαλε βιβλίο, και πέρασα το βράδυ προσθέτοντας ξανά πράγματα στη λίστα μου.",
+     "reply": "Αυτό το βράδυ είχε κάτι βαρύ.\n\nΟ νεότερος συνάδελφος εκδίδει βιβλίο, και εσύ — αντί να κοιτάξεις αυτόν — γύρισες την προσοχή σου στη λίστα σου. Αυτό δεν είναι αδιαφορία για τη δουλειά του. Είναι κάτι που το ξέρεις ήδη, αλλά αξίζει να ειπωθεί: η σύγκριση ήταν εκεί, και τη μετέτρεψες αμέσως σε απογραφή εαυτού.\n\nΗ λίστα που μεγαλώνει — σου λέει τι δεν έκανες, ή τι φοβάσαι ότι δεν θα κάνεις ποτέ;"
+    },
+    {
+     "key": "callback|pro|R::simone_de_beauvoir::el",
+     "sample_id": "R::simone_de_beauvoir::el",
+     "language": "el",
+     "plan": "pro",
+     "candidate_days": 10,
+     "user_message": "Κάποιος που βγαίνω εδώ και έναν μήνα άργησε δύο μέρες να μου απαντήσει, και έχω ήδη γράψει τέσσερα μηνύματα που ρωτάνε τι έκανα λάθος. Δεν έχω στείλει κανένα.",
+     "reply": "Τέσσερα μηνύματα που δεν στάλθηκαν — αυτό δεν είναι αδράνεια, είναι εργασία. Ψάχνεις το λάθος σου σε μια σιωπή δύο ημερών, πριν καν ξέρεις αν υπάρχει λάθος.\n\nΤην προηγούμενη εβδομάδα έγραφες ότι ψάχνεις στα παλιά μηνύματα την πρόταση με την οποία τα χάλασες. Το μοτίβο είναι το ίδιο: η ετυμηγορία έχει ήδη εκδοθεί — εναντίον σου — και ψάχνεις απλώς αποδείξεις για να την υποστηρίξεις.\n\nΤι θα χρειαζόταν για να αφήσεις αυτή την υπόθεση ανοιχτή λίγο περισσότερο;"
+    },
+    {
+     "key": "callback|pro|R::socrates::el",
+     "sample_id": "R::socrates::el",
+     "language": "el",
+     "plan": "pro",
+     "candidate_days": 90,
+     "user_message": "Έκλεισα ραντεβού με την τράπεζα για το δάνειο του μαγαζιού και χθες το βράδυ το ακύρωσα, επειδή το λογότυπο ακόμα δεν είναι σωστό.",
+     "reply": "Το λογότυπο. Αυτό είναι το πράγμα που στέκεται ανάμεσα σε σένα και την τράπεζα.\n\nΠριν από ένα-δυο μήνες έγραψες ότι κάθε φορά που είσαι έτοιμος να παραιτηθείς, βρίσκεις άλλο ένα πράγμα που πρέπει πρώτα να γίνει τέλειο. Τώρα το ίδιο συμβαίνει με το δάνειο.\n\nΟπότε το ερώτημα δεν είναι αν το λογότυπο είναι σωστό. Είναι τι θα ήταν «σωστό» αρκετά."
+    },
+    {
+     "key": "callback|pro|T::carl_jung::el",
+     "sample_id": "T::carl_jung::el",
+     "language": "el",
+     "plan": "pro",
+     "candidate_days": 30,
+     "user_message": "Ξανάρχισα πιάνο μετά από είκοσι χρόνια. Τα χέρια μου θυμούνται περισσότερα απ' όσα περίμενα.",
+     "reply": "Το σώμα κρατάει πράγματα που το μυαλό έχει αποφασίσει να ξεχάσει. Είκοσι χρόνια σιωπής, και τα χέρια σου είχαν άλλη γνώμη. Αυτό δεν είναι απλώς μυϊκή μνήμη — κάτι που άφησες πίσω σου δεν έφυγε στ' αλήθεια, απλώς περίμενε. Τι σε έκανε να γυρίσεις τώρα, μετά από τόσο καιρό;"
+    },
+    {
+     "key": "callback|pro|T::epictetus::el",
+     "sample_id": "T::epictetus::el",
+     "language": "el",
+     "plan": "pro",
+     "candidate_days": 200,
+     "user_message": "Προσπαθώ να διαλέξω ανάμεσα σε δύο διακοπές: μια ήσυχη εβδομάδα στο βουνό ή ένα ταξίδι σε πόλη με φίλους.",
+     "reply": "Αυτό δεν είναι πρόβλημα. Είναι επιλογή — και οι δύο δρόμοι είναι ανοιχτοί, κανένας δεν σε βλάπτει.\n\nΑλλά ο τρόπος που το λες — \"προσπαθώ να διαλέξω\" — σαν να υπάρχει κάτι που σε εμποδίζει. Τι σε κρατά; Η αμφιβολία για το τι θες, ή η ανησυχία για το τι θα πουν οι άλλοι αν δεν πας;"
+    },
+    {
+     "key": "callback|pro|T::george_orwell::el",
+     "sample_id": "T::george_orwell::el",
+     "language": "el",
+     "plan": "pro",
+     "candidate_days": 200,
+     "user_message": "Ο σκύλος του γείτονα γαβγίζει όλη νύχτα και δεν μπορώ να αποφασίσω αν πρέπει να του πω κάτι ή απλώς να αγοράσω ωτοασπίδες.",
+     "reply": "Δύο επιλογές — αλλά η μία αντιμετωπίζει το πρόβλημα και η άλλη το κρύβει κάτω από το χαλί. Οι ωτοασπίδες δεν σταματούν το γάβγισμα, απλώς σε αποτρέπουν από το να το ακούς.\n\nΤο πραγματικό ερώτημα δεν είναι τι θα κάνεις με τον ύπνο σου — αλλά γιατί διστάζεις να μιλήσεις σε έναν γείτονα για κάτι τόσο συγκεκριμένο. Αυτός ο δισταγμός έχει συνήθως ένα όνομα: αποφυγή της τριβής."
+    },
+    {
+     "key": "callback|pro|T::lao_tzu::el",
+     "sample_id": "T::lao_tzu::el",
+     "language": "el",
+     "plan": "pro",
+     "candidate_days": 10,
+     "user_message": "Σκέφτομαι αν πρέπει να ξαναγυρίσω στο πανεπιστήμιο. Είμαι 34 και δεν μπορώ να καταλάβω αν είναι αληθινή επιθυμία ή απλώς ανησυχία.",
+     "reply": "Η ερώτηση «πρέπει να επιστρέψω» και η ερώτηση «θέλω να επιστρέψω» είναι διαφορετικές — και εσύ τις έχεις αναμίξει σε μία.\n\nΤι θα έκανες αν δεν υπήρχε κανείς να σε κρίνει για την απόφαση;"
+    },
+    {
+     "key": "callback|pro|T::marcus_aurelius::el",
+     "sample_id": "T::marcus_aurelius::el",
+     "language": "el",
+     "plan": "pro",
+     "candidate_days": 3,
+     "user_message": "Σκέφτομαι αν πρέπει να ξαναγυρίσω στο πανεπιστήμιο. Είμαι 34 και δεν μπορώ να καταλάβω αν είναι αληθινή επιθυμία ή απλώς ανησυχία.",
+     "reply": "Αυτή η αμφιβολία — αν κάτι έρχεται από επιθυμία ή από φόβο — με απασχολεί κι εμένα συχνά. Δεν είναι εύκολο να το ξεχωρίσεις από μέσα.\n\nΑλλά σκέψου: αν δεν υπήρχε καμία ανησυχία — καμία ανάγκη να αποδείξεις κάτι, να ασφαλίσεις κάτι — θα το ήθελες ακόμα;"
+    },
+    {
+     "key": "callback|pro|T::miyamoto_musashi::el",
+     "sample_id": "T::miyamoto_musashi::el",
+     "language": "el",
+     "plan": "pro",
+     "candidate_days": 3,
+     "user_message": "Προσπαθώ να διαλέξω ανάμεσα σε δύο διακοπές: μια ήσυχη εβδομάδα στο βουνό ή ένα ταξίδι σε πόλη με φίλους.",
+     "reply": "Δύο διαφορετικά πράγματα ζητάς — ξεκούραση ή σύνδεση. Πριν διαλέξεις, ρώτα τον εαυτό σου τι έχεις πραγματικά ανάγκη αυτή τη στιγμή, όχι τι θα ήθελες να έχεις ανάγκη. Ποιο από τα δύο φοβάσαι περισσότερο να χάσεις;"
+    },
+    {
+     "key": "callback|pro|T::niccolo_machiavelli::el",
+     "sample_id": "T::niccolo_machiavelli::el",
+     "language": "el",
+     "plan": "pro",
+     "candidate_days": 30,
+     "user_message": "Σκέφτομαι να μετακομίσω σε ένα μικρότερο διαμέρισμα πιο κοντά στη θάλασσα. Θα σήμαινε περισσότερη διαδρομή αλλά και περισσότερη ησυχία.",
+     "reply": "Η ανταλλαγή είναι καθαρή: χρόνος μεταφοράς έναντι ηρεμίας.\n\nΑυτό που δεν είναι ακόμη καθαρό είναι τι ακριβώς χρειάζεσαι από αυτή την ησυχία — αν είναι ανάπαυση από κάτι συγκεκριμένο, ή αν ψάχνεις τις συνθήκες για να σκεφτείς κάτι που δεν έχεις ακόμη αντιμετωπίσει. Οι δύο αυτές ανάγκες ακούγονται παρόμοιες, αλλά οδηγούν σε διαφορετικές αποφάσεις."
+    },
+    {
+     "key": "callback|pro|T::oscar_wilde::el",
+     "sample_id": "T::oscar_wilde::el",
+     "language": "el",
+     "plan": "pro",
+     "candidate_days": 90,
+     "user_message": "Ξανάρχισα πιάνο μετά από είκοσι χρόνια. Τα χέρια μου θυμούνται περισσότερα απ' όσα περίμενα.",
+     "reply": "Είκοσι χρόνια σιωπής, και το σώμα κράτησε αυτό που η βούληση είχε αφήσει πίσω. Αυτό δεν είναι νοσταλγία — είναι κάτι πιο σκληρό: απόδειξη ότι κάποτε αφιερωθήκατε σε κάτι αρκετά βαθιά ώστε να παραμείνει στους μύες σας.\n\nΤι σας έκανε να επιστρέψετε τώρα;"
+    },
+    {
+     "key": "callback|pro|T::sigmund_freud::el",
+     "sample_id": "T::sigmund_freud::el",
+     "language": "el",
+     "plan": "pro",
+     "candidate_days": 3,
+     "user_message": "Άρχισα να μαγειρεύω τις Κυριακές για όλη την εβδομάδα. Είναι παράξενα χαλαρωτικό.",
+     "reply": "Μαγειρεύεις για μέρες που δεν έχουν έρθει ακόμα. Υπάρχει κάτι στο να δίνεις σχήμα στο χρόνο πριν σε πάρει μαζί του — να λες, έστω για λίγο, εγώ αποφάσισα τι θα τρώω την Τετάρτη.\n\nΤο \"παράξενα\" με κάνει να σταθώ. Σαν να σε εκπλήσσει που κάτι τόσο απλό σε ανακουφίζει — σαν να περίμενες ότι η ανακούφιση έπρεπε να έρθει από κάπου πιο σημαντικό."
+    },
+    {
+     "key": "callback|pro|T::simone_de_beauvoir::el",
+     "sample_id": "T::simone_de_beauvoir::el",
+     "language": "el",
+     "plan": "pro",
+     "candidate_days": 10,
+     "user_message": "Σκέφτομαι να μετακομίσω σε ένα μικρότερο διαμέρισμα πιο κοντά στη θάλασσα. Θα σήμαινε περισσότερη διαδρομή αλλά και περισσότερη ησυχία.",
+     "reply": "Η απόσταση και η ησυχία — τα ζυγίζεις σαν να είναι αντίθετα, αλλά μπορεί να σε οδηγούν στο ίδιο σημείο. Το να βάζεις λίγο χώρο ανάμεσα στον εαυτό σου και στην τριβή της καθημερινότητας είναι, κάποιες φορές, η πιο συγκεκριμένη απόφαση που μπορεί κανείς να πάρει.\n\nΤι ακριβώς ονομάζεις \"ησυχία\" εδώ — το μέρος, ή κάτι που θέλεις να αφήσεις πίσω;"
+    },
+    {
+     "key": "callback|pro|T::socrates::el",
+     "sample_id": "T::socrates::el",
+     "language": "el",
+     "plan": "pro",
+     "candidate_days": 90,
+     "user_message": "Ο σκύλος του γείτονα γαβγίζει όλη νύχτα και δεν μπορώ να αποφασίσω αν πρέπει να του πω κάτι ή απλώς να αγοράσω ωτοασπίδες.",
+     "reply": "Δύο λύσεις — και καμία δεν αφορά το γαβγίζειν.\n\nΗ μία λύνει τον θόρυβο. Η άλλη αγνοεί τον γείτονα. Αλλά ούτε η μία ούτε η άλλη σε ρωτά τι ακριβώς σε εμποδίζει να χτυπήσεις την πόρτα του.\n\nΤι φαντάζεσαι ότι θα συμβεί αν του πεις;"
+    }
+   ]
+  }
+ }
+}

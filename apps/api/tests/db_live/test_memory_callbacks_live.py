@@ -366,3 +366,89 @@ async def test_another_users_callback_cannot_be_rejected(db):
     active = (await db.execute(text("SELECT is_active FROM memory_entries WHERE id = :id"),
                                {"id": mid})).scalar_one()
     assert active is True
+
+
+# ── 5. MEM2-C-3a: the use detector's query and the "That's not right" lookup ─
+
+from services import callback_use as cu  # noqa: E402
+
+
+async def _offered_turn(db, uid, p, reply, *, original="I count the minutes until I can leave.",
+                        user_text="Today was the same again."):
+    """An earlier conversation whose user message is the row's original, and a
+    later one where the reply to `user_text` carried the offer."""
+    old = await _conversation(db, uid, p)
+    o_user = await _message(db, uid, old, "user", original, _ago(20.01))
+    o_reply = await _message(db, uid, old, "assistant", "an old reply", _ago(20))
+    mid = await _memory(db, uid, p, old, _spread(0.5, 2), days=20, ids=[o_user, o_reply])
+    cid = await _conversation(db, uid, p)
+    await _message(db, uid, cid, "user", user_text, _ago(0.002))
+    msg = await _message(db, uid, cid, "assistant", reply, _ago(0.001))
+    lid = await _ledger(db, uid, mid, days=0, conversation_id=cid, message_id=msg)
+    return cid, msg, lid
+
+
+async def _used(db, lid):
+    return (await db.execute(text("SELECT used FROM memory_callbacks WHERE id = :id"),
+                             {"id": lid})).scalar_one()
+
+
+@pytest.mark.asyncio
+async def test_mark_use_reads_the_original_and_marks_a_used_reply_once(db):
+    uid = await _user(db)
+    p, _ = await _personas(db)
+    _, msg, lid = await _offered_turn(
+        db, uid, p, 'A few weeks ago you wrote «count the minutes until I can leave».')
+    signals = await cu.mark_use(db, msg)
+    assert signals.used and signals.quote and signals.when
+    assert await _used(db, lid) is True
+    assert await cu.mark_use(db, msg) is None          # idempotent: already marked
+    assert await _used(db, lid) is True
+
+
+@pytest.mark.asyncio
+async def test_mark_use_does_not_credit_words_the_person_just_repeated(db):
+    """The shared run is excluded when it is in THIS turn's user message — the
+    subquery must find the user message the reply answered."""
+    uid = await _user(db)
+    p, _ = await _personas(db)
+    repeated = "I count the minutes until I can leave."
+    _, msg, lid = await _offered_turn(
+        db, uid, p, "You count the minutes until I can leave, you say. Why?",
+        user_text=repeated)
+    assert (await cu.mark_use(db, msg)).used is False
+    assert await _used(db, lid) is False
+
+
+@pytest.mark.asyncio
+async def test_mark_use_on_a_reply_without_an_offer_writes_nothing(db):
+    uid = await _user(db)
+    p, _ = await _personas(db)
+    cid = await _conversation(db, uid, p)
+    msg = await _message(db, uid, cid, "assistant", "a reply", _ago(0))
+    assert await cu.mark_use(db, msg) is None
+
+
+@pytest.mark.asyncio
+async def test_the_messages_endpoint_carries_only_a_used_unrejected_callback(db):
+    from types import SimpleNamespace
+    from routers.conversations import get_messages
+
+    uid = await _user(db)
+    p, _ = await _personas(db)
+    cid, msg, lid = await _offered_turn(db, uid, p, "Tell me more about today.")
+    user = SimpleNamespace(id=uid)
+
+    async def callback_ids():
+        out = await get_messages(cid, db=db, user=user)
+        return {m.id: m.callback_id for m in out}
+
+    assert (await callback_ids())[msg] is None                    # used IS NULL
+    await db.execute(text("UPDATE memory_callbacks SET used = FALSE WHERE id = :id"), {"id": lid})
+    assert (await callback_ids())[msg] is None                    # unused: never shown
+    await db.execute(text("UPDATE memory_callbacks SET used = TRUE WHERE id = :id"), {"id": lid})
+    ids = await callback_ids()
+    assert ids[msg] == lid
+    assert [v for k, v in ids.items() if k != msg] == [None]      # the user message
+    await cs.reject_callback(db, user_id=uid, callback_id=lid)
+    assert (await callback_ids())[msg] is None                    # rejected: gone
