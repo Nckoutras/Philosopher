@@ -33,7 +33,7 @@ Sources used:
 - the CI job log of #785's `pytest (live Postgres)` run, read through the GitHub REST
   API **with authentication**. GitHub serves Actions job logs only to an authenticated
   caller, even on this public repository (an unauthenticated request returns 403;
-  §3b.6). The request carried the token held by Git Credential Manager on the
+  §3b.7). The request carried the token held by Git Credential Manager on the
   verifying machine, a read-only use the founder authorised on 2026-10-05. The token
   was never printed or stored, and the log was deleted after it was read.
 
@@ -88,7 +88,7 @@ records only what is **on `main`** and **what production shows**.
 | Gate silent | **0** `callback_gate` lines on philosopher-api since the #785 deploy | Render logs |
 | Deployed | both services `live` at **`4b0a573d`**: worker 13:31:21, api 13:31:44 UTC | Render API |
 
-### 1a. The Lane B floor (#784) and its smoke — **RUN BY REPLAY: NOT CLOSED, Lane B did not appear**
+### 1a. The Lane B floor (#784) and its smoke — **CLOSED BY REPLAY (founder, 2026-10-05): Lane B fired at 14:14:18 UTC**
 
 **What changed.** Lane B (inferred rows) is admitted to recall at cosine > 0.45 to the
 message, down from 0.75. The measurement behind it (founder-run, production,
@@ -124,8 +124,8 @@ Socrates). This account has **no Lane A rows** (no `stated` / `self_portrait`), 
 | 13:49:36 | 0.45 | 126 | 0.3660 | 0 | 0 | **0** |
 | 13:50:17 | 0.45 | 128 | 0.4121 | 0 | 0 | **0** |
 
-**Result: the smoke does NOT close. Lane B rows did not appear in the block on any
-post-deploy turn.** All four messages were short ("Lost time is a lot on my mind
+**First result (13:48–13:50): Lane B rows did not appear in the block on any of these
+four turns.** All four messages were short ("Lost time is a lot on my mind
 lately", …) and none came within 0.005 of 0.45. This is not evidence against the
 deploy: the baseline turn, a long and specific message, scored 0.7094 (the same
 maximum the founder's `lane_b_reach.py` run reported), cleared 0.45 three times, and
@@ -135,11 +135,37 @@ received Lane B rows.
 **Precision.** Vectors were rounded to 5 decimals for transport; the cosine error that
 introduces is far below the closest margin in the table (0.0059).
 
-**It stays OWED** (P-04 as amended). To close it, either:
-1. one post-deploy turn with a substantive message (the 08:28 kind), then the replay
-   above or PostHog `message_sent.memory_count` > 0 for that turn; or
-2. in PostHog, `message_sent.memory_count` before 13:20 UTC vs after, across users,
-   once real traffic exists.
+**Second result (14:13–14:15): Lane B fired.** The founder then sent three turns to
+Orwell, the only user messages in production between 14:13 and 14:19 UTC (SELECT).
+Same replay method, floor 0.45 live:
+
+| Turn (UTC), Orwell | Message | Lane B rows seen | Best Lane B score | > 0.45 | Lane B admitted → `memory_count` |
+|---|---|---|---|---|---|
+| 14:13:08 | "Should I quit my job? Or bear with it and provide my family" | 130 | 0.4501 | 1 (`struggle`) | **0 or 1: indeterminate** (0.0001 over the floor, inside the replay's error) |
+| 14:14:18 | "Toward freedom . Away from meaningless conflict. I try to have a clear mind and decide correctly and timely" | 132 | **0.5060** | 1 (`onboarding_profile`) | **1** |
+| 14:14:50 | "Nothing changes . Except my life becoming less" | 134 | 0.3518 | 0 | **0** |
+
+**The smoke is CLOSED (founder ruling, 2026-10-05), on the 14:14:18 turn.** Its row
+cleared 0.45 by **0.056**, far outside the replay's error, so it was in the block:
+`memory_count` = 1 where the 0.75 floor would have given 0. **This is the first Lane B
+row in any production memory block.** It is a reconstruction, not an observation; the
+observed value is PostHog `message_sent.memory_count` for that turn, expected 1.
+
+**FINDING — the first Lane B row is an onboarding tap, not an inferred memory.** The
+row admitted at 14:14:18 is `entry_type = 'onboarding_profile'`: a self-reported pill
+the person chose at onboarding (`provenance = 'user_selected'`), not a row chat
+extraction wrote. Lane A is keyed on `STANDING_TYPES = ('stated', 'self_portrait')`
+only, so every other type, `onboarding_profile` included, competes in Lane B. The
+0.45 floor therefore admits onboarding taps on a modest match. That bears on the
+parked backlog item (MEM2-C, "not C") that Haiku recites self-portrait and onboarding
+taps as traits under Ruling #6: before #784 a tap reached the block only through the
+guaranteed profile block; it can now also arrive as a recalled memory row. **Not
+acted on here; named so it is decided rather than discovered.**
+
+**Precision, both replays.** Vectors were rounded to 5 decimals for transport, and
+OpenAI embeddings vary slightly between calls; together they cannot move a score by
+anything like 0.056. They can move one by 0.0001, which is why 14:13:08 is left
+undecided.
 
 `memory_count` is both lanes together; for accounts with Lane A rows the Lane B share
 is the change, not the value.
@@ -262,26 +288,29 @@ Carried from v30, re-listed rather than dropped:
 
 ### 3b. New in this range, named so they are not discovered later
 
-1. **The `memory_count` smoke for #784 is OWED** (§1a). Replayed on the founder's four
-   post-deploy turns: Lane B admitted 0 on each (short messages, best 0.4441). Needs a
-   substantive post-deploy turn.
-2. **C-2's live behaviour is unobserved by design**: flag off. The first live smoke is
+1. **The `memory_count` smoke for #784 is CLOSED by replay** (§1a, founder ruling):
+   Lane B admitted 1 row at 14:14:18 UTC (score 0.5060). PostHog would give the
+   observed value; not read (no key).
+2. **The first Lane B row in production is an `onboarding_profile` tap** (§1a). Lane B
+   admits taps at 0.45, which bears on the parked "Haiku recites onboarding taps as
+   traits" item. Undecided, not acted on.
+3. **C-2's live behaviour is unobserved by design**: flag off. The first live smoke is
    owed when the flag first flips.
-3. **Owed to C-3**, recorded in the backlog § "MEM2-C":
+4. **Owed to C-3**, recorded in the backlog § "MEM2-C":
    - the Ruling 9 exception ("unless an independently stated proposition") is not
      built; every row of a reply turn is marked. A named shortcut, first C-3 fix;
    - the use detector (fills `memory_callbacks.used`) must accept «…» as well as "…";
    - the L2 rise in the Greek re-run (2/10 → 6/11) is a named watch item.
-4. **`memory_count` counts an appended callback row** when the flag is on (recall + 1).
+5. **`memory_count` counts an appended callback row** when the flag is on (recall + 1).
    Cosmetic, flag-off unchanged.
-5. **A stale count in a code comment**: `account_deletion_service.py:13,193` say "21
+6. **A stale count in a code comment**: `account_deletion_service.py:13,193` say "21
    tables cascade". At least migrations 061, 067 and 074 have each added a table that
    cascades on the user since that was written; the full current count was not taken.
    The comment was not edited: touching it is code, not this docs PR.
-6. **CI per-test results need an authenticated log read.** The live-Postgres job
+7. **CI per-test results need an authenticated log read.** The live-Postgres job
    publishes no summary, and GitHub serves job logs only to an authenticated caller.
    A small CI PR to publish per-test results is queued (it changes a gate, so ⛔).
-7. **OPS-006** stands (§2).
+8. **OPS-006** stands (§2).
 
 ---
 
