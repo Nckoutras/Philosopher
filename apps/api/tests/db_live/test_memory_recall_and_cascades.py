@@ -73,7 +73,7 @@ def _unit(a: float, b: float) -> list[float]:
 QUERY = _unit(1.0, 0.0)          # e0
 IDENTICAL = _unit(1.0, 0.0)      # similarity 1.00  → kept, ranked first
 NEAR = _unit(0.8, 0.6)           # similarity 0.80  → kept, ranked second
-BELOW_CUT = _unit(0.6, 0.8)      # similarity 0.60  → dropped by the floor
+BELOW_CUT = _unit(0.6, 0.8)      # similarity 0.60  → dropped by the 0.75 floor; KEPT since 0.45 (unused)
 ORTHOGONAL = _unit(0.0, 1.0)     # similarity 0.00  → dropped
 
 # THE FOUR ABOVE ARE COPLANAR, AND THAT IS ONLY SAFE ONE AT A TIME. Use them
@@ -232,9 +232,15 @@ async def _insight_conversation_id(db, insight_id: str):
 @pytest.mark.asyncio
 async def test_recall_keeps_only_matches_above_the_threshold_in_distance_order(db):
     """THE ASSERTION NO MOCK CAN MAKE. Four rows at similarities 0.84 / 0.80 /
-    0.60 / 0.00 to the query; recall must return exactly the first two, in that
+    0.40 / 0.00 to the query; recall must return exactly the first two, in that
     order, because it orders by `embedding <=> query` and cuts at
     INFERRED_SCORE_FLOOR.
+
+    THE THIRD ROW MOVED 0.60 -> 0.40 when the floor fell 0.75 -> 0.45 (founder
+    ruling 2026-10-05, measured: Lane B recall had never fired in production). At
+    0.60 it would now be RECALLED, and the test would fail on a fixture that no
+    longer sits below the cut — not on recall. 0.40 is below 0.45 with the same
+    margin intent; the expected output is unchanged.
 
     Rewritten for PR-2 in two ways. The cut moved from a 0.70 literal to the named
     Lane B floor (0.75, Ruling #5 / O-1) — 0.80 still clears it and 0.60 still does
@@ -256,7 +262,7 @@ async def test_recall_keeps_only_matches_above_the_threshold_in_distance_order(d
     user_id = await _make_user(db)
     await _make_memory(db, user_id, "closest", _spread(0.84, 1), entry_type="belief")
     await _make_memory(db, user_id, "next closest", _spread(0.80, 2), entry_type="value")
-    await _make_memory(db, user_id, "below the cut", _spread(0.60, 3), entry_type="struggle")
+    await _make_memory(db, user_id, "below the cut", _spread(0.40, 3), entry_type="struggle")
     await _make_memory(db, user_id, "orthogonal", ORTHOGONAL, entry_type="pattern")
     await db.flush()
 
@@ -271,7 +277,13 @@ async def test_recall_keeps_only_matches_above_the_threshold_in_distance_order(d
 
 @pytest.mark.asyncio
 async def test_the_threshold_is_pinned_from_both_sides(db):
-    """T-1. 0.74 out, 0.76 in — the Lane B floor is where the constant says it is.
+    """T-1. floor - 0.01 out, floor + 0.01 in — the Lane B floor is where the
+    constant says it is.
+
+    SYMBOLIC SINCE THE 0.75 -> 0.45 RULING (2026-10-05). It was 0.74 / 0.76
+    literals, which pinned the OLD value rather than the constant: at 0.45 both
+    rows clear the floor and the test would fail for a reason unrelated to recall.
+    Derived from INFERRED_SCORE_FLOOR, it pins whatever the constant says.
 
     DELIBERATELY NOT TESTED AT EXACTLY THE FLOOR. pgvector's `vector` is float4,
     so a component written as 0.75 is stored at single precision and the resulting
@@ -285,8 +297,9 @@ async def test_the_threshold_is_pinned_from_both_sides(db):
 
     Two distinct types, so the per-type quota cannot be what excludes the loser."""
     user_id = await _make_user(db)
-    below = _unit(0.74, (1 - 0.74 ** 2) ** 0.5)
-    above = _unit(0.76, (1 - 0.76 ** 2) ** 0.5)
+    lo, hi = INFERRED_SCORE_FLOOR - 0.01, INFERRED_SCORE_FLOOR + 0.01
+    below = _unit(lo, (1 - lo ** 2) ** 0.5)
+    above = _unit(hi, (1 - hi ** 2) ** 0.5)
     await _make_memory(db, user_id, "below the cut", below, entry_type="belief")
     await _make_memory(db, user_id, "above the cut", above, entry_type="value")
     await db.flush()
