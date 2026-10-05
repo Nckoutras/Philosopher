@@ -6149,13 +6149,21 @@ A count that does not move means the deploy did not take or the measurement was
 wrong; either is a finding. `memory_count` is the total of both lanes, so the Lane B
 share is the change, not the value.
 
-**Smoke status, 2026-10-05 (PROJECT_STATE v31 §1a): RUN BY REPLAY — NOT CLOSED, still
-OWED.** `memory_count` is recorded only in PostHog (no read key on the verifying
+**Smoke status, 2026-10-05 (PROJECT_STATE v31 §1a): CLOSED BY REPLAY (founder
+ruling).** `memory_count` is recorded only in PostHog (no read key on the verifying
 machine), so production's `RECALL_SQL` was replayed read-only for each turn. The
-founder's four post-deploy Socrates turns (13:48–13:50 UTC) admitted **0** Lane B
-rows each (best 0.4441; short messages). The 08:28 baseline (0.75 live) admitted 0,
-scored 0.7094, and would have cleared 0.45 three times. Close it with one substantive
-post-deploy turn (replay or PostHog `memory_count` > 0).
+founder's four Socrates turns (13:48–13:50 UTC) admitted **0** Lane B rows (short
+messages, best 0.4441). Of three Orwell turns at 14:13–14:15 UTC, the one at
+**14:14:18** admitted **1** (score 0.5060, margin 0.056 over 0.45): the first Lane B
+row in any production block. 14:13:08 scored 0.4501, too close to call. The 08:28
+baseline (0.75 live) admitted 0 and scored 0.7094.
+
+**FINDING, not acted on:** the row admitted at 14:14:18 is an **`onboarding_profile`
+tap** (`user_selected`), not an inferred chat row. Lane A is only `stated` /
+`self_portrait`, so taps compete in Lane B and the 0.45 floor admits them. This bears
+on the parked MEM2-C item "Haiku recites self-portrait/onboarding taps as traits":
+taps can now reach the block as recalled rows, not only through the profile block.
+Undecided.
 
 **Interaction with MEM2-C-2:** C-2's gate has its own 0.35 floor and appends an
 offered row recall did not return (D1). With recall at 0.45 that append fires less
