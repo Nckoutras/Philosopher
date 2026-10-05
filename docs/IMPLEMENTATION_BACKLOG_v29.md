@@ -6149,11 +6149,19 @@ A count that does not move means the deploy did not take or the measurement was
 wrong; either is a finding. `memory_count` is the total of both lanes, so the Lane B
 share is the change, not the value.
 
+**Smoke status, 2026-10-05 (PROJECT_STATE v31 §1a): RUN BY REPLAY — NOT CLOSED, still
+OWED.** `memory_count` is recorded only in PostHog (no read key on the verifying
+machine), so production's `RECALL_SQL` was replayed read-only for each turn. The
+founder's four post-deploy Socrates turns (13:48–13:50 UTC) admitted **0** Lane B
+rows each (best 0.4441; short messages). The 08:28 baseline (0.75 live) admitted 0,
+scored 0.7094, and would have cleared 0.45 three times. Close it with one substantive
+post-deploy turn (replay or PostHog `memory_count` > 0).
+
 **Interaction with MEM2-C-2:** C-2's gate has its own 0.35 floor and appends an
 offered row recall did not return (D1). With recall at 0.45 that append fires less
 often; nothing in C-2 depends on the recall floor's value. C-2 rebases onto this.
 
-### MEM2-C — Phase C rulings record (founder, 2026-10-05) — **C-1 MERGED (#783); C-2 IN PROGRESS**
+### MEM2-C — Phase C rulings record (founder, 2026-10-05) — **C-1 MERGED (#783); C-2 MERGED (#785), flag OFF on both services**
 
 **Why this entry exists.** Phase C is a persona explicitly calling back something the
 user said in an earlier conversation, at the prompt level, behind a relevance gate. The
