@@ -98,7 +98,7 @@ def callback_for(sample: CallbackSample, arm: str) -> str:
     cand = sample.candidate()
     if cand is None:
         return ""
-    return render_block(cand.original, cand.days_ago)
+    return render_block(cand.original, cand.days_ago, sample.language)
 
 
 def stated_band(sample: CallbackSample) -> tuple[int, int]:
@@ -159,17 +159,23 @@ async def score_rows(samples: list[CallbackSample]) -> dict:
 
 def apply_scores(samples: list[CallbackSample], stored: dict) -> None:
     """Restore row scores from a run's scores.json so judge/report see the same
-    numbers generation did, without re-embedding."""
+    numbers generation did, without re-embedding. A filtered run (--language)
+    stores scores only for its own samples; the rest are skipped, not guessed."""
     for s in samples:
+        if s.sample_id not in stored:
+            continue
         for r in s.rows:
             r.score = stored[s.sample_id]["rows"][r.id]
 
 
 # ── generate ─────────────────────────────────────────────────────────────────
 
-async def generate(out: Path, *, concurrency: int, plans, note: str) -> int:
+async def generate(out: Path, *, concurrency: int, plans, note: str,
+                   arms=None, languages=None) -> int:
+    """`arms` / `languages` narrow a re-run (C-2 STEP 0(b): callback arm, EL,
+    Sonnet only). Unset, the run is C-1's full 528."""
     dirty = _git_dirty()
-    samples = build_samples()
+    samples = [s for s in build_samples() if not languages or s.language in languages]
     by_id = {s.sample_id: s for s in samples}
     originals = await score_rows(samples)
     scores = {
@@ -186,7 +192,7 @@ async def generate(out: Path, *, concurrency: int, plans, note: str) -> int:
                                      encoding="utf-8", newline="\n")
 
     wanted = [t for t in harness.ARMS_BY_PLAN if not plans or t[1] in plans]
-    jobs = sorted(((arm, s, plan, model) for arm in ARMS for s in samples
+    jobs = sorted(((arm, s, plan, model) for arm in (arms or ARMS) for s in samples
                    for _, plan, model in wanted),
                   key=lambda j: (j[1].persona_slug, j[2], j[0], j[1].sample_id))
     sem = asyncio.Semaphore(concurrency)
@@ -236,6 +242,7 @@ async def generate(out: Path, *, concurrency: int, plans, note: str) -> int:
             fh.write(json.dumps(r, ensure_ascii=False) + "\n")
 
     manifest = _manifest(note, samples, rows, dry_run=False, git_dirty=dirty)
+    manifest["filters"] = {"plans": plans, "arms": arms, "languages": languages}
     _write_json(out / "manifest.json", manifest)
     print(f"\nwrote {out}\n  completions {len(rows)}  errors {manifest['errors']}"
           f"  cost ${manifest['cost']['_total_usd']}")
@@ -272,6 +279,7 @@ def _manifest(note: str, samples, rows, *, dry_run: bool, git_dirty: bool) -> di
         "sample_set_hash": sample_set_hash(),
         "persona_config_hash": persona_config_hash(),
         "callback_directive_hash": directive_hash(),
+        "callback_directive_hash_el": directive_hash("el"),
         "n_samples": len(samples), "n_completions": len(rows),
         "models": sorted({m for _, _, m in harness.ARMS_BY_PLAN}),
         "phenomenology_bridge_enabled": harness.PHENOMENOLOGY_BRIDGE_ENABLED,
@@ -366,8 +374,9 @@ def write_judgements(path: Path, js, *, which: str) -> None:
 def load_run(run_dir: Path) -> tuple[list[dict], dict[str, CallbackSample]]:
     rows = [json.loads(l) for l in
             (run_dir / "completions.jsonl").read_text(encoding="utf-8").splitlines() if l]
-    samples = build_samples()
-    apply_scores(samples, json.loads((run_dir / "scores.json").read_text(encoding="utf-8")))
+    stored = json.loads((run_dir / "scores.json").read_text(encoding="utf-8"))
+    samples = [s for s in build_samples() if s.sample_id in stored]
+    apply_scores(samples, stored)
     return rows, {s.sample_id: s for s in samples}
 
 
@@ -609,6 +618,8 @@ def build_parser() -> argparse.ArgumentParser:
     g.add_argument("--note", default="")
     g.add_argument("--concurrency", type=int, default=4)
     g.add_argument("--plan", action="append", default=None, choices=["free", "pro"])
+    g.add_argument("--arm", action="append", default=None, choices=list(ARMS))
+    g.add_argument("--language", action="append", default=None, choices=["en", "el"])
     j = sub.add_parser("judge")
     j.add_argument("--dir", required=True)
     j.add_argument("--calls", type=int, default=2)
@@ -627,7 +638,8 @@ def main() -> int:
     if args.cmd == "generate":
         out = Path(args.out) if args.out else RESULTS_DIR / f"{stamp}_mem2c1"
         return asyncio.run(generate(out, concurrency=args.concurrency,
-                                    plans=args.plan, note=args.note))
+                                    plans=args.plan, note=args.note,
+                                    arms=args.arm, languages=args.language))
     if args.cmd == "judge":
         return judge(Path(args.dir), calls=args.calls, concurrency=args.concurrency)
     return report(Path(args.dir))

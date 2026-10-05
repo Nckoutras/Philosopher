@@ -6153,7 +6153,7 @@ share is the change, not the value.
 offered row recall did not return (D1). With recall at 0.45 that append fires less
 often; nothing in C-2 depends on the recall floor's value. C-2 rebases onto this.
 
-### MEM2-C — Phase C rulings record (founder, 2026-10-05) — **C-1 IN PROGRESS (evals only)**
+### MEM2-C — Phase C rulings record (founder, 2026-10-05) — **C-1 MERGED (#783); C-2 IN PROGRESS**
 
 **Why this entry exists.** Phase C is a persona explicitly calling back something the
 user said in an earlier conversation, at the prompt level, behind a relevance gate. The
@@ -6177,6 +6177,23 @@ G. Governing principle for all memory UX: invisible memory may be broad; visible
 7. Rollout: C-3a canary (founder + designated testers) → C-3b only after predefined correctness, rejection-rate and longitudinal repetition thresholds pass.
 8. Greek samples from the first measurement.
 9. Anti-laundering: a callback cannot upgrade the epistemic status of the memory it references. User replies elicited by a callback do not count as independent recurrence, confirmation, echo or dedup-survivor evidence unless they contain an independently stated proposition.
+
+**RULINGS FROM C-1 (locked 2026-10-05, after the first C-1 run, #783), verbatim:**
+
+C1-a. Cosine is not the relevance gate. Usage was flat across cosine bins (31–37%) while the model itself separated related from tangential (44% vs 7%). The gate applies a low sanity floor only; the model decides use.
+C1-b. Ledger cooldowns: same row-or-chain never re-offered within 30 days; at most one offer per user per 7 days. Ship-and-tune in canary.
+C1-c. Minimum row age 2 days.
+C1-d. Greek directive variant ({when} buckets and example phrasings in Greek) for Greek conversations.
+C1-e. Callbacks on the Pro plan (Sonnet) only for C-3a. Haiku excluded until it passes fidelity on its own run.
+C1-f. The candidate row stays in the memory block when offered (same shape C-1 measured). "sharpens" is dropped as a measure.
+
+Backlog items, not C: Haiku recites self-portrait/onboarding taps as traits under Ruling #6 today; Haiku Greek grammar quality (known, parked — target audience is English).
+
+**C-2 STEP 0 rulings (founder, 2026-10-05):**
+
+- **Sanity floor = 0.35 on `candidate_row_cosine`, flat across languages.** Reason: zero T (tangential) samples pass it pooled, with perfect EN separation; the Greek loss is accepted (non-target market, and the conservative direction). Ledger data in canary decides any tuning.
+- **Greek directive variant approved** with one edit: the 56–120-day bucket reads "πριν από ένα-δυο μήνες" (not "κάνα δυο" — register). The other four buckets are `when_el` as authored in C-1. The instruction prose stays English; only `{when}` and the two example phrasings ("Είπες {when} ότι…", "{When} έγραψες ότι…") are Greek. Re-run scope: callback arm, Greek samples, Sonnet only, one generation; the question is Sonnet EL use rate before vs after, fidelity out of scope.
+- **Open copy questions, decided:** Greek trait phrases (πάντα / ποτέ / …) are deferred to the STEP 2 production copy, with a separate approval. Straight double quotes are kept for the run. **Owed to C-3:** the fidelity/use detector must accept «…» as well as "…".
 
 **Sequence.** C-1 (this entry's first PR): measure before speaking — evals and tests
 only, zero production change. The draft callback directive lives under `evals/`, not

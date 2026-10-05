@@ -25,6 +25,14 @@ The three approved edits, so a reader can see why the text is shaped as it is:
      calendar-week wording is a fidelity trap across a week boundary.
   3. "If they agree with it, that changes nothing: …" — Ruling 9, anti-laundering.
 
+THE GREEK VARIANT (MEM2-C ruling C1-d; copy approved 2026-10-05, C-2 STEP 0(b),
+with one edit: 56–120 days reads "πριν από ένα-δυο μήνες", not "κάνα δυο" —
+register). Same prose, same cut points; only the {when} text and the two example
+phrasings are Greek. C-1 rendered the ENGLISH bucket inside Greek conversations;
+this variant is what a Greek conversation gets from C-2 on. DIRECTIVE_EL is
+derived from DIRECTIVE by one checked substitution, so the prose cannot drift
+between the two; tests pin both byte-for-byte.
+
 {when} IS DETERMINISTIC AND COARSE. Five fixed buckets computed from the row's
 age in whole days. Never an exact date: a wrong "last Tuesday" would be a fidelity
 failure the model did not cause.
@@ -45,6 +53,15 @@ WHEN_BUCKETS: tuple[tuple[int | None, str], ...] = (
     (55, "a few weeks ago"),
     (120, "a couple of months ago"),
     (None, "some months ago"),
+)
+
+# The same cut points, in Greek. Approved 2026-10-05 (C-2 STEP 0(b)).
+WHEN_BUCKETS_EL: tuple[tuple[int | None, str], ...] = (
+    (6, "πριν από λίγες μέρες"),
+    (13, "την προηγούμενη εβδομάδα"),
+    (55, "πριν από μερικές εβδομάδες"),
+    (120, "πριν από ένα-δυο μήνες"),
+    (None, "πριν από αρκετούς μήνες"),
 )
 
 HEADER_RULE = "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -80,34 +97,54 @@ DIRECTIVE = (
     "- It counts toward your length. The reply stays within its usual length."
 )
 
+# The Greek variant: DIRECTIVE with only the example phrasings swapped.
+_EXAMPLES_EN = "\"You said {when} that…\", \"{When} you wrote that…\""
+_EXAMPLES_EL = "\"Είπες {when} ότι…\", \"{When} έγραψες ότι…\""
+assert DIRECTIVE.count(_EXAMPLES_EN) == 1, "the EN example clause moved"
+DIRECTIVE_EL = DIRECTIVE.replace(_EXAMPLES_EN, _EXAMPLES_EL)
 
-def when_bucket(days: int) -> str:
+
+def _variant(lang: str) -> tuple[str, tuple[tuple[int | None, str], ...]]:
+    # Read at call time, not bound at import: a monkeypatched DIRECTIVE must move
+    # the hash (test_hash_moves_with_the_copy).
+    if lang == "en":
+        return DIRECTIVE, WHEN_BUCKETS
+    if lang == "el":
+        return DIRECTIVE_EL, WHEN_BUCKETS_EL
+    raise ValueError(f"no callback directive for language {lang!r}")
+
+
+def when_bucket(days: int, lang: str = "en") -> str:
     """Whole days since the row was written -> the approved coarse phrase."""
     if days < 0:
         raise ValueError(f"a memory cannot be from the future: days={days}")
-    for upper, text in WHEN_BUCKETS:
+    for upper, text in _variant(lang)[1]:
         if upper is None or days <= upper:
             return text
     raise AssertionError("unreachable: the last bucket is open-ended")
 
 
-def render_block(original: str, days: int) -> str:
+def render_block(original: str, days: int, lang: str = "en") -> str:
     """The block exactly as the callback arm inserts it.
 
     `original` is the person's ORIGINAL message text (Ruling 2), never the stored
     row: fidelity is judged against what they typed, so it is what they are shown.
+    `lang` is the conversation's language ("en" | "el"), which picks the variant.
     Plain str.replace, not .format(): the person's words may carry braces.
     """
-    when = when_bucket(days)
+    directive, _ = _variant(lang)
+    when = when_bucket(days, lang)
     return (
-        DIRECTIVE
+        directive
         .replace("{When}", when[0].upper() + when[1:])
         .replace("{when}", when)
         .replace("{original}", original.strip())
     )
 
 
-def directive_hash() -> str:
-    """Recorded in the run manifest: a re-run after a copy edit is detectable."""
-    payload = DIRECTIVE + "\x00" + repr(WHEN_BUCKETS)
+def directive_hash(lang: str = "en") -> str:
+    """Recorded in the run manifest: a re-run after a copy edit is detectable.
+    The EN payload is unchanged from C-1, so its hash still matches that run."""
+    directive, buckets = _variant(lang)
+    payload = directive + "\x00" + repr(buckets)
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
