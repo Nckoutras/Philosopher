@@ -1,0 +1,71 @@
+{
+  "what": "MEM2-C-1 callback arm comparison",
+  "arms": [
+    "ruling6",
+    "callback"
+  ],
+  "harness_arm": "shipped",
+  "note": "C-2 STEP 0(b): Greek directive variant, callback arm, EL, Sonnet",
+  "dry_run": false,
+  "generated_at_utc": "2026-10-05T12:01:37+00:00",
+  "git_sha": "a22874d004121835b57adf8afe57f5aa68304112",
+  "git_dirty": false,
+  "sample_set_hash": "3266532357096fe8",
+  "persona_config_hash": "2771c2ffa7b1286b",
+  "callback_directive_hash": "bc62f327423cf418",
+  "callback_directive_hash_el": "e91f0546c6bd6637",
+  "n_samples": 66,
+  "n_completions": 66,
+  "models": [
+    "claude-haiku-4-5-20251001",
+    "claude-sonnet-4-6"
+  ],
+  "phenomenology_bridge_enabled": false,
+  "inferred_score_floor": 0.75,
+  "errors": 0,
+  "cost": {
+    "claude-sonnet-4-6": {
+      "input": 198,
+      "cache_creation": 181244,
+      "cache_read": 119014,
+      "output": 13815,
+      "usd": 0.9232
+    },
+    "_total_usd": 0.9232
+  },
+  "caveats": [
+    "Synthetic samples with FORCED PRESENCE: every row is in the block whether or not compose_recall would have kept it. scores.json records what it would have kept.",
+    "L1 has no candidate offered (within-conversation ledger), so its prompt is identical in both arms; its two arms are a replicate.",
+    "Judge headline numbers use call 1; call 2 is the self-agreement floor.",
+    "Rates only. No pass/fail: thresholds are the founder's, from these numbers."
+  ],
+  "filters": {
+    "plans": [
+      "pro"
+    ],
+    "arms": [
+      "callback"
+    ],
+    "languages": [
+      "el"
+    ]
+  },
+  "judge": {
+    "model": "claude-opus-5",
+    "callback_calls": 2,
+    "callback_cost": {
+      "input": 248084,
+      "output": 22295,
+      "usd": 1.7978
+    },
+    "listening_cost": {
+      "input": 89077,
+      "output": 11790,
+      "usd": 0.7401
+    },
+    "callback_failures": 1,
+    "listening_failures": 3,
+    "judged_at_utc": "2026-10-05T12:04:55+00:00",
+    "rubric_hash": "685d9940773acd89"
+  }
+}

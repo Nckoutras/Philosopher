@@ -1,0 +1,1058 @@
+{
+ "R::marcus_aurelius::el": {
+  "rows": {
+   "mem:marcus_aurelius:sp:conflict_001": 0.175366,
+   "mem:marcus_aurelius:sp:desire_002": 0.161253,
+   "mem:marcus_aurelius:el:cand": 0.255911,
+   "mem:marcus_aurelius:el:bg:0": 0.21922,
+   "mem:marcus_aurelius:el:bg:1": 0.16131
+  },
+  "candidate_row_cosine": 0.255911,
+  "candidate_original_cosine": 0.306365,
+  "recall_would_keep": [
+   "mem:marcus_aurelius:sp:conflict_001",
+   "mem:marcus_aurelius:sp:desire_002"
+  ]
+ },
+ "R2::marcus_aurelius::el": {
+  "rows": {
+   "mem:marcus_aurelius:sp:conflict_001": 0.158827,
+   "mem:marcus_aurelius:sp:desire_002": 0.133606,
+   "mem:marcus_aurelius:el:cand": 0.249669,
+   "mem:marcus_aurelius:el:bg:0": 0.133046,
+   "mem:marcus_aurelius:el:bg:1": 0.237854
+  },
+  "candidate_row_cosine": 0.249669,
+  "candidate_original_cosine": 0.512549,
+  "recall_would_keep": [
+   "mem:marcus_aurelius:sp:conflict_001",
+   "mem:marcus_aurelius:sp:desire_002"
+  ]
+ },
+ "T::marcus_aurelius::el": {
+  "rows": {
+   "mem:marcus_aurelius:sp:conflict_001": 0.048567,
+   "mem:marcus_aurelius:sp:desire_002": 0.080533,
+   "mem:marcus_aurelius:el:cand": 0.335825,
+   "mem:marcus_aurelius:el:bg:0": 0.20853,
+   "mem:marcus_aurelius:el:bg:1": 0.154993
+  },
+  "candidate_row_cosine": 0.335825,
+  "candidate_original_cosine": 0.399398,
+  "recall_would_keep": [
+   "mem:marcus_aurelius:sp:conflict_001",
+   "mem:marcus_aurelius:sp:desire_002"
+  ]
+ },
+ "B::marcus_aurelius::el": {
+  "rows": {
+   "mem:marcus_aurelius:sp:conflict_001": 0.175366,
+   "mem:marcus_aurelius:sp:desire_002": 0.161253,
+   "mem:marcus_aurelius:el:cand": 0.255911,
+   "mem:marcus_aurelius:el:bg:0": 0.21922,
+   "mem:marcus_aurelius:el:bg:1": 0.16131,
+   "mem:marcus_aurelius:el:other": 0.229133,
+   "mem:marcus_aurelius:el:flagged": 0.322983,
+   "mem:marcus_aurelius:sp-bait:conflict_002": 0.143056,
+   "mem:marcus_aurelius:onb:0": -0.073864,
+   "mem:marcus_aurelius:onb:1": 0.031594
+  },
+  "candidate_row_cosine": 0.255911,
+  "candidate_original_cosine": 0.306365,
+  "recall_would_keep": [
+   "mem:marcus_aurelius:sp:conflict_001",
+   "mem:marcus_aurelius:sp:desire_002"
+  ]
+ },
+ "L1::marcus_aurelius::el": {
+  "rows": {
+   "mem:marcus_aurelius:sp:conflict_001": 0.123753,
+   "mem:marcus_aurelius:sp:desire_002": 0.105276,
+   "mem:marcus_aurelius:el:cand": 0.206907,
+   "mem:marcus_aurelius:el:bg:0": 0.138635,
+   "mem:marcus_aurelius:el:bg:1": 0.163837
+  },
+  "candidate_row_cosine": 0.206907,
+  "candidate_original_cosine": 0.292163,
+  "recall_would_keep": [
+   "mem:marcus_aurelius:sp:conflict_001",
+   "mem:marcus_aurelius:sp:desire_002"
+  ]
+ },
+ "L2::marcus_aurelius::el": {
+  "rows": {
+   "mem:marcus_aurelius:sp:conflict_001": 0.158827,
+   "mem:marcus_aurelius:sp:desire_002": 0.133606,
+   "mem:marcus_aurelius:el:cand": 0.249669,
+   "mem:marcus_aurelius:el:bg:0": 0.133046,
+   "mem:marcus_aurelius:el:bg:1": 0.237854,
+   "mem:marcus_aurelius:el:elicited": 0.237479
+  },
+  "candidate_row_cosine": 0.249669,
+  "candidate_original_cosine": 0.512549,
+  "recall_would_keep": [
+   "mem:marcus_aurelius:sp:conflict_001",
+   "mem:marcus_aurelius:sp:desire_002"
+  ]
+ },
+ "R::simone_de_beauvoir::el": {
+  "rows": {
+   "mem:simone_de_beauvoir:sp:conflict_001": 0.182575,
+   "mem:simone_de_beauvoir:sp:desire_002": 0.139429,
+   "mem:simone_de_beauvoir:el:cand": 0.291897,
+   "mem:simone_de_beauvoir:el:bg:0": 0.223382,
+   "mem:simone_de_beauvoir:el:bg:1": 0.147499
+  },
+  "candidate_row_cosine": 0.291897,
+  "candidate_original_cosine": 0.450636,
+  "recall_would_keep": [
+   "mem:simone_de_beauvoir:sp:conflict_001",
+   "mem:simone_de_beauvoir:sp:desire_002"
+  ]
+ },
+ "R2::simone_de_beauvoir::el": {
+  "rows": {
+   "mem:simone_de_beauvoir:sp:conflict_001": 0.162914,
+   "mem:simone_de_beauvoir:sp:desire_002": 0.163454,
+   "mem:simone_de_beauvoir:el:cand": 0.386669,
+   "mem:simone_de_beauvoir:el:bg:0": 0.177329,
+   "mem:simone_de_beauvoir:el:bg:1": 0.309436
+  },
+  "candidate_row_cosine": 0.386669,
+  "candidate_original_cosine": 0.370375,
+  "recall_would_keep": [
+   "mem:simone_de_beauvoir:sp:conflict_001",
+   "mem:simone_de_beauvoir:sp:desire_002"
+  ]
+ },
+ "T::simone_de_beauvoir::el": {
+  "rows": {
+   "mem:simone_de_beauvoir:sp:conflict_001": 0.054959,
+   "mem:simone_de_beauvoir:sp:desire_002": 0.105895,
+   "mem:simone_de_beauvoir:el:cand": 0.18048,
+   "mem:simone_de_beauvoir:el:bg:0": 0.157717,
+   "mem:simone_de_beauvoir:el:bg:1": 0.153745
+  },
+  "candidate_row_cosine": 0.18048,
+  "candidate_original_cosine": 0.395915,
+  "recall_would_keep": [
+   "mem:simone_de_beauvoir:sp:conflict_001",
+   "mem:simone_de_beauvoir:sp:desire_002"
+  ]
+ },
+ "B::simone_de_beauvoir::el": {
+  "rows": {
+   "mem:simone_de_beauvoir:sp:conflict_001": 0.182575,
+   "mem:simone_de_beauvoir:sp:desire_002": 0.139429,
+   "mem:simone_de_beauvoir:el:cand": 0.291897,
+   "mem:simone_de_beauvoir:el:bg:0": 0.223382,
+   "mem:simone_de_beauvoir:el:bg:1": 0.147499,
+   "mem:simone_de_beauvoir:el:other": 0.216695,
+   "mem:simone_de_beauvoir:el:flagged": 0.330427,
+   "mem:simone_de_beauvoir:sp-bait:family_002": 0.162826,
+   "mem:simone_de_beauvoir:onb:0": 0.018264,
+   "mem:simone_de_beauvoir:onb:1": 0.050561
+  },
+  "candidate_row_cosine": 0.291897,
+  "candidate_original_cosine": 0.450636,
+  "recall_would_keep": [
+   "mem:simone_de_beauvoir:sp-bait:family_002",
+   "mem:simone_de_beauvoir:sp:conflict_001"
+  ]
+ },
+ "L1::simone_de_beauvoir::el": {
+  "rows": {
+   "mem:simone_de_beauvoir:sp:conflict_001": 0.128301,
+   "mem:simone_de_beauvoir:sp:desire_002": 0.123558,
+   "mem:simone_de_beauvoir:el:cand": 0.222357,
+   "mem:simone_de_beauvoir:el:bg:0": 0.152663,
+   "mem:simone_de_beauvoir:el:bg:1": 0.159639
+  },
+  "candidate_row_cosine": 0.222357,
+  "candidate_original_cosine": 0.38774,
+  "recall_would_keep": [
+   "mem:simone_de_beauvoir:sp:conflict_001",
+   "mem:simone_de_beauvoir:sp:desire_002"
+  ]
+ },
+ "L2::simone_de_beauvoir::el": {
+  "rows": {
+   "mem:simone_de_beauvoir:sp:conflict_001": 0.162914,
+   "mem:simone_de_beauvoir:sp:desire_002": 0.163454,
+   "mem:simone_de_beauvoir:el:cand": 0.386669,
+   "mem:simone_de_beauvoir:el:bg:0": 0.177329,
+   "mem:simone_de_beauvoir:el:bg:1": 0.309436,
+   "mem:simone_de_beauvoir:el:elicited": 0.317901
+  },
+  "candidate_row_cosine": 0.386669,
+  "candidate_original_cosine": 0.370375,
+  "recall_would_keep": [
+   "mem:simone_de_beauvoir:sp:conflict_001",
+   "mem:simone_de_beauvoir:sp:desire_002"
+  ]
+ },
+ "R::carl_jung::el": {
+  "rows": {
+   "mem:carl_jung:sp:conflict_001": 0.15064,
+   "mem:carl_jung:sp:desire_002": 0.141693,
+   "mem:carl_jung:el:cand": 0.441063,
+   "mem:carl_jung:el:bg:0": 0.231604,
+   "mem:carl_jung:el:bg:1": 0.15029
+  },
+  "candidate_row_cosine": 0.441063,
+  "candidate_original_cosine": 0.611931,
+  "recall_would_keep": [
+   "mem:carl_jung:sp:conflict_001",
+   "mem:carl_jung:sp:desire_002"
+  ]
+ },
+ "R2::carl_jung::el": {
+  "rows": {
+   "mem:carl_jung:sp:conflict_001": 0.130872,
+   "mem:carl_jung:sp:desire_002": 0.123051,
+   "mem:carl_jung:el:cand": 0.378851,
+   "mem:carl_jung:el:bg:0": 0.285498,
+   "mem:carl_jung:el:bg:1": 0.217022
+  },
+  "candidate_row_cosine": 0.378851,
+  "candidate_original_cosine": 0.401,
+  "recall_would_keep": [
+   "mem:carl_jung:sp:conflict_001",
+   "mem:carl_jung:sp:desire_002"
+  ]
+ },
+ "T::carl_jung::el": {
+  "rows": {
+   "mem:carl_jung:sp:conflict_001": 0.051572,
+   "mem:carl_jung:sp:desire_002": 0.054752,
+   "mem:carl_jung:el:cand": 0.308549,
+   "mem:carl_jung:el:bg:0": 0.112081,
+   "mem:carl_jung:el:bg:1": 0.149015
+  },
+  "candidate_row_cosine": 0.308549,
+  "candidate_original_cosine": 0.260377,
+  "recall_would_keep": [
+   "mem:carl_jung:sp:conflict_001",
+   "mem:carl_jung:sp:desire_002"
+  ]
+ },
+ "B::carl_jung::el": {
+  "rows": {
+   "mem:carl_jung:sp:conflict_001": 0.15064,
+   "mem:carl_jung:sp:desire_002": 0.141693,
+   "mem:carl_jung:el:cand": 0.441063,
+   "mem:carl_jung:el:bg:0": 0.231604,
+   "mem:carl_jung:el:bg:1": 0.15029,
+   "mem:carl_jung:el:other": 0.338188,
+   "mem:carl_jung:el:flagged": 0.215757,
+   "mem:carl_jung:sp-bait:family_001": 0.244719,
+   "mem:carl_jung:onb:0": -0.035282,
+   "mem:carl_jung:onb:1": 0.030655
+  },
+  "candidate_row_cosine": 0.441063,
+  "candidate_original_cosine": 0.611931,
+  "recall_would_keep": [
+   "mem:carl_jung:sp-bait:family_001",
+   "mem:carl_jung:sp:conflict_001"
+  ]
+ },
+ "L1::carl_jung::el": {
+  "rows": {
+   "mem:carl_jung:sp:conflict_001": 0.149003,
+   "mem:carl_jung:sp:desire_002": 0.084252,
+   "mem:carl_jung:el:cand": 0.258873,
+   "mem:carl_jung:el:bg:0": 0.116321,
+   "mem:carl_jung:el:bg:1": 0.102779
+  },
+  "candidate_row_cosine": 0.258873,
+  "candidate_original_cosine": 0.289367,
+  "recall_would_keep": [
+   "mem:carl_jung:sp:conflict_001",
+   "mem:carl_jung:sp:desire_002"
+  ]
+ },
+ "L2::carl_jung::el": {
+  "rows": {
+   "mem:carl_jung:sp:conflict_001": 0.130872,
+   "mem:carl_jung:sp:desire_002": 0.123051,
+   "mem:carl_jung:el:cand": 0.378851,
+   "mem:carl_jung:el:bg:0": 0.285498,
+   "mem:carl_jung:el:bg:1": 0.217022,
+   "mem:carl_jung:el:elicited": 0.285991
+  },
+  "candidate_row_cosine": 0.378851,
+  "candidate_original_cosine": 0.401,
+  "recall_would_keep": [
+   "mem:carl_jung:sp:conflict_001",
+   "mem:carl_jung:sp:desire_002"
+  ]
+ },
+ "R::socrates::el": {
+  "rows": {
+   "mem:socrates:sp:conflict_001": 0.111724,
+   "mem:socrates:sp:desire_002": 0.088775,
+   "mem:socrates:el:cand": 0.221376,
+   "mem:socrates:el:bg:0": 0.196939,
+   "mem:socrates:el:bg:1": 0.304873
+  },
+  "candidate_row_cosine": 0.221376,
+  "candidate_original_cosine": 0.258166,
+  "recall_would_keep": [
+   "mem:socrates:sp:conflict_001",
+   "mem:socrates:sp:desire_002"
+  ]
+ },
+ "R2::socrates::el": {
+  "rows": {
+   "mem:socrates:sp:conflict_001": 0.089755,
+   "mem:socrates:sp:desire_002": 0.122841,
+   "mem:socrates:el:cand": 0.457812,
+   "mem:socrates:el:bg:0": 0.339611,
+   "mem:socrates:el:bg:1": 0.309754
+  },
+  "candidate_row_cosine": 0.457812,
+  "candidate_original_cosine": 0.345003,
+  "recall_would_keep": [
+   "mem:socrates:sp:conflict_001",
+   "mem:socrates:sp:desire_002"
+  ]
+ },
+ "T::socrates::el": {
+  "rows": {
+   "mem:socrates:sp:conflict_001": 0.132548,
+   "mem:socrates:sp:desire_002": 0.114364,
+   "mem:socrates:el:cand": 0.281505,
+   "mem:socrates:el:bg:0": 0.282488,
+   "mem:socrates:el:bg:1": 0.228651
+  },
+  "candidate_row_cosine": 0.281505,
+  "candidate_original_cosine": 0.200837,
+  "recall_would_keep": [
+   "mem:socrates:sp:conflict_001",
+   "mem:socrates:sp:desire_002"
+  ]
+ },
+ "B::socrates::el": {
+  "rows": {
+   "mem:socrates:sp:conflict_001": 0.111724,
+   "mem:socrates:sp:desire_002": 0.088775,
+   "mem:socrates:el:cand": 0.221376,
+   "mem:socrates:el:bg:0": 0.196939,
+   "mem:socrates:el:bg:1": 0.304873,
+   "mem:socrates:el:other": 0.313893,
+   "mem:socrates:el:flagged": 0.221662,
+   "mem:socrates:sp-bait:desire_001": 0.107569,
+   "mem:socrates:onb:0": 0.077877,
+   "mem:socrates:onb:1": 0.003123
+  },
+  "candidate_row_cosine": 0.221376,
+  "candidate_original_cosine": 0.258166,
+  "recall_would_keep": [
+   "mem:socrates:sp-bait:desire_001",
+   "mem:socrates:sp:conflict_001"
+  ]
+ },
+ "L1::socrates::el": {
+  "rows": {
+   "mem:socrates:sp:conflict_001": 0.155225,
+   "mem:socrates:sp:desire_002": 0.079402,
+   "mem:socrates:el:cand": 0.164578,
+   "mem:socrates:el:bg:0": 0.170884,
+   "mem:socrates:el:bg:1": 0.254766
+  },
+  "candidate_row_cosine": 0.164578,
+  "candidate_original_cosine": 0.219121,
+  "recall_would_keep": [
+   "mem:socrates:sp:conflict_001",
+   "mem:socrates:sp:desire_002"
+  ]
+ },
+ "L2::socrates::el": {
+  "rows": {
+   "mem:socrates:sp:conflict_001": 0.089755,
+   "mem:socrates:sp:desire_002": 0.122841,
+   "mem:socrates:el:cand": 0.457812,
+   "mem:socrates:el:bg:0": 0.339611,
+   "mem:socrates:el:bg:1": 0.309754,
+   "mem:socrates:el:elicited": 0.355575
+  },
+  "candidate_row_cosine": 0.457812,
+  "candidate_original_cosine": 0.345003,
+  "recall_would_keep": [
+   "mem:socrates:sp:conflict_001",
+   "mem:socrates:sp:desire_002"
+  ]
+ },
+ "R::epictetus::el": {
+  "rows": {
+   "mem:epictetus:sp:conflict_001": 0.066579,
+   "mem:epictetus:sp:desire_002": 0.130899,
+   "mem:epictetus:el:cand": 0.420097,
+   "mem:epictetus:el:bg:0": 0.262865,
+   "mem:epictetus:el:bg:1": 0.313555
+  },
+  "candidate_row_cosine": 0.420097,
+  "candidate_original_cosine": 0.470211,
+  "recall_would_keep": [
+   "mem:epictetus:sp:conflict_001",
+   "mem:epictetus:sp:desire_002"
+  ]
+ },
+ "R2::epictetus::el": {
+  "rows": {
+   "mem:epictetus:sp:conflict_001": 0.119906,
+   "mem:epictetus:sp:desire_002": 0.093455,
+   "mem:epictetus:el:cand": 0.308131,
+   "mem:epictetus:el:bg:0": 0.160564,
+   "mem:epictetus:el:bg:1": 0.216902
+  },
+  "candidate_row_cosine": 0.308131,
+  "candidate_original_cosine": 0.380423,
+  "recall_would_keep": [
+   "mem:epictetus:sp:conflict_001",
+   "mem:epictetus:sp:desire_002"
+  ]
+ },
+ "T::epictetus::el": {
+  "rows": {
+   "mem:epictetus:sp:conflict_001": 0.081855,
+   "mem:epictetus:sp:desire_002": 0.088495,
+   "mem:epictetus:el:cand": 0.304334,
+   "mem:epictetus:el:bg:0": 0.180021,
+   "mem:epictetus:el:bg:1": 0.320783
+  },
+  "candidate_row_cosine": 0.304334,
+  "candidate_original_cosine": 0.330647,
+  "recall_would_keep": [
+   "mem:epictetus:sp:conflict_001",
+   "mem:epictetus:sp:desire_002"
+  ]
+ },
+ "B::epictetus::el": {
+  "rows": {
+   "mem:epictetus:sp:conflict_001": 0.066579,
+   "mem:epictetus:sp:desire_002": 0.130899,
+   "mem:epictetus:el:cand": 0.420097,
+   "mem:epictetus:el:bg:0": 0.262865,
+   "mem:epictetus:el:bg:1": 0.313555,
+   "mem:epictetus:el:other": 0.259431,
+   "mem:epictetus:el:flagged": 0.373921,
+   "mem:epictetus:sp-bait:desire_001": 0.063647,
+   "mem:epictetus:onb:0": 0.052452,
+   "mem:epictetus:onb:1": 0.054191
+  },
+  "candidate_row_cosine": 0.420097,
+  "candidate_original_cosine": 0.470211,
+  "recall_would_keep": [
+   "mem:epictetus:sp:conflict_001",
+   "mem:epictetus:sp:desire_002"
+  ]
+ },
+ "L1::epictetus::el": {
+  "rows": {
+   "mem:epictetus:sp:conflict_001": 0.141715,
+   "mem:epictetus:sp:desire_002": 0.084971,
+   "mem:epictetus:el:cand": 0.230002,
+   "mem:epictetus:el:bg:0": 0.130423,
+   "mem:epictetus:el:bg:1": 0.222756
+  },
+  "candidate_row_cosine": 0.230002,
+  "candidate_original_cosine": 0.259449,
+  "recall_would_keep": [
+   "mem:epictetus:sp:conflict_001",
+   "mem:epictetus:sp:desire_002"
+  ]
+ },
+ "L2::epictetus::el": {
+  "rows": {
+   "mem:epictetus:sp:conflict_001": 0.119906,
+   "mem:epictetus:sp:desire_002": 0.093455,
+   "mem:epictetus:el:cand": 0.308131,
+   "mem:epictetus:el:bg:0": 0.160564,
+   "mem:epictetus:el:bg:1": 0.216902,
+   "mem:epictetus:el:elicited": 0.258022
+  },
+  "candidate_row_cosine": 0.308131,
+  "candidate_original_cosine": 0.380423,
+  "recall_would_keep": [
+   "mem:epictetus:sp:conflict_001",
+   "mem:epictetus:sp:desire_002"
+  ]
+ },
+ "R::sigmund_freud::el": {
+  "rows": {
+   "mem:sigmund_freud:sp:conflict_001": 0.100768,
+   "mem:sigmund_freud:sp:desire_002": 0.080496,
+   "mem:sigmund_freud:el:cand": 0.18228,
+   "mem:sigmund_freud:el:bg:0": 0.179875,
+   "mem:sigmund_freud:el:bg:1": 0.205736
+  },
+  "candidate_row_cosine": 0.18228,
+  "candidate_original_cosine": 0.369973,
+  "recall_would_keep": [
+   "mem:sigmund_freud:sp:conflict_001",
+   "mem:sigmund_freud:sp:desire_002"
+  ]
+ },
+ "R2::sigmund_freud::el": {
+  "rows": {
+   "mem:sigmund_freud:sp:conflict_001": 0.13092,
+   "mem:sigmund_freud:sp:desire_002": 0.153832,
+   "mem:sigmund_freud:el:cand": 0.26607,
+   "mem:sigmund_freud:el:bg:0": 0.240194,
+   "mem:sigmund_freud:el:bg:1": 0.095996
+  },
+  "candidate_row_cosine": 0.26607,
+  "candidate_original_cosine": 0.150128,
+  "recall_would_keep": [
+   "mem:sigmund_freud:sp:conflict_001",
+   "mem:sigmund_freud:sp:desire_002"
+  ]
+ },
+ "T::sigmund_freud::el": {
+  "rows": {
+   "mem:sigmund_freud:sp:conflict_001": 0.033438,
+   "mem:sigmund_freud:sp:desire_002": 0.065253,
+   "mem:sigmund_freud:el:cand": 0.255345,
+   "mem:sigmund_freud:el:bg:0": 0.132486,
+   "mem:sigmund_freud:el:bg:1": 0.252645
+  },
+  "candidate_row_cosine": 0.255345,
+  "candidate_original_cosine": 0.424426,
+  "recall_would_keep": [
+   "mem:sigmund_freud:sp:conflict_001",
+   "mem:sigmund_freud:sp:desire_002"
+  ]
+ },
+ "B::sigmund_freud::el": {
+  "rows": {
+   "mem:sigmund_freud:sp:conflict_001": 0.100768,
+   "mem:sigmund_freud:sp:desire_002": 0.080496,
+   "mem:sigmund_freud:el:cand": 0.18228,
+   "mem:sigmund_freud:el:bg:0": 0.179875,
+   "mem:sigmund_freud:el:bg:1": 0.205736,
+   "mem:sigmund_freud:el:other": 0.236102,
+   "mem:sigmund_freud:el:flagged": 0.160915,
+   "mem:sigmund_freud:sp-bait:family_001": 0.104103,
+   "mem:sigmund_freud:onb:0": 0.0126,
+   "mem:sigmund_freud:onb:1": 0.062941
+  },
+  "candidate_row_cosine": 0.18228,
+  "candidate_original_cosine": 0.369973,
+  "recall_would_keep": [
+   "mem:sigmund_freud:sp-bait:family_001",
+   "mem:sigmund_freud:sp:conflict_001"
+  ]
+ },
+ "L1::sigmund_freud::el": {
+  "rows": {
+   "mem:sigmund_freud:sp:conflict_001": 0.115377,
+   "mem:sigmund_freud:sp:desire_002": 0.113466,
+   "mem:sigmund_freud:el:cand": 0.178456,
+   "mem:sigmund_freud:el:bg:0": 0.179428,
+   "mem:sigmund_freud:el:bg:1": 0.125409
+  },
+  "candidate_row_cosine": 0.178456,
+  "candidate_original_cosine": 0.261422,
+  "recall_would_keep": [
+   "mem:sigmund_freud:sp:conflict_001",
+   "mem:sigmund_freud:sp:desire_002"
+  ]
+ },
+ "L2::sigmund_freud::el": {
+  "rows": {
+   "mem:sigmund_freud:sp:conflict_001": 0.13092,
+   "mem:sigmund_freud:sp:desire_002": 0.153832,
+   "mem:sigmund_freud:el:cand": 0.26607,
+   "mem:sigmund_freud:el:bg:0": 0.240194,
+   "mem:sigmund_freud:el:bg:1": 0.095996,
+   "mem:sigmund_freud:el:elicited": 0.309759
+  },
+  "candidate_row_cosine": 0.26607,
+  "candidate_original_cosine": 0.150128,
+  "recall_would_keep": [
+   "mem:sigmund_freud:sp:conflict_001",
+   "mem:sigmund_freud:sp:desire_002"
+  ]
+ },
+ "R::lao_tzu::el": {
+  "rows": {
+   "mem:lao_tzu:sp:conflict_001": 0.175366,
+   "mem:lao_tzu:sp:desire_002": 0.161253,
+   "mem:lao_tzu:el:cand": 0.255911,
+   "mem:lao_tzu:el:bg:0": 0.21922,
+   "mem:lao_tzu:el:bg:1": 0.16131
+  },
+  "candidate_row_cosine": 0.255911,
+  "candidate_original_cosine": 0.306365,
+  "recall_would_keep": [
+   "mem:lao_tzu:sp:conflict_001",
+   "mem:lao_tzu:sp:desire_002"
+  ]
+ },
+ "R2::lao_tzu::el": {
+  "rows": {
+   "mem:lao_tzu:sp:conflict_001": 0.158827,
+   "mem:lao_tzu:sp:desire_002": 0.133606,
+   "mem:lao_tzu:el:cand": 0.249669,
+   "mem:lao_tzu:el:bg:0": 0.133046,
+   "mem:lao_tzu:el:bg:1": 0.237854
+  },
+  "candidate_row_cosine": 0.249669,
+  "candidate_original_cosine": 0.512549,
+  "recall_would_keep": [
+   "mem:lao_tzu:sp:conflict_001",
+   "mem:lao_tzu:sp:desire_002"
+  ]
+ },
+ "T::lao_tzu::el": {
+  "rows": {
+   "mem:lao_tzu:sp:conflict_001": 0.048567,
+   "mem:lao_tzu:sp:desire_002": 0.080533,
+   "mem:lao_tzu:el:cand": 0.335825,
+   "mem:lao_tzu:el:bg:0": 0.20853,
+   "mem:lao_tzu:el:bg:1": 0.154993
+  },
+  "candidate_row_cosine": 0.335825,
+  "candidate_original_cosine": 0.399398,
+  "recall_would_keep": [
+   "mem:lao_tzu:sp:conflict_001",
+   "mem:lao_tzu:sp:desire_002"
+  ]
+ },
+ "B::lao_tzu::el": {
+  "rows": {
+   "mem:lao_tzu:sp:conflict_001": 0.175366,
+   "mem:lao_tzu:sp:desire_002": 0.161253,
+   "mem:lao_tzu:el:cand": 0.255911,
+   "mem:lao_tzu:el:bg:0": 0.21922,
+   "mem:lao_tzu:el:bg:1": 0.16131,
+   "mem:lao_tzu:el:other": 0.229133,
+   "mem:lao_tzu:el:flagged": 0.322983,
+   "mem:lao_tzu:sp-bait:conflict_002": 0.143056,
+   "mem:lao_tzu:onb:0": -0.073864,
+   "mem:lao_tzu:onb:1": 0.031594
+  },
+  "candidate_row_cosine": 0.255911,
+  "candidate_original_cosine": 0.306365,
+  "recall_would_keep": [
+   "mem:lao_tzu:sp:conflict_001",
+   "mem:lao_tzu:sp:desire_002"
+  ]
+ },
+ "L1::lao_tzu::el": {
+  "rows": {
+   "mem:lao_tzu:sp:conflict_001": 0.123753,
+   "mem:lao_tzu:sp:desire_002": 0.105276,
+   "mem:lao_tzu:el:cand": 0.206907,
+   "mem:lao_tzu:el:bg:0": 0.138635,
+   "mem:lao_tzu:el:bg:1": 0.163837
+  },
+  "candidate_row_cosine": 0.206907,
+  "candidate_original_cosine": 0.292163,
+  "recall_would_keep": [
+   "mem:lao_tzu:sp:conflict_001",
+   "mem:lao_tzu:sp:desire_002"
+  ]
+ },
+ "L2::lao_tzu::el": {
+  "rows": {
+   "mem:lao_tzu:sp:conflict_001": 0.158827,
+   "mem:lao_tzu:sp:desire_002": 0.133606,
+   "mem:lao_tzu:el:cand": 0.249669,
+   "mem:lao_tzu:el:bg:0": 0.133046,
+   "mem:lao_tzu:el:bg:1": 0.237854,
+   "mem:lao_tzu:el:elicited": 0.237479
+  },
+  "candidate_row_cosine": 0.249669,
+  "candidate_original_cosine": 0.512549,
+  "recall_would_keep": [
+   "mem:lao_tzu:sp:conflict_001",
+   "mem:lao_tzu:sp:desire_002"
+  ]
+ },
+ "R::niccolo_machiavelli::el": {
+  "rows": {
+   "mem:niccolo_machiavelli:sp:conflict_001": 0.182575,
+   "mem:niccolo_machiavelli:sp:desire_002": 0.139429,
+   "mem:niccolo_machiavelli:el:cand": 0.291897,
+   "mem:niccolo_machiavelli:el:bg:0": 0.223382,
+   "mem:niccolo_machiavelli:el:bg:1": 0.147499
+  },
+  "candidate_row_cosine": 0.291897,
+  "candidate_original_cosine": 0.450636,
+  "recall_would_keep": [
+   "mem:niccolo_machiavelli:sp:conflict_001",
+   "mem:niccolo_machiavelli:sp:desire_002"
+  ]
+ },
+ "R2::niccolo_machiavelli::el": {
+  "rows": {
+   "mem:niccolo_machiavelli:sp:conflict_001": 0.162914,
+   "mem:niccolo_machiavelli:sp:desire_002": 0.163454,
+   "mem:niccolo_machiavelli:el:cand": 0.386669,
+   "mem:niccolo_machiavelli:el:bg:0": 0.177329,
+   "mem:niccolo_machiavelli:el:bg:1": 0.309436
+  },
+  "candidate_row_cosine": 0.386669,
+  "candidate_original_cosine": 0.370375,
+  "recall_would_keep": [
+   "mem:niccolo_machiavelli:sp:conflict_001",
+   "mem:niccolo_machiavelli:sp:desire_002"
+  ]
+ },
+ "T::niccolo_machiavelli::el": {
+  "rows": {
+   "mem:niccolo_machiavelli:sp:conflict_001": 0.054959,
+   "mem:niccolo_machiavelli:sp:desire_002": 0.105895,
+   "mem:niccolo_machiavelli:el:cand": 0.18048,
+   "mem:niccolo_machiavelli:el:bg:0": 0.157717,
+   "mem:niccolo_machiavelli:el:bg:1": 0.153745
+  },
+  "candidate_row_cosine": 0.18048,
+  "candidate_original_cosine": 0.395915,
+  "recall_would_keep": [
+   "mem:niccolo_machiavelli:sp:conflict_001",
+   "mem:niccolo_machiavelli:sp:desire_002"
+  ]
+ },
+ "B::niccolo_machiavelli::el": {
+  "rows": {
+   "mem:niccolo_machiavelli:sp:conflict_001": 0.182575,
+   "mem:niccolo_machiavelli:sp:desire_002": 0.139429,
+   "mem:niccolo_machiavelli:el:cand": 0.291897,
+   "mem:niccolo_machiavelli:el:bg:0": 0.223382,
+   "mem:niccolo_machiavelli:el:bg:1": 0.147499,
+   "mem:niccolo_machiavelli:el:other": 0.216695,
+   "mem:niccolo_machiavelli:el:flagged": 0.330427,
+   "mem:niccolo_machiavelli:sp-bait:family_002": 0.162826,
+   "mem:niccolo_machiavelli:onb:0": 0.018264,
+   "mem:niccolo_machiavelli:onb:1": 0.050561
+  },
+  "candidate_row_cosine": 0.291897,
+  "candidate_original_cosine": 0.450636,
+  "recall_would_keep": [
+   "mem:niccolo_machiavelli:sp-bait:family_002",
+   "mem:niccolo_machiavelli:sp:conflict_001"
+  ]
+ },
+ "L1::niccolo_machiavelli::el": {
+  "rows": {
+   "mem:niccolo_machiavelli:sp:conflict_001": 0.128301,
+   "mem:niccolo_machiavelli:sp:desire_002": 0.123558,
+   "mem:niccolo_machiavelli:el:cand": 0.222357,
+   "mem:niccolo_machiavelli:el:bg:0": 0.152663,
+   "mem:niccolo_machiavelli:el:bg:1": 0.159639
+  },
+  "candidate_row_cosine": 0.222357,
+  "candidate_original_cosine": 0.38774,
+  "recall_would_keep": [
+   "mem:niccolo_machiavelli:sp:conflict_001",
+   "mem:niccolo_machiavelli:sp:desire_002"
+  ]
+ },
+ "L2::niccolo_machiavelli::el": {
+  "rows": {
+   "mem:niccolo_machiavelli:sp:conflict_001": 0.162914,
+   "mem:niccolo_machiavelli:sp:desire_002": 0.163454,
+   "mem:niccolo_machiavelli:el:cand": 0.386669,
+   "mem:niccolo_machiavelli:el:bg:0": 0.177329,
+   "mem:niccolo_machiavelli:el:bg:1": 0.309436,
+   "mem:niccolo_machiavelli:el:elicited": 0.317901
+  },
+  "candidate_row_cosine": 0.386669,
+  "candidate_original_cosine": 0.370375,
+  "recall_would_keep": [
+   "mem:niccolo_machiavelli:sp:conflict_001",
+   "mem:niccolo_machiavelli:sp:desire_002"
+  ]
+ },
+ "R::oscar_wilde::el": {
+  "rows": {
+   "mem:oscar_wilde:sp:conflict_001": 0.15064,
+   "mem:oscar_wilde:sp:desire_002": 0.141693,
+   "mem:oscar_wilde:el:cand": 0.441063,
+   "mem:oscar_wilde:el:bg:0": 0.231604,
+   "mem:oscar_wilde:el:bg:1": 0.15029
+  },
+  "candidate_row_cosine": 0.441063,
+  "candidate_original_cosine": 0.611931,
+  "recall_would_keep": [
+   "mem:oscar_wilde:sp:conflict_001",
+   "mem:oscar_wilde:sp:desire_002"
+  ]
+ },
+ "R2::oscar_wilde::el": {
+  "rows": {
+   "mem:oscar_wilde:sp:conflict_001": 0.130872,
+   "mem:oscar_wilde:sp:desire_002": 0.123051,
+   "mem:oscar_wilde:el:cand": 0.378851,
+   "mem:oscar_wilde:el:bg:0": 0.285498,
+   "mem:oscar_wilde:el:bg:1": 0.217022
+  },
+  "candidate_row_cosine": 0.378851,
+  "candidate_original_cosine": 0.401,
+  "recall_would_keep": [
+   "mem:oscar_wilde:sp:conflict_001",
+   "mem:oscar_wilde:sp:desire_002"
+  ]
+ },
+ "T::oscar_wilde::el": {
+  "rows": {
+   "mem:oscar_wilde:sp:conflict_001": 0.051572,
+   "mem:oscar_wilde:sp:desire_002": 0.054752,
+   "mem:oscar_wilde:el:cand": 0.308549,
+   "mem:oscar_wilde:el:bg:0": 0.112081,
+   "mem:oscar_wilde:el:bg:1": 0.149015
+  },
+  "candidate_row_cosine": 0.308549,
+  "candidate_original_cosine": 0.260377,
+  "recall_would_keep": [
+   "mem:oscar_wilde:sp:conflict_001",
+   "mem:oscar_wilde:sp:desire_002"
+  ]
+ },
+ "B::oscar_wilde::el": {
+  "rows": {
+   "mem:oscar_wilde:sp:conflict_001": 0.15064,
+   "mem:oscar_wilde:sp:desire_002": 0.141693,
+   "mem:oscar_wilde:el:cand": 0.441063,
+   "mem:oscar_wilde:el:bg:0": 0.231604,
+   "mem:oscar_wilde:el:bg:1": 0.15029,
+   "mem:oscar_wilde:el:other": 0.338188,
+   "mem:oscar_wilde:el:flagged": 0.215757,
+   "mem:oscar_wilde:sp-bait:family_001": 0.244719,
+   "mem:oscar_wilde:onb:0": -0.035282,
+   "mem:oscar_wilde:onb:1": 0.030655
+  },
+  "candidate_row_cosine": 0.441063,
+  "candidate_original_cosine": 0.611931,
+  "recall_would_keep": [
+   "mem:oscar_wilde:sp-bait:family_001",
+   "mem:oscar_wilde:sp:conflict_001"
+  ]
+ },
+ "L1::oscar_wilde::el": {
+  "rows": {
+   "mem:oscar_wilde:sp:conflict_001": 0.149003,
+   "mem:oscar_wilde:sp:desire_002": 0.084252,
+   "mem:oscar_wilde:el:cand": 0.258873,
+   "mem:oscar_wilde:el:bg:0": 0.116321,
+   "mem:oscar_wilde:el:bg:1": 0.102779
+  },
+  "candidate_row_cosine": 0.258873,
+  "candidate_original_cosine": 0.289367,
+  "recall_would_keep": [
+   "mem:oscar_wilde:sp:conflict_001",
+   "mem:oscar_wilde:sp:desire_002"
+  ]
+ },
+ "L2::oscar_wilde::el": {
+  "rows": {
+   "mem:oscar_wilde:sp:conflict_001": 0.130872,
+   "mem:oscar_wilde:sp:desire_002": 0.123051,
+   "mem:oscar_wilde:el:cand": 0.378851,
+   "mem:oscar_wilde:el:bg:0": 0.285498,
+   "mem:oscar_wilde:el:bg:1": 0.217022,
+   "mem:oscar_wilde:el:elicited": 0.285991
+  },
+  "candidate_row_cosine": 0.378851,
+  "candidate_original_cosine": 0.401,
+  "recall_would_keep": [
+   "mem:oscar_wilde:sp:conflict_001",
+   "mem:oscar_wilde:sp:desire_002"
+  ]
+ },
+ "R::george_orwell::el": {
+  "rows": {
+   "mem:george_orwell:sp:conflict_001": 0.111724,
+   "mem:george_orwell:sp:desire_002": 0.088775,
+   "mem:george_orwell:el:cand": 0.221376,
+   "mem:george_orwell:el:bg:0": 0.196939,
+   "mem:george_orwell:el:bg:1": 0.304873
+  },
+  "candidate_row_cosine": 0.221376,
+  "candidate_original_cosine": 0.258166,
+  "recall_would_keep": [
+   "mem:george_orwell:sp:conflict_001",
+   "mem:george_orwell:sp:desire_002"
+  ]
+ },
+ "R2::george_orwell::el": {
+  "rows": {
+   "mem:george_orwell:sp:conflict_001": 0.089755,
+   "mem:george_orwell:sp:desire_002": 0.122841,
+   "mem:george_orwell:el:cand": 0.457812,
+   "mem:george_orwell:el:bg:0": 0.339611,
+   "mem:george_orwell:el:bg:1": 0.309754
+  },
+  "candidate_row_cosine": 0.457812,
+  "candidate_original_cosine": 0.345003,
+  "recall_would_keep": [
+   "mem:george_orwell:sp:conflict_001",
+   "mem:george_orwell:sp:desire_002"
+  ]
+ },
+ "T::george_orwell::el": {
+  "rows": {
+   "mem:george_orwell:sp:conflict_001": 0.132548,
+   "mem:george_orwell:sp:desire_002": 0.114364,
+   "mem:george_orwell:el:cand": 0.281505,
+   "mem:george_orwell:el:bg:0": 0.282488,
+   "mem:george_orwell:el:bg:1": 0.228651
+  },
+  "candidate_row_cosine": 0.281505,
+  "candidate_original_cosine": 0.200837,
+  "recall_would_keep": [
+   "mem:george_orwell:sp:conflict_001",
+   "mem:george_orwell:sp:desire_002"
+  ]
+ },
+ "B::george_orwell::el": {
+  "rows": {
+   "mem:george_orwell:sp:conflict_001": 0.111724,
+   "mem:george_orwell:sp:desire_002": 0.088775,
+   "mem:george_orwell:el:cand": 0.221376,
+   "mem:george_orwell:el:bg:0": 0.196939,
+   "mem:george_orwell:el:bg:1": 0.304873,
+   "mem:george_orwell:el:other": 0.313893,
+   "mem:george_orwell:el:flagged": 0.221662,
+   "mem:george_orwell:sp-bait:desire_001": 0.107569,
+   "mem:george_orwell:onb:0": 0.077877,
+   "mem:george_orwell:onb:1": 0.003123
+  },
+  "candidate_row_cosine": 0.221376,
+  "candidate_original_cosine": 0.258166,
+  "recall_would_keep": [
+   "mem:george_orwell:sp-bait:desire_001",
+   "mem:george_orwell:sp:conflict_001"
+  ]
+ },
+ "L1::george_orwell::el": {
+  "rows": {
+   "mem:george_orwell:sp:conflict_001": 0.155225,
+   "mem:george_orwell:sp:desire_002": 0.079402,
+   "mem:george_orwell:el:cand": 0.164578,
+   "mem:george_orwell:el:bg:0": 0.170884,
+   "mem:george_orwell:el:bg:1": 0.254766
+  },
+  "candidate_row_cosine": 0.164578,
+  "candidate_original_cosine": 0.219121,
+  "recall_would_keep": [
+   "mem:george_orwell:sp:conflict_001",
+   "mem:george_orwell:sp:desire_002"
+  ]
+ },
+ "L2::george_orwell::el": {
+  "rows": {
+   "mem:george_orwell:sp:conflict_001": 0.089755,
+   "mem:george_orwell:sp:desire_002": 0.122841,
+   "mem:george_orwell:el:cand": 0.457812,
+   "mem:george_orwell:el:bg:0": 0.339611,
+   "mem:george_orwell:el:bg:1": 0.309754,
+   "mem:george_orwell:el:elicited": 0.355575
+  },
+  "candidate_row_cosine": 0.457812,
+  "candidate_original_cosine": 0.345003,
+  "recall_would_keep": [
+   "mem:george_orwell:sp:conflict_001",
+   "mem:george_orwell:sp:desire_002"
+  ]
+ },
+ "R::miyamoto_musashi::el": {
+  "rows": {
+   "mem:miyamoto_musashi:sp:conflict_001": 0.066579,
+   "mem:miyamoto_musashi:sp:desire_002": 0.130899,
+   "mem:miyamoto_musashi:el:cand": 0.420097,
+   "mem:miyamoto_musashi:el:bg:0": 0.262865,
+   "mem:miyamoto_musashi:el:bg:1": 0.313555
+  },
+  "candidate_row_cosine": 0.420097,
+  "candidate_original_cosine": 0.470211,
+  "recall_would_keep": [
+   "mem:miyamoto_musashi:sp:conflict_001",
+   "mem:miyamoto_musashi:sp:desire_002"
+  ]
+ },
+ "R2::miyamoto_musashi::el": {
+  "rows": {
+   "mem:miyamoto_musashi:sp:conflict_001": 0.119906,
+   "mem:miyamoto_musashi:sp:desire_002": 0.093455,
+   "mem:miyamoto_musashi:el:cand": 0.308131,
+   "mem:miyamoto_musashi:el:bg:0": 0.160564,
+   "mem:miyamoto_musashi:el:bg:1": 0.216902
+  },
+  "candidate_row_cosine": 0.308131,
+  "candidate_original_cosine": 0.380423,
+  "recall_would_keep": [
+   "mem:miyamoto_musashi:sp:conflict_001",
+   "mem:miyamoto_musashi:sp:desire_002"
+  ]
+ },
+ "T::miyamoto_musashi::el": {
+  "rows": {
+   "mem:miyamoto_musashi:sp:conflict_001": 0.081855,
+   "mem:miyamoto_musashi:sp:desire_002": 0.088495,
+   "mem:miyamoto_musashi:el:cand": 0.304334,
+   "mem:miyamoto_musashi:el:bg:0": 0.180021,
+   "mem:miyamoto_musashi:el:bg:1": 0.320783
+  },
+  "candidate_row_cosine": 0.304334,
+  "candidate_original_cosine": 0.330647,
+  "recall_would_keep": [
+   "mem:miyamoto_musashi:sp:conflict_001",
+   "mem:miyamoto_musashi:sp:desire_002"
+  ]
+ },
+ "B::miyamoto_musashi::el": {
+  "rows": {
+   "mem:miyamoto_musashi:sp:conflict_001": 0.066579,
+   "mem:miyamoto_musashi:sp:desire_002": 0.130899,
+   "mem:miyamoto_musashi:el:cand": 0.420097,
+   "mem:miyamoto_musashi:el:bg:0": 0.262865,
+   "mem:miyamoto_musashi:el:bg:1": 0.313555,
+   "mem:miyamoto_musashi:el:other": 0.259431,
+   "mem:miyamoto_musashi:el:flagged": 0.373921,
+   "mem:miyamoto_musashi:sp-bait:desire_001": 0.063647,
+   "mem:miyamoto_musashi:onb:0": 0.052452,
+   "mem:miyamoto_musashi:onb:1": 0.054191
+  },
+  "candidate_row_cosine": 0.420097,
+  "candidate_original_cosine": 0.470211,
+  "recall_would_keep": [
+   "mem:miyamoto_musashi:sp:conflict_001",
+   "mem:miyamoto_musashi:sp:desire_002"
+  ]
+ },
+ "L1::miyamoto_musashi::el": {
+  "rows": {
+   "mem:miyamoto_musashi:sp:conflict_001": 0.141715,
+   "mem:miyamoto_musashi:sp:desire_002": 0.084971,
+   "mem:miyamoto_musashi:el:cand": 0.230002,
+   "mem:miyamoto_musashi:el:bg:0": 0.130423,
+   "mem:miyamoto_musashi:el:bg:1": 0.222756
+  },
+  "candidate_row_cosine": 0.230002,
+  "candidate_original_cosine": 0.259449,
+  "recall_would_keep": [
+   "mem:miyamoto_musashi:sp:conflict_001",
+   "mem:miyamoto_musashi:sp:desire_002"
+  ]
+ },
+ "L2::miyamoto_musashi::el": {
+  "rows": {
+   "mem:miyamoto_musashi:sp:conflict_001": 0.119906,
+   "mem:miyamoto_musashi:sp:desire_002": 0.093455,
+   "mem:miyamoto_musashi:el:cand": 0.308131,
+   "mem:miyamoto_musashi:el:bg:0": 0.160564,
+   "mem:miyamoto_musashi:el:bg:1": 0.216902,
+   "mem:miyamoto_musashi:el:elicited": 0.258022
+  },
+  "candidate_row_cosine": 0.308131,
+  "candidate_original_cosine": 0.380423,
+  "recall_would_keep": [
+   "mem:miyamoto_musashi:sp:conflict_001",
+   "mem:miyamoto_musashi:sp:desire_002"
+  ]
+ }
+}
