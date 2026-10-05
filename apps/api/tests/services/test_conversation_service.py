@@ -3159,7 +3159,8 @@ def _offer(mid="mem-offered"):
                              score=0.52, days=12, language="en", block="CALLBACK BLOCK")
 
 
-async def _run_callback(*, enabled, select=None, plan="pro", recalled=(), text=NEUTRAL):
+async def _run_callback(*, enabled, select=None, plan="pro", recalled=(), text=NEUTRAL,
+                        queue=None):
     service = ConversationService()
     db, _ = _make_db_for_memory(message_count=0)
     mock_llm = MagicMock()
@@ -3198,7 +3199,7 @@ async def _run_callback(*, enabled, select=None, plan="pro", recalled=(), text=N
 
         await _drain(service.stream_response(
             session_factory=_factory(db), conversation_id=CONV_ID, user_id=USER_ID,
-            user_text=text, user_plan=plan,
+            user_text=text, user_plan=plan, arq_queue=queue,
         ))
     split = mock_prompt.split_system_for_cache.call_args
     return SimpleNamespace(
@@ -3266,6 +3267,34 @@ async def test_a_gate_failure_fails_open():
     run = await _run_callback(enabled=True, select=AsyncMock(side_effect=RuntimeError("db")))
     assert "CALLBACK BLOCK" not in run.system_prompt
     run.record.assert_not_called()
+
+
+def _use_jobs(queue):
+    return [c.args for c in queue.enqueue_job.await_args_list
+            if c.args[0] == "detect_callback_use_task"]
+
+
+@pytest.mark.asyncio
+async def test_an_offered_reply_enqueues_the_use_detector_after_the_save():
+    """MEM2-C-3a: off the reply path — a worker job, keyed by the saved reply's id."""
+    queue = MagicMock()
+    queue.enqueue_job = AsyncMock()
+    await _run_callback(enabled=True, select=AsyncMock(return_value=_offer()), queue=queue)
+    assert _use_jobs(queue) == [("detect_callback_use_task", "msg-uuid-1")]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("enabled,select", [
+    (False, None),
+    (True, AsyncMock(return_value=None)),
+    (True, AsyncMock(side_effect=RuntimeError("db"))),
+])
+async def test_no_offer_no_use_detector(enabled, select):
+    queue = MagicMock()
+    queue.enqueue_job = AsyncMock()
+    await _run_callback(enabled=enabled, select=select, queue=queue)
+    assert _use_jobs(queue) == []
+    assert queue.enqueue_job.await_count >= 1      # the turn's other jobs still go
 
 
 @pytest.mark.asyncio

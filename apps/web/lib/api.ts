@@ -277,6 +277,9 @@ export interface Message {
   created_at: string
   persona_slug?: string | null
   persona_name?: string | null
+  // MEM2-C-3a: the callback this reply used and the person has not rejected.
+  // Only the messages endpoint sets it; a streamed reply never does.
+  callback_id?: string | null
 }
 
 export interface MemoryEntry {
@@ -1398,6 +1401,11 @@ class ApiClient {
 
   async deleteMemory(id: string): Promise<void> {
     return this.request(`/memory/${id}`, { method: 'DELETE' })
+  }
+
+  // "That's not right" on a callback (MEM2-C-2 endpoint, Ruling 5). Idempotent.
+  async rejectCallback(id: string): Promise<void> {
+    await this.request(`/memory/callbacks/${id}/reject`, { method: 'POST' })
   }
 
   // ── Insights ──────────────────────────────────────────────────────────────

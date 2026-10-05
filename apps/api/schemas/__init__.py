@@ -190,6 +190,11 @@ class MessageOut(BaseModel):
     # gravity-gated conclusion as the headline savable unit.
     message_kind: str = 'standard'
     created_at: datetime
+    # MEM2-C-3a: the callback this reply USED and the person has not rejected, so
+    # the web can show "That's not right" under it. Null otherwise — including an
+    # offer the reply did not use, whose rejection would retire a memory the person
+    # was never shown.
+    callback_id: str | None = None
 
     class Config:
         from_attributes = True

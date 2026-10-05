@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 from db.session import get_db, AsyncSessionLocal, release_on_exit
-from models import User, Conversation, Message, Persona, SavedLine
+from models import User, Conversation, Message, MemoryCallback, Persona, SavedLine
 from schemas import (
     ConversationCreate, ConversationOut, CrossPersonaRequest,
     MessageCreate, MessageOut, PersonaOut, LLMErrorResponse,
@@ -358,6 +358,24 @@ async def get_messages(
         .order_by(Message.created_at.asc())
         .options(selectinload(Message.persona))
     )
+    rows = msgs.scalars().all()
+
+    # MEM2-C-3a: the callback each reply USED and the person has not rejected (the
+    # "That's not right" control). One indexed query (ix_memory_callbacks_message),
+    # and none for a thread with no assistant reply.
+    assistant_ids = [m.id for m in rows if m.role == "assistant"]
+    callback_by_message: dict[str, str] = {}
+    if assistant_ids:
+        cbs = await db.execute(
+            select(MemoryCallback.message_id, MemoryCallback.id).where(
+                MemoryCallback.message_id.in_(assistant_ids),
+                MemoryCallback.user_id == user.id,
+                MemoryCallback.used.is_(True),
+                MemoryCallback.reaction.is_(None),
+            )
+        )
+        callback_by_message = {str(mid): str(cid) for mid, cid in cbs.all()}
+
     return [
         MessageOut(
             id=m.id,
@@ -368,8 +386,9 @@ async def get_messages(
             persona_slug=m.persona.slug if m.persona else None,
             message_kind=m.message_kind,
             created_at=m.created_at,
+            callback_id=callback_by_message.get(str(m.id)),
         )
-        for m in msgs.scalars().all()
+        for m in rows
     ]
 
 
