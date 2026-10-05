@@ -36,25 +36,30 @@ RESULTS = Path(cu.__file__).resolve().parent.parent / "evals" / "results"
 
 # ── 1. The measurement ───────────────────────────────────────────────────────
 
+# The runs' completions.jsonl are gitignored (generated, large), so the offered Pro
+# rows the measurement needs are frozen here; the judge verdicts are read from the
+# tracked callback_judge.csv.
+FIXTURE = Path(__file__).resolve().parent.parent / "fixtures" / "callback_use_measurement.json"
+
+
 def _confusion(run: str, language: str) -> Counter:
     judge = {}
     with open(RESULTS / run / "callback_judge.csv", encoding="utf-8") as f:
         for r in csv.DictReader(f):
-            if r["call"] == "1":
+            # A parse failure is excluded, never counted as "no" (the C-1 rule).
+            if r["call"] == "1" and not r["raw_error"].strip():
                 judge[r["key"]] = r["cb_v"] == "1" and "A" in (r["items"] or "").split()
     samples = {s.sample_id: s for s in build_samples()}
+    stored = json.loads(FIXTURE.read_text(encoding="utf-8"))["runs"][run]
+    assert stored["language"] == language
     out: Counter = Counter()
-    with open(RESULTS / run / "completions.jsonl", encoding="utf-8") as f:
-        for line in f:
-            c = json.loads(line)
-            if (not c["offered"] or c["plan"] != "pro" or c["language"] != language
-                    or c["key"] not in judge or not c["reply"]):
-                continue
-            original = samples[c["sample_id"]].candidate_row().original
-            days = c["candidate_days"]
-            signals = cu.detect(c["reply"], original, c["user_message"],
-                                [when_bucket(days, "en"), when_bucket(days, "el")])
-            out[(judge[c["key"]], signals.used)] += 1
+    for c in stored["rows"]:
+        assert c["key"] in judge, f"fixture row with no call-1 verdict: {c['key']}"
+        original = samples[c["sample_id"]].candidate_row().original
+        days = c["candidate_days"]
+        signals = cu.detect(c["reply"], original, c["user_message"],
+                            [when_bucket(days, "en"), when_bucket(days, "el")])
+        out[(judge[c["key"]], signals.used)] += 1
     return out
 
 
@@ -66,10 +71,12 @@ def test_english_pro_against_the_c1_judge():
 
 def test_greek_pro_under_the_greek_directive_against_the_judge():
     got = _confusion("2026-10-05_mem2c2_el", "el")
-    # 20 caught, 1 missed, 2 flagged that the judge did not mark (at least one is a
-    # real callback: «Πριν από μερικές εβδομάδες έγραψες ακριβώς αυτό…»), 32 agreed.
+    # 54 judged (one call-1 parse failure excluded): 20 caught, 1 missed, 32 agreed,
+    # and 1 flagged that the judge did not mark — an unannounced echo of the
+    # original's words («Αυτή η λίστα που μεγαλώνει κάθε φορά που την κοιτάς…»),
+    # caught by the shared run alone.
     assert got == Counter({(True, True): 20, (True, False): 1,
-                           (False, True): 2, (False, False): 32})
+                           (False, True): 1, (False, False): 32})
 
 
 # ── 2. Each signal ───────────────────────────────────────────────────────────

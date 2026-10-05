@@ -6257,7 +6257,7 @@ Backlog items, not C: Haiku recites self-portrait/onboarding taps as traits unde
   {when} phrase within 60 chars of a said/wrote verb; a 4-word run shared with the
   original and absent from this turn's user message. Against the C-1 judge's call-1
   verdict: EN Pro 36/37 caught, 0/18 flagged; EL Pro (Greek directive, STEP 0(b) run)
-  20/21 caught, 2/34 flagged. Haiku not used (~$0.001/offer; rejected for
+  20/21 caught, 1/33 flagged (54 judged; one call-1 parse failure excluded). Haiku not used (~$0.001/offer; rejected for
   non-determinism, not cost). Log-only, in the worker, never gates a reply.
 - **3 = copy approved verbatim.** EN "That's not right" / "Noted. It won't come up
   again."; EL "Δεν ισχύει αυτό" / "Εντάξει. Δεν θα ξαναναφερθεί."

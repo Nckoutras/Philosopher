@@ -23,7 +23,8 @@ three signals fires, on text normalised by `normalize`:
 Measured against the C-1 judge's call-1 "called back item A" verdict on the stored
 runs (tests/services/test_callback_use.py pins these counts): English Pro 36/37 used
 replies caught, 0/18 unused flagged; Greek Pro under the Greek directive 20/21 caught,
-2/34 flagged — at least one of those two is a callback the judge missed.
+1/33 flagged (one call-1 parse failure excluded; the flag is an unannounced echo of
+the original's words).
 
 Normalisation: casefold, strip combining marks (Greek tonos), punctuation to space.
 casefold() folds Greek final ς to σ, so the verb stems are normalised the same way
