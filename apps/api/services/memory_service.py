@@ -1499,7 +1499,8 @@ class MemoryService:
         if not dedup_judge.enabled() or not new_entries:
             return 0
         own_ids = [uuid.UUID(str(e.id)) for e in new_entries if e.id is not None]
-        retired = 0
+        retired = examined = judged = 0
+        failed = False
         for entry in new_entries:
             if (entry.id is None or entry.embedding is None
                     or entry.provenance != "system_inferred"
@@ -1509,27 +1510,40 @@ class MemoryService:
                 savepoint = await db.begin_nested()
             except Exception as e:  # noqa: BLE001 — fail-open
                 logger.error("dedup_new_entries failed user=%s: %s", user_id, e, exc_info=True)
+                failed = True
                 break
             try:
-                retired += await self._dedup_one(db, user_id, entry, own_ids)
+                examined += 1
+                n_retired, n_judged = await self._dedup_one(db, user_id, entry, own_ids)
+                retired += n_retired
+                judged += n_judged
                 await savepoint.commit()
             except Exception as e:  # noqa: BLE001 — fail-open
                 await savepoint.rollback()
                 _log_dedup("error", kept="both", retired="none", user_id=user_id,
                            new_id=str(entry.id), note=type(e).__name__)
                 logger.error("dedup_new_entries failed user=%s: %s", user_id, e, exc_info=True)
+                failed = True
                 break
         try:
             await db.commit()
         except Exception as e:  # noqa: BLE001 — fail-open
             logger.error("dedup_new_entries commit failed user=%s: %s", user_id, e, exc_info=True)
             return 0
+        if judged == 0 and not failed:
+            # MEM2-B5.1: without this, "ran and found nothing" and "did not run"
+            # are the same silence in the log. One line per run; a run with a
+            # judge call is already covered by its per-pair lines, and a failed
+            # run by its error line. rows = new rows that were searched.
+            logger.info("dedup_judge verdict=no_candidates kept=all retired=none"
+                        " user=%s rows=%d", user_id, examined)
         return retired
 
     async def _dedup_one(self, db: AsyncSession, user_id: str, entry: MemoryEntry,
-                         own_ids: list) -> int:
-        """One new row: candidates, judge calls, at most one retirement. Raises on
-        a database error (the caller's savepoint handles it)."""
+                         own_ids: list) -> tuple[int, int]:
+        """One new row: candidates, judge calls, at most one retirement. Returns
+        (rows retired, judge calls made). Raises on a database error (the
+        caller's savepoint handles it)."""
         # Same explicit literal as find_recurrences, for the reason given there.
         vec_literal = "[" + ",".join(repr(float(x)) for x in entry.embedding) + "]"
         rows = (await db.execute(
@@ -1538,16 +1552,18 @@ class MemoryService:
         )).fetchall()
 
         new_id = str(entry.id)
+        judged = 0
         for cand in rows:
             if cand.score < DUPLICATE_SIM_THRESHOLD:
                 break  # ordered by distance: everything after is further away
             log = dict(user_id=user_id, new_id=new_id, candidate_id=cand.id,
                        score=float(cand.score))
             verdict = await dedup_judge.judge_pair(cand.content, entry.content)
+            judged += 1
             if verdict.failed:
                 _log_dedup("error", kept="both", retired="none",
                            note=verdict.fail_kind, **log)
-                return 0  # fail-open: nothing retired for this row
+                return 0, judged  # fail-open: nothing retired for this row
             loser = dedup_judge.dedup_outcome(verdict)
             if loser == "new" and cand.supersedes_memory_id is not None:
                 # Ratchet guard (amendment 1): treated as DISTINCT, before any write.
@@ -1571,8 +1587,8 @@ class MemoryService:
             _log_dedup(verdict.verdict, kept="new" if loser == "old" else "old",
                        retired=loser, more_specific=verdict.more_specific,
                        chain_depth=int(depth), **log)
-            return 1
-        return 0
+            return 1, judged
+        return 0, judged
 
     async def _supersede(self, db: AsyncSession, user_id: str, entry: MemoryEntry,
                          cand, loser: str) -> str | None:
