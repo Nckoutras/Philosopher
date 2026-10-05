@@ -6107,6 +6107,36 @@ log, and the v30 smoke had to be confirmed from the absence of an Anthropic requ
 *Post-merge observable:* `verdict=no_candidates` lines in the worker log, one per
 memory task with a dedup run and no candidate at the gate.
 
+### MEM2-C — Phase C rulings record (founder, 2026-10-05) — **C-1 IN PROGRESS (evals only)**
+
+**Why this entry exists.** Phase C is a persona explicitly calling back something the
+user said in an earlier conversation, at the prompt level, behind a relevance gate. The
+investigation (MEM2-C-001, 2026-10-05, read-only, reported in conversation) found that
+the shipped Ruling #6 directive forbids exactly this ("never announce that you
+remember", `prompt_builder.MEMORY_USE_DIRECTIVE`), that `memory_entries.persona_id` is
+written by chat extraction and read by nothing, and that no surface records which memory
+rows it has already shown. The rulings below answer that report. They are recorded here
+verbatim before any C code, so the next reader does not reconstruct them from the code
+that implements them (the MEM2-B precedent).
+
+**RULINGS (locked 2026-10-05), verbatim:**
+
+G. Governing principle for all memory UX: invisible memory may be broad; visible memory must be conservative.
+1. Ruling #6 stays the default. Phase C adds at most ONE marked callback per turn when a deterministic gate offers one. Council, go_deeper, another_mind unchanged.
+2. Callback-eligible rows: source_message_ids present, is_active, different conversation, same persona_id as the responder. Fidelity is judged against the ORIGINAL user message, never the stored row.
+3. Memory stays user-scoped (unchanged). Audible callbacks are same-persona only in Phase C. Callback wording is attribution-free and never names another persona.
+4. Persistent cross-conversation ledger: new table memory_callbacks (C-2, migration). Scarcity per user × row-or-chain × time window; X/Y/floor/min-age are measured in C-1, not guessed.
+5. "That's not right" reaction on a callback (C-2/C-3a): retires the row + its supersession chain as user_rejected; active near-duplicates become callback-ineligible, NOT inactive. No Memory Center.
+6. Deterministic gate from existing columns; zero extra LLM calls on the reply path; the main model may decline to use the candidate. Only NORMAL/none turns; rows from non-flagged conversations only.
+7. Rollout: C-3a canary (founder + designated testers) → C-3b only after predefined correctness, rejection-rate and longitudinal repetition thresholds pass.
+8. Greek samples from the first measurement.
+9. Anti-laundering: a callback cannot upgrade the epistemic status of the memory it references. User replies elicited by a callback do not count as independent recurrence, confirmation, echo or dedup-survivor evidence unless they contain an independently stated proposition.
+
+**Sequence.** C-1 (this entry's first PR): measure before speaking — evals and tests
+only, zero production change. The draft callback directive lives under `evals/`, not
+`prompts/`, and its copy is approved before anything uses it. No C-2 brief until the
+C-1 numbers are in.
+
 ### PARKED — founder safety alerting — **PARKED (founder, 2026-10-02). No work.**
 **Revisit only when the founder raises it.** An idea, recorded so it is not lost and is
 not mistaken for planned work.

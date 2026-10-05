@@ -83,9 +83,11 @@ from dataclasses import dataclass, field
 
 from personas import PERSONA_REGISTRY
 from personas._base import PersonaConfig
+from services import reply_directive
 from services.conversation_service import (
     MODEL_FREE,
     MODEL_PRO,
+    _adaptive_band_for_input,
     _deepen_directive,
     _history_cache_control,
 )
@@ -146,6 +148,26 @@ def _grounding_block(passages) -> str:
     return "\n".join(lines) + "\n"
 
 
+# The line system_base.jinja2 opens HARD RULES with. The callback block (MEM2-C-1)
+# is inserted immediately before it — i.e. directly after the "WHAT YOU KNOW ABOUT
+# THIS PERSON" block, the position C-2 would give it in the template, so the one
+# exception sits beside the rule it is an exception to.
+HARD_RULES_ANCHOR = (
+    "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+    "HARD RULES (non-negotiable)"
+)
+
+
+def _insert_callback(system: str, block: str) -> str:
+    """Put the callback block before HARD RULES. Refuses rather than guesses if the
+    anchor is missing or ambiguous: a block silently appended at the end would be
+    measuring a different position, and nothing in the numbers would say so."""
+    if system.count(HARD_RULES_ANCHOR) != 1:
+        raise ValueError("HARD RULES anchor must appear exactly once in the system prompt")
+    i = system.index(HARD_RULES_ANCHOR)
+    return system[:i] + block + "\n\n\n" + system[i:]
+
+
 def assemble_system(
     persona: PersonaConfig,
     user_message: str,
@@ -154,10 +176,33 @@ def assemble_system(
     include_cache_sentinel: bool = True,
     arm: str = "baseline",
     passages=(),
+    memories=(),
+    history_len: int = 0,
+    callback_block: str = "",
 ) -> tuple[str, str | None]:
     """Build the system prompt exactly as `stream_response` does for turn 1.
 
     Returns (system_prompt, bridge_matched_term).
+
+    MEM2-C-1 SEAMS — all three default to production's turn-1 identity, so every
+    existing arm's prompt is byte-unchanged (tests/test_harness_parity.py):
+
+      memories        rows for the "WHAT YOU KNOW ABOUT THIS PERSON" block, passed
+                      to build_system exactly as stream_response passes recall's
+                      output. Duck-typed: the template reads entry_type, content.
+      history_len     len(history) as stream_response computes it. Only the
+                      "shipped" arm reads it — see below.
+      callback_block  the draft callback directive, already rendered, inserted
+                      directly after the memory block (_insert_callback). Empty
+                      inserts nothing.
+
+    ARM "shipped" is production's own reply directive, CALLED rather than copied:
+    `reply_directive.directive(persona, first_message=(history_len <= 1),
+    deep=..., band=...)` with the adaptive band from `_adaptive_band_for_input`
+    when history_len > 1 — conversation_service.py:999-1009, line for line. Arm
+    "e" is the same text on a first message (test_shipped_directive_is_arm_e),
+    but it hard-codes first_message=True and never passes the adaptive band, so it
+    cannot express a second turn. The callback samples have second turns.
 
     The order below mirrors conversation_service.py:816-936 for the first-turn
     case: build_system, then the deep directive when deep mode is on. The
@@ -181,11 +226,13 @@ def assemble_system(
 
     system = prompt_builder.build_system(
         persona=persona,
-        memories=[],
+        memories=list(memories),
         phenomenology_bridge=bridge,
         profile=None,
         include_cache_sentinel=include_cache_sentinel,
     )
+    if callback_block:
+        system = _insert_callback(system, callback_block)
     # ARM F ONLY. Since RET-001 the production template has no passages slot, so
     # the forced-injection arm carries the block itself. Empty passages append
     # nothing, which keeps every other arm byte-identical to production (the
@@ -216,7 +263,18 @@ def assemble_system(
             system = system + "\n\n" + block
         return system, (bridge.matched_term if bridge else None)
 
-    if arm in ("tightened", "b2", "b2clean", "b3", "d", "e"):
+    if arm == "shipped":
+        # conversation_service.py:999-1009. deep_mode_active is `deep` here and
+        # safety is "none" on every callback sample (Ruling 6 gates on it).
+        band = None
+        if not deep and history_len > 1:
+            band = _adaptive_band_for_input(user_message, persona)
+        tail = reply_directive.directive(
+            persona, first_message=(history_len <= 1), deep=deep, band=band,
+        )
+        if tail:
+            system = system + "\n\n" + tail
+    elif arm in ("tightened", "b2", "b2clean", "b3", "d", "e"):
         # b2clean ships the SAME directive as b2. The two runs differ only in the
         # persona configs (stale length line removed, bands moved to the B2
         # table), which is why persona_config_hash exists.
@@ -233,7 +291,8 @@ def assemble_system(
 
 
 async def generate(sample: Sample, plan: str, model: str,
-                   arm: str = "baseline", passages=()) -> Completion:
+                   arm: str = "baseline", passages=(), memories=(),
+                   history=(), callback_block: str = "") -> Completion:
     """One completion. Streams, exactly as production does, and accumulates.
 
     `passages` DEFAULTS TO EMPTY, which is production identity (RETRIEVAL-001:
@@ -241,13 +300,25 @@ async def generate(sample: Sample, plan: str, model: str,
     forced-injection arm, which supplies the top-1 chunk with NO threshold in
     order to test whether grounding passages raise distinctiveness at all. Every
     other arm's prompt is byte-unchanged by this parameter's existence.
+
+    `memories`, `history` and `callback_block` are the MEM2-C-1 seams, all empty
+    by default. `history` is the earlier turns of THIS conversation as
+    {"role", "content"} dicts; it is sent before the current message, as
+    stream_response sends lm_messages, and its length drives the shipped arm's
+    first-message / adaptive-band choice.
     """
     persona = PERSONA_REGISTRY[sample.persona_slug]
+    history = list(history)
     system, bridge_term = assemble_system(
         persona, sample.user_message, deep=sample.deep, arm=arm,
-        passages=passages,
+        passages=passages, memories=memories, history_len=len(history),
+        callback_block=callback_block,
     )
-    messages = [{"role": "user", "content": sample.user_message}]
+    # stream_response strips leading assistant turns (conversation_service.py:934)
+    # so the API always sees a user turn first. Same here.
+    while history and history[0]["role"] == "assistant":
+        history.pop(0)
+    messages = history + [{"role": "user", "content": sample.user_message}]
     sink: dict = {}
 
     buf: list[str] = []
@@ -257,9 +328,9 @@ async def generate(sample: Sample, plan: str, model: str,
             system=prompt_builder.split_system_for_cache(system),
             messages=messages,
             model=model,
-            # history is empty and nothing was dropped, so this is what
-            # production passes on a first turn: None for free, a breakpoint
-            # for pro. See conversation_service.py:170-195.
+            # Nothing was dropped (no history is long enough to hit the token
+            # budget), so this is what production passes: None for free, a
+            # breakpoint for pro. See conversation_service.py:170-195.
             cache_control=_history_cache_control(plan, False),
             _token_sink=sink,
         ):
