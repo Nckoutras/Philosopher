@@ -1249,9 +1249,15 @@ def _make_db_for_memory(message_count=0, ritual_id=None, safety_out_suppressed=F
     return _shape_dispatch_db(conv=conv), conv
 
 
-async def _run_stream_for_memory(db, arq_queue=None, safety_out_suppressed=False, is_admin=False):
-    """Run stream_response for memory extraction testing."""
-    service = ConversationService()
+async def _run_stream_for_memory(db, arq_queue=None, safety_out_suppressed=False, is_admin=False,
+                                 seeded_opening=False, daily_topic=None, service=None):
+    """Run stream_response for memory extraction testing.
+
+    `daily_topic` stubs the daily_questions lookup (UAT-TOPIC-001); None leaves the
+    real method, which the shape-dispatch db answers with no row."""
+    service = service or ConversationService()
+    if daily_topic is not None:
+        service._is_daily_topic = AsyncMock(return_value=daily_topic)
     saved = _saved_msg(role="assistant", msg_id=ASSISTANT_MSG_ID)
     # Distinct ids per role (MEM2-A): the enqueue carries [user id, assistant id],
     # and one shared mock for both would let a swapped pair pass the assertion.
@@ -1307,6 +1313,7 @@ async def _run_stream_for_memory(db, arq_queue=None, safety_out_suppressed=False
             user_plan="free",
             is_admin=is_admin,
             arq_queue=arq_queue,
+            seeded_opening=seeded_opening,
         ))
 
 
@@ -1458,6 +1465,55 @@ async def test_memory_extraction_no_error_when_queue_is_none():
     db, _ = _make_db_for_memory(message_count=0)
 
     await _run_stream_for_memory(db, arq_queue=None)
+
+
+def _user_kind(service):
+    calls = [c for c in service._save_message.call_args_list if c.args[3] == "user"]
+    assert len(calls) == 1
+    return calls[0].kwargs.get("message_kind", "standard")
+
+
+@pytest.mark.asyncio
+async def test_a_seeded_daily_topic_turn_is_marked_and_not_extracted():
+    """UAT-TOPIC-001: the card's auto-sent topic is the prompt, not the person's words."""
+    db, _ = _make_db_for_memory(message_count=0)
+    mock_queue = AsyncMock()
+    service = ConversationService()
+
+    await _run_stream_for_memory(db, arq_queue=mock_queue, seeded_opening=True,
+                                 daily_topic=True, service=service)
+
+    assert _user_kind(service) == "daily_topic"
+    service._is_daily_topic.assert_awaited_once()
+    assert _memory_jobs(mock_queue) == []
+
+
+@pytest.mark.asyncio
+async def test_a_seeded_topic_the_person_typed_is_still_extracted():
+    """Seeded, but not a daily_questions row: their own words, extracted as before."""
+    db, _ = _make_db_for_memory(message_count=0)
+    mock_queue = AsyncMock()
+    service = ConversationService()
+
+    await _run_stream_for_memory(db, arq_queue=mock_queue, seeded_opening=True,
+                                 daily_topic=False, service=service)
+
+    assert _user_kind(service) == "standard"
+    assert len(_memory_jobs(mock_queue)) == 1
+
+
+@pytest.mark.asyncio
+async def test_an_unseeded_turn_never_looks_up_daily_questions():
+    """The lookup costs a query; only a seeded first turn pays it."""
+    db, _ = _make_db_for_memory(message_count=0)
+    mock_queue = AsyncMock()
+    service = ConversationService()
+
+    await _run_stream_for_memory(db, arq_queue=mock_queue, daily_topic=True, service=service)
+
+    service._is_daily_topic.assert_not_awaited()
+    assert _user_kind(service) == "standard"
+    assert len(_memory_jobs(mock_queue)) == 1
 
 
 # ── create_cross_persona ──────────────────────────────────────────────────────

@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import func, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
-from models import Conversation, DailyUsage, Message, Persona, Ritual, SafetyEvent, SavedLine, User, WeeklyLetter
+from models import Conversation, DailyQuestion, DailyUsage, Message, Persona, Ritual, SafetyEvent, SavedLine, User, WeeklyLetter
 from personas import get_persona, is_persona_accessible
 from constants import TIER_ORDER
 from services.safety_service import crisis_language, safety_service
@@ -976,8 +976,17 @@ class ConversationService:
             # with an invitation — not a question. Gated to an empty prior history
             # so it never affects later turns.
             history_len = len(history)
+            is_daily_topic = False
             if seeded_opening and history_len == 0:
                 system_prompt = system_prompt + "\n\n" + SEEDED_OPENING_DIRECTIVE
+                # UAT-TOPIC-001: Quick start with an empty textarea seeds the day's
+                # topic itself (TodaysTopicCard: `trimmedTopic || dailyQuestion`). That
+                # text is the PROMPT, not the person's words, so it is marked and never
+                # extracted into memory. A topic the person typed is also seeded and
+                # stays 'standard': only a daily_questions row matches, active or not
+                # (a stale tab can send yesterday's). Decided here, not by a client
+                # flag, so a cached frontend is covered too.
+                is_daily_topic = await self._is_daily_topic(db, user_text)
 
             # Sticky DEEP MODE (read site). When the conversation's deep_mode flag is
             # on, a normal reply is deep (the persona's reflective band, exceeding the
@@ -1046,7 +1055,10 @@ class ConversationService:
             # ── 6. SAVE USER MESSAGE ─────────────────────────────────────────
             # Commit (not just flush) so the user turn is durably persisted
             # before the session is released for the token-stream phase.
-            user_msg = await self._save_message(db, conv, user_id, "user", user_text, safety_level=safety_in.level)
+            user_msg = await self._save_message(
+                db, conv, user_id, "user", user_text, safety_level=safety_in.level,
+                message_kind="daily_topic" if is_daily_topic else "standard",
+            )
             await db.commit()
 
             # Snapshot every value Phase B / Phase C / analytics need, while the
@@ -1383,7 +1395,12 @@ class ConversationService:
         # SAFETY-002 ruling C: a turn the judge released as DISTRESS writes NO memory
         # entries, so nothing from it is recalled later. DISCUSSING and
         # THIRD_PARTY_RISK releases extract as any "low" turn does today.
-        if not safety_out.should_suppress_persona and gate.outcome != "DISTRESS":
+        # UAT-TOPIC-001: a daily_topic turn writes NO memory entries either — the
+        # person said nothing in it. Their reply to the topic is the next turn, and
+        # it extracts normally (that job never sees this turn's text).
+        if is_daily_topic:
+            logger.info("daily_topic_turn conv=%s extraction=skipped", conversation_id)
+        elif not safety_out.should_suppress_persona and gate.outcome != "DISTRESS":
             # Dilemma/belief signal insights are only promoted when the WHOLE exchange
             # was safety-clean; pass that as a trailing flag (the task defaults it False,
             # so a stale-queued job without the arg stays safe).
@@ -2038,6 +2055,21 @@ class ConversationService:
                         continue
             out.append({"role": m.role, "content": m.content})
         return out
+
+    async def _is_daily_topic(self, db, user_text: str) -> bool:
+        """True when the text IS a daily_questions row (UAT-TOPIC-001).
+
+        Exact match after trimming both sides. The card sends the stored string
+        bare, so anything looser would start catching words the person typed."""
+        candidate = (user_text or "").strip()
+        if not candidate:
+            return False
+        result = await db.execute(
+            select(DailyQuestion.id)
+            .where(func.btrim(DailyQuestion.question_text) == candidate)
+            .limit(1)
+        )
+        return result.scalar_one_or_none() is not None
 
     async def _save_message(
         self, db, conv, user_id, role, content,
