@@ -2539,6 +2539,22 @@ matters on suicide, read against SAFETY-009's classification rules.
 
 ---
 
+### TD-123 — other surfaces still read an auto-sent daily topic as the person's words — **OPEN, logged (UAT-TOPIC-001)**
+**Status: OPEN, logged 2026-10-12.** UAT-TOPIC-001 PR-A stops the topic turn reaching
+memory extraction, and marks it `message_kind='daily_topic'`. Everything else that reads
+`role='user'` text still takes it as something the person said:
+- weekly letters (`workers/letter_dispatch.py`);
+- mirrors (`services/insight_mirror_service.py`);
+- trajectory snapshots (`workers/trajectory_snapshot.py`);
+- You-vs-You (`services/self_comparison_service.py`);
+- counterview (`services/counterview_service.py`);
+- conclusion and Council summaries (`workers/arq_worker.py` conclusion job,
+  `services/council_service.py`).
+
+Each is now a one-line filter (`Message.message_kind != 'daily_topic'`, or the
+list-comprehension equivalent). Not done in PR-A because its scope was extraction.
+Rows from before PR-A deploys stay `standard`; a filter alone does not cover them.
+
 ### TD-122 — the data export omits the insight verdict (`ring_true`, `ring_true_at`) — **OPEN, logged (MEM2-B2)**
 **Status: OPEN, logged 2026-10-03.** `services/data_export_service.py` exports each
 insight's content, type, theme, evidence and dismissal, and since B2 its
@@ -6289,6 +6305,55 @@ C-3b); the L2 watch item (read in the 24h check, no code); multi-turn recall (ME
 only, zero production change. The draft callback directive lives under `evals/`, not
 `prompts/`, and its copy is approved before anything uses it. No C-2 brief until the
 C-1 numbers are in.
+
+### UAT-TOPIC-001 — auto-sent daily topics were stored, and remembered, as the person's own words — **PR-A BUILT (prevention); PR-B OWED (cleanup, ⛔, migration 075)**
+**Found by:** the UAT-D1 investigation (2026-10-12) into two "wrong-context" outputs on
+`nckoutras+uatpro1`. Neither was a context bug. Quick start with an empty textarea seeds
+the day's topic itself (`TodaysTopicCard.tsx:66`, `trimmedTopic || dailyQuestion`), it
+is auto-sent as the first user turn, and the reply the tester judged off-topic was the
+reply to that topic.
+
+**The defect that matters.** The topic was stored as an ordinary `role=user` message,
+and `extract_memory_task` attributed its claim to the person. Measured on Oregon,
+2026-10-12, read-only:
+- **47 topic messages**, every one a thread's first user turn: 41 verbatim
+  `daily_questions` rows, 6 with the since-retired tail "Let's think through this
+  together — where would you start?".
+- **91 memory rows** from those turns, **85 active**. 17 are linked by
+  `source_message_ids`; 74 predate it (070) and are matched by timing (after the topic,
+  before the next user message). Both rules agreed on every row where both apply.
+- By account: nkoutr@ote.gr 35, nckoutras@gmail.com 26, komninos@grind.gr 3,
+  marialenavarv@yahoo.com 3, nckoutras+uatpro1 17 (6 already superseded),
+  nkoutr@telekom.gr 3, nckoutras+testn 2, nckoutras+pro1 2.
+- No topic row ever retired a genuine row through B5; none is referenced by a callback
+  or an insight.
+
+**Rulings (founder, 2026-10-12):** server-side detection; `message_kind='daily_topic'`;
+skip extraction for that turn only; cleanup to a new `inactive_reason`
+`not_user_words`; all 85 active rows, every account; the 6 superseded rows stay as they
+are.
+
+**PR-A (prevention, no migration).** On a seeded first turn (`seeded_opening` and no
+prior history), `stream_response` looks the text up in `daily_questions`, exact after
+trimming, active or not. A match saves the user row as `message_kind='daily_topic'` and
+skips the `extract_memory_task` enqueue for that turn, logging `daily_topic_turn
+conv=<id> extraction=skipped`. The title job is unchanged. A topic the person typed is
+also seeded but matches no row, so it stays `standard` and extracts. The reply to the
+topic is the next turn and extracts normally; that job never sees the topic text. Tests:
+3 unit, 4 `db_live` through the real route (first CI run is this PR's).
+
+**PR-B (cleanup, ⛔ WAIT FOR REPORT).** Migration `075_not_user_words` widens
+`ck_memory_entries_inactive_reason`; a scoped UPDATE retires the 85 rows, with counts on
+both sides. **Target: merged by 2026-10-13 EOD**, so Area C memory probes (2026-10-14)
+run on clean memory. Rotation is owed after it (migration).
+
+**Post-merge check (PR-A), owed the day it deploys:** Quick start with the textarea
+empty, on any mind. Expected: the user row reads `message_kind='daily_topic'`, the
+worker log has no `extract_memory_task` for that conversation's first turn, the API log
+has `daily_topic_turn … extraction=skipped`, and a typed reply then creates memory rows
+whose `source_message_ids[1]` is the reply.
+
+**Left open:** TD-123 (other surfaces still read the topic as the person's words).
 
 ### PARKED — founder safety alerting — **PARKED (founder, 2026-10-02). No work.**
 **Revisit only when the founder raises it.** An idea, recorded so it is not lost and is
