@@ -981,10 +981,12 @@ DEDUP_CANDIDATE_SQL = f"""
 """
 
 
-# The survivor's supersession chain length, walking supersedes_memory_id back.
-# An aggregate with no GROUP BY returns ONE row even over zero input rows, so the
-# COALESCE turns "no chain" into 0 rather than NULL. The depth cap only bounds a
-# cycle, which no writer creates.
+# A row's supersession chain, walking supersedes_memory_id back: its length, and
+# its ROOT, the original link-less ancestor (MEM2-B5.2). The deepest next_id is the
+# root, because the walk stops at the first row with no link. Every column is a
+# scalar subquery, so the result is ONE row even with no chain: depth 0, root NULL.
+# The depth cap only bounds a cycle, which no writer creates. The first column is
+# the depth, so `.scalar_one()` still reads it.
 CHAIN_DEPTH_SQL = """
     WITH RECURSIVE chain(next_id, depth) AS (
         SELECT supersedes_memory_id, 1
@@ -995,9 +997,20 @@ CHAIN_DEPTH_SQL = """
         FROM memory_entries m
         JOIN chain c ON m.id = c.next_id
         WHERE m.supersedes_memory_id IS NOT NULL AND c.depth < 100
-    )
-    SELECT COALESCE(MAX(depth), 0) AS depth FROM chain
+    ),
+    root AS (SELECT next_id FROM chain ORDER BY depth DESC LIMIT 1)
+    SELECT (SELECT COALESCE(MAX(depth), 0) FROM chain) AS depth,
+           (SELECT next_id::text FROM root) AS root_id,
+           (SELECT m.content FROM memory_entries m JOIN root r ON m.id = r.next_id)
+               AS root_content
 """
+
+# MEM2-B5.2 (ruling 2026-10-13). When the NEW row would retire a candidate whose
+# chain behind it is already this deep, the new row is also judged against the
+# chain's ROOT before anything is written. Each pairwise step can be a genuine
+# restatement while the survivor drifts from what the person first said; the root
+# is the only row that holds what they first said.
+ROOT_CHECK_DEPTH = 3
 
 
 def _cosine(u, v) -> float:
@@ -1035,7 +1048,8 @@ def inherited_echo(survivor_count: int | None, survivor_last: datetime | None,
 def _log_dedup(verdict: str, *, kept: str, retired: str, user_id, new_id=None,
                candidate_id=None, score: float | None = None,
                more_specific: str | None = None, note: str | None = None,
-               chain_depth: int | None = None) -> None:
+               chain_depth: int | None = None, root_id: str | None = None,
+               root_verdict: str | None = None) -> None:
     """Every B5 decision on ONE template, so "how often does it retire, keep both,
     flag, fail" is a log query. Ids and scores only — never row content.
     A CONTRADICTION is the flag the ruling asks for, so it logs at WARNING.
@@ -1043,14 +1057,20 @@ def _log_dedup(verdict: str, *, kept: str, retired: str, user_id, new_id=None,
     `chain_depth` is set on every RETIREMENT (amendment 2, 2026-10-03): the
     survivor's supersession chain length after the write. A wrong retirement is
     found by reading back down a chain, so its length is what makes the
-    wrong-retirement rate measurable from the logs."""
+    wrong-retirement rate measurable from the logs.
+
+    THE TWO GUARDS SHARE THIS SHAPE (B5.2). note=dedup_ratchet_guard and
+    note=dedup_root_divergence both carry chain_depth = the CANDIDATE's chain
+    length and root = that chain's root. root_verdict is the root judge call's
+    verdict, set only when that call was made (on a root-checked retirement too)."""
     logger.log(
         logging.WARNING if verdict == "CONTRADICTION" else logging.INFO,
         "dedup_judge verdict=%s kept=%s retired=%s user=%s new=%s candidate=%s"
-        " score=%s more_specific=%s chain_depth=%s note=%s",
+        " score=%s more_specific=%s chain_depth=%s root=%s root_verdict=%s note=%s",
         verdict, kept, retired, user_id, new_id or "-", candidate_id or "-",
         f"{score:.3f}" if score is not None else "-", more_specific or "-",
-        chain_depth if chain_depth is not None else "-", note or "-",
+        chain_depth if chain_depth is not None else "-", root_id or "-",
+        root_verdict or "-", note or "-",
     )
 
 
@@ -1522,6 +1542,17 @@ class MemoryService:
         first, i.e. the stored row; without the guard one row could absorb restatement
         after restatement and grow a chain on that bias alone.
 
+        THE ROOT-DIVERGENCE GUARD (B5.2, ruling 2026-10-13) covers the other
+        direction. The ratchet guard stops an OLD row absorbing again; nothing
+        stopped a NEW row retiring an old one that is itself the head of a chain, so
+        chains grew without bound (8 deep in production, 2026-10-12). Each step can
+        be a genuine restatement while the survivor drifts from what the person
+        first said. So when the new row would retire a candidate whose chain behind
+        it is >= ROOT_CHECK_DEPTH, the new row is judged ONCE more, against the
+        chain's root, by the same frozen prompt. RESTATEMENT retires as normal.
+        Anything else, a failed call included, keeps both
+        (note=dedup_root_divergence). At most one extra call per candidate.
+
         FAIL-OPEN (ruling). A judge failure retires nothing for that row. Any
         other error rolls back that row's SAVEPOINT — never the session, whose
         rollback would expire the new rows that detect_recurrence and the signal
@@ -1605,16 +1636,46 @@ class MemoryService:
                            note=verdict.fail_kind, **log)
                 return 0, judged  # fail-open: nothing retired for this row
             loser = dedup_judge.dedup_outcome(verdict)
-            if loser == "new" and cand.supersedes_memory_id is not None:
+            # The candidate's own chain, read only when it has one: a link is the
+            # condition of both guards below.
+            chain = None
+            if loser is not None and cand.supersedes_memory_id is not None:
+                chain = (await db.execute(
+                    text(CHAIN_DEPTH_SQL), {"survivor_id": cand.id},
+                )).one()
+            guard_log = dict(chain_depth=int(chain.depth), root_id=chain.root_id) if chain else {}
+            if loser == "new" and chain is not None:
                 # Ratchet guard (amendment 1): treated as DISTINCT, before any write.
                 _log_dedup(verdict.verdict, kept="both", retired="none",
                            more_specific=verdict.more_specific,
-                           note="dedup_ratchet_guard", **log)
+                           note="dedup_ratchet_guard", **guard_log, **log)
                 continue
             if loser is None:
                 _log_dedup(verdict.verdict, kept="both", retired="none",
                            more_specific=verdict.more_specific, **log)
                 continue
+            root_verdict = None
+            if loser == "old" and chain is not None and chain.depth >= ROOT_CHECK_DEPTH:
+                # Root-divergence guard (B5.2): the new row must still restate the
+                # chain's ROOT, judged by the same frozen prompt, before any write.
+                # Only the verdict counts; more_specific of this call is unused.
+                # A failed call keeps both and stops the row, as a failed pair does.
+                # A root with no content (only a race could cause it: depth >= 3
+                # means the row exists) is treated as a failed call, never sent.
+                failed = chain.root_content is None
+                if not failed:
+                    rv = await dedup_judge.judge_pair(chain.root_content, entry.content)
+                    judged += 1
+                    failed = rv.failed
+                root_verdict = "error" if failed else rv.verdict
+                if root_verdict != "RESTATEMENT":
+                    _log_dedup(verdict.verdict, kept="both", retired="none",
+                               more_specific=verdict.more_specific,
+                               root_verdict=root_verdict, note="dedup_root_divergence",
+                               **guard_log, **log)
+                    if failed:
+                        return 0, judged
+                    continue
             note = await self._supersede(db, user_id, entry, cand, loser)
             if note is not None:
                 _log_dedup(verdict.verdict, kept="both", retired="none",
@@ -1626,7 +1687,9 @@ class MemoryService:
             )).scalar_one()
             _log_dedup(verdict.verdict, kept="new" if loser == "old" else "old",
                        retired=loser, more_specific=verdict.more_specific,
-                       chain_depth=int(depth), **log)
+                       chain_depth=int(depth),
+                       root_id=chain.root_id if root_verdict else None,
+                       root_verdict=root_verdict, **log)
             return 1, judged
         return 0, judged
 
