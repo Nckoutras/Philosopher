@@ -40,6 +40,7 @@ mixed transcript is a vote the model wins.
 Run: cd apps/api && pytest tests/test_last_prompt_language.py -v
 """
 import json
+from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -452,6 +453,12 @@ def test_both_callers_pass_the_persons_verbatim_words():
     assert "language=_dominant_language([belief])" in belief
 
 
+async def _old_enough(db, ids):
+    now = datetime.now(timezone.utc)
+    return {i: {"created_at": now if i == "e1" else now - timedelta(hours=48), "user_md5": None}
+            for i in ids}
+
+
 async def _recurrence(monkeypatch, language, shift_reply, fallback_reply="Το ίδιο ερώτημα επιστρέφει ξανά, όπως και πριν από εβδομάδες."):
     """Drive detect_recurrence from the classify call onward, with detection
     stubbed to a fixed match set."""
@@ -482,7 +489,13 @@ async def _recurrence(monkeypatch, language, shift_reply, fallback_reply="Το �
                                                  conversation_id="other")]
     db.execute = AsyncMock(return_value=rows)
 
+    # INS-002: before a card is written, detect_recurrence reads each row's age and
+    # source message (match_provenance). This harness drives the CARD path, so it
+    # answers that read explicitly: every prior row 48h older than the new one and
+    # from a different message, so the filters pass on purpose rather than by
+    # accident. The filters themselves are tested in test_insight_integrity.py.
     monkeypatch.setattr(ms.memory_service, "_insight_gate_blocked", gate)
+    monkeypatch.setattr(ms, "match_provenance", _old_enough)
     with patch("services.llm_client.llm_client.complete", new=complete):
         await ms.memory_service.detect_recurrence(
             db=db, user_id=USER_ID, conversation_id=CONV_ID, persona_id="p1",

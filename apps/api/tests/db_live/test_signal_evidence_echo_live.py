@@ -319,6 +319,13 @@ async def test_a_recurrence_card_records_kind_recurrence_and_still_counts(live):
         new_conv = await _make_conversation(s, uid)
         anchor = await _make_memory(s, uid, "the anchor", FAKE_EMBEDDING, old_conv)
         new_a = await _make_memory(s, uid, "new a", FAKE_EMBEDDING, new_conv)
+        # INS-002 (2026-10-13): a card counts only a prior row >= 24h older than the
+        # new one. Written seconds apart, this anchor would earn no card — which is
+        # exactly the UAT D2-003 case — so it is aged past the window here.
+        await s.execute(
+            text("UPDATE memory_entries SET created_at = now() - interval '2 days' WHERE id = :id"),
+            {"id": anchor},
+        )
         await s.commit()
 
     classify = AsyncMock(return_value=json.dumps(

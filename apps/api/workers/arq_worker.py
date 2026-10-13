@@ -924,6 +924,7 @@ async def extract_memory_task(
                     db, user_id, conversation_id, persona_id,
                     entries.signals, entries.language,
                     saved_rows=list(entries), source_message_ids=source_message_ids,
+                    user_text=user_text,
                 )
                 if written:
                     await db.commit()

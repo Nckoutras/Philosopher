@@ -27,6 +27,7 @@ os.environ.setdefault("ANTHROPIC_API_KEY", "test-dummy")
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 import json
+from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -54,6 +55,12 @@ def _match(mid, conv, score, text):
     return SimpleNamespace(id=mid, content=text, conversation_id=conv, score=score)
 
 
+async def _old_enough(db, ids):
+    now = datetime.now(timezone.utc)
+    return {i: {"created_at": now if i == "e1" else now - timedelta(hours=48), "user_md5": None}
+            for i in ids}
+
+
 async def _run(matches, *, entry_conv=CONV_ID):
     """Drive detect_recurrence from detection onward against a fixed match set."""
     added = []
@@ -73,7 +80,13 @@ async def _run(matches, *, entry_conv=CONV_ID):
     async def complete(**kw):
         return CLASSIFIED
 
+    # INS-002: before a card is written, detect_recurrence reads each row's age and
+    # source message (match_provenance). This harness drives the CARD path, so it
+    # answers that read explicitly: every prior row 48h older than the new one and
+    # from a different message, so the filters pass on purpose rather than by
+    # accident. The filters themselves are tested in test_insight_integrity.py.
     with patch.object(ms.memory_service, "_insight_gate_blocked", new=AsyncMock(return_value=None)), \
+         patch.object(ms, "match_provenance", new=_old_enough), \
          patch("services.llm_client.llm_client.complete", new=complete):
         await ms.memory_service.detect_recurrence(
             db=db, user_id=USER_ID, conversation_id=CONV_ID, persona_id="p1",
@@ -169,13 +182,23 @@ async def test_the_detector_constants_are_recorded_at_write_time():
     assert det["limit"] == 20
 
 
-async def test_the_window_is_null_because_this_detector_is_lifetime():
-    """Reserved for the period-filtered caller. NULL means lifetime, which is what
-    this detector is and must stay: "you raised this in March and again today" is
-    the observation worth having, and a window would destroy exactly that."""
+async def test_the_window_records_the_24h_minimum_age_and_the_corpus_stays_lifetime():
+    """INS-002 (ruling R6, 2026-10-13) changed what this test pins. Until then the
+    window was NULL: this detector searches a lifetime corpus, and "you raised
+    this in March and again today" is the observation worth having.
+
+    That reason still holds, and the second assertion keeps it: the SEARCH is still
+    lifetime, with no corpus bound passed to find_recurrences. What changed is the
+    CARD. A prior row must now be at least 24h older than the new one, and the
+    ruling records that minimum age in this field. March still counts; two seconds
+    ago does not. So "24h" here means a minimum age, not a corpus bound, which is
+    what a {since, until} window means on the snapshot's evidence."""
     added = await _run([_match("m1", "conv-a", 0.91, "an earlier row")])
 
-    assert added[0].evidence["detector"]["window"] is None
+    assert added[0].evidence["detector"]["window"] == "24h"
+    import inspect
+    assert "corpus_" not in inspect.getsource(ms.MemoryService.detect_recurrence), \
+        "the detector's search must stay lifetime: no corpus bound"
 
 
 def test_the_recurrence_query_selects_the_id_and_a_mock_cannot_tell_you_that():

@@ -168,7 +168,9 @@ async def test_promotion_spends_the_signal_budget_and_reports_the_write():
     signals = json.loads(EXTRACTION)
     with patch("services.memory_service.output_is_unsafe", new=AsyncMock(return_value=False)), \
          patch.object(memory_service, "_insight_gate_blocked", new=AsyncMock(return_value=None)) as gate:
-        written = await memory_service.promote_signal_insight(db, USER, CONV, "p1", signals, "English")
+        written = await memory_service.promote_signal_insight(
+            db, USER, CONV, "p1", signals, "English", user_text="I need to prove myself.",
+        )
     assert written is True
     assert [type(o).__name__ for o in added] == ["Insight"]
     assert added[0].insight_type == "belief"
@@ -187,6 +189,7 @@ async def test_a_blocked_promotion_writes_nothing_and_says_so():
          patch.object(memory_service, "_insight_gate_blocked", new=AsyncMock(return_value="throttle")):
         written = await memory_service.promote_signal_insight(
             db, USER, CONV, "p1", json.loads(EXTRACTION), "English",
+            user_text="I need to prove myself.",
         )
     assert written is False and added == []
 
@@ -211,9 +214,10 @@ async def test_the_task_runs_recurrence_before_the_signal_promotion():
         order.append(("recurrence", None))
 
     async def promote(db, user_id, conversation_id, persona_id, signals, language,
-                      *, saved_rows=None, source_message_ids=None):
+                      *, saved_rows=None, source_message_ids=None, user_text):
         order.append(("signal", signals))
-        handed.update(saved_rows=saved_rows, source_message_ids=source_message_ids)
+        handed.update(saved_rows=saved_rows, source_message_ids=source_message_ids,
+                      user_text=user_text)
         return True
 
     handed = {}
@@ -230,8 +234,10 @@ async def test_the_task_runs_recurrence_before_the_signal_promotion():
     assert [o[0] for o in order] == ["extract", "recurrence", "signal"]
     assert order[0][1] is False, "the task defers the signal write to itself"
     assert order[2][1] == result.signals
-    # MEM2-B3: the promotion is handed what its evidence needs.
-    assert handed == {"saved_rows": list(result), "source_message_ids": ["m1", "m2"]}
+    # MEM2-B3: the promotion is handed what its evidence needs. INS-001: and the
+    # person's own message, which the 5-word check compares the card against.
+    assert handed == {"saved_rows": list(result), "source_message_ids": ["m1", "m2"],
+                      "user_text": "text"}
 
 
 @pytest.mark.asyncio

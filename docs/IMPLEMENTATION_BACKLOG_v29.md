@@ -2539,6 +2539,9 @@ matters on suicide, read against SAFETY-009's classification rules.
 
 ---
 
+### TD-126 — `POST /insights/{id}/reflect` ignores `is_dismissed` — **OPEN, logged (INS-001/002/003)**
+**Status: OPEN, logged 2026-10-13.** `generate_insight_mirror` (`services/insight_mirror_service.py:63-72`) loads the insight by id and owner only, so a direct call still generates or returns a mirror for a dismissed card; the UI no longer offers the door once the card is gone. Fix alongside TD-111.
+
 ### TD-125 — a 'no' (R3) retires only the cited rows, never their supersession successors — **OPEN, numbered (MEM2-B5.2)**
 **Status: OPEN.** Recorded as an unnumbered finding in MEM2-B5 (2026-10-03); numbered
 2026-10-13. `reject_cited_memories` (`services/memory_service.py`) retires

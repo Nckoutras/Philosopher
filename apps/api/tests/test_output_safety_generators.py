@@ -31,7 +31,7 @@ Run: cd apps/api && pytest tests/test_output_safety_generators.py -v
 import ast
 import inspect
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -546,6 +546,12 @@ async def test_a_clean_signal_insight_is_written():
     assert len(db.of(Insight)) == 1
 
 
+async def _old_enough(db, ids):
+    now = datetime.now(timezone.utc)
+    return {i: {"created_at": now if i == "e1" else now - timedelta(hours=48), "user_md5": None}
+            for i in ids}
+
+
 async def _recurrence(content):
     async def complete(**kw):
         return json.dumps({"insight_type": "pattern", "content": content})
@@ -556,7 +562,13 @@ async def _recurrence(content):
     rows.fetchall.return_value = [SimpleNamespace(id="m1", score=0.99, content="an older row",
                                                   conversation_id="other")]
     db = _Recorder([rows])
+    # INS-002: before a card is written, detect_recurrence reads each row's age and
+    # source message (match_provenance). This harness drives the CARD path, so it
+    # answers that read explicitly: every prior row 48h older than the new one and
+    # from a different message, so the filters pass on purpose rather than by
+    # accident. The filters themselves are tested in test_insight_integrity.py.
     with patch.object(ms.memory_service, "_insight_gate_blocked", AsyncMock(return_value=None)), \
+         patch.object(ms, "match_provenance", new=_old_enough), \
          patch("services.llm_client.llm_client.complete", new=complete):
         await ms.memory_service.detect_recurrence(
             db=db, user_id=USER_ID, conversation_id=CONV_ID, persona_id="p1",
