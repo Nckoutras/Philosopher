@@ -2566,7 +2566,9 @@ memory extraction, and marks it `message_kind='daily_topic'`. Everything else th
 
 Each is now a one-line filter (`Message.message_kind != 'daily_topic'`, or the
 list-comprehension equivalent). Not done in PR-A because its scope was extraction.
-Rows from before PR-A deploys stay `standard`; a filter alone does not cover them.
+~~Rows from before PR-A deploys stay `standard`; a filter alone does not cover them.~~
+**Superseded 2026-10-13:** migration 075 (#791) re-marked all 47 historical topic turns
+`daily_topic` (production SELECT, 0 left `standard`), so the filter now covers them too.
 
 ### TD-122 — the data export omits the insight verdict (`ring_true`, `ring_true_at`) — **OPEN, logged (MEM2-B2)**
 **Status: OPEN, logged 2026-10-03.** `services/data_export_service.py` exports each
@@ -6198,7 +6200,7 @@ Undecided.
 offered row recall did not return (D1). With recall at 0.45 that append fires less
 often; nothing in C-2 depends on the recall floor's value. C-2 rebases onto this.
 
-### MEM2-C — Phase C rulings record (founder, 2026-10-05) — **C-1 MERGED (#783); C-2 MERGED (#785), flag OFF on both services; C-3a BUILT (PR pending)**
+### MEM2-C — Phase C rulings record (founder, 2026-10-05) — **C-1 MERGED (#783); C-2 MERGED (#785); C-3a MERGED (#788), canary flag reported ON (0 offers by 2026-10-13, see PROJECT_STATE v32 §1b)**
 
 **Why this entry exists.** Phase C is a persona explicitly calling back something the
 user said in an earlier conversation, at the prompt level, behind a relevance gate. The
@@ -6310,6 +6312,31 @@ Backlog items, not C: Haiku recites self-portrait/onboarding taps as traits unde
   - Used rate, diagnostic only: outside 20–85% = investigate detector or gate.
 - **Volume, so the minimums are read in offers, not days:** the 7-day per-user cooldown
   caps the canary at about one offer per active account per week.
+
+**UAT Pro test accounts (recorded 2026-10-13; the grant was made 2026-10-05).**
+`nckoutras+uatpro1`, `+uatpro2` and `+uatpro3@gmail.com`: comp grant, plan `pro`,
+status `active`, no Stripe subscription id, `current_period_end` **2026-10-19 17:14:51
+UTC**. The reviewer ran the grant through the Supabase connector. It was first verified
+by SELECT in the v32 rotation.
+
+**Founder ruling, 2026-10-13:**
+- the grants are extended through **2026-11-04**, which is the canary's day 30;
+- the C-3b day-30 judgement on this synthetic traffic is **indicative only**;
+- the binding C-3b verdict comes from Phase 3 real users.
+
+The database still read 2026-10-19 at 08:06 UTC, so the extending UPDATE on
+`current_period_end` is **owed before 2026-10-19**.
+
+**Canary status, 2026-10-13 (PROJECT_STATE v32 §1b).** `memory_callbacks` holds **0**
+rows. Since #788 merged, there have been 33 Pro turns from 2 accounts, and none was
+eligible:
+- `uatpro1`: every row was younger than `MIN_ROW_AGE` at every turn;
+- `testn`: one daily-topic turn, after 075 had retired that account's only aged rows.
+
+`CALLBACKS_ENABLED=true` on philosopher-api is FOUNDER-REPORTED, and was not read from
+Render. The 24-hour check owed 2026-10-06 has no record. `uatpro1`'s rows are now past
+the age minimum, so the UAT Area C and D probes (2026-10-14 and 2026-10-16) are the
+first turns that can produce an offer.
 
 **Still owed after C-3a:** the Ruling 9 "independent proposition" exception (before
 C-3b); the L2 watch item (read in the 24h check, no code); multi-turn recall (MEM3).
