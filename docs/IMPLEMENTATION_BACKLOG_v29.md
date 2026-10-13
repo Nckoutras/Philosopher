@@ -2539,6 +2539,19 @@ matters on suicide, read against SAFETY-009's classification rules.
 
 ---
 
+### TD-124 — `PATCH /memory/{id}` reactivates an inactive row whatever its reason — **OPEN, logged (UAT-TOPIC-001 PR-B)**
+**Status: OPEN, logged 2026-10-13. Note only, no code change.** `routers/memory.py:80-82`
+sets `is_active` from the body and clears `inactive_reason` on reactivation. That applies
+to every reason: `not_user_words` (075), `superseded`, `user_rejected`, and the person's
+own `user_removed`. The query is scoped to the owner, so only the person's own rows are
+affected, but a row retired because the person never said it, or one the person rejected,
+comes back as an active memory with no record of why it was off.
+
+No web caller today: `lib/api.ts` calls only `GET /memory`, `DELETE /memory/{id}` and
+`POST /memory/callbacks/{id}/reject` (read 2026-10-13). **It becomes a data-integrity hole
+when the TD-111 memory screen is built.** Reactivation will need a reason-aware allowlist,
+probably `user_removed` only. Fix it with that screen, not before it.
+
 ### TD-123 — other surfaces still read an auto-sent daily topic as the person's words — **OPEN, logged (UAT-TOPIC-001)**
 **Status: OPEN, logged 2026-10-12.** UAT-TOPIC-001 PR-A stops the topic turn reaching
 memory extraction, and marks it `message_kind='daily_topic'`. Everything else that reads
@@ -6306,7 +6319,7 @@ only, zero production change. The draft callback directive lives under `evals/`,
 `prompts/`, and its copy is approved before anything uses it. No C-2 brief until the
 C-1 numbers are in.
 
-### UAT-TOPIC-001 — auto-sent daily topics were stored, and remembered, as the person's own words — **PR-A BUILT (prevention); PR-B OWED (cleanup, ⛔, migration 075)**
+### UAT-TOPIC-001 — auto-sent daily topics were stored, and remembered, as the person's own words — **PR-A MERGED (#790, prevention); PR-B BUILT (cleanup, ⛔, migration 075)**
 **Found by:** the UAT-D1 investigation (2026-10-12) into two "wrong-context" outputs on
 `nckoutras+uatpro1`. Neither was a context bug. Quick start with an empty textarea seeds
 the day's topic itself (`TodaysTopicCard.tsx:66`, `trimmedTopic || dailyQuestion`), it
@@ -6342,18 +6355,32 @@ also seeded but matches no row, so it stays `standard` and extracts. The reply t
 topic is the next turn and extracts normally; that job never sees the topic text. Tests:
 3 unit, 4 `db_live` through the real route (first CI run is this PR's).
 
-**PR-B (cleanup, ⛔ WAIT FOR REPORT).** Migration `075_not_user_words` widens
-`ck_memory_entries_inactive_reason`; a scoped UPDATE retires the 85 rows, with counts on
-both sides. **Target: merged by 2026-10-13 EOD**, so Area C memory probes (2026-10-14)
-run on clean memory. Rotation is owed after it (migration).
+**PR-B (cleanup, ⛔ WAIT FOR REPORT) — BUILT 2026-10-13.** Migration `075_not_user_words`,
+one transaction: widens `ck_memory_entries_inactive_reason`; retires every ACTIVE
+topic-derived row on every account to `not_user_words` (already-inactive rows keep their
+reason); re-marks every topic turn still `standard` as `daily_topic`. The rule is Step 0's,
+as SQL, and the topic match includes the June tail. It is not given production's numbers.
+It counts, applies, and recounts, and raises (rolling back to 074) unless retired = active
+derived rows before, marked = `standard` topic turns before, and both are zero after. Its
+own `COUNT_SQL`, run read-only on Oregon on 2026-10-13: 47 turns, 47 `standard`, 91 derived
+rows, 85 active, per-account split as above, 0 callbacks. Downgrade reactivates the
+`not_user_words` rows and narrows the constraint. It leaves message marks alone, since
+they are indistinguishable from PR-A's. Tests: `tests/db_live/test_not_user_words_075.py`,
+which runs the migration's statements, and the real upgrade/downgrade through alembic.
+**Target: merged by 2026-10-13 EOD**, so Area C memory probes (2026-10-14) run on clean
+memory. Rotation is owed after it (migration).
 
 **Post-merge check (PR-A), owed the day it deploys:** Quick start with the textarea
 empty, on any mind. Expected: the user row reads `message_kind='daily_topic'`, the
 worker log has no `extract_memory_task` for that conversation's first turn, the API log
 has `daily_topic_turn … extraction=skipped`, and a typed reply then creates memory rows
 whose `source_message_ids[1]` is the reply.
+**OUTSTANDING (read 2026-10-13 06:51 UTC):** not run, and not runnable from data. Oregon has
+zero user messages and zero conversations since #790 merged (2026-10-12 14:49 UTC), and
+zero `daily_topic` rows. It needs one person to do a Quick start.
 
-**Left open:** TD-123 (other surfaces still read the topic as the person's words).
+**Left open:** TD-123 (other surfaces still read the topic as the person's words);
+TD-124 (`PATCH /memory` can reactivate a `not_user_words` row; no web caller yet).
 
 ### PARKED — founder safety alerting — **PARKED (founder, 2026-10-02). No work.**
 **Revisit only when the founder raises it.** An idea, recorded so it is not lost and is
