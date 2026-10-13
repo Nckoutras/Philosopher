@@ -303,6 +303,23 @@ Lessons that updated this protocol:
   — applied to SQL, which is the kind of doc claim that looks most like code and
   is least often re-run.
 
+- **2026-10-05 (Sentry PHILOSOPHER-API-F, fixed in #789)**: `extract_memory_task`
+  crashed with an `AttributeError` on every turn whose model output did not parse.
+  It had been latent since #776. That PR introduced `ExtractionResult` and the reads of
+  `.safety_ok` / `.signals` / `.language` on it, but left the parse-failure path's
+  `return []`. The suite stayed green throughout, because the task's test harness
+  mocked `extract_and_store` with a complete, hand-built result. No test ran the path
+  that broke.
+
+  Lesson (founder, 2026-10-05, verbatim): **"A test that mocks a producer with a
+  hand-built complete return can never see the producer's failure path — for every
+  mocked producer, one test runs the real producer on bad input."**
+
+  This is C-06's mirror image. C-06 says a mock must set every field the code under
+  test *reads*. That makes a mock complete, and a complete mock is exactly what hid
+  this: it described the success path of a producer whose failure path had a
+  different shape.
+
 ## Future-proof first, shortcuts second
 
 Every proposal — code, schema, architecture — must be evaluated against
