@@ -364,14 +364,14 @@ class MemoryEntry(Base):
     user: Mapped["User"] = relationship("User", back_populates="memory_entries")
 
     __table_args__ = (
-        # Kept in step with 070; a db_live test compares these literals against
+        # Kept in step with 070 and 075; a db_live test compares these literals against
         # pg_get_constraintdef (the ck_insights_ring_true precedent).
         CheckConstraint(
             "provenance IN ('user_stated', 'user_selected', 'system_inferred')",
             name="ck_memory_entries_provenance",
         ),
         CheckConstraint(
-            "inactive_reason IN ('superseded', 'user_removed', 'user_rejected')",
+            "inactive_reason IN ('superseded', 'user_removed', 'user_rejected', 'not_user_words')",
             name="ck_memory_entries_inactive_reason",
         ),
     )

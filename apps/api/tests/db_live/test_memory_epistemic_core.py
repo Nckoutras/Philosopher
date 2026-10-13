@@ -47,7 +47,7 @@ from test_memory_recall_and_cascades import _make_conversation, _make_user  # no
 API_DIR = Path(__file__).resolve().parent.parent.parent
 
 PROVENANCE = {"user_stated", "user_selected", "system_inferred"}
-INACTIVE_REASONS = {"superseded", "user_removed", "user_rejected"}
+INACTIVE_REASONS = {"superseded", "user_removed", "user_rejected", "not_user_words"}  # 075
 NEW_COLUMNS = {
     "provenance", "source_surface", "source_message_ids",
     "supersedes_memory_id", "inactive_reason",
