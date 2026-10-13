@@ -101,9 +101,10 @@ async def _seed(s) -> dict:
     u, v = await _user(s), await _user(s)
     k = {"qid": qid, "users": [u, v]}
 
-    # 1. Exact topic (padded: btrim on both sides), legacy rows bounded by the next user turn.
+    # 1. Exact topic (space-padded: btrim strips spaces only, and production has no padded
+    #    topic turns at all, 2026-10-13), legacy rows bounded by the next user turn.
     c = await _conv(s, u)
-    k["topic_exact"] = await _msg(s, u, c, "user", f"  {q}\n", 0)
+    k["topic_exact"] = await _msg(s, u, c, "user", f"  {q}  ", 0)
     await _msg(s, u, c, "assistant", "a reply", 1)
     k["legacy_in_window"] = await _mem(s, u, c, 2)
     k["legacy_superseded"] = await _mem(s, u, c, 3, active=False, reason="superseded")
