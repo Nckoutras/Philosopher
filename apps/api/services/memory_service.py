@@ -1,11 +1,12 @@
 import json
 import logging
+import re
 import uuid
 from collections import Counter
 from datetime import datetime, timedelta, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import func, select, text, update
-from models import MemoryEntry, Insight
+from sqlalchemy import any_, func, select, text, update
+from models import MemoryEntry, Insight, Message
 from schemas import THEME_VALUES
 from services import dedup_judge
 from services.llm_client import llm_client
@@ -472,9 +473,9 @@ Rules:
 - Confidence > 0.8 = stated explicitly. 0.6-0.8 = clearly implied. Below 0.6 = skip it.
 - Return [] if nothing meaningful is extractable.
 - Max 3 entries per exchange.
-- "dilemma": a live decision the user is ACTIVELY weighing between two courses of action, stated in THIS exchange. Not general uncertainty, not a decision already made in the past, not the assistant's framing. Content = one sentence naming the two sides in the user's own voice, first person (it is placed in the user's own input field verbatim).
-- "belief": write content as the belief ITSELF — a single declarative sentence in the user's own voice, not "You believe that…". e.g. "If I don't handle everything myself, it won't be done right." This text is used verbatim as a Counterview anchor.
-- "aspiration": a genuine reach toward who the user wants to BECOME, or a direction/change they are resolving to make — stated with real weight in THIS exchange. NOT a passing wish, a casual preference, or an offhand goal. Only when they articulate the person they want to be or a change they mean to commit to. Content = one sentence in the user's own voice, first person, naming the direction.
+- "dilemma": a live decision the user is ACTIVELY weighing between two courses of action, stated in THIS exchange. Not general uncertainty, not a decision already made in the past, not the assistant's framing. Content = one sentence naming the two sides, first person, in the user's voice but in YOUR OWN WORDS: never copy more than five consecutive words from the user's message (it is placed in the user's own input field).
+- "belief": write content as the belief ITSELF — a single declarative sentence in the user's own voice, not "You believe that…", in your own words — never more than five consecutive words copied from the user's message. e.g. "If I don't handle everything myself, it won't be done right." This text is used verbatim as a Counterview anchor.
+- "aspiration": a genuine reach toward who the user wants to BECOME, or a direction/change they are resolving to make — stated with real weight in THIS exchange. NOT a passing wish, a casual preference, or an offhand goal. Only when they articulate the person they want to be or a change they mean to commit to. Content = one sentence in the user's own voice, first person, naming the direction, in your own words — never more than five consecutive words copied from the user's message.
 - "theme" (OPTIONAL): the single best-fitting life-theme for this item, one of: separation, anxiety, fear, grief, acceptance, work, relationships, purpose, dilemma, controversy, doubt, freedom. Omit the field entirely if none clearly fits. Only meaningful for "dilemma" and "belief"; may be omitted for other types.
 
 Example output:
@@ -509,6 +510,54 @@ Example output:
 # would rather lose the door than put a sentence they never wrote in the box
 # they type into.
 VERBATIM_INPUT_SIGNAL_TYPES = ("dilemma",)
+
+
+# ── INS-001: a signal card rephrases; it never copies the person (UAT D2-002) ──
+#
+# A dilemma card on UAT Day 2 was the person's own sentence, copied whole and shown
+# back to them in quotation marks. The extraction prompt asked for "the user's own
+# voice", and the most faithful way to obey that was to copy. Ruling 2026-10-13:
+# the card stays first person but REPHRASES — no run of more than
+# SIGNAL_MAX_SHARED_RUN consecutive words from the source user message. The prompt
+# asks for it; signal_copies_user_words checks it; a card that fails gets ONE
+# rephrase call (REPHRASE_SIGNAL_PROMPT), and is skipped and logged if that fails too.
+SIGNAL_MAX_SHARED_RUN = 5
+
+REPHRASE_SIGNAL_PROMPT = """You rewrite one sentence a person said about themselves so it keeps the same meaning in different words.
+- One sentence, first person, in the person's own voice.
+- Keep the meaning exactly: the same two sides of a decision, the same claim of a belief, the same direction of an aspiration. Add nothing; soften nothing.
+- Never reuse more than five consecutive words from the ORIGINAL MESSAGE.
+
+Return only the sentence, without quotation marks."""
+
+
+def _words(s: str) -> list[str]:
+    """Unicode words, lowercased, with the typographic apostrophe folded to the
+    plain one so "I’m" and "I'm" are the same word. Script-agnostic: \\w matches
+    Greek as it matches Latin."""
+    return re.findall(r"\w+(?:'\w+)*", (s or "").lower().replace("’", "'"))
+
+
+def longest_shared_run(a: str, b: str) -> int:
+    """Length, in words, of the longest run of consecutive words `a` and `b` share.
+    Quadratic DP over word lists; both sides are one message and one sentence."""
+    wa, wb = _words(a), _words(b)
+    best = 0
+    prev = [0] * (len(wb) + 1)
+    for x in wa:
+        cur = [0] * (len(wb) + 1)
+        for j, y in enumerate(wb, 1):
+            if x == y:
+                cur[j] = prev[j - 1] + 1
+                best = max(best, cur[j])
+        prev = cur
+    return best
+
+
+def signal_copies_user_words(content: str, user_text: str) -> bool:
+    """True when the card shares MORE than SIGNAL_MAX_SHARED_RUN consecutive words
+    with the user message it came from — six or more fails, five passes."""
+    return longest_shared_run(content, user_text) > SIGNAL_MAX_SHARED_RUN
 
 
 RECURRENCE_LIMIT = 20             # candidates pulled per cosine search, before the threshold
@@ -678,6 +727,69 @@ async def find_recurrences(
         },
     }
     return matches, evidence
+
+
+# ── INS-002: what a recurrence CARD may count (UAT D2-003, ruling 2026-10-13) ──
+#
+# On UAT Day 2 one message, typed into two conversations two seconds apart, became
+# "Noticed across 2 of your conversations". find_recurrences answered truthfully —
+# two rows, cosine 0.78 — but one statement made twice at once is not a theme that
+# keeps returning. Two filters, applied by detect_recurrence to the CARD only:
+#
+#   (a) a prior match whose source user message is byte-identical (same md5) to the
+#       new row's never counts. A row with no source message (NULL
+#       source_message_ids, or the message since deleted) cannot be compared, so (a)
+#       does not apply to it — (b) still does.
+#   (b) the prior row must be at least RECURRENCE_CARD_MIN_AGE older than the new
+#       one. A row whose age cannot be read does not count.
+#
+# find_recurrences is NOT changed: its SQL is pinned, and its other caller — the
+# weekly snapshot — wants the raw match set. B4's echo count also keeps every raw
+# hit (ruling): strength accrues from repetition; only the claim on a card waits.
+RECURRENCE_CARD_MIN_AGE = timedelta(hours=24)
+RECURRENCE_CARD_WINDOW = "24h"   # recorded as evidence.detector.window on the card
+
+
+async def match_provenance(db: AsyncSession, ids: list[str]) -> dict:
+    """For each memory row id: when it was written and the md5 of its source USER
+    message (None when it has none). One query for every row a card could cite."""
+    if not ids:
+        return {}
+    user_md5 = (
+        select(func.md5(Message.content))
+        .where(Message.id == any_(MemoryEntry.source_message_ids), Message.role == "user")
+        .correlate(MemoryEntry)
+        .limit(1)
+        .scalar_subquery()
+    )
+    result = await db.execute(
+        select(MemoryEntry.id, MemoryEntry.created_at, user_md5.label("user_md5"))
+        .where(MemoryEntry.id.in_(ids))
+    )
+    return {
+        str(r.id): {"created_at": r.created_at, "user_md5": r.user_md5}
+        for r in result.fetchall()
+    }
+
+
+def card_eligible_matches(new_id: str, matches: list, provenance: dict) -> list:
+    """The prior matches a recurrence card may count, in their original order. PURE.
+    See the INS-002 block above for the two rules."""
+    new = provenance.get(str(new_id))
+    if new is None or new["created_at"] is None:
+        return []
+    kept = []
+    for m in matches:
+        prior = provenance.get(str(m.id))
+        if prior is None or prior["created_at"] is None:
+            continue
+        if prior["created_at"] > new["created_at"] - RECURRENCE_CARD_MIN_AGE:
+            continue
+        if (new["user_md5"] is not None and prior["user_md5"] is not None
+                and prior["user_md5"] == new["user_md5"]):
+            continue
+        kept.append(m)
+    return kept
 
 
 def cited_memory_ids(evidence) -> list[str]:
@@ -1229,6 +1341,7 @@ class MemoryService:
             await self.promote_signal_insight(
                 db, user_id, conversation_id, persona_id, entries_data, language,
                 saved_rows=saved, source_message_ids=source_message_ids,
+                user_text=user_text,
             )
 
         logger.info(f"Stored {len(saved)} memory entries for user={user_id}")
@@ -1245,6 +1358,7 @@ class MemoryService:
         *,
         saved_rows: list | None = None,
         source_message_ids: list[str] | None = None,
+        user_text: str,
     ) -> bool:
         """Dilemma/belief/aspiration → Insight (Slice 2). Returns whether one was written.
 
@@ -1269,6 +1383,19 @@ class MemoryService:
         rows written beside it. A dilemma or aspiration writes no memory row, so it
         cites none, and a 'no' on it retires nothing. `source_message_ids` is
         stored as given, NULL included (R9: never guessed).
+
+        INS-001 (ruling 2026-10-13): `user_text` is the person's message this signal
+        came from, and it is required — a default would let a caller switch the
+        check off by forgetting it. A card sharing more than SIGNAL_MAX_SHARED_RUN
+        consecutive words with it gets ONE rephrase call; if the rephrase fails too,
+        no card is written. The evidence is ALWAYS built from the ORIGINALLY
+        extracted text (R4): a belief's own row holds that text, and evidence that
+        looked for the rephrased one would find nothing, so a 'no' would silently
+        stop retiring the row.
+
+        INS-003: the gate is asked under the per-user advisory lock
+        (_insight_gate_locked). Nothing expensive runs between it and the write, so
+        unlike detect_recurrence this path has no separate early gate.
         """
         try:
             _SIGNAL_MIN_CONF = {"dilemma": 0.8, "belief": 0.8, "aspiration": 0.7}
@@ -1318,8 +1445,17 @@ class MemoryService:
                 )
                 if signal is not None:
                     break
+            original = (signal.get("content") or "").strip() if signal is not None else ""
+            content = original
+            if signal is not None and signal_copies_user_words(original, user_text):
+                content = await self._rephrase_signal(
+                    signal.get("type"), original, user_text, language,
+                    user_id=user_id, conversation_id=conversation_id,
+                )
+                if content is None:
+                    signal = None
             if signal is not None and await output_is_unsafe(
-                db, signal.get("content"), user_id=user_id,
+                db, content, user_id=user_id,
                 stage=STAGE_INSIGHT_OUTPUT, conversation_id=conversation_id,
             ):
                 # Post-generation safety (founder ruling 2026-09-24): the
@@ -1328,13 +1464,12 @@ class MemoryService:
                 # starts the 6h window.
                 signal = None
             if signal is not None:
-                blocked = await self._insight_gate_blocked(
+                blocked = await self._insight_gate_locked(
                     db, user_id, conversation_id, kind="signal",
                 )
                 if blocked is None:
                     raw_theme = (signal.get("theme") or "").strip().lower()
                     theme = raw_theme if raw_theme in THEME_VALUES else None
-                    content = (signal.get("content") or "").strip()
                     db.add(Insight(
                         user_id=user_id,
                         conversation_id=conversation_id,
@@ -1344,7 +1479,7 @@ class MemoryService:
                         source_count=None,
                         theme=theme,
                         evidence=signal_evidence(
-                            signal.get("type"), content, saved_rows, source_message_ids,
+                            signal.get("type"), original, saved_rows, source_message_ids,
                         ),
                     ))
                     await db.flush()
@@ -1358,6 +1493,45 @@ class MemoryService:
         except Exception as e:
             logger.error("Signal insight write failed conv=%s: %s", conversation_id, e, exc_info=True)
         return False
+
+    async def _rephrase_signal(
+        self,
+        signal_type: str | None,
+        original: str,
+        user_text: str,
+        language: str,
+        *,
+        user_id: str,
+        conversation_id: str | None,
+    ) -> str | None:
+        """INS-001's single retry: rephrase a signal card that copied the person.
+        Returns the new text, or None — empty, still copying, or (for a type that
+        lands in an input field) the wrong language — after logging why."""
+        raw = await llm_client.complete(
+            system=REPHRASE_SIGNAL_PROMPT + language_directive(language),
+            user=f"SENTENCE: {original}\n\nORIGINAL MESSAGE: {user_text}",
+            max_tokens=120,
+        )
+        content = (raw or "").strip()
+        if len(content) >= 2 and content[0] in "\"'“" and content[-1] in "\"'”":
+            content = content[1:-1].strip()
+        if not content:
+            reason = "empty"
+        elif signal_copies_user_words(content, user_text):
+            reason = "still_copies"
+        elif signal_type in VERBATIM_INPUT_SIGNAL_TYPES and not language_matches(content, language):
+            reason = "language"
+        else:
+            reason = None
+        if reason is not None:
+            logger.warning(
+                "signal_rephrase_failed",
+                extra={"reason": reason, "signal_type": signal_type,
+                       "user_id": user_id, "conversation_id": conversation_id},
+            )
+            return None
+        logger.info("Signal card rephrased type=%s conv=%s", signal_type, conversation_id)
+        return content
 
     async def recall(
         self,
@@ -1506,6 +1680,39 @@ class MemoryService:
             kind, decision or "allowed", user_id, conversation_id,
         )
         return decision
+
+    async def _insight_gate_locked(
+        self,
+        db: AsyncSession,
+        user_id: str,
+        conversation_id: str | None,
+        *,
+        kind: str,
+    ) -> str | None:
+        """_insight_gate_blocked, asked again under a per-user advisory lock (INS-003).
+
+        WHY (UAT D2-004). The gate is check-then-write. Two memory tasks for one
+        person, two seconds apart, both asked it, both heard "allowed", and both
+        wrote a pattern card — 08:56:59 and 08:57:00 — although the 6h window
+        allows one. Nothing serialised them.
+
+        The lock is pg_advisory_xact_lock on a hash of the user id, so it is held
+        until the CALLER'S TRANSACTION ENDS and the caller must end it promptly: the
+        recurrence path commits (written or not); the signal path returns to the
+        memory task, which commits a written card or closes the session. A second
+        task blocks here until then, and its gate query — a new statement under READ
+        COMMITTED — sees the first task's committed card and answers "throttle".
+
+        Called AT WRITE TIME, after any LLM work, so the lock is held for
+        milliseconds. detect_recurrence keeps its unlocked early gate as well: it
+        runs before two LLM calls and saves them when the window is already closed.
+        One lock key for BOTH classes, so the two budgets are each consistent.
+        """
+        await db.execute(
+            text("SELECT pg_advisory_xact_lock(hashtextextended(:key, 0))"),
+            {"key": f"insight_gate:{user_id}"},
+        )
+        return await self._insight_gate_blocked(db, user_id, conversation_id, kind=kind)
 
     async def dedup_new_entries(self, db: AsyncSession, user_id: str,
                                 new_entries: list[MemoryEntry]) -> int:
@@ -1902,8 +2109,44 @@ class MemoryService:
             if not hits:
                 logger.info("Recurrence: none above threshold for conv=%s", conversation_id)
                 return
-            # ONE card: the first new row that cleared the bar, as before B4.
-            recurring_entry, prior_matches, evidence = hits[0]
+            # ── INS-002: WHAT THE CARD MAY COUNT ──────────────────────────────
+            # The echoes above were counted from the RAW hits (ruling). The card
+            # counts only matches that pass card_eligible_matches: not the same
+            # message sent twice, and at least 24h older than the new row.
+            # ONE card: the first new row with enough SURVIVING matches.
+            provenance = await match_provenance(db, sorted(
+                {str(e.id) for e, _, _ in hits}
+                | {str(m.id) for _, ms, _ in hits for m in ms}
+            ))
+            eligible = [
+                (entry, card_eligible_matches(entry.id, matches, provenance), raw_evidence)
+                for entry, matches, raw_evidence in hits
+            ]
+            chosen = next(
+                (h for h in eligible if len(h[1]) >= RECURRENCE_MIN_PRIOR), None,
+            )
+            if chosen is None:
+                logger.info(
+                    "Recurrence: no match is 24h older or from a different message, conv=%s",
+                    conversation_id,
+                )
+                return
+            recurring_entry, prior_matches, evidence = chosen
+            # The stored evidence cites what earned the card and nothing else, and
+            # records the minimum age the card required. This NARROWS the shape
+            # 060's docstring describes ("prior_matches holds EVERY match above the
+            # bar", "window": null) for cards written from INS-002 on — ruling R6,
+            # 2026-10-13. Cards written before keep the old meaning; "window" tells
+            # the two apart (null = lifetime, unfiltered; "24h" = filtered).
+            kept_ids = {str(m.id) for m in prior_matches}
+            evidence = {
+                **evidence,
+                "prior_matches": [
+                    p for p in evidence["prior_matches"] if p["memory_entry_id"] in kept_ids
+                ],
+                "shown_to_classifier": len(prior_matches[:5]),
+                "detector": {**evidence["detector"], "window": RECURRENCE_CARD_WINDOW},
+            }
             # MEM2-B3: the kind key, so cited_memory_ids can tell this shape from
             # a signal's. Added at the WRITE, not in find_recurrences, so the
             # snapshot's payloads are unchanged.
@@ -2012,6 +2255,20 @@ class MemoryService:
                 conversation_id=conversation_id,
             ):
                 await db.commit()
+                return
+
+            # INS-003: the early gate above ran before the LLM calls, so another
+            # task may have written a card since. Ask again under the per-user
+            # lock; the commit on either branch ends the transaction and releases
+            # it. Commit rather than roll back on a block: anything this task left
+            # pending (the counterview task's flushed belief row, if the echo
+            # commit failed) is not this gate's to discard.
+            blocked = await self._insight_gate_locked(
+                db, user_id, conversation_id, kind="recurrence",
+            )
+            if blocked is not None:
+                await db.commit()
+                logger.info("Recurrence skipped at write (%s) conv=%s", blocked, conversation_id)
                 return
 
             db.add(Insight(

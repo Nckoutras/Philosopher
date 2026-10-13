@@ -14,7 +14,7 @@ const RING_TRUE_OPTIONS = [
   { value: 'no' as const, label: 'No' },
 ]
 
-// Frozen app-voice observation line shown above the quoted user statement for the
+// Frozen app-voice observation line shown above the first-person statement for the
 // doorway insight types (Slice 2). Absent for pattern/shift, which render unchanged.
 const OBSERVATION_LINES: Record<string, string> = {
   dilemma: 'This sounds like a decision with two sides.',
@@ -85,11 +85,13 @@ export default function InsightCard({ insightId, ringTrue = null, content, insig
   }
 
   const showProvenance = sourceCount != null && sourceCount >= 2
-  // Doorway types (Slice 2): the user's own words get an app-voice observation line
-  // above and are quoted below; the primary is a distinct door per type.
-  // Aspiration content is first-person user voice (like dilemma/belief), so it's
-  // quoted; it has no observation line (degrades gracefully, like shift/pattern).
-  const isDoorway = insightType === 'dilemma' || insightType === 'belief' || insightType === 'aspiration'
+  // Doorway types (Slice 2): a first-person statement with an app-voice observation
+  // line above it; the primary is a distinct door per type. Aspiration has no
+  // observation line (degrades gracefully, like shift/pattern).
+  //
+  // NOT in quotation marks (INS-001, ruling 2026-10-13). The statement is the room's
+  // rephrasing of what the person said, never their words copied, and quotation
+  // marks would present it as a quote of them.
   const observationLine = insightType ? OBSERVATION_LINES[insightType] : undefined
   const primaryLabel =
     insightType === 'dilemma'
@@ -142,7 +144,7 @@ export default function InsightCard({ insightId, ringTrue = null, content, insig
           <Sparkle size={13} strokeWidth={1.5} className="mt-[5px] shrink-0 text-bronze fill-bronze drop-shadow-[0_0_5px_rgba(184,153,104,0.9)]" aria-hidden="true" />
         )}
         <p className="font-cormorant text-[19px] italic leading-[1.4] text-ink">
-          {isDoorway ? `“${content}”` : content}
+          {content}
         </p>
       </div>
 

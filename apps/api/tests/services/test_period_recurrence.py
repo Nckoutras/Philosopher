@@ -214,13 +214,19 @@ def test_the_lifetime_caller_still_owns_its_loop_and_searches_every_new_row():
     MEM2-B4 (founder ruling 2026-10-03, Q2a) it no longer stops at the first hit:
     every new row is searched so recurrence strength accrues for all of them, and
     the ONE card is built from the first hit afterwards. Before B4 this test
-    pinned the `break`; the ruling removed it on purpose."""
+    pinned the `break`; the ruling removed it on purpose.
+
+    INS-002 (ruling 2026-10-13): the card now comes from the first hit with
+    enough matches surviving card_eligible_matches, not simply from hits[0]. The
+    selection is a next() over the hits in order, so the detection loop above it
+    still has no `break`."""
     src = inspect.getsource(ms.MemoryService.detect_recurrence)
 
     assert "for entry in new_entries:" in src
     assert "break" not in src
     assert "await find_recurrences(" in src
-    assert "= hits[0]" in src
+    assert "card_eligible_matches(entry.id, matches, provenance)" in src
+    assert "for entry, matches, raw_evidence in hits" in src
 
 
 def test_the_limit_is_named_rather_than_a_literal():
