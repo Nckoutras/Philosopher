@@ -2539,6 +2539,20 @@ matters on suicide, read against SAFETY-009's classification rules.
 
 ---
 
+### TD-125 — a 'no' (R3) retires only the cited rows, never their supersession successors — **OPEN, numbered (MEM2-B5.2)**
+**Status: OPEN.** Recorded as an unnumbered finding in MEM2-B5 (2026-10-03); numbered
+2026-10-13. `reject_cited_memories` (`services/memory_service.py`) retires
+`MemoryEntry.id.in_(ids)` only, the ids the insight cited. If a cited row has since
+been superseded, the 'no' retires a row that is already inactive. The survivor says
+the same thing and stays active and recallable. Re-read in PROJECT_STATE v32 §3a: still
+true at `d9249522`.
+
+This is recall-neutral against pre-B5, because a 'no' on one of two duplicates already
+left the uncited one active. It matters more as chains grow, and B5.2 bounds how far a
+chain can drift but not how long it gets. **The fix:** `reject_cited_memories` follows
+`supersedes_memory_id` forward to the active head. C-2's callback rejection already
+walks a chain both ways. It is a change to R3 and belongs in its own PR.
+
 ### TD-124 — `PATCH /memory/{id}` reactivates an inactive row whatever its reason — **OPEN, logged (UAT-TOPIC-001 PR-B)**
 **Status: OPEN, logged 2026-10-13. Note only, no code change.** `routers/memory.py:80-82`
 sets `is_active` from the body and clears `inactive_reason` on reactivation. That applies
@@ -6075,7 +6089,7 @@ prompt is **frozen as calibrated**: its sha256 is pinned in
   stored row. Documented at `dedup_judge.parse_reply`.
 
 *Findings, not changed by B5:*
-- **A 'no' (R3) does not follow supersession.** If a cited row has since been superseded,
+- **A 'no' (R3) does not follow supersession — now TD-125.** If a cited row has since been superseded,
   the 'no' retires nothing, and the survivor (which says the same thing) stays active.
   - This is recall-neutral against pre-B5. Today a 'no' on one of two duplicates
     already leaves the uncited one active.
@@ -6115,7 +6129,7 @@ Still deferred:
   supersession links, so the chain has data. It still has no reader, and still no index
   on `supersedes_memory_id`.
 - **TD-121, TD-122.**
-- The R3-through-supersession finding above.
+- The R3-through-supersession finding above (TD-125).
 
 **B5.1 — dedup silent-path log line (approved ruling; closes PROJECT_STATE v30 §1a
 known gap 1).** Before this, a dedup run in which no new row had a candidate at ≥0.75
@@ -6137,6 +6151,55 @@ log, and the v30 smoke had to be confirmed from the absence of an Anthropic requ
 
 *Post-merge observable:* `verdict=no_candidates` lines in the worker log, one per
 memory task with a dedup run and no candidate at the gate.
+
+**B5.2 — root-divergence guard on "new survives" chains (founder ruling 2026-10-13) —
+BUILT (⛔, first run of new live tests).**
+
+*Why.* The ratchet guard covers only the "earlier survives" path, where an old row
+absorbs again. When the new row survives, it retires the candidate whatever the
+candidate's own chain, so chains grow without bound. In production on 2026-10-13 the
+deepest chat chain was 8 deep. Its head is `38ea4a79` (active), its root is `51106e3a`,
+and both are on `nckoutras+uatpro1`. That account also has chains of 4, 3 and 3.
+Each pairwise step can be a genuine restatement while the survivor drifts from what
+the person first said. Every retirement so far is correct; this closes the
+structural gap before real users arrive.
+
+*Ruling, as built.* On a "new survives" retirement, if the candidate carries a link and
+`CHAIN_DEPTH_SQL` on the candidate gives a depth of **≥ 3** (`ROOT_CHECK_DEPTH`), the
+judge makes ONE extra call: chain root as the earlier note, new row as the new one,
+with the same frozen prompt.
+- **RESTATEMENT** retires as normal. That call's `more_specific` is not used.
+- **DISTINCT, CONTRADICTION, or a failed call** keeps both and writes nothing, under
+  `note=dedup_root_divergence`. A failed call also stops that row, as a failed pair
+  does. A root with no content is treated as a failed call and never sent.
+
+`CHAIN_DEPTH_SQL` now also returns `root_id` and `root_content`. The depth stays the
+first column, so the existing `scalar_one()` read is unchanged.
+
+*Logging, one shape.* The template gains `root=` and `root_verdict=` after
+`chain_depth=`. Both guard lines (`note=dedup_ratchet_guard`, `note=dedup_root_divergence`)
+now carry the candidate's `chain_depth` and `root`. A root-checked retirement carries
+`root_verdict=RESTATEMENT`. The ratchet guard's behaviour is unchanged; it now reads the
+candidate's chain only to log it.
+
+*Not touched:* the judge prompt and its sha256 pin, the candidate filter, the survivor
+rule, the within-call ≥0.90 drop, recall SQL, insight budgets, safety.
+
+*Cost.* At most one extra judge call per candidate, and only when the candidate's chain
+is already ≥ 3 deep.
+
+*Tests.*
+- `tests/services/test_memory_dedup.py`: below the depth there is no extra call (depth
+  0, 1, 2); at the depth, RESTATEMENT retires, DISTINCT or CONTRADICTION keeps both and
+  reads on, a failed call keeps both and stops the row, and a missing root is never
+  sent; the two guard lines share their field list.
+- `tests/db_live/test_dedup_judge_live.py`: a real depth-3 chain, with a RESTATEMENT
+  root (the head is retired, the chain grows to 4, the root call carries the real
+  root's content) and a divergent root (both rows untouched).
+
+*Post-merge observable:* `note=dedup_root_divergence` lines, and `root_verdict=` on
+retirements, in the worker log. The next "new survives" step on any chain ≥ 3 deep
+makes the extra call.
 
 ### MEM2 Lane B floor — `INFERRED_SCORE_FLOOR` 0.75 → 0.45 (founder ruling, 2026-10-05) — **BEHAVIOUR CHANGE, smoke OWED on merge**
 

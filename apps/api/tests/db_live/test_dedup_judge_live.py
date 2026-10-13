@@ -294,6 +294,62 @@ async def test_chain_depth_is_logged_from_the_real_chain(live, caplog):
     assert rows[NEW_TEXT].supersedes == rows[OLD_TEXT].id
 
 
+ROOT_TEXT = "User struggles to sleep since the move."
+
+
+async def _depth_3_chain(live, uid, conv):
+    """root <- a <- b <- head: the head is active and its chain behind it is 3 deep,
+    built the way B5 writes one (each survivor links the row it replaced). Only the
+    head is a candidate: the others are retired and pointed away from NEW."""
+    far = _unit(0.0, 1.0)
+    root = await _stored(live, uid, conv, ROOT_TEXT, far, active=False, reason="superseded")
+    a = await _stored(live, uid, conv, "a first restatement", far, supersedes=root,
+                      active=False, reason="superseded")
+    b = await _stored(live, uid, conv, "a second restatement", far, supersedes=a,
+                      active=False, reason="superseded")
+    head = await _stored(live, uid, conv, OLD_TEXT, OLD, supersedes=b)
+    return root, head
+
+
+@pytest.mark.asyncio
+async def test_at_depth_3_a_root_restatement_retires_the_head_and_the_chain_grows(live, caplog):
+    """B5.2: CHAIN_DEPTH_SQL's root lookup executed by a driver, and the extra call
+    made with the REAL root's content."""
+    uid = await live.make_user()
+    conv_a, conv_b = await _conv(live, uid), await _conv(live, uid)
+    root, head = await _depth_3_chain(live, uid, conv_a)
+    judge = AsyncMock(side_effect=[_v("RESTATEMENT", "new"), _v("RESTATEMENT", "earlier")])
+    with caplog.at_level(logging.INFO, logger="services.memory_service"):
+        await _task(live, uid, conv_b, _one(NEW_TEXT), [NEW], judge)
+    assert judge.await_count == 2
+    assert judge.await_args_list[1].args == (ROOT_TEXT, NEW_TEXT)
+    rows = await _rows(live, uid)
+    assert (rows[OLD_TEXT].is_active, rows[OLD_TEXT].inactive_reason) == (False, "superseded")
+    assert (rows[NEW_TEXT].is_active, rows[NEW_TEXT].supersedes) == (True, head)
+    (line,) = [r.getMessage() for r in caplog.records
+               if r.getMessage().startswith("dedup_judge verdict=RESTATEMENT")]
+    assert "kept=new retired=old" in line
+    assert f"chain_depth=4 root={root} root_verdict=RESTATEMENT note=-" in line
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("root_verdict", ["DISTINCT", "CONTRADICTION"])
+async def test_at_depth_3_a_divergent_root_keeps_both_rows_untouched(live, caplog, root_verdict):
+    uid = await live.make_user()
+    conv_a, conv_b = await _conv(live, uid), await _conv(live, uid)
+    root, head = await _depth_3_chain(live, uid, conv_a)
+    judge = AsyncMock(side_effect=[_v("RESTATEMENT", "new"), _v(root_verdict)])
+    with caplog.at_level(logging.INFO, logger="services.memory_service"):
+        await _task(live, uid, conv_b, _one(NEW_TEXT), [NEW], judge)
+    rows = await _rows(live, uid)
+    assert (rows[OLD_TEXT].is_active, rows[OLD_TEXT].supersedes) == (True, rows["a second restatement"].id)
+    assert (rows[NEW_TEXT].is_active, rows[NEW_TEXT].supersedes) == (True, None)
+    assert any(f"candidate={head}" in r.getMessage()
+               and f"chain_depth=3 root={root} root_verdict={root_verdict}"
+                   " note=dedup_root_divergence" in r.getMessage()
+               for r in caplog.records)
+
+
 @pytest.mark.asyncio
 async def test_a_within_call_duplicate_is_never_stored(live):
     uid = await live.make_user()

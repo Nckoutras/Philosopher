@@ -60,12 +60,16 @@ def _v(verdict, spec="new", failed=False):
 
 
 class FakeDB:
-    """Answers the candidate SELECT with `candidates`, the chain-depth query with
-    `depth`, and every UPDATE with rowcount 1 (or `fail_on_update` raises)."""
+    """Answers the candidate SELECT with `candidates`, the chain query with `depth`
+    (and, read as a row, `root_id` / `root_content`), and every UPDATE with
+    rowcount 1 (or `fail_on_update` raises)."""
 
-    def __init__(self, candidates=(), depth=1, fail_on_update=False):
+    def __init__(self, candidates=(), depth=1, fail_on_update=False,
+                 root_id="root-0000", root_content="the person's original words"):
         self.candidates = list(candidates)
         self.depth = depth
+        self.root_id = root_id
+        self.root_content = root_content
         self.fail_on_update = fail_on_update
         self.statements = []
         self.params = []
@@ -84,7 +88,9 @@ class FakeDB:
         # An ORM update() carries its values in the statement, not in `params`.
         self.params.append(params if params is not None else dict(stmt.compile().params))
         if "WITH RECURSIVE" in sql:
-            return SimpleNamespace(scalar_one=lambda: self.depth)
+            row = SimpleNamespace(depth=self.depth, root_id=self.root_id,
+                                  root_content=self.root_content)
+            return SimpleNamespace(scalar_one=lambda: self.depth, one=lambda: row)
         if "provenance = 'system_inferred'" in sql:
             return SimpleNamespace(fetchall=lambda: list(self.candidates))
         if self.fail_on_update:
@@ -210,6 +216,96 @@ async def test_ratchet_guard_does_not_block_the_new_row_from_winning():
     assert n == 1 and len(db.updates) == 2
 
 
+# ── 2b. Root-divergence guard (B5.2) ─────────────────────────────────────────
+
+def _guard_lines(caplog):
+    return [r.getMessage() for r in caplog.records if r.getMessage().startswith("dedup_judge ")]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("supersedes, depth", [(None, 0), ("linked", 1), ("linked", 2)])
+async def test_below_root_check_depth_there_is_no_extra_judge_call(supersedes, depth):
+    """Depth < ROOT_CHECK_DEPTH behind the candidate: exactly the pre-B5.2 path."""
+    assert ms.ROOT_CHECK_DEPTH == 3
+    cand = _cand(0.93, supersedes=str(uuid.uuid4()) if supersedes else None)
+    db = FakeDB([cand], depth=depth)
+    n, judge = await _dedup(db, [_entry()], [_v("RESTATEMENT", "new")])
+    assert n == 1 and len(db.updates) == 2
+    assert judge.await_count == 1, "no root call below the depth"
+
+
+@pytest.mark.asyncio
+async def test_at_root_check_depth_a_root_restatement_retires_as_normal(caplog):
+    cand = _cand(0.93, supersedes=str(uuid.uuid4()))
+    entry = _entry()
+    db = FakeDB([cand], depth=3, root_id="root-1", root_content="what they first said")
+    with caplog.at_level(logging.INFO, logger="services.memory_service"):
+        n, judge = await _dedup(db, [entry], [_v("RESTATEMENT", "new"), _v("RESTATEMENT", "earlier")])
+    assert n == 1 and len(db.updates) == 2
+    assert judge.await_count == 2
+    assert judge.await_args_list[1].args == ("what they first said", entry.content), \
+        "the root is judged as the EARLIER note, the new row as the new one"
+    (line,) = _guard_lines(caplog)
+    assert "kept=new retired=old" in line
+    assert "root=root-1 root_verdict=RESTATEMENT note=-" in line, \
+        "the root call's more_specific never decides the survivor"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("root_verdict", ["DISTINCT", "CONTRADICTION"])
+async def test_at_root_check_depth_a_divergent_root_keeps_both_and_reads_on(root_verdict, caplog):
+    guarded = _cand(0.93, supersedes=str(uuid.uuid4()))
+    nxt = _cand(0.80)
+    entry = _entry()
+    db = FakeDB([guarded, nxt], depth=3, root_id="root-2")
+    with caplog.at_level(logging.INFO, logger="services.memory_service"):
+        n, judge = await _dedup(db, [entry], [_v("RESTATEMENT", "new"), _v(root_verdict),
+                                              _v("DISTINCT")])
+    assert n == 0 and db.updates == [], "nothing written for the guarded pair"
+    assert judge.await_count == 3, "the guard skips the pair, not the row"
+    line = next(l for l in _guard_lines(caplog) if f"candidate={guarded.id}" in l)
+    assert line == (
+        f"dedup_judge verdict=RESTATEMENT kept=both retired=none user={USER}"
+        f" new={entry.id} candidate={guarded.id} score=0.930 more_specific=new"
+        f" chain_depth=3 root=root-2 root_verdict={root_verdict} note=dedup_root_divergence"
+    )
+
+
+@pytest.mark.asyncio
+async def test_at_root_check_depth_a_failed_root_call_keeps_both_and_stops_the_row(caplog):
+    db = FakeDB([_cand(0.93, supersedes=str(uuid.uuid4())), _cand(0.80)], depth=4)
+    with caplog.at_level(logging.INFO, logger="services.memory_service"):
+        n, judge = await _dedup(db, [_entry()], [_v("RESTATEMENT", "new"),
+                                                 _v(None, None, failed=True)])
+    assert n == 0 and db.updates == []
+    assert judge.await_count == 2, "fail-open stops the row, as a failed pair does"
+    assert any("root_verdict=error note=dedup_root_divergence" in l for l in _guard_lines(caplog))
+
+
+@pytest.mark.asyncio
+async def test_a_root_with_no_content_is_never_sent_and_keeps_both(caplog):
+    db = FakeDB([_cand(0.93, supersedes=str(uuid.uuid4()))], depth=3, root_content=None)
+    with caplog.at_level(logging.INFO, logger="services.memory_service"):
+        n, judge = await _dedup(db, [_entry()], [_v("RESTATEMENT", "new")])
+    assert n == 0 and db.updates == [] and judge.await_count == 1
+    assert any("root_verdict=error note=dedup_root_divergence" in l for l in _guard_lines(caplog))
+
+
+@pytest.mark.asyncio
+async def test_the_two_guard_lines_share_one_shape(caplog):
+    """Both guards carry the candidate's chain_depth and root on the one template."""
+    ratchet_db = FakeDB([_cand(0.93, supersedes=str(uuid.uuid4()))], depth=5, root_id="root-r")
+    root_db = FakeDB([_cand(0.93, supersedes=str(uuid.uuid4()))], depth=5, root_id="root-d")
+    with caplog.at_level(logging.INFO, logger="services.memory_service"):
+        await _dedup(ratchet_db, [_entry()], [_v("RESTATEMENT", "earlier")])
+        await _dedup(root_db, [_entry()], [_v("RESTATEMENT", "new"), _v("DISTINCT")])
+    ratchet, divergence = _guard_lines(caplog)
+    keys = lambda l: [kv.split("=")[0] for kv in l.split()[1:]]  # noqa: E731
+    assert keys(ratchet) == keys(divergence)
+    assert "chain_depth=5 root=root-r root_verdict=- note=dedup_ratchet_guard" in ratchet
+    assert "chain_depth=5 root=root-d root_verdict=DISTINCT note=dedup_root_divergence" in divergence
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize("spec, kept, retired", [("new", "new", "old"), ("earlier", "old", "new")])
 async def test_every_retirement_logs_chain_depth_on_the_one_template(spec, kept, retired, caplog):
@@ -222,7 +318,7 @@ async def test_every_retirement_logs_chain_depth_on_the_one_template(spec, kept,
     assert line == (
         f"dedup_judge verdict=RESTATEMENT kept={kept} retired={retired} user={USER}"
         f" new={entry.id} candidate={cand.id} score=0.910 more_specific={spec}"
-        f" chain_depth=3 note=-"
+        f" chain_depth=3 root=- root_verdict=- note=-"
     )
     survivor = entry.id if kept == "new" else cand.id
     (depth_params,) = [p for p in db.params if p and "survivor_id" in p]
