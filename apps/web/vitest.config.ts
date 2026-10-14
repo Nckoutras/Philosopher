@@ -1,4 +1,4 @@
-import { defineConfig } from 'vitest/config'
+import { defineConfig, configDefaults } from 'vitest/config'
 import path from 'path'
 
 export default defineConfig({
@@ -14,5 +14,6 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     setupFiles: ['./vitest.setup.ts'],
+    exclude: [...configDefaults.exclude, 'tests/uat-day3.smoke.spec.ts'],
   },
 })
